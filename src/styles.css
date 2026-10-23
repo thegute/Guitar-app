@@ -424,6 +424,7 @@ body.resizing-col iframe, body.resizing-row iframe { pointer-events: none; }
 .tab-bar { display: block; flex: none; }
 .tab-line { stroke: var(--pearl-3); stroke-opacity: 0.45; stroke-width: 1; }
 .tab-barline { stroke: var(--pearl-3); stroke-width: 1.2; }
+.tab-cont { stroke: var(--pearl-3); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.6; }
 .tab-barno { font-family: var(--ui); font-size: 10px; fill: var(--pearl-3); }
 .tab-chord { font-family: var(--display); font-weight: 600; font-size: 16px; fill: var(--gold-text); }
 .tab-chord.guess { fill: var(--pearl-2); font-style: italic; }
