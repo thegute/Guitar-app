@@ -52,8 +52,8 @@ export const GUIDE: GuideSection[] = [
   {
     id: 'jam', title: 'Jam: progressions and looping', intro: 'Make chord progressions to play over, with strumming and drums, and record yourself as a loop.',
     items: [
-      { title: 'Roll a progression', text: 'Pick a key, style and how many chords, then roll. Every chord shows its shape; lock the ones you like and roll the rest. Options has more: chord colours, endings and how adventurous it gets.', go: { tab: 'progressions' } },
-      { title: 'Play along', text: 'Tap Play for strumming, drums and a click. The scales panel shows what to solo with, and the circle of fifths lights up the chords.' },
+      { title: 'Make a progression', text: 'Pick a key, style and how many chords, then tap New progression. Every chord shows its shape; lock the ones you like (the padlock) and tap New progression again to change the rest. Options has more: chord colours, endings and how adventurous it gets. Famous progressions are at the bottom.', go: { tab: 'progressions' } },
+      { title: 'Play along', text: 'Tap Play loop for strumming, drums and a click. The scales panel shows what to solo with, and the circle of fifths lights up the chords.' },
       { title: 'Looper', text: 'Record a loop: it waits for the start of the next pass and records exactly one loop in time with the drums. Add more layers on top. If loops sound a little late, run Timing check once, or nudge a layer Earlier/Later.' },
     ],
   },
