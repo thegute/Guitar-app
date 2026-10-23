@@ -115,11 +115,22 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
     setDone(true)
   }
 
+  // tell the listener which notes would be right, so it checks for them first
+  const notesRef = useRef<NoteListener | null>(null)
+  useEffect(() => {
+    const mic = q?.mic
+    if (!notesRef.current || !mic || mic.kind !== 'note') return
+    const right: number[] = []
+    for (let m = 36; m <= 96; m++) if (mic.ok(m)) right.push(m)
+    notesRef.current.expect(right.length <= 12 ? right : [])
+  })
+
   // mic mode
   useEffect(() => {
     if (!playMode || done) return
     let stopped = false
     const notes = new NoteListener()
+    notesRef.current = notes
     const chords = new ChromaListener()
     const onWrong = (what: string) => {
       triedWrong.current = true
@@ -151,7 +162,7 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
         setMicMsg('Microphone access is needed for play mode. Switch to tap mode, or allow the mic in your phone settings.')
       }
     })()
-    return () => { stopped = true; notes.stop(); chords.stop() }
+    return () => { stopped = true; notes.stop(); chords.stop(); notesRef.current = null }
     // restart listeners when the kind of answer changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playMode, done, q?.mic?.kind])

@@ -240,6 +240,13 @@ export function PlayScreen() {
   // ---------- following the mic ----------
   const ref = useRef({ pos, follow, strict, flat, loopRange, lesson: false, flats: false, doc: null as SongDoc | null, loop: null as { from: number; to: number } | null })
   ref.current = { pos, follow, strict, flat, loopRange, lesson: doc?.source === 'lesson', flats, doc, loop: doc?.loop ?? null }
+  // keep the listener checking for the step you're on (wait-for-me mode) and the right octave setting
+  useEffect(() => {
+    const l = listener.current
+    if (!l) return
+    l.strictOctave = strict
+    if (mode !== 'time') l.expect(follow.steps[pos]?.midis ?? [], follow.steps[pos + 1]?.midis ?? [])
+  }, [pos, follow, strict, mode, listening])
 
   /** Save a run to this song's progress: score plus which bars went wrong. */
   const saveRun = useCallback((score: number, runMode: 'wait' | 'time', speedNow: number, full: boolean, bars?: [number, number]) => {
@@ -344,6 +351,10 @@ export function PlayScreen() {
       await audio().resume()
       const l = new NoteListener()
       l.chords = true
+      l.strictOctave = ref.current.strict
+      // wait-for-me: the step you're on and the one after
+      const { pos: p0, follow: f0 } = ref.current
+      if (modeRef.current !== 'time') l.expect(f0.steps[p0]?.midis ?? [], f0.steps[p0 + 1]?.midis ?? [])
       let last: number | null = null
       l.onFrame = f => { if (f.midi !== last) { last = f.midi; setLive(f.midi) } }
       l.onOnset = t => { lastOnset.current = t }
@@ -383,6 +394,7 @@ export function PlayScreen() {
     flat, loop: loop, startFlat: cursorFlat >= 0 ? cursorFlat : 0, songBpm, speed, click, guide, strict, trainer, video,
     sync: showVideo ? doc?.ytSync : undefined, states,
     latencyMs: () => latencyMs(kindOf(listener.current?.external)),
+    onExpect: (now, next) => listener.current?.expect(now, next),
     onChange: () => setVersion(v => v + 1),
     onHitNote: () => bumpCounts({ notesHit: 1, [doc?.source === 'lesson' ? 'exerciseNotes' : 'songNotes']: 1 }),
     onPass: (s, sp) => { if (s.score >= 90) bump('loop90'); if (loop) saveRun(s.score, 'time', sp, false, [loop.from, loop.to]) },

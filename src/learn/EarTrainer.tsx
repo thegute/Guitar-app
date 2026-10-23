@@ -202,6 +202,9 @@ export function EarTrainer({ inst, onExit }: { inst: Instrument; onExit: () => v
   useEffect(() => {
     if (!useGuitar || !running) return
     const l = new NoteListener()
+    // the right answer in any octave: checked for first
+    const exp = () => { const want = targetRef.current[givenRef.current.length]; if (want === undefined) return l.expect([]); const out: number[] = []; for (let m = 40; m <= 88; m++) if ((m - tonicPc - want + 120) % 12 === 0) out.push(m); l.expect(out) }
+    const expTimer = setInterval(exp, 250)
     l.onNote = e => {
       const deg = (e.midi - tonicPc + 120) % 12
       setHeard(`${SHARPS[e.midi % 12]} = ${lab(deg)}`)
@@ -211,8 +214,8 @@ export function EarTrainer({ inst, onExit }: { inst: Instrument; onExit: () => v
       if (deg === want % 12) answerRef.current(want)
       else wrongOnce.current = true
     }
-    l.start().catch(() => setHeard('Microphone access is needed for guitar mode.'))
-    return () => l.stop()
+    l.start().then(exp).catch(() => setHeard('Microphone access is needed for guitar mode.'))
+    return () => { clearInterval(expTimer); l.stop() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useGuitar, running, mode, tonicPc])
   const resultRef = useRef(result); resultRef.current = result

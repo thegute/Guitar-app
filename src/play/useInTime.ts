@@ -31,6 +31,8 @@ interface Args {
   latencyMs: () => number
   onChange: () => void
   onHitNote?: () => void
+  /** the notes due around now (and just after), so the listener can check for them first */
+  onExpect?: (now: number[], next: number[]) => void
   onFinish?: (s: RunStats, passes: number) => void
   onPass?: (s: RunStats, speed: number) => void
 }
@@ -46,7 +48,7 @@ export function useInTime(a: Args) {
   args.current = a
   const run = useRef<{
     clock: Clock; steps: ReturnType<typeof timeline>['steps']; inRange: number[]; fromBeat: number; toBeat: number; loop: boolean
-    results: (Judgement | 'miss' | undefined)[]; errs: number[]; taken: Set<number>; lastBeat: number; speed: number; raf: number; video: boolean; passes: number
+    results: (Judgement | 'miss' | undefined)[]; errs: number[]; taken: Set<number>; lastBeat: number; speed: number; raf: number; video: boolean; passes: number; expectKey?: string
   } | null>(null)
 
   const stop = useCallback((finished = false) => {
@@ -137,6 +139,18 @@ export function useInTime(a: Args) {
           args.current.onPass?.(s, args.current.video.current?.rate() ?? 1)
         }
         r.lastBeat = b
+        // tell the listener which notes are due: anything not yet played within half a beat either side
+        if (args.current.onExpect) {
+          const nowM: number[] = [], nextM: number[] = []
+          for (const i of r.inRange) {
+            const s = r.steps[i]
+            if (r.taken.has(i)) continue
+            if (Math.abs(s.beat - b) <= 0.6) nowM.push(...s.midis)
+            else if (s.beat > b && s.beat - b <= 1.6) nextM.push(...s.midis)
+          }
+          const key = nowM.join(',') + '|' + nextM.join(',')
+          if (key !== r.expectKey) { r.expectKey = key; args.current.onExpect(nowM, nextM) }
+        }
         // cursor: the step being played now
         let cur = -1
         for (let k = 0; k < r.steps.length && r.steps[k].beat <= b + 0.02; k++) cur = r.steps[k].flat
