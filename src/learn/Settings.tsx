@@ -7,6 +7,7 @@ import { dailyGoalMin, setDailyGoalMin, useProgress } from './progress'
 import { GearSetup } from '../components/GearSetup'
 import { PedalSettings } from '../controls/PedalSettings'
 import { BackupPanel } from '../components/BackupPanel'
+import { useShowArt } from '../components/Art'
 import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, type SoundId } from '../audio/pluck'
 import { audio } from '../audio/engine'
 import { gear, isSetUp, latencyMs, useGear } from '../audio/gear'
@@ -17,6 +18,7 @@ const INST_ART: Record<InstrumentId, string> = { guitar: '🎸', tenor: '🌺', 
 export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => void }) {
   useProgress()
   const theme = useTheme()
+  const [showArt, setShowArt] = useShowArt()
   const [ask, setAsk] = useState<InstrumentId | null>(null)
   const [rem, setRem] = useState<ReminderSettings>(reminderSettings)
   const [remMsg, setRemMsg] = useState('')
@@ -106,6 +108,10 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         <h2 style={{ margin: 0 }}>Look</h2>
         <Chips<ThemeChoice> label="Theme" items={[{ id: 'auto', label: 'Match my phone' }, { id: 'day', label: 'Day' }, { id: 'night', label: 'Night' }]} value={theme} onChange={setTheme} />
         <p className="small muted" style={{ margin: 0 }}>Night is dim and low-glare for practising in bed. "Match my phone" switches with your phone's dark mode.</p>
+        <label className="row" style={{ gap: 8 }}>
+          <input type="checkbox" checked={showArt} onChange={e => setShowArt(e.target.checked)} />
+          <span>Show the KGuitar poster (small, in the menu and on Learn; tap it to see it full size)</span>
+        </label>
       </section>
 
       <section className="panel stack" style={{ gap: 10 }}>

@@ -21,6 +21,8 @@ export interface SplitterProps {
   target: () => HTMLElement | null
   cssVar: string
   onSize: (px: number) => void
+  /** called when a drag starts (e.g. to switch the layout to a sized panel) */
+  onStart?: () => void
   onOpen: (open: boolean) => void
   /** shown on the bar while the panel is hidden */
   closedLabel: string
@@ -37,6 +39,7 @@ export function Splitter(p: SplitterProps) {
     if (!p.open) return
     e.currentTarget.setPointerCapture(e.pointerId)
     drag.current = { start: pos(e), size: p.size, id: e.pointerId, moved: false, last: p.size }
+    p.onStart?.()
   }
   function move(e: RPointerEvent<HTMLDivElement>) {
     const d = drag.current

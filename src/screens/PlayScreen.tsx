@@ -30,8 +30,25 @@ import { audio, keepAwake } from '../audio/engine'
 import { TabPlayer } from '../audio/tabPlayer'
 import { keyPrefersFlats, pcName } from '../theory/notes'
 import { useInstrument } from '../instrument'
+import { Splitter } from '../components/Splitter'
+import { IconExpand, IconShrink } from '../components/Icons'
+import { setPlayFocus, useMedia } from '../ui'
 
 type View = 'tab' | 'solo' | 'both'
+/** How you've arranged Play: panel sizes (px) and which panels are showing. */
+interface PlayLayout {
+  /** wide screens: width of the side panel (video, readout) */
+  sideW: number
+  /** height of Scales & chords */
+  soloH: number
+  /** phones: height of the video + readout panel (0 = its natural size) */
+  topH: number
+  side: boolean
+  solo: boolean
+  /** Full tab: only the tab and a slim readout (the menu tucks away too) */
+  focus: boolean
+}
+const LAYOUT0: PlayLayout = { sideW: 300, soloH: 220, topH: 0, side: true, solo: true, focus: false }
 interface Feedback {
   ok: boolean
   heard: number
@@ -83,6 +100,13 @@ export function PlayScreen() {
   const posture = useFoldPosture()
   const split = splitPref === 'on' || (splitPref === 'auto' && posture.tabletop)
   const [tabZoom, setTabZoom] = usePersist('tabZoom', 1)
+  const [layRaw, setLay] = usePersist<PlayLayout>('playLayout', LAYOUT0)
+  const lay = { ...LAYOUT0, ...layRaw }
+  const wide = useMedia('(min-width: 760px)')
+  const playRef = useRef<HTMLDivElement>(null)
+  const sideRef = useRef<HTMLElement>(null)
+  const focus = lay.focus
+  useEffect(() => { setPlayFocus(focus); return () => setPlayFocus(false) }, [focus])
   const lastOnset = useRef(0)
   const [listening, setListening] = useState(false)
   const [micError, setMicError] = useState('')
@@ -506,8 +530,8 @@ export function PlayScreen() {
   })() : null
   const where = (n: SongNote) => `${n.fret === 0 ? 'open' : `fret ${n.fret}`}, ${stringLabel(track.tuning, n.string, flats)} string`
 
-  const readout = (
-    <div className="readout-box" aria-live="polite">
+  const readout = (mini: boolean) => (
+    <div className={`readout-box${mini ? ' mini' : ''}`} aria-live="polite">
       {pulse && <span key={pulse.key} className={`pulse-ring ${pulse.ok ? 'ok' : 'bad'}`} aria-hidden="true" />}
       <div className="heard">
         <span className="small muted">{listening ? 'Hearing' : 'Mic off'}</span>
@@ -630,9 +654,20 @@ export function PlayScreen() {
     </div>
   )
 
+  const sideOpen = lay.side && !focus
+  const soloOpen = lay.solo && !focus
+  const manualSplit = split && !posture.tabletop
+  const playH = () => playRef.current?.clientHeight ?? 600
+  const playW = () => playRef.current?.clientWidth ?? 900
+  const cls = `play view-${view}${showVideo && doc.youtube ? ' has-video' : ''}${split ? ' tabletop' : ''}${manualSplit ? ' manual-split' : ''}` +
+    `${sideOpen ? '' : ' side-closed'}${soloOpen ? '' : ' solo-closed'}${focus ? ' focus' : ''}${lay.topH > 0 ? ' sized-top' : ''}`
   return (
-    <div className={`play view-${view}${showVideo && doc.youtube ? ' has-video' : ''}${split ? ' tabletop' : ''}`}
-      style={{ ['--tab-zoom' as string]: tabZoom, ...(split && posture.tabletop ? { ['--fold-top' as string]: `${posture.top}px`, ['--fold-hinge' as string]: `${posture.hinge}px` } : {}) }}>
+    <div ref={playRef} className={cls}
+      style={{
+        ['--tab-zoom' as string]: tabZoom, ['--side-w' as string]: `${lay.sideW}px`, ['--solo-h' as string]: `${lay.soloH}px`,
+        ...(lay.topH > 0 ? { ['--top-h' as string]: `${lay.topH}px` } : {}),
+        ...(split && posture.tabletop ? { ['--fold-top' as string]: `${posture.top}px`, ['--fold-hinge' as string]: `${posture.hinge}px` } : {}),
+      }}>
       <header className="play-head">
         <button className="btn sm" onClick={() => setSheet(true)}>Songs</button>
         <div className="song-title">
@@ -643,6 +678,10 @@ export function PlayScreen() {
             </select>
           ) : doc.artist ? <span className="small muted">{doc.artist}</span> : null}
         </div>
+        <button className="btn sm icon-btn" aria-pressed={focus} onClick={() => setLay({ ...lay, focus: !focus })}
+          aria-label={focus ? 'Show all panels again' : 'Full tab: hide the other panels'} title={focus ? 'Show all panels again' : 'Full tab'}>
+          {focus ? <IconShrink /> : <IconExpand />}
+        </button>
         <button className="btn sm" aria-pressed={showVideo} onClick={() => setShowVideo(!showVideo)}>Video</button>
         {mode === 'time' ? (
           <button className={`btn listen${inTime.running ? ' on' : ''}`} onClick={() => void toggleRun()} aria-pressed={inTime.running}>
@@ -655,21 +694,36 @@ export function PlayScreen() {
         )}
       </header>
 
-      <section className="play-side">
+      <section className="play-side" ref={sideRef}>
+        {/* stays mounted while hidden so a playing video keeps going */}
         {showVideo && <YouTubePlayer url={doc.youtube} onUrl={u => update({ youtube: u, ytSync: u ? doc.ytSync : undefined })} onApi={api => { video.current = api }}
           sync={doc.ytSync} onSync={sync => update({ ytSync: sync })} tabBpm={songBpm} />}
-        {readout}
-        {micError && <p className="notice small">{micError}</p>}
-        {!isSetUp() && !micError && (
+        {sideOpen && readout(false)}
+        {sideOpen && micError && <p className="notice small">{micError}</p>}
+        {sideOpen && !isSetUp() && !micError && (
           <p className="notice small gear-hint">First time? <button className="btn sm" onClick={() => setGearOpen(true)}>Set up your input</button> takes two minutes and makes note detection and timing match your mic or amp.</p>
         )}
       </section>
+
+      <Splitter dir="row" className="split-top" name="the video and readout" open={sideOpen}
+        size={lay.topH || sideRef.current?.offsetHeight || 260} grow={1} min={110} max={() => playH() - 220}
+        target={() => playRef.current} cssVar="--top-h" onStart={() => playRef.current?.classList.add('sized-top')}
+        onSize={px => setLay({ ...lay, topH: px, side: true, focus: false })}
+        onOpen={o => setLay({ ...lay, side: o, focus: false })} closedLabel="Show video & readout" />
 
       <div className="view-switch">
         <Chips label="View" items={[{ id: 'tab', label: 'Tab' }, { id: 'solo', label: 'Scales & chords' }, { id: 'both', label: 'Both' }]} value={view} onChange={setView} />
       </div>
 
+      <Splitter dir="col" className="split-side" name="the side panel" open={sideOpen}
+        size={lay.sideW} grow={-1} min={240} max={() => playW() - 340}
+        target={() => playRef.current} cssVar="--side-w"
+        onSize={px => setLay({ ...lay, sideW: px, side: true, focus: false })}
+        onOpen={o => setLay({ ...lay, side: o, focus: false })} closedLabel="Video & readout" />
+
       <section className="play-tab">
+        {!sideOpen && readout(true)}
+        {!sideOpen && micError && <p className="notice small">{micError}</p>}
         {tabTools}
         {selecting && (
           <div className="select-hint">
@@ -684,6 +738,12 @@ export function PlayScreen() {
           <p className="small muted cap">This tab is for a {track.tuning.length}-string instrument; you're in {inst.label.toLowerCase()} mode. Pick a {inst.strings}-string tab from Songs to play along on your {inst.noun}.</p>
         )}
       </section>
+
+      <Splitter dir="row" className="split-solo" name="Scales & chords" open={wide ? soloOpen : true}
+        size={lay.soloH} grow={-1} min={110} max={() => playH() - 240}
+        target={() => playRef.current} cssVar="--solo-h"
+        onSize={px => setLay({ ...lay, soloH: px, solo: true, focus: false })}
+        onOpen={o => { if (wide) setLay({ ...lay, solo: o, focus: false }); else if (!o) setView('tab') }} closedLabel="Scales & chords" />
 
       <section className="play-solo">
         <HarmonyPanel

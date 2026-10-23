@@ -36,3 +36,12 @@ export const IconGear = () => (
 export const IconTools = () => (
   <svg viewBox="0 0 24 24" {...s}><path d="M4 16a8 8 0 0 1 16 0" /><path d="M12 16l3.5-5" /><path d="M4 20h16" /><path d="M7 4v3M12 3v4M17 4v3" /></svg>
 )
+export const IconExpand = () => (
+  <svg viewBox="0 0 24 24" width="20" height="20" {...s}><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
+)
+export const IconShrink = () => (
+  <svg viewBox="0 0 24 24" width="20" height="20" {...s}><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" /></svg>
+)
+export const IconMenu = () => (
+  <svg viewBox="0 0 24 24" width="20" height="20" {...s}><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+)

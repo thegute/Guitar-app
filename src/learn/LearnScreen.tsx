@@ -1,5 +1,6 @@
 // Learn: today's goal and streak, the away-from-guitar switch, today's plan, quests, the practice course,
 // the path to mastery, and the tools (ear training, theory, CAGED, circle of fifths, chord changes, rhythm).
+import { ArtThumb } from '../components/Art'
 import { useState } from 'react'
 import { IconGear } from '../components/Icons'
 import { useInstrument } from '../instrument'
@@ -155,6 +156,7 @@ export function LearnScreen() {
   return (
     <div className="learn">
       <div className="learn-head">
+        <ArtThumb className="learn-art" />
         <h1 style={{ margin: 0 }}>Learn</h1>
         <button className="btn sm inst-chip" onClick={() => push({ k: 'settings' })} aria-label={`Instrument: ${inst.label}. Change in settings`}>
           {inst.short}{inst.isUke && inst.tuning.reentrant ? ' (re-entrant)' : ''}
