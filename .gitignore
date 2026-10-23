@@ -9,3 +9,4 @@ android/app/src/main/assets/public
 .DS_Store
 tsconfig.tsbuildinfo
 tests/browser/out
+art/preview

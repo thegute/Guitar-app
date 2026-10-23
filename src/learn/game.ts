@@ -39,22 +39,38 @@ export function levelInfo(xp = totalXp()) {
 export function freezes(): number {
   return read<number>(FREEZES, 0)
 }
+/** Practised days in a row ending on day k (frozen days bridge the gap but don't add). */
+function runEnding(k: string, logs = allLogs()): number {
+  const d = new Date(k + 'T12:00:00')
+  let n = 0
+  while (dayCounts(logs[dayKey(d)]) || logs[dayKey(d)]?.frozen) {
+    if (dayCounts(logs[dayKey(d)])) n++
+    d.setDate(d.getDate() - 1)
+  }
+  return n
+}
+/** Award a freeze at every 7-day milestone of a run (7, 14, 21 ...). Returns how many were added. */
+function awardFreezes(run: number): number {
+  const awarded = read<number[]>(AWARDED, [])
+  let added = 0
+  for (let m = 7; m <= run; m += 7) {
+    if (!awarded.includes(m)) {
+      awarded.push(m)
+      if (freezes() < 2) { write(FREEZES, freezes() + 1); added++ }
+    }
+  }
+  write(AWARDED, awarded)
+  return added
+}
 export function reconcileStreak(): { usedFreeze: boolean } {
   const logs = allLogs()
   const s = streak()
-  // award freezes at 7, 14, 21 ... day milestones
-  const awarded = read<number[]>(AWARDED, [])
-  for (let m = 7; m <= s.current; m += 7) {
-    if (!awarded.includes(m)) {
-      awarded.push(m)
-      write(FREEZES, Math.min(2, freezes() + 1))
-    }
-  }
-  if (s.current < 7) write(AWARDED, awarded.filter(m => m <= s.current))
-  else write(AWARDED, awarded)
-  // yesterday missed, the day before practised, and we have a freeze: use it
   const y = new Date(); y.setDate(y.getDate() - 1)
   const yy = new Date(); yy.setDate(yy.getDate() - 2)
+  // catch up on milestones reached before a missed day, then forget milestones of a broken streak
+  awardFreezes(Math.max(s.current, runEnding(dayKey(yy), logs)))
+  if (s.current < 7 && runEnding(dayKey(yy), logs) < 7) write(AWARDED, read<number[]>(AWARDED, []).filter(m => m <= s.current))
+  // yesterday missed, the day before practised, and we have a freeze: use it
   const yk = dayKey(y)
   const yd = logs[yk]
   if (!dayCounts(yd) && !yd?.frozen && (dayCounts(logs[dayKey(yy)]) || logs[dayKey(yy)]?.frozen) && freezes() > 0) {
@@ -227,6 +243,7 @@ function check(before: number, d: DayLog) {
         celebrate({ kind: 'badge', icon: r.icon, title: `Badge: ${r.name}`, detail: r.how })
       }
     }
+    if (awardFreezes(streak().current) > 0) celebrate({ kind: 'freeze', icon: '🧊', title: 'Streak freeze earned', detail: 'A week in a row! If you ever miss a day, this keeps your streak alive.' })
     const lv = levelInfo().level
     if (lastLevel && lv > lastLevel) celebrate({ kind: 'level', icon: '⬆️', title: `Level ${lv}!`, detail: levelInfo().title })
     lastLevel = lv

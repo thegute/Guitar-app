@@ -1,11 +1,14 @@
 // Your saved songs: the tab, its YouTube link and your chord edits. Stored on the device (IndexedDB).
 import type { Song } from './model'
+import type { InstrumentId } from '../instrument'
 
 export interface SongDoc {
   id: string
   title: string
   artist?: string
   source: 'gp' | 'text' | 'example' | 'lesson'
+  /** which bank the song lives in: the instrument mode it was added in */
+  inst?: InstrumentId
   song: Song
   youtube?: string
   /** your chord edits, by bar index ('' = no chord) */
@@ -50,13 +53,33 @@ async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBReq
   })
 }
 
-export async function listSongs(): Promise<SongDoc[]> {
-  try {
-    const all = await tx<SongDoc[]>('readonly', s => s.getAll())
-    return all.sort((a, b) => b.updated - a.updated)
-  } catch {
-    return [...memory.values()].sort((a, b) => b.updated - a.updated)
+/**
+ * The instrument a song belongs to. Songs remember the mode they were added in; older songs (from before
+ * the banks were split) are sorted by their strings: six = guitar, four tuned to A on top = tenor ukulele,
+ * four tuned to E on top = baritone ukulele.
+ */
+export function docInstrument(doc: SongDoc): InstrumentId {
+  if (doc.inst) return doc.inst
+  const tracks = doc.song.tracks
+  const pick = tracks[doc.track ?? 0] ?? tracks[0]
+  if (!pick || pick.tuning.length >= 5) return 'guitar'
+  if (pick.tuning.length === 4) {
+    const top = Math.max(...pick.tuning)
+    if (top % 12 === 9) return 'tenor'
+    if (top % 12 === 4) return 'baritone'
   }
+  return 'guitar'
+}
+
+/** Saved songs, newest first. Pass an instrument to get only that instrument's bank. */
+export async function listSongs(inst?: InstrumentId): Promise<SongDoc[]> {
+  let all: SongDoc[]
+  try {
+    all = await tx<SongDoc[]>('readonly', s => s.getAll())
+  } catch {
+    all = [...memory.values()]
+  }
+  return all.filter(d => !inst || docInstrument(d) === inst).sort((a, b) => b.updated - a.updated)
 }
 export async function getSong(id: string): Promise<SongDoc | undefined> {
   try {

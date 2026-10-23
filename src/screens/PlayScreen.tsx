@@ -11,7 +11,9 @@ import { NoteListener, matchNote, type FollowStep } from '../tabs/follow'
 import { defaultTrack, flatten, playable, type SongNote, type SongTrack } from '../tabs/model'
 import { detectKey, improvisationScales, type KeyGuess } from '../tabs/keyDetect'
 import { chordInfo, chordTimeline, guessBarChords } from '../tabs/harmony'
-import { getSong, listSongs, saveSong, type SongDoc } from '../tabs/library'
+import { docInstrument, getSong, listSongs, saveSong, type SongDoc } from '../tabs/library'
+import { takePendingDoc } from '../nav'
+import { bump, bumpCounts, usePracticeTimer } from '../learn/progress'
 import { exampleDoc } from '../tabs/examples'
 import { playNote, strum } from '../audio/pluck'
 import { audio, keepAwake } from '../audio/engine'
@@ -51,7 +53,8 @@ const octave = (m: number) => Math.floor(m / 12) - 1
 
 export function PlayScreen() {
   const inst = useInstrument()
-  const [songId, setSongId] = usePersist('playSong', '')
+  // each instrument remembers its own last song (guitar and ukulele tabs are kept apart)
+  const [songId, setSongId] = usePersist(`playSong:${inst.id}`, '')
   const [doc, setDoc] = useState<SongDoc | null>(null)
   const [sheet, setSheet] = useState(false)
   const [view, setView] = usePersist<View>('playView', 'tab')
@@ -78,9 +81,12 @@ export function PlayScreen() {
   useEffect(() => {
     let alive = true
     ;(async () => {
-      let d = songId ? await getSong(songId) : undefined
+      const pending = takePendingDoc()
+      if (pending) await saveSong(pending)
+      let d = pending ?? (songId ? await getSong(songId) : undefined)
+      if (d && docInstrument(d) !== inst.id) d = undefined
       if (!d) {
-        const all = await listSongs()
+        const all = await listSongs(inst.id)
         d = all[0] ?? exampleDoc(inst.id === 'guitar' ? 'ode' : inst.id === 'tenor' ? 'uke-ode' : 'bari-ode', inst.tuning.notes)
         if (!all.length) await saveSong(d)
       }
@@ -170,8 +176,8 @@ export function PlayScreen() {
   }, [flat, cursorFlat])
 
   // ---------- following the mic ----------
-  const ref = useRef({ pos, follow, strict, flat, loopRange })
-  ref.current = { pos, follow, strict, flat, loopRange }
+  const ref = useRef({ pos, follow, strict, flat, loopRange, lesson: false })
+  ref.current = { pos, follow, strict, flat, loopRange, lesson: doc?.source === 'lesson' }
 
   const onNote = useCallback((midi: number) => {
     const { pos, follow, strict, loopRange } = ref.current
@@ -188,6 +194,7 @@ export function PlayScreen() {
       setFeedback({ ok: true, heard: midi, note, skipped: r.skipped })
       setFlash(f => ({ flat: fi, key: (f?.key ?? 0) + 1 }))
       setPulse(p => ({ ok: true, key: (p?.key ?? 0) + 1 }))
+      bumpCounts({ notesHit: 1, [ref.current.lesson ? 'exerciseNotes' : 'songNotes']: 1 })
       let next = r.step + 1
       if (loopRange && next > loopRange.b) {
         // finished one pass of the loop: score it and go round again
@@ -195,11 +202,14 @@ export function PlayScreen() {
         for (let k = loopRange.a; k <= loopRange.b; k++) if (st[follow.idx[k]] === 1) ok++
         const score = Math.round((ok / (loopRange.b - loopRange.a + 1)) * 100)
         setPasses(p => ({ n: p.n + 1, last: score, best: Math.max(p.best ?? 0, score) }))
+        if (score >= 90) bump('loop90')
         setTimeout(() => {
           for (let k = loopRange.a; k <= loopRange.b; k++) st[follow.idx[k]] = 0
           setVersion(v => v + 1)
         }, 700)
         next = loopRange.a
+      } else if (!loopRange && next >= follow.steps.length) {
+        bump(ref.current.lesson ? 'exercisesFinished' : 'songsFinished')
       }
       setPos(next)
     } else if (r.kind === 'miss') {
@@ -249,6 +259,9 @@ export function PlayScreen() {
   const [playAt, setPlayAt] = useState(-1)
   const [speed, setSpeed] = usePersist('playSpeed', 1)
   const songBpm = doc?.song.tempo ?? 90
+  // practice time: listening with the mic counts as time with the guitar, Hear it as study time
+  usePracticeTimer(doc?.source === 'lesson' ? 'warmup' : 'play', listening, true)
+  usePracticeTimer('play', playAt >= 0 && !listening, false)
   function stopPreview() {
     player.current?.stop()
     setPlayAt(-1)

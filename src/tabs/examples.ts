@@ -101,5 +101,5 @@ export function exampleDoc(id: string, tuning?: string[]): SongDoc {
   const fallback = tuning && tuning.length === (ex.for === 'guitar' ? 6 : 4) ? tuning : undefined
   const song = fromTextTab(parseTextTab(ex.text, ex.title, fallback)!)
   song.title = ex.title
-  return { id: 'ex-' + ex.id, title: ex.title, source: 'example', song, updated: Date.now() }
+  return { id: 'ex-' + ex.id, title: ex.title, source: 'example', inst: ex.for, song, updated: Date.now() }
 }

@@ -27,7 +27,8 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   `keyDetect.ts` (Krumhansl–Kessler), `library.ts` (IndexedDB + YouTube link parsing), `examples.ts`.
 - `src/audio/`: `engine.ts` (shared AudioContext), `pluck.ts` (Karplus–Strong), `tabPlayer.ts`, `metronome.ts`, `pitch.ts` (tuner), `input.ts` (input device choice: auto / phone mic / USB).
 - `src/components/`: `TabView.tsx` (SVG tab renderer), `Fretboard.tsx` (roles root/chord/scale/next/common/pass/target/live), `HarmonyPanel.tsx`, `YouTubePlayer.tsx`, `InputPicker.tsx`.
-- Design tokens in `src/styles.css` (rosewood / pearl / amber / jewel / strobe). Bottom nav under 760 px, side rail above.
+- Design tokens in `src/styles.css`: theme roles `--bg --surface --ink --accent --gold --mint --coral --hero` for day / night / auto (`src/theme.ts`);
+  old names (rosewood / pearl / amber / jewel / strobe) are aliases. Fretboard colours are fixed `--fb-*`. Bottom nav (7 tabs) under 760 px, side rail above.
 
 ## Build and release
 - Every push to `main` runs `.github/workflows/android.yml`: builds a signed release APK and publishes GitHub release `build-N` (`KGuitar-N.apk`).
@@ -35,22 +36,28 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
 - `gh` GraphQL may be blocked in Claude's sandbox: use `gh api` REST calls to check runs and releases.
 
 ## Testing
-- `npm test`: logic tests (tab parsing, GP import round trip, chords, follow matching).
-- Browser test with a synthesized guitar as the fake mic: see `tests/README.md`. Check all four screen sizes, no horizontal overflow, no page errors.
+- `npm test`: logic tests (tab parsing, GP import round trip, chords, follow matching, Jam engine, practice tabs, Learn).
+- Browser tests (play, jam, learn) with a synthesized guitar as the fake mic: see `tests/README.md`. Check cover and inner sizes, day and night, no horizontal overflow, no page errors.
+- Never give two files names that differ only by case (breaks macOS and esbuild).
 
-## Planned next: the Learn tab (owner's requests, in priority order)
-- Theory lessons following Offtonic Theory's chapter outline (https://www.offtonic.com/theory/), NOT its text (copyrighted, no license):
-  original guitar-focused explanations + "Read the full chapter on Offtonic" links. Skip the Applets section.
-- Practice course / quizzes: fretboard notes (string by string, naturals first, octaves, find-all), chords, triads, circle of fifths, CAGED.
-  Every quiz has tap mode (no guitar) and mic mode (play the answer). Spaced repetition on weak items, stars/streaks.
-- Ear training in the style of Sonofield: soft drone on the tonic, identify scale degrees by feel, resolve to home after each answer,
-  levels (1&5 → diatonic → octaves → minor → chromatic), melody mode, hands-free mode, optional guitar play mode via mic.
-- CAGED: lessons, explorer (5 shapes of any chord across the neck + scale/arpeggio/triads per shape), drills.
-- Path to mastery: daily practice plan, chord-change drills, rhythm practice, progress tracking.
-- "I'm away from my guitar" button (owner is a firefighter on 24h shifts, ~10 days/month without the guitar): switches the plan to
-  no-guitar activities. Guitar days and study days both count toward the streak. No shift schedule input.
-- Phone reminders (local notifications) with text that covers both cases; skip if already practiced today.
-- Later: Android share target, YouTube/tab tempo sync, polyphonic chord detection, left-handed mode.
+## Learn tab (src/learn/)
+- `LearnScreen.tsx` hub: Today card (pick-shaped goal ring, streak + freezes, week strip, level/XP, "I'm away from my guitar" switch),
+  today's plan (`plan.ts`, guitar vs away), daily quests, practice course, path to mastery (`path.ts`, 7 stages of self-checking goals), tools.
+- `progress.ts` (day logs, streak: any 5 minutes counts, with or without the guitar; away mode auto-off after 30 h; Leitner spaced repetition; stars;
+  `usePracticeTimer`, `bump`/`bumpCounts`), `game.ts` (XP/levels, freezes every 7 days, quests, badges, celebrations), `reminders.ts` (local notifications,
+  14 days ahead + optional streak saver, skipped once today counts; icon `drawable/ic_stat_kguitar.xml`).
+- `quiz.ts` + `QuizRunner.tsx` (tap or play mode), `EarTrainer.tsx` + `audio/drone.ts` (Sonofield-style drone degrees), `caged.ts` + `CagedExplorer.tsx`
+  (shapes adjusted per string for non-standard tunings), `lessons.ts` + `LessonReader.tsx` (original text following Offtonic Theory's chapters, with links;
+  never copy Offtonic's text), `Tools.tsx` (chord changes with optional chroma counting, rhythm trainer, circle of fifths), `ProgressView.tsx`, `Settings.tsx`
+  (instrument switch always asks "Are you sure…"), `Celebration.tsx`.
+- Counters other screens feed: notesHit, songNotes, exerciseNotes, songsFinished, loop90 (Play), loopsRecorded (Jam), plus timers in Play/Jam/Tuner.
+- `src/nav.ts`: `go(tab)` and `openInPlay(doc)` for cross-screen links.
+- Songs are kept in per-instrument banks (`SongDoc.inst`, `docInstrument()` sorts older songs by tuning); Play remembers the last song per instrument.
+- App icon: original art drawn in code (`art/icon.py` → `art/render.cjs`): psychedelic chocolate lab + guitar on a sunburst. Inspired by, never copied from, any band's artwork.
+
+## Ideas not done yet
+Android share target (share a tab from the browser straight into KGuitar), YouTube/tab tempo sync, polyphonic chord detection in Play, left-handed mode,
+progress backup/export.
 
 ## Working with the owner
 Explain things plainly: a guitarist, not a developer. Ask before deleting anything on their computer.

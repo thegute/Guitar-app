@@ -1,6 +1,6 @@
 # Tests
 
-**Logic** (tab parsing, Guitar Pro import, chords, voice leading, follow-along matching):
+**Logic** (tab parsing, Guitar Pro import, chords, voice leading, follow-along matching, Jam engine, practice tabs, and the Learn tab: every quiz question on every instrument and tuning, CAGED shapes, rhythm scoring, streaks/freezes/away mode, plan, path, song banks):
 ```
 npm test
 ```
@@ -14,3 +14,10 @@ node tests/browser/out/make-gp.mjs tests/browser/out/riff.gp
 npm i --no-save playwright && node tests/browser/play-test.cjs cover
 ```
 Screenshots land in `tests/browser/out/`. Sizes: `cover` (Fold cover screen), `small`, `inner-portrait`, `inner-landscape`.
+
+**Learn tab** (every Learn screen at cover and inner sizes in day and night, overflow and page-error checks, away mode,
+the ukulele switch with its confirm step, separate guitar/ukulele song banks, the daily-goal celebration):
+```
+node tests/browser/learn-test.cjs
+```
+**Jam:** `node tests/browser/jam-test.cjs`. **Theme screenshots:** `node tests/browser/theme-shots.cjs`.

@@ -19,6 +19,8 @@ export interface NoteEvent {
 export class NoteListener {
   onNote?: (e: NoteEvent) => void
   onFrame?: (f: { midi: number | null; level: number }) => void
+  /** every pick or strum attack, with its audio-clock time (before input latency is taken off) */
+  onOnset?: (time: number) => void
   private stream: MediaStream | null = null
   private analyser: AnalyserNode | null = null
   private raf = 0
@@ -78,6 +80,7 @@ export class NoteListener {
     const loud = level > Math.max(0.006 * this.gate, this.noise * 3 * this.gate)
     if (loud && level > recentMin * this.onsetRatio && now - this.lastOnset > 0.08) {
       this.lastOnset = now
+      this.onOnset?.(now)
       this.pendingAttack = 8
       this.candidate = null
       this.candidateFrames = 0

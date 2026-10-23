@@ -19,6 +19,7 @@ import { strum, preload } from '../audio/pluck'
 import { audio, keepAwake } from '../audio/engine'
 import { JamTransport } from '../audio/jam'
 import { InputRecorder, makeLayerBuffer, measureLatency, defaultLatencyMs } from '../audio/looper'
+import { bump, usePracticeTimer } from '../learn/progress'
 import { STRUMS } from '../audio/strums'
 import { GROOVES } from '../audio/drums'
 import { pc } from '../theory/notes'
@@ -109,6 +110,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [inputInfo, setInputInfo] = useState<{ label: string; external: boolean } | null>(null)
   const latMs = latency >= 0 ? latency : defaultLatencyMs()
   const hasLoop = layers.length > 0
+  usePracticeTimer('jam', playing, true)
 
   const tr = () => (transport.current ??= new JamTransport())
 
@@ -268,6 +270,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
       const samples = await recorder.current!.capture(from + latMs / 1000, t.loopDur, signal)
       const id = Date.now()
       t.addLayer(makeLayerBuffer(samples), id)
+      bump('loopsRecorded')
       setLayers(ls => [...ls, { id, muted: false, shift: 0 }])
       // your recording takes over from the backing chords
       if (!add) setChordsOn(false)

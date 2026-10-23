@@ -27,3 +27,9 @@ export const IconLock = ({ locked }: { locked: boolean }) => (
 export const IconDice = () => (
   <svg viewBox="0 0 24 24" width="22" height="22" {...s}><rect x="4" y="4" width="16" height="16" rx="3" /><circle cx="9" cy="9" r="1.3" fill="currentColor" /><circle cx="15" cy="15" r="1.3" fill="currentColor" /><circle cx="15" cy="9" r="1.3" fill="currentColor" /><circle cx="9" cy="15" r="1.3" fill="currentColor" /></svg>
 )
+export const IconLearn = () => (
+  <svg viewBox="0 0 24 24" {...s}><path d="M2.5 9L12 4.5 21.5 9 12 13.5z" /><path d="M6.5 11v4.6c0 1.4 2.5 2.9 5.5 2.9s5.5-1.5 5.5-2.9V11" /><path d="M21.5 9v5.5" /></svg>
+)
+export const IconGear = () => (
+  <svg viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="3" /><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" /></svg>
+)

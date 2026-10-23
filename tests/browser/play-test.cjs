@@ -113,7 +113,7 @@ D|---0-------0-----|-2-------2-------|
 A|-----------------|-----------------|
 E|-3---------------|-0---------------|`)
     await page.fill('.sheet input[aria-label="Song title"]', 'Pasted riff')
-    await page.click('.sheet >> text=Load tab')
+    await page.click('.sheet button:text-is("Load tab")')
     await page.waitForTimeout(400)
     out.pastedTitle = await page.textContent('.song-title b')
     out.pastedChords = await page.$$eval('.tab-chord', e => e.map(x => x.textContent).join(' '))

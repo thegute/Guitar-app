@@ -80,11 +80,14 @@ function update(fn: (d: DayLog) => void) {
   logs[k] = d
   write(LOG, logs)
   changed()
-  afterUpdate?.(before, d)
+  afterUpdate.forEach(f => f(before, d))
 }
-/** set by the game layer to award XP, quests and badges */
-let afterUpdate: ((before: number, d: DayLog) => void) | null = null
-export function onLogUpdate(f: (before: number, d: DayLog) => void) { afterUpdate = f }
+/** the game layer (XP, quests, badges) and reminders listen for every logged change */
+const afterUpdate = new Set<(before: number, d: DayLog) => void>()
+export function onLogUpdate(f: (before: number, d: DayLog) => void) {
+  afterUpdate.add(f)
+  return () => { afterUpdate.delete(f) }
+}
 export function saveDay(k: string, d: DayLog) {
   const logs = allLogs()
   logs[k] = d
@@ -96,6 +99,13 @@ export function bump(key: string, n = 1) {
   update(d => {
     d.counts = d.counts ?? {}
     d.counts[key] = (d.counts[key] ?? 0) + n
+  })
+}
+/** add to several counters at once (one write) */
+export function bumpCounts(c: Record<string, number>) {
+  update(d => {
+    d.counts = d.counts ?? {}
+    for (const [k, n] of Object.entries(c)) d.counts[k] = (d.counts[k] ?? 0) + n
   })
 }
 export function addXp(n: number) {

@@ -5,7 +5,7 @@ import { EXAMPLES, exampleDoc } from '../tabs/examples'
 import { parseTextTab } from '../tabs/textTab'
 import { fromTextTab } from '../tabs/model'
 import { Clipboard } from '@capacitor/clipboard'
-import { useInstrument } from '../instrument'
+import { INSTRUMENTS, useInstrument, type InstrumentId } from '../instrument'
 import { KeyPicker, Chips, usePersist } from '../components/Controls'
 import { ESSENTIALS, EX_ARPS, EX_LICKS, EX_SCALES, EX_SEQUENCES, EX_WARMUPS, buildExercise, type ExerciseKind, type ExerciseSpec } from '../tabs/exercises'
 
@@ -35,9 +35,12 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmDel, setConfirmDel] = useState<string | null>(null)
+  const [moving, setMoving] = useState<string | null>(null)
+  const [moved, setMoved] = useState('')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('')
   const [clipNote, setClipNote] = useState('')
+  const [imported, setImported] = useState('')
   const [exKind, setExKind] = usePersist<ExerciseKind>('exKind', 'scale')
   const [exRoot, setExRoot] = usePersist('exRoot', 'A')
   const [exType, setExType] = usePersist<Record<ExerciseKind, string>>('exType', { scale: 'minor pentatonic', sequence: 'threes', arpeggio: 'maj', lick: 'box-desc', warmup: 'spider' })
@@ -52,7 +55,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
     const song = buildExercise(spec, inst.midis)
     if (!song.tracks[0].bars.length) { setError("That exercise doesn't fit this instrument. Try another position."); return }
     const id = `lib:${inst.id}:${inst.tuning.id}:${spec.kind}:${spec.root}:${spec.type}:${spec.position}:${spec.scale ?? ''}`
-    const doc: SongDoc = { id, title: song.title, source: 'lesson', song, updated: Date.now() }
+    const doc: SongDoc = { id, title: song.title, source: 'lesson', inst: inst.id, song, updated: Date.now() }
     await saveSong(doc)
     onOpen(doc)
   }
@@ -72,7 +75,8 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
     }
   }
 
-  useEffect(() => { void listSongs().then(setSongs) }, [])
+  const refresh = async () => setSongs(await listSongs(inst.id))
+  useEffect(() => { void listSongs(inst.id).then(setSongs) }, [inst.id])
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', k)
@@ -81,30 +85,44 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
 
   const link = yt.trim() && youtubeId(yt) ? yt.trim() : undefined
 
-  async function openFile(f: File) {
-    setError('')
-    setBusy(true)
-    try {
-      const bytes = new Uint8Array(await f.arrayBuffer())
-      const isText = /\.(txt|tab|text)$/i.test(f.name) || bytes.slice(0, 200).every(b => b === 9 || b === 10 || b === 13 || (b >= 32 && b < 127))
-      let doc: SongDoc
-      if (isText) {
-        const parsed = parseTextTab(new TextDecoder().decode(bytes), f.name.replace(/\.[^.]+$/, ''), inst.tuning.notes)
-        if (!parsed) throw new Error('No tab found in that text file.')
-        const song = fromTextTab(parsed)
-        doc = { id: newId(), title: song.title, source: 'text', song, youtube: link, updated: Date.now() }
-      } else {
-        const { importGuitarPro } = await import('../tabs/gpImport')
-        const song = importGuitarPro(bytes, f.name)
-        doc = { id: newId(), title: song.title, artist: song.artist, source: 'gp', song, youtube: link, updated: Date.now() }
-      }
-      await saveSong(doc)
-      onOpen(doc)
-    } catch (e) {
-      setError(`Couldn't open "${f.name}". ${e instanceof Error && e.message.length < 120 ? e.message : 'Is it a Guitar Pro file (.gp, .gp5, .gpx, .gp4, .gp3)?'}`)
-    } finally {
-      setBusy(false)
+  /** Read one tab file into a saved song (throws with a short reason if it can't). */
+  async function importFile(f: File): Promise<SongDoc> {
+    const bytes = new Uint8Array(await f.arrayBuffer())
+    const isText = /\.(txt|tab|text|crd|chopro)$/i.test(f.name) || bytes.slice(0, 200).every(b => b === 9 || b === 10 || b === 13 || (b >= 32 && b < 127))
+    let doc: SongDoc
+    if (isText) {
+      const parsed = parseTextTab(new TextDecoder().decode(bytes), f.name.replace(/\.[^.]+$/, ''), inst.tuning.notes)
+      if (!parsed) throw new Error('no tab lines found')
+      const song = fromTextTab(parsed)
+      doc = { id: newId(), title: song.title, source: 'text', inst: inst.id, song, youtube: link, updated: Date.now() }
+    } else {
+      const { importGuitarPro } = await import('../tabs/gpImport')
+      const song = importGuitarPro(bytes, f.name)
+      doc = { id: newId(), title: song.title, artist: song.artist, source: 'gp', inst: inst.id, song, youtube: link, updated: Date.now() }
     }
+    await saveSong(doc)
+    return doc
+  }
+
+  /** Import one or many files (from the phone or straight from Google Drive). One file opens right away. */
+  async function openFiles(files: File[]) {
+    setError('')
+    setImported('')
+    setBusy(true)
+    const ok: SongDoc[] = []
+    const failed: string[] = []
+    for (const f of files) {
+      try {
+        ok.push(await importFile(f))
+      } catch {
+        failed.push(f.name)
+      }
+    }
+    setBusy(false)
+    await refresh()
+    if (files.length === 1 && ok.length === 1) { onOpen(ok[0]); return }
+    if (ok.length) setImported(`Added ${ok.length} song${ok.length === 1 ? '' : 's'} to Your songs.`)
+    if (failed.length) setError(`Couldn't read ${failed.length === 1 ? `"${failed[0]}"` : `${failed.length} files (${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''})`}. KGuitar opens Guitar Pro files (.gp, .gp5, .gpx, .gp4, .gp3) and text tabs.`)
   }
 
   async function loadText() {
@@ -116,7 +134,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
     }
     const song = fromTextTab(parsed)
     if (title.trim()) song.title = title.trim()
-    const doc: SongDoc = { id: newId(), title: song.title, source: 'text', song, youtube: link, updated: Date.now() }
+    const doc: SongDoc = { id: newId(), title: song.title, source: 'text', inst: inst.id, song, youtube: link, updated: Date.now() }
     await saveSong(doc)
     onOpen(doc)
   }
@@ -149,7 +167,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
             ))}
           </div>
           <p className="small muted" style={{ margin: 0 }}>
-            Opens the site in your browser. Then either download the Guitar Pro file and come back to <b>Upload a tab file</b>,
+            Opens the site in your browser. Then either download the Guitar Pro file and come back to <b>Upload tab files</b>,
             or copy the tab text and tap <b>Paste from clipboard</b>.
           </p>
         </section>
@@ -157,11 +175,14 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
         <section className="panel stack" style={{ gap: 10 }}>
           <h3 style={{ margin: 0 }}>Add a song</h3>
           <div className="row">
-            <button className="btn primary" disabled={busy} onClick={() => file.current?.click()}>{busy ? 'Opening…' : 'Upload a tab file'}</button>
+            <button className="btn primary" disabled={busy} onClick={() => file.current?.click()}>{busy ? 'Importing…' : 'Upload tab files'}</button>
             <button className="btn" onClick={() => void pasteClipboard()}>Paste from clipboard</button>
-            <span className="small muted">Guitar Pro (.gp .gp5 .gpx .gp4 .gp3) or a text tab (.txt)</span>
-            <input ref={file} type="file" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void openFile(f) }} />
+            <input ref={file} type="file" multiple hidden onChange={e => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; if (fs.length) void openFiles(fs) }} />
           </div>
+          <p className="small muted" style={{ margin: 0 }}>
+            Guitar Pro (.gp .gp5 .gpx .gp4 .gp3) or text tabs (.txt). <b>From Google Drive:</b> in the picker, tap ☰ and choose Drive (or your Google account),
+            then open your tabs folder. Nothing gets saved to the phone first. Long-press a file to select several and import them all at once.
+          </p>
           <label className="field">
             <span>…or paste a text tab (from Ultimate Guitar or any tab site)</span>
             <textarea className="input mono" rows={6} value={text} onChange={e => setText(e.target.value)} placeholder={inst.strings === 4 ? `${[...inst.tuning.notes].reverse().map(n => n[0]).join('|-----------|\n')}|-----------|` : 'e|-----0-----|\nB|---1---1---|\nG|-2-------2-|\nD|-----------|\nA|-----------|\nE|-----------|'} spellCheck={false} />
@@ -172,6 +193,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
             <button className="btn primary" disabled={!text.trim()} onClick={() => void loadText()}>Load tab</button>
           </div>
           {clipNote && <span className="small muted" role="status">{clipNote}</span>}
+          {imported && <p className="notice small" role="status">{imported}</p>}
           {yt.trim() && !link && <span className="small" style={{ color: 'var(--jewel)' }}>That YouTube link doesn't look right.</span>}
           {error && <p className="notice small" role="alert">{error}</p>}
         </section>
@@ -214,8 +236,9 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
         </section>
 
         <section>
-          <h3>Your songs</h3>
-          {songs.filter(s => s.source !== 'example' && s.source !== 'lesson').length === 0 && <p className="small muted">Songs you add are saved on this phone.</p>}
+          <h3>Your {inst.label.toLowerCase()} songs</h3>
+          {songs.filter(s => s.source !== 'example' && s.source !== 'lesson').length === 0 && <p className="small muted">Songs you add in {inst.label.toLowerCase()} mode are saved on this phone and only show up in {inst.label.toLowerCase()} mode.</p>}
+          {moved && <p className="small muted" role="status">{moved}</p>}
           {songs.filter(s => s.source !== 'example' && s.source !== 'lesson').length > 4 && (
             <input className="input" type="search" style={{ width: '100%', marginBottom: 6 }} placeholder="Search your songs" value={filter} onChange={e => setFilter(e.target.value)} aria-label="Search your songs" />
           )}
@@ -230,11 +253,21 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
                 </button>
                 {confirmDel === s.id ? (
                   <span className="row" style={{ flexWrap: 'nowrap' }}>
-                    <button className="btn sm danger" onClick={async () => { await deleteSong(s.id); setConfirmDel(null); setSongs(await listSongs()) }}>Delete</button>
+                    <button className="btn sm danger" onClick={async () => { await deleteSong(s.id); setConfirmDel(null); await refresh() }}>Delete</button>
                     <button className="btn sm" onClick={() => setConfirmDel(null)}>Keep</button>
                   </span>
+                ) : moving === s.id ? (
+                  <span className="row" style={{ flexWrap: 'nowrap' }}>
+                    {(Object.keys(INSTRUMENTS) as InstrumentId[]).filter(i => i !== inst.id).map(i => (
+                      <button key={i} className="btn sm" onClick={async () => { await saveSong({ ...s, inst: i }); setMoving(null); setMoved(`Moved "${s.title}" to ${INSTRUMENTS[i].label} mode.`); await refresh() }}>{INSTRUMENTS[i].short}</button>
+                    ))}
+                    <button className="btn sm ghost" onClick={() => setMoving(null)} aria-label="Cancel">✕</button>
+                  </span>
                 ) : (
-                  <button className="btn sm ghost" onClick={() => setConfirmDel(s.id)} aria-label={`Delete ${s.title}`}>Remove</button>
+                  <span className="row" style={{ flexWrap: 'nowrap', gap: 2 }}>
+                    <button className="btn sm ghost" onClick={() => setMoving(s.id)} aria-label={`Move ${s.title} to another instrument`}>Move</button>
+                    <button className="btn sm ghost" onClick={() => setConfirmDel(s.id)} aria-label={`Delete ${s.title}`}>Remove</button>
+                  </span>
                 )}
               </li>
             ))}

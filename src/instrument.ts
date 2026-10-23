@@ -134,7 +134,7 @@ function withMidi(frets: number[], fingers: number[], barres: number[], baseFret
 }
 
 /** Chord tones (pitch classes) for a library suffix on a root. */
-const SUFFIX_IV: Record<string, number[]> = {
+export const SUFFIX_IV: Record<string, number[]> = {
   major: [0, 4, 7], minor: [0, 3, 7], '5': [0, 7], '7': [0, 4, 7, 10], maj7: [0, 4, 7, 11], m7: [0, 3, 7, 10], dim: [0, 3, 6],
   dim7: [0, 3, 6, 9], m7b5: [0, 3, 6, 10], aug: [0, 4, 8], sus2: [0, 2, 7], sus4: [0, 5, 7], '7sus4': [0, 5, 7, 10],
   add9: [0, 4, 7, 2], madd9: [0, 3, 7, 2], '6': [0, 4, 7, 9], m6: [0, 3, 7, 9], '69': [0, 4, 9, 2], '9': [0, 4, 10, 2],

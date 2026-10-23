@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { usePracticeTimer } from '../learn/progress'
 import { PitchTracker, type PitchReading } from '../audio/pitch'
 import { keepAwake, audio, out } from '../audio/engine'
 import { freqToMidi, midiName, midiToFreq } from '../theory/notes'
@@ -11,6 +12,7 @@ const SMOOTH = 0.25
 export function TunerScreen() {
   const [a4, setA4] = usePersist('a4', 440)
   const [running, setRunning] = useState(false)
+  usePracticeTimer('tuner', running, true)
   const [err, setErr] = useState<string | null>(null)
   const [reading, setReading] = useState<{ midi: number; cents: number; freq: number } | null>(null)
   const [level, setLevel] = useState(0)
