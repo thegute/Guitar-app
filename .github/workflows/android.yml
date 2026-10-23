@@ -1,0 +1,56 @@
+name: Build KGuitar for Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build the web app
+        run: |
+          npm ci
+          npm run build
+          npx cap sync android
+
+      - name: Build the APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon -PversionCode=${{ github.run_number }} -PversionName=0.1.${{ github.run_number }}
+
+      - name: Name the APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk KGuitar-${{ github.run_number }}.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KGuitar-apk
+          path: KGuitar-*.apk
+
+      - name: Publish a download page (GitHub release)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "build-${{ github.run_number }}" "KGuitar-${{ github.run_number }}.apk" \
+            --title "KGuitar build ${{ github.run_number }}" \
+            --notes "On your phone: open this page, tap KGuitar-${{ github.run_number }}.apk, then Install. Each new build installs over the old one and keeps your settings." \
+            --latest
