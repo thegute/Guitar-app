@@ -1,0 +1,75 @@
+// Plays a tab back with the guitar synth so you can hear how it should sound,
+// reporting which step is sounding so the tab can highlight along.
+import { audio } from './engine'
+import { playNote } from './pluck'
+import type { FlatStep } from '../tabs/model'
+
+export class TabPlayer {
+  onStep?: (flatIdx: number) => void
+  onEnd?: () => void
+  private timer: ReturnType<typeof setInterval> | null = null
+  private raf = 0
+  private queue: { t: number; i: number }[] = []
+  private ringing = new Map<number, { stop: (at?: number) => void }>()
+  private all: { stop: (at?: number) => void }[] = []
+  private endAt = 0
+  playing = false
+
+  /** Play steps [from, to) at the given tempo (quarter notes per minute). */
+  play(flat: FlatStep[], from: number, bpm: number, to = flat.length) {
+    this.stop()
+    const ctx = audio()
+    void ctx.resume()
+    this.playing = true
+    let t = ctx.currentTime + 0.15
+    let i = Math.max(0, from)
+    this.endAt = 0
+    const schedule = () => {
+      while (i < to && t < ctx.currentTime + 0.3) {
+        const st = flat[i].step
+        const notes = st.notes
+        notes.forEach((n, k) => {
+          // a new note on a string stops the one ringing on it, like a real guitar
+          this.ringing.get(n.string)?.stop(t)
+          if (n.tech === 'x') { this.ringing.delete(n.string); return }
+          const at = t + (notes.length > 2 ? k * 0.012 : 0)
+          const h = playNote(n.midi, at, notes.length > 2 ? 0.55 : 0.75)
+          this.ringing.set(n.string, h)
+          this.all.push(h)
+        })
+        this.queue.push({ t, i })
+        t += (st.dur * 60) / bpm
+        i++
+      }
+      if (i >= to && !this.endAt) this.endAt = t + 0.2
+      if (this.all.length > 400) this.all.splice(0, 200)
+    }
+    schedule()
+    this.timer = setInterval(schedule, 60)
+    const tick = () => {
+      const now = ctx.currentTime
+      let last = -1
+      while (this.queue.length && this.queue[0].t <= now) last = this.queue.shift()!.i
+      if (last >= 0) this.onStep?.(last)
+      if (this.endAt && now >= this.endAt) {
+        this.stop()
+        this.onEnd?.()
+        return
+      }
+      this.raf = requestAnimationFrame(tick)
+    }
+    this.raf = requestAnimationFrame(tick)
+  }
+
+  stop() {
+    if (this.timer) clearInterval(this.timer)
+    this.timer = null
+    cancelAnimationFrame(this.raf)
+    const now = audio().currentTime
+    for (const h of this.all) h.stop(now)
+    this.all = []
+    this.ringing.clear()
+    this.queue = []
+    this.playing = false
+  }
+}

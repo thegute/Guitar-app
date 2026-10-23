@@ -1,6 +1,7 @@
 // Microphone pitch detection (McLeod pitch method via pitchy).
 import { PitchDetector } from 'pitchy'
 import { audio } from './engine'
+import { openInput, type OpenedInput } from './input'
 
 export interface PitchReading {
   freq: number
@@ -16,12 +17,12 @@ export class PitchTracker {
   private buf: Float32Array<ArrayBuffer> = new Float32Array(4096)
   private detector = PitchDetector.forFloat32Array(4096)
   onReading?: (r: PitchReading | null) => void
+  input: OpenedInput | null = null
 
   async start() {
     const ctx = audio()
-    this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-    })
+    this.input = await openInput()
+    this.stream = this.input.stream
     const src = ctx.createMediaStreamSource(this.stream)
     this.analyser = ctx.createAnalyser()
     this.analyser.fftSize = 4096

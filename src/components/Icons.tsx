@@ -16,6 +16,9 @@ export const IconScale = () => (
 export const IconProgression = () => (
   <svg viewBox="0 0 24 24" {...s}><rect x="3" y="6" width="5" height="12" rx="1" /><rect x="10" y="6" width="5" height="12" rx="1" /><path d="M17.5 8.5l3 3.5-3 3.5" /></svg>
 )
+export const IconTab = () => (
+  <svg viewBox="0 0 24 24" {...s}><path d="M3 6h11M3 10h9M3 14h9M3 18h11" /><path d="M15 9.5l6 4.5-6 4.5z" fill="currentColor" /></svg>
+)
 export const IconPlay = () => (<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M7 5l12 7-12 7z" /></svg>)
 export const IconStop = () => (<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1" /></svg>)
 export const IconLock = ({ locked }: { locked: boolean }) => (

@@ -7,3 +7,5 @@ android/local.properties
 android/app/src/main/assets/public
 *.log
 .DS_Store
+tsconfig.tsbuildinfo
+tests/browser/out

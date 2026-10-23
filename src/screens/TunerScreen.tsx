@@ -3,6 +3,7 @@ import { PitchTracker, type PitchReading } from '../audio/pitch'
 import { keepAwake, audio, out } from '../audio/engine'
 import { TUNINGS, freqToMidi, midiName, midiToFreq, noteToMidi } from '../theory/notes'
 import { Field, usePersist } from '../components/Controls'
+import { InputPicker } from '../components/InputPicker'
 
 const SMOOTH = 0.25
 
@@ -13,6 +14,7 @@ export function TunerScreen() {
   const [err, setErr] = useState<string | null>(null)
   const [reading, setReading] = useState<{ midi: number; cents: number; freq: number } | null>(null)
   const [level, setLevel] = useState(0)
+  const [input, setInput] = useState<{ label: string; external: boolean } | null>(null)
   const tracker = useRef<PitchTracker | null>(null)
   const smooth = useRef<number | null>(null)
   const lastSeen = useRef(0)
@@ -43,10 +45,11 @@ export function TunerScreen() {
       }
       await t.start()
       tracker.current = t
+      setInput(t.input ? { label: t.input.label, external: t.input.external } : null)
       setRunning(true)
       void keepAwake(true)
     } catch (e) {
-      setErr('KGuitar needs the microphone to hear your guitar. Allow microphone access and try again.')
+      setErr('KGuitar needs microphone access to hear your guitar (this also covers a USB amp). Allow it and try again.')
       console.warn(e)
     }
   }
@@ -54,6 +57,7 @@ export function TunerScreen() {
     tracker.current?.stop()
     tracker.current = null
     setRunning(false)
+    setInput(null)
     setReading(null)
     void keepAwake(false)
   }
@@ -107,8 +111,9 @@ export function TunerScreen() {
         <div style={{ height: 6, background: 'var(--rosewood-3)', borderRadius: 3, margin: '14px auto 4px', maxWidth: 260 }}>
           <div style={{ height: '100%', width: `${level * 100}%`, background: 'var(--nickel)', borderRadius: 3, transition: 'width 60ms' }} />
         </div>
-        <div style={{ marginTop: 16 }}>
+        <div className="row" style={{ marginTop: 16, justifyContent: 'center' }}>
           {running ? <button className="btn big" onClick={stop}>Stop</button> : <button className="btn big primary" onClick={start}>Start tuner</button>}
+          <InputPicker active={input} onChanged={() => { if (tracker.current) { stop(); void start() } }} />
         </div>
         {err && <p className="notice small" style={{ textAlign: 'left', marginTop: 12 }}>{err}</p>}
       </div>
