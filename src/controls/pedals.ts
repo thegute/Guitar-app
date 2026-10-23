@@ -26,7 +26,8 @@ let version = 0
 const changed = () => { version++; listeners.forEach(f => f()) }
 
 export function bindings(): Record<string, PedalAction> {
-  try { return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(KEY) ?? '{}') as Record<string, PedalAction>) } } catch { return { ...DEFAULTS } }
+  // once you change anything the whole map is saved, so a default you removed stays removed
+  try { const s = localStorage.getItem(KEY); return s ? (JSON.parse(s) as Record<string, PedalAction>) : { ...DEFAULTS } } catch { return { ...DEFAULTS } }
 }
 export function bind(code: string, action: PedalAction) {
   const b = bindings()

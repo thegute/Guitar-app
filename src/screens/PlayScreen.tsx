@@ -21,6 +21,8 @@ import { latencyMs } from '../audio/gear'
 import { chordMatch } from '../audio/chroma'
 import { useInTime, type TrainerOpts } from '../play/useInTime'
 import { usePedals } from '../controls/pedals'
+import { recordRun } from '../play/songStats'
+import { useFoldPosture } from '../play/fold'
 import type { VideoApi } from '../play/inTime'
 import { exampleDoc } from '../tabs/examples'
 import { playNote, strum } from '../audio/pluck'
@@ -76,6 +78,11 @@ export function PlayScreen() {
   const [guide, setGuide] = usePersist('timeGuide', false)
   const [trainer, setTrainer] = usePersist<TrainerOpts>('speedTrainer', { on: false, start: 0.6, step: 0.05, target: 1, pass: 90 })
   const video = useRef<VideoApi | null>(null)
+  // half-folded Fold (tabletop): video and readout on the top half, tab on the bottom. 'auto' follows the fold.
+  const [splitPref, setSplitPref] = usePersist<'auto' | 'on' | 'off'>('playSplit', 'auto')
+  const posture = useFoldPosture()
+  const split = splitPref === 'on' || (splitPref === 'auto' && posture.tabletop)
+  const [tabZoom, setTabZoom] = usePersist('tabZoom', 1)
   const lastOnset = useRef(0)
   const [listening, setListening] = useState(false)
   const [micError, setMicError] = useState('')
@@ -203,8 +210,22 @@ export function PlayScreen() {
   }, [flat, cursorFlat])
 
   // ---------- following the mic ----------
-  const ref = useRef({ pos, follow, strict, flat, loopRange, lesson: false, flats: false })
-  ref.current = { pos, follow, strict, flat, loopRange, lesson: doc?.source === 'lesson', flats }
+  const ref = useRef({ pos, follow, strict, flat, loopRange, lesson: false, flats: false, doc: null as SongDoc | null, loop: null as { from: number; to: number } | null })
+  ref.current = { pos, follow, strict, flat, loopRange, lesson: doc?.source === 'lesson', flats, doc, loop: doc?.loop ?? null }
+
+  /** Save a run to this song's progress: score plus which bars went wrong. */
+  const saveRun = useCallback((score: number, runMode: 'wait' | 'time', speedNow: number, full: boolean, bars?: [number, number]) => {
+    const { flat, doc: d } = ref.current
+    if (!d) return
+    const miss: Record<number, number> = {}, hit: Record<number, number> = {}
+    states.current.forEach((st, i) => {
+      const b = flat[i]?.bar
+      if (b === undefined || (bars && (b < bars[0] || b > bars[1]))) return
+      if (st === 1) hit[b] = (hit[b] ?? 0) + 1
+      else if (st === 2 || st === 3) miss[b] = (miss[b] ?? 0) + 1
+    })
+    recordRun(d.id, { title: d.title, inst: docInstrument(d) }, { score, mode: runMode, speed: speedNow, full, bars }, { miss, hit })
+  }, [])
 
   const hitAt = useCallback((step: number, skipped: number, heard: number, chordText?: string) => {
     const { pos, follow, strict, loopRange } = ref.current
@@ -229,6 +250,8 @@ export function PlayScreen() {
         const score = Math.round((ok / (loopRange.b - loopRange.a + 1)) * 100)
         setPasses(p => ({ n: p.n + 1, last: score, best: Math.max(p.best ?? 0, score) }))
         if (score >= 90) bump('loop90')
+        const lp = ref.current.loop
+        saveRun(score, 'wait', 1, false, lp ? [lp.from, lp.to] : undefined)
         setTimeout(() => {
           for (let k = loopRange.a; k <= loopRange.b; k++) st[follow.idx[k]] = 0
           setVersion(v => v + 1)
@@ -236,6 +259,10 @@ export function PlayScreen() {
         next = loopRange.a
       } else if (!loopRange && next >= follow.steps.length) {
         bump(ref.current.lesson ? 'exercisesFinished' : 'songsFinished')
+        // score = notes right first time
+        let ok = 0, n = 0
+        for (const i of follow.idx) { const v = st[i]; if (v) { n++; if (v === 1) ok++ } }
+        if (n) saveRun(Math.round((ok / follow.idx.length) * 100), 'wait', 1, follow.idx.length > 0 && n >= follow.idx.length * 0.8)
       }
       setPos(next)
     }
@@ -330,8 +357,11 @@ export function PlayScreen() {
     latencyMs: () => latencyMs(kindOf(listener.current?.external)),
     onChange: () => setVersion(v => v + 1),
     onHitNote: () => bumpCounts({ notesHit: 1, [doc?.source === 'lesson' ? 'exerciseNotes' : 'songNotes']: 1 }),
-    onPass: s => { if (s.score >= 90) bump('loop90') },
-    onFinish: s => { if (s.score >= 60) bump(doc?.source === 'lesson' ? 'exercisesFinished' : 'songsFinished') },
+    onPass: (s, sp) => { if (s.score >= 90) bump('loop90'); if (loop) saveRun(s.score, 'time', sp, false, [loop.from, loop.to]) },
+    onFinish: s => {
+      if (s.score >= 60) bump(doc?.source === 'lesson' ? 'exercisesFinished' : 'songsFinished')
+      saveRun(s.score, 'time', speed, !loop && s.total > 0, loop ? [loop.from, loop.to] : undefined)
+    },
   })
   const inTimeRef = useRef(inTime)
   inTimeRef.current = inTime
@@ -529,7 +559,7 @@ export function PlayScreen() {
         ) : (
           <>
             <span className="small muted">
-              Next · note {pos + 1} of {follow.idx.length} · bar {flat[cursorFlat].bar + 1}
+              Next · {wantChord ? 'chord' : 'note'} {pos + 1} of {follow.idx.length} · bar {flat[cursorFlat].bar + 1}
               {loopRange && ` · loop pass ${passes.n + 1}${passes.last !== null ? ` · last pass ${passes.last}%` : ''}${passes.best !== null ? ` · best ${passes.best}%` : ''}`}
             </span>
             {wantChord ? (
@@ -585,6 +615,11 @@ export function PlayScreen() {
         </>
       )}
       <button className="btn sm" onClick={() => restart()}>Restart</button>
+      <span className="zoom-btns" role="group" aria-label="Tab size">
+        <button className="btn sm" onClick={() => setTabZoom(z => Math.max(0.7, Math.round((z - 0.1) * 10) / 10))} aria-label="Smaller tab">A−</button>
+        <button className="btn sm" onClick={() => setTabZoom(z => Math.min(1.8, Math.round((z + 0.1) * 10) / 10))} aria-label="Bigger tab">A+</button>
+      </span>
+      <button className="btn sm" aria-pressed={split} onClick={() => setSplitPref(split ? 'off' : 'on')} title="Video and readout on top, tab below (automatic when the Fold is half-folded)">Split</button>
       <button className="btn sm" aria-pressed={strict} onClick={() => setStrict(!strict)} title="Only count the note in the exact octave">Exact octave</button>
       <label className="sens" title="How easily a sound counts as a note. Set it properly in Set up input.">
         <span className="small">Sensitivity</span>
@@ -596,7 +631,8 @@ export function PlayScreen() {
   )
 
   return (
-    <div className={`play view-${view}${showVideo && doc.youtube ? ' has-video' : ''}`}>
+    <div className={`play view-${view}${showVideo && doc.youtube ? ' has-video' : ''}${split ? ' tabletop' : ''}`}
+      style={{ ['--tab-zoom' as string]: tabZoom, ...(split && posture.tabletop ? { ['--fold-top' as string]: `${posture.top}px`, ['--fold-hinge' as string]: `${posture.hinge}px` } : {}) }}>
       <header className="play-head">
         <button className="btn sm" onClick={() => setSheet(true)}>Songs</button>
         <div className="song-title">

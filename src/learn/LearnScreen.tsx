@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { IconGear } from '../components/Icons'
 import { useInstrument } from '../instrument'
 import { buildExercise, ESSENTIALS } from '../tabs/exercises'
-import type { SongDoc } from '../tabs/library'
+import { getSong, type SongDoc } from '../tabs/library'
 import { go as goTab, openInPlay } from '../nav'
 import { allLogs, dailyGoalMin, dayCounts, dayKey, isAway, setAway, stars, streak, todayLog, useProgress, COUNTS_AFTER_SEC } from './progress'
 import { freezes, levelInfo, questProgress, todaysQuests } from './game'
@@ -18,13 +18,14 @@ import { LessonList, LessonView, lessonsRead } from './LessonReader'
 import { ChordChanges, CircleTool, RhythmTrainer } from './Tools'
 import { ProgressView } from './ProgressView'
 import { Settings } from './Settings'
+import { GuideScreen } from './GuideScreen'
 import { LESSONS } from './lessons'
 import { lastBackup } from '../backup'
 import { ago } from '../components/BackupPanel'
 
 type Route =
   | { k: 'home' } | { k: 'quiz'; id: string } | { k: 'lesson'; id: string } | { k: 'lessons' } | { k: 'ear' } | { k: 'caged' }
-  | { k: 'changes' } | { k: 'rhythm' } | { k: 'circle' } | { k: 'progress' } | { k: 'settings' }
+  | { k: 'changes' } | { k: 'rhythm' } | { k: 'circle' } | { k: 'progress' } | { k: 'settings' } | { k: 'guide' }
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -57,7 +58,12 @@ function Stars({ n }: { n: number }) {
 export function LearnScreen() {
   useProgress()
   const inst = useInstrument()
-  const [stack, setStack] = useState<Route[]>([{ k: 'home' }])
+  const [stack, setStack] = useState<Route[]>(() => {
+    // the welcome's "Show me around" opens the guide
+    let guide = false
+    try { guide = sessionStorage.getItem('kg:openGuide') === '1'; sessionStorage.removeItem('kg:openGuide') } catch { /* storage unavailable */ }
+    return guide ? [{ k: 'home' }, { k: 'guide' }] : [{ k: 'home' }]
+  })
   const [openUnit, setOpenUnit] = useState<string | null>(null)
   const [allStages, setAllStages] = useState(false)
   const [awayNote, setAwayNote] = useState('')
@@ -78,6 +84,7 @@ export function LearnScreen() {
     else if ('lesson' in g) push({ k: 'lesson', id: g.lesson })
     else if ('tool' in g) push({ k: g.tool })
     else if ('tab' in g) goTab(g.tab)
+    else if ('song' in g) void getSong(g.song).then(doc => { if (doc) openInPlay(g.loop ? { ...doc, loop: g.loop } : doc); else goTab('play') })
     else void openExercise(g.exercise)
   }
 
@@ -96,6 +103,7 @@ export function LearnScreen() {
   if (route.k === 'circle') return <CircleTool onExit={back} onQuiz={id => push({ k: 'quiz', id })} />
   if (route.k === 'progress') return <ProgressView inst={inst} onExit={back} />
   if (route.k === 'settings') return <Settings inst={inst} onExit={back} />
+  if (route.k === 'guide') return <GuideScreen onExit={back} onGo={launch} />
 
   // ---------- home ----------
   const d = todayLog()
@@ -141,6 +149,7 @@ export function LearnScreen() {
     { id: 'changes', title: 'Chord changes', sub: changesBest ? `Best: ${changesBest} a minute` : 'One-minute drill', needs: true },
     { id: 'rhythm', title: 'Rhythm trainer', sub: 'Listen, then tap it back' },
     { id: 'progress', title: 'Progress', sub: 'Calendar and badges' },
+    { id: 'guide', title: 'How to use KGuitar', sub: 'Every feature, explained' },
   ]
 
   return (

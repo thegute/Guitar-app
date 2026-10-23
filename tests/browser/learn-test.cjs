@@ -34,7 +34,7 @@ async function overflow(page) {
       const page = await ctx.newPage()
       const errors = []
       page.on('pageerror', e => errors.push(e.message))
-      await page.addInitScript(t => { if (!sessionStorage.getItem('seeded')) { localStorage.clear(); localStorage.setItem('kg:theme', JSON.stringify(t)); localStorage.setItem('kg:tab2', '"learn"'); sessionStorage.setItem('seeded', '1') } }, theme)
+      await page.addInitScript(t => { if (!sessionStorage.getItem('seeded')) { localStorage.clear(); localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:theme', JSON.stringify(t)); localStorage.setItem('kg:tab2', '"learn"'); sessionStorage.setItem('seeded', '1') } }, theme)
       await page.goto('http://localhost:4173/')
       await page.waitForSelector('.today-card')
       const shot = async name => {
@@ -88,7 +88,7 @@ async function overflow(page) {
   const errors = []
   page.on('pageerror', e => errors.push(e.message))
   await page.goto('http://localhost:4173/')
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('kg:tab2', '"play"') })
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:tab2', '"play"') })
   await page.reload()
   await page.waitForSelector('.tab-note')
   // paste a guitar tab into the guitar bank

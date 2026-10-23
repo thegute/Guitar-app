@@ -11,6 +11,7 @@ import { isToolPage, onGo, type Tab, type ToolPage } from './nav'
 import { dailyGoalMin, todayLog, useProgress } from './learn/progress'
 import { ACTION_LABEL, onPedal, type PedalAction } from './controls/pedals'
 import { ShareInbox } from './components/ShareInbox'
+import { Welcome, needsWelcome, openGuide } from './components/Welcome'
 
 const TABS: { id: Tab; label: string; icon: () => JSX.Element }[] = [
   { id: 'play', label: 'Play', icon: IconTab },
@@ -25,6 +26,7 @@ export default function App() {
   // older versions had Tuner, Tempo, Chords and Scales as their own tabs
   const tab: Tab = isToolPage(saved) ? 'tools' : (['play', 'learn', 'progressions', 'tools'].includes(saved) ? saved as Tab : 'play')
   const [scaleJump, setScaleJump] = useState<{ root: string; scale: string } | null>(null)
+  const [welcome, setWelcome] = useState(needsWelcome)
   const inst = useInstrument()
   useProgress()
   useEffect(() => onGo(t => {
@@ -60,6 +62,7 @@ export default function App() {
         ))}
       </nav>
       {pedal && <div key={pedal.k} className="pedal-toast" role="status">🦶 {ACTION_LABEL[pedal.a].replace(/ \(.*\)$/, '')}</div>}
+      {welcome && <Welcome onDone={then => { setWelcome(false); if (then === 'guide') openGuide(); else setTab('play') }} />}
       <ShareInbox />
       <CelebrationLayer />
     </div>

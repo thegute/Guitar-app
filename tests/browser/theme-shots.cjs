@@ -10,6 +10,7 @@ const DIR = path.join(__dirname, 'out')
     const errors = []
     page.on('pageerror', e => errors.push(e.message))
     await page.addInitScript(t => localStorage.setItem('kg:theme', JSON.stringify(t)), theme)
+    await page.addInitScript(() => { try { localStorage.setItem('kg:welcomed', '1') } catch { /* video iframe */ } })
     await page.goto('http://localhost:4173/')
     await page.waitForSelector('.tab-note')
     await page.click('.view-switch >> text=Both').catch(() => {})

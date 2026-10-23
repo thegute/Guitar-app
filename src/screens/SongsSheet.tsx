@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { deleteSong, listSongs, saveSong, youtubeId, type SongDoc } from '../tabs/library'
 import { EXAMPLES, exampleDoc, exampleId } from '../tabs/examples'
 import { songFromFile, songFromText } from '../tabs/importer'
+import { ago, songStats } from '../play/songStats'
 import { Clipboard } from '@capacitor/clipboard'
 import { INSTRUMENTS, useInstrument, type InstrumentId } from '../instrument'
 import { KeyPicker, Chips, usePersist } from '../components/Controls'
@@ -232,6 +233,18 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
                   <span className="small muted">
                     {[s.artist, s.source === 'gp' ? 'Guitar Pro' : s.source === 'chords' ? 'Chord sheet' : 'Text tab', s.youtube ? 'video' : null, s.song.tracks.length > 1 ? `${s.song.tracks.length} tracks` : null].filter(Boolean).join(' · ')}
                   </span>
+                  {(() => {
+                    const st = songStats(s.id)
+                    if (!st) return null
+                    const due = st.review && st.review.due <= Date.now()
+                    return (
+                      <span className="small song-progress">
+                        {st.best > 0 && <span>best {st.best}%</span>}
+                        <span className="muted">played {ago(st.lastAt)}</span>
+                        {st.learnedAt && <span className={due ? 'due' : 'learned'}>{due ? 'review due' : '✓ learned'}</span>}
+                      </span>
+                    )
+                  })()}
                 </button>
                 {confirmDel === s.id ? (
                   <span className="row" style={{ flexWrap: 'nowrap' }}>

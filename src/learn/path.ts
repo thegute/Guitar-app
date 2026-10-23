@@ -8,9 +8,10 @@ import { LESSONS } from './lessons'
 export type Go =
   | { quiz: string }
   | { lesson: string }
-  | { tool: 'ear' | 'caged' | 'changes' | 'rhythm' | 'circle' | 'lessons' }
+  | { tool: 'ear' | 'caged' | 'changes' | 'rhythm' | 'circle' | 'lessons' | 'settings' | 'progress' | 'guide' }
   | { tab: 'play' | 'progressions' | 'tuner' }
   | { exercise: 'spider' | 'penta1' }
+  | { song: string; loop?: { from: number; to: number } }
 
 export interface Goal { label: string; done: boolean; go: Go; guitar: boolean }
 export interface Stage { id: string; title: string; why: string; goals: Goal[] }

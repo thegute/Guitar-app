@@ -792,3 +792,53 @@ details summary { cursor: pointer; color: var(--pearl-2); }
 .chip.sm-chip { min-height: 30px; padding: 0 10px; font-size: 13px; }
 
 .backup-nudge { display: flex; flex-direction: column; gap: 2px; text-align: left; background: color-mix(in srgb, var(--gold) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--gold) 50%, transparent); border-radius: 12px; padding: 10px 12px; }
+
+.song-progress { display: flex; gap: 8px; flex-wrap: wrap; }
+.song-progress .learned { color: var(--mint-text); font-weight: 600; }
+.song-progress .due { color: var(--gold-text); font-weight: 600; }
+
+/* tab size (A− / A+) */
+.tab-rows { zoom: var(--tab-zoom, 1); }
+.zoom-btns { display: inline-flex; gap: 2px; flex: none; }
+
+/* Split / tabletop: the Fold half-folded like a laptop. Top half: header, video, readout. Bottom half: the tab. */
+.play.tabletop, .play.tabletop.view-both {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, calc(var(--fold-top, 50dvh) - 64px)) var(--fold-hinge, 6px) minmax(0, 1fr);
+  grid-template-areas: 'head' 'side' '.' 'body';
+}
+.play.tabletop .view-switch, .play.tabletop .play-solo { display: none; }
+.play.tabletop .play-tab { display: flex; grid-area: body; }
+.play.tabletop .play-side { grid-area: side; overflow-y: auto; min-height: 0; grid-template-columns: minmax(0, 1fr); }
+.play.tabletop.has-video .play-side { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: start; }
+.play.tabletop .yt-frame { max-height: calc(var(--fold-top, 50dvh) - 140px); min-height: 120px; }
+
+/* ---------- welcome + guide ---------- */
+.welcome { position: fixed; inset: 0; z-index: 60; background: var(--bg); overflow-y: auto; display: grid; place-items: center; padding: calc(16px + var(--sat)) 16px calc(16px + var(--sab)); }
+.welcome-card { width: min(520px, 100%); display: grid; gap: 14px; }
+.welcome-card h1 { margin: 0; }
+.welcome-card h2 { margin: 0; font-size: 28px; }
+.welcome-card p { margin: 0; }
+/* first screen: the KGuitar art (the owner's illustration) above the text on phones, beside it on wide screens */
+.welcome-card.hello { width: min(980px, 100%); }
+.welcome-hello { display: grid; gap: 14px; align-content: center; }
+.welcome-art { display: block; width: 100%; height: min(46vh, 420px); object-fit: cover; object-position: 48% 16%; border-radius: 18px; box-shadow: var(--shadow); background: #120e17; }
+@media (min-width: 700px) and (min-aspect-ratio: 1/1) {
+  .welcome-card.hello { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr); gap: 32px; align-items: center; }
+  .welcome-art { height: auto; max-height: calc(100vh - 48px); aspect-ratio: 1696 / 2528; object-position: center; }
+}
+@media (min-width: 700px) and (max-aspect-ratio: 1/1) {
+  .welcome-art { height: min(52vh, 640px); }
+}
+.guide-title { display: flex; align-items: center; gap: 14px; }
+.guide-title img { width: 64px; height: 64px; flex: none; border-radius: 16px; object-fit: cover; object-position: 48% 15%; box-shadow: var(--shadow); background: #120e17; }
+.guide-title h1 { margin: 0; }
+.guide-sec { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; box-shadow: var(--shadow); }
+.guide-head { width: 100%; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; text-align: left; background: none; border: 0; padding: 12px 14px; align-items: start; }
+.guide-head > span:last-child { display: flex; flex-direction: column; gap: 2px; }
+.guide-head b { font-family: var(--display); font-size: 21px; font-weight: 600; }
+.guide-num { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-family: var(--display); font-weight: 700; }
+.guide-items { list-style: none; margin: 0; padding: 0 14px 12px 58px; display: grid; gap: 12px; }
+.guide-items li { display: grid; gap: 4px; justify-items: start; border-top: 1px solid var(--line); padding-top: 10px; }
+.guide-items p { margin: 0; max-width: 62ch; }
+@media (max-width: 420px) { .guide-items { padding-left: 14px; } }

@@ -51,7 +51,7 @@ export function ChordsScreen() {
             </div>
           </div>
           <p className="small muted" style={{ marginTop: 8 }}>{vs.length} shapes. Tap a shape to hear it.</p>
-          <div className="row" style={{ flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 6 }}>
+          <div className="row scroll-x" style={{ flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 6 }}>
             {vs.map((vv, i) => (
               <ChordDiagram key={i} voicing={vv} active={i === sel} onClick={() => play(i)} />
             ))}
