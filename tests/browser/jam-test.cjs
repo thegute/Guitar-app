@@ -69,7 +69,7 @@ const only = process.argv[2]
     await page.screenshot({ path: `${DIR}/jam-${vp.name}-3-recording.png` })
     await page.waitForSelector('.layers li', { timeout: 15000 }).catch(() => {})
     out.layers = await page.$$eval('.layers li', e => e.length)
-    out.chordsChip = await page.$eval('button.chip:has-text("Chords")', b => b.getAttribute('aria-pressed'))
+    out.chordsChip = await page.$eval('button.chip:has-text("Backing guitar")', b => b.getAttribute('aria-pressed'))
     // nudge earlier
     await page.click('.layers li >> text=Earlier').catch(() => {})
     out.nudge = await page.textContent('.layers li .nudge').catch(() => '')

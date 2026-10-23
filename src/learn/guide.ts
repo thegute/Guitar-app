@@ -29,6 +29,8 @@ export const GUIDE: GuideSection[] = [
       { title: 'YouTube video beside the tab', text: 'Paste a YouTube link under the Video button. Speed buttons slow it down; A and B set a loop. Sync with tab lines the video up with the tab so, in In time mode, the tab scrolls with the recording. If a video says it can\'t play here, its owner blocks other apps: use Open in YouTube.' },
       { title: 'Scales & chords for soloing', text: 'The panel under the tab (or Scales & chords on small screens) shows the song\'s key, the scales that fit, the chords, and the fretboard. Arpeggio shows the chord\'s notes, Triads small chord shapes, Connect how to move smoothly to the next chord.' },
       { title: 'Split screen on a folding phone', text: 'Half-fold a Galaxy Fold like a little laptop and Play puts the video and readout on top and the tab on the bottom. The Split button does the same on any phone or tablet.' },
+      { title: 'Make the tab bigger', text: 'Drag the bars between the panels (the little grey handles) to give the tab more room, or drag a panel all the way to tuck it away; tap its arrow to bring it back. The ⤢ button at the top (Full tab) hides everything but the tab and a slim note readout. Play remembers how you left it.' },
+      { title: 'Where your fingers go', text: 'Under the next note, a small piece of the neck shows where your fretting hand sits for this part of the tab: which fret, and which finger plays each note (1 index, 2 middle, 3 ring, 4 pinky, 0 open string). The note to play next glows, and it tells you just before your hand needs to move. Scales & chords → Hand shape shows the same on the big fretboard. ✋ Hand turns it off and on.' },
     ],
   },
   {
@@ -55,6 +57,10 @@ export const GUIDE: GuideSection[] = [
       { title: 'Make a progression', text: 'Pick a key, style and how many chords, then tap New progression. Every chord shows its shape; lock the ones you like (the padlock) and tap New progression again to change the rest. Options has more: chord colours, endings and how adventurous it gets. Famous progressions are at the bottom.', go: { tab: 'progressions' } },
       { title: 'Play along', text: 'Tap Play loop for strumming, drums and a click. The scales panel shows what to solo with, and the circle of fifths lights up the chords.' },
       { title: 'Looper', text: 'Record a loop: it waits for the start of the next pass and records exactly one loop in time with the drums. Add more layers on top. If loops sound a little late, run Timing check once, or nudge a layer Earlier/Later.' },
+      { title: 'Make it a tab', text: 'Turn the progression into a tab to play along with: Travis picking (several patterns, from the alternating thumb up), arpeggios, or strumming. Preview plays it first; Open in Play follows you note by note.', go: { tab: 'progressions' } },
+      { title: 'Chord melody', text: 'Writes a tune over your chords with the chords under it, in the style you pick (ballad, folk, jazz, bossa nova, blues, country, island). Roll again until you like it; Keep holds the parts you like. Melody only and Melody + bass are easier versions.' },
+      { title: 'Licks', text: 'New practice licks in the key of your progression, in bluegrass, rock, prog metal, metal, folk or country, at three levels. Also in Songs → Lick generator for any key.' },
+      { title: 'Backing guitar', text: 'Turn off Backing guitar to keep just the drums (and click) while you play the chords yourself.' },
     ],
   },
   {
@@ -73,6 +79,13 @@ export const GUIDE: GuideSection[] = [
       { title: 'Electric: USB amp or interface', text: 'Plug a USB headphone amp or audio interface (for example a Sonicake Amphonix 2) into the phone\'s USB-C port. Automatic input picks it up when it\'s plugged in. Use a clean or lightly driven sound while learning; heavy effects make notes harder to tell apart.' },
       { title: 'Hands-free with a footswitch', text: 'Pair a Bluetooth page-turner or footswitch: right pedal starts and stops, left pedal goes back to the start. Settings → Hands-free lets you set what each pedal does (loop this bar, next bar, Hear it, video …). USB MIDI pedals work too.', go: { tool: 'settings' } },
       { title: 'Sound', text: 'Hear it, Jam and the quizzes use real recorded guitar sounds. Settings → Playback sound picks steel-string acoustic, clean electric or nylon (great for ukulele).' },
+    ],
+  },
+  {
+    id: 'menu', title: 'The menu and the poster', intro: 'Small things that make the screen yours.',
+    items: [
+      { title: 'Hide the menu', text: 'Tap « Hide at the bottom of the side menu (or ⌄ on the bottom bar), or swipe it away. A small tab stays on the left edge: tap it to slide the menu out, pick a section, and it tucks away again. Keep open puts it back for good.' },
+      { title: 'The KGuitar poster', text: 'The little picture in the menu (and on Learn on phones) is the KGuitar poster: tap it to see it full screen, tap again to zoom in and drag around. Settings → Look can hide it.' },
     ],
   },
   {
