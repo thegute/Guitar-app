@@ -43,15 +43,17 @@ interface BarProps {
   selecting: boolean
   onTap: (flatIdx: number, note: SongNote | null) => void
   onBar: (bar: number) => void
+  /** chord sheets: leave a row under the strings for the words */
+  lyricRow: boolean
 }
 
-const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, flats, cursor, states, chords, last, flash, flashKey, loop, selecting, onTap, onBar }: BarProps) {
-  const widths = bar.steps.map(s => stepWidth(s.dur, mode))
+const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, flats, cursor, states, chords, last, flash, flashKey, loop, selecting, onTap, onBar, lyricRow }: BarProps) {
+  const widths = bar.steps.map(s => Math.max(stepWidth(s.dur, mode), s.lyric ? Math.round(s.lyric.length * 6.4) + 12 : 0, s.chord ? s.chord.length * 9 + 8 : 0))
   const xs: number[] = []
   let x = PAD_L
   for (const w of widths) { xs.push(x + w / 2); x += w }
   const width = Math.max(44, x + PAD_R)
-  const height = TOP + (nStr - 1) * GAP + BOTTOM
+  const height = TOP + (nStr - 1) * GAP + BOTTOM + (lyricRow ? 20 : 0)
   const y = (s: number) => TOP + (nStr - 1 - s) * GAP
   const yTop = y(nStr - 1)
   const yBot = y(0)
@@ -62,6 +64,8 @@ const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, f
       {(loop === 'start' || loop === 'both') && <path className="tab-loopmark" d={`M2,${yTop - 12} h10 M2,${yTop - 12} v${yBot - yTop + 24} M2,${yBot + 12} h10`} />}
       {(loop === 'end' || loop === 'both') && <path className="tab-loopmark" d={`M${width - 2},${yTop - 12} h-10 M${width - 2},${yTop - 12} v${yBot - yTop + 24} M${width - 2},${yBot + 12} h-10`} />}
       <text className="tab-barno" x={3} y={10}>{index + 1}</text>
+      {bar.steps[0]?.section && <text className="tab-section" x={index + 1 >= 10 ? 18 : 13} y={10}>{bar.steps[0].section}</text>}
+      {lyricRow && bar.steps.map((st, i) => st.lyric ? <text key={`l${i}`} className="tab-lyric" x={xs[i] - widths[i] / 2 + 3} y={yBot + BOTTOM + 14}>{st.lyric}</text> : null)}
       {Array.from({ length: nStr }, (_, s) => (
         <line key={s} x1={0} x2={width} y1={y(s)} y2={y(s)} className="tab-line" />
       ))}
@@ -164,6 +168,7 @@ export function TabView({ track, mode, flats, cursor, playing, states, version, 
   }, [cursorBar, track])
 
   const empty = ''
+  const lyricRow = useMemo(() => track.bars.some(b => b.steps.some(s => s.lyric)), [track])
   return (
     <div className={`tab-view${playing ? ' playing' : ''}${selecting ? ' selecting' : ''}`} ref={ref} data-version={version}>
       <div className="tab-rows">
@@ -195,6 +200,7 @@ export function TabView({ track, mode, flats, cursor, playing, states, version, 
               selecting={selecting}
               onTap={onTap}
               onBar={onBar}
+              lyricRow={lyricRow}
             />
           )
         })}

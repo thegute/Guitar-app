@@ -150,7 +150,7 @@ button { cursor: pointer; }
 .app { padding-left: var(--sal); padding-right: var(--sar); }
 .main { overflow-y: auto; overflow-x: hidden; padding: calc(14px + var(--sat)) 16px 24px; }
 .nav {
-  display: grid; grid-template-columns: repeat(7, 1fr);
+  display: grid; grid-template-columns: repeat(4, 1fr);
   background: var(--rosewood-2); border-top: 1px solid var(--hairline);
   padding-bottom: var(--sab);
 }
@@ -166,7 +166,7 @@ button { cursor: pointer; }
 }
 @media (min-width: 760px) {
   .app { grid-template-rows: none; grid-template-columns: 92px 1fr; }
-  .nav { grid-template-columns: none; grid-template-rows: repeat(7, 70px); align-content: start; border-top: 0; border-right: 1px solid var(--hairline); order: -1; padding-top: 18px; }
+  .nav { grid-template-columns: none; grid-template-rows: repeat(4, 76px); align-content: start; border-top: 0; border-right: 1px solid var(--hairline); order: -1; padding-top: 18px; }
   .nav button[aria-current='page']::before { top: 25%; bottom: 25%; left: 0; right: auto; width: 3px; height: auto; border-radius: 0 3px 3px 0; }
   .main { padding: calc(22px + var(--sat)) 28px 28px; }
   .nav { padding-top: calc(18px + var(--sat)); }
@@ -747,3 +747,48 @@ details summary { cursor: pointer; color: var(--pearl-2); }
 .confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .confetti i { position: absolute; top: -16px; width: 8px; height: 14px; border-radius: 2px; animation: fall 1.9s ease-in forwards; }
 @keyframes fall { to { transform: translateY(110vh) rotate(600deg); opacity: 0.6; } }
+
+/* ---------- tools ---------- */
+.tools { display: grid; gap: 12px; }
+.tools-switch { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 4px; max-width: 520px; }
+.tools-switch button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-2); font-weight: 600; }
+.tools-switch button[aria-selected='true'] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+:root[data-theme='night'] .tools-switch button[aria-selected='true'] { background: var(--accent); color: var(--accent-ink); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='day']) .tools-switch button[aria-selected='true'] { background: var(--accent); color: var(--accent-ink); } }
+
+/* ---------- gear setup ---------- */
+.gear { gap: 12px; }
+.gear-steps { display: flex; gap: 4px; }
+.gear-steps i { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
+.gear-steps i.done { background: var(--mint); }
+.gear-steps i.on { background: var(--accent); }
+.gear-meter { position: relative; height: 14px; border-radius: 7px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+.gear-meter > div { height: 100%; background: var(--mint); transition: width 60ms linear; }
+.gear-meter > i { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--coral); }
+.sens { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.sens input { width: 110px; accent-color: var(--accent); }
+.gear-hint .btn { margin: 0 2px; }
+
+/* ---------- play in time ---------- */
+.timing-fb { font-family: var(--display); font-weight: 700; font-size: 24px; animation: pop 250ms ease-out; }
+.timing-fb.perfect, .timing-fb.good { color: var(--mint-text); }
+.timing-fb.early, .timing-fb.late { color: var(--gold-text); }
+.timing-fb.miss { color: var(--coral); }
+.yt-sync { display: grid; gap: 8px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+.yt-sync ol { margin: 0; padding-left: 18px; }
+
+/* chord sheets */
+.tab-lyric { font-family: var(--ui); font-size: 12.5px; fill: var(--ink-2); }
+.tab-section { font-family: var(--ui); font-size: 10px; font-weight: 700; fill: var(--accent); }
+.next-chord { align-items: center; }
+.next-chord .diagram { padding: 2px; background: transparent; border: 0; }
+.chord-big { font-size: 28px !important; }
+
+.pedal-toast { position: fixed; left: 50%; top: calc(12px + var(--sat)); transform: translateX(-50%); z-index: 70; background: var(--ink); color: var(--surface); padding: 8px 16px; border-radius: 20px; font-weight: 600; pointer-events: none; animation: pop 200ms ease-out; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25); }
+
+.pedal-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pedal-list li { display: grid; gap: 4px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.pedal-codes { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.chip.sm-chip { min-height: 30px; padding: 0 10px; font-size: 13px; }
+
+.backup-nudge { display: flex; flex-direction: column; gap: 2px; text-align: left; background: color-mix(in srgb, var(--gold) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--gold) 50%, transparent); border-radius: 12px; padding: 10px 12px; }

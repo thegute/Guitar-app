@@ -2,6 +2,22 @@
 // ("chroma") so a quiz can check you played, say, an A minor and not an A major.
 import { audio } from './engine'
 import { openInput, type OpenedInput } from './input'
+import { gear, kindOf } from './gear'
+
+/** Add one spectrum frame into 12 pitch-class weights (C..B). */
+export function addChroma(spec: Float32Array, binHz: number, acc: number[]) {
+  for (let i = Math.floor(70 / binHz); i < Math.min(spec.length, Math.floor(1400 / binHz)); i++) {
+    const db = spec[i]
+    if (db < -75) continue
+    const mag = Math.pow(10, db / 20)
+    const midi = 69 + 12 * Math.log2((i * binHz) / 440)
+    const near = Math.round(midi)
+    const off = Math.abs(midi - near)
+    if (off > 0.35) continue
+    // lower notes get a little extra weight; harmonics of bass notes pile up higher anyway
+    acc[((near % 12) + 12) % 12] += mag * (1 - off * 2) * (midi < 60 ? 1.2 : 1)
+  }
+}
 
 export class ChromaListener {
   /** called once per strum with 12 weights (C..B), normalised to sum 1 */
@@ -17,11 +33,14 @@ export class ChromaListener {
   private startAt = 0
   private recent: number[] = []
   private lastOnset = 0
+  /** loudness needed to count as a strum (from your gear setup) */
+  gate = 1
 
   async start() {
     const ctx = audio()
     await ctx.resume()
     this.input = await openInput()
+    this.gate = gear(kindOf(this.input.external)).gate
     const src = ctx.createMediaStreamSource(this.input.stream)
     this.analyser = ctx.createAnalyser()
     this.analyser.fftSize = 16384
@@ -52,7 +71,7 @@ export class ChromaListener {
     this.recent.push(level)
     if (this.recent.length > 6) this.recent.shift()
     const now = ctx.currentTime
-    if (!this.acc && level > 0.012 && level > min * 2 && now - this.lastOnset > 0.5) {
+    if (!this.acc && level > Math.max(0.004, 0.012 * this.gate) && level > min * 2 && now - this.lastOnset > 0.5) {
       this.lastOnset = now
       this.acc = new Array(12).fill(0)
       this.accFrames = 0
@@ -62,18 +81,7 @@ export class ChromaListener {
     // skip the pick noise, then listen for ~0.7 s
     if (now - this.startAt < 0.08) return
     a.getFloatFrequencyData(this.spec)
-    const binHz = ctx.sampleRate / a.fftSize
-    for (let i = Math.floor(70 / binHz); i < Math.min(this.spec.length, Math.floor(1400 / binHz)); i++) {
-      const db = this.spec[i]
-      if (db < -75) continue
-      const mag = Math.pow(10, db / 20)
-      const midi = 69 + 12 * Math.log2((i * binHz) / 440)
-      const near = Math.round(midi)
-      const off = Math.abs(midi - near)
-      if (off > 0.35) continue
-      // lower notes get a little extra weight; harmonics of bass notes pile up higher anyway
-      this.acc[((near % 12) + 12) % 12] += mag * (1 - off * 2) * (midi < 60 ? 1.2 : 1)
-    }
+    addChroma(this.spec, ctx.sampleRate / a.fftSize, this.acc)
     this.accFrames++
     if (now - this.startAt > 0.75) {
       const total = this.acc.reduce((x, y) => x + y, 0) || 1

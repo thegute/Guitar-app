@@ -9,7 +9,7 @@ import { playClick } from '../audio/metronome'
 import { audio, keepAwake } from '../audio/engine'
 import { ChromaListener, chordMatch } from '../audio/chroma'
 import { NoteListener } from '../tabs/follow'
-import { defaultLatencyMs } from '../audio/looper'
+import { kindOf, latencyMs } from '../audio/gear'
 import { parseSymbol } from '../theory/chords'
 import { pc, SHARPS, FLATS, keyPrefersFlats } from '../theory/notes'
 import { chordShapes, SUFFIX_IV, type Instrument } from '../instrument'
@@ -268,7 +268,7 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
   usePracticeTimer('rhythm', running, useMic)
   useEffect(() => () => { cancelAnimationFrame(raf.current); mic.current?.stop() }, [])
 
-  const latMs = () => (useMic ? read<number>('kg:loopLatencyMs', -1) >= 0 ? read<number>('kg:loopLatencyMs', 0) : defaultLatencyMs() : 0) + offset
+  const latMs = () => (useMic ? latencyMs(kindOf(mic.current?.external)) : 0) + offset
 
   function addTap(heard: number) {
     const s = st.current

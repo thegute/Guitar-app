@@ -1,9 +1,8 @@
 // Your songs: open a Guitar Pro file, paste a text tab, or pick a saved song or an example.
 import { useEffect, useRef, useState } from 'react'
-import { deleteSong, listSongs, newId, saveSong, youtubeId, type SongDoc } from '../tabs/library'
-import { EXAMPLES, exampleDoc } from '../tabs/examples'
-import { parseTextTab } from '../tabs/textTab'
-import { fromTextTab } from '../tabs/model'
+import { deleteSong, listSongs, saveSong, youtubeId, type SongDoc } from '../tabs/library'
+import { EXAMPLES, exampleDoc, exampleId } from '../tabs/examples'
+import { songFromFile, songFromText } from '../tabs/importer'
 import { Clipboard } from '@capacitor/clipboard'
 import { INSTRUMENTS, useInstrument, type InstrumentId } from '../instrument'
 import { KeyPicker, Chips, usePersist } from '../components/Controls'
@@ -69,7 +68,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
       if (!v) { setClipNote('The clipboard is empty. Copy the tab on the website first.'); return }
       if (youtubeId(v) && v.length < 200) { setYt(v); setClipNote('Pasted a YouTube link.'); return }
       setText(v)
-      setClipNote(parseTextTab(v, 'Pasted tab', inst.tuning.notes) ? 'Tab pasted. Check the title, then tap Load tab.' : "Pasted, but I can't see tab lines in it yet. Make sure you copied the lines that look like  e|---0---|.")
+      setClipNote(songFromText(v, '', inst) ? 'Pasted. Check the title, then tap Load tab.' : "Pasted, but I can't see tab lines or chords in it yet. Copy the lines that look like  e|---0---|, or a chord sheet with the chords above the words.")
     } catch {
       setClipNote('Could not read the clipboard here: long-press in the box below and choose Paste.')
     }
@@ -87,21 +86,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
 
   /** Read one tab file into a saved song (throws with a short reason if it can't). */
   async function importFile(f: File): Promise<SongDoc> {
-    const bytes = new Uint8Array(await f.arrayBuffer())
-    const isText = /\.(txt|tab|text|crd|chopro)$/i.test(f.name) || bytes.slice(0, 200).every(b => b === 9 || b === 10 || b === 13 || (b >= 32 && b < 127))
-    let doc: SongDoc
-    if (isText) {
-      const parsed = parseTextTab(new TextDecoder().decode(bytes), f.name.replace(/\.[^.]+$/, ''), inst.tuning.notes)
-      if (!parsed) throw new Error('no tab lines found')
-      const song = fromTextTab(parsed)
-      doc = { id: newId(), title: song.title, source: 'text', inst: inst.id, song, youtube: link, updated: Date.now() }
-    } else {
-      const { importGuitarPro } = await import('../tabs/gpImport')
-      const song = importGuitarPro(bytes, f.name)
-      doc = { id: newId(), title: song.title, artist: song.artist, source: 'gp', inst: inst.id, song, youtube: link, updated: Date.now() }
-    }
-    await saveSong(doc)
-    return doc
+    return songFromFile(f.name, new Uint8Array(await f.arrayBuffer()), inst, link)
   }
 
   /** Import one or many files (from the phone or straight from Google Drive). One file opens right away. */
@@ -127,20 +112,17 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
 
   async function loadText() {
     setError('')
-    const parsed = parseTextTab(text, title.trim() || 'Pasted tab', inst.tuning.notes)
-    if (!parsed) {
-      setError('No tab found. Paste the lines that look like  e|---0---3---|  (all six strings).')
+    const doc = songFromText(text, title.trim(), inst, link)
+    if (!doc) {
+      setError(`No tab or chords found. Paste tab lines that look like  e|---0---3---|  (all ${inst.strings} strings), or a chord sheet with chord names above the lyrics.`)
       return
     }
-    const song = fromTextTab(parsed)
-    if (title.trim()) song.title = title.trim()
-    const doc: SongDoc = { id: newId(), title: song.title, source: 'text', inst: inst.id, song, youtube: link, updated: Date.now() }
     await saveSong(doc)
     onOpen(doc)
   }
 
   async function openExample(id: string) {
-    const existing = songs.find(s => s.id === 'ex-' + id)
+    const existing = songs.find(s => s.id === exampleId(id, inst.id))
     const doc = existing ?? exampleDoc(id, inst.tuning.notes)
     if (!existing) await saveSong(doc)
     onOpen(doc)
@@ -184,7 +166,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
             then open your tabs folder. Nothing gets saved to the phone first. Long-press a file to select several and import them all at once.
           </p>
           <label className="field">
-            <span>…or paste a text tab (from Ultimate Guitar or any tab site)</span>
+            <span>…or paste a text tab or a chord sheet (chords above the words) from Ultimate Guitar or any tab site</span>
             <textarea className="input mono" rows={6} value={text} onChange={e => setText(e.target.value)} placeholder={inst.strings === 4 ? `${[...inst.tuning.notes].reverse().map(n => n[0]).join('|-----------|\n')}|-----------|` : 'e|-----0-----|\nB|---1---1---|\nG|-2-------2-|\nD|-----------|\nA|-----------|\nE|-----------|'} spellCheck={false} />
           </label>
           <div className="row">
@@ -248,7 +230,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
                 <button className="song-open" onClick={() => onOpen(s)}>
                   <b>{s.title}</b>
                   <span className="small muted">
-                    {[s.artist, s.source === 'gp' ? 'Guitar Pro' : 'Text tab', s.youtube ? 'video' : null, s.song.tracks.length > 1 ? `${s.song.tracks.length} tracks` : null].filter(Boolean).join(' · ')}
+                    {[s.artist, s.source === 'gp' ? 'Guitar Pro' : s.source === 'chords' ? 'Chord sheet' : 'Text tab', s.youtube ? 'video' : null, s.song.tracks.length > 1 ? `${s.song.tracks.length} tracks` : null].filter(Boolean).join(' · ')}
                   </span>
                 </button>
                 {confirmDel === s.id ? (
@@ -277,8 +259,8 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
         <section>
           <h3>Practice examples</h3>
           <ul className="song-list">
-            {EXAMPLES.filter(e => e.for === inst.id).map(e => (
-              <li key={e.id} className={'ex-' + e.id === currentId ? 'on' : ''}>
+            {EXAMPLES.filter(e => e.for === inst.id || e.for === 'any').map(e => (
+              <li key={e.id} className={exampleId(e.id, inst.id) === currentId ? 'on' : ''}>
                 <button className="song-open" onClick={() => void openExample(e.id)}><b>{e.title}</b></button>
               </li>
             ))}

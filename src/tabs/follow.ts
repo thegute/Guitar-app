@@ -3,6 +3,8 @@ import { PitchDetector } from 'pitchy'
 import { audio } from '../audio/engine'
 import { freqToMidi } from '../theory/notes'
 import { openInput, type OpenedInput } from '../audio/input'
+import { gear, kindOf } from '../audio/gear'
+import { addChroma } from '../audio/chroma'
 
 export interface NoteEvent {
   midi: number
@@ -21,6 +23,14 @@ export class NoteListener {
   onFrame?: (f: { midi: number | null; level: number }) => void
   /** every pick or strum attack, with its audio-clock time (before input latency is taken off) */
   onOnset?: (time: number) => void
+  /** with chords = true: after each strum, the 12 note-name weights of what rang (for strum-along) */
+  onChord?: (chroma: number[], onsetTime: number) => void
+  chords = false
+  /** take the sensitivity from your gear setup for this input (set false to control gate yourself) */
+  autoGate = true
+  private wide: AnalyserNode | null = null
+  private spec = new Float32Array(8192)
+  private chroma: { acc: number[]; at: number } | null = null
   private stream: MediaStream | null = null
   private analyser: AnalyserNode | null = null
   private raf = 0
@@ -45,10 +55,17 @@ export class NoteListener {
     this.input = await openInput()
     this.stream = this.input.stream
     this.onsetRatio = this.input.external ? 1.35 : 1.7
+    if (this.autoGate) this.gate = gear(kindOf(this.input.external)).gate
     const src = ctx.createMediaStreamSource(this.stream)
     this.analyser = ctx.createAnalyser()
     this.analyser.fftSize = 4096
     src.connect(this.analyser)
+    if (this.chords) {
+      this.wide = ctx.createAnalyser()
+      this.wide.fftSize = 16384
+      this.wide.smoothingTimeConstant = 0
+      src.connect(this.wide)
+    }
     this.det.minVolumeDecibels = -55
     const loop = () => {
       this.raf = requestAnimationFrame(loop)
@@ -62,7 +79,11 @@ export class NoteListener {
     this.stream?.getTracks().forEach(t => t.stop())
     this.stream = null
     this.analyser = null
+    this.wide = null
   }
+
+  /** the input kind (phone mic or USB) once started */
+  get external() { return !!this.input?.external }
 
   private tick(ctx: AudioContext) {
     if (!this.analyser) return
@@ -81,9 +102,25 @@ export class NoteListener {
     if (loud && level > recentMin * this.onsetRatio && now - this.lastOnset > 0.08) {
       this.lastOnset = now
       this.onOnset?.(now)
+      if (this.wide) this.chroma = { acc: new Array(12).fill(0), at: now }
       this.pendingAttack = 8
       this.candidate = null
       this.candidateFrames = 0
+    }
+
+    // strum-along: sum the spectrum for ~0.4 s after each strum
+    if (this.wide && this.chroma) {
+      if (now - this.chroma.at > 0.06) {
+        this.wide.getFloatFrequencyData(this.spec)
+        addChroma(this.spec, ctx.sampleRate / this.wide.fftSize, this.chroma.acc)
+      }
+      if (now - this.chroma.at > 0.42) {
+        const total = this.chroma.acc.reduce((x, y) => x + y, 0)
+        const at = this.chroma.at
+        const acc = this.chroma.acc
+        this.chroma = null
+        if (total > 0) this.onChord?.(acc.map(v => v / total), at)
+      }
     }
 
     const [freq, clarity] = this.det.findPitch(this.buf, ctx.sampleRate)
@@ -127,6 +164,8 @@ export class NoteListener {
 
 export interface FollowStep {
   midis: number[]
+  /** a strummed chord (3+ different notes): followed by listening to the whole chord, not single notes */
+  chord?: boolean
 }
 
 export type FollowResult = { kind: 'hit'; step: number; skipped: number } | { kind: 'miss'; heard: number; expected: number[] } | { kind: 'done' }

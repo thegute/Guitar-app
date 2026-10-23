@@ -18,8 +18,10 @@ import { IconDice, IconLock, IconPlay, IconStop } from '../components/Icons'
 import { strum, preload } from '../audio/pluck'
 import { audio, keepAwake } from '../audio/engine'
 import { JamTransport } from '../audio/jam'
-import { InputRecorder, makeLayerBuffer, measureLatency, defaultLatencyMs } from '../audio/looper'
+import { InputRecorder, makeLayerBuffer, measureLatency } from '../audio/looper'
+import { gear, kindOf, latencyMs, setGear, useGear } from '../audio/gear'
 import { bump, usePracticeTimer } from '../learn/progress'
+import { usePedals } from '../controls/pedals'
 import { STRUMS } from '../audio/strums'
 import { GROOVES } from '../audio/drums'
 import { pc } from '../theory/notes'
@@ -103,12 +105,16 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [layers, setLayers] = useState<{ id: number; muted: boolean; shift: number }[]>([])
   const [rec, setRec] = useState<{ from: number; until: number } | null>(null)
   const [recLevel, setRecLevel] = useState(0)
-  const [latency, setLatency] = usePersist('loopLatencyMs', -1)
   const [backingWhileRec, setBackingWhileRec] = usePersist('loopBackingRec', false)
   const [calib, setCalib] = useState<{ running: boolean; click: number; result?: number | null } | null>(null)
   const [loopError, setLoopError] = useState('')
   const [inputInfo, setInputInfo] = useState<{ label: string; external: boolean } | null>(null)
-  const latMs = latency >= 0 ? latency : defaultLatencyMs()
+  useGear()
+  // the timing delay belongs to the input you record from (phone mic or USB amp)
+  const latKind = kindOf(inputInfo?.external)
+  const latMs = latencyMs(latKind)
+  const latMeasured = gear(latKind).latencyMs >= 0
+  const setLatency = (ms: number) => setGear(latKind, { latencyMs: ms })
   const hasLoop = layers.length > 0
   usePracticeTimer('jam', playing, true)
 
@@ -267,7 +273,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     recCancel.current = signal
     setRec({ from, until })
     try {
-      const samples = await recorder.current!.capture(from + latMs / 1000, t.loopDur, signal)
+      const samples = await recorder.current!.capture(from + latencyMs(kindOf(recorder.current!.input?.external)) / 1000, t.loopDur, signal)
       const id = Date.now()
       t.addLayer(makeLayerBuffer(samples), id)
       bump('loopsRecorded')
@@ -299,9 +305,15 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     setCalib({ running: true, click: -1 })
     const ms = await measureLatency(recorder.current!, i => setCalib(c => (c ? { ...c, click: i } : c)))
     recorder.current?.stop()
-    if (ms !== null) setLatency(ms)
+    if (ms !== null) setGear(kindOf(recorder.current?.input?.external), { latencyMs: ms })
     setCalib({ running: false, click: 8, result: ms })
   }
+
+  usePedals({
+    startStop: () => (transport.current?.playing ? stopAll() : startPlay(0)),
+    restart: () => { stopAll(); startPlay(0) },
+    record: () => void record(layers.length > 0),
+  })
 
   const recProgress = rec ? Math.max(0, Math.min(1, (audio().currentTime - rec.from) / (rec.until - rec.from))) : 0
   const recWaiting = rec && audio().currentTime < rec.from
@@ -452,7 +464,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         <div className="stack" style={{ gap: 8, marginTop: 8 }}>
           <label className="row"><input type="checkbox" checked={backingWhileRec} onChange={e => setBackingWhileRec(e.target.checked)} /> Play the backing chords while I record (leave off with the phone mic, or the mic records them too)</label>
           <div className="row">
-            <span>Timing fix: <b>{latMs} ms</b>{latency < 0 ? ' (estimated)' : ''}</span>
+            <span>Timing fix{inputInfo ? (inputInfo.external ? ' (amp)' : ' (phone mic)') : ''}: <b>{latMs} ms</b>{latMeasured ? '' : ' (estimated)'}</span>
             <button className="btn sm" onClick={() => setLatency(Math.max(0, latMs - 10))}>−10</button>
             <button className="btn sm" onClick={() => setLatency(Math.min(500, latMs + 10))}>+10</button>
             <button className="btn sm" onClick={() => void calibrate()} disabled={!!calib?.running || !!rec}>Timing check</button>

@@ -1,34 +1,40 @@
 import { useEffect, useState, type JSX } from 'react'
-import { TunerScreen } from './screens/TunerScreen'
-import { MetronomeScreen } from './screens/MetronomeScreen'
-import { ChordsScreen } from './screens/ChordsScreen'
-import { ScalesScreen } from './screens/ScalesScreen'
 import { JamScreen } from './screens/JamScreen'
 import { PlayScreen } from './screens/PlayScreen'
+import { ToolsScreen } from './screens/ToolsScreen'
 import { LearnScreen } from './learn/LearnScreen'
 import { CelebrationLayer } from './learn/Celebration'
-import { IconChord, IconLearn, IconMetronome, IconProgression, IconScale, IconTab, IconTuner } from './components/Icons'
+import { IconLearn, IconProgression, IconTab, IconTools } from './components/Icons'
 import { usePersist } from './components/Controls'
 import { useInstrument } from './instrument'
-import { onGo, type Tab } from './nav'
+import { isToolPage, onGo, type Tab, type ToolPage } from './nav'
 import { dailyGoalMin, todayLog, useProgress } from './learn/progress'
+import { ACTION_LABEL, onPedal, type PedalAction } from './controls/pedals'
+import { ShareInbox } from './components/ShareInbox'
 
 const TABS: { id: Tab; label: string; icon: () => JSX.Element }[] = [
   { id: 'play', label: 'Play', icon: IconTab },
   { id: 'learn', label: 'Learn', icon: IconLearn },
   { id: 'progressions', label: 'Jam', icon: IconProgression },
-  { id: 'chords', label: 'Chords', icon: IconChord },
-  { id: 'scales', label: 'Scales', icon: IconScale },
-  { id: 'metronome', label: 'Tempo', icon: IconMetronome },
-  { id: 'tuner', label: 'Tuner', icon: IconTuner },
+  { id: 'tools', label: 'Tools', icon: IconTools },
 ]
 
 export default function App() {
-  const [tab, setTab] = usePersist<Tab>('tab2', 'play')
+  const [saved, setTab] = usePersist<string>('tab2', 'play')
+  const [toolPage, setToolPage] = usePersist<ToolPage>('toolPage', isToolPage(saved) ? saved : 'tuner')
+  // older versions had Tuner, Tempo, Chords and Scales as their own tabs
+  const tab: Tab = isToolPage(saved) ? 'tools' : (['play', 'learn', 'progressions', 'tools'].includes(saved) ? saved as Tab : 'play')
   const [scaleJump, setScaleJump] = useState<{ root: string; scale: string } | null>(null)
   const inst = useInstrument()
   useProgress()
-  useEffect(() => onGo(t => { setTab(t); document.getElementById('main')?.scrollTo({ top: 0 }) }), [setTab])
+  useEffect(() => onGo(t => {
+    if (isToolPage(t)) { setToolPage(t); setTab('tools') } else setTab(t)
+    document.getElementById('main')?.scrollTo({ top: 0 })
+  }), [setTab, setToolPage])
+  // a short note on screen whenever a pedal does something, so you know it worked
+  const [pedal, setPedal] = useState<{ a: PedalAction; k: number } | null>(null)
+  useEffect(() => onPedal(a => setPedal(p => ({ a, k: (p?.k ?? 0) + 1 }))), [])
+  useEffect(() => { if (!pedal) return; const t = setTimeout(() => setPedal(null), 1100); return () => clearTimeout(t) }, [pedal])
   const d = todayLog()
   const goalDone = d.guitar + d.study >= dailyGoalMin() * 60
 
@@ -37,12 +43,9 @@ export default function App() {
       <main className={`main${tab === 'play' ? ' main-play' : ''}`} id="main">
         {tab === 'play' && <PlayScreen key={inst.id} />}
         {tab === 'learn' && <LearnScreen key={inst.id} />}
-        {tab === 'tuner' && <TunerScreen />}
-        {tab === 'metronome' && <MetronomeScreen />}
-        {tab === 'chords' && <ChordsScreen />}
-        {tab === 'scales' && <ScalesScreen key={scaleJump ? scaleJump.root + scaleJump.scale : 'scales'} initial={scaleJump ?? undefined} />}
+        {tab === 'tools' && <ToolsScreen page={toolPage} onPage={setToolPage} scaleJump={scaleJump} />}
         {tab === 'progressions' && (
-          <JamScreen onOpenScale={(root, scale) => { setScaleJump({ root, scale }); setTab('scales') }} />
+          <JamScreen onOpenScale={(root, scale) => { setScaleJump({ root, scale }); setToolPage('scales'); setTab('tools') }} />
         )}
       </main>
       <nav className="nav" aria-label="Sections">
@@ -56,6 +59,8 @@ export default function App() {
           </button>
         ))}
       </nav>
+      {pedal && <div key={pedal.k} className="pedal-toast" role="status">🦶 {ACTION_LABEL[pedal.a].replace(/ \(.*\)$/, '')}</div>}
+      <ShareInbox />
       <CelebrationLayer />
     </div>
   )

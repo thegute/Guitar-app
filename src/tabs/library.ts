@@ -6,7 +6,7 @@ export interface SongDoc {
   id: string
   title: string
   artist?: string
-  source: 'gp' | 'text' | 'example' | 'lesson'
+  source: 'gp' | 'text' | 'chords' | 'example' | 'lesson'
   /** which bank the song lives in: the instrument mode it was added in */
   inst?: InstrumentId
   song: Song
@@ -18,6 +18,8 @@ export interface SongDoc {
   track?: number
   /** where you left off */
   cursor?: number
+  /** a YouTube video lined up with the tab: video time of bar 1 and the recording's tempo */
+  ytSync?: { offset: number; bpm: number }
   /** bars to practise over and over (inclusive) */
   loop?: { from: number; to: number }
   updated: number

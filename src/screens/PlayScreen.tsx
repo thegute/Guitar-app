@@ -2,6 +2,7 @@
 // and the scales / chords of the song for soloing.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TabView, type LabelMode } from '../components/TabView'
+import { ChordDiagram } from '../components/ChordDiagram'
 import { YouTubePlayer } from '../components/YouTubePlayer'
 import { HarmonyPanel, stringLabel } from '../components/HarmonyPanel'
 import { Chips, usePersist } from '../components/Controls'
@@ -12,8 +13,15 @@ import { defaultTrack, flatten, playable, type SongNote, type SongTrack } from '
 import { detectKey, improvisationScales, type KeyGuess } from '../tabs/keyDetect'
 import { chordInfo, chordTimeline, guessBarChords } from '../tabs/harmony'
 import { docInstrument, getSong, listSongs, saveSong, type SongDoc } from '../tabs/library'
-import { takePendingDoc } from '../nav'
+import { onOpenSong, takePendingDoc } from '../nav'
 import { bump, bumpCounts, usePracticeTimer } from '../learn/progress'
+import { gear, isSetUp, kindOf, setGear, useGear } from '../audio/gear'
+import { GearSetup } from '../components/GearSetup'
+import { latencyMs } from '../audio/gear'
+import { chordMatch } from '../audio/chroma'
+import { useInTime, type TrainerOpts } from '../play/useInTime'
+import { usePedals } from '../controls/pedals'
+import type { VideoApi } from '../play/inTime'
 import { exampleDoc } from '../tabs/examples'
 import { playNote, strum } from '../audio/pluck'
 import { audio, keepAwake } from '../audio/engine'
@@ -25,6 +33,8 @@ type View = 'tab' | 'solo' | 'both'
 interface Feedback {
   ok: boolean
   heard: number
+  /** strum-along: what the chord check heard (note names) */
+  chordText?: string
   /** the tab note it matched (when ok) */
   note?: SongNote
   expected?: SongNote[]
@@ -60,8 +70,13 @@ export function PlayScreen() {
   const [view, setView] = usePersist<View>('playView', 'tab')
   const [labelMode, setLabelMode] = usePersist<LabelMode>('playLabels', 'both')
   const [strict, setStrict] = usePersist('playStrict', false)
-  const [gate, setGate] = usePersist('playGate', 1)
   const [showVideo, setShowVideo] = usePersist('playVideo', true)
+  const [mode, setMode] = usePersist<'wait' | 'time'>('playMode', 'wait')
+  const [click, setClick] = usePersist('timeClick', true)
+  const [guide, setGuide] = usePersist('timeGuide', false)
+  const [trainer, setTrainer] = usePersist<TrainerOpts>('speedTrainer', { on: false, start: 0.6, step: 0.05, target: 1, pass: 90 })
+  const video = useRef<VideoApi | null>(null)
+  const lastOnset = useRef(0)
   const [listening, setListening] = useState(false)
   const [micError, setMicError] = useState('')
   const [live, setLive] = useState<number | null>(null)
@@ -75,6 +90,10 @@ export function PlayScreen() {
   const [selecting, setSelecting] = useState<null | { first?: number }>(null)
   const [passes, setPasses] = useState<{ n: number; last: number | null; best: number | null }>({ n: 0, last: null, best: null })
   const states = useRef<Uint8Array>(new Uint8Array(0))
+  const [gearOpen, setGearOpen] = useState(false)
+  useGear()
+  const gearKind = kindOf(input?.external)
+  const gate = gear(gearKind).gate
   const listener = useRef<NoteListener | null>(null)
 
   // ---------- load the song ----------
@@ -99,6 +118,13 @@ export function PlayScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [songId])
 
+  // a song sent here while Play is already open (from Learn or shared from another app)
+  useEffect(() => onOpenSong(d => {
+    if (docInstrument(d) !== inst.id) return
+    takePendingDoc()
+    void saveSong(d).then(() => { setDoc(d); setSongId(d.id) })
+  }), [inst.id, setSongId])
+
   const update = useCallback((patch: Partial<SongDoc>) => {
     setDoc(d => {
       if (!d) return d
@@ -116,7 +142,8 @@ export function PlayScreen() {
     const steps: FollowStep[] = []
     flat.forEach((f, i) => {
       const ns = playable(f.step)
-      if (ns.length) { idx.push(i); steps.push({ midis: ns.map(n => n.midi) }) }
+      // three or more different notes = a strummed chord: checked by listening to the whole chord
+      if (ns.length) { idx.push(i); steps.push({ midis: ns.map(n => n.midi), chord: new Set(ns.map(n => n.midi % 12)).size >= 3 }) }
     })
     return { idx, steps }
   }, [flat])
@@ -176,22 +203,21 @@ export function PlayScreen() {
   }, [flat, cursorFlat])
 
   // ---------- following the mic ----------
-  const ref = useRef({ pos, follow, strict, flat, loopRange, lesson: false })
-  ref.current = { pos, follow, strict, flat, loopRange, lesson: doc?.source === 'lesson' }
+  const ref = useRef({ pos, follow, strict, flat, loopRange, lesson: false, flats: false })
+  ref.current = { pos, follow, strict, flat, loopRange, lesson: doc?.source === 'lesson', flats }
 
-  const onNote = useCallback((midi: number) => {
+  const hitAt = useCallback((step: number, skipped: number, heard: number, chordText?: string) => {
     const { pos, follow, strict, loopRange } = ref.current
-    // inside a loop, only look as far as the loop's last note
-    const steps = loopRange ? follow.steps.slice(0, loopRange.b + 1) : follow.steps
-    const r = matchNote(steps, pos, midi, strict)
     const st = states.current
-    if (r.kind === 'hit') {
+    {
+      const r = { step, skipped }
+      const midi = heard
       for (let k = pos; k < r.step; k++) st[follow.idx[k]] = 2
       const fi = follow.idx[r.step]
       st[fi] = st[fi] === 3 ? 2 : 1
       const ns = playable(ref.current.flat[fi].step)
-      const note = ns.find(n => (strict ? n.midi === midi : n.midi % 12 === midi % 12)) ?? ns[0]
-      setFeedback({ ok: true, heard: midi, note, skipped: r.skipped })
+      const note = chordText ? undefined : ns.find(n => (strict ? n.midi === midi : n.midi % 12 === midi % 12)) ?? ns[0]
+      setFeedback({ ok: true, heard: midi, note, skipped: r.skipped, chordText })
       setFlash(f => ({ flat: fi, key: (f?.key ?? 0) + 1 }))
       setPulse(p => ({ ok: true, key: (p?.key ?? 0) + 1 }))
       bumpCounts({ notesHit: 1, [ref.current.lesson ? 'exerciseNotes' : 'songNotes']: 1 })
@@ -212,14 +238,40 @@ export function PlayScreen() {
         bump(ref.current.lesson ? 'exercisesFinished' : 'songsFinished')
       }
       setPos(next)
-    } else if (r.kind === 'miss') {
-      const fi = follow.idx[pos]
-      if (st[fi] === 0) st[fi] = 3
-      setFeedback({ ok: false, heard: midi })
-      setPulse(p => ({ ok: false, key: (p?.key ?? 0) + 1 }))
     }
     setVersion(v => v + 1)
   }, [])
+  const missAt = useCallback((heard: number, chordText?: string) => {
+    const { pos, follow } = ref.current
+    const fi = follow.idx[pos]
+    if (fi !== undefined && states.current[fi] === 0) states.current[fi] = 3
+    setFeedback({ ok: false, heard, chordText })
+    setPulse(p => ({ ok: false, key: (p?.key ?? 0) + 1 }))
+    setVersion(v => v + 1)
+  }, [])
+
+  /** Wait-for-me mode: a single note was heard. */
+  const onNote = useCallback((midi: number) => {
+    const { pos, follow, strict, loopRange } = ref.current
+    // strummed chords are checked by onChord (the whole chord), not by one note
+    if (follow.steps[pos]?.chord) return
+    // inside a loop, only look as far as the loop's last note
+    const steps = loopRange ? follow.steps.slice(0, loopRange.b + 1) : follow.steps
+    const r = matchNote(steps, pos, midi, strict)
+    if (r.kind === 'hit') hitAt(r.step, r.skipped, midi)
+    else if (r.kind === 'miss') missAt(midi)
+  }, [hitAt, missAt])
+
+  /** Wait-for-me mode: a strum was heard (strum-along). */
+  const onChord = useCallback((chroma: number[]) => {
+    const { pos, follow } = ref.current
+    const want = follow.steps[pos]
+    if (!want?.chord) return
+    const pcs = [...new Set(want.midis.map(m => m % 12))]
+    const top = chroma.map((v, i) => ({ v, i })).sort((x, y) => y.v - x.v).slice(0, 3).map(x => noteName(x.i, ref.current.flats))
+    if (chordMatch(chroma, pcs).ok) hitAt(pos, 0, want.midis[0], top.join(' '))
+    else missAt(want.midis[0], top.join(', '))
+  }, [hitAt, missAt])
 
   async function toggleListen() {
     if (listening) {
@@ -236,10 +288,18 @@ export function PlayScreen() {
     try {
       await audio().resume()
       const l = new NoteListener()
-      l.gate = gate
+      l.chords = true
       let last: number | null = null
       l.onFrame = f => { if (f.midi !== last) { last = f.midi; setLive(f.midi) } }
-      l.onNote = e => onNote(e.midi)
+      l.onOnset = t => { lastOnset.current = t }
+      l.onNote = e => {
+        if (modeRef.current === 'time') { if (inTimeRef.current.running) inTimeRef.current.played(e.attack ? lastOnset.current : e.time, { midi: e.midi }) }
+        else onNote(e.midi)
+      }
+      l.onChord = (chroma, at) => {
+        if (modeRef.current === 'time') { if (inTimeRef.current.running) inTimeRef.current.played(at, { chroma }) }
+        else onChord(chroma)
+      }
       await l.start()
       listener.current = l
       setInput(l.input ? { label: l.input.label, external: l.input.external } : null)
@@ -251,7 +311,6 @@ export function PlayScreen() {
   }
   const toggleListenRef = useRef(toggleListen)
   toggleListenRef.current = toggleListen
-  useEffect(() => { if (listener.current) listener.current.gate = gate }, [gate])
   useEffect(() => () => { listener.current?.stop(); player.current?.stop(); void keepAwake(false) }, [])
 
   // ---------- hear how the tab sounds ----------
@@ -259,13 +318,57 @@ export function PlayScreen() {
   const [playAt, setPlayAt] = useState(-1)
   const [speed, setSpeed] = usePersist('playSpeed', 1)
   const songBpm = doc?.song.tempo ?? 90
-  // practice time: listening with the mic counts as time with the guitar, Hear it as study time
-  usePracticeTimer(doc?.source === 'lesson' ? 'warmup' : 'play', listening, true)
-  usePracticeTimer('play', playAt >= 0 && !listening, false)
   function stopPreview() {
     player.current?.stop()
     setPlayAt(-1)
   }
+
+  // ---------- play in time ----------
+  const inTime = useInTime({
+    flat, loop: loop, startFlat: cursorFlat >= 0 ? cursorFlat : 0, songBpm, speed, click, guide, strict, trainer, video,
+    sync: showVideo ? doc?.ytSync : undefined, states,
+    latencyMs: () => latencyMs(kindOf(listener.current?.external)),
+    onChange: () => setVersion(v => v + 1),
+    onHitNote: () => bumpCounts({ notesHit: 1, [doc?.source === 'lesson' ? 'exerciseNotes' : 'songNotes']: 1 }),
+    onPass: s => { if (s.score >= 90) bump('loop90') },
+    onFinish: s => { if (s.score >= 60) bump(doc?.source === 'lesson' ? 'exercisesFinished' : 'songsFinished') },
+  })
+  const inTimeRef = useRef(inTime)
+  inTimeRef.current = inTime
+  const modeRef = useRef(mode)
+  modeRef.current = mode
+  // practice time: listening with the mic counts as time with the guitar, Hear it as study time
+  usePracticeTimer(doc?.source === 'lesson' ? 'warmup' : 'play', listening || inTime.running, true)
+  usePracticeTimer('play', playAt >= 0 && !listening, false)
+  async function toggleRun() {
+    if (inTime.running) { inTime.stop(); return }
+    stopPreview()
+    if (!listening) await toggleListen()
+    inTime.start()
+  }
+  useEffect(() => { if (mode === 'wait') inTime.stop() }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ---------- footswitch / pedal ----------
+  function jumpBar(delta: number) {
+    const bar = Math.max(0, (cursorFlat >= 0 ? flat[cursorFlat].bar : 0) + delta)
+    const fi = flat.findIndex(f => f.bar >= bar)
+    if (fi < 0) return
+    let k = follow.idx.findIndex(i => i >= fi)
+    if (k < 0) k = follow.idx.length - 1
+    for (let i = follow.idx[k]; i < states.current.length; i++) states.current[i] = 0
+    setPos(k)
+    setFeedback(null)
+    setVersion(v => v + 1)
+  }
+  usePedals({
+    startStop: () => (mode === 'time' ? void toggleRun() : void toggleListen()),
+    restart: () => { if (inTime.running) { inTime.stop(); inTime.start() } else restart() },
+    loopBar: () => { if (loop) setLoop(undefined); else if (cursorFlat >= 0) setLoop({ from: flat[cursorFlat].bar, to: flat[cursorFlat].bar }) },
+    prevBar: () => jumpBar(-1),
+    nextBar: () => jumpBar(1),
+    hearIt: () => preview(),
+    video: () => { const v = video.current; if (v) (v.playing() ? v.pause() : v.play()) },
+  })
   function preview() {
     if (playAt >= 0) { stopPreview(); return }
     if (listening) void toggleListen()
@@ -363,6 +466,14 @@ export function PlayScreen() {
   }
 
   const tuning = track.tuning.map(t => t + track.capo)
+  // strum-along: the chord to play next, with its shape
+  const wantChord = !done && !!follow.steps[pos]?.chord
+  const chordName = cursorFlat >= 0 ? (flat[cursorFlat].step.chord ?? timeline.spans[curSpan]?.name) : undefined
+  const chordVoicing = wantChord ? (() => {
+    const frets = track.tuning.map((_, s) => expected.find(n => n.string === s)?.fret ?? -1)
+    const played = frets.filter(f => f > 0)
+    return { frets, fingers: frets.map(() => 0), barres: [], baseFret: played.length ? Math.min(...played) : 1, midi: [] }
+  })() : null
   const where = (n: SongNote) => `${n.fret === 0 ? 'open' : `fret ${n.fret}`}, ${stringLabel(track.tuning, n.string, flats)} string`
 
   const readout = (
@@ -386,7 +497,30 @@ export function PlayScreen() {
         />
       </div>
       <div className="next">
-        {done ? (
+        {mode === 'time' && (inTime.running || inTime.stats) ? (
+          <>
+            <span className="small muted">
+              {inTime.running
+                ? `${inTime.usingVideo ? 'Following the video' : `${Math.round(songBpm * (trainer.on && loop && !inTime.usingVideo ? inTime.pass.speed : speed))} BPM`}${loop ? ` · pass ${inTime.pass.n + 1}` : ''}${inTime.pass.last ? ` · last pass ${inTime.pass.last.score}%` : ''}${trainer.on && loop && !inTime.usingVideo ? ` · speed ${Math.round(inTime.pass.speed * 100)}%` : ''}`
+                : 'Run finished'}
+            </span>
+            {inTime.running && inTime.feedback && (
+              <span key={inTime.feedback.key} className={`timing-fb ${inTime.feedback.j}`}>
+                {inTime.feedback.j === 'perfect' ? 'On time!' : inTime.feedback.j === 'good' ? `Good (${Math.abs(inTime.feedback.ms)} ms ${inTime.feedback.ms < 0 ? 'early' : 'late'})` : inTime.feedback.j === 'miss' ? 'Missed a note' : `${Math.abs(inTime.feedback.ms)} ms ${inTime.feedback.j}`}
+              </span>
+            )}
+            {inTime.running && !inTime.feedback && <span className="small">Count-in: play along when the clicks lead in.</span>}
+            {!inTime.running && inTime.stats && (
+              <>
+                <b>Score {inTime.stats.score}%</b>
+                <span className="small muted">
+                  {inTime.stats.onTime} on time, {inTime.stats.early} early, {inTime.stats.late} late, {inTime.stats.missed} missed.
+                  {Math.abs(inTime.stats.meanErr) >= 25 ? (inTime.stats.meanErr < 0 ? ` You tend to rush (${-inTime.stats.meanErr} ms early).` : ` You tend to drag (${inTime.stats.meanErr} ms late).`) : ' Nicely centred on the beat.'}
+                </span>
+              </>
+            )}
+          </>
+        ) : done ? (
           <>
             <b>Finished!</b>
             <span className="small muted">{firstTry !== null ? `${firstTry}% of notes right first time.` : ''}</span>
@@ -398,15 +532,25 @@ export function PlayScreen() {
               Next · note {pos + 1} of {follow.idx.length} · bar {flat[cursorFlat].bar + 1}
               {loopRange && ` · loop pass ${passes.n + 1}${passes.last !== null ? ` · last pass ${passes.last}%` : ''}${passes.best !== null ? ` · best ${passes.best}%` : ''}`}
             </span>
-            <span className="next-notes">
-              {expected.map((n, i) => (
-                <span key={i} className="nn"><b>{n.fret}</b> on {stringLabel(track.tuning, n.string, flats)} = <b className="amber">{noteName(n.midi, flats)}</b></span>
-              ))}
-              <button className="btn sm ghost" onClick={hearNext} aria-label="Hear the next note">▶</button>
-            </span>
+            {wantChord ? (
+              <span className="next-notes next-chord">
+                {chordVoicing && <ChordDiagram voicing={chordVoicing} size={0.5} onClick={hearNext} />}
+                <span className="nn"><b className="amber chord-big">{chordName ?? 'Chord'}</b> strum it and let it ring</span>
+                <button className="btn sm ghost" onClick={hearNext} aria-label="Hear the chord">▶</button>
+              </span>
+            ) : (
+              <span className="next-notes">
+                {expected.map((n, i) => (
+                  <span key={i} className="nn"><b>{n.fret}</b> on {stringLabel(track.tuning, n.string, flats)} = <b className="amber">{noteName(n.midi, flats)}</b></span>
+                ))}
+                <button className="btn sm ghost" onClick={hearNext} aria-label="Hear the next note">▶</button>
+              </span>
+            )}
             {feedback && (
               feedback.ok ? (
-                <span className="fb ok">✓ Got it: {noteName(feedback.heard, flats)}{feedback.note ? ` · ${where(feedback.note)}` : ''}{feedback.skipped ? ` (skipped ${feedback.skipped})` : ''}</span>
+                <span className="fb ok">✓ Got it: {feedback.chordText ? `the chord (${feedback.chordText})` : noteName(feedback.heard, flats)}{feedback.note ? ` · ${where(feedback.note)}` : ''}{feedback.skipped ? ` (skipped ${feedback.skipped})` : ''}</span>
+              ) : feedback.chordText ? (
+                <span className="fb bad">✗ Heard mostly {feedback.chordText}: the chord needs {[...new Set(expected.map(n => noteName(n.midi, flats)))].join(' ')}. Strum all the strings and let them ring.</span>
               ) : (
                 <span className="fb bad">✗ You played {noteName(feedback.heard, flats)}{octave(feedback.heard)}: the tab wants {expected.map(n => noteName(n.midi, flats)).join(' or ')}</span>
               )
@@ -422,6 +566,7 @@ export function PlayScreen() {
 
   const tabTools = (
     <div className="tab-tools">
+      <Chips label="Follow mode" items={[{ id: 'wait', label: 'Wait for me' }, { id: 'time', label: 'In time' }]} value={mode} onChange={v => setMode(v)} />
       {loop ? (
         <span className="loop-chip">⟲ Bars {loop.from + 1}–{loop.to + 1}<button onClick={() => setLoop(undefined)} aria-label="Stop looping">✕</button></span>
       ) : (
@@ -432,9 +577,21 @@ export function PlayScreen() {
       </button>
       <Chips label="Playback speed" items={[{ id: 0.5, label: '½' }, { id: 0.75, label: '¾' }, { id: 1, label: `1× · ${Math.round(songBpm)} bpm` }]} value={speed} onChange={v => { setSpeed(v); if (playAt >= 0) { stopPreview() } }} />
       <Chips label="Tab numbers" items={[{ id: 'fret', label: 'Frets' }, { id: 'note', label: 'Notes' }, { id: 'both', label: 'Both' }]} value={labelMode} onChange={setLabelMode} />
+      {mode === 'time' && (
+        <>
+          <button className="btn sm" aria-pressed={click} onClick={() => setClick(!click)}>Click</button>
+          <button className="btn sm" aria-pressed={guide} onClick={() => setGuide(!guide)} title="Play the tab quietly while you play">Hear tab too</button>
+          {loop && <button className="btn sm" aria-pressed={trainer.on} onClick={() => setTrainer({ ...trainer, on: !trainer.on })} title={`Starts at ${Math.round(trainer.start * 100)}% and speeds up ${Math.round(trainer.step * 100)}% after each pass of ${trainer.pass}% or better`}>Speed trainer</button>}
+        </>
+      )}
       <button className="btn sm" onClick={() => restart()}>Restart</button>
       <button className="btn sm" aria-pressed={strict} onClick={() => setStrict(!strict)} title="Only count the note in the exact octave">Exact octave</button>
-      <Chips label="Mic sensitivity" items={[{ id: 1.8, label: 'Noisy room' }, { id: 1, label: 'Normal' }, { id: 0.6, label: 'Quiet guitar' }]} value={gate} onChange={setGate} />
+      <label className="sens" title="How easily a sound counts as a note. Set it properly in Set up input.">
+        <span className="small">Sensitivity</span>
+        <input type="range" min={0.4} max={3} step={0.05} value={3.4 - gate} aria-label="Note sensitivity"
+          onChange={e => { const g = Math.round((3.4 - Number(e.target.value)) * 100) / 100; setGear(gearKind, { gate: g }); if (listener.current) listener.current.gate = g }} />
+      </label>
+      <button className="btn sm" onClick={() => setGearOpen(true)}>Set up input</button>
     </div>
   )
 
@@ -451,15 +608,25 @@ export function PlayScreen() {
           ) : doc.artist ? <span className="small muted">{doc.artist}</span> : null}
         </div>
         <button className="btn sm" aria-pressed={showVideo} onClick={() => setShowVideo(!showVideo)}>Video</button>
-        <button className={`btn listen${listening ? ' on' : ''}`} onClick={toggleListen} aria-pressed={listening}>
-          <span className="dot" /> {listening ? 'Listening' : 'Listen'}
-        </button>
+        {mode === 'time' ? (
+          <button className={`btn listen${inTime.running ? ' on' : ''}`} onClick={() => void toggleRun()} aria-pressed={inTime.running}>
+            <span className="dot" /> {inTime.running ? 'Stop' : doc.ytSync && showVideo ? 'Start with video' : 'Start'}
+          </button>
+        ) : (
+          <button className={`btn listen${listening ? ' on' : ''}`} onClick={toggleListen} aria-pressed={listening}>
+            <span className="dot" /> {listening ? 'Listening' : 'Listen'}
+          </button>
+        )}
       </header>
 
       <section className="play-side">
-        {showVideo && <YouTubePlayer url={doc.youtube} onUrl={u => update({ youtube: u })} />}
+        {showVideo && <YouTubePlayer url={doc.youtube} onUrl={u => update({ youtube: u, ytSync: u ? doc.ytSync : undefined })} onApi={api => { video.current = api }}
+          sync={doc.ytSync} onSync={sync => update({ ytSync: sync })} tabBpm={songBpm} />}
         {readout}
         {micError && <p className="notice small">{micError}</p>}
+        {!isSetUp() && !micError && (
+          <p className="notice small gear-hint">First time? <button className="btn sm" onClick={() => setGearOpen(true)}>Set up your input</button> takes two minutes and makes note detection and timing match your mic or amp.</p>
+        )}
       </section>
 
       <div className="view-switch">
@@ -474,7 +641,7 @@ export function PlayScreen() {
             <button className="btn sm" onClick={() => setSelecting(null)}>Cancel</button>
           </div>
         )}
-        <TabView track={track} mode={labelMode} flats={flats} cursor={playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0} states={states.current}
+        <TabView track={track} mode={labelMode} flats={flats} cursor={inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0 || inTime.running} states={states.current}
           flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} />
         {track.capo > 0 && <p className="small muted cap">Capo on fret {track.capo}: frets are counted from the capo.</p>}
         {track.tuning.length !== inst.strings && (
@@ -505,6 +672,7 @@ export function PlayScreen() {
         />
       </section>
 
+      {gearOpen && <GearSetup onClose={() => setGearOpen(false)} />}
       {sheet && (
         <SongsSheet
           currentId={doc.id}

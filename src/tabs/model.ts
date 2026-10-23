@@ -17,6 +17,9 @@ export interface SongStep {
   dur: number
   /** chord name that starts on this step, if the source names one */
   chord?: string
+  /** chord sheets: the words sung over this chord, and a section name (Verse, Chorus …) starting here */
+  lyric?: string
+  section?: string
 }
 export interface SongBar {
   steps: SongStep[]

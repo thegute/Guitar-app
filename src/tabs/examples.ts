@@ -1,4 +1,6 @@
 import { parseTextTab } from './textTab'
+import { parseChordSheet } from './chordSheet'
+import { current } from '../instrument'
 import { fromTextTab } from './model'
 import type { SongDoc } from './library'
 
@@ -80,7 +82,20 @@ const bariGreen = ascii('Greensleeves (traditional, baritone)', down2([
 const bG = shape([0, 0, 0, 3]), bEm = shape([2, 0, 0, 0]), bC = shape([2, 0, 1, 0]), bD = shape([0, 2, 3, 2])
 const bariStrum = ascii('Strum along: G – Em – C – D (baritone)', [[bG, bG, bG, bG], [bEm, bEm, bEm, bEm], [bC, bC, bC, bC], [bD, bD, bD, bD]], ['G', 'Em', 'C', 'D'], B)
 
-export type ExampleFor = 'guitar' | 'tenor' | 'baritone'
+// a chord sheet (chords over the words) for strum-along; works on any instrument. Words: John Newton, 1779 (public domain)
+const grace = `Amazing Grace (traditional)
+
+[Verse]
+G              G7          C           G
+Amazing grace, how sweet the sound
+G                           D
+That saved a wretch like me
+G            G7          C          G
+I once was lost, but now am found
+G          D           G
+Was blind, but now I see`
+
+export type ExampleFor = 'guitar' | 'tenor' | 'baritone' | 'any'
 export const EXAMPLES: { id: string; title: string; text: string; for: ExampleFor }[] = [
   { id: 'ode', title: 'Ode to Joy (Beethoven)', text: ode, for: 'guitar' },
   { id: 'green', title: 'Greensleeves (traditional)', text: green, for: 'guitar' },
@@ -93,11 +108,24 @@ export const EXAMPLES: { id: string; title: string; text: string; for: ExampleFo
   { id: 'bari-ode', title: 'Ode to Joy (baritone)', text: bariOde, for: 'baritone' },
   { id: 'bari-green', title: 'Greensleeves (baritone)', text: bariGreen, for: 'baritone' },
   { id: 'bari-strum', title: 'Strum along: G–Em–C–D (baritone)', text: bariStrum, for: 'baritone' },
+  { id: 'grace', title: 'Amazing Grace (chord sheet, strum along)', text: grace, for: 'any' },
 ]
 
 /** An example as a song you can open (stored with a fixed id so it is never duplicated). */
+/** The saved id of an example (chord sheets are made separately for each instrument). */
+export function exampleId(id: string, instId: string) {
+  const ex = EXAMPLES.find(e => e.id === id)
+  return ex?.for === 'any' ? `ex-${id}-${instId}` : `ex-${id}`
+}
+
 export function exampleDoc(id: string, tuning?: string[]): SongDoc {
   const ex = EXAMPLES.find(e => e.id === id) ?? EXAMPLES[0]
+  if (ex.for === 'any') {
+    const inst = current()
+    const song = parseChordSheet(ex.text, ex.title, inst)!
+    song.title = ex.title
+    return { id: exampleId(ex.id, inst.id), title: ex.title, source: 'example', inst: inst.id, song, updated: Date.now() }
+  }
   const fallback = tuning && tuning.length === (ex.for === 'guitar' ? 6 : 4) ? tuning : undefined
   const song = fromTextTab(parseTextTab(ex.text, ex.title, fallback)!)
   song.title = ex.title

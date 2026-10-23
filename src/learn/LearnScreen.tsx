@@ -19,6 +19,8 @@ import { ChordChanges, CircleTool, RhythmTrainer } from './Tools'
 import { ProgressView } from './ProgressView'
 import { Settings } from './Settings'
 import { LESSONS } from './lessons'
+import { lastBackup } from '../backup'
+import { ago } from '../components/BackupPanel'
 
 type Route =
   | { k: 'home' } | { k: 'quiz'; id: string } | { k: 'lesson'; id: string } | { k: 'lessons' } | { k: 'ear' } | { k: 'caged' }
@@ -290,6 +292,12 @@ export function LearnScreen() {
             )}
           </section>
 
+          {st.total >= 5 && (!lastBackup() || Date.now() - lastBackup()! > 14 * 864e5) && (
+            <button className="backup-nudge" onClick={() => push({ k: 'settings' })}>
+              <b>Back up your progress</b>
+              <span className="small muted">Last backup: {ago(lastBackup())}. Save your songs and {st.total} practice days to Google Drive in Settings.</span>
+            </button>
+          )}
           <section aria-label="Tools">
             <div className="tool-grid">
               {tools.map(t => (

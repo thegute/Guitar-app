@@ -68,7 +68,72 @@ function bufferFor(midi: number, bright = 0.55) {
   return b
 }
 
+// ---------- recorded instrument sounds ----------
+export type SoundId = 'acoustic' | 'electric' | 'nylon' | 'synth'
+const SOUND_KEY = 'kg:sound'
+interface Bank { notes: number[]; buffers: Map<number, AudioBuffer> }
+const banks = new Map<SoundId, Bank>()
+const loading = new Map<SoundId, Promise<void>>()
+const soundListeners = new Set<() => void>()
+
+export function soundChoice(): 'auto' | SoundId {
+  try { return (JSON.parse(localStorage.getItem(SOUND_KEY) ?? '"auto"') as 'auto' | SoundId) || 'auto' } catch { return 'auto' }
+}
+export function setSoundChoice(c: 'auto' | SoundId) {
+  try { localStorage.setItem(SOUND_KEY, JSON.stringify(c)) } catch { /* storage unavailable */ }
+  void loadSound(activeSound())
+  soundListeners.forEach(f => f())
+}
+export function onSoundChange(f: () => void) { soundListeners.add(f); return () => { soundListeners.delete(f) } }
+/** The sound in use: your choice, or steel-string acoustic for guitar and nylon for ukulele. */
+export function activeSound(): SoundId {
+  const c = soundChoice()
+  if (c !== 'auto') return c
+  try {
+    const inst = (JSON.parse(localStorage.getItem('kg:instrument') ?? '{}') as { id?: string }).id
+    return inst === 'tenor' || inst === 'baritone' ? 'nylon' : 'acoustic'
+  } catch { return 'acoustic' }
+}
+/** Load a recorded sound (a few hundred KB, bundled with the app). Until it has loaded, notes use the synth. */
+export function loadSound(id: SoundId): Promise<void> {
+  if (id === 'synth' || banks.has(id)) return Promise.resolve()
+  let p = loading.get(id)
+  if (!p) {
+    p = (async () => {
+      const ctx = audio()
+      const index = (await (await fetch(`samples/${id}/index.json`)).json()) as Record<string, string>
+      const buffers = new Map<number, AudioBuffer>()
+      await Promise.all(Object.entries(index).map(async ([m, file]) => {
+        const data = await (await fetch(`samples/${id}/${file}`)).arrayBuffer()
+        buffers.set(Number(m), await ctx.decodeAudioData(data))
+      }))
+      banks.set(id, { notes: [...buffers.keys()].sort((a, b) => a - b), buffers })
+    })().catch(() => { loading.delete(id) })
+    loading.set(id, p)
+  }
+  return p
+}
+
+function sampleNote(bank: Bank, midi: number, when: number, gain: number, dest?: AudioNode) {
+  const ctx = audio()
+  let best = bank.notes[0]
+  for (const n of bank.notes) if (Math.abs(n - midi) < Math.abs(best - midi)) best = n
+  const src = ctx.createBufferSource()
+  src.buffer = bank.buffers.get(best)!
+  src.playbackRate.value = Math.pow(2, (midi - best) / 12)
+  const g = ctx.createGain()
+  g.gain.value = gain * 1.3
+  src.connect(g).connect(dest ?? out())
+  const t = when || ctx.currentTime
+  src.start(t)
+  return { stop: (at?: number) => { try { g.gain.setTargetAtTime(0, at ?? ctx.currentTime, 0.04) } catch { /* noop */ } } }
+}
+
 export function playNote(midi: number, when = 0, gain = 0.8, dest?: AudioNode) {
+  const id = activeSound()
+  const bank = banks.get(id)
+  if (bank) return sampleNote(bank, midi, when, gain, dest)
+  if (id !== 'synth') void loadSound(id)
   const ctx = audio()
   const src = ctx.createBufferSource()
   src.buffer = bufferFor(midi)

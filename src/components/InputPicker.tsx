@@ -1,12 +1,14 @@
 // Choose what the app listens to: the phone mic (acoustic) or a USB amp / audio interface (electric).
 import { useEffect, useState } from 'react'
 import { getChoice, listInputs, onInputChange, setChoice, type InputChoice, type InputDevice } from '../audio/input'
+import { GearSetup } from './GearSetup'
 
 export function InputPicker({ active, onChanged }: { active?: { label: string; external: boolean } | null; onChanged?: () => void }) {
   const [open, setOpen] = useState(false)
   const [choice, setC] = useState<InputChoice>(getChoice())
   const [devs, setDevs] = useState<InputDevice[]>([])
   const [busy, setBusy] = useState(false)
+  const [setup, setSetup] = useState(false)
 
   useEffect(() => onInputChange(() => setC(getChoice())), [])
   useEffect(() => {
@@ -76,11 +78,13 @@ export function InputPicker({ active, onChanged }: { active?: { label: string; e
               <span className="muted">• The app hears the amp's USB signal directly, so no mic or room noise.</span>
               <span className="muted">• Use a clean or lightly driven preset with delay and reverb off while learning a tab. Heavy distortion and echoes make notes harder to tell apart.</span>
               <span className="muted">• Phone sound (YouTube, "Hear it") usually plays in the amp's headphones too. If the app reacts to notes in the video, turn the video down.</span>
-              <span className="muted">• If notes are missed, set Mic sensitivity to <b>Quiet guitar</b>; if it hears notes you didn't play, use <b>Noisy room</b>.</span>
+              <span className="muted">• Run <b>Set up this input</b> once for the amp and once for the phone mic: it tunes note detection and timing for each.</span>
             </div>
+            <button className="btn primary" onClick={() => { setOpen(false); setSetup(true) }}>Set up this input</button>
           </div>
         </div>
       )}
+      {setup && <GearSetup onClose={() => { setSetup(false); onChanged?.() }} />}
     </>
   )
 }

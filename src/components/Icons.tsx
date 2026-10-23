@@ -33,3 +33,6 @@ export const IconLearn = () => (
 export const IconGear = () => (
   <svg viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="3" /><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7" /></svg>
 )
+export const IconTools = () => (
+  <svg viewBox="0 0 24 24" {...s}><path d="M4 16a8 8 0 0 1 16 0" /><path d="M12 16l3.5-5" /><path d="M4 20h16" /><path d="M7 4v3M12 3v4M17 4v3" /></svg>
+)

@@ -1,9 +1,15 @@
 // Settings: instrument (with a confirm step so you can't switch by accident), tuning, look, daily goal and reminders.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Chips } from '../components/Controls'
 import { INSTRUMENTS, setInstrument, setTuning, type Instrument, type InstrumentId } from '../instrument'
 import { setTheme, useTheme, type ThemeChoice } from '../theme'
 import { dailyGoalMin, setDailyGoalMin, useProgress } from './progress'
+import { GearSetup } from '../components/GearSetup'
+import { PedalSettings } from '../controls/PedalSettings'
+import { BackupPanel } from '../components/BackupPanel'
+import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, type SoundId } from '../audio/pluck'
+import { audio } from '../audio/engine'
+import { gear, isSetUp, latencyMs, useGear } from '../audio/gear'
 import { enableReminders, reminderSettings, remindersAvailable, updateReminderSettings, type ReminderSettings } from './reminders'
 
 const INST_ART: Record<InstrumentId, string> = { guitar: '🎸', tenor: '🌺', baritone: '🌴' }
@@ -14,6 +20,19 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
   const [ask, setAsk] = useState<InstrumentId | null>(null)
   const [rem, setRem] = useState<ReminderSettings>(reminderSettings)
   const [remMsg, setRemMsg] = useState('')
+  const [setup, setSetup] = useState(false)
+  const [sound, setSound] = useState(soundChoice())
+  useEffect(() => onSoundChange(() => setSound(soundChoice())), [])
+  async function tryIt(c: 'auto' | SoundId) {
+    setSoundChoice(c)
+    const ctx = audio()
+    await ctx.resume()
+    await loadSound(c === 'auto' ? (inst.isUke ? 'nylon' : 'acoustic') : c)
+    // a C chord on whatever you're playing
+    const frets = inst.id === 'tenor' ? [0, 0, 0, 3] : inst.id === 'baritone' ? [2, 0, 1, 0] : [-1, 3, 2, 0, 1, 0]
+    strum(inst.midis.map((m, i) => (frets[i] < 0 ? -1 : m + frets[i])).filter(m => m > 0), ctx.currentTime + 0.05, { spread: 0.03 })
+  }
+  useGear()
   const goal = dailyGoalMin()
 
   async function changeRem(next: ReminderSettings, turningOn = false) {
@@ -62,6 +81,28 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
       </section>
 
       <section className="panel stack" style={{ gap: 10 }}>
+        <h2 style={{ margin: 0 }}>Your guitar input</h2>
+        <ul className="act-list small">
+          {(['mic', 'usb'] as const).map(k => (
+            <li key={k}>
+              <span>{k === 'mic' ? '🎤 Phone mic' : '🎸 USB amp (Amphonix)'}</span>
+              <b>{isSetUp(k) ? `set up · sensitivity ${gear(k).gate} · timing ${latencyMs(k)} ms` : 'not set up yet'}</b>
+            </li>
+          ))}
+        </ul>
+        <button className="btn" onClick={() => setSetup(true)}>Set up an input</button>
+        <p className="small muted" style={{ margin: 0 }}>Two minutes per input: it measures your room, your strings and the delay of your headphones, so notes are heard reliably and recordings land on the beat.</p>
+      </section>
+
+      <PedalSettings />
+
+      <section className="panel stack" style={{ gap: 10 }}>
+        <h2 style={{ margin: 0 }}>Playback sound</h2>
+        <Chips<'auto' | SoundId> label="Sound" items={[{ id: 'auto', label: inst.isUke ? 'Match my instrument (nylon)' : 'Match my instrument (acoustic)' }, { id: 'acoustic', label: 'Steel-string acoustic' }, { id: 'electric', label: 'Clean electric' }, { id: 'nylon', label: 'Nylon / ukulele-like' }, { id: 'synth', label: 'Simple synth' }]} value={sound} onChange={v => void tryIt(v)} wrap />
+        <p className="small muted" style={{ margin: 0 }}>Used for Hear it, Jam's backing, tapping notes and the quizzes. Tap one to hear it.</p>
+      </section>
+
+      <section className="panel stack" style={{ gap: 10 }}>
         <h2 style={{ margin: 0 }}>Look</h2>
         <Chips<ThemeChoice> label="Theme" items={[{ id: 'auto', label: 'Match my phone' }, { id: 'day', label: 'Day' }, { id: 'night', label: 'Night' }]} value={theme} onChange={setTheme} />
         <p className="small muted" style={{ margin: 0 }}>Night is dim and low-glare for practising in bed. "Match my phone" switches with your phone's dark mode.</p>
@@ -97,6 +138,15 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         <p className="small muted" style={{ margin: 0 }}>Reminders skip days you've already practised, and they suggest guitar-free practice too, so they work on shift days.</p>
       </section>
 
+      <BackupPanel />
+
+      <section className="panel stack small" style={{ gap: 6 }}>
+        <h2 style={{ margin: 0 }}>Credits</h2>
+        <span className="muted">Guitar sounds: tonejs-instruments samples by Nicholaus P. Brosowsky (github.com/nbrosowsky/tonejs-instruments).</span>
+        <span className="muted">Theory lessons follow the chapters of Offtonic Theory (offtonic.com/theory); the lesson text here is original.</span>
+        <span className="muted">Chord shapes: chords-db (github.com/tombatossals/chords-db). Guitar Pro import: alphaTab. Pitch detection: pitchy.</span>
+      </section>
+      {setup && <GearSetup onClose={() => setSetup(false)} />}
       {target && (
         <div className="sheet-backdrop" onClick={() => setAsk(null)}>
           <div className="sheet confirm" role="alertdialog" aria-modal="true" aria-labelledby="switch-title" onClick={e => e.stopPropagation()}>
