@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState, type JSX } from 'react'
-import { STANDARD, stringMidis } from '../theory/notes'
+import { current } from '../instrument'
 
 /**
  * root: red · chord: amber (chord tones) · scale: pearl · ghost: outline only · live: teal (what the mic hears)
@@ -29,18 +29,18 @@ const PAD_Y = 22
 const OPEN_W = 34
 
 const FILL: Record<MarkRole, string> = {
-  root: 'var(--jewel)', chord: 'var(--amber)', scale: 'var(--pearl)', ghost: 'var(--rosewood)', live: 'var(--strobe)',
-  next: 'var(--rosewood)', common: 'var(--amber)', pass: 'var(--pearl-2)', target: 'var(--rosewood)',
+  root: 'var(--fb-coral)', chord: 'var(--fb-gold)', scale: 'var(--fb-pearl)', ghost: 'var(--board)', live: 'var(--fb-mint)',
+  next: 'var(--board)', common: 'var(--fb-gold)', pass: '#bcb3c7', target: 'var(--board)',
 }
 const INK: Record<MarkRole, string> = {
-  root: 'var(--pearl)', chord: 'var(--amber-ink)', scale: 'var(--rosewood)', ghost: 'var(--pearl-2)', live: 'var(--rosewood)',
-  next: 'var(--strobe)', common: 'var(--amber-ink)', pass: 'var(--rosewood)', target: 'var(--amber)',
+  root: '#fff', chord: '#2a1d05', scale: 'var(--fb-ink)', ghost: '#cfc6bb', live: 'var(--fb-ink)',
+  next: 'var(--fb-ring)', common: '#2a1d05', pass: 'var(--fb-ink)', target: 'var(--fb-gold)',
 }
 const RING: Partial<Record<MarkRole, [string, number]>> = {
-  ghost: ['var(--nickel)', 1.2], next: ['var(--strobe)', 2.5], common: ['var(--strobe)', 3], target: ['var(--amber)', 3],
+  ghost: ['var(--nickel)', 1.2], next: ['var(--fb-ring)', 2.5], common: ['var(--fb-ring)', 3], target: ['var(--fb-gold)', 3],
 }
 
-function FretboardImpl({ tuning = stringMidis(STANDARD), fromFret = 0, toFret = 15, markFor, onTap, minFretPx, compact }: Props) {
+function FretboardImpl({ tuning = current().midis, fromFret = 0, toFret = 15, markFor, onTap, minFretPx, compact }: Props) {
   const STR_GAP = compact ? 25 : 30
   const nStr = tuning.length
   const wrap = useRef<HTMLDivElement>(null)
@@ -134,7 +134,7 @@ function FretboardImpl({ tuning = stringMidis(STANDARD), fromFret = 0, toFret = 
         {/* fret numbers */}
         {Array.from({ length: frets }, (_, i) => fromFret + i + 1).map(f =>
           [3, 5, 7, 9, 12, 15, 17, 19, 21, 24, 1].includes(f) ? (
-            <text key={`n${f}`} x={noteX(f)} y={height - 4} textAnchor="middle" fontSize={13} fill="var(--pearl-3)">{f}</text>
+            <text key={`n${f}`} x={noteX(f)} y={height - 4} textAnchor="middle" fontSize={13} fill="var(--ink-3)">{f}</text>
           ) : null,
         )}
         {marks}

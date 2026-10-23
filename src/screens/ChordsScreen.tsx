@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Chord } from 'tonal'
-import { CHORD_GROUPS, SUFFIX_FORMULA, chordSymbol, voicings } from '../theory/chords'
+import { CHORD_GROUPS, SUFFIX_FORMULA, chordSymbol } from '../theory/chords'
+import { chordShapes, useInstrument } from '../instrument'
 import { ChordDiagram } from '../components/ChordDiagram'
 import { Fretboard } from '../components/Fretboard'
 import { Chips, KeyPicker, usePersist } from '../components/Controls'
 import { strum } from '../audio/pluck'
-import { pc, friendly, INTERVAL_LABELS, STANDARD, stringMidis } from '../theory/notes'
+import { pc, friendly, INTERVAL_LABELS } from '../theory/notes'
 
 const TONAL_SUFFIX: Record<string, string> = {
   major: '', minor: 'm', '5': '5', aug7: '7#5', mmaj7: 'mMaj7', alt: '7alt', '69': '6/9', m69: 'm6/9', '9#11': '9#11',
@@ -17,14 +18,15 @@ export function ChordsScreen() {
   const [group, setGroup] = useState(() => CHORD_GROUPS.find(g => g.types.some(t => t.suffix === suffix))?.name ?? 'Basic')
   const [sel, setSel] = useState(0)
   const [labels, setLabels] = usePersist<'notes' | 'intervals'>('chordLabels', 'intervals')
-  const vs = useMemo(() => voicings(root, suffix), [root, suffix])
+  const inst = useInstrument()
+  const vs = useMemo(() => chordShapes(root, suffix, inst), [root, suffix, inst])
   const v = vs[Math.min(sel, vs.length - 1)]
   const name = chordSymbol(root, suffix)
   const tonal = Chord.get(root + (TONAL_SUFFIX[suffix] ?? suffix))
   const notes = tonal.empty ? [] : tonal.notes.map(friendly)
   const r = pc(root)
   const pcs = new Set(notes.map(pc))
-  const tuning = stringMidis(STANDARD)
+  const tuning = inst.midis
 
   function play(i: number) {
     setSel(i)
@@ -34,7 +36,7 @@ export function ChordsScreen() {
 
   return (
     <div className="stack">
-      <h1>Chords</h1>
+      <h1>Chords{inst.isUke ? <span className="muted small"> · {inst.label}</span> : null}</h1>
       <KeyPicker value={root} onChange={k => { setRoot(k); setSel(0) }} label="Root note" />
       <Chips label="Chord family" items={CHORD_GROUPS.map(g => ({ id: g.name, label: g.name }))} value={group} onChange={setGroup} />
       <Chips label="Chord type" wrap items={CHORD_GROUPS.find(g => g.name === group)!.types.map(t => ({ id: t.suffix, label: t.label }))} value={suffix} onChange={s => { setSuffix(s); setSel(0) }} />
@@ -63,6 +65,7 @@ export function ChordsScreen() {
           </div>
           <p className="small muted" style={{ margin: '6px 0 10px' }}>Gold dots show the shape you picked. Red is the root.</p>
           <Fretboard
+            tuning={inst.midis}
             markFor={(midi, s, f) => {
               const p = midi % 12
               if (!pcs.has(p)) return null

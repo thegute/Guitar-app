@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { PitchTracker, type PitchReading } from '../audio/pitch'
 import { keepAwake, audio, out } from '../audio/engine'
-import { TUNINGS, freqToMidi, midiName, midiToFreq, noteToMidi } from '../theory/notes'
+import { freqToMidi, midiName, midiToFreq } from '../theory/notes'
+import { setTuning, useInstrument } from '../instrument'
 import { Field, usePersist } from '../components/Controls'
 import { InputPicker } from '../components/InputPicker'
 
 const SMOOTH = 0.25
 
 export function TunerScreen() {
-  const [tuningId, setTuningId] = usePersist('tuning', 'standard')
   const [a4, setA4] = usePersist('a4', 440)
   const [running, setRunning] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -18,8 +18,9 @@ export function TunerScreen() {
   const tracker = useRef<PitchTracker | null>(null)
   const smooth = useRef<number | null>(null)
   const lastSeen = useRef(0)
-  const tuning = TUNINGS.find(t => t.id === tuningId) ?? TUNINGS[0]
-  const targets = tuning.notes.map(noteToMidi)
+  const inst = useInstrument()
+  const tuning = inst.tuning
+  const targets = inst.midis
 
   useEffect(() => () => { tracker.current?.stop(); void keepAwake(false) }, [])
 
@@ -86,7 +87,7 @@ export function TunerScreen() {
 
   return (
     <div className="stack" style={{ maxWidth: 720, margin: '0 auto' }}>
-      <h1>Tuner</h1>
+      <h1>Tuner{inst.isUke ? <span className="muted small"> · {inst.label}</span> : null}</h1>
       <div className="panel" style={{ textAlign: 'center', paddingTop: 22 }}>
         <svg viewBox="0 0 300 170" style={{ width: '100%', maxWidth: 420 }} aria-hidden="true">
           {Array.from({ length: 21 }, (_, i) => {
@@ -121,8 +122,8 @@ export function TunerScreen() {
       <div className="panel stack">
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <Field label="Tuning">
-            <select className="select" value={tuningId} onChange={e => setTuningId(e.target.value)}>
-              {TUNINGS.map(t => <option key={t.id} value={t.id}>{t.name} ({t.notes.map(n => n.replace(/\d/, '')).join(' ')})</option>)}
+            <select className="select" value={tuning.id} onChange={e => setTuning(inst.id, e.target.value)}>
+              {inst.tunings.map(t => <option key={t.id} value={t.id}>{t.name} ({t.notes.map(n => n.replace(/\d/, '')).join(' ')})</option>)}
             </select>
           </Field>
           <Field label={`Reference pitch A4 = ${a4} Hz`}>
@@ -138,7 +139,7 @@ export function TunerScreen() {
             {targets.map((m, i) => (
               <button key={i} className="chip key" aria-pressed={i === nearestString && !!reading} onClick={() => reference(m)}>
                 {midiName(m).replace(/\d/, '')}
-                <span style={{ fontSize: 12, opacity: 0.6, marginLeft: 2 }}>{6 - i}</span>
+                <span style={{ fontSize: 12, opacity: 0.6, marginLeft: 2 }}>{targets.length - i}</span>
               </button>
             ))}
           </div>

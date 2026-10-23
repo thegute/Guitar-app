@@ -53,25 +53,33 @@ function chordLine(line: string): { col: number; name: string }[] | null {
   return out.length ? out : null
 }
 
-/** Work out the tuning from the string letters at the start of each line (low string last in text). */
-function tuningFromLabels(labels: string[]): string[] {
+/** Work out the tuning from the string letters at the start of each line (top line = highest string). */
+function tuningFromLabels(labels: string[], fallback: string[]): string[] {
   const lo = labels.slice().reverse().map(l => l.replace(/[^A-Ga-g#b]/g, ''))
-  if (lo.length !== 6 || lo.some(l => !l)) return STD
-  const up = lo.map(l => l[0].toUpperCase() + l.slice(1))
-  const std = ['E', 'A', 'D', 'G', 'B', 'E']
-  if (up.every((n, i) => n === std[i])) return STD
-  // keep standard octaves, but follow the written note names (drop D, DADGAD, open G ...)
-  const out: string[] = []
+  if (lo.length !== fallback.length || lo.some(l => !l)) return fallback
   const pcs: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
-  const pcOf = (n: string) => (pcs[n[0]] + (n.includes('#') ? 1 : n.includes('b') && n.length > 1 ? -1 : 0) + 12) % 12
+  const pcOf = (n: string) => (pcs[n[0].toUpperCase()] + (n.includes('#') ? 1 : n.length > 1 && n.endsWith('b') ? -1 : 0) + 12) % 12
   const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-  for (let i = 0; i < 6; i++) {
-    const ref = noteToMidi(STD[i])
+  if (lo.every((n, i) => pcOf(n) === noteToMidi(fallback[i]) % 12)) return fallback
+  // keep the fallback's octaves, but follow the written note names (drop D, DADGAD, open G ...)
+  return lo.map((n, i) => {
+    const ref = noteToMidi(fallback[i])
     let best = ref
-    for (let m = ref - 6; m <= ref + 2; m++) if ((m % 12 + 12) % 12 === pcOf(up[i])) { best = m; break }
-    out.push(names[best % 12] + (Math.floor(best / 12) - 1))
-  }
-  return out
+    for (let d = 0; d <= 6; d++) {
+      if ((ref - d + 120) % 12 === pcOf(n)) { best = ref - d; break }
+      if (d <= 2 && (ref + d) % 12 === pcOf(n)) { best = ref + d; break }
+    }
+    return names[best % 12] + (Math.floor(best / 12) - 1)
+  })
+}
+
+const UKE = ['G4', 'C4', 'E4', 'A4']
+/** Sensible tuning for a tab with this many lines when no instrument tuning is given. */
+function defaultFor(n: number, fallback?: string[]): string[] {
+  if (fallback && fallback.length === n) return fallback
+  if (n === 4) return UKE
+  if (n === 7) return ['B1', ...STD]
+  return STD
 }
 
 /** Remove markup used by some tab sites ([tab], [ch]Am[/ch]). */
@@ -82,83 +90,90 @@ function clean(text: string) {
     .replace(/\t/g, '    ')
 }
 
-export function parseTextTab(text: string, title = 'Pasted tab'): TextTabSong | null {
+export function parseTextTab(text: string, title = 'Pasted tab', fallbackTuning?: string[]): TextTabSong | null {
   const lines = clean(text).split(/\r?\n/)
   const bars: TabStep[][] = []
   let tuning: string[] | null = null
+  let nStr = 0
   const firstTitle = lines.find(l => l.trim() && !looksLikeTabLine(l) && !chordLine(l))?.trim()
-  for (let i = 0; i <= lines.length - 6; i++) {
-    const group = lines.slice(i, i + 6)
-    if (!group.every(looksLikeTabLine)) continue
-    // chord names above this group (directly above, or one blank line up)
-    let chords: { col: number; name: string }[] | null = null
-    for (let k = i - 1; k >= Math.max(0, i - 2); k--) {
-      if (!lines[k].trim()) continue
-      chords = chordLine(lines[k])
-      break
-    }
-    const prefixes = group.map(l => /^\s*([A-Ga-g][#b]?)?\s*[|:]?/.exec(l)![0])
-    const labels = group.map(l => /^\s*([A-Ga-g][#b]?)/.exec(l)?.[1] ?? '')
-    if (!tuning) tuning = tuningFromLabels(labels)
-    const start = Math.max(...prefixes.map(p => p.length))
-    const rows = group.map(l => l.slice(start))
-    const width = Math.max(...rows.map(r => r.length))
-    const chordAt = new Map<number, string>()
-    for (const ch of chords ?? []) chordAt.set(Math.max(0, ch.col - start), ch.name)
-    const pendingChords = [...chordAt.entries()].sort((a, b) => a[0] - b[0])
-    let bar: TabStep[] = []
-    let lastCol = -1
-    let c = 0
-    const closeStep = (col: number) => {
-      const prev = bar[bar.length - 1]
-      if (prev && lastCol >= 0) prev.cols = col - lastCol
-    }
-    while (c < width) {
-      // bar line: a '|' in most rows at this column
-      const pipes = rows.filter(r => r[c] === '|').length
-      if (pipes >= 4) {
-        closeStep(c)
-        if (bar.length) bars.push(bar)
-        bar = []
-        lastCol = -1
-        c++
-        continue
+  for (let i = 0; i < lines.length; i++) {
+    if (!looksLikeTabLine(lines[i])) continue
+    // a block of tab lines: 4 (ukulele, bass), 6 (guitar) or 7 strings; longer runs are several systems
+    let run = 0
+    while (i + run < lines.length && looksLikeTabLine(lines[i + run])) run++
+    if (run < 4) { i += run - 1; continue }
+    const per = nStr || (run % 6 === 0 ? 6 : run % 4 === 0 ? 4 : run === 7 ? 7 : Math.min(run, 6))
+    if (!nStr) nStr = per
+    for (let g = 0; g + per <= run; g += per) {
+      const at = i + g
+      const group = lines.slice(at, at + per)
+      // chord names above this group (directly above, or one blank line up)
+      let chords: { col: number; name: string }[] | null = null
+      for (let k = at - 1; k >= Math.max(0, at - 2); k--) {
+        if (!lines[k].trim()) continue
+        chords = chordLine(lines[k])
+        break
       }
-      const notes: TabNote[] = []
-      let consumed = 1
-      for (let r = 0; r < 6; r++) {
-        const ch = rows[r][c]
-        const prev = rows[r][c - 1]
-        const isDigit = ch && /[0-9]/.test(ch) && !(prev && /[0-9]/.test(prev))
-        const isDead = ch === 'x' || ch === 'X'
-        if (!isDigit && !isDead) continue
-        let num = ch
-        let len = 1
-        if (isDigit && rows[r][c + 1] && /[0-9]/.test(rows[r][c + 1])) {
-          const two = parseInt(ch + rows[r][c + 1], 10)
-          if (two <= 24) { num = ch + rows[r][c + 1]; len = 2 }
+      const prefixes = group.map(l => /^\s*([A-Ga-g][#b]?)?\s*[|:]?/.exec(l)![0])
+      const labels = group.map(l => /^\s*([A-Ga-g][#b]?)/.exec(l)?.[1] ?? '')
+      if (!tuning) tuning = tuningFromLabels(labels, defaultFor(per, fallbackTuning))
+      const start = Math.max(...prefixes.map(p => p.length))
+      const rows = group.map(l => l.slice(start))
+      const width = Math.max(...rows.map(r => r.length))
+      const pendingChords = (chords ?? []).map(ch => [Math.max(0, ch.col - start), ch.name] as [number, string]).sort((a, b) => a[0] - b[0])
+      let bar: TabStep[] = []
+      let lastCol = -1
+      let c = 0
+      const closeStep = (col: number) => {
+        const prev = bar[bar.length - 1]
+        if (prev && lastCol >= 0) prev.cols = col - lastCol
+      }
+      while (c < width) {
+        // bar line: a '|' in most rows at this column
+        const pipes = rows.filter(r => r[c] === '|').length
+        if (pipes >= Math.ceil(per * 0.66)) {
+          closeStep(c)
+          if (bar.length) bars.push(bar)
+          bar = []
+          lastCol = -1
+          c++
+          continue
         }
-        consumed = Math.max(consumed, len)
-        const after = rows[r][c + len]
-        let tech: string | undefined
-        if (isDead) tech = 'x'
-        else if (after && /[hpbr/\\~s]/i.test(after)) tech = after.toLowerCase() === 's' ? '/' : after.toLowerCase()
-        // row 0 in the text is the highest string
-        notes.push({ string: 5 - r, fret: isDead ? 0 : parseInt(num, 10), tech })
+        const notes: TabNote[] = []
+        let consumed = 1
+        for (let r = 0; r < per; r++) {
+          const ch = rows[r][c]
+          const prev = rows[r][c - 1]
+          const isDigit = ch && /[0-9]/.test(ch) && !(prev && /[0-9]/.test(prev))
+          const isDead = ch === 'x' || ch === 'X'
+          if (!isDigit && !isDead) continue
+          let num = ch
+          let len = 1
+          if (isDigit && rows[r][c + 1] && /[0-9]/.test(rows[r][c + 1])) {
+            const two = parseInt(ch + rows[r][c + 1], 10)
+            if (two <= 24) { num = ch + rows[r][c + 1]; len = 2 }
+          }
+          consumed = Math.max(consumed, len)
+          const after = rows[r][c + len]
+          let tech: string | undefined
+          if (isDead) tech = 'x'
+          else if (after && /[hpbr/\\~s]/i.test(after)) tech = after.toLowerCase() === 's' ? '/' : after.toLowerCase()
+          // row 0 in the text is the highest string
+          notes.push({ string: per - 1 - r, fret: isDead ? 0 : parseInt(num, 10), tech })
+        }
+        if (notes.length) {
+          closeStep(c)
+          const step: TabStep = { notes: notes.sort((a, b) => a.string - b.string) }
+          while (pendingChords.length && pendingChords[0][0] <= c + consumed - 1) step.chord = pendingChords.shift()![1]
+          bar.push(step)
+          lastCol = c
+        }
+        c += consumed
       }
-      if (notes.length) {
-        closeStep(c)
-        const step: TabStep = { notes: notes.sort((a, b) => a.string - b.string) }
-        // chord written at or before this column (and after the previous step)
-        while (pendingChords.length && pendingChords[0][0] <= c + consumed - 1) step.chord = pendingChords.shift()![1]
-        bar.push(step)
-        lastCol = c
-      }
-      c += consumed
+      closeStep(width)
+      if (bar.length) bars.push(bar)
     }
-    closeStep(width)
-    if (bar.length) bars.push(bar)
-    i += 5
+    i += run - 1
   }
   if (!bars.length) return null
   return { title: firstTitle && firstTitle.length < 60 ? firstTitle : title, tuning: tuning ?? STD, bars }

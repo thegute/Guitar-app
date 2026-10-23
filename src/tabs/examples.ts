@@ -7,20 +7,19 @@ import type { SongDoc } from './library'
 
 type Step = [number, number][] // [string (0 = low E), fret][]
 
-function ascii(title: string, bars: Step[][], chords: string[] = []): string {
-  const names = ['E', 'A', 'D', 'G', 'B', 'e']
+function ascii(title: string, bars: Step[][], chords: string[] = [], names = ['E', 'A', 'D', 'G', 'B', 'e']): string {
   const rows = names.map(n => n + '|')
   let chordLine = ''
   bars.forEach((bar, bi) => {
     if (chords[bi]) chordLine = chordLine.padEnd(rows[0].length + 1) + chords[bi] + ' '
     for (const step of bar) {
       const w = Math.max(...step.map(([, f]) => String(f).length))
-      for (let s = 0; s < 6; s++) {
+      for (let s = 0; s < names.length; s++) {
         const hit = step.find(([str]) => str === s)
         rows[s] += '-' + (hit ? String(hit[1]).padEnd(w, '-') : '-'.repeat(w))
       }
     }
-    for (let s = 0; s < 6; s++) rows[s] += '-|'
+    for (let s = 0; s < names.length; s++) rows[s] += '-|'
   })
   return title + '\n' + (chordLine.trim() ? chordLine.trimEnd() + '\n' : '') + rows.reverse().join('\n')
 }
@@ -53,17 +52,54 @@ const blues = ascii('Blues shuffle riff in A', [
   [pair(1, 2), pair(1, 2), pair(1, 4), pair(1, 4), pair(1, 2), pair(1, 2), pair(1, 4), pair(1, 4)],
 ], ['A7', 'A7', 'D7', 'A7'])
 
-export const EXAMPLES: { id: string; title: string; text: string }[] = [
-  { id: 'ode', title: 'Ode to Joy (Beethoven)', text: ode },
-  { id: 'green', title: 'Greensleeves (traditional)', text: green },
-  { id: 'pent', title: 'A minor pentatonic, box 1', text: pent },
-  { id: 'blues', title: 'Blues shuffle riff in A', text: blues },
+// ---------- ukulele (strings: 0 = G, 1 = C, 2 = E, 3 = A) ----------
+const U = ['G', 'C', 'E', 'A']
+const uC4 = n(1, 0), uD4 = n(1, 2), uE4 = n(2, 0), uF4 = n(2, 1), uG4 = n(2, 3), uA4 = n(3, 0), uB4 = n(3, 2), uC5 = n(3, 3)
+const ukeOde = ascii('Ode to Joy (ukulele)', [
+  [uE4, uE4, uF4, uG4], [uG4, uF4, uE4, uD4], [uC4, uC4, uD4, uE4], [uE4, uD4, uD4],
+  [uE4, uE4, uF4, uG4], [uG4, uF4, uE4, uD4], [uC4, uC4, uD4, uE4], [uD4, uC4, uC4],
+], ['C', 'G', 'C', 'G', 'C', 'G', 'C', 'C'], U)
+const ukeScale = ascii('C major scale (ukulele)', [[uC4, uD4, uE4, uF4], [uG4, uA4, uB4, uC5], [uC5, uB4, uA4, uG4], [uF4, uE4, uD4, uC4]], ['C'], U)
+const ukeTwinkle = ascii('Twinkle Twinkle Little Star (traditional, ukulele)', [
+  [uC4, uC4, uG4, uG4], [uA4, uA4, uG4], [uF4, uF4, uE4, uE4], [uD4, uD4, uC4],
+], ['C', 'F C', 'F C', 'G C'].map(c => c.split(' ')[0]), U)
+const shape = (frets: number[]): Step => frets.map((f, s) => [s, f] as [number, number])
+const uC = shape([0, 0, 0, 3]), uAm = shape([2, 0, 0, 0]), uF = shape([2, 0, 1, 0]), uG = shape([0, 2, 3, 2])
+const ukeStrum = ascii('Strum along: C – Am – F – G (ukulele)', [[uC, uC, uC, uC], [uAm, uAm, uAm, uAm], [uF, uF, uF, uF], [uG, uG, uG, uG]], ['C', 'Am', 'F', 'G'], U)
+
+// ---------- baritone (D G B E = the top four guitar strings) ----------
+const B = ['D', 'G', 'B', 'e']
+const down2 = (bars: Step[][]) => bars.map(b => b.map(st => st.map(([s, f]) => [s - 2, f] as [number, number])))
+const bariOde = ascii('Ode to Joy (baritone)', down2([
+  [E4, E4, F4, G4], [G4, F4, E4, D4], [C4, C4, D4, E4], [E4, D4, D4],
+  [E4, E4, F4, G4], [G4, F4, E4, D4], [C4, C4, D4, E4], [D4, C4, C4],
+]), ['C', 'G', 'C', 'G', 'C', 'G', 'C', 'C'], B)
+const bariGreen = ascii('Greensleeves (traditional, baritone)', down2([
+  [A3], [Cn, Dn], [En, Fn, En], [Dn, B3, G3], [A3, B3, Cn], [A3, A3, Gs3], [A3, B3, Gs3], [E3, A3],
+]), ['Am', 'Am', 'C', 'G', 'Am', 'E', 'E', 'Am'], B)
+const bG = shape([0, 0, 0, 3]), bEm = shape([2, 0, 0, 0]), bC = shape([2, 0, 1, 0]), bD = shape([0, 2, 3, 2])
+const bariStrum = ascii('Strum along: G – Em – C – D (baritone)', [[bG, bG, bG, bG], [bEm, bEm, bEm, bEm], [bC, bC, bC, bC], [bD, bD, bD, bD]], ['G', 'Em', 'C', 'D'], B)
+
+export type ExampleFor = 'guitar' | 'tenor' | 'baritone'
+export const EXAMPLES: { id: string; title: string; text: string; for: ExampleFor }[] = [
+  { id: 'ode', title: 'Ode to Joy (Beethoven)', text: ode, for: 'guitar' },
+  { id: 'green', title: 'Greensleeves (traditional)', text: green, for: 'guitar' },
+  { id: 'pent', title: 'A minor pentatonic, box 1', text: pent, for: 'guitar' },
+  { id: 'blues', title: 'Blues shuffle riff in A', text: blues, for: 'guitar' },
+  { id: 'uke-ode', title: 'Ode to Joy (ukulele)', text: ukeOde, for: 'tenor' },
+  { id: 'uke-twinkle', title: 'Twinkle Twinkle (ukulele)', text: ukeTwinkle, for: 'tenor' },
+  { id: 'uke-scale', title: 'C major scale (ukulele)', text: ukeScale, for: 'tenor' },
+  { id: 'uke-strum', title: 'Strum along: C–Am–F–G (ukulele)', text: ukeStrum, for: 'tenor' },
+  { id: 'bari-ode', title: 'Ode to Joy (baritone)', text: bariOde, for: 'baritone' },
+  { id: 'bari-green', title: 'Greensleeves (baritone)', text: bariGreen, for: 'baritone' },
+  { id: 'bari-strum', title: 'Strum along: G–Em–C–D (baritone)', text: bariStrum, for: 'baritone' },
 ]
 
 /** An example as a song you can open (stored with a fixed id so it is never duplicated). */
-export function exampleDoc(id: string): SongDoc {
+export function exampleDoc(id: string, tuning?: string[]): SongDoc {
   const ex = EXAMPLES.find(e => e.id === id) ?? EXAMPLES[0]
-  const song = fromTextTab(parseTextTab(ex.text, ex.title)!)
+  const fallback = tuning && tuning.length === (ex.for === 'guitar' ? 6 : 4) ? tuning : undefined
+  const song = fromTextTab(parseTextTab(ex.text, ex.title, fallback)!)
   song.title = ex.title
   return { id: 'ex-' + ex.id, title: ex.title, source: 'example', song, updated: Date.now() }
 }

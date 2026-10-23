@@ -17,6 +17,7 @@ import { playNote, strum } from '../audio/pluck'
 import { audio, keepAwake } from '../audio/engine'
 import { TabPlayer } from '../audio/tabPlayer'
 import { keyPrefersFlats, pcName } from '../theory/notes'
+import { useInstrument } from '../instrument'
 
 type View = 'tab' | 'solo' | 'both'
 interface Feedback {
@@ -49,6 +50,7 @@ const noteName = (m: number, flats: boolean) => pcName(m % 12, flats)
 const octave = (m: number) => Math.floor(m / 12) - 1
 
 export function PlayScreen() {
+  const inst = useInstrument()
   const [songId, setSongId] = usePersist('playSong', '')
   const [doc, setDoc] = useState<SongDoc | null>(null)
   const [sheet, setSheet] = useState(false)
@@ -79,7 +81,7 @@ export function PlayScreen() {
       let d = songId ? await getSong(songId) : undefined
       if (!d) {
         const all = await listSongs()
-        d = all[0] ?? exampleDoc('ode')
+        d = all[0] ?? exampleDoc(inst.id === 'guitar' ? 'ode' : inst.id === 'tenor' ? 'uke-ode' : 'bari-ode', inst.tuning.notes)
         if (!all.length) await saveSong(d)
       }
       if (alive) {
@@ -100,7 +102,7 @@ export function PlayScreen() {
     })
   }, [])
 
-  const trackIdx = doc ? Math.min(doc.track ?? defaultTrack(doc.song), doc.song.tracks.length - 1) : 0
+  const trackIdx = doc ? Math.min(doc.track ?? defaultTrack(doc.song, inst.strings), doc.song.tracks.length - 1) : 0
   const track = doc?.song.tracks[trackIdx] ?? null
   const flat = useMemo(() => (track ? flatten(track) : []), [track])
   const follow = useMemo(() => {
@@ -462,6 +464,9 @@ export function PlayScreen() {
         <TabView track={track} mode={labelMode} flats={flats} cursor={playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0} states={states.current}
           flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} />
         {track.capo > 0 && <p className="small muted cap">Capo on fret {track.capo}: frets are counted from the capo.</p>}
+        {track.tuning.length !== inst.strings && (
+          <p className="small muted cap">This tab is for a {track.tuning.length}-string instrument; you're in {inst.label.toLowerCase()} mode. Pick a {inst.strings}-string tab from Songs to play along on your {inst.noun}.</p>
+        )}
       </section>
 
       <section className="play-solo">

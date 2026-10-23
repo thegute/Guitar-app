@@ -5,6 +5,14 @@ import { EXAMPLES, exampleDoc } from '../tabs/examples'
 import { parseTextTab } from '../tabs/textTab'
 import { fromTextTab } from '../tabs/model'
 import { Clipboard } from '@capacitor/clipboard'
+import { useInstrument } from '../instrument'
+import { KeyPicker, Chips, usePersist } from '../components/Controls'
+import { ESSENTIALS, EX_ARPS, EX_LICKS, EX_SCALES, EX_SEQUENCES, EX_WARMUPS, buildExercise, type ExerciseKind, type ExerciseSpec } from '../tabs/exercises'
+
+const KINDS: { id: ExerciseKind; label: string }[] = [
+  { id: 'scale', label: 'Scales' }, { id: 'sequence', label: 'Sequences' }, { id: 'arpeggio', label: 'Arpeggios' },
+  { id: 'lick', label: 'Licks' }, { id: 'warmup', label: 'Warm-ups' },
+]
 
 const SITES = [
   { id: 'songsterr', label: 'Songsterr', url: (q: string) => `https://www.songsterr.com/?pattern=${encodeURIComponent(q)}` },
@@ -19,6 +27,7 @@ interface Props {
 }
 
 export function SongsSheet({ currentId, onClose, onOpen }: Props) {
+  const inst = useInstrument()
   const [songs, setSongs] = useState<SongDoc[]>([])
   const [text, setText] = useState('')
   const [title, setTitle] = useState('')
@@ -29,6 +38,24 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('')
   const [clipNote, setClipNote] = useState('')
+  const [exKind, setExKind] = usePersist<ExerciseKind>('exKind', 'scale')
+  const [exRoot, setExRoot] = usePersist('exRoot', 'A')
+  const [exType, setExType] = usePersist<Record<ExerciseKind, string>>('exType', { scale: 'minor pentatonic', sequence: 'threes', arpeggio: 'maj', lick: 'box-desc', warmup: 'spider' })
+  const [exScale, setExScale] = usePersist('exScale', 'minor pentatonic')
+  const [exPos, setExPos] = usePersist('exPos', 0)
+  const typeOptions = exKind === 'scale' ? EX_SCALES.map(x => ({ id: x.id, label: x.label }))
+    : exKind === 'sequence' ? EX_SEQUENCES : exKind === 'arpeggio' ? EX_ARPS.map(x => ({ id: x.id, label: x.label }))
+      : exKind === 'lick' ? EX_LICKS.map(x => ({ id: x.id, label: x.label })) : EX_WARMUPS
+  const posCount = exKind === 'warmup' || exKind === 'lick' ? 0 : exKind === 'scale' && !/pentatonic|blues/.test(exType.scale) ? 7 : 5
+
+  async function openExercise(spec: ExerciseSpec) {
+    const song = buildExercise(spec, inst.midis)
+    if (!song.tracks[0].bars.length) { setError("That exercise doesn't fit this instrument. Try another position."); return }
+    const id = `lib:${inst.id}:${inst.tuning.id}:${spec.kind}:${spec.root}:${spec.type}:${spec.position}:${spec.scale ?? ''}`
+    const doc: SongDoc = { id, title: song.title, source: 'lesson', song, updated: Date.now() }
+    await saveSong(doc)
+    onOpen(doc)
+  }
   const file = useRef<HTMLInputElement>(null)
 
   async function pasteClipboard() {
@@ -39,7 +66,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
       if (!v) { setClipNote('The clipboard is empty. Copy the tab on the website first.'); return }
       if (youtubeId(v) && v.length < 200) { setYt(v); setClipNote('Pasted a YouTube link.'); return }
       setText(v)
-      setClipNote(parseTextTab(v) ? 'Tab pasted. Check the title, then tap Load tab.' : "Pasted, but I can't see tab lines in it yet. Make sure you copied the lines that look like  e|---0---|.")
+      setClipNote(parseTextTab(v, 'Pasted tab', inst.tuning.notes) ? 'Tab pasted. Check the title, then tap Load tab.' : "Pasted, but I can't see tab lines in it yet. Make sure you copied the lines that look like  e|---0---|.")
     } catch {
       setClipNote('Could not read the clipboard here: long-press in the box below and choose Paste.')
     }
@@ -62,7 +89,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
       const isText = /\.(txt|tab|text)$/i.test(f.name) || bytes.slice(0, 200).every(b => b === 9 || b === 10 || b === 13 || (b >= 32 && b < 127))
       let doc: SongDoc
       if (isText) {
-        const parsed = parseTextTab(new TextDecoder().decode(bytes), f.name.replace(/\.[^.]+$/, ''))
+        const parsed = parseTextTab(new TextDecoder().decode(bytes), f.name.replace(/\.[^.]+$/, ''), inst.tuning.notes)
         if (!parsed) throw new Error('No tab found in that text file.')
         const song = fromTextTab(parsed)
         doc = { id: newId(), title: song.title, source: 'text', song, youtube: link, updated: Date.now() }
@@ -82,7 +109,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
 
   async function loadText() {
     setError('')
-    const parsed = parseTextTab(text, title.trim() || 'Pasted tab')
+    const parsed = parseTextTab(text, title.trim() || 'Pasted tab', inst.tuning.notes)
     if (!parsed) {
       setError('No tab found. Paste the lines that look like  e|---0---3---|  (all six strings).')
       return
@@ -96,7 +123,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
 
   async function openExample(id: string) {
     const existing = songs.find(s => s.id === 'ex-' + id)
-    const doc = existing ?? exampleDoc(id)
+    const doc = existing ?? exampleDoc(id, inst.tuning.notes)
     if (!existing) await saveSong(doc)
     onOpen(doc)
   }
@@ -137,7 +164,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
           </div>
           <label className="field">
             <span>…or paste a text tab (from Ultimate Guitar or any tab site)</span>
-            <textarea className="input mono" rows={6} value={text} onChange={e => setText(e.target.value)} placeholder={'e|-----0-----|\nB|---1---1---|\nG|-2-------2-|\nD|-----------|\nA|-----------|\nE|-----------|'} spellCheck={false} />
+            <textarea className="input mono" rows={6} value={text} onChange={e => setText(e.target.value)} placeholder={inst.strings === 4 ? `${[...inst.tuning.notes].reverse().map(n => n[0]).join('|-----------|\n')}|-----------|` : 'e|-----0-----|\nB|---1---1---|\nG|-2-------2-|\nD|-----------|\nA|-----------|\nE|-----------|'} spellCheck={false} />
           </label>
           <div className="row">
             <input className="input" style={{ flex: '1 1 160px' }} placeholder="Song title (optional)" value={title} onChange={e => setTitle(e.target.value)} aria-label="Song title" />
@@ -149,14 +176,51 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
           {error && <p className="notice small" role="alert">{error}</p>}
         </section>
 
+        <section className="panel stack" style={{ gap: 8 }}>
+          <h3 style={{ margin: 0 }}>Practice tabs: scales, arpeggios and licks</h3>
+          <p className="small muted" style={{ margin: 0 }}>They play along like any song: the mic follows you, Hear it plays them, and you can loop any part.</p>
+          <ul className="song-list">
+            {ESSENTIALS.slice(0, 6).map(e => (
+              <li key={e.title}>
+                <button className="song-open" onClick={() => void openExercise(e.spec)}>
+                  <b>{e.title}</b>
+                  <span className="small muted">{e.why}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <details>
+            <summary className="small">More essentials</summary>
+            <ul className="song-list" style={{ marginTop: 6 }}>
+              {ESSENTIALS.slice(6).map(e => (
+                <li key={e.title}><button className="song-open" onClick={() => void openExercise(e.spec)}><b>{e.title}</b><span className="small muted">{e.why}</span></button></li>
+              ))}
+            </ul>
+          </details>
+          <h3 style={{ margin: '8px 0 0' }}>Build your own</h3>
+          <Chips label="Kind" items={KINDS} value={exKind} onChange={setExKind} />
+          {exKind !== 'warmup' && <KeyPicker value={exRoot} onChange={setExRoot} />}
+          <Chips label="Type" wrap items={typeOptions} value={exType[exKind]} onChange={v => setExType({ ...exType, [exKind]: v })} />
+          {exKind === 'sequence' && (
+            <Chips label="Scale" items={EX_SCALES.map(x => ({ id: x.id, label: x.label }))} value={exScale} onChange={setExScale} />
+          )}
+          {posCount > 0 && (
+            <Chips label="Position" items={[...Array.from({ length: posCount }, (_, i) => ({ id: i, label: `Position ${i + 1}` })), { id: -1, label: 'All positions' }]} value={exPos >= posCount ? 0 : exPos} onChange={setExPos} />
+          )}
+          {exKind === 'lick' && <p className="small muted" style={{ margin: 0 }}>{EX_LICKS.find(l => l.id === exType.lick)?.feel}</p>}
+          <div className="row">
+            <button className="btn primary" onClick={() => void openExercise({ kind: exKind, root: exRoot, type: exType[exKind], position: posCount ? (exPos >= posCount ? 0 : exPos) : 0, scale: exScale })}>Open in Play</button>
+          </div>
+        </section>
+
         <section>
           <h3>Your songs</h3>
-          {songs.filter(s => s.source !== 'example').length === 0 && <p className="small muted">Songs you add are saved on this phone.</p>}
-          {songs.filter(s => s.source !== 'example').length > 4 && (
+          {songs.filter(s => s.source !== 'example' && s.source !== 'lesson').length === 0 && <p className="small muted">Songs you add are saved on this phone.</p>}
+          {songs.filter(s => s.source !== 'example' && s.source !== 'lesson').length > 4 && (
             <input className="input" type="search" style={{ width: '100%', marginBottom: 6 }} placeholder="Search your songs" value={filter} onChange={e => setFilter(e.target.value)} aria-label="Search your songs" />
           )}
           <ul className="song-list">
-            {songs.filter(s => s.source !== 'example' && (!filter.trim() || `${s.title} ${s.artist ?? ''}`.toLowerCase().includes(filter.trim().toLowerCase()))).map(s => (
+            {songs.filter(s => s.source !== 'example' && s.source !== 'lesson' && (!filter.trim() || `${s.title} ${s.artist ?? ''}`.toLowerCase().includes(filter.trim().toLowerCase()))).map(s => (
               <li key={s.id} className={s.id === currentId ? 'on' : ''}>
                 <button className="song-open" onClick={() => onOpen(s)}>
                   <b>{s.title}</b>
@@ -180,7 +244,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
         <section>
           <h3>Practice examples</h3>
           <ul className="song-list">
-            {EXAMPLES.map(e => (
+            {EXAMPLES.filter(e => e.for === inst.id).map(e => (
               <li key={e.id} className={'ex-' + e.id === currentId ? 'on' : ''}>
                 <button className="song-open" onClick={() => void openExample(e.id)}><b>{e.title}</b></button>
               </li>

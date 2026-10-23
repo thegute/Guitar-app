@@ -74,16 +74,17 @@ export function playable(step: SongStep) {
   return step.notes.filter(n => n.tech !== 'x')
 }
 
-/** Pick the track most likely to be the lead / main guitar. */
-export function defaultTrack(song: Song) {
+/** Pick the track most likely to be the lead / main part for this instrument (6 strings for guitar, 4 for ukulele). */
+export function defaultTrack(song: Song, strings = 6) {
   let best = 0
   let bestScore = -1
   song.tracks.forEach((t, i) => {
     // count picked steps (a single-note line beats a strummed part with the same number of notes)
     const notes = t.bars.reduce((a, b) => a + b.steps.filter(s => s.notes.length).length, 0)
-    const guitarish = /guit|gtr|lead|solo|melody/i.test(t.name) ? 1.3 : /bass|drum|vocal|voice/i.test(t.name) ? 0.3 : 1
-    const sixString = t.tuning.length === 6 ? 1.2 : 0.7
-    const score = notes * guitarish * sixString
+    const wanted = strings === 4 ? /uke|ukulele/i : /guit|gtr|lead|solo|melody/i
+    const guitarish = wanted.test(t.name) ? 1.5 : /bass|drum|vocal|voice/i.test(t.name) ? 0.3 : 1
+    const fits = t.tuning.length === strings ? 1.3 : 0.7
+    const score = notes * guitarish * fits
     if (score > bestScore) { bestScore = score; best = i }
   })
   return best

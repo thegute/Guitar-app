@@ -5,7 +5,7 @@ export interface SongDoc {
   id: string
   title: string
   artist?: string
-  source: 'gp' | 'text' | 'example'
+  source: 'gp' | 'text' | 'example' | 'lesson'
   song: Song
   youtube?: string
   /** your chord edits, by bar index ('' = no chord) */

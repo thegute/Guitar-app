@@ -10,11 +10,12 @@ interface Props {
 
 /** Classic vertical chord box: low E on the left. */
 export function ChordDiagram({ name, voicing, active, onClick, size = 1 }: Props) {
+  const n = voicing.frets.length
   const W = 124 * size
-  const gap = 18 * size
+  const gap = (n <= 4 ? 24 : 18) * size
   const fretH = 22 * size
   const top = (name ? 38 : 22) * size
-  const left = (W - gap * 5) / 2
+  const left = (W - gap * (n - 1)) / 2
   const played = voicing.frets.filter(f => f > 0)
   const minF = played.length ? Math.min(...played) : 1
   const maxF = played.length ? Math.max(...played) : 1
@@ -31,15 +32,15 @@ export function ChordDiagram({ name, voicing, active, onClick, size = 1 }: Props
         )}
         {/* nut or position number */}
         {start === 1 ? (
-          <rect x={x(0) - 1} y={top - 4 * size} width={gap * 5 + 2} height={4 * size} fill="var(--pearl)" />
+          <rect x={x(0) - 1} y={top - 4 * size} width={gap * (n - 1) + 2} height={4 * size} fill="var(--pearl)" />
         ) : (
           <text x={x(0) - 12 * size} y={yMid(start) + 5 * size} textAnchor="end" fontSize={13 * size} fill="var(--pearl-2)">{start}</text>
         )}
         {Array.from({ length: rows + 1 }, (_, i) => (
-          <line key={`r${i}`} x1={x(0)} x2={x(5)} y1={top + i * fretH} y2={top + i * fretH} stroke="var(--nickel)" strokeOpacity={0.7} />
+          <line key={`r${i}`} x1={x(0)} x2={x(n - 1)} y1={top + i * fretH} y2={top + i * fretH} stroke="var(--ink-3)" strokeOpacity={0.55} />
         ))}
-        {[0, 1, 2, 3, 4, 5].map(s => (
-          <line key={`s${s}`} x1={x(s)} x2={x(s)} y1={top} y2={top + rows * fretH} stroke={s < 3 ? 'var(--bronze)' : '#d9dcdd'} strokeWidth={[2.2, 1.9, 1.6, 1.3, 1.1, 0.9][s]} />
+        {Array.from({ length: n }, (_, s) => s).map(s => (
+          <line key={`s${s}`} x1={x(s)} x2={x(s)} y1={top} y2={top + rows * fretH} stroke={n === 6 && s < 3 ? 'var(--bronze)' : 'var(--ink-3)'} strokeWidth={n === 6 ? [2.2, 1.9, 1.6, 1.3, 1.1, 0.9][s] : 1.6} />
         ))}
         {/* barres */}
         {voicing.barres.map(b => {

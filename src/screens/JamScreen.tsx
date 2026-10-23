@@ -6,7 +6,8 @@ import {
   randomProgression, swapChord, suggestions, scalesForProgression, scaleForChord, progChordPcs, resolveFlavor,
   type ModeId, type Style, type Flavor, type Ending, type ProgChord,
 } from '../theory/progressions'
-import { voicings as allShapes, type Voicing } from '../theory/chords'
+import type { Voicing } from '../theory/chords'
+import { chordShapes, useInstrument, type Instrument } from '../instrument'
 import { scaleById, scaleInfo } from '../theory/scales'
 import { ChordDiagram } from '../components/ChordDiagram'
 import { Fretboard } from '../components/Fretboard'
@@ -20,9 +21,8 @@ import { JamTransport } from '../audio/jam'
 import { InputRecorder, makeLayerBuffer, measureLatency, defaultLatencyMs } from '../audio/looper'
 import { STRUMS } from '../audio/strums'
 import { GROOVES } from '../audio/drums'
-import { pc, STANDARD, stringMidis } from '../theory/notes'
+import { pc } from '../theory/notes'
 
-const tuning = stringMidis(STANDARD)
 const COUNTS = [2, 4, 8, 12, 16]
 const RATES = [{ id: 8, label: 'Every 2 bars' }, { id: 4, label: 'Every bar' }, { id: 2, label: 'Twice a bar' }]
 const SHAPES = [
@@ -36,10 +36,10 @@ const FALLBACK: Record<string, string[]> = {
   '13': ['9', '7'], m11: ['m9', 'm7'], maj9: ['maj7', 'major'], '69': ['6', 'major'], madd9: ['minor'], '7b9': ['7'],
   m9: ['m7'], '9': ['7'], add9: ['major'], sus2: ['major'], '7sus4': ['sus4', '7'], m7b5: ['dim'], dim7: ['dim'],
 }
-function shapesFor(c: ProgChord): Voicing[] {
+function shapesFor(c: ProgChord, inst: Instrument): Voicing[] {
   const suffix = c.type === '' ? 'major' : c.type === 'm' ? 'minor' : c.type
   for (const s of [suffix, ...(FALLBACK[suffix] ?? [])]) {
-    const v = allShapes(c.root, s)
+    const v = chordShapes(c.root, s, inst)
     if (v.length) return v
   }
   return []
@@ -57,9 +57,12 @@ function rank(list: Voicing[], pref: string, near: number): number {
   list.forEach((v, i) => { if (score(v) < score(list[best])) best = i })
   return best
 }
+let tuning: number[] = []
 const midisOf = (v: Voicing | undefined) => (v ? v.frets.map((f, s) => (f < 0 ? -1 : tuning[s] + f)).filter(m => m > 0) : [])
 
 export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale: string) => void }) {
+  const inst = useInstrument()
+  tuning = inst.midis
   // ---------- options ----------
   const [tonic, setTonic] = usePersist('progKey', 'G')
   const [mode, setMode] = usePersist<ModeId>('progMode', 'major')
@@ -116,7 +119,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   }, [])
 
   // ---------- shapes ----------
-  const shapeLists = useMemo(() => prog.map(shapesFor), [prog])
+  const shapeLists = useMemo(() => prog.map(c => shapesFor(c, inst)), [prog, inst])
   const autoIdx = useMemo(() => {
     let near = shapePref === 'neck' ? 7 : 1
     return shapeLists.map(list => {
@@ -163,7 +166,8 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     next[i] = swapChord(prog, i, { tonic, mode, style, flavor, spice, start, ending })
     setProg(next)
     setSelected(i)
-    strum(midisOf(shapesFor(next[i])[rank(shapesFor(next[i]), shapePref, chosen[i]?.baseFret ?? 1)]))
+    const sh = shapesFor(next[i], inst)
+    strum(midisOf(sh[rank(sh, shapePref, chosen[i]?.baseFret ?? 1)]))
   }
   function hear(i: number) {
     setSelected(i)
@@ -490,6 +494,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     <div className="panel">
       <h3 style={{ marginTop: 0 }}>{tip.root} {scaleById(tip.scale).label}{cur ? <span className="muted"> · {cur.symbol} notes in amber</span> : null}</h3>
       <Fretboard
+        tuning={inst.midis}
         markFor={midi => {
           const q = midi % 12
           const inScale = info.pcs.includes(q)
@@ -535,7 +540,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   return (
     <div className="stack jam">
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0 }}>Jam</h1>
+        <h1 style={{ margin: 0 }}>Jam{inst.isUke ? <span className="muted small"> · {inst.short}</span> : null}</h1>
         <button className="btn sm" onClick={() => setOptionsOpen(!optionsOpen)} aria-expanded={optionsOpen}>{optionsOpen ? 'Hide options' : 'Options'}</button>
       </div>
       {optionsOpen && options}

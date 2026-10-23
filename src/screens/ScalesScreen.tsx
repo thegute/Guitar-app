@@ -6,6 +6,7 @@ import { Chips, Field, KeyPicker, usePersist } from '../components/Controls'
 import { playNote } from '../audio/pluck'
 import { audio } from '../audio/engine'
 import { pc, noteToMidi } from '../theory/notes'
+import { useInstrument } from '../instrument'
 
 const POSITIONS = [
   { id: 'all', label: 'Whole neck', from: 0, to: 15 },
@@ -24,6 +25,7 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
   const [pos, setPos] = usePersist('scalePos', 'all')
   const [labels, setLabels] = usePersist<'intervals' | 'notes'>('scaleLabels', 'intervals')
   const [playing, setPlaying] = useState(false)
+  const inst = useInstrument()
   useEffect(() => {
     if (initial) { setRoot(initial.root); setScale(initial.scale); setPos('all') }
   }, [initial, setRoot, setScale, setPos])
@@ -49,7 +51,7 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
     if (playing) return
     setPlaying(true)
     const ctx = audio()
-    const base = noteToMidi(root + '3')
+    const base = noteToMidi(root + (inst.isUke && inst.id === 'tenor' ? '4' : '3'))
     const steps = [...info.pcs.map(x => base + ((x - r + 12) % 12)), base + 12]
     steps.sort((a, b) => a - b)
     const seq = [...steps, ...steps.slice(0, -1).reverse()]
@@ -84,6 +86,7 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
           <Chips label="Labels" items={[{ id: 'intervals', label: 'Intervals' }, { id: 'notes', label: 'Notes' }]} value={labels} onChange={setLabels} />
         </div>
         <Fretboard
+          tuning={inst.midis}
           fromFret={p.from === 0 ? 0 : p.from - 1}
           toFret={p.id === 'all' ? 15 : p.to}
           markFor={(midi, s, f) => {
