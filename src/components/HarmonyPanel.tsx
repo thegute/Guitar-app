@@ -13,7 +13,7 @@ import {
 } from '../tabs/harmony'
 import type { SongNote } from '../tabs/model'
 
-export type HarmonyMode = 'scale' | 'arp' | 'triads' | 'connect'
+export type HarmonyMode = 'hand' | 'scale' | 'arp' | 'triads' | 'connect'
 
 interface Props {
   tuning: number[]
@@ -29,12 +29,15 @@ interface Props {
   expected: SongNote[]
   /** frets around where the tab is now (for the hand position) */
   nearFrets: number[]
+  /** where the fretting hand sits now (Hand shape mode) */
+  hand?: { notes: { string: number; fret: number; finger: number }[]; base: number; open: boolean } | null
   compact?: boolean
   onKey: (k: { root: string; minor: boolean } | null) => void
   onEditChord: (bar: number, name: string | null) => void
 }
 
 const MODES: { id: HarmonyMode; label: string }[] = [
+  { id: 'hand', label: 'Hand shape' },
   { id: 'scale', label: 'Scale' },
   { id: 'arp', label: 'Arpeggio' },
   { id: 'triads', label: 'Triads' },
@@ -59,9 +62,12 @@ function stringLabel(tuning: number[], s: number, flats: boolean) {
   return s === 0 ? `low ${n}` : s === tuning.length - 1 ? `high ${n.toLowerCase()}` : n
 }
 
+// the Hand shape view is new: show it once to people who already picked another view
+try { if (!localStorage.getItem('kg:handModeShown')) { localStorage.setItem('kg:hMode', '"hand"'); localStorage.setItem('kg:handModeShown', '1') } } catch { /* storage unavailable */ }
+
 export function HarmonyPanel(p: Props) {
   const { tuning, keyGuess, flats, spans, expected, compact } = p
-  const [mode, setMode] = usePersist<HarmonyMode>('hMode', 'scale')
+  const [mode, setMode] = usePersist<HarmonyMode>('hMode', 'hand')
   const [tipIdx, setTipIdx] = usePersist('hTip', 0)
   const [fitChord, setFitChord] = usePersist('hFit', false)
   const [labels, setLabels] = usePersist<'int' | 'note'>('hLabels', 'int')
@@ -83,8 +89,9 @@ export function HarmonyPanel(p: Props) {
   const nStr = tuning.length
   const [handLo, handHi] = handWindow(p.nearFrets)
   const useWindow = mode === 'connect' || range === 'hand'
-  const from = useWindow ? Math.max(0, handLo - 1) : 0
-  const to = useWindow ? Math.max(handHi + 1, from + 5) : 15
+  let from = useWindow ? Math.max(0, handLo - 1) : 0
+  let to = useWindow ? Math.max(handHi + 1, from + 5) : 15
+  if (mode === 'hand' && p.hand) { from = p.hand.open ? 0 : Math.max(0, p.hand.base - 2); to = Math.max(from + 6, (p.hand.open ? 4 : p.hand.base + 3) + 2) }
   const inWindow = (f: number) => !useWindow || (f >= handLo && f <= handHi) || (handLo === 0 && f <= 4)
   const expectedAt = new Map(expected.map(n => [`${n.string}-${n.fret}`, n]))
 
@@ -94,7 +101,19 @@ export function HarmonyPanel(p: Props) {
   let extra: ReactNode = null
   const noteN = (q: number) => pcName(q, flats)
 
-  if (mode === 'scale') {
+  if (mode === 'hand') {
+    const at = new Map((p.hand?.notes ?? []).map(n => [`${n.string}-${n.fret}`, n]))
+    markFor = (midi, s, f) => {
+      const k = `${s}-${f}`
+      const h = at.get(k)
+      if (expectedAt.has(k)) return { label: h && h.finger ? String(h.finger) : noteN(midi % 12), role: 'target' }
+      if (h) return { label: h.finger ? String(h.finger) : '0', role: 'chord' }
+      return null
+    }
+    caption = p.hand
+      ? `${p.hand.open ? 'Open position' : `Hand at fret ${p.hand.base}`}: every note of this part of the tab, with the finger that plays it (1 index, 2 middle, 3 ring, 4 pinky, 0 open string). The ring is the note you play next.`
+      : 'Load a tab to see where your hand goes.'
+  } else if (mode === 'scale') {
     const sc = fitChord && cur ? chordScale(cur, kPcs, flats) : null
     const root = sc ? cur!.root : tip ? pc(tip.root) : pc(keyGuess.root)
     const info = tip ? scaleInfo(tip.root, tip.scale) : null

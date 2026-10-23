@@ -31,6 +31,8 @@ import { TabPlayer } from '../audio/tabPlayer'
 import { keyPrefersFlats, pcName } from '../theory/notes'
 import { useInstrument } from '../instrument'
 import { Splitter } from '../components/Splitter'
+import { HandShape } from '../components/HandShape'
+import { groupAt, handGroups } from '../play/handShape'
 import { IconExpand, IconShrink } from '../components/Icons'
 import { setPlayFocus, useMedia } from '../ui'
 
@@ -100,6 +102,7 @@ export function PlayScreen() {
   const posture = useFoldPosture()
   const split = splitPref === 'on' || (splitPref === 'auto' && posture.tabletop)
   const [tabZoom, setTabZoom] = usePersist('tabZoom', 1)
+  const [handOn, setHandOn] = usePersist('handGuide', true)
   const [layRaw, setLay] = usePersist<PlayLayout>('playLayout', LAYOUT0)
   const lay = { ...LAYOUT0, ...layRaw }
   const wide = useMedia('(min-width: 760px)')
@@ -168,6 +171,7 @@ export function PlayScreen() {
   const trackIdx = doc ? Math.min(doc.track ?? defaultTrack(doc.song, inst.strings), doc.song.tracks.length - 1) : 0
   const track = doc?.song.tracks[trackIdx] ?? null
   const flat = useMemo(() => (track ? flatten(track) : []), [track])
+  const hands = useMemo(() => handGroups(flat), [flat])
   const follow = useMemo(() => {
     const idx: number[] = []
     const steps: FollowStep[] = []
@@ -520,6 +524,19 @@ export function PlayScreen() {
   }
 
   const tuning = track.tuning.map(t => t + track.capo)
+  // where the fretting hand sits for the part you're on
+  const handAt = inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat
+  const hg = groupAt(hands, handAt)
+  const hand = hg >= 0 ? hands[hg] : null
+  const handNext = hg >= 0 ? hands[hg + 1] ?? null : null
+  const handLeft = hand ? flat.slice(Math.max(handAt, hand.from), hand.to).filter(f => f.step.notes.length).length : 0
+  const strNames = track.tuning.map((t, s) => {
+    const n = pcName(t % 12, flats)
+    return s === track.tuning.length - 1 && track.tuning.filter(x => x % 12 === t % 12).length > 1 ? n.toLowerCase() : n
+  })
+  const handView = (mini: boolean) => (handOn && hand && hand.notes.some(n => n.fret > 0) ? (
+    <HandShape group={hand} next={handNext} moveSoon={handLeft <= 2} expected={expected} nStr={track.tuning.length} stringNames={strNames} compact={mini} />
+  ) : null)
   // strum-along: the chord to play next, with its shape
   const wantChord = !done && !!follow.steps[pos]?.chord
   const chordName = cursorFlat >= 0 ? (flat[cursorFlat].step.chord ?? timeline.spans[curSpan]?.name) : undefined
@@ -615,6 +632,7 @@ export function PlayScreen() {
           </>
         )}
       </div>
+      {handView(mini)}
     </div>
   )
 
@@ -639,6 +657,7 @@ export function PlayScreen() {
         </>
       )}
       <button className="btn sm" onClick={() => restart()}>Restart</button>
+      <button className="btn sm" aria-pressed={handOn} onClick={() => setHandOn(!handOn)} title="Show where your fretting hand goes, with finger numbers">✋ Hand</button>
       <span className="zoom-btns" role="group" aria-label="Tab size">
         <button className="btn sm" onClick={() => setTabZoom(z => Math.max(0.7, Math.round((z - 0.1) * 10) / 10))} aria-label="Smaller tab">A−</button>
         <button className="btn sm" onClick={() => setTabZoom(z => Math.min(1.8, Math.round((z + 0.1) * 10) / 10))} aria-label="Bigger tab">A+</button>
@@ -757,6 +776,7 @@ export function PlayScreen() {
           curSpan={curSpan}
           expected={expected.map(n => ({ ...n }))}
           nearFrets={nearFrets}
+          hand={hand ? { notes: hand.notes, base: hand.base, open: hand.open } : null}
           compact
           onKey={k => update({ key: k ?? undefined })}
           onEditChord={(bar, name) => {

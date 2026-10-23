@@ -970,3 +970,26 @@ details summary { cursor: pointer; color: var(--pearl-2); }
 .tab-preview .tab-view { max-height: 300px; min-height: 120px; padding-bottom: 10px; }
 .keep-row { flex-wrap: wrap; }
 .keep-row .chip { min-height: 32px; padding: 0 10px; font-size: 13px; }
+
+/* fretting-hand guide in the readout: four frets of the neck with finger numbers */
+.readout-box .hand-shape { grid-column: 1 / -1; }
+.hand-shape { display: grid; gap: 2px; justify-items: start; }
+.hand-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; color: var(--pearl-2); }
+.hand-head b { font-weight: 600; }
+.hand-move { color: var(--gold-text); font-weight: 600; animation: fade-in 0.3s ease-out; }
+.hand-shape svg { display: block; overflow: visible; }
+.hand-fretno { font-family: var(--ui); font-size: 10px; fill: var(--pearl-3); }
+.hand-str { font-family: var(--ui); font-size: 10px; fill: var(--pearl-3); }
+.hand-line { stroke: var(--pearl-3); stroke-opacity: 0.55; stroke-width: 1; }
+.hand-fret { stroke: var(--pearl-3); stroke-opacity: 0.5; stroke-width: 1.2; }
+.hand-nut { stroke: var(--pearl-2); stroke-width: 3.5; }
+.hand-dot circle { fill: var(--fb-gold); }
+.hand-dot text { font-family: var(--display); font-weight: 700; font-size: 10px; fill: #2a1d05; }
+.hand-dot.open circle { fill: var(--surface); stroke: var(--pearl-3); stroke-width: 1.2; }
+.hand-dot.open text { fill: var(--pearl-2); }
+.hand-dot.next circle { fill: var(--mint); stroke: color-mix(in srgb, var(--mint) 45%, transparent); stroke-width: 5; paint-order: stroke; }
+.hand-dot.next text { fill: #06231a; }
+.hand-shape.compact .hand-dot text { font-size: 8.5px; }
+.readout-box.mini { grid-template-columns: auto minmax(0, 1fr) auto; }
+.readout-box.mini .hand-shape { grid-column: auto; }
+.readout-box.mini .hand-head { font-size: 11px; }
