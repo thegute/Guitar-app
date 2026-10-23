@@ -23,11 +23,22 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
 - `src/screens/PlayScreen.tsx` (main; follow-along, play in time, section loop with pass scores, Hear it, split/tabletop layout, tab zoom, pedals),
   `SongsSheet.tsx` (find / upload / paste / library, per-song progress), `JamScreen.tsx` (progression generator with chord diagrams, strum + drum backing,
   looper recording, circle of fifths), Chords, Scales, Tempo (metronome), Tuner.
-- `src/play/`: `inTime.ts` (timeline, judge, scoreRun, nextSpeed, InternalClock, VideoClock, matchTimed), `useInTime.ts`, `songStats.ts`
-  (runs, trouble bars, learned at a 90%+ full run at ≥0.75 speed, reviews after 3/7/14/30/60 days), `fold.ts` (Viewport Segments → tabletop).
+- `src/play/`: `inTime.ts` (timeline, judge, scoreRun, nextSpeed, InternalClock, VideoClock, matchTimed), `useInTime.ts` (also tells the listener which
+  notes are due: `onExpect`), `songStats.ts` (runs, trouble bars, learned at a 90%+ full run at ≥0.75 speed, reviews after 3/7/14/30/60 days),
+  `fold.ts` (Viewport Segments → tabletop), `handShape.ts` (hand positions, one finger per fret / first position, finger numbers).
+- Play layout (`PlayLayout` in PlayScreen, `kg:playLayout`): drag handles (`components/Splitter.tsx`) for side width (wide), Scales & chords height,
+  phone video panel height; panels tuck away; Full tab (`focus`) hides side/solo and the menu (`src/ui.ts` playFocus). Mini readout when the side is hidden.
+  `components/HandShape.tsx` in the readout + HarmonyPanel 'hand' mode. TabView splits bars wider than the box (dashed `tab-cont` edges).
+- Menu: slimmer rail (74 px), hide button / swipe → `kg:navHidden`; pull tab opens a drawer; poster thumbnail (`components/Art.tsx`, `kg:showArt`).
 - Jam engine: `src/theory/progressions.ts` (22 styles, chord colours, endings, spice incl. secondary dominants / tritone subs / passing dim / chromatic mediants),
   `src/audio/jam.ts` (JamTransport: one clock for chords, drums, click and loop layers), `strums.ts`, `drums.ts` (synth kit + grooves),
   `looper.ts` (AudioWorklet recorder stamped with context frames, latency compensation + timing check). Recordings are exactly one loop long and start on the loop's first beat.
+- Note detection: `src/audio/noteDetect.ts` (pure: spectral-flux onsets, harmonic salience with whitening + true-peak check, expected-note check
+  with "what the pick added" diff, re-pick rule, overtone guard, double-listen before "wrong note"). `NoteListener` (follow.ts) feeds it from an
+  AudioWorklet and exposes `expect(now, next)`. Bench: `npm run test:detect` (recorded samples × noise/phone/distortion; needs ffmpeg).
+- Generators: `tabs/picking.ts` (Travis/arpeggio/strum patterns → tab), `tabs/chordMelody.ts` (melody over chords + arrangement, 7 styles, 3 levels),
+  `tabs/licks.ts` (6 genres), `tabs/fromProgression.ts` (glue, starter progressions, Jam progression from storage), UI `components/ProgressionTabs.tsx`
+  (Jam "Make it a tab" + Songs) and `components/LickMaker.tsx`. Generated songs are saved with `source: 'jam'`.
 - `src/tabs/`: `model.ts` (Song model: strings 0 = lowest, midi includes capo), `textTab.ts` (ASCII tab parser incl. chord lines, techniques, rhythm from spacing),
   `gpImport.ts` (alphaTab importer only, lazy-loaded), `follow.ts` (NoteListener onset + pitch, matchNote), `harmony.ts` (chord parsing/guessing, timeline, voice leading, triads, walks, chord scales),
   `keyDetect.ts` (Krumhansl–Kessler), `library.ts` (IndexedDB + YouTube link parsing), `examples.ts`, `chordSheet.ts` (chords over lyrics → one chord per bar
@@ -71,6 +82,17 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
 - App art: the owner's own illustration `art/kguitar-art.jpg` (ukiyo-e psychedelic chocolate-lab samurai with a neon Strat and katana).
   `node art/from-image.cjs art/kguitar-art.jpg 0.483 0.27 1.85` makes the launcher icons (picture as the adaptive background), Android 12+ `splash_icon`,
   WebP splash screens, web icons and `public/art.jpg` (welcome screen, guide). Previews in `art/preview/`.
+
+## Next up (build 10) — pick up here
+1. Sounds with the owner's gear (files are NOT in the repo; re-stage from the Mac if this workspace is gone): NAM captures
+   `~/Downloads/Amp Models & Presets/Peavey 5150BL IR/*.nam` (MirrorProfiles 5150), cab IRs `~/Downloads/IR/` (York MES 412 Mixes, Calypso V30,
+   Tone Factor Two Rock 65B + '66 Deluxe Reverb starters), acoustic `PastToFutureReverbs Gibson J-45` + electric-to-acoustic converter.
+   Plan: render banks offline (NAM inference via NeuralAmpModelerCore built from GitHub, or a careful numpy WaveNet port; then IR convolution):
+   metal (5150 + MES 412, single notes, palm-muted notes, power chords), clean (Two Rock / Deluxe IR), acoustic (J-45). Only rendered audio
+   goes into public/samples. Fix the electric samples 37/42/45 and nylon 38 (stray second pluck in the recordings).
+2. Recorded drums (free-licensed kits; metal kit with double-kick grooves, reggae one-drop/cross-stick) and a recorded bass part in Jam.
+   Jam styles pick a matching tone automatically; Settings → Playback sound lists the new tones. Live guitar input is never processed or monitored.
+3. Full app review/polish pass (owner asked: improve everything), then build 10. Notify the owner's phone (PushNotification) with the link.
 
 ## Ideas not done yet
 Left-handed mode, automatic tempo detection from the video, per-note polyphonic transcription (chords are judged by chroma only), cloud sync between devices.
