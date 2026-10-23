@@ -1,5 +1,7 @@
 // Your songs: open a Guitar Pro file, paste a text tab, or pick a saved song or an example.
-import { useEffect, useRef, useState } from 'react'
+import { ProgressionTabs } from '../components/ProgressionTabs'
+import { STARTER_PROGS, jamProgression, starterProgression } from '../tabs/fromProgression'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { deleteSong, listSongs, saveSong, youtubeId, type SongDoc } from '../tabs/library'
 import { EXAMPLES, exampleDoc, exampleId } from '../tabs/examples'
 import { songFromFile, songFromText } from '../tabs/importer'
@@ -218,6 +220,8 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
           </div>
         </section>
 
+        <PickingSection onOpen={async d => { await saveSong(d); onOpen(d) }} />
+
         <section>
           <h3>Your {inst.label.toLowerCase()} songs</h3>
           {songs.filter(s => s.source !== 'example' && s.source !== 'lesson').length === 0 && <p className="small muted">Songs you add in {inst.label.toLowerCase()} mode are saved on this phone and only show up in {inst.label.toLowerCase()} mode.</p>}
@@ -231,7 +235,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
                 <button className="song-open" onClick={() => onOpen(s)}>
                   <b>{s.title}</b>
                   <span className="small muted">
-                    {[s.artist, s.source === 'gp' ? 'Guitar Pro' : s.source === 'chords' ? 'Chord sheet' : 'Text tab', s.youtube ? 'video' : null, s.song.tracks.length > 1 ? `${s.song.tracks.length} tracks` : null].filter(Boolean).join(' · ')}
+                    {[s.artist, s.source === 'gp' ? 'Guitar Pro' : s.source === 'chords' ? 'Chord sheet' : s.source === 'jam' ? 'Made from a progression' : 'Text tab', s.youtube ? 'video' : null, s.song.tracks.length > 1 ? `${s.song.tracks.length} tracks` : null].filter(Boolean).join(' · ')}
                   </span>
                   {(() => {
                     const st = songStats(s.id)
@@ -281,5 +285,29 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
         </section>
       </div>
     </div>
+  )
+}
+
+/** Fingerpicking (Travis / arpeggio) and chord melody tabs from your Jam progression or a starter progression. */
+function PickingSection({ onOpen }: { onOpen: (d: SongDoc) => void }) {
+  const jam = useMemo(() => jamProgression(), [])
+  const [src, setSrc] = usePersist('pickSource', jam ? 'jam' : 'pop')
+  const [key, setKey] = usePersist('pickKey', 'G')
+  const useJam = src === 'jam' && !!jam
+  const prog = useMemo(() => (useJam ? { mode: jam!.mode, chords: jam!.chords } : starterProgression(src === 'jam' ? 'pop' : src, key)), [useJam, jam, src, key])
+  return (
+    <section className="panel stack" style={{ gap: 8 }}>
+      <h3 style={{ margin: 0 }}>Fingerpicking and chord melody</h3>
+      <p className="small muted" style={{ margin: 0 }}>Travis picking, arpeggios or a chord melody over a progression: the one you made in Jam, or a classic one.</p>
+      <label className="field">
+        <span>Progression</span>
+        <select className="select" value={useJam ? 'jam' : src === 'jam' ? 'pop' : src} onChange={e => setSrc(e.target.value)}>
+          {jam && <option value="jam">My Jam progression: {jam.chords.map(c => c.symbol).join(' – ')}</option>}
+          {STARTER_PROGS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </select>
+      </label>
+      {!useJam && <KeyPicker value={key} onChange={setKey} />}
+      <ProgressionTabs chords={prog.chords} tonic={useJam ? jam!.tonic : key} mode={prog.mode} bpm={useJam ? jam!.bpm : 80} onOpen={onOpen} />
+    </section>
   )
 }

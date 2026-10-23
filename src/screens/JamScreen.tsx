@@ -24,6 +24,11 @@ import { bump, usePracticeTimer } from '../learn/progress'
 import { usePedals } from '../controls/pedals'
 import { STRUMS } from '../audio/strums'
 import { GROOVES } from '../audio/drums'
+import { shapesFor as shapesForChord } from '../theory/shapes'
+import { ProgressionTabs } from '../components/ProgressionTabs'
+import { patternForStrum } from '../tabs/picking'
+import { saveSong } from '../tabs/library'
+import { openInPlay } from '../nav'
 import { pc } from '../theory/notes'
 
 const COUNTS = [2, 4, 8, 12, 16]
@@ -35,18 +40,7 @@ const SHAPES = [
   { id: 'neck', label: 'Up the neck' },
 ]
 
-const FALLBACK: Record<string, string[]> = {
-  '13': ['9', '7'], m11: ['m9', 'm7'], maj9: ['maj7', 'major'], '69': ['6', 'major'], madd9: ['minor'], '7b9': ['7'],
-  m9: ['m7'], '9': ['7'], add9: ['major'], sus2: ['major'], '7sus4': ['sus4', '7'], m7b5: ['dim'], dim7: ['dim'],
-}
-function shapesFor(c: ProgChord, inst: Instrument): Voicing[] {
-  const suffix = c.type === '' ? 'major' : c.type === 'm' ? 'minor' : c.type
-  for (const s of [suffix, ...(FALLBACK[suffix] ?? [])]) {
-    const v = chordShapes(c.root, s, inst)
-    if (v.length) return v
-  }
-  return []
-}
+const shapesFor = (c: ProgChord, inst: Instrument) => shapesForChord(c, inst)
 const openStrings = (v: Voicing) => v.frets.filter(f => f === 0).length
 function rank(list: Voicing[], pref: string, near: number): number {
   if (!list.length) return -1
@@ -412,7 +406,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
       </div>
       <div className="row">
         <span className="small muted">Hear:</span>
-        <button className="chip" aria-pressed={chordsOn} onClick={() => setChordsOn(!chordsOn)}>Chords</button>
+        <button className="chip" aria-pressed={chordsOn} onClick={() => setChordsOn(!chordsOn)} title="The app's strumming. Turn it off to play the chords yourself.">Backing guitar</button>
         <button className="chip" aria-pressed={drumsOn} onClick={() => setDrumsOn(!drumsOn)}>Drums</button>
         <button className="chip" aria-pressed={clickOn} onClick={() => setClickOn(!clickOn)}>Click</button>
       </div>
@@ -570,6 +564,12 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         <p className="small muted" style={{ margin: 0 }}>Tap a chord to hear it, tap its diagram for another shape, ↻ swaps it for a different chord that does the same job, and the lock keeps it when you roll again.</p>
         {chordInfo}
         {transportRow}
+      </div>
+      <div className="panel stack">
+        <h2 style={{ margin: 0 }}>Make it a tab</h2>
+        <p className="small muted" style={{ margin: 0 }}>Turn {prog.map(c => c.symbol).join(' – ')} into a fingerpicking tab or a chord melody, then play along in Play: the mic follows you note by note.</p>
+        <ProgressionTabs chords={prog} voicings={chosen} tonic={tonic} mode={mode} bpm={bpm} suggest={patternForStrum(strumKind)}
+          onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
       </div>
       {looper}
       <div className="split">

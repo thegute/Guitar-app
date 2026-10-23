@@ -964,3 +964,9 @@ details summary { cursor: pointer; color: var(--pearl-2); }
 .guide-items li { display: grid; gap: 4px; justify-items: start; border-top: 1px solid var(--line); padding-top: 10px; }
 .guide-items p { margin: 0; max-width: 62ch; }
 @media (max-width: 420px) { .guide-items { padding-left: 14px; } }
+
+/* progression → tab (Jam and Songs) */
+.tab-preview { display: grid; gap: 6px; }
+.tab-preview .tab-view { max-height: 300px; min-height: 120px; padding-bottom: 10px; }
+.keep-row { flex-wrap: wrap; }
+.keep-row .chip { min-height: 32px; padding: 0 10px; font-size: 13px; }

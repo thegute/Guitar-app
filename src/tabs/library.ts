@@ -6,7 +6,7 @@ export interface SongDoc {
   id: string
   title: string
   artist?: string
-  source: 'gp' | 'text' | 'chords' | 'example' | 'lesson'
+  source: 'gp' | 'text' | 'chords' | 'example' | 'lesson' | 'jam'
   /** which bank the song lives in: the instrument mode it was added in */
   inst?: InstrumentId
   song: Song

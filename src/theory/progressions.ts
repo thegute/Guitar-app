@@ -193,7 +193,7 @@ export function displayType(type: string) {
   return type === '69' ? '6/9' : type === 'madd9' ? 'm(add9)' : type
 }
 
-function spell(tonic: string, mode: ModeId, c: RelChord & { fn?: Fn; why?: string; roman?: string }): ProgChord {
+export function spell(tonic: string, mode: ModeId, c: RelChord & { fn?: Fn; why?: string; roman?: string }): ProgChord {
   const roman = c.roman ?? romanFor(mode, c)
   // borrowed flat degrees (bVII, bVI, bIII) are spelled with flats even in sharp keys: Bb, not A#
   const flats = /^b/.test(roman) ? true : /^#/.test(roman) ? false : keyPrefersFlats(tonic, MINORISH.includes(mode))
