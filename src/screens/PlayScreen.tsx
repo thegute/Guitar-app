@@ -65,6 +65,10 @@ export function PlayScreen() {
   const [inspect, setInspect] = useState<SongNote | null>(null)
   const [pos, setPos] = useState(0)
   const [version, setVersion] = useState(0)
+  const [flash, setFlash] = useState<{ flat: number; key: number } | null>(null)
+  const [pulse, setPulse] = useState<{ ok: boolean; key: number } | null>(null)
+  const [selecting, setSelecting] = useState<null | { first?: number }>(null)
+  const [passes, setPasses] = useState<{ n: number; last: number | null; best: number | null }>({ n: 0, last: null, best: null })
   const states = useRef<Uint8Array>(new Uint8Array(0))
   const listener = useRef<NoteListener | null>(null)
 
@@ -108,6 +112,16 @@ export function PlayScreen() {
     })
     return { idx, steps }
   }, [flat])
+
+  // the practice loop, as positions in the follow list
+  const loop = doc?.loop ?? null
+  const loopRange = useMemo(() => {
+    if (!loop) return null
+    const a = follow.idx.findIndex(i => flat[i].bar >= loop.from)
+    let b = -1
+    follow.idx.forEach((fi, k) => { if (flat[fi].bar <= loop.to) b = k })
+    return a >= 0 && b >= a ? { a, b } : null
+  }, [loop, follow, flat])
 
   // reset progress when the song or track changes
   useEffect(() => {
@@ -154,12 +168,14 @@ export function PlayScreen() {
   }, [flat, cursorFlat])
 
   // ---------- following the mic ----------
-  const ref = useRef({ pos, follow, strict, flat })
-  ref.current = { pos, follow, strict, flat }
+  const ref = useRef({ pos, follow, strict, flat, loopRange })
+  ref.current = { pos, follow, strict, flat, loopRange }
 
   const onNote = useCallback((midi: number) => {
-    const { pos, follow, strict } = ref.current
-    const r = matchNote(follow.steps, pos, midi, strict)
+    const { pos, follow, strict, loopRange } = ref.current
+    // inside a loop, only look as far as the loop's last note
+    const steps = loopRange ? follow.steps.slice(0, loopRange.b + 1) : follow.steps
+    const r = matchNote(steps, pos, midi, strict)
     const st = states.current
     if (r.kind === 'hit') {
       for (let k = pos; k < r.step; k++) st[follow.idx[k]] = 2
@@ -168,11 +184,27 @@ export function PlayScreen() {
       const ns = playable(ref.current.flat[fi].step)
       const note = ns.find(n => (strict ? n.midi === midi : n.midi % 12 === midi % 12)) ?? ns[0]
       setFeedback({ ok: true, heard: midi, note, skipped: r.skipped })
-      setPos(r.step + 1)
+      setFlash(f => ({ flat: fi, key: (f?.key ?? 0) + 1 }))
+      setPulse(p => ({ ok: true, key: (p?.key ?? 0) + 1 }))
+      let next = r.step + 1
+      if (loopRange && next > loopRange.b) {
+        // finished one pass of the loop: score it and go round again
+        let ok = 0
+        for (let k = loopRange.a; k <= loopRange.b; k++) if (st[follow.idx[k]] === 1) ok++
+        const score = Math.round((ok / (loopRange.b - loopRange.a + 1)) * 100)
+        setPasses(p => ({ n: p.n + 1, last: score, best: Math.max(p.best ?? 0, score) }))
+        setTimeout(() => {
+          for (let k = loopRange.a; k <= loopRange.b; k++) st[follow.idx[k]] = 0
+          setVersion(v => v + 1)
+        }, 700)
+        next = loopRange.a
+      }
+      setPos(next)
     } else if (r.kind === 'miss') {
       const fi = follow.idx[pos]
       if (st[fi] === 0) st[fi] = 3
       setFeedback({ ok: false, heard: midi })
+      setPulse(p => ({ ok: false, key: (p?.key ?? 0) + 1 }))
     }
     setVersion(v => v + 1)
   }, [])
@@ -225,18 +257,55 @@ export function PlayScreen() {
     const p = (player.current ??= new TabPlayer())
     p.onStep = i => setPlayAt(i)
     p.onEnd = () => setPlayAt(-1)
+    if (loopRange) {
+      const a = follow.idx[loopRange.a]
+      let b = flat.length
+      for (let i = follow.idx[loopRange.b] + 1; i < flat.length; i++) if (flat[i].bar > loop!.to) { b = i; break }
+      const from = cursorFlat >= a && cursorFlat < b ? cursorFlat : a
+      setPlayAt(from)
+      p.play(flat, from, songBpm * speed, b, a)
+      return
+    }
     const from = cursorFlat >= 0 ? cursorFlat : 0
     setPlayAt(from)
     p.play(flat, from, songBpm * speed)
   }
   useEffect(() => { stopPreview() }, [flat]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function restart(from = 0) {
+  function restart(from = loopRange ? loopRange.a : 0) {
     states.current = new Uint8Array(flat.length)
     setPos(from)
     setFeedback(null)
     setVersion(v => v + 1)
   }
+
+  // ---------- practice loop ----------
+  function setLoop(l: { from: number; to: number } | undefined) {
+    update({ loop: l })
+    setPasses({ n: 0, last: null, best: null })
+    stopPreview()
+  }
+  // jump into the loop when it is set
+  useEffect(() => {
+    if (!loopRange) return
+    if (pos < loopRange.a || pos > loopRange.b) {
+      states.current = new Uint8Array(flat.length)
+      setPos(loopRange.a)
+      setVersion(v => v + 1)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loopRange])
+  const onBar = useCallback((bar: number) => {
+    setSelecting(sel => {
+      if (!sel) return sel
+      if (sel.first === undefined) return { first: bar }
+      const a = Math.min(sel.first, bar)
+      const b = Math.max(sel.first, bar)
+      setTimeout(() => setLoop({ from: a, to: b }), 0)
+      return null
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const onTap = useCallback((flatIdx: number, note: SongNote | null) => {
     if (player.current?.playing) { player.current.stop(); setPlayAt(-1) }
@@ -283,6 +352,7 @@ export function PlayScreen() {
 
   const readout = (
     <div className="readout-box" aria-live="polite">
+      {pulse && <span key={pulse.key} className={`pulse-ring ${pulse.ok ? 'ok' : 'bad'}`} aria-hidden="true" />}
       <div className="heard">
         <span className="small muted">{listening ? 'Hearing' : 'Mic off'}</span>
         <span className={`heard-note${live !== null ? ' on' : ''}`}>
@@ -309,7 +379,10 @@ export function PlayScreen() {
           </>
         ) : (
           <>
-            <span className="small muted">Next · note {pos + 1} of {follow.idx.length} · bar {flat[cursorFlat].bar + 1}</span>
+            <span className="small muted">
+              Next · note {pos + 1} of {follow.idx.length} · bar {flat[cursorFlat].bar + 1}
+              {loopRange && ` · loop pass ${passes.n + 1}${passes.last !== null ? ` · last pass ${passes.last}%` : ''}${passes.best !== null ? ` · best ${passes.best}%` : ''}`}
+            </span>
             <span className="next-notes">
               {expected.map((n, i) => (
                 <span key={i} className="nn"><b>{n.fret}</b> on {stringLabel(track.tuning, n.string, flats)} = <b className="amber">{noteName(n.midi, flats)}</b></span>
@@ -318,7 +391,7 @@ export function PlayScreen() {
             </span>
             {feedback && (
               feedback.ok ? (
-                <span className="fb ok">✓ {noteName(feedback.heard, flats)}{feedback.note ? ` · ${where(feedback.note)}` : ''}{feedback.skipped ? ` (skipped ${feedback.skipped})` : ''}</span>
+                <span className="fb ok">✓ Got it: {noteName(feedback.heard, flats)}{feedback.note ? ` · ${where(feedback.note)}` : ''}{feedback.skipped ? ` (skipped ${feedback.skipped})` : ''}</span>
               ) : (
                 <span className="fb bad">✗ You played {noteName(feedback.heard, flats)}{octave(feedback.heard)}: the tab wants {expected.map(n => noteName(n.midi, flats)).join(' or ')}</span>
               )
@@ -334,6 +407,11 @@ export function PlayScreen() {
 
   const tabTools = (
     <div className="tab-tools">
+      {loop ? (
+        <span className="loop-chip">⟲ Bars {loop.from + 1}–{loop.to + 1}<button onClick={() => setLoop(undefined)} aria-label="Stop looping">✕</button></span>
+      ) : (
+        <button className="btn sm" aria-pressed={!!selecting} onClick={() => setSelecting(selecting ? null : {})}>⟲ Loop a section</button>
+      )}
       <button className={`btn sm hear${playAt >= 0 ? ' on' : ''}`} onClick={preview} aria-pressed={playAt >= 0}>
         {playAt >= 0 ? '■ Stop' : '▶ Hear it'}
       </button>
@@ -375,7 +453,14 @@ export function PlayScreen() {
 
       <section className="play-tab">
         {tabTools}
-        <TabView track={track} mode={labelMode} flats={flats} cursor={playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0} states={states.current} version={version} spans={timeline.spans} onTap={onTap} />
+        {selecting && (
+          <div className="select-hint">
+            <span>{selecting.first === undefined ? 'Tap the first bar of the part you want to loop.' : `Start: bar ${selecting.first + 1}. Now tap the last bar (or the same bar again).`}</span>
+            <button className="btn sm" onClick={() => setSelecting(null)}>Cancel</button>
+          </div>
+        )}
+        <TabView track={track} mode={labelMode} flats={flats} cursor={playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0} states={states.current}
+          flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} />
         {track.capo > 0 && <p className="small muted cap">Capo on fret {track.capo}: frets are counted from the capo.</p>}
       </section>
 

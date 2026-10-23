@@ -15,8 +15,8 @@ export class TabPlayer {
   private endAt = 0
   playing = false
 
-  /** Play steps [from, to) at the given tempo (quarter notes per minute). */
-  play(flat: FlatStep[], from: number, bpm: number, to = flat.length) {
+  /** Play steps [from, to) at the given tempo (quarter notes per minute). With `loopFrom`, it jumps back there at `to` and keeps going. */
+  play(flat: FlatStep[], from: number, bpm: number, to = flat.length, loopFrom?: number) {
     this.stop()
     const ctx = audio()
     void ctx.resume()
@@ -25,7 +25,11 @@ export class TabPlayer {
     let i = Math.max(0, from)
     this.endAt = 0
     const schedule = () => {
-      while (i < to && t < ctx.currentTime + 0.3) {
+      while (t < ctx.currentTime + 0.3) {
+        if (i >= to) {
+          if (loopFrom === undefined) break
+          i = loopFrom
+        }
         const st = flat[i].step
         const notes = st.notes
         notes.forEach((n, k) => {
@@ -41,7 +45,7 @@ export class TabPlayer {
         t += (st.dur * 60) / bpm
         i++
       }
-      if (i >= to && !this.endAt) this.endAt = t + 0.2
+      if (loopFrom === undefined && i >= to && !this.endAt) this.endAt = t + 0.2
       if (this.all.length > 400) this.all.splice(0, 200)
     }
     schedule()

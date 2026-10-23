@@ -34,10 +34,18 @@ interface BarProps {
   states: string
   chords: { at: number; name: string; guess: boolean }[]
   last: boolean
+  /** step that was just played right (re-keyed so the flash restarts), or -1 */
+  flash: number
+  flashKey: number
+  /** this bar is inside the practice loop: '' no, 'in', or where the loop starts/ends */
+  loop: '' | 'in' | 'start' | 'end' | 'both'
+  /** choosing loop bars: tap anywhere on the bar */
+  selecting: boolean
   onTap: (flatIdx: number, note: SongNote | null) => void
+  onBar: (bar: number) => void
 }
 
-const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, flats, cursor, states, chords, last, onTap }: BarProps) {
+const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, flats, cursor, states, chords, last, flash, flashKey, loop, selecting, onTap, onBar }: BarProps) {
   const widths = bar.steps.map(s => stepWidth(s.dur, mode))
   const xs: number[] = []
   let x = PAD_L
@@ -48,7 +56,11 @@ const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, f
   const yTop = y(nStr - 1)
   const yBot = y(0)
   return (
-    <svg className="tab-bar" data-bar={index} width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+    <svg className={`tab-bar${selecting ? ' selecting' : ''}`} data-bar={index} width={width} height={height} viewBox={`0 0 ${width} ${height}`}
+      onClick={selecting ? () => onBar(index) : undefined}>
+      {loop && <rect className="tab-loopband" x={0} y={yTop - 12} width={width} height={yBot - yTop + 24} />}
+      {(loop === 'start' || loop === 'both') && <path className="tab-loopmark" d={`M2,${yTop - 12} h10 M2,${yTop - 12} v${yBot - yTop + 24} M2,${yBot + 12} h10`} />}
+      {(loop === 'end' || loop === 'both') && <path className="tab-loopmark" d={`M${width - 2},${yTop - 12} h-10 M${width - 2},${yTop - 12} v${yBot - yTop + 24} M${width - 2},${yBot + 12} h-10`} />}
       <text className="tab-barno" x={3} y={10}>{index + 1}</text>
       {Array.from({ length: nStr }, (_, s) => (
         <line key={s} x1={0} x2={width} y1={y(s)} y2={y(s)} className="tab-line" />
@@ -58,6 +70,9 @@ const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, f
       {cursor >= 0 && (
         <rect className="tab-cursor" x={xs[cursor] - widths[cursor] / 2 + 1} y={yTop - 9} width={widths[cursor] - 2} height={yBot - yTop + 18} rx={5} />
       )}
+      {flash >= 0 && (
+        <rect key={flashKey} className="tab-hitflash" x={xs[flash] - widths[flash] / 2 + 1} y={yTop - 9} width={widths[flash] - 2} height={yBot - yTop + 18} rx={5} />
+      )}
       {chords.map(c => (
         <text key={c.at} className={`tab-chord${c.guess ? ' guess' : ''}`} x={xs[c.at] - widths[c.at] / 2 + 2} y={24}>{c.name}</text>
       ))}
@@ -65,7 +80,7 @@ const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, f
         const state = states[i]
         const isCur = i === cursor
         return (
-          <g key={i} onClick={() => onTap(start + i, null)}>
+          <g key={i} onClick={selecting ? undefined : () => onTap(start + i, null)}>
             <rect x={xs[i] - widths[i] / 2} y={yTop - 10} width={widths[i]} height={yBot - yTop + 20} fill="transparent" />
             {st.notes.map((n, k) => {
               const name = pcName(n.midi % 12, flats)
@@ -76,7 +91,7 @@ const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, f
               const cy = y(n.string)
               if (n.string >= nStr || cy === undefined) return null
               return (
-                <g key={k} className={cls} onClick={e => { e.stopPropagation(); onTap(start + i, n) }}>
+                <g key={k} className={cls} onClick={selecting ? undefined : e => { e.stopPropagation(); onTap(start + i, n) }}>
                   <rect x={xs[i] - tw / 2 - 3} y={cy - 8.5} width={tw + 6} height={17} rx={4} />
                   <text x={xs[i] - tw / 2} y={cy + 5}>
                     {main}
@@ -105,10 +120,16 @@ interface Props {
   states: Uint8Array
   version: number
   spans: ChordSpan[]
+  /** flat index of the step just played right, with a counter to restart the flash */
+  flash?: { flat: number; key: number } | null
+  /** practice loop, in bars (inclusive) */
+  loop?: { from: number; to: number } | null
+  selecting?: boolean
   onTap: (flatIdx: number, note: SongNote | null) => void
+  onBar?: (bar: number) => void
 }
 
-export function TabView({ track, mode, flats, cursor, playing, states, version, spans, onTap }: Props) {
+export function TabView({ track, mode, flats, cursor, playing, states, version, spans, flash, loop, selecting = false, onTap, onBar = () => {} }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const starts = useMemo(() => {
     const out: number[] = []
@@ -144,13 +165,16 @@ export function TabView({ track, mode, flats, cursor, playing, states, version, 
 
   const empty = ''
   return (
-    <div className={`tab-view${playing ? ' playing' : ''}`} ref={ref} data-version={version}>
+    <div className={`tab-view${playing ? ' playing' : ''}${selecting ? ' selecting' : ''}`} ref={ref} data-version={version}>
       <div className="tab-rows">
         {track.bars.map((bar, i) => {
           const start = starts[i]
           let st = empty
           for (let k = 0; k < bar.steps.length; k++) st += String(states[start + k] ?? 0)
           const cur = cursor >= start && cursor < start + bar.steps.length ? cursor - start : -1
+          const fl = flash && flash.flat >= start && flash.flat < start + bar.steps.length ? flash.flat - start : -1
+          const inLoop = loop && i >= loop.from && i <= loop.to
+          const lp: BarProps['loop'] = !inLoop ? '' : loop!.from === i && loop!.to === i ? 'both' : loop!.from === i ? 'start' : loop!.to === i ? 'end' : 'in'
           return (
             <BarView
               key={i}
@@ -165,7 +189,12 @@ export function TabView({ track, mode, flats, cursor, playing, states, version, 
               states={st}
               chords={chordsByBar.get(i) ?? NONE}
               last={i === track.bars.length - 1}
+              flash={fl}
+              flashKey={fl >= 0 ? flash!.key : 0}
+              loop={lp}
+              selecting={selecting}
               onTap={onTap}
+              onBar={onBar}
             />
           )
         })}

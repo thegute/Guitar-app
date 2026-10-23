@@ -6,10 +6,11 @@ A personal guitar practice app for Android (and the web), built with React + Cap
 - **Play (play-along):** load a tab, play it on your guitar and the app follows you note by note. Each correct note lights up; wrong notes tell you what you played and what the tab wants. Tab numbers can also show their note names.
   - YouTube mini player next to the tab, with ½ / ¾ speed and an A–B loop
   - **Hear it:** plays the tab back so you know how it should sound
+  - **Loop a section:** pick bars to repeat, with a score for every pass
   - Scales & chords for soloing: detected key, scale suggestions, the song's chord progression, and the fretboard in Scale, Arpeggio, Triads and Connect (how to move from one chord to the next) modes
   - Works with the phone mic (acoustic) or a USB amp / audio interface such as the Amphonix 2 (electric)
 - **Songs:** find tabs on Songsterr, Ultimate Guitar or Guitar Pro file sites; upload Guitar Pro files (.gp .gp5 .gpx .gp4 .gp3) or text tabs; paste tabs from the clipboard. Songs are saved on the phone.
-- **Jam:** chord-progression randomizer and famous progressions in any key and mode, with loop playback and matching scales
+- **Jam:** chord-progression generator (22 styles, chord colours from power chords to jazzy 13ths, 2–16 chords, endings, surprise level) with a chord diagram for every chord, strumming and drum backing, a **looper** that records your playing in time with the beat, scales to solo with, the circle of fifths, and famous progressions
 - **Chords:** every common chord type in all 12 keys, multiple shapes
 - **Scales:** 22 scales and modes on the full neck or by position
 - **Tempo:** metronome with accents, subdivisions, odd time signatures, tap tempo, speed trainer

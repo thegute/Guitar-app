@@ -3,7 +3,7 @@ import { TunerScreen } from './screens/TunerScreen'
 import { MetronomeScreen } from './screens/MetronomeScreen'
 import { ChordsScreen } from './screens/ChordsScreen'
 import { ScalesScreen } from './screens/ScalesScreen'
-import { ProgressionsScreen } from './screens/ProgressionsScreen'
+import { JamScreen } from './screens/JamScreen'
 import { PlayScreen } from './screens/PlayScreen'
 import { IconChord, IconMetronome, IconProgression, IconScale, IconTab, IconTuner } from './components/Icons'
 import { usePersist } from './components/Controls'
@@ -31,7 +31,7 @@ export default function App() {
         {tab === 'chords' && <ChordsScreen />}
         {tab === 'scales' && <ScalesScreen key={scaleJump ? scaleJump.root + scaleJump.scale : 'scales'} initial={scaleJump ?? undefined} />}
         {tab === 'progressions' && (
-          <ProgressionsScreen onOpenScale={(root, scale) => { setScaleJump({ root, scale }); setTab('scales') }} />
+          <JamScreen onOpenScale={(root, scale) => { setScaleJump({ root, scale }); setTab('scales') }} />
         )}
       </main>
       <nav className="nav" aria-label="Sections">

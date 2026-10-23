@@ -15,6 +15,8 @@ export interface SongDoc {
   track?: number
   /** where you left off */
   cursor?: number
+  /** bars to practise over and over (inclusive) */
+  loop?: { from: number; to: number }
   updated: number
 }
 
