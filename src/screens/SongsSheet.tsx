@@ -1,5 +1,6 @@
 // Your songs: open a Guitar Pro file, paste a text tab, or pick a saved song or an example.
 import { ProgressionTabs } from '../components/ProgressionTabs'
+import { LickMaker } from '../components/LickMaker'
 import { STARTER_PROGS, jamProgression, starterProgression } from '../tabs/fromProgression'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { deleteSong, listSongs, saveSong, youtubeId, type SongDoc } from '../tabs/library'
@@ -222,6 +223,12 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
 
         <PickingSection onOpen={async d => { await saveSong(d); onOpen(d) }} />
 
+        <section className="panel stack" style={{ gap: 8 }}>
+          <h3 style={{ margin: 0 }}>Lick generator</h3>
+          <p className="small muted" style={{ margin: 0 }}>New practice licks in bluegrass, rock, prog metal, metal, folk or country. Roll until you like one, then open it and play along.</p>
+          <LickMaker onOpen={async d => { await saveSong(d); onOpen(d) }} />
+        </section>
+
         <section>
           <h3>Your {inst.label.toLowerCase()} songs</h3>
           {songs.filter(s => s.source !== 'example' && s.source !== 'lesson').length === 0 && <p className="small muted">Songs you add in {inst.label.toLowerCase()} mode are saved on this phone and only show up in {inst.label.toLowerCase()} mode.</p>}
@@ -235,7 +242,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
                 <button className="song-open" onClick={() => onOpen(s)}>
                   <b>{s.title}</b>
                   <span className="small muted">
-                    {[s.artist, s.source === 'gp' ? 'Guitar Pro' : s.source === 'chords' ? 'Chord sheet' : s.source === 'jam' ? 'Made from a progression' : 'Text tab', s.youtube ? 'video' : null, s.song.tracks.length > 1 ? `${s.song.tracks.length} tracks` : null].filter(Boolean).join(' · ')}
+                    {[s.artist, s.source === 'gp' ? 'Guitar Pro' : s.source === 'chords' ? 'Chord sheet' : s.source === 'jam' ? 'Made in KGuitar' : 'Text tab', s.youtube ? 'video' : null, s.song.tracks.length > 1 ? `${s.song.tracks.length} tracks` : null].filter(Boolean).join(' · ')}
                   </span>
                   {(() => {
                     const st = songStats(s.id)

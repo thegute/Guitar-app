@@ -26,6 +26,7 @@ import { STRUMS } from '../audio/strums'
 import { GROOVES } from '../audio/drums'
 import { shapesFor as shapesForChord } from '../theory/shapes'
 import { ProgressionTabs } from '../components/ProgressionTabs'
+import { LickMaker } from '../components/LickMaker'
 import { patternForStrum } from '../tabs/picking'
 import { saveSong } from '../tabs/library'
 import { openInPlay } from '../nav'
@@ -570,6 +571,9 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         <p className="small muted" style={{ margin: 0 }}>Turn {prog.map(c => c.symbol).join(' – ')} into a fingerpicking tab or a chord melody, then play along in Play: the mic follows you note by note.</p>
         <ProgressionTabs chords={prog} voicings={chosen} tonic={tonic} mode={mode} bpm={bpm} suggest={patternForStrum(strumKind)}
           onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
+        <h3 style={{ margin: '6px 0 0' }}>Licks in {tonic}</h3>
+        <p className="small muted" style={{ margin: 0 }}>Practice licks in the key of this progression, to use in your solos over it.</p>
+        <LickMaker fixedKey={tonic} onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
       </div>
       {looper}
       <div className="split">

@@ -25,7 +25,7 @@ interface Props {
   suggest?: string
 }
 
-function Preview({ doc, minor }: { doc: SongDoc; minor: boolean }) {
+export function Preview({ doc, minor }: { doc: SongDoc; minor: boolean }) {
   const track = doc.song.tracks[0]
   const flat = useMemo(() => flatten(track), [track])
   const states = useMemo(() => new Uint8Array(flat.length), [flat])
