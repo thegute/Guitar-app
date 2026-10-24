@@ -6,18 +6,24 @@ import { playBass, type Handle } from './pluck'
 type Deg = 'R' | '3' | '5' | '6' | '7' | '8' | 'W' | 'A'
 /** [beat in the bar, note, length in beats, level] */
 type BHit = [number, Deg, number, number]
-export interface BassLine { id: string; label: string; hits: BHit[]; /** mix level (reggae bass sits up front) */ level?: number }
+export interface BassLine {
+  id: string; label: string; hits: BHit[]
+  /** mix level (reggae bass sits up front) */
+  level?: number
+  /** how much amp grit under the bass (rock and metal bass players drive their tone) */
+  drive?: number
+}
 
 const eighths = (d: Deg, len = 0.45, acc = 1): BHit[] => [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map(b => [b, d, len, b % 1 ? 0.78 * acc : acc])
 const S = 2 / 3 // swung eighth
 
 export const BASSLINES: BassLine[] = [
-  { id: 'root8', label: 'Driving eighths (rock)', hits: eighths('R') },
+  { id: 'root8', drive: 0.3, label: 'Driving eighths (rock)', hits: eighths('R') },
   { id: 'pop', label: 'Pop', hits: [[0, 'R', 1.4, 1], [1.5, 'R', 0.45, 0.75], [2, '5', 0.9, 0.85], [3, '8', 0.45, 0.8], [3.5, '5', 0.45, 0.7]] },
-  { id: 'metal', label: 'Metal (with the double kick)', hits: Array.from({ length: 16 }, (_, i) => [i / 4, 'R', 0.22, i % 4 === 0 ? 1 : 0.8] as BHit) },
-  { id: 'gallop', label: 'Metal gallop', hits: [0, 1, 2, 3].flatMap(b => [[b, 'R', 0.45, 1], [b + 0.5, 'R', 0.22, 0.8], [b + 0.75, 'R', 0.22, 0.8]] as BHit[]) },
+  { id: 'metal', drive: 0.55, level: 0.6, label: 'Metal (with the double kick)', hits: Array.from({ length: 16 }, (_, i) => [i / 4, 'R', 0.22, i % 4 === 0 ? 1 : 0.8] as BHit) },
+  { id: 'gallop', drive: 0.55, level: 0.6, label: 'Metal gallop', hits: [0, 1, 2, 3].flatMap(b => [[b, 'R', 0.45, 1], [b + 0.5, 'R', 0.22, 0.8], [b + 0.75, 'R', 0.22, 0.8]] as BHit[]) },
   { id: 'ballad', label: 'Long notes (ballad)', hits: [[0, 'R', 1.9, 1], [2, '5', 1.4, 0.8], [3.5, 'R', 0.45, 0.6]] },
-  { id: 'halftime', label: 'Half-time', hits: [[0, 'R', 1.6, 1], [1.75, 'R', 0.4, 0.7], [2.5, '5', 1.2, 0.85]] },
+  { id: 'halftime', drive: 0.25, label: 'Half-time', hits: [[0, 'R', 1.6, 1], [1.75, 'R', 0.4, 0.7], [2.5, '5', 1.2, 0.85]] },
   { id: 'country', label: 'Root–fifth (country)', hits: [[0, 'R', 0.9, 1], [2, '5', 0.9, 0.9]] },
   { id: 'boogie', label: 'Blues boogie (shuffle)', hits: [[0, 'R', S - 0.05, 1], [S, '3', 0.3, 0.7], [1, '5', S - 0.05, 0.9], [1 + S, '6', 0.3, 0.7], [2, '7', S - 0.05, 0.95], [2 + S, '6', 0.3, 0.7], [3, '5', S - 0.05, 0.9], [3 + S, '3', 0.3, 0.7]] },
   { id: 'walk', label: 'Walking (jazz)', hits: [[0, 'R', 0.9, 1], [1, 'W', 0.9, 0.85], [2, 'W', 0.9, 0.9], [3, 'A', 0.9, 0.85]] },

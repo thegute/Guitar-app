@@ -78,6 +78,8 @@ export interface SoundInfo {
   hint: string
   /** an amp tone: chords are levelled like a real amp compresses them, power chords and palm mutes are recorded whole */
   amp?: boolean
+  /** how far up a backing part sits in Jam's mix (a metal rhythm guitar is the loudest thing in the room) */
+  band?: number
 }
 export const SOUNDS: SoundInfo[] = [
   { id: 'acoustic', label: 'Acoustic', hint: 'Recorded steel-string acoustic.' },
@@ -85,8 +87,8 @@ export const SOUNDS: SoundInfo[] = [
   { id: 'nylon', label: 'Nylon', hint: 'Recorded classical guitar. Also the ukulele default.' },
   { id: 'clean', label: 'Clean electric', hint: "Neck pickup, clean amp, your '66 Deluxe Reverb cab impulse response." },
   { id: 'electric', label: 'Jazz electric', hint: 'Recorded electric guitar, warm and round.' },
-  { id: 'crunch', label: 'Crunch', hint: 'Your Peavey 5150 capture (Brit green channel) into the Celestion V30 cab: classic rock and blues.', amp: true },
-  { id: 'metal', label: 'Distorted', hint: 'Your Peavey 5150 red-channel capture with a boost, into the Mesa 4x12: real palm mutes and power chords.', amp: true },
+  { id: 'crunch', label: 'Crunch', hint: 'Your Peavey 5150 capture (Brit green channel) into the Celestion V30 cab: classic rock and blues.', amp: true, band: 1.45 },
+  { id: 'metal', label: 'Distorted', hint: 'Your Peavey 5150 red-channel capture with a boost, into the Mesa 4x12: real palm mutes and power chords, double-tracked left and right.', amp: true, band: 2.0 },
   { id: 'synth', label: 'Simple synth', hint: 'A light plucked-string synth. Nothing to download.' },
 ]
 export const soundInfo = (id: SoundId) => SOUNDS.find(s => s.id === id) ?? SOUNDS[0]
@@ -100,7 +102,8 @@ export function soundForProgram(program: number | undefined): SoundId | null {
 const SOUND_KEY = 'kg:sound'
 type GroupId = 'notes' | 'pm' | 'power' | 'powerpm'
 interface Sample { buf: AudioBuffer; off: number }
-interface Group { keys: number[]; map: Map<number, Sample> }
+/** samples by note; several takes of a note are played in turn (and left/right when double-tracked) */
+interface Group { keys: number[]; map: Map<number, Sample[]>; last: Map<number, number> }
 interface Bank { groups: Partial<Record<GroupId, Group>> }
 const banks = new Map<string, Bank>()
 const loading = new Map<string, Promise<void>>()
@@ -156,19 +159,22 @@ export function loadBank(id: string): Promise<void> {
   if (!p) {
     p = (async () => {
       const ctx = audio()
-      const index = (await (await fetch(`samples/${id}/index.json`)).json()) as Record<string, string | Record<string, string> | string[]>
+      const index = (await (await fetch(`samples/${id}/index.json`)).json()) as Record<string, unknown>
       const first = Object.values(index)[0]
-      // old banks: {midi: file}; amp banks: {notes: {...}, pm: {...}, power: {...}, powerpm: {...}}
-      const groupsIn: Record<string, Record<string, string>> = typeof first === 'string' ? { notes: index as Record<string, string> } : (index as Record<string, Record<string, string>>)
+      // old banks: {midi: file}; amp banks: {notes: {...}, pm: {...}, power: {...}, powerpm: {...}}, a value being one
+      // file or a list of takes
+      const groupsIn = (typeof first === 'string' ? { notes: index } : index) as Record<string, Record<string, string | string[]>>
       const bank: Bank = { groups: {} }
       await Promise.all(Object.entries(groupsIn).map(async ([g, files]) => {
-        const map = new Map<number, Sample>()
+        const map = new Map<number, Sample[]>()
         await Promise.all(Object.entries(files).map(async ([m, file]) => {
-          const data = await (await fetch(`samples/${id}/${file}`)).arrayBuffer()
-          const buf = await ctx.decodeAudioData(data)
-          map.set(Number(m), { buf, off: onsetOf(buf) })
+          const takes = await Promise.all((Array.isArray(file) ? file : [file]).map(async f => {
+            const buf = await ctx.decodeAudioData(await (await fetch(`samples/${id}/${f}`)).arrayBuffer())
+            return { buf, off: onsetOf(buf) }
+          }))
+          map.set(Number(m), takes)
         }))
-        bank.groups[g as GroupId] = { keys: [...map.keys()].sort((a, b) => a - b), map }
+        bank.groups[g as GroupId] = { keys: [...map.keys()].sort((a, b) => a - b), map, last: new Map() }
       }))
       banks.set(id, bank)
     })().catch(() => { loading.delete(id) })
@@ -186,14 +192,29 @@ function nearest(g: Group, midi: number) {
   return best
 }
 
-function playSample(s: Sample, rate: number, when: number, gain: number, dest?: AudioNode): Handle {
+/** The next take of a note: a different one each time, so repeats don't sound copied. */
+function take(g: Group, k: number, avoid = -1): { s: Sample; i: number } {
+  const list = g.map.get(k)!
+  if (list.length === 1) return { s: list[0], i: 0 }
+  const last = g.last.get(k) ?? -1
+  let i = Math.floor(Math.random() * list.length)
+  for (let tries = 0; tries < 4 && (i === last || i === avoid); tries++) i = (i + 1) % list.length
+  g.last.set(k, i)
+  return { s: list[i], i }
+}
+
+function playSample(s: Sample, rate: number, when: number, gain: number, dest?: AudioNode, pan?: number): Handle {
   const ctx = audio()
   const src = ctx.createBufferSource()
   src.buffer = s.buf
   src.playbackRate.value = rate
   const g = ctx.createGain()
   g.gain.value = gain
-  src.connect(g).connect(dest ?? out())
+  if (pan !== undefined && typeof ctx.createStereoPanner === 'function') {
+    const p = ctx.createStereoPanner()
+    p.pan.value = pan
+    src.connect(g).connect(p).connect(dest ?? out())
+  } else src.connect(g).connect(dest ?? out())
   const t = Math.max(when || ctx.currentTime, ctx.currentTime)
   src.start(t, s.off)
   return { stop: (at?: number) => { try { g.gain.setTargetAtTime(0, Math.max(at ?? ctx.currentTime, t), 0.035) } catch { /* noop */ } } }
@@ -216,6 +237,8 @@ export interface NoteOpts {
   sound?: SoundId
   /** palm muted */
   pm?: boolean
+  /** double-tracked: two takes panned left and right (rhythm parts on the amp sounds) */
+  double?: boolean
 }
 
 export function playNote(midi: number, when = 0, gain = 0.8, dest?: AudioNode, opts: NoteOpts = {}): Handle {
@@ -226,7 +249,19 @@ export function playNote(midi: number, when = 0, gain = 0.8, dest?: AudioNode, o
     const pmGroup = opts.pm ? bank.groups.pm : undefined
     const g = pmGroup ?? bank.groups.notes!
     const k = nearest(g, midi)
-    const h = playSample(g.map.get(k)!, Math.pow(2, (midi - k) / 12), t, gain * 1.3, dest)
+    const rate = Math.pow(2, (midi - k) / 12)
+    if (opts.double) {
+      // a double-tracked rhythm part: two takes, hard left and right, a few ms apart (one take: a tiny detune)
+      const a = take(g, k)
+      const b = take(g, k, a.i)
+      const same = b.i === a.i
+      const hs = [playSample(a.s, rate, t, gain * 1.05, dest, -0.8),
+        playSample(b.s, rate * (same ? Math.pow(2, 7 / 1200) : 1), t + 0.009 + Math.random() * 0.008, gain * 1.05, dest, 0.8)]
+      const h = { stop: (at?: number) => hs.forEach(x => x.stop(at)) }
+      if (opts.pm && !pmGroup) h.stop(t + 0.13)
+      return h
+    }
+    const h = playSample(take(g, k).s, rate, t, gain * 1.3, dest)
     if (opts.pm && !pmGroup) h.stop(t + 0.13)
     return h
   }
@@ -243,7 +278,7 @@ export function isPowerChord(midis: number[]) {
 }
 
 /** Strum notes (low to high for a downstroke). Amp tones play power chords as recorded chords. */
-export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: number; gain?: number; dest?: AudioNode; sound?: SoundId; pm?: boolean } = {}): Handle {
+export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: number; gain?: number; dest?: AudioNode; sound?: SoundId; pm?: boolean; double?: boolean } = {}): Handle {
   const ctx = audio()
   const t0 = when || ctx.currentTime + 0.01
   const id = opts.sound ?? activeSound()
@@ -254,14 +289,23 @@ export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: 
     if (g) {
       const root = Math.min(...midis)
       const k = nearest(g, root)
-      return playSample(g.map.get(k)!, Math.pow(2, (root - k) / 12), t0, gain * 1.45, opts.dest)
+      const rate = Math.pow(2, (root - k) / 12)
+      if (opts.double) {
+        const a = take(g, k)
+        const b = take(g, k, a.i)
+        const same = b.i === a.i
+        const hs = [playSample(a.s, rate, t0, gain * 1.15, opts.dest, -0.85),
+          playSample(b.s, rate * (same ? Math.pow(2, 7 / 1200) : 1), t0 + 0.008 + Math.random() * 0.01, gain * 1.15, opts.dest, 0.85)]
+        return { stop: (at?: number) => hs.forEach(x => x.stop(at)) }
+      }
+      return playSample(take(g, k).s, rate, t0, gain * 1.45, opts.dest)
     }
   }
   const order = opts.up ? [...midis].reverse() : midis
   const spread = opts.spread ?? 0.018
   // an amp squashes six strings into roughly the level of one, so big chords don't blast
   const amp = soundInfo(id).amp ? Math.min(1, 1.7 / Math.sqrt(Math.max(1, midis.length))) : 1
-  const notes = order.map((m, i) => playNote(m, t0 + i * spread, gain * amp, opts.dest, { sound: id, pm: opts.pm }))
+  const notes = order.map((m, i) => playNote(m, t0 + i * spread, gain * amp, opts.dest, { sound: id, pm: opts.pm, double: opts.double }))
   return { stop: (at?: number) => notes.forEach(n => n.stop(at)) }
 }
 
@@ -272,7 +316,7 @@ export function playBass(midi: number, when: number, gain: number, dest?: AudioN
   if (bank) {
     const g = bank.groups.notes!
     const k = nearest(g, midi)
-    return playSample(g.map.get(k)!, Math.pow(2, (midi - k) / 12), t, gain * 1.3, dest)
+    return playSample(take(g, k).s, Math.pow(2, (midi - k) / 12), t, gain * 1.3, dest)
   }
   void loadBank('bass')
   return synthNote(midi, t, gain * 0.9, dest)

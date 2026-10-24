@@ -10,10 +10,11 @@ import numpy as np
 SR = 48000
 
 
-def load(path):
-    r = subprocess.run(['ffmpeg', '-loglevel', 'error', '-i', path, '-ac', '1', '-ar', str(SR), '-f', 'f32le', '-'],
+def load(path, ch=1):
+    r = subprocess.run(['ffmpeg', '-loglevel', 'error', '-i', path, '-ac', str(ch), '-ar', str(SR), '-f', 'f32le', '-'],
                        capture_output=True, check=True)
-    return np.frombuffer(r.stdout, dtype=np.float32).astype(np.float64)
+    x = np.frombuffer(r.stdout, dtype=np.float32).astype(np.float64)
+    return x.reshape(-1, ch) if ch > 1 else x
 
 
 def bands(x):
@@ -42,10 +43,13 @@ def onsets(x, hop=256):
 
 
 def main(path, bpm=None):
-    x = load(path)
-    x = x[int(0.3 * SR):]  # skip the recorder's start
-    pk = np.max(np.abs(x))
-    rms = 20 * np.log10(np.sqrt(np.mean(x ** 2)) + 1e-12)
+    st = load(path, 2)[int(0.3 * SR):]  # skip the recorder's start
+    x = st.mean(axis=1)
+    pk = np.max(np.abs(st))
+    # loudness over both ears; width = how much differs between left and right
+    rms = 20 * np.log10(np.sqrt(np.mean(st ** 2)) + 1e-12)
+    side = np.mean(((st[:, 0] - st[:, 1]) / 2) ** 2) / (np.mean(st ** 2) + 1e-20)
+    print(f'  stereo width {side * 100:.0f}% of the energy is left/right difference')
     clip = np.mean(np.abs(x) > 0.99) * 100
     win = int(0.5 * SR)
     levels = [20 * np.log10(np.sqrt(np.mean(x[i:i + win] ** 2)) + 1e-12) for i in range(0, len(x) - win, win)]

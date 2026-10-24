@@ -18,7 +18,7 @@ from scipy.io import wavfile
 from scipy.signal import fftconvolve, resample_poly
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from guitar_di import SR, filt, biquad_hp, biquad_lp, peaking, shelf, pluck, strum_notes, place  # noqa: E402
+from guitar_di import SR, filt, biquad_hp, biquad_lp, peaking, shelf, pluck, strum_notes, place  # noqa: E402,F401
 from nam_render import NamWaveNet  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -34,10 +34,12 @@ IR = {
 TONES = {
     # modern metal: tube-screamer style boost into the 5150 lead channel, Mesa 4x12 cab
     'metal': dict(amp='MirrorProfiles 5150 Block Letter RED 1.nam', boost=True, ir='mes412', pickup='bridge', di=0.30,
-                  notes=range(36, 88, 2), pm=range(36, 66, 2), power=range(36, 64, 2), room=0.05, dur=3.0),
+                  notes=range(36, 88, 2), pm=range(36, 66, 2), power=range(36, 64, 2), room=0.05, dur=2.6,
+                  human=1.0, variants={'pm': 2, 'power': 2, 'powerpm': 3}, weight=[(110, 1.0, 2.0), (280, 0.9, 3.0)]),
     # rock crunch: the 5150's British-voiced green channel with the guitar volume rolled back a little, V30 cab
     'crunch': dict(amp='MirrorProfiles 5150 Brit Vintage Green Crunch.nam', boost=False, ir='v30', pickup='bridge', di=0.13,
-                   notes=range(36, 88, 3), pm=range(36, 66, 3), power=range(36, 64, 2), room=0.07, dur=3.0),
+                   notes=range(36, 88, 3), pm=range(36, 66, 3), power=range(36, 64, 2), room=0.07, dur=2.6,
+                   human=1.0, variants={'pm': 2, 'power': 2, 'powerpm': 3}, weight=[(120, 1.0, 2.0), (300, 0.9, 1.5)]),
     # clean electric: neck single coil, a clean preamp, the '66 Deluxe Reverb 1x12 cab and a touch of spring-ish room
     'clean': dict(amp=None, ir='deluxe', pickup='neck_single', hardness=1.5, di=0.35, notes=range(36, 88, 3), room=0.12, dur=3.2),
     # steel-string acoustic: undersaddle signal through the Gibson J-45 body and mics
@@ -80,8 +82,8 @@ def room_ir(t60=0.9, seed=3):
 
 
 def boost(x):
-    """Tube-screamer-like boost in front of a high-gain amp: trims the lows, lifts the mids, +6 dB."""
-    x = filt(x, shelf(220, -9, high=False))
+    """Tube-screamer-like boost in front of a high-gain amp: trims the flubby lows, lifts the mids, +6 dB."""
+    x = filt(x, shelf(180, -6, high=False))
     x = filt(x, peaking(800, 0.8, 3))
     x = filt(x, biquad_lp(5500, 0.6))
     return x * 2.0
@@ -96,15 +98,17 @@ def clean_pre(x):
     return filt(y, biquad_hp(25))
 
 
-def di_note(midi, tone, dur, mute=0.0):
-    return pluck(midi, dur, pickup=tone['pickup'], mute=mute, hardness=tone.get('hardness', 1.6))
+def di_note(midi, tone, dur, mute=0.0, seed=0):
+    return pluck(midi, dur, pickup=tone['pickup'], mute=mute, hardness=tone.get('hardness', 1.6), human=tone.get('human', 0.0),
+                 rng=np.random.default_rng(midi * 7 + int(mute * 10) + seed * 7717))
 
 
-def di_power(root, tone, dur, mute=0.0):
+def di_power(root, tone, dur, mute=0.0, seed=0):
     s = 0 if root <= 47 else 1
     f = max(0, root - (40 if s == 0 else 45))
     places = [(s, f), (s + 1, f + 2), (s + 2, f + 2)]
-    return strum_notes([root, root + 7, root + 12], dur, spread=0.006, places=places, pickup='bridge', mute=mute, hardness=1.6)
+    return strum_notes([root, root + 7, root + 12], dur, spread=0.006, places=places, pickup='bridge', mute=mute, hardness=1.6,
+                       human=tone.get('human', 0.0), seed=seed)
 
 
 class Chain:
@@ -130,9 +134,12 @@ class Chain:
         y = fftconvolve(y, self.ir)[:len(y)]
         if self.room is not None:
             y = y + self.t['room'] * fftconvolve(y, self.room)[:len(y)] * 3.0
-        y = filt(y, biquad_hp(60 if self.amp is not None else 45))
+        y = filt(y, biquad_hp(45))
         if self.amp is not None:
             y = filt(y, biquad_lp(9500, 0.7))
+            # body: the low end and low mids that make a rhythm part sound heavy (and survive a phone speaker)
+            for f, q, db in self.t.get('weight', []):
+                y = filt(y, peaking(f, q, db))
         return y
 
 
@@ -165,36 +172,46 @@ def render(gear, name, out_root, only=None):
     for f in os.listdir(out_dir):
         os.remove(os.path.join(out_dir, f))
     dur = tone['dur']
-    groups = {'notes': [(m, lambda m=m: di_note(m, tone, dur + 0.3), dur) for m in tone['notes']]}
+    nv = tone.get('variants', {})
+    # several takes of the parts that repeat (palm mutes, power chords): played in turn, and left/right as a
+    # double-tracked rhythm part, so a chug riff doesn't sound like one sample machine-gunned
+    groups = {'notes': [(m, v, lambda m=m, v=v: di_note(m, tone, dur + 0.3, seed=v), dur) for m in tone['notes'] for v in range(nv.get('notes', 1))]}
     if tone.get('pm'):
-        groups['pm'] = [(m, lambda m=m: di_note(m, tone, 1.0, mute=0.9), 0.75) for m in tone['pm']]
+        groups['pm'] = [(m, v, lambda m=m, v=v: di_note(m, tone, 1.0, mute=0.9, seed=v), 0.75) for m in tone['pm'] for v in range(nv.get('pm', 1))]
     if tone.get('power'):
-        groups['power'] = [(m, lambda m=m: di_power(m, tone, dur + 0.3), dur) for m in tone['power']]
-        groups['powerpm'] = [(m, lambda m=m: di_power(m, tone, 1.0, mute=0.9), 0.75) for m in tone['power']]
+        groups['power'] = [(m, v, lambda m=m, v=v: di_power(m, tone, dur + 0.3, seed=v), dur) for m in tone['power'] for v in range(nv.get('power', 1))]
+        groups['powerpm'] = [(m, v, lambda m=m, v=v: di_power(m, tone, 1.0, mute=0.9, seed=v), 0.75) for m in tone['power'] for v in range(nv.get('powerpm', 1))]
     rendered = {}
+    rng = np.random.default_rng(5)
     for g, items in groups.items():
         if only and g not in only:
             continue
-        for m, make, d in items:
+        for m, v, make, d in items:
             di = make()
             lvl = tone['di'] * (1.25 if g.startswith('power') else 1.0) * (0.85 if g.endswith('pm') else 1.0)
+            if v:
+                lvl *= 10 ** (rng.normal(0, 0.8) / 20)  # another take, picked a touch harder or softer
             y = ch.run(di, lvl)
-            rendered[(g, m)] = finish(y, d, fade=0.12 if g.endswith('pm') else 0.6)
-            print(f'  {name} {g} {m}', flush=True)
+            rendered[(g, m, v)] = finish(y, d, fade=0.12 if g.endswith('pm') else 0.6)
+            print(f'  {name} {g} {m} take {v + 1}', flush=True)
     # one gain for the whole tone (so loud and soft notes keep their natural balance) plus a gentle per-note evening out
-    ref = np.median([loudness(y) for (g, _), y in rendered.items() if g == 'notes'])
+    ref = np.median([loudness(y) for (g, _, _), y in rendered.items() if g == 'notes'])
     target = 10 ** (-17 / 20)
     index = {}
-    for (g, m), y in rendered.items():
+    for (g, m, v), y in rendered.items():
         k = (target / ref) * (loudness(y) / ref) ** -0.5  # halve the level differences between notes
         y = y * k
         pk = np.max(np.abs(y))
         if pk > 0.95:
             y *= 0.95 / pk
         prefix = {'notes': 'n', 'pm': 'm', 'power': 'p', 'powerpm': 'q'}[g]
-        fname = f'{prefix}{m}.mp3'
-        write_mp3(y, os.path.join(out_dir, fname), kbps=72 if g != 'notes' else 80)
-        index.setdefault(g, {})[str(m)] = fname
+        fname = f'{prefix}{m}{"abcdef"[v] if nv.get(g, 1) > 1 else ""}.mp3'
+        # distorted guitar is dense: a higher bitrate keeps it from sounding swirly
+        write_mp3(y, os.path.join(out_dir, fname), kbps=112 if tone.get('amp') else 80)
+        if nv.get(g, 1) > 1:
+            index.setdefault(g, {}).setdefault(str(m), []).append(fname)
+        else:
+            index.setdefault(g, {})[str(m)] = fname
     with open(os.path.join(out_dir, 'index.json'), 'w') as fh:
         json.dump(index, fh)
     size = sum(os.path.getsize(os.path.join(out_dir, f)) for f in os.listdir(out_dir))

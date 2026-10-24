@@ -4,8 +4,8 @@ import { audio, out } from './engine'
 import { playClick } from './metronome'
 import { playGrooveBar, loadKit } from './drums'
 import { playHit, strumPattern, type Handle } from './strums'
-import { BassPlayer, type BassChord } from './bass'
-import { loadBank, loadSound, type SoundId } from './pluck'
+import { BassPlayer, bassLine, type BassChord } from './bass'
+import { loadBank, loadSound, soundInfo, type SoundId } from './pluck'
 
 export interface JamChord {
   midis: number[]
@@ -31,6 +31,9 @@ export class JamTransport {
   readonly clickBus: GainNode
   readonly loopBus: GainNode
   readonly bassBus: GainNode
+  /** the bass's clean and driven paths (blended per bass line) */
+  private bassDry: GainNode
+  private bassWet: GainNode
   private chords: JamChord[] = []
   private starts: number[] = []
   loopBeats = 16
@@ -58,6 +61,23 @@ export class JamTransport {
     this.clickBus = bus()
     this.loopBus = bus()
     this.bassBus = bus()
+    // bass grit: bassBus feeds a clean path and a driven one (soft clipping, then the fizz rolled off)
+    this.bassBus.disconnect()
+    this.bassDry = ctx.createGain()
+    this.bassWet = ctx.createGain()
+    this.bassWet.gain.value = 0
+    const shaper = ctx.createWaveShaper()
+    const curve = new Float32Array(1024)
+    for (let i = 0; i < curve.length; i++) { const x = (i / (curve.length - 1)) * 2 - 1; curve[i] = Math.tanh(4 * x) / Math.tanh(4) }
+    shaper.curve = curve
+    shaper.oversample = '2x'
+    const lp = ctx.createBiquadFilter()
+    lp.type = 'lowpass'
+    lp.frequency.value = 2600
+    const pre = ctx.createGain()
+    pre.gain.value = 2.5
+    this.bassBus.connect(this.bassDry).connect(out())
+    this.bassBus.connect(pre).connect(shaper).connect(lp).connect(this.bassWet).connect(out())
   }
 
   get spb() { return 60 / this.bpm }
@@ -70,6 +90,10 @@ export class JamTransport {
     void loadSound(sound)
     if (drums !== 'off') void loadKit()
     if (bass !== 'off') void loadBank('bass')
+    const drive = bassLine(bass)?.drive ?? 0
+    const now = audio().currentTime
+    this.bassWet.gain.setTargetAtTime(drive * 0.55, now, 0.02)
+    this.bassDry.gain.setTargetAtTime(1 - drive * 0.35, now, 0.02)
     this.starts = []
     let b = 0
     for (const c of chords) { this.starts.push(b); b += c.beats }
@@ -253,7 +277,7 @@ export class JamTransport {
           this.ringing.filter(h => !keep.includes(h)).forEach(h => h.stop(at + 0.004))
           this.ringing = keep
         }
-        const hs = playHit(kind, ch.midis, at, 0.5, this.chordsBus, this.sound)
+        const hs = playHit(kind, ch.midis, at, 0.5 * (soundInfo(this.sound).band ?? 1), this.chordsBus, this.sound)
         if (kind === 'B' || kind === 'A') hs.forEach(h => this.bassHits.add(h))
         this.ringing.push(...hs)
       }

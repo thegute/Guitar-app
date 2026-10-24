@@ -36,9 +36,10 @@ export function playHit(kind: Kind, midis: number[], when: number, gain: number,
   if (!midis.length) return []
   const hs: Handle[] = []
   const amp = sound ? !!soundInfo(sound).amp : false
+  // a backing part on an amp sound is double-tracked: two takes, left and right, like a real rhythm guitar recording
   const chord = (notes: number[], o: { up?: boolean; g: number; spread?: number; pm?: boolean }) =>
-    hs.push(strumNotes(notes, when, { up: o.up, gain: o.g, spread: o.spread ?? 0.014, dest, sound, pm: o.pm }))
-  const note = (m: number, g: number, pm = false) => hs.push(playNote(m, when, g, dest, { sound, pm }))
+    hs.push(strumNotes(notes, when, { up: o.up, gain: o.g, spread: o.spread ?? 0.014, dest, sound, pm: o.pm, double: amp }))
+  const note = (m: number, g: number, pm = false) => hs.push(playNote(m, when, g, dest, { sound, pm, double: amp }))
   // power chords stay whole on upstrokes too (they're only 2-3 strings)
   const top = (n: number) => (isPowerChord(midis) ? midis : midis.slice(-n))
   switch (kind) {

@@ -27,9 +27,15 @@ fs.mkdirSync(DIR, { recursive: true })
       if (typeof AudioDestinationNode !== 'undefined' && dest instanceof AudioDestinationNode && !this.__isTap) {
         const c = this.context
         if (!c.__tap) {
-          const sp = c.createScriptProcessor(4096, 1, 1)
+          const sp = c.createScriptProcessor(4096, 2, 2)
           sp.__isTap = true
-          sp.onaudioprocess = e => { if (rec) rec.push(new Float32Array(e.inputBuffer.getChannelData(0))) }
+          sp.onaudioprocess = e => {
+            if (!rec) return
+            // interleave left/right
+            const L = e.inputBuffer.getChannelData(0), R = e.inputBuffer.getChannelData(1), o = new Float32Array(L.length * 2)
+            for (let i = 0; i < L.length; i++) { o[2 * i] = L[i]; o[2 * i + 1] = R[i] }
+            rec.push(o)
+          }
           orig.call(sp, c.destination)
           c.__tap = sp
           window.__tapRate = c.sampleRate
@@ -63,8 +69,8 @@ fs.mkdirSync(DIR, { recursive: true })
     const pcm = Buffer.from(b64, 'base64')
     const h = Buffer.alloc(44)
     h.write('RIFF', 0); h.writeUInt32LE(36 + pcm.length, 4); h.write('WAVE', 8); h.write('fmt ', 12)
-    h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22); h.writeUInt32LE(rate, 24); h.writeUInt32LE(rate * 2, 28)
-    h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34); h.write('data', 36); h.writeUInt32LE(pcm.length, 40)
+    h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(2, 22); h.writeUInt32LE(rate, 24); h.writeUInt32LE(rate * 4, 28)
+    h.writeUInt16LE(4, 32); h.writeUInt16LE(16, 34); h.write('data', 36); h.writeUInt32LE(pcm.length, 40)
     fs.writeFileSync(path.join(DIR, `sound-${name}.wav`), Buffer.concat([h, pcm]))
   }
   if (process.argv[2] === 'metronome') {

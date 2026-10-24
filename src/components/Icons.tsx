@@ -45,3 +45,9 @@ export const IconShrink = () => (
 export const IconMenu = () => (
   <svg viewBox="0 0 24 24" width="20" height="20" {...s}><path d="M4 7h16M4 12h16M4 17h16" /></svg>
 )
+export const IconChevron = ({ open }: { open?: boolean }) => (
+  <svg viewBox="0 0 24 24" width="18" height="18" {...s} style={{ transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 160ms' }} aria-hidden><path d="M6 9l6 6 6-6" /></svg>
+)
+export const IconPencil = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" {...s} aria-hidden><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="M13.5 6.5l4 4" /></svg>
+)

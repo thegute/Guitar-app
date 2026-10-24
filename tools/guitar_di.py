@@ -142,16 +142,38 @@ def filt(x, ba):
     return lfilter(ba[0], ba[1], x)
 
 
+def _humanize(y, rng, glide_cents, glide_tau, drift_cents, detune_cents):
+    """What a real hand and string do to the pitch: a hard pick starts a note a little sharp (the string is
+    stretched further) and it settles within ~0.1 s; a fretted note sits a few cents off and wanders slightly."""
+    n = len(y)
+    t = np.arange(n) / SR
+    # slow wander: smoothed noise, a few Hz
+    k = max(1, int(SR / 3))
+    w = rng.standard_normal(n // k + 3)
+    drift = np.interp(t * SR / k, np.arange(len(w)), w)
+    drift = drift / (np.std(drift) + 1e-9) * drift_cents
+    cents = detune_cents + glide_cents * np.exp(-t / glide_tau) + drift
+    ratio = 2 ** (cents / 1200)
+    pos = np.concatenate([[0.0], np.cumsum(ratio[:-1])])
+    pos = np.minimum(pos, n - 1)
+    return np.interp(pos, np.arange(n), y)
+
+
 def pluck(midi, dur=3.5, *, string=None, fret=None, tuning=STANDARD, pickup='bridge', mute=0.0, hardness=1.0,
-          level=1.0, rng=None, pick_mm=None):
+          level=1.0, rng=None, pick_mm=None, human=0.0):
     """One plucked note as a dry pickup signal (not normalised).
 
     pickup: 'bridge' / 'neck' humbucker, 'single' / 'neck_single' single coil, or 'piezo' (acoustic undersaddle).
     mute: 0 = ringing, 1 = full palm mute.  hardness: 1 = medium pick, 2 = hard, 0.5 = soft / flesh.
+    human: 0 = machine-perfect; 1 = a real player's pick: pitch settling after the attack, small detune and wander,
+    a pick click, and slightly different pick spot and strength every time (seeded by rng).
     """
     rng = rng or np.random.default_rng(midi * 7 + int(mute * 10))
     if string is None:
         string, fret = place(midi, tuning)
+    if human:
+        hardness *= float(np.clip(1 + rng.normal(0, 0.12 * human), 0.7, 1.4))
+        pick_mm = (pick_mm or (95.0 if pickup == 'piezo' else 70.0)) + rng.normal(0, 7 * human)
     f0 = 440.0 * 2 ** ((midi - 69) / 12)
     n = int(dur * SR)
     D = SR / f0
@@ -201,19 +223,33 @@ def pluck(midi, dur=3.5, *, string=None, fret=None, tuning=STANDARD, pickup='bri
         res = {'bridge': (3200.0, 2.2), 'neck': (2800.0, 1.8), 'single': (5200.0, 1.6), 'neck_single': (4800.0, 1.5)}[pickup]
         out = filt(out, biquad_lp(*res))
         out = filt(out, biquad_hp(40))
+    if human:
+        # pick click: the pick scraping off the string (a few ms of bright noise), loudest on hard picking
+        cl = int(SR * 0.004)
+        click = rng.standard_normal(cl) * np.exp(-np.arange(cl) / (SR * 0.0012))
+        click = filt(filt(click, biquad_hp(1800)), biquad_lp(7000, 0.7))
+        out[:cl] += click * np.max(np.abs(out[:int(SR * 0.03)])) * 0.12 * human * hardness
+        low = midi < 52
+        glide = (6 + 10 * min(1.5, hardness) * (1.3 if low else 1.0)) * human * (0.4 if mute > 0.5 else 1.0)
+        out = _humanize(out, rng, glide, 0.05 + 0.05 * rng.random(), 0.8 * human,
+                        rng.normal(1.0 if fret else 0.0, 2.2) * human)
     # fade out the very end
     tail = int(0.05 * SR)
     out[-tail:] *= np.linspace(1, 0, tail)
     return out * level
 
 
-def strum_notes(midis, dur=3.5, *, spread=0.007, places=None, **kw):
+def strum_notes(midis, dur=3.5, *, spread=0.007, places=None, seed=0, **kw):
     """Several strings picked in a quick downstroke (low to high), summed: the DI of a chord."""
     n = int(dur * SR)
     out = np.zeros(n)
+    rs = np.random.default_rng(seed * 7919 + 17)
+    t = 0.0
     for i, m in enumerate(midis):
         s, f = places[i] if places else place(m)
-        x = pluck(m, dur, string=s, fret=f, rng=np.random.default_rng(m * 13 + i), **kw)
-        k = int(i * spread * SR)
-        out[k:] += x[:n - k]
+        x = pluck(m, dur, string=s, fret=f, rng=np.random.default_rng(m * 13 + i + seed * 1009), **kw)
+        k = int(t * SR)
+        out[k:] += x[:n - k] * (0.85 + 0.3 * rs.random() if kw.get('human') else 1.0)
+        # a real strum isn't perfectly even
+        t += spread * (0.7 + 0.6 * rs.random() if kw.get('human') else 1.0)
     return out

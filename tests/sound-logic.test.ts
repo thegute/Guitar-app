@@ -74,13 +74,15 @@ for (const p of pieces) ok(!!drums[p]?.length, `drum piece ${p}`)
 for (const files of Object.values(drums)) for (const f of files) ok(existsSync(`public/samples/drums/${f}`), `drum file ${f}`)
 for (const id of [...SOUNDS.map(s => s.id).filter(x => x !== 'synth'), 'bass']) {
   const idx = JSON.parse(readFileSync(`public/samples/${id}/index.json`, 'utf8')) as Record<string, unknown>
-  const groups = (typeof Object.values(idx)[0] === 'string' ? { notes: idx } : idx) as Record<string, Record<string, string>>
+  const groups = (typeof Object.values(idx)[0] === 'string' ? { notes: idx } : idx) as Record<string, Record<string, string | string[]>>
   ok(Object.keys(groups.notes ?? {}).length >= 10, `${id}: has notes`)
-  for (const files of Object.values(groups)) for (const f of Object.values(files)) ok(existsSync(`public/samples/${id}/${f}`), `${id}/${f}`)
+  for (const files of Object.values(groups)) for (const f of Object.values(files)) for (const x of [f].flat()) ok(existsSync(`public/samples/${id}/${x}`), `${id}/${x}`)
   const amp = SOUNDS.find(s => s.id === id)?.amp
   if (amp) for (const g of ['pm', 'power', 'powerpm']) {
     const keys = Object.keys(groups[g] ?? {}).map(Number)
     ok(keys.length >= 5 && Math.min(...keys) <= 38 && Math.max(...keys) >= 60, `${id}: ${g} covers the neck (${keys.join(',')})`)
+    // rhythm parts have several takes (played in turn and left/right)
+    ok(Object.values(groups[g] ?? {}).every(v => Array.isArray(v) && v.length >= 2), `${id}: ${g} has takes`)
   }
 }
 

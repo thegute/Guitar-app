@@ -995,3 +995,28 @@ details summary { cursor: pointer; color: var(--pearl-2); }
 .readout-box.mini { grid-template-columns: auto minmax(0, 1fr) auto; }
 .readout-box.mini .hand-shape { grid-column: auto; }
 .readout-box.mini .hand-head { font-size: 11px; }
+
+/* ---- calmer screens: folding sections and ⓘ hints ---- */
+.fold { padding: 0; }
+.fold-head { display: flex; align-items: center; gap: 6px; padding-right: 8px; }
+.fold-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; background: none; border: 0; color: inherit; cursor: pointer;
+  padding: 14px 6px 14px 16px; min-height: 52px; text-align: left; font: inherit; }
+.fold-title { font-family: var(--display); font-weight: 600; font-size: 20px; white-space: nowrap; }
+.fold-sum { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.fold-toggle svg { flex: none; color: var(--pearl-2); }
+.fold-body { padding: 0 16px 16px; }
+.fold.open > .fold-head .fold-sum { visibility: hidden; }
+.hint-btn { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--line); background: none; color: var(--pearl-2);
+  font: italic 600 13px/1 Georgia, serif; cursor: pointer; display: inline-grid; place-items: center; padding: 0; }
+.hint-btn[aria-expanded="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.hint-text { margin: 0 16px 12px; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--ink); }
+.panel > .hint-text, .stack > .hint-text { margin: 0; }
+/* boxes inside boxes: an inner panel drops its own frame */
+.panel .panel { box-shadow: none; border-color: transparent; background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; background: var(--surface); }
+.seg button { border: 0; background: none; color: inherit; font: inherit; font-size: 15px; padding: 7px 14px; border-radius: 999px; cursor: pointer; min-height: 36px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.band-line { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 12px;
+  background: none; color: inherit; font: inherit; padding: 10px 12px; cursor: pointer; min-height: 48px; }
+.band-line .band-parts { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.band-line .band-parts b { font-weight: 600; }
