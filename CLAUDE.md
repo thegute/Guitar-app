@@ -83,16 +83,27 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   `node art/from-image.cjs art/kguitar-art.jpg 0.483 0.27 1.85` makes the launcher icons (picture as the adaptive background), Android 12+ `splash_icon`,
   WebP splash screens, web icons and `public/art.jpg` (welcome screen, guide). Previews in `art/preview/`.
 
-## Next up (build 10) — pick up here
-1. Sounds with the owner's gear (files are NOT in the repo; re-stage from the Mac if this workspace is gone): NAM captures
-   `~/Downloads/Amp Models & Presets/Peavey 5150BL IR/*.nam` (MirrorProfiles 5150), cab IRs `~/Downloads/IR/` (York MES 412 Mixes, Calypso V30,
-   Tone Factor Two Rock 65B + '66 Deluxe Reverb starters), acoustic `PastToFutureReverbs Gibson J-45` + electric-to-acoustic converter.
-   Plan: render banks offline (NAM inference via NeuralAmpModelerCore built from GitHub, or a careful numpy WaveNet port; then IR convolution):
-   metal (5150 + MES 412, single notes, palm-muted notes, power chords), clean (Two Rock / Deluxe IR), acoustic (J-45). Only rendered audio
-   goes into public/samples. Fix the electric samples 37/42/45 and nylon 38 (stray second pluck in the recordings).
-2. Recorded drums (free-licensed kits; metal kit with double-kick grooves, reggae one-drop/cross-stick) and a recorded bass part in Jam.
-   Jam styles pick a matching tone automatically; Settings → Playback sound lists the new tones. Live guitar input is never processed or monitored.
-3. Full app review/polish pass (owner asked: improve everything), then build 10. Notify the owner's phone (PushNotification) with the link.
+## Sounds (build 10)
+- `audio/pluck.ts`: SOUNDS registry (acoustic, j45, nylon, clean, electric = jazz, crunch, metal, synth). Banks are
+  `public/samples/<id>/index.json`: flat `{midi: file}` or groups `{notes, pm, power, powerpm}` (amp tones). Onsets are trimmed
+  at load (MP3 padding). `strum()` plays power chords (R-5 or R-5-8) as one recorded chord on amp tones; `pm` = palm mute.
+  `soundForProgram()` maps a Guitar Pro track's GM program (SongTrack.program) to a sound; Play's Sound picker (global
+  `kg:sound`, Auto = song's sound or instrument default). Jam has its own `kg:jamTone` (Auto = STYLE_DEFAULTS[style].tone).
+- Rendering (offline, owner's gear NOT in the repo): `tools/guitar_di.py` (modelled string → pickup DI), `tools/nam_render.py`
+  (numpy NAM WaveNet player), `tools/render_tones.py --gear <folder with "Amp Models & Presets" and "IR">` (5150 captures +
+  York MES 412 / Calypso V30 / '66 Deluxe / J-45 IRs). Gear was staged from the Mac's ~/Downloads.
+- `tools/make-samples.py` (tonejs acoustic/electric/nylon/bass; static gain, no loudnorm), `tools/make-kit.py <avl-drumkits>`
+  (github.com/studiorack/avl-drumkits, CC BY-SA 3.0, credited in Settings).
+- `audio/drums.ts`: recorded kit with velocity layers, hi-hat choke, per-groove kit/level, fills (`FILLS`) and crash on the
+  loop restart. `audio/bass.ts`: BASSLINES + `bassMidi` (walking, approach notes). JamTransport has bass bus + sound; a new
+  strum stops the last one. `engine.ts` master: compressor + soft ceiling.
+- Check the mix: `node tests/browser/sound-capture.cjs Metal,Reggae` (PARTS=guitar|bass|drums) then
+  `python3 tools/analyse-capture.py tests/browser/out/sound-metal.wav 140`. Live guitar input is never processed or monitored.
+
+## Next up — pick up here
+1. Full app review/polish pass (owner asked: improve everything): use every screen at all sizes and themes, fix what's
+   confusing, slow or inaccurate. Then release the next build and notify the owner's phone (PushNotification) with the link.
+2. The owner may want to change the hand-shape guide after trying it.
 
 ## Ideas not done yet
 Left-handed mode, automatic tempo detection from the video, per-note polyphonic transcription (chords are judged by chroma only), cloud sync between devices.
