@@ -37,7 +37,7 @@ async function newPage(browser, seed = {}, viewport = SIZES.cover) {
     window.__kgTest = true
     try { if (window.top !== window || sessionStorage.getItem('seeded')) return } catch { return }
     localStorage.clear()
-    localStorage.setItem('kg:welcomed', '1')
+    localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1')
     for (const [k, v] of Object.entries(s)) localStorage.setItem(k, typeof v === 'string' && k === 'kg:psyMotion' ? v : JSON.stringify(v))
     sessionStorage.setItem('seeded', '1')
   }, seed)
@@ -258,6 +258,11 @@ async function psySection(browser) {
   if (idle !== 'none' || playing.anim === 'none') bad('psy: beat pulse wrong')
   await page.screenshot({ path: `${DIR}/b14-psy-jam-playing.png` })
   await page.locator('.jam button:has-text("Stop")').first().click().catch(() => {})
+  // the default look is Psychedelic (no theme saved)
+  const fresh = await newPage(browser, {}, SIZES.cover)
+  const def = await fresh.evaluate(() => document.documentElement.dataset.theme)
+  if (def !== 'psy') bad(`psy: default look is ${def}`)
+  await fresh.context().close()
   // motion off
   await nav(page, 'Learn'); await sub(page, 'Today')
   await page.locator('button[aria-label=Settings]').click()
@@ -266,6 +271,19 @@ async function psySection(browser) {
   const off = await page.evaluate(() => ({ m: document.documentElement.dataset.motion, a: getComputedStyle(document.querySelector('.psy-liquid')).animationName }))
   console.log('  motion off:', JSON.stringify(off))
   if (off.m !== 'off' || off.a !== 'none') bad('psy: motion switch does not stop the background')
+  // your samurai: pick the pug, it greets you on the empty My songs page; every dog has a guitar
+  const cards = await page.locator('.dog-card').count()
+  if (cards !== 12) bad(`psy: ${cards} samurai choices (want 12)`)
+  await page.locator('.dog-card:has-text("Pug")').click()
+  await nav(page, 'Songs'); await sub(page, 'My songs')
+  if (!(await page.locator('.empty-art .dog-pug').count())) bad('psy: chosen samurai not on the empty My songs page')
+  const guitars = await page.locator('.psy-dog .dog-guitar').count(), dogs = await page.locator('.psy-dog').count()
+  console.log(`  dogs on Songs: ${dogs}, with guitars: ${guitars}`)
+  if (!dogs || guitars !== dogs) bad('psy: a samurai dog without a guitar')
+  await page.screenshot({ path: `${DIR}/b14-psy-chosen-pug.png` })
+  await nav(page, 'Learn'); await sub(page, 'Today')
+  await page.locator('button[aria-label=Settings]').click()
+  await sub(page, 'Look')
   // back to Day: no psy art anywhere
   await page.locator('.theme-card.t-day').click()
   await page.waitForTimeout(200)

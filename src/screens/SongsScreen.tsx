@@ -5,7 +5,8 @@ import { Songbook } from '../components/Songbook'
 import { ProgressionTabs } from '../components/ProgressionTabs'
 import { LickMaker } from '../components/LickMaker'
 import { SubTabs, useSubTab } from '../components/SubTabs'
-import { PsyArt } from '../components/PsyArt'
+import { PsyDog, PsyParade } from '../components/PsyArt'
+import { breedOf } from '../theme'
 import { STARTER_PROGS, jamProgression, starterProgression } from '../tabs/fromProgression'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { deleteSong, listSongs, refreshBuiltIn, saveSong, youtubeId, type SongDoc } from '../tabs/library'
@@ -46,7 +47,7 @@ export function SongsScreen() {
   return (
     <div className="songs-screen stack">
       <header className="screen-head">
-        <PsyArt kind="pop" className="screen-art" />
+        <PsyParade className="screen-art" />
         <h1>Songs</h1>
       </header>
       <SubTabs label="Songs" value={page} onChange={setPage} tabs={[
@@ -77,7 +78,7 @@ function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook }: {
   if (!list.length) {
     return (
       <section className="panel empty-state">
-        <PsyArt kind="face" className="empty-art" />
+        <PsyDog seed="songs-empty" className="empty-art" />
         <h2>No songs of your own yet</h2>
         <p className="small muted">Add a Guitar Pro file or paste a tab you found online, or start with a song from the songbook. Songs you add in {inst.label.toLowerCase()} mode stay in {inst.label.toLowerCase()} mode.</p>
         <div className="row" style={{ justifyContent: 'center' }}>
@@ -98,6 +99,7 @@ function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook }: {
         {shown.map(s => (
           <li key={s.id} className={s.id === currentId ? 'on' : ''}>
             <button className="song-open" onClick={() => onOpen(s)}>
+              <PsyDog breed={breedOf(s.id)} className="song-dog" />
               <b>{s.title}</b>
               <span className="small muted">
                 {[s.artist, s.source === 'gp' ? 'Guitar Pro' : s.source === 'chords' ? 'Chord sheet' : s.source === 'jam' ? 'Made in KGuitar' : 'Text tab', s.youtube ? 'video' : null, s.song.tracks.length > 1 ? `${s.song.tracks.length} tracks` : null].filter(Boolean).join(' · ')}

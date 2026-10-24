@@ -2,9 +2,10 @@
 import { useEffect, useState } from 'react'
 import { Chips } from '../components/Controls'
 import { INSTRUMENTS, setInstrument, setTuning, type Instrument, type InstrumentId } from '../instrument'
-import { setPsyMotion, setTheme, usePsyMotion, useTheme, type ThemeChoice } from '../theme'
+import { setPsyMotion, setTheme, usePsyMotion, useTheme, usePsyDog, setPsyDog, type ThemeChoice } from '../theme'
 import { SubTabs, useSubTab } from '../components/SubTabs'
-import { psySrc } from '../components/PsyArt'
+import { psySrc, PsyDog, PsyPiece, PsyScene } from '../components/PsyArt'
+import { BREEDS } from '../art/dogs'
 import { dailyGoalMin, setDailyGoalMin, useProgress } from './progress'
 import { GearSetup } from '../components/GearSetup'
 import { PedalSettings } from '../controls/PedalSettings'
@@ -23,6 +24,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
   useProgress()
   const theme = useTheme()
   const motion = usePsyMotion()
+  const dog = usePsyDog()
   const [page, setPage] = useSubTab('settings', ['you', 'sound', 'look', 'backup'] as const)
   const [showArt, setShowArt] = useShowArt()
   const [ask, setAsk] = useState<InstrumentId | null>(null)
@@ -66,7 +68,10 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <button className="btn sm" onClick={onExit}>← Back</button>
       </div>
-      <h1 style={{ margin: 0 }}>Settings</h1>
+      <header className="screen-head">
+        <PsyScene piece="oni" oni="blue" className="screen-art" />
+        <h1 style={{ margin: 0 }}>Settings</h1>
+      </header>
       <SubTabs label="Settings" value={page} onChange={setPage} tabs={[
         { id: 'you', label: 'You' }, { id: 'sound', label: 'Sound' }, { id: 'look', label: 'Look' }, { id: 'backup', label: 'Backup' },
       ]} />
@@ -177,6 +182,24 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
             <input type="checkbox" checked={motion} onChange={e => setPsyMotion(e.target.checked)} />
             <span><b>Moving colours</b><span className="small muted">The background slowly drifts and the art turns. Switch off to save battery.</span></span>
           </label>
+        )}
+        {theme === 'psy' && (
+          <div className="stack samurai-pick" style={{ gap: 8 }}>
+            <h3 style={{ margin: 0 }}>Your samurai</h3>
+            <p className="small muted" style={{ margin: 0 }}>The samurai dog who greets you: on finished songs, quizzes, celebrations and empty pages. Every one has a guitar.</p>
+            <div className="dog-cards" role="radiogroup" aria-label="Your samurai">
+              <button role="radio" aria-checked={dog === 'mix'} className={`dog-card${dog === 'mix' ? ' on' : ''}`} onClick={() => setPsyDog('mix')}>
+                <PsyPiece kind="crossed" className="dog-card-art" />
+                <span>Mix it up</span>
+              </button>
+              {BREEDS.map(b => (
+                <button key={b.id} role="radio" aria-checked={dog === b.id} className={`dog-card${dog === b.id ? ' on' : ''}`} onClick={() => setPsyDog(b.id)}>
+                  <PsyDog breed={b.id} className="dog-card-art" />
+                  <span>{b.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         )}
         <label className="opt-row opt-check">
           <input type="checkbox" checked={showArt} onChange={e => setShowArt(e.target.checked)} />

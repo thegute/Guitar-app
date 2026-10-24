@@ -35,7 +35,7 @@ import { openInPlay } from '../nav'
 import { SongFinder } from '../components/SongFinder'
 import { Zoomable } from '../components/Zoomable'
 import { SubTabs, useSubTab } from '../components/SubTabs'
-import { PsyArt } from '../components/PsyArt'
+import { PsyArt, PsyBand } from '../components/PsyArt'
 import { pc } from '../theory/notes'
 
 const COUNTS = [2, 4, 8, 12, 16]
@@ -607,6 +607,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     <div className={`stack jam${playing ? ' playing' : ''}`} style={{ ['--beat' as string]: `${(60 / bpm).toFixed(3)}s` }}>
       <header className="screen-head jam-head">
         <PsyArt kind="melt" className="screen-art beat-art" />
+        <PsyBand className="jam-band" />
         <h1>Jam{inst.isUke ? <span className="muted small"> · {inst.short}</span> : null}</h1>
         {page === 'jam' && <button className="btn sm" onClick={() => setOptionsOpen(!optionsOpen)} aria-expanded={optionsOpen}>{optionsOpen ? 'Hide options' : 'Options'}</button>}
       </header>

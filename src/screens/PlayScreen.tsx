@@ -1,7 +1,7 @@
 // Play along: the tab, a YouTube mini player, the mic following your playing note by note,
 // and the scales / chords of the song for soloing.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { PsyArt } from '../components/PsyArt'
+import { PsyDog } from '../components/PsyArt'
 import { TabView, type LabelMode } from '../components/TabView'
 import { ChordDiagram } from '../components/ChordDiagram'
 import { YouTubePlayer } from '../components/YouTubePlayer'
@@ -717,7 +717,7 @@ export function PlayScreen() {
           </>
         ) : done ? (
           <>
-            <PsyArt kind="face" className="finish-face" />
+            <PsyDog seed="finished" className="finish-face" />
             <b>Finished!</b>
             <span className="small muted">{firstTry !== null ? `${firstTry}% of notes right first time.` : ''}</span>
             <button className="btn sm" onClick={() => restart()}>Play again</button>

@@ -1,5 +1,6 @@
 // Runs one quiz: questions picked by what you know least, answered by tapping or by playing (mic),
 // with instant feedback, a combo counter and stars at the end.
+import { PsyDog } from '../components/PsyArt'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Fretboard, type Mark as FMark } from '../components/Fretboard'
 import { ChordDiagram } from '../components/ChordDiagram'
@@ -312,6 +313,7 @@ function QuizEnd({ quiz, pct, stars, played, xp, onAgain, onExit }: { quiz: Quiz
   return (
     <div className="stack quiz-end">
       <div className="panel" style={{ textAlign: 'center' }}>
+        <PsyDog seed={`quiz-${pct}`} className="quiz-dog" />
         <div className="stars" aria-label={`${stars} of 3 stars`}>{[1, 2, 3].map(i => <span key={i} className={i <= stars ? 'on' : ''}>★</span>)}</div>
         <div className="readout" style={{ fontSize: 56 }}>{pct}%</div>
         <p className="muted">{stars === 3 ? 'Perfect and fast. Nailed it.' : stars === 2 ? 'Great work. Go again for three stars.' : stars === 1 ? 'Good start. The ones you missed will come up more often.' : 'Keep at it: missed notes come back more often until they stick.'}</p>

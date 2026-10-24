@@ -4,7 +4,8 @@ import { ArtThumb } from '../components/Art'
 import { useEffect, useState } from 'react'
 import { IconGear } from '../components/Icons'
 import { SubTabs, useSubTab } from '../components/SubTabs'
-import { PsyArt } from '../components/PsyArt'
+import { PsyArt, PsyDog, PsyPiece, PsyScene, type PieceKind } from '../components/PsyArt'
+import type { BreedId } from '../art/dogs'
 import { useInstrument } from '../instrument'
 import { buildExercise, ESSENTIALS } from '../tabs/exercises'
 import { getSong, refreshBuiltIn, type SongDoc } from '../tabs/library'
@@ -234,7 +235,8 @@ export function LearnScreen() {
 
   return (
     <div className="learn">
-      <div className="learn-head">
+      <div className="learn-head screen-head">
+        <PsyScene piece="sun" className="screen-art" />
         <ArtThumb className="learn-art" />
         <h1 style={{ margin: 0 }}>Learn</h1>
         <button className="btn sm inst-chip" onClick={() => push({ k: 'settings' })} aria-label={`Instrument: ${inst.label}. Change in settings`}>
@@ -416,6 +418,7 @@ export function LearnScreen() {
               <div className="tool-grid">
                 {g.tools.map(t => (
                   <button key={t.id} className="tool" onClick={() => push({ k: t.id } as Route)}>
+                    <ToolBadge id={t.id} />
                     <b>{t.title}</b>
                     <span className="small muted">{t.needs && away ? `Needs your ${inst.noun}` : t.sub}</span>
                   </button>
@@ -424,6 +427,7 @@ export function LearnScreen() {
             </section>
           ))}
           <button className="tool songbook-link" onClick={() => openSongs('songbook')}>
+            <ToolBadge id="songbook" />
             <b>Songbook</b>
             <span className="small muted">Folk, bluegrass and reggae songs to learn: in the Songs tab</span>
           </button>
@@ -431,4 +435,16 @@ export function LearnScreen() {
       )}
     </div>
   )
+}
+
+// Psychedelic mode: a little picture on each Learn tool (a samurai dog, an oni, the sun, the moon, mushrooms or a guitar).
+const BADGES: Record<string, { dog?: BreedId; piece?: PieceKind; oni?: 'red' | 'blue' | 'purple' | 'green' }> = {
+  techniques: { dog: 'husky' }, bends: { piece: 'guitar' }, changes: { piece: 'shrooms' }, rhythm: { piece: 'sun' },
+  lessons: { piece: 'moon' }, ear: { dog: 'shiba' }, caged: { piece: 'oni', oni: 'green' }, circle: { dog: 'beagle' },
+  progress: { dog: 'golden' }, guide: { dog: 'lab' }, songbook: { dog: 'pug' },
+}
+function ToolBadge({ id }: { id: string }) {
+  const b = BADGES[id]
+  if (!b) return null
+  return b.dog ? <PsyDog breed={b.dog} className="tool-badge" /> : <PsyPiece kind={b.piece!} oni={b.oni} guitar={['pointy', 'flames']} className="tool-badge" />
 }

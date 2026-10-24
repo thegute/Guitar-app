@@ -4,7 +4,7 @@ const config: CapacitorConfig = {
   appId: 'app.kguitar',
   appName: 'KGuitar',
   webDir: 'dist',
-  android: { backgroundColor: '#120e17' },
+  android: { backgroundColor: '#14002b' },
   plugins: {
     SystemBars: { insetsHandling: 'css', initialViewportFitValueHint: 'cover', style: 'DEFAULT' },
   },
