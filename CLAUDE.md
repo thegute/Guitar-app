@@ -100,10 +100,19 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
 - Check the mix: `node tests/browser/sound-capture.cjs Metal,Reggae` (PARTS=guitar|bass|drums) then
   `python3 tools/analyse-capture.py tests/browser/out/sound-metal.wav 140`. Live guitar input is never processed or monitored.
 
+## Build 11 (review pass)
+- Metronome: recorded cross-stick / cowbell / hi-hat clicks and `Metronome.groove` (a GROOVES drum beat in 4/4, fill every 8 bars).
+- Tuner: octave guard (a low string reading an octave high must hold ~20 readings before the needle follows).
+- Play: video link box opens only from the Video button when the song has no link (`videoAsk`); Hear it on amp tones
+  mutes the last note when the next single note is picked. Jam: "Loading sounds…" waits for banks; 'S' chops keep bass ringing.
+- noteDetect: re-picked current note accepted when it is the loudest plain note and ≥1.08× louder than before; diff-view
+  candidates next to a much louder note are pick noise (`shadowed`). Bench now includes metal / clean / J-45 banks.
+- Chord strum-along (chroma) bench (scratch only): right chords 18/18 accepted on acoustic and clean; major/minor mix-ups
+  rejected; a triad is accepted where a 7th chord is expected (3rd harmonics) — left lenient on purpose.
+
 ## Next up — pick up here
-1. Full app review/polish pass (owner asked: improve everything): use every screen at all sizes and themes, fix what's
-   confusing, slow or inaccurate. Then release the next build and notify the owner's phone (PushNotification) with the link.
-2. The owner may want to change the hand-shape guide after trying it.
+1. More review if the owner asks; the owner may want to change the hand-shape guide after trying it.
+2. Keep the brother's Docs guide (https://claude.ai/artifact/7Cuc18hXrt23FDQ1PniqV5) in step with the in-app guide.
 
 ## Ideas not done yet
 Left-handed mode, automatic tempo detection from the video, per-note polyphonic transcription (chords are judged by chroma only), cloud sync between devices.
