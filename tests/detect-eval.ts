@@ -18,7 +18,9 @@ function decode(file: string): Float32Array {
 type Bank = Map<number, Float32Array>
 function loadBank(id: string): Bank {
   const dir = `${process.cwd()}/public/samples/${id}/`
-  const idx = JSON.parse(readFileSync(dir + 'index.json', 'utf8')) as Record<string, string>
+  const raw = JSON.parse(readFileSync(dir + 'index.json', 'utf8')) as Record<string, unknown>
+  // amp banks keep their single notes under "notes"
+  const idx = (typeof Object.values(raw)[0] === 'string' ? raw : raw.notes) as Record<string, string>
   const m = new Map<number, Float32Array>()
   for (const [k, f] of Object.entries(idx)) {
     const x = decode(dir + f)
@@ -93,6 +95,10 @@ const CONDS: Cond[] = [
   { name: 'acoustic, soft playing', bank: 'acoustic', drive: 0, snr: 26, hpf: 120, gain: 0.08, external: false },
   { name: 'electric clean (USB amp)', bank: 'electric', drive: 0, snr: 45, hpf: 0, gain: 0.5, external: true },
   { name: 'electric distorted (USB amp)', bank: 'electric', drive: 18, snr: 40, hpf: 0, gain: 0.5, external: true },
+  // real amp tones (5150 high gain, clean Fender-style) through the USB amp
+  { name: 'high-gain amp tone (USB amp)', bank: 'metal', drive: 0, snr: 40, hpf: 0, gain: 0.5, external: true },
+  { name: 'clean amp tone (USB amp)', bank: 'clean', drive: 0, snr: 45, hpf: 0, gain: 0.5, external: true },
+  { name: 'acoustic J-45, phone mic', bank: 'j45', drive: 0, snr: 22, hpf: 150, gain: 0.35, external: false },
 ]
 
 function render(p: Phrase, c: Cond, bank: Bank): Float32Array {

@@ -265,6 +265,25 @@ export class NoteDetector {
       views.push({ S: diff, boosted: false })
     }
     views.push({ S: plain, boosted: !!before })
+    // how loud each note is in the whole sound right now: a note that only shows up in "what the pick added"
+    // must still be a real part of what you hear (re-picking a ringing note leaves small leftovers in the difference)
+    const pSorted = Array.from(plain.subarray(34, 101)).sort((a, b) => a - b)
+    const pFloor = pSorted[Math.floor(pSorted.length * 0.4)]
+    const pTop = pSorted[pSorted.length - 1] - pFloor
+    const audible = (m: number) => pTop <= 0 || plain[m] - pFloor >= 0.25 * pTop
+    // a note right next to a much louder one is more likely the pick's click than a note (re-picked notes leave
+    // the pick noise in "what the pick added")
+    const shadowed = (m: number) => [m - 2, m - 1, m + 1, m + 2].some(k => k >= 34 && k <= 100 && plain[k] - pFloor > 1.8 * Math.max(1e-9, plain[m] - pFloor))
+    if (before && pTop > 0 && !only) {
+      // the note you're on, picked again while it still rings: it's the loudest note and the pick made it louder
+      let pBest = 34
+      for (let m = 35; m <= 100; m++) if (plain[m] > plain[pBest]) pBest = m
+      const pContrast = (plain[pBest] - pFloor) / Math.max(pTop * 0.04, Math.max(plain[pBest - 1] ?? 0, plain[pBest + 1] ?? 0) - pFloor)
+      for (const e of this.current) {
+        const ok = this.strictOctave ? pBest === e : pBest === e || (e < 52 && pBest === e + 12)
+        if (ok && plain[pBest] >= 1.08 * before[pBest] && pContrast >= 1.35) return { midi: e, expected: true, conf: 1 }
+      }
+    }
     let fallback: { midi: number; expected: boolean; conf: number } | null = null
     for (const { S, boosted } of views) {
       let best = -1, bestS = 0
@@ -287,6 +306,7 @@ export class NoteDetector {
           const sc = S[c] - floor
           // in the plain view after a pick, the note must also have got louder (picked again, not just ringing on)
           if (boosted && before && plain[c] < 1.2 * before[c]) continue
+          if (!boosted && before && (!audible(c) || shadowed(c))) continue
           // just the 3rd or 5th overtone of a lower note that's really sounding (a 5th or major 3rd below)?
           if ((S[c - 19] ?? 0) > 0.8 * S[c] || (S[c - 28] ?? 0) > 0.8 * S[c]) continue
           if (sc >= top * 0.3 && contrast(c) >= 1.35 && sc > bestExpScore) { bestExpScore = sc; bestExp = e }
@@ -298,7 +318,7 @@ export class NoteDetector {
       }
       if (bestExp >= 0) return { midi: bestExp, expected: true, conf: Math.min(1, bestExpScore / top) }
       // the first view decides what "something else" was played
-      if (!fallback && contrast(best) >= 1.25) fallback = { midi: best, expected: false, conf: Math.min(1, (contrast(best) - 1) / 1.5) }
+      if (!fallback && contrast(best) >= 1.25 && (boosted || !before || (audible(best) && !shadowed(best)))) fallback = { midi: best, expected: false, conf: Math.min(1, (contrast(best) - 1) / 1.5) }
     }
     return fallback
   }
