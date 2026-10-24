@@ -68,7 +68,7 @@ export const GUIDE: GuideSection[] = [
     id: 'tools', title: 'Tools', intro: 'Everyday helpers.',
     items: [
       { title: 'Tuner', text: 'Standard and alternate tunings, plus reference tones to tune by ear.', go: { tab: 'tuner' } },
-      { title: 'Tempo (metronome)', text: 'Accents, subdivisions, odd time signatures, tap tempo and a speed trainer.' },
+      { title: 'Tempo (metronome)', text: 'Accents, subdivisions, odd time signatures, tap tempo and a speed trainer. Sounds include a real cross-stick, cowbell and hi-hat, and Drum beat swaps the click for a recorded drummer (rock, metal, reggae, swing …) at any tempo, with a fill every 8 bars.' },
       { title: 'Chords', text: 'Every common chord in every key, with several shapes. Tap a shape to hear it.' },
       { title: 'Scales', text: '22 scales and modes on the whole neck or one position at a time.' },
     ],

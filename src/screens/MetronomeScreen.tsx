@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Metronome, type Accent, type ClickSound } from '../audio/metronome'
+import { GROOVES, loadKit } from '../audio/drums'
 import { keepAwake } from '../audio/engine'
 import { Chips, Field, usePersist } from '../components/Controls'
 
@@ -12,7 +13,10 @@ const SIGS = [
 const SUBS = [
   { id: 1, label: '♩ Quarters' }, { id: 2, label: '♪♪ Eighths' }, { id: 3, label: 'Triplets' }, { id: 4, label: 'Sixteenths' },
 ]
-const SOUNDS: { id: ClickSound; label: string }[] = [{ id: 'click', label: 'Click' }, { id: 'wood', label: 'Woodblock' }, { id: 'beep', label: 'Beep' }]
+const SOUNDS: { id: ClickSound; label: string }[] = [
+  { id: 'click', label: 'Click' }, { id: 'wood', label: 'Woodblock' }, { id: 'beep', label: 'Beep' },
+  { id: 'sticks', label: 'Cross-stick' }, { id: 'cowbell', label: 'Cowbell' }, { id: 'hihat', label: 'Hi-hat' },
+]
 
 function defaultAccents(beats: number): Accent[] {
   const a: Accent[] = Array(beats).fill(1)
@@ -29,6 +33,7 @@ export function MetronomeScreen() {
   const [sound, setSound] = usePersist<ClickSound>('click', 'click')
   const [accents, setAccents] = usePersist<Accent[]>('accents', defaultAccents(4))
   const [trainer, setTrainer] = usePersist('trainer', { on: false, step: 5, everyBars: 4, max: 160 })
+  const [groove, setGroove] = usePersist('metroGroove', '')
   const [running, setRunning] = useState(metronome.running)
   const [beat, setBeat] = useState(-1)
   const taps = useRef<number[]>([])
@@ -40,10 +45,12 @@ export function MetronomeScreen() {
     metronome.beatsPerBar = beats
     metronome.subdivision = sub
     metronome.sound = sound
+    metronome.groove = groove
+    if (groove || ['sticks', 'cowbell', 'hihat'].includes(sound)) void loadKit()
     metronome.accents = accents.length === beats ? accents : defaultAccents(beats)
     metronome.trainer = { ...trainer }
     metronome.onBpm = b => setBpm(b)
-  }, [bpm, beats, sub, sound, accents, trainer, setBpm])
+  }, [bpm, beats, sub, sound, accents, trainer, setBpm, groove])
 
   useEffect(() => {
     if (accents.length !== beats) setAccents(defaultAccents(beats))
@@ -119,7 +126,14 @@ export function MetronomeScreen() {
       <div className="panel stack">
         <Field label="Time signature"><Chips label="Time signature" items={SIGS.map(s => ({ id: s.id, label: s.id }))} value={sig} onChange={setSig} /></Field>
         <Field label="Subdivision"><Chips label="Subdivision" items={SUBS} value={sub} onChange={setSub} /></Field>
-        <Field label="Sound"><Chips label="Sound" items={SOUNDS} value={sound} onChange={setSound} /></Field>
+        <Field label="Sound"><Chips label="Sound" items={SOUNDS} value={sound} onChange={setSound} wrap /></Field>
+        <Field label="Drum beat">
+          <select className="select" value={groove} onChange={e => setGroove(e.target.value)} disabled={beats !== 4}>
+            <option value="">None: just the click</option>
+            {GROOVES.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}
+          </select>
+        </Field>
+        <p className="small muted" style={{ margin: 0 }}>{beats === 4 ? 'A real drummer at any tempo instead of the click, with a fill every 8 bars. The speed trainer works with it too.' : 'Drum beats are in 4/4.'}</p>
       </div>
 
       <div className="panel stack">

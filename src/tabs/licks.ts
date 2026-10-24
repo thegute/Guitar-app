@@ -177,5 +177,7 @@ export function makeLick(o: LickOptions, tuning: number[]): Song {
   const flats = keyPrefersFlats(o.root, g.minor)
   const keyName = (flats ? FLATS : SHARPS)[rootPc] + (g.minor ? 'm' : '')
   const bpm = Math.round(g.bpm * (o.level === 1 ? 0.75 : o.level === 3 ? 1.15 : 1))
-  return { title: `${g.label} lick in ${keyName}`, tempo: bpm, tracks: [{ name: `${g.label} lick`, tuning, capo: 0, bars }] }
+  // the General MIDI guitar that suits the genre, so Hear it picks a matching sound (distortion for metal ...)
+  const program = ({ bluegrass: 25, rock: 29, progmetal: 30, metal: 30, folk: 25, country: 27 } as Record<string, number>)[g.id] ?? 25
+  return { title: `${g.label} lick in ${keyName}`, tempo: bpm, tracks: [{ name: `${g.label} lick`, tuning, capo: 0, bars, program }] }
 }

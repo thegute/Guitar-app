@@ -130,7 +130,8 @@ E|-3---------------|-0---------------|`)
     out.gpNotes = await page.$$eval('.tab-note text', e => e.slice(0, 10).map(x => x.textContent).join(' '))
     await page.screenshot({ path: `${DIR}/play-${vp.name}-8-gp.png` })
 
-    // YouTube link
+    // YouTube link (the box opens from the Video button when the song has no video yet)
+    if (!(await page.isVisible('#yt-url'))) await page.click('.play-head button:has-text("Video"), button:has-text("Video")')
     await page.fill('#yt-url', 'https://youtu.be/dQw4w9WgXcQ?t=30').catch(() => {})
     await page.click('.yt-add button[type=submit]').catch(() => {})
     await page.waitForTimeout(800)

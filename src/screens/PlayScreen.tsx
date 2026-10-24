@@ -92,6 +92,8 @@ export function PlayScreen() {
   const [labelMode, setLabelMode] = usePersist<LabelMode>('playLabels', 'both')
   const [strict, setStrict] = usePersist('playStrict', false)
   const [showVideo, setShowVideo] = usePersist('playVideo', true)
+  // with no video link yet, the add-a-link box only opens when you tap Video (saves room on the cover screen)
+  const [videoAsk, setVideoAsk] = useState(false)
   const [mode, setMode] = usePersist<'wait' | 'time'>('playMode', 'wait')
   const [click, setClick] = usePersist('timeClick', true)
   const [guide, setGuide] = usePersist('timeGuide', false)
@@ -731,7 +733,7 @@ export function PlayScreen() {
           aria-label={focus ? 'Show all panels again' : 'Full tab: hide the other panels'} title={focus ? 'Show all panels again' : 'Full tab'}>
           {focus ? <IconShrink /> : <IconExpand />}
         </button>
-        <button className="btn sm" aria-pressed={showVideo} onClick={() => setShowVideo(!showVideo)}>Video</button>
+        <button className="btn sm" aria-pressed={doc.youtube ? showVideo : videoAsk} onClick={() => (doc.youtube ? setShowVideo(!showVideo) : setVideoAsk(!videoAsk))}>Video</button>
         {mode === 'time' ? (
           <button className={`btn listen${inTime.running ? ' on' : ''}`} onClick={() => void toggleRun()} aria-pressed={inTime.running}>
             <span className="dot" /> {inTime.running ? 'Stop' : doc.ytSync && showVideo ? 'Start with video' : 'Start'}
@@ -745,7 +747,7 @@ export function PlayScreen() {
 
       <section className="play-side" ref={sideRef}>
         {/* stays mounted while hidden so a playing video keeps going */}
-        {showVideo && <YouTubePlayer url={doc.youtube} onUrl={u => update({ youtube: u, ytSync: u ? doc.ytSync : undefined })} onApi={api => { video.current = api }}
+        {(doc.youtube ? showVideo : videoAsk) && <YouTubePlayer url={doc.youtube} onUrl={u => { update({ youtube: u, ytSync: u ? doc.ytSync : undefined }); if (u) setShowVideo(true); setVideoAsk(false) }} onApi={api => { video.current = api }}
           sync={doc.ytSync} onSync={sync => update({ ytSync: sync })} tabBpm={songBpm} />}
         {sideOpen && readout(false)}
         {sideOpen && micError && <p className="notice small">{micError}</p>}

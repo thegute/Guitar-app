@@ -67,6 +67,19 @@ fs.mkdirSync(DIR, { recursive: true })
     h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34); h.write('data', 36); h.writeUInt32LE(pcm.length, 40)
     fs.writeFileSync(path.join(DIR, `sound-${name}.wav`), Buffer.concat([h, pcm]))
   }
+  if (process.argv[2] === 'metronome') {
+    // Tools → Tempo with a drum beat
+    await page.click('nav >> text=Tools')
+    await page.click('text=Tempo')
+    await page.selectOption('select:near(:text("Drum beat"))', process.argv[3] || 'rock')
+    await page.click('button:has-text("Start")')
+    await page.waitForTimeout(2000)
+    await save('metronome-' + (process.argv[3] || 'rock'), 6000)
+    await page.click('button:has-text("Stop")')
+    console.log(errors.length ? errors.join('\n') : 'no page errors')
+    await browser.close()
+    return
+  }
   const styles = (process.argv[2] || 'Metal,Reggae,Folk,Jazz,Rock,Funk,Country').split(',')
   for (const st of styles) {
     if (!(await page.isVisible('.jam-options'))) await page.click('button:has-text("Options")')

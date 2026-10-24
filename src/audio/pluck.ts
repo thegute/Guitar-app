@@ -129,9 +129,13 @@ export function instrumentSound(): SoundId {
 export function activeSound(suggested?: SoundId | null): SoundId {
   const c = soundChoice()
   if (c !== 'auto') return c
-  return suggested ?? instrumentSound()
+  const inst = instrumentSound()
+  // a ukulele keeps its nylon sound when a tab only asks for "an acoustic guitar"
+  if (inst === 'nylon' && (suggested === 'acoustic' || suggested === 'j45')) return inst
+  return suggested ?? inst
 }
 export function soundLoaded(id: SoundId) { return id === 'synth' || banks.has(id) }
+export const bankLoaded = (id: string) => id === 'synth' || banks.has(id)
 
 /** Where the pluck starts in a decoded sample (MP3 decoders add a little silence in front, differently per browser). */
 function onsetOf(buf: AudioBuffer) {

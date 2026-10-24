@@ -1,7 +1,7 @@
 // Plays a tab back with the guitar synth so you can hear how it should sound,
 // reporting which step is sounding so the tab can highlight along.
 import { audio } from './engine'
-import { playNote, strum, isPowerChord, type SoundId } from './pluck'
+import { playNote, strum, isPowerChord, activeSound, soundInfo, type SoundId } from './pluck'
 import type { FlatStep } from '../tabs/model'
 
 export class TabPlayer {
@@ -26,6 +26,7 @@ export class TabPlayer {
     void ctx.resume()
     this.playing = true
     let t = ctx.currentTime + 0.15
+    const amp = !!soundInfo(this.sound ?? activeSound()).amp
     let i = Math.max(0, from)
     this.endAt = 0
     const schedule = () => {
@@ -38,6 +39,8 @@ export class TabPlayer {
         const notes = st.notes
         const ns = notes.filter(n => n.tech !== 'x')
         notes.forEach(n => { if (n.tech === 'x') { this.ringing.get(n.string)?.stop(t); this.ringing.delete(n.string) } })
+        // through a distorted amp, players mute the last note when they pick the next one (otherwise it's mush)
+        if (amp && ns.length === 1) { this.ringing.forEach(h => h.stop(t)); this.ringing.clear() }
         if (isPowerChord(ns.map(n => n.midi)) && ns.length >= 2) {
           // power chords play as one recorded chord on the amp sounds (palm muted if the tab says PM)
           ns.forEach(n => this.ringing.get(n.string)?.stop(t))

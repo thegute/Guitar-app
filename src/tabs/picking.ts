@@ -130,6 +130,6 @@ export function pickingSong(chords: PickChord[], patternId: string, tuning: numb
   return {
     title: opts.title ?? `${pat.label}: ${chords.map(c => c.name).join(' – ')}`,
     tempo: opts.bpm ?? 80,
-    tracks: [{ name: pat.label, tuning, capo: 0, bars }],
+    tracks: [{ name: pat.label, tuning, capo: 0, bars, program: 25 }],
   }
 }

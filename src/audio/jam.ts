@@ -47,6 +47,7 @@ export class JamTransport {
   private countIn = 0
   private timer: ReturnType<typeof setInterval> | null = null
   private ringing: Handle[] = []
+  private bassHits = new WeakSet<Handle>()
   layers: Layer[] = []
 
   constructor() {
@@ -245,12 +246,16 @@ export class JamTransport {
       }
       for (const [p, kind] of hits) {
         const at = t + (p - pos) * this.spb
-        // a new strum re-strikes the same strings, so the last one stops (single picked notes ring on)
+        // a new strum re-strikes the same strings, so the last strum stops; a full strum also stops the bass notes,
+        // a short top-string chop ('S') leaves the thumb's bass ringing under it (boom-chick, bossa)
         if (kind === 'D' || kind === 'U' || kind === 'S' || kind === 'X' || kind === 'P') {
-          this.ringing.forEach(h => h.stop(at + 0.004))
-          this.ringing = []
+          const keep = kind === 'S' ? this.ringing.filter(h => this.bassHits.has(h)) : []
+          this.ringing.filter(h => !keep.includes(h)).forEach(h => h.stop(at + 0.004))
+          this.ringing = keep
         }
-        this.ringing.push(...playHit(kind, ch.midis, at, 0.5, this.chordsBus, this.sound))
+        const hs = playHit(kind, ch.midis, at, 0.5, this.chordsBus, this.sound)
+        if (kind === 'B' || kind === 'A') hs.forEach(h => this.bassHits.add(h))
+        this.ringing.push(...hs)
       }
       if (this.ringing.length > 80) this.ringing.splice(0, this.ringing.length - 80)
     }

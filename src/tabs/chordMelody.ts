@@ -314,5 +314,6 @@ export function chordMelodySong(chords: CMChord[], melody: MelNote[][], o: CMOpt
     })
     bars.push({ steps })
   }
-  return { title: o.title, tempo: o.bpm, tracks: [{ name: 'Chord melody', tuning: o.tuning, capo: 0, bars }] }
+  const program = ({ jazz: 26, bossa: 24, blues: 27, country: 27 } as Record<string, number>)[o.style] ?? 25
+  return { title: o.title, tempo: o.bpm, tracks: [{ name: 'Chord melody', tuning: o.tuning, capo: 0, bars, program }] }
 }

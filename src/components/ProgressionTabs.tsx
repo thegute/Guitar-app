@@ -1,5 +1,6 @@
 // "Turn this progression into a tab": fingerpicking (Travis / arpeggio) or strum-along, and the chord melody
 // maker, with a preview you can hear before opening it in Play. Used in Jam and in Songs → Practice tabs.
+import { activeSound, soundForProgram } from '../audio/pluck'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useInstrument } from '../instrument'
 import type { Voicing } from '../theory/chords'
@@ -38,6 +39,7 @@ export function Preview({ doc, minor }: { doc: SongDoc; minor: boolean }) {
     if (p.playing) { p.stop(); setAt(-1); return }
     p.onStep = i => setAt(i)
     p.onEnd = () => setAt(-1)
+    p.sound = activeSound(soundForProgram(track.program))
     p.play(flat, 0, doc.song.tempo ?? 80)
     setAt(0)
   }

@@ -15,6 +15,7 @@ export function TunerScreen() {
   usePracticeTimer('tuner', running, true)
   const [err, setErr] = useState<string | null>(null)
   const [reading, setReading] = useState<{ midi: number; cents: number; freq: number } | null>(null)
+  const octaveRun = useRef(0)
   const [level, setLevel] = useState(0)
   const [input, setInput] = useState<{ label: string; external: boolean } | null>(null)
   const tracker = useRef<PitchTracker | null>(null)
@@ -40,11 +41,18 @@ export function TunerScreen() {
           return
         }
         lastSeen.current = performance.now()
-        const m = freqToMidi(r.freq, a4)
+        let m = freqToMidi(r.freq, a4)
+        // low strings sometimes read an octave high for a moment (the 2nd harmonic is louder than the note):
+        // an octave jump only counts once it holds for about a third of a second
+        const cur = smooth.current
+        if (cur !== null && Math.abs(Math.abs(m - cur) - 12) < 0.6) {
+          octaveRun.current++
+          if (octaveRun.current < 20) m -= Math.sign(m - cur) * 12
+        } else octaveRun.current = 0
         // jump straight to a new note, smooth small wobbles
-        smooth.current = smooth.current === null || Math.abs(m - smooth.current) > 0.6 ? m : smooth.current + SMOOTH * (m - smooth.current)
+        smooth.current = cur === null || Math.abs(m - cur) > 0.6 ? m : cur + SMOOTH * (m - cur)
         const nearest = Math.round(smooth.current)
-        setReading({ midi: nearest, cents: (smooth.current - nearest) * 100, freq: r.freq })
+        setReading({ midi: nearest, cents: (smooth.current - nearest) * 100, freq: r.freq * Math.pow(2, (m - freqToMidi(r.freq, a4)) / 12) })
       }
       await t.start()
       tracker.current = t

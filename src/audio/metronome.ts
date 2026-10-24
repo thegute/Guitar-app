@@ -1,8 +1,10 @@
 // Sample-accurate metronome: a lookahead scheduler on the AudioContext clock.
 import { audio, out } from './engine'
+import { playDrum, playGrooveBar, loadKit } from './drums'
 
 export type Accent = 0 | 1 | 2 // muted, normal, accented
-export type ClickSound = 'click' | 'wood' | 'beep'
+/** click / wood / beep are synthesized; sticks, cowbell and hihat come from the recorded drum kit */
+export type ClickSound = 'click' | 'wood' | 'beep' | 'sticks' | 'cowbell' | 'hihat'
 
 export interface Tick {
   time: number
@@ -19,6 +21,8 @@ export class Metronome {
   accents: Accent[] = [2, 1, 1, 1]
   sound: ClickSound = 'click'
   volume = 0.9
+  /** a drum groove instead of clicks (4/4 only), or '' for clicks */
+  groove = ''
   /** speed trainer */
   trainer = { on: false, step: 5, everyBars: 4, max: 160 }
   running = false
@@ -85,6 +89,11 @@ export class Metronome {
   }
 
   private click(t: Tick) {
+    if (this.groove && this.beatsPerBar === 4) {
+      // the drummer plays the whole bar from its first beat
+      if (t.beat === 0 && t.sub === 0) playGrooveBar(this.groove, t.time, 60 / this.bpm, 0.9 * this.volume, undefined, 4, 0, { crash: t.bar > 0 && t.bar % 8 === 0, fill: t.bar % 8 === 7 })
+      return
+    }
     const accent = this.accents[t.beat] ?? 1
     if (t.sub === 0 && accent === 0) return
     const level = t.sub > 0 ? 0.35 : accent === 2 ? 1 : 0.6
@@ -93,6 +102,12 @@ export class Metronome {
 }
 
 export function playClick(when: number, sound: ClickSound, kind: 'accent' | 'beat' | 'sub', level: number, dest?: AudioNode) {
+  if (sound === 'sticks' || sound === 'cowbell' || sound === 'hihat') {
+    void loadKit()
+    const voice = sound === 'sticks' ? 'rim' : sound === 'cowbell' ? 'cowbell' : kind === 'accent' ? 'open' : kind === 'beat' ? 'hat' : 'pedal'
+    playDrum(voice, when, { accent: 1, beat: 0.7, sub: 0.45 }[kind] * Math.min(1, level * 1.1), dest, {}, 1.6)
+    return
+  }
   const ctx = audio()
   const g = ctx.createGain()
   g.connect(dest ?? out())

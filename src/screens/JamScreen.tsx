@@ -15,7 +15,7 @@ import { CircleOfFifths } from '../components/CircleOfFifths'
 import { InputPicker } from '../components/InputPicker'
 import { Chips, Field, KeyPicker, usePersist } from '../components/Controls'
 import { IconDice, IconLock, IconPlay, IconStop } from '../components/Icons'
-import { strum as strumNotes, preload, SOUNDS, soundInfo, type SoundId } from '../audio/pluck'
+import { strum as strumNotes, preload, SOUNDS, soundInfo, loadSound, loadBank, bankLoaded, type SoundId } from '../audio/pluck'
 import { BASSLINES } from '../audio/bass'
 import { audio, keepAwake } from '../audio/engine'
 import { JamTransport } from '../audio/jam'
@@ -24,7 +24,7 @@ import { gear, kindOf, latencyMs, setGear, useGear } from '../audio/gear'
 import { bump, usePracticeTimer } from '../learn/progress'
 import { usePedals } from '../controls/pedals'
 import { STRUMS } from '../audio/strums'
-import { GROOVES } from '../audio/drums'
+import { GROOVES, loadKit, kitLoaded } from '../audio/drums'
 import { shapesFor as shapesForChord } from '../theory/shapes'
 import { ProgressionTabs } from '../components/ProgressionTabs'
 import { LickMaker } from '../components/LickMaker'
@@ -210,6 +210,23 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     t.setSong(prog.map((c, i) => ({ midis: midisOf(chosen[i]), beats: c.beats ?? 4, root: pc(c.root), tones: typeTones(c.type) })), bpm, strumKind, drums, bassLine, tone)
     t.setMix({ chords: chordsOn && (!rec || backingWhileRec), drums: drumsOn, click: clickOn, bass: bassOn })
   }
+  // load the sounds this style needs ahead of time, so the first bars aren't the stand-in synth
+  useEffect(() => {
+    void loadSound(tone)
+    if (drums !== 'off') void loadKit()
+    if (bassLine !== 'off') void loadBank('bass')
+  }, [tone, drums, bassLine])
+  const [loadingSounds, setLoadingSounds] = useState(false)
+  async function playWhenReady() {
+    const ready = () => bankLoaded(tone) && (drums === 'off' || kitLoaded()) && (bassLine === 'off' || bankLoaded('bass'))
+    if (!ready()) {
+      setLoadingSounds(true)
+      const all = Promise.all([loadSound(tone), drums !== 'off' ? loadKit() : null, bassLine !== 'off' ? loadBank('bass') : null])
+      await Promise.race([all, new Promise(r => setTimeout(r, 6000))])
+      setLoadingSounds(false)
+    }
+    startPlay(0)
+  }
   function startPlay(countIn = 0) {
     applySong()
     const t0 = tr().start(countIn)
@@ -314,7 +331,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   }
 
   usePedals({
-    startStop: () => (transport.current?.playing ? stopAll() : startPlay(0)),
+    startStop: () => (transport.current?.playing ? stopAll() : void playWhenReady()),
     restart: () => { stopAll(); startPlay(0) },
     record: () => void record(layers.length > 0),
   })
@@ -391,8 +408,8 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const transportRow = (
     <div className="stack" style={{ gap: 8 }}>
       <div className="row">
-        <button className={`btn big${playing ? '' : ' primary'}`} onClick={() => (playing ? stopAll() : startPlay(0))} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          {playing ? <IconStop /> : <IconPlay />} {playing ? 'Stop' : 'Play loop'}
+        <button className={`btn big${playing ? '' : ' primary'}`} disabled={loadingSounds} onClick={() => (playing ? stopAll() : void playWhenReady())} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          {playing ? <IconStop /> : <IconPlay />} {playing ? 'Stop' : loadingSounds ? 'Loading sounds…' : 'Play loop'}
         </button>
         <Field label={`Tempo ${bpm} BPM`}>
           <input type="range" min={50} max={200} value={bpm} disabled={hasLoop} onChange={e => setBpm(+e.target.value)} style={{ accentColor: 'var(--amber)', width: 170 }} aria-label="Loop tempo" />
