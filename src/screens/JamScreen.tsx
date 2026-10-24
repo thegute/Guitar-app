@@ -34,6 +34,8 @@ import { saveSong } from '../tabs/library'
 import { openInPlay } from '../nav'
 import { SongFinder } from '../components/SongFinder'
 import { Zoomable } from '../components/Zoomable'
+import { SubTabs, useSubTab } from '../components/SubTabs'
+import { PsyArt } from '../components/PsyArt'
 import { pc } from '../theory/notes'
 
 const COUNTS = [2, 4, 8, 12, 16]
@@ -88,7 +90,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [bandOpen, setBandOpen] = useState(false)
   const [tabPart, setTabPart] = usePersist<'pick' | 'melody' | 'licks'>('jamTabPart', 'pick')
   const [optionsOpen, setOptionsOpen] = usePersist('jamOptionsOpen', false)
-  const [showCircle] = usePersist('jamCircle', true)
+  const [page, setPage] = useSubTab('jam', ['jam', 'solo', 'tab', 'find'] as const)
   const [prog, setProg] = usePersist<ProgChord[]>('jamProg', [])
   const [shapeIdx, setShapeIdx] = useState<number[]>([])
   const [locks, setLocks] = useState<boolean[]>([])
@@ -591,76 +593,111 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     </div>
   )
 
+  const miniTransport = (
+    <div className="row jam-mini">
+      <button className={`btn${playing ? '' : ' primary'}`} disabled={loadingSounds} onClick={() => (playing ? stopAll() : void playWhenReady())} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        {playing ? <IconStop /> : <IconPlay />} {playing ? 'Stop' : 'Play loop'}
+      </button>
+      <span className="readout jam-now">{cur ? cur.symbol : prog.map(c => c.symbol).join(' ')}</span>
+      {pos.countIn > 0 && <span className="count-in readout">{pos.countIn}</span>}
+    </div>
+  )
+
   return (
-    <div className="stack jam">
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0 }}>Jam{inst.isUke ? <span className="muted small"> · {inst.short}</span> : null}</h1>
-        <button className="btn sm" onClick={() => setOptionsOpen(!optionsOpen)} aria-expanded={optionsOpen}>{optionsOpen ? 'Hide options' : 'Options'}</button>
-      </div>
-      {optionsOpen && options}
-      <div className="panel stack">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <span className="row" style={{ gap: 6, minWidth: 0 }}><span className="small muted">{summary}</span>{cardsHint}</span>
-          <button className="btn primary big" onClick={roll} disabled={locked} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <IconDice /> New progression
-          </button>
-        </div>
-        {cardsHintBody}
-        {cards}
-        {chordInfo}
-        {transportRow}
-      </div>
-      <Fold id="jamFinder" title="Find the chords from a song" summary="listen to a video or a record"
-        hint="Play a song out loud (a YouTube video here, or any recording) and KGuitar listens through the mic: it writes down the chords and the key, or a melody line as a tab. Talking and singing are left out.">
-        <SongFinder
-          onUseInJam={(root, minor, chords) => {
-            const m: ModeId = minor ? 'minor' : 'major'
-            setTonic(root)
-            setMode(m)
-            load(chords.map(c => spell(root, m, { semi: (pc(c.root) - pc(root) + 12) % 12, type: c.q })).map(c => ({ ...c, beats: rate })))
-            document.getElementById('main')?.scrollTo({ top: 0, behavior: 'smooth' })
-          }}
-          onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
-      </Fold>
-      <Fold id="jamTabs" title="Make it a tab" summary="fingerpicking · chord melody · licks"
-        hint={`Turn ${prog.map(c => c.symbol).join(' – ')} into a fingerpicking tab or a chord melody, or get licks in ${tonic} to solo with. Then play along in Play: the mic follows you note by note.`}>
-        <div className="seg" role="group" aria-label="What to make">
-          {([['pick', 'Fingerpicking'], ['melody', 'Chord melody'], ['licks', `Licks in ${tonic}`]] as const).map(([id, label]) => (
-            <button key={id} aria-pressed={tabPart === id} onClick={() => setTabPart(id)}>{label}</button>
-          ))}
-        </div>
-        {tabPart === 'licks'
-          ? <LickMaker fixedKey={tonic} onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
-          : <ProgressionTabs part={tabPart} chords={prog} voicings={chosen} tonic={tonic} mode={mode} bpm={bpm} suggest={patternForStrum(strumKind)}
-            onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />}
-      </Fold>
-      <Fold id="jamLooper" title="Looper" summary={rec ? 'recording…' : hasLoop ? `${layers.length} layer${layers.length > 1 ? 's' : ''}` : 'record yourself, then solo over it'}
-        hint={`Tap Record, listen to the count-in, and play the progression once through (${totalBars} bars). Recording starts and stops on the beat by itself and is exactly one loop long, so it repeats perfectly in time with the drums and click. Then solo over yourself.`}>
-        {looper}
-      </Fold>
-      <Fold id="jamScales" title="Scales to solo with" defaultOpen summary={tip ? `${tip.root} ${scaleById(tip.scale).label}` : undefined}
-        hint="Land on the amber notes when each chord starts: that's how a solo follows the changes.">
-        {scalesPanel}
-        {neck}
-      </Fold>
-      <Fold id="jamCircle" title="Circle of fifths" defaultOpen={showCircle} summary={`${tonic} ${minorKey ? 'minor' : 'major'}`}
-        hint="The shaded slice is your key: its chords sit right next to each other. Neighbours share all but one note, so moving one step around the circle (like V → I) is the strongest move in music. Teal rings are the chords in this progression; the amber one is playing. Tap a key to switch.">
-        {circle}
-      </Fold>
-      <Fold id="jamFamous" title="Famous progressions" summary={`${sugg.length} in ${tonic}`}>
-        <div className="stack" style={{ gap: 8 }}>
-          {sugg.map((s, i) => (
-            <div key={i} className="row" style={{ justifyContent: 'space-between', borderTop: i ? '1px solid var(--hairline)' : 'none', paddingTop: i ? 8 : 0 }}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontWeight: 600 }}>{s.name}</div>
-                <div className="readout" style={{ fontSize: 20, fontWeight: 600, color: 'var(--pearl-2)', overflowWrap: 'anywhere' }}>{s.chords.map(c => c.symbol).join('  ')}</div>
-                {s.note && <div className="small muted">{s.note}</div>}
-              </div>
-              <button className="btn" disabled={locked} onClick={() => load(s.chords)}>Use this</button>
+    <div className={`stack jam${playing ? ' playing' : ''}`} style={{ ['--beat' as string]: `${(60 / bpm).toFixed(3)}s` }}>
+      <header className="screen-head jam-head">
+        <PsyArt kind="melt" className="screen-art beat-art" />
+        <h1>Jam{inst.isUke ? <span className="muted small"> · {inst.short}</span> : null}</h1>
+        {page === 'jam' && <button className="btn sm" onClick={() => setOptionsOpen(!optionsOpen)} aria-expanded={optionsOpen}>{optionsOpen ? 'Hide options' : 'Options'}</button>}
+      </header>
+      <SubTabs label="Jam" value={page} onChange={setPage} tabs={[
+        { id: 'jam', label: 'Jam' },
+        { id: 'solo', label: 'Solo over it' },
+        { id: 'tab', label: 'Make a tab' },
+        { id: 'find', label: 'Find chords' },
+      ]} />
+
+      {page === 'jam' && (
+        <>
+          {optionsOpen && options}
+          <div className="panel stack">
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <span className="row" style={{ gap: 6, minWidth: 0 }}><span className="small muted">{summary}</span>{cardsHint}</span>
+              <button className="btn primary big" onClick={roll} disabled={locked} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <IconDice /> New progression
+              </button>
             </div>
-          ))}
-        </div>
-      </Fold>
+            {cardsHintBody}
+            {cards}
+            {chordInfo}
+            {transportRow}
+          </div>
+          <Fold id="jamLooper" title="Looper" summary={rec ? 'recording…' : hasLoop ? `${layers.length} layer${layers.length > 1 ? 's' : ''}` : 'record yourself, then solo over it'}
+            hint={`Tap Record, listen to the count-in, and play the progression once through (${totalBars} bars). Recording starts and stops on the beat by itself and is exactly one loop long, so it repeats perfectly in time with the drums and click. Then solo over yourself.`}>
+            {looper}
+          </Fold>
+          <Fold id="jamFamous" title="Famous progressions" summary={`${sugg.length} in ${tonic}`}>
+            <div className="stack" style={{ gap: 8 }}>
+              {sugg.map((s, i) => (
+                <div key={i} className="row" style={{ justifyContent: 'space-between', borderTop: i ? '1px solid var(--hairline)' : 'none', paddingTop: i ? 8 : 0 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 600 }}>{s.name}</div>
+                    <div className="readout" style={{ fontSize: 20, fontWeight: 600, color: 'var(--pearl-2)', overflowWrap: 'anywhere' }}>{s.chords.map(c => c.symbol).join('  ')}</div>
+                    {s.note && <div className="small muted">{s.note}</div>}
+                  </div>
+                  <button className="btn" disabled={locked} onClick={() => load(s.chords)}>Use this</button>
+                </div>
+              ))}
+            </div>
+          </Fold>
+        </>
+      )}
+
+      {page === 'solo' && (
+        <>
+          <section className="panel stack">
+            {miniTransport}
+            <p className="small muted" style={{ margin: 0 }}>Start the loop, then solo with a scale below. Land on the amber notes when each chord starts: that's how a solo follows the changes.</p>
+            {scalesPanel}
+          </section>
+          <section className="panel">{neck}</section>
+          <section className="panel stack">
+            <h2 className="sec-title" style={{ margin: 0 }}>Circle of fifths <span className="small muted">{tonic} {minorKey ? 'minor' : 'major'}</span></h2>
+            <p className="small muted" style={{ margin: 0 }}>The shaded slice is your key: its chords sit next to each other. Teal rings are the chords in this progression; the amber one is playing. Tap a key to switch.</p>
+            {circle}
+          </section>
+        </>
+      )}
+
+      {page === 'tab' && (
+        <section className="panel stack">
+          <p className="small muted" style={{ margin: 0 }}>Turn <b>{prog.map(c => c.symbol).join(' – ')}</b> into a tab to play along with in Play: the mic follows you note by note.</p>
+          <div className="seg" role="group" aria-label="What to make">
+            {([['pick', 'Fingerpicking'], ['melody', 'Chord melody'], ['licks', `Licks in ${tonic}`]] as const).map(([id, label]) => (
+              <button key={id} aria-pressed={tabPart === id} onClick={() => setTabPart(id)}>{label}</button>
+            ))}
+          </div>
+          {tabPart === 'licks'
+            ? <LickMaker fixedKey={tonic} onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
+            : <ProgressionTabs part={tabPart} chords={prog} voicings={chosen} tonic={tonic} mode={mode} bpm={bpm} suggest={patternForStrum(strumKind)}
+              onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />}
+        </section>
+      )}
+
+      {page === 'find' && (
+        <section className="panel stack">
+          <h2 className="sec-title" style={{ margin: 0 }}>Find the chords from a song</h2>
+          <SongFinder
+            onUseInJam={(root, minor, chords) => {
+              const m: ModeId = minor ? 'minor' : 'major'
+              setTonic(root)
+              setMode(m)
+              load(chords.map(c => spell(root, m, { semi: (pc(c.root) - pc(root) + 12) % 12, type: c.q })).map(c => ({ ...c, beats: rate })))
+              setPage('jam')
+            }}
+            onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
+        </section>
+      )}
     </div>
   )
 }

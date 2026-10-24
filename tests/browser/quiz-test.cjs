@@ -102,13 +102,13 @@ async function run(name) {
     localStorage.setItem('kg:welcomed', '1')
     localStorage.setItem('kg:tab2', '"learn"')
     localStorage.setItem('kg:quizMode', '"tap"')
-    localStorage.setItem('kg:fold:learnCourse', 'true')
+    localStorage.setItem('kg:sub:learn', '"course"')
     localStorage.setItem('kg:instrument', JSON.stringify(s.inst))
     if (s.away) localStorage.setItem('kg:away', JSON.stringify({ since: Date.now() }))
     sessionStorage.setItem('seeded', '1')
   }, setup)
   await page.goto('http://localhost:4173/')
-  await page.waitForSelector('.today-card')
+  await page.waitForSelector('.unit-head')
   const problems = []
   let quizzes = 0, questions = 0
   const units = await page.locator('.unit-head').count()
@@ -152,7 +152,7 @@ async function run(name) {
         await page.screenshot({ path: `${DIR}/quiz-fail-${name}-${quizzes}-${k}.png` })
         await page.locator('text=← Back').first().tap().catch(() => {})
       }
-      await page.waitForSelector('.today-card', { timeout: 5000 })
+      await page.waitForSelector('.unit-head', { timeout: 5000 })
       const h = page.locator('.unit-head').nth(u)
       if ((await h.getAttribute('aria-expanded')) !== 'true') await h.tap()
     }

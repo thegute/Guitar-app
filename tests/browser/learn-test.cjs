@@ -25,6 +25,13 @@ async function overflow(page) {
   })
 }
 
+const sub = (page, label) => page.click(`.subtabs [role=tab]:has-text("${label}")`)
+async function songsPage(page, label) {
+  await page.click('nav.nav button:has-text("Songs")')
+  await sub(page, label)
+  await page.waitForTimeout(300)
+}
+
 ;(async () => {
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ['--autoplay-policy=no-user-gesture-required'] })
   const problems = []
@@ -44,9 +51,10 @@ async function overflow(page) {
         if (o.length) problems.push(`${sizeName}/${theme}/${name}: overflow ${o.join(', ')}`)
       }
       await shot('home')
-      const back = async () => { await page.click('text=← Back').catch(async () => page.click('text=← All lessons')) ; await page.waitForSelector('.today-card') }
+      const back = async () => { await page.click('text=← Back').catch(async () => page.click('text=← All lessons')) ; await page.waitForSelector('.learn-head') }
       const tools = [['Theory', 'lessons'], ['Ear training', 'ear'], ['explorer', 'caged'], ['Circle of fifths', 'circle'], ['Chord changes', 'changes'], ['Rhythm trainer', 'rhythm'], ['Progress', 'progress']]
       for (const [label, name] of tools) {
+        await sub(page, 'Explore')
         await page.click(`.tool:has-text("${label}")`)
         await shot(name)
         if (name === 'lessons') {
@@ -56,15 +64,16 @@ async function overflow(page) {
         }
         await back()
       }
-      // a quiz in tap mode (the practice course folds away: open it, then Continue)
-      if (!(await page.isVisible('.course-next'))) await page.click('.fold-toggle:has-text("Practice course")')
+      // a quiz in tap mode (Course page, Continue)
+      await sub(page, 'Course')
+      await shot('course')
       await page.click('.course-next')
       await page.waitForSelector('.quiz-card')
       await shot('quiz')
       const opt = await page.$('.note-btn, .choice-btn')
       if (opt) { await opt.click(); await shot('quiz-answered') }
       await page.click('text=← Back')
-      await page.waitForSelector('.today-card')
+      await page.waitForSelector('.learn-head')
       // settings
       await page.click('[aria-label="Settings"]')
       await shot('settings')
@@ -74,6 +83,7 @@ async function overflow(page) {
       await page.click('.sheet.confirm >> text=Cancel')
       await back()
       // away mode
+      await sub(page, 'Today')
       await page.click('.away-switch button >> nth=1')
       await shot('away')
       await page.click('.away-switch button >> nth=0')
@@ -94,8 +104,7 @@ async function overflow(page) {
   await page.waitForSelector('.tab-note')
   // paste a guitar tab into the guitar bank
   const guitarTab = 'e|-0-1-3-|\nB|-------|\nG|-------|\nD|-------|\nA|-------|\nE|-------|'
-  await page.click('text=Songs').catch(() => page.click('button:has-text("Song")'))
-  await page.waitForSelector('.sheet')
+  await songsPage(page, 'Add a song')
   await page.fill('textarea', guitarTab)
   await page.fill('input[placeholder*="itle"]', 'Guitar bank test').catch(() => {})
   await page.click('button:text-is("Load tab")')
@@ -112,11 +121,10 @@ async function overflow(page) {
   if (instNow !== 'tenor') problems.push('instrument after confirm: ' + instNow)
   await page.click('nav >> text=Play')
   await page.waitForSelector('.tab-note')
-  await page.click('text=Songs').catch(() => page.click('button:has-text("Song")'))
-  await page.waitForSelector('.sheet')
-  await page.waitForTimeout(600)
-  const ukeList = await page.textContent('.sheet')
+  await songsPage(page, 'My songs')
+  const ukeList = await page.textContent('.songs-screen')
   if (/Guitar bank test/.test(ukeList)) problems.push('guitar song visible in ukulele mode')
+  await sub(page, 'Add a song')
   await page.fill('textarea', 'A|-0-2-3-|\nE|-------|\nC|-------|\nG|-------|')
   await page.fill('input[placeholder*="itle"]', 'Uke bank test').catch(() => {})
   await page.click('button:text-is("Load tab")')
@@ -132,10 +140,8 @@ async function overflow(page) {
   await page.waitForSelector('.tab-note')
   const title2 = await page.textContent('.song-title b')
   if (/Uke bank test/.test(title2)) problems.push('uke song shown in guitar mode')
-  await page.click('text=Songs').catch(() => page.click('button:has-text("Song")'))
-  await page.waitForSelector('.sheet')
-  await page.waitForTimeout(600)
-  const gList = await page.textContent('.sheet')
+  await songsPage(page, 'My songs')
+  const gList = await page.textContent('.songs-screen')
   if (/Uke bank test/.test(gList)) problems.push('uke song listed in guitar mode')
   if (!/Guitar bank test/.test(gList)) problems.push('guitar song missing from guitar bank')
   await page.keyboard.press('Escape')
@@ -146,7 +152,9 @@ async function overflow(page) {
   })
   await page.reload()
   await page.click('nav >> text=Learn')
+  await sub(page, 'Today')
   await page.screenshot({ path: `${DIR}/learn-behaviour-before-goal.png` })
+  await sub(page, 'Explore')
   await page.click('.tool:has-text("Rhythm")')
   await page.click('text=Start')
   await page.waitForTimeout(16500) // timer flushes every 15 s

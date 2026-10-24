@@ -19,9 +19,10 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
 
 ## Stack and layout
 - Vite + React 19 + TypeScript, Capacitor 8 (`app.kguitar`), fonts Barlow Condensed / Semi Condensed.
-- Four tabs: Play, Learn, Jam, Tools (`ToolsScreen.tsx` switches Tuner / Tempo / Chords / Scales). `src/nav.ts`: `go(Destination)` takes a tab or a tool page.
+- Five tabs: Play, Songs, Learn, Jam, Tools (`ToolsScreen.tsx` switches Tuner / Tempo / Chords / Scales). `src/nav.ts`: `go(Destination)` takes a tab or a tool page;
+  `openSongs(page)` opens a Songs page. Screens split into pages with `components/SubTabs.tsx` (`useSubTab`, remembered in `kg:sub:<screen>`).
 - `src/screens/PlayScreen.tsx` (main; follow-along, play in time, section loop with pass scores, Hear it, split/tabletop layout, tab zoom, pedals),
-  `SongsSheet.tsx` (find / upload / paste / library, per-song progress), `JamScreen.tsx` (progression generator with chord diagrams, strum + drum backing,
+  `SongsScreen.tsx` (Songs tab: My songs / Songbook / Practice / Add a song; per-song progress), `JamScreen.tsx` (progression generator with chord diagrams, strum + drum backing,
   looper recording, circle of fifths), Chords, Scales, Tempo (metronome), Tuner.
 - `src/play/`: `inTime.ts` (timeline, judge, scoreRun, nextSpeed, InternalClock, VideoClock, matchTimed), `useInTime.ts` (also tells the listener which
   notes are due: `onExpect`), `songStats.ts` (runs, trouble bars, learned at a 90%+ full run at ≥0.75 speed, reviews after 3/7/14/30/60 days),
@@ -49,8 +50,8 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
 - `src/controls/pedals.ts` (keyboard / Bluetooth page-turner and Web MIDI → actions; the top-most screen gets them), `src/backup.ts` (JSON of `kg:*` storage + songs;
   Filesystem + Share on Android, download on the web), `src/shareIn.ts` + native `ShareInPlugin.java` (Android SEND intents: text, files, YouTube links).
 - `src/components/`: `TabView.tsx` (SVG tab renderer), `Fretboard.tsx` (roles root/chord/scale/next/common/pass/target/live), `HarmonyPanel.tsx`, `YouTubePlayer.tsx`, `InputPicker.tsx`.
-- Design tokens in `src/styles.css`: theme roles `--bg --surface --ink --accent --gold --mint --coral --hero` for day / night / auto (`src/theme.ts`);
-  old names (rosewood / pearl / amber / jewel / strobe) are aliases. Fretboard colours are fixed `--fb-*`. Bottom nav (4 tabs) under 760 px, side rail above.
+- Design tokens in `src/styles.css`: theme roles `--bg --surface --ink --accent --gold --mint --coral --hero` for day / night / psy / auto (`src/theme.ts`);
+  old names (rosewood / pearl / amber / jewel / strobe) are aliases. Fretboard colours are `--fb-*` (wood `--wood-1/2/3`, `--inlay`; changed only by Psychedelic). Bottom nav (5 tabs) under 760 px, side rail above.
 - Works on any Android 7+ phone or tablet; check small phone 360 px, Fold cover/inner and 12" tablet portrait/landscape.
 
 ## Build and release
@@ -146,8 +147,29 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   and wrong). Fake mics: `gen-chords.cjs` (chords.wav), `gen-ode.cjs` (ode.wav); `make-gp.mjs <out> late` for rest blocks.
   Lesson videos were checked with YouTube oEmbed (title back = exists and embeddable); WebFetch reaches it, the shell can't.
 
+## Build 14 (owner: "still a little cluttered", "more intuitive", plus a Psychedelic look)
+- Menu: Play · Songs · Learn · Jam · Tools. Songs is its own tab (`SongsScreen.tsx`, the old Songs sheet is gone): My songs (only the
+  owner's own: not examples, lessons or songbook), Songbook, Practice (practice tabs, build-your-own, picking, licks, examples), Add a song.
+- Play: one row under the readout: Wait for me / In time, ⟲ Loop, Hear it, (recording timer), Options (sliders; label hidden < 440 px).
+  Everything else is in the Options sheet (`.play-opts`): Speed, Sound, band, Click / Hear the tab too / Speed trainer (In time), Record
+  yourself, Numbers, Count it or Strum, hand shape, Size, Split, Exact octave, Sensitivity, Set up input, Start over. The input button
+  has a yellow dot until input is set up (`needsSetup`).
+- Learn: Today (today card, About you, plan, quests, backup nudge) / Course (Continue + units, path) / Explore (tools in groups).
+  Jam: Jam (generator, Looper, Famous) / Solo over it (mini transport, scales, neck, circle) / Make a tab / Find chords.
+  Settings: You / Sound / Look / Backup. Tools keeps its switch (now `.subtabs`).
+- Psychedelic (`data-theme="psy"`, `data-motion` on/off from `kg:psyMotion`): tokens block after the dark media block; `PsyBackdrop`
+  (fixed, z-index −1: tiled `public/psy/liquid.webp` drifting + hue-rotating under a dark veil); `PsyArt` (renders only in psy):
+  face (Songs empty state, menu/Learn thumb, celebrations), pop (Songs header, Look swatch), melt (Jam header, pulses with the beat while Jam plays,
+  `--beat`), shrooms (oni mask + mushrooms, Tools header), kaleido (today card), tunnel (celebrations), Mandala (SVG round
+  the goal ring). Art made by `python3 tools/make-psy-art.py` from `art/kguitar-art.jpg` (+ original procedural pieces). Words stay on
+  near-opaque dark cards; rainbow only on big headings; dark text on bright buttons. Reduced motion and the switch stop all movement.
+- Day `--ink-3` and `--mint-text`, Night `--ink-3` and `--hero-mute` were lifted to pass 4.5:1.
+- Tests: `tests/browser/build14-test.cjs` (tour: every screen and sub-tab in day/night/psy at cover + inner, psy at phone + tablet;
+  no sideways overflow, no errors, and a pixel contrast check of visible text against what's really behind it; play options; songs;
+  psy art/motion/beat). Older browser tests were moved to the new layout.
+
 ## Next up — pick up here
-1. The owner tries build 13 step by step; fix what they find.
+1. The owner tries build 14 (new menu, Options, Psychedelic look); fix what they find.
 2. Keep the brother's Docs guide (https://claude.ai/artifact/7Cuc18hXrt23FDQ1PniqV5) in step with the in-app guide.
 
 ## Ideas not done yet

@@ -11,7 +11,7 @@ export type Block =
   | { neck: { root: string; ivs: number[]; labels?: 'int' | 'note'; to?: number } }
   | { circle: { tonic: string; minor?: boolean } }
   | { rhythm: { label: string; beats: number[]; bpm?: number } }
-  | { practice: { label: string; quiz?: string; tool?: 'ear' | 'caged' | 'changes' | 'rhythm' | 'circle' | 'jam' | 'play' } }
+  | { practice: { label: string; quiz?: string; tool?: 'ear' | 'caged' | 'changes' | 'rhythm' | 'circle' | 'jam' | 'play' | 'practice' } }
 
 export interface Lesson {
   id: string
@@ -133,12 +133,12 @@ export const LESSONS: Lesson[] = [
   ] },
   { id: 'roadmaps', chapter: 'notation', title: 'Repeats and song roadmaps', offtonic: O('3-2.html'), minutes: 3, blocks: [
     { p: 'Repeat signs (‖: :‖) mean play the section again. **1st and 2nd endings** change the last bar the second time. **D.C.** goes back to the start, **D.S.** to the sign (𝄋), and **To Coda** jumps to the ending (𝄌).' },
-    { tip: 'Tabs online often write "x4" or "repeat chorus" instead. Use Loop a section in Play to drill one part before stringing the song together.' },
+    { tip: 'Tabs online often write "x4" or "repeat chorus" instead. Use ⟲ Loop in Play to drill one part before stringing the song together.' },
   ] },
   { id: 'articulation', chapter: 'notation', title: 'Articulation and guitar techniques', offtonic: O('3-3.html'), minutes: 5, blocks: [
     { p: 'Articulations say *how* to play a note: **staccato** (short), **accent** (stronger), **legato** (smoothly connected). On guitar, articulation is technique:' },
     { list: ['**Hammer-on (h)**: pick one note, then slam a finger down for the next without picking.', '**Pull-off (p)**: flick the fretting finger off to sound a lower note.', '**Slide (/ \\)**: keep pressure and glide to a new fret.', '**Palm mute (P.M.)**: rest the side of your picking hand on the strings by the bridge for a tight chug.', '**Let ring**: hold notes down so they overlap like a harp.'] },
-    { practice: { label: 'Practice tabs with techniques (Songs → Practice tabs → Licks)', tool: 'play' } },
+    { practice: { label: 'Practice tabs with techniques (Songs → Practice → Licks)', tool: 'practice' } },
   ] },
   { id: 'ornaments', chapter: 'notation', title: 'Ornaments: bends, vibrato and grace notes', offtonic: O('3-4.html'), minutes: 4, blocks: [
     { p: 'Ornaments decorate a note. In classical music: trills, turns, grace notes. On guitar the big ones are **bends** (pushing the string to raise the pitch), **vibrato** (a repeated small bend), and **grace-note slides** into a note.' },
@@ -257,7 +257,7 @@ export const LESSONS: Lesson[] = [
     { p: 'Add the **b5** to minor pentatonic and you get the **blues scale**. The five box shapes of the pentatonic link up across the whole neck.' },
     { play: { label: 'A minor pentatonic', seq: scale(A3, [0, 3, 5, 7, 10, 12]), gap: 0.3 } },
     { play: { label: 'A blues scale', seq: scale(A3, [0, 3, 5, 6, 7, 10, 12]), gap: 0.3 } },
-    { practice: { label: 'Play all 5 boxes as a tab (Songs → Practice tabs)', tool: 'play' } },
+    { practice: { label: 'Play all 5 boxes as a tab (Songs → Practice)', tool: 'practice' } },
   ] },
   { id: 'harmonic-modes', chapter: 'modes', title: 'Harmonic minor and its modes', offtonic: O('7-6.html'), minutes: 5, blocks: [
     { p: 'Harmonic minor\'s raised 7th creates a big jump (b6 to 7) that sounds exotic. Its most-used mode is **Phrygian dominant** (start harmonic minor on its 5th): the sound of flamenco, klezmer and neoclassical metal. Play it over the V chord in a minor key (E7 in A minor).' },
@@ -348,7 +348,7 @@ export const LESSONS: Lesson[] = [
     { practice: { label: 'Start the fretboard course', quiz: 'fb-nat-0' } },
   ] },
   { id: 'practice-how', chapter: 'guitar', title: 'How to practise (so it sticks)', minutes: 5, blocks: [
-    { list: ['**Little and often** beats long and rare: 15 minutes every day grows you faster than 2 hours on Sunday.', '**Slow and perfect**: play it right at a slow tempo, then speed up 5 BPM at a time (the Tempo tab\'s speed trainer does this).', '**Loop the hard part**, not the whole song (Loop a section in Play).', '**Spaced repetition**: the quizzes bring back what you miss until it sticks.', '**Rest**: your brain consolidates skills while you sleep, so practising before bed actually helps.', '**Record yourself** (Looper) and listen back: it shows what you can\'t hear while playing.'] },
+    { list: ['**Little and often** beats long and rare: 15 minutes every day grows you faster than 2 hours on Sunday.', '**Slow and perfect**: play it right at a slow tempo, then speed up 5 BPM at a time (the Tempo tab\'s speed trainer does this).', '**Loop the hard part**, not the whole song (⟲ Loop in Play).', '**Spaced repetition**: the quizzes bring back what you miss until it sticks.', '**Rest**: your brain consolidates skills while you sleep, so practising before bed actually helps.', '**Record yourself** (Looper) and listen back: it shows what you can\'t hear while playing.'] },
   ] },
   { id: 'technique', chapter: 'guitar', title: 'Technique basics', minutes: 6, blocks: [
     { list: ['**Relax**: tension is the enemy of speed and tone. Check your shoulders, thumb and jaw.', '**Fret close to the fret wire**, with the fingertip, using just enough pressure for a clean note.', '**Thumb behind the neck** for stretches and barre chords; over the top for bends and rock chords.', '**Alternate picking** (down-up) for single notes; small motions from the wrist.', '**Mute what you don\'t play**: the picking-hand palm and loose fretting fingers stop unwanted strings ringing.', '**One-minute chord changes**: count how many clean changes you can make between two chords in 60 seconds. Track it daily.'] },

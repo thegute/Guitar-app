@@ -1,8 +1,9 @@
 // App-wide navigation: lets one screen send you to another (e.g. Learn → Play with a practice tab loaded).
 import type { SongDoc } from './tabs/library'
 
-/** The four main sections in the nav bar. */
-export type Tab = 'play' | 'learn' | 'progressions' | 'tools'
+/** The main sections in the nav bar. */
+export type Tab = 'play' | 'songs' | 'learn' | 'progressions' | 'tools'
+export const TAB_IDS: Tab[] = ['play', 'songs', 'learn', 'progressions', 'tools']
 /** The pages inside Tools. */
 export type ToolPage = 'tuner' | 'metronome' | 'chords' | 'scales'
 export type Destination = Tab | ToolPage
@@ -40,20 +41,16 @@ export function takePendingDoc(): SongDoc | null {
   return d
 }
 
-let pendingSheet: string | null = null
-const sheetListeners = new Set<(section: string) => void>()
-/** Open Play's Songs panel at a section (e.g. the songbook). */
-export function openSongs(section = 'songbook') {
-  pendingSheet = section
-  sheetListeners.forEach(f => f(section))
-  go('play')
+/** Open the Songs tab at one of its pages ('mine', 'songbook', 'practice' or 'add'). */
+/** Choose the page (sub-tab) a screen opens on next time it appears. */
+export function setSubPage(screen: 'songs' | 'learn' | 'jam' | 'settings', page: string) {
+  try { localStorage.setItem(`kg:sub:${screen}`, JSON.stringify(page)) } catch { /* storage unavailable */ }
 }
-export function onOpenSongs(f: (section: string) => void) {
-  sheetListeners.add(f)
-  return () => { sheetListeners.delete(f) }
+export function openSongs(section: 'mine' | 'songbook' | 'practice' | 'add' = 'songbook') {
+  setSubPage('songs', section)
+  go('songs')
 }
-export function takePendingSongs(): string | null {
-  const s = pendingSheet
-  pendingSheet = null
-  return s
+export function openJam(page: 'jam' | 'solo' | 'tab' | 'find' = 'jam') {
+  setSubPage('jam', page)
+  go('progressions')
 }

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { onCelebrate, type Celebration as C } from './game'
 import { playNote } from '../audio/pluck'
 import { audio } from '../audio/engine'
+import { PsyArt } from '../components/PsyArt'
 
 const CHIMES: Record<C['kind'], number[]> = {
   goal: [72, 76, 79, 84],
@@ -31,6 +32,7 @@ export function CelebrationLayer() {
   const big = cur.kind === 'level' || cur.kind === 'goal'
   return (
     <div className={`celebrate${big ? ' big' : ''}`} role="status" aria-live="polite" onClick={() => setQueue(q => q.slice(1))}>
+      {big && <PsyArt kind="tunnel" className="celebrate-tunnel" />}
       {big && (
         <div className="confetti" aria-hidden>
           {Array.from({ length: 28 }, (_, i) => (
@@ -39,6 +41,7 @@ export function CelebrationLayer() {
         </div>
       )}
       <div className="celebrate-card" key={cur.title + queue.length}>
+        <PsyArt kind="face" className="celebrate-face" />
         <span className="celebrate-icon" aria-hidden>{cur.icon}</span>
         <div>
           <b>{cur.title}</b>

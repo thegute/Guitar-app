@@ -3,7 +3,8 @@
 import { ArtThumb } from '../components/Art'
 import { useEffect, useState } from 'react'
 import { IconGear } from '../components/Icons'
-import { Fold } from '../components/Fold'
+import { SubTabs, useSubTab } from '../components/SubTabs'
+import { PsyArt } from '../components/PsyArt'
 import { useInstrument } from '../instrument'
 import { buildExercise, ESSENTIALS } from '../tabs/exercises'
 import { getSong, refreshBuiltIn, type SongDoc } from '../tabs/library'
@@ -16,7 +17,7 @@ import { TECHNIQUES, drillSong, techniquesDone, type Technique } from './techniq
 import { lessonTab, type LessonEx } from './lessonExtras'
 import { exampleDoc } from '../tabs/examples'
 import type { Song } from '../tabs/model'
-import { go as goTab, openInPlay, openSongs } from '../nav'
+import { go as goTab, openInPlay, openSongs, openJam, setSubPage } from '../nav'
 import { allLogs, dailyGoalMin, dayCounts, dayKey, isAway, setAway, stars, streak, todayLog, useProgress, COUNTS_AFTER_SEC } from './progress'
 import { freezes, levelInfo, questProgress, todaysQuests } from './game'
 import { course, findQuiz } from './quiz'
@@ -77,6 +78,7 @@ export function LearnScreen() {
     return guide ? [{ k: 'home' }, { k: 'guide' }] : [{ k: 'home' }]
   })
   const [openUnit, setOpenUnit] = useState<string | null>(null)
+  const [page, setPage] = useSubTab('learn', ['today', 'course', 'explore'] as const)
   const [allStages, setAllStages] = useState(false)
   const [awayNote, setAwayNote] = useState('')
   const [, setTick] = useState(0)
@@ -146,7 +148,10 @@ export function LearnScreen() {
     else if ('tab' in g) goTab(g.tab)
     else if ('song' in g) void getSong(g.song).then(doc => { if (doc) openInPlay(g.loop ? { ...doc, loop: g.loop } : doc); else goTab('play') })
     else if ('songbook' in g) void openSongbook(g.songbook.song, g.songbook.part)
-    else if ('songs' in g) openSongs('songbook')
+    else if ('songs' in g) openSongs(g.songs)
+    else if ('settings' in g) { setSubPage('settings', g.settings); push({ k: 'settings' }) }
+    else if ('jam' in g) openJam(g.jam)
+    else if ('learn' in g) { setPage(g.learn); setStack([{ k: 'home' }]); document.getElementById('main')?.scrollTo({ top: 0 }) }
     else void openExercise(g.exercise)
   }
 
@@ -207,19 +212,25 @@ export function LearnScreen() {
     setAwayNote(on ? 'Away mode is on: your plan and quests are guitar-free. It switches itself off after 30 hours, or tap "With my guitar" when you\'re back.' : `Welcome back! Your plan has your ${inst.noun} in it again.`)
   }
 
-  const tools: { id: Route['k']; title: string; sub: string; needs?: boolean }[] = [
-    { id: 'songbook' as Route['k'], title: 'Songbook', sub: 'Folk, bluegrass, reggae' },
-    { id: 'techniques', title: 'Technique', sub: `${techniquesDone().size} of ${TECHNIQUES.length} skills practised` },
-    { id: 'bends', title: 'Bends & vibrato', sub: 'Bend to pitch with a needle' },
-    { id: 'ear', title: 'Ear training', sub: 'Drone-based, by feel' },
-    { id: 'lessons', title: 'Theory', sub: `${read} of ${LESSONS.length} lessons read` },
-    { id: 'caged', title: `${inst.shapeSystem.join('')} explorer`, sub: 'Five shapes, whole neck' },
-    { id: 'circle', title: 'Circle of fifths', sub: 'Keys and their chords' },
-    { id: 'changes', title: 'Chord changes', sub: changesBest ? `Best: ${changesBest} a minute` : 'One-minute drill', needs: true },
-    { id: 'rhythm', title: 'Rhythm trainer', sub: 'Listen, then tap it back' },
-    { id: 'progress', title: 'Progress', sub: 'Calendar and badges' },
-    { id: 'guide', title: 'How to use KGuitar', sub: 'Every feature, explained' },
+  const groups: { title: string; tools: { id: Route['k']; title: string; sub: string; needs?: boolean }[] }[] = [
+    { title: 'Play better', tools: [
+      { id: 'techniques', title: 'Technique', sub: `${techniquesDone().size} of ${TECHNIQUES.length} skills practised` },
+      { id: 'bends', title: 'Bends & vibrato', sub: 'Bend to pitch with a needle', needs: true },
+      { id: 'changes', title: 'Chord changes', sub: changesBest ? `Best: ${changesBest} a minute` : 'One-minute drill', needs: true },
+      { id: 'rhythm', title: 'Rhythm trainer', sub: 'Listen, then tap it back' },
+    ] },
+    { title: 'Ears and theory', tools: [
+      { id: 'lessons', title: 'Theory lessons', sub: `${read} of ${LESSONS.length} read` },
+      { id: 'ear', title: 'Ear training', sub: 'Drone-based, by feel' },
+      { id: 'caged', title: `${inst.shapeSystem.join('')} explorer`, sub: 'Five shapes, whole neck' },
+      { id: 'circle', title: 'Circle of fifths', sub: 'Keys and their chords' },
+    ] },
+    { title: 'You', tools: [
+      { id: 'progress', title: 'Progress', sub: 'Calendar, trends, badges' },
+      { id: 'guide', title: 'How to use KGuitar', sub: 'Every feature, explained' },
+    ] },
   ]
+  const questsDone = quests.filter(q => questProgress(q, d).done).length
 
   return (
     <div className="learn">
@@ -232,8 +243,17 @@ export function LearnScreen() {
         <button className="btn sm icon" onClick={() => push({ k: 'settings' })} aria-label="Settings"><IconGear /></button>
       </div>
 
-      <section className={`today-card${counted ? ' counted' : ''}`} aria-label="Today">
-        <PickRing value={minutes} goal={goal} />
+      <SubTabs label="Learn" value={page} onChange={setPage} tabs={[
+        { id: 'today', label: 'Today', badge: plan.length - planDone || null },
+        { id: 'course', label: 'Course' },
+        { id: 'explore', label: 'Explore' },
+      ]} />
+
+      {page === 'today' && <section className={`today-card${counted ? ' counted' : ''}`} aria-label="Today">
+        <div className="pick-wrap">
+          <PsyArt kind="mandala" className="pick-mandala" />
+          <PickRing value={minutes} goal={goal} />
+        </div>
         <div className="today-main">
           <div className="streak-line">
             <span className={`flame${counted ? ' lit' : ''}`} aria-hidden>🔥</span>
@@ -260,133 +280,155 @@ export function LearnScreen() {
           <button aria-pressed={away} onClick={() => !away && toggleAway(true)}>I'm away from my {inst.noun}</button>
         </div>
         {awayNote && <p className="small away-note" role="status">{awayNote}</p>}
-      </section>
+      </section>}
 
-      <div className="learn-cols">
-        <div className="learn-col">
-
-          {askAbout && (
-            <section className="panel about-card" aria-label="About you">
-              <div className="sec-head"><h2>Make the plan yours</h2><button className="btn sm ghost" onClick={skipProfile}>Not now</button></div>
-              <p className="small muted" style={{ margin: 0 }}>Three quick questions, and today's plan picks songs and practice at your level.</p>
-              <ProfileForm />
-            </section>
-          )}
-
-          <section className="panel plan" aria-label="Today's plan">
-            <div className="sec-head">
-              <h2>Today's plan</h2>
-              <span className="small muted">{planDone}/{plan.length} done · about {plan.reduce((a, p) => a + p.minutes, 0)} min</span>
-            </div>
-            <ol className="plan-list">
-              {plan.map(p => (
-                <li key={p.id}>
-                  <button className={p.done ? 'done' : ''} onClick={() => launch(p.go)}>
-                    <span className="plan-check" aria-label={p.done ? 'done' : 'to do'}>{p.done ? '✓' : ''}</span>
-                    <span className="plan-text"><b>{p.title}</b><span className="small muted">{p.detail}</span></span>
-                    <span className="small muted plan-min">{p.minutes}′</span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </section>
-
-          <Fold id="learnQuests" title="Daily quests" summary={`${quests.filter(q => questProgress(q, d).done).length}/${quests.length} done · new ones tomorrow`}>
-            <ul className="quest-list">
-              {quests.map(q => {
-                const pr = questProgress(q, d)
-                return (
-                  <li key={q.id} className={pr.done ? 'done' : ''}>
-                    <span className="quest-label">{q.label}</span>
-                    <div className="bar"><div style={{ width: `${(pr.value / q.target) * 100}%` }} /></div>
-                    <span className="small muted">{pr.done ? '✓' : `${pr.value}/${q.target}`} · {q.xp} XP</span>
-                  </li>
-                )
-              })}
-            </ul>
-          </Fold>
-        </div>
-
-        <div className="learn-col">
-          <Fold id="learnCourse" title="Practice course" summary={`next: ${nq.title}`}
-            hint="Quizzes in two ways: tap the answer, or play it on your guitar and the app listens. Three stars each.">
-            <button className="btn primary course-next" onClick={() => push({ k: 'quiz', id: nq.id })}>Continue: {nq.title}</button>
-            <div className="units">
-              {units.map(u => {
-                const earned = u.quizzes.reduce((a, q) => a + (s[q.id] ?? 0), 0)
-                const open = unitOpen === u.unit
-                return (
-                  <div key={u.unit} className={`unit${open ? ' open' : ''}`}>
-                    <button className="unit-head" aria-expanded={open} onClick={() => setOpenUnit(open ? '' : u.unit)}>
-                      <b>{u.unit}</b>
-                      <span className="small muted">{earned}/{u.quizzes.length * 3} ★</span>
-                      <div className="bar"><div style={{ width: `${(earned / (u.quizzes.length * 3)) * 100}%` }} /></div>
+      {page === 'today' && (
+        <div className="learn-cols">
+          <div className="learn-col">
+            {askAbout && (
+              <section className="panel about-card" aria-label="About you">
+                <div className="sec-head"><h2>Make the plan yours</h2><button className="btn sm ghost" onClick={skipProfile}>Not now</button></div>
+                <p className="small muted" style={{ margin: 0 }}>Three quick questions, and today's plan picks songs and practice at your level.</p>
+                <ProfileForm />
+              </section>
+            )}
+            <section className="panel plan" aria-label="Today's plan">
+              <div className="sec-head">
+                <h2>Today's plan</h2>
+                <span className="small muted">{planDone}/{plan.length} done · about {plan.reduce((a, p) => a + p.minutes, 0)} min</span>
+              </div>
+              <ol className="plan-list">
+                {plan.map(p => (
+                  <li key={p.id}>
+                    <button className={p.done ? 'done' : ''} onClick={() => launch(p.go)}>
+                      <span className="plan-check" aria-label={p.done ? 'done' : 'to do'}>{p.done ? '✓' : ''}</span>
+                      <span className="plan-text"><b>{p.title}</b><span className="small muted">{p.detail}</span></span>
+                      <span className="small muted plan-min">{p.minutes}′</span>
                     </button>
-                    {open && (
-                      <ul className="quiz-list">
-                        {u.quizzes.map(q => (
-                          <li key={q.id}>
-                            <button onClick={() => push({ k: 'quiz', id: q.id })} className={q.id === nq.id ? 'next' : ''}>
-                              <span className="quiz-text"><b>{q.title}</b><span className="small muted">{q.desc}</span></span>
-                              <span className="quiz-meta">
-                                <Stars n={s[q.id] ?? 0} />
-                                <span className="small muted">{q.ear ? 'by ear' : q.mic ? 'tap or play' : 'tap'}</span>
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </Fold>
-
-          <Fold id="learnPath" className="path" title="Path to mastery" summary={`stage ${si + 1} of ${path.length}: ${stage.title}`}>
-            <div className="stage-dots" aria-hidden>{path.map((p, i) => <i key={p.id} className={i < si ? 'done' : i === si ? 'on' : ''} />)}</div>
-            <h3 style={{ margin: '4px 0 0' }}>{stage.title}</h3>
-            <p className="small muted" style={{ margin: 0 }}>{stage.why}</p>
-            <ul className="goal-list">
-              {stage.goals.map(g => (
-                <li key={g.label}>
-                  <button className={g.done ? 'done' : ''} onClick={() => launch(g.go)} disabled={g.done}>
-                    <span className="plan-check">{g.done ? '✓' : ''}</span>
-                    <span>{g.label}{g.guitar && away && !g.done ? <span className="small muted"> (with your {inst.noun})</span> : null}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <button className="btn sm ghost" onClick={() => setAllStages(!allStages)}>{allStages ? 'Hide stages' : 'See every stage'}</button>
-            {allStages && (
-              <ol className="stage-list small">
-                {path.map((p, i) => (
-                  <li key={p.id} className={i < si ? 'done' : i === si ? 'on' : ''}>
-                    <b>{p.title}</b> <span className="muted">{p.goals.filter(g => g.done).length}/{p.goals.length}</span>
                   </li>
                 ))}
               </ol>
+            </section>
+          </div>
+          <div className="learn-col">
+            <section className="panel quests" aria-label="Daily quests">
+              <div className="sec-head">
+                <h2>Daily quests</h2>
+                <span className="small muted">{questsDone}/{quests.length} done · new ones tomorrow</span>
+              </div>
+              <ul className="quest-list">
+                {quests.map(q => {
+                  const pr = questProgress(q, d)
+                  return (
+                    <li key={q.id} className={pr.done ? 'done' : ''}>
+                      <span className="quest-label">{q.label}</span>
+                      <div className="bar"><div style={{ width: `${(pr.value / q.target) * 100}%` }} /></div>
+                      <span className="small muted">{pr.done ? '✓' : `${pr.value}/${q.target}`} · {q.xp} XP</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+            {st.total >= 5 && (!lastBackup() || Date.now() - lastBackup()! > 14 * 864e5) && (
+              <button className="backup-nudge" onClick={() => push({ k: 'settings' })}>
+                <b>Back up your progress</b>
+                <span className="small muted">Last backup: {ago(lastBackup())}. Save your songs and {st.total} practice days to Google Drive in Settings.</span>
+              </button>
             )}
-          </Fold>
-
-          {st.total >= 5 && (!lastBackup() || Date.now() - lastBackup()! > 14 * 864e5) && (
-            <button className="backup-nudge" onClick={() => push({ k: 'settings' })}>
-              <b>Back up your progress</b>
-              <span className="small muted">Last backup: {ago(lastBackup())}. Save your songs and {st.total} practice days to Google Drive in Settings.</span>
-            </button>
-          )}
-          <section aria-label="Tools">
-            <div className="tool-grid">
-              {tools.map(t => (
-                <button key={t.id} className="tool" onClick={() => ((t.id as string) === 'songbook' ? openSongs('songbook') : push({ k: t.id } as Route))}>
-                  <b>{t.title}</b>
-                  <span className="small muted">{t.needs && away ? `Needs your ${inst.noun}` : t.sub}</span>
-                </button>
-              ))}
-            </div>
-          </section>
+          </div>
         </div>
-      </div>
+      )}
+
+      {page === 'course' && (
+        <div className="learn-cols">
+          <div className="learn-col">
+            <section className="panel course" aria-label="Practice course">
+              <div className="sec-head"><h2>Practice course</h2><span className="small muted">tap or play the answers · 3 stars each</span></div>
+              <button className="btn primary course-next" onClick={() => push({ k: 'quiz', id: nq.id })}>Continue: {nq.title}</button>
+              <div className="units">
+                {units.map(u => {
+                  const earned = u.quizzes.reduce((a, q) => a + (s[q.id] ?? 0), 0)
+                  const open = unitOpen === u.unit
+                  return (
+                    <div key={u.unit} className={`unit${open ? ' open' : ''}`}>
+                      <button className="unit-head" aria-expanded={open} onClick={() => setOpenUnit(open ? '' : u.unit)}>
+                        <b>{u.unit}</b>
+                        <span className="small muted">{earned}/{u.quizzes.length * 3} ★</span>
+                        <div className="bar"><div style={{ width: `${(earned / (u.quizzes.length * 3)) * 100}%` }} /></div>
+                      </button>
+                      {open && (
+                        <ul className="quiz-list">
+                          {u.quizzes.map(q => (
+                            <li key={q.id}>
+                              <button onClick={() => push({ k: 'quiz', id: q.id })} className={q.id === nq.id ? 'next' : ''}>
+                                <span className="quiz-text"><b>{q.title}</b><span className="small muted">{q.desc}</span></span>
+                                <span className="quiz-meta">
+                                  <Stars n={s[q.id] ?? 0} />
+                                  <span className="small muted">{q.ear ? 'by ear' : q.mic ? 'tap or play' : 'tap'}</span>
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          </div>
+          <div className="learn-col">
+            <section className="panel path" aria-label="Path to mastery">
+              <div className="sec-head"><h2>Path to mastery</h2><span className="small muted">stage {si + 1} of {path.length}</span></div>
+              <div className="stage-dots" aria-hidden>{path.map((p, i) => <i key={p.id} className={i < si ? 'done' : i === si ? 'on' : ''} />)}</div>
+              <h3 style={{ margin: '4px 0 0' }}>{stage.title}</h3>
+              <p className="small muted" style={{ margin: 0 }}>{stage.why}</p>
+              <ul className="goal-list">
+                {stage.goals.map(g => (
+                  <li key={g.label}>
+                    <button className={g.done ? 'done' : ''} onClick={() => launch(g.go)} disabled={g.done}>
+                      <span className="plan-check">{g.done ? '✓' : ''}</span>
+                      <span>{g.label}{g.guitar && away && !g.done ? <span className="small muted"> (with your {inst.noun})</span> : null}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button className="btn sm ghost" onClick={() => setAllStages(!allStages)}>{allStages ? 'Hide stages' : 'See every stage'}</button>
+              {allStages && (
+                <ol className="stage-list small">
+                  {path.map((p, i) => (
+                    <li key={p.id} className={i < si ? 'done' : i === si ? 'on' : ''}>
+                      <b>{p.title}</b> <span className="muted">{p.goals.filter(g => g.done).length}/{p.goals.length}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+          </div>
+        </div>
+      )}
+
+      {page === 'explore' && (
+        <div className="explore stack">
+          {groups.map(g => (
+            <section key={g.title} aria-label={g.title} className="tool-group">
+              <h2 className="sec-title">{g.title}</h2>
+              <div className="tool-grid">
+                {g.tools.map(t => (
+                  <button key={t.id} className="tool" onClick={() => push({ k: t.id } as Route)}>
+                    <b>{t.title}</b>
+                    <span className="small muted">{t.needs && away ? `Needs your ${inst.noun}` : t.sub}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+          <button className="tool songbook-link" onClick={() => openSongs('songbook')}>
+            <b>Songbook</b>
+            <span className="small muted">Folk, bluegrass and reggae songs to learn: in the Songs tab</span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

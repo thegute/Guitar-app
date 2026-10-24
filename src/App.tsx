@@ -2,14 +2,16 @@ import { useEffect, useRef, useState, type JSX, type PointerEvent as RPointerEve
 import { JamScreen } from './screens/JamScreen'
 import { PlayScreen } from './screens/PlayScreen'
 import { ToolsScreen } from './screens/ToolsScreen'
+import { SongsScreen } from './screens/SongsScreen'
 import { LearnScreen } from './learn/LearnScreen'
 import { CelebrationLayer } from './learn/Celebration'
-import { IconLearn, IconMenu, IconProgression, IconTab, IconTools } from './components/Icons'
+import { IconLearn, IconMenu, IconProgression, IconSongs, IconTab, IconTools } from './components/Icons'
 import { ArtThumb } from './components/Art'
+import { PsyBackdrop } from './components/PsyArt'
 import { setNavHidden, useMedia, useUi } from './ui'
 import { usePersist } from './components/Controls'
 import { useInstrument } from './instrument'
-import { isToolPage, onGo, type Tab, type ToolPage } from './nav'
+import { isToolPage, onGo, TAB_IDS, type Tab, type ToolPage } from './nav'
 import { dailyGoalMin, todayLog, useProgress } from './learn/progress'
 import { ACTION_LABEL, onPedal, type PedalAction } from './controls/pedals'
 import { ShareInbox } from './components/ShareInbox'
@@ -17,6 +19,7 @@ import { Welcome, needsWelcome, openGuide } from './components/Welcome'
 
 const TABS: { id: Tab; label: string; icon: () => JSX.Element }[] = [
   { id: 'play', label: 'Play', icon: IconTab },
+  { id: 'songs', label: 'Songs', icon: IconSongs },
   { id: 'learn', label: 'Learn', icon: IconLearn },
   { id: 'progressions', label: 'Jam', icon: IconProgression },
   { id: 'tools', label: 'Tools', icon: IconTools },
@@ -26,7 +29,7 @@ export default function App() {
   const [saved, setTab] = usePersist<string>('tab2', 'play')
   const [toolPage, setToolPage] = usePersist<ToolPage>('toolPage', isToolPage(saved) ? saved : 'tuner')
   // older versions had Tuner, Tempo, Chords and Scales as their own tabs
-  const tab: Tab = isToolPage(saved) ? 'tools' : (['play', 'learn', 'progressions', 'tools'].includes(saved) ? saved as Tab : 'play')
+  const tab: Tab = isToolPage(saved) ? 'tools' : ((TAB_IDS as string[]).includes(saved) ? saved as Tab : 'play')
   const [scaleJump, setScaleJump] = useState<{ root: string; scale: string } | null>(null)
   const [welcome, setWelcome] = useState(needsWelcome)
   const inst = useInstrument()
@@ -70,8 +73,10 @@ export default function App() {
 
   return (
     <div className={`app${hidden ? ' nav-hidden' : ''}${drawer ? ' drawer-open' : ''}`}>
+      <PsyBackdrop />
       <main className={`main${tab === 'play' ? ' main-play' : ''}`} id="main">
         {tab === 'play' && <PlayScreen key={inst.id} />}
+        {tab === 'songs' && <SongsScreen key={inst.id} />}
         {tab === 'learn' && <LearnScreen key={inst.id} />}
         {tab === 'tools' && <ToolsScreen page={toolPage} onPage={setToolPage} scaleJump={scaleJump} />}
         {tab === 'progressions' && (

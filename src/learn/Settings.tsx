@@ -2,7 +2,9 @@
 import { useEffect, useState } from 'react'
 import { Chips } from '../components/Controls'
 import { INSTRUMENTS, setInstrument, setTuning, type Instrument, type InstrumentId } from '../instrument'
-import { setTheme, useTheme, type ThemeChoice } from '../theme'
+import { setPsyMotion, setTheme, usePsyMotion, useTheme, type ThemeChoice } from '../theme'
+import { SubTabs, useSubTab } from '../components/SubTabs'
+import { psySrc } from '../components/PsyArt'
 import { dailyGoalMin, setDailyGoalMin, useProgress } from './progress'
 import { GearSetup } from '../components/GearSetup'
 import { PedalSettings } from '../controls/PedalSettings'
@@ -20,6 +22,8 @@ const INST_ART: Record<InstrumentId, string> = { guitar: '🎸', tenor: '🌺', 
 export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => void }) {
   useProgress()
   const theme = useTheme()
+  const motion = usePsyMotion()
+  const [page, setPage] = useSubTab('settings', ['you', 'sound', 'look', 'backup'] as const)
   const [showArt, setShowArt] = useShowArt()
   const [ask, setAsk] = useState<InstrumentId | null>(null)
   const [savedProfile, setSavedProfile] = useState(false)
@@ -63,7 +67,11 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         <button className="btn sm" onClick={onExit}>← Back</button>
       </div>
       <h1 style={{ margin: 0 }}>Settings</h1>
+      <SubTabs label="Settings" value={page} onChange={setPage} tabs={[
+        { id: 'you', label: 'You' }, { id: 'sound', label: 'Sound' }, { id: 'look', label: 'Look' }, { id: 'backup', label: 'Backup' },
+      ]} />
 
+      {page === 'you' && <>
       <section className="panel stack" style={{ gap: 10 }}>
         <h2 style={{ margin: 0 }}>Instrument</h2>
         <div className="inst-cards" role="radiogroup" aria-label="Instrument">
@@ -85,36 +93,6 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
           Everything follows your instrument: chord shapes, scales, the tuner, quizzes, practice tabs and play-along. Your saved songs are kept
           in separate banks, so guitar tabs only show in guitar mode and ukulele tabs only in ukulele mode.
         </p>
-      </section>
-
-      <section className="panel stack" style={{ gap: 10 }}>
-        <HintHead title="Your guitar input" hint="Two minutes per input: it measures your room, your strings and the delay of your headphones, so notes are heard reliably and recordings land on the beat." />
-        <ul className="act-list small">
-          {(['mic', 'usb'] as const).map(k => (
-            <li key={k}>
-              <span>{k === 'mic' ? '🎤 Phone mic' : '🎸 USB amp (Amphonix)'}</span>
-              <b>{isSetUp(k) ? `set up · sensitivity ${gear(k).gate} · timing ${latencyMs(k)} ms` : 'not set up yet'}</b>
-            </li>
-          ))}
-        </ul>
-        <button className="btn" onClick={() => setSetup(true)}>Set up an input</button>
-      </section>
-
-      <PedalSettings />
-
-      <section className="panel stack" style={{ gap: 10 }}>
-        <HintHead title="Playback sound" hint="Used for Hear it, tapping notes and the quizzes. On Auto, a Guitar Pro tab plays in its own guitar sound (acoustic, clean, overdrive or distortion). You can also switch it next to Hear it. Jam picks a sound for each style; change it there under Band. The amp sounds were made from your own Peavey 5150 captures and cab impulse responses; your files aren't inside the app, only the finished notes. Your own playing is never sent back out of the phone: you hear it only through your amp." />
-        <Chips<'auto' | SoundId> label="Sound" items={[{ id: 'auto', label: `Auto (${inst.isUke ? 'nylon' : 'acoustic'}, or the song's own guitar)` }, ...SOUNDS.map(x => ({ id: x.id, label: x.label }))]} value={sound} onChange={v => void tryIt(v)} wrap />
-        <p className="small muted" style={{ margin: 0 }}>{soundInfo(activeSound()).hint}</p>
-      </section>
-
-      <section className="panel stack" style={{ gap: 10 }}>
-        <HintHead title="Look" hint={'Night is dim and low-glare for practising in bed. "Match my phone" switches with your phone\'s dark mode.'} />
-        <Chips<ThemeChoice> label="Theme" items={[{ id: 'auto', label: 'Match my phone' }, { id: 'day', label: 'Day' }, { id: 'night', label: 'Night' }]} value={theme} onChange={setTheme} />
-        <label className="row" style={{ gap: 8 }}>
-          <input type="checkbox" checked={showArt} onChange={e => setShowArt(e.target.checked)} />
-          <span>Show the KGuitar poster (small, in the menu and on Learn; tap it to see it full size)</span>
-        </label>
       </section>
 
       <section className="panel stack" style={{ gap: 10 }}>
@@ -151,6 +129,63 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         {!remindersAvailable() && !remMsg && <p className="small muted" style={{ margin: 0 }}>Reminders are sent by the Android app.</p>}
       </section>
 
+      </>}
+
+      {page === 'sound' && <>
+      <section className="panel stack" style={{ gap: 10 }}>
+        <HintHead title="Your guitar input" hint="Two minutes per input: it measures your room, your strings and the delay of your headphones, so notes are heard reliably and recordings land on the beat." />
+        <ul className="act-list small">
+          {(['mic', 'usb'] as const).map(k => (
+            <li key={k}>
+              <span>{k === 'mic' ? '🎤 Phone mic' : '🎸 USB amp (Amphonix)'}</span>
+              <b>{isSetUp(k) ? `set up · sensitivity ${gear(k).gate} · timing ${latencyMs(k)} ms` : 'not set up yet'}</b>
+            </li>
+          ))}
+        </ul>
+        <button className="btn" onClick={() => setSetup(true)}>Set up an input</button>
+      </section>
+
+      <PedalSettings />
+
+      <section className="panel stack" style={{ gap: 10 }}>
+        <HintHead title="Playback sound" hint="Used for Hear it, tapping notes and the quizzes. On Auto, a Guitar Pro tab plays in its own guitar sound (acoustic, clean, overdrive or distortion). You can also switch it next to Hear it. Jam picks a sound for each style; change it there under Band. The amp sounds were made from your own Peavey 5150 captures and cab impulse responses; your files aren't inside the app, only the finished notes. Your own playing is never sent back out of the phone: you hear it only through your amp." />
+        <Chips<'auto' | SoundId> label="Sound" items={[{ id: 'auto', label: `Auto (${inst.isUke ? 'nylon' : 'acoustic'}, or the song's own guitar)` }, ...SOUNDS.map(x => ({ id: x.id, label: x.label }))]} value={sound} onChange={v => void tryIt(v)} wrap />
+        <p className="small muted" style={{ margin: 0 }}>{soundInfo(activeSound()).hint}</p>
+      </section>
+
+      </>}
+
+      {page === 'look' && <>
+      <section className="panel stack" style={{ gap: 12 }}>
+        <HintHead title="Look" hint={'Night is dim and low-glare for practising in bed. Psychedelic is neon colours, the samurai dog and trippy art all through the app, with the words kept on dark cards so they stay easy to read. "Match my phone" switches between Day and Night with your phone\'s dark mode.'} />
+        <div className="theme-cards" role="radiogroup" aria-label="Theme">
+          {([
+            { id: 'auto', label: 'Match my phone', sub: 'Day or Night' },
+            { id: 'day', label: 'Day', sub: 'Bright and clear' },
+            { id: 'night', label: 'Night', sub: 'Dim, low glare' },
+            { id: 'psy', label: 'Psychedelic', sub: 'Neon, trippy, the dog' },
+          ] as { id: ThemeChoice; label: string; sub: string }[]).map(t => (
+            <button key={t.id} role="radio" aria-checked={theme === t.id} className={`theme-card t-${t.id}${theme === t.id ? ' on' : ''}`} onClick={() => setTheme(t.id)}>
+              <span className="theme-swatch" aria-hidden="true" style={t.id === 'psy' ? { backgroundImage: `url(${psySrc('pop')})` } : undefined} />
+              <b>{t.label}</b>
+              <span className="small muted">{t.sub}</span>
+            </button>
+          ))}
+        </div>
+        {theme === 'psy' && (
+          <label className="opt-row opt-check">
+            <input type="checkbox" checked={motion} onChange={e => setPsyMotion(e.target.checked)} />
+            <span><b>Moving colours</b><span className="small muted">The background slowly drifts and the art turns. Switch off to save battery.</span></span>
+          </label>
+        )}
+        <label className="opt-row opt-check">
+          <input type="checkbox" checked={showArt} onChange={e => setShowArt(e.target.checked)} />
+          <span><b>Show the KGuitar poster</b><span className="small muted">Small, in the menu and on Learn. Tap it to see it full size.</span></span>
+        </label>
+      </section>
+      </>}
+
+      {page === 'backup' && <>
       <BackupPanel />
 
       <section className="panel stack small" style={{ gap: 6 }}>
@@ -161,6 +196,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         <span className="muted">Theory lessons follow the chapters of Offtonic Theory (offtonic.com/theory); the lesson text here is original.</span>
         <span className="muted">Chord shapes: chords-db (github.com/tombatossals/chords-db). Guitar Pro import: alphaTab. Pitch detection: pitchy.</span>
       </section>
+      </>}
       {setup && <GearSetup onClose={() => setSetup(false)} />}
       {target && (
         <div className="sheet-backdrop" onClick={() => setAsk(null)}>

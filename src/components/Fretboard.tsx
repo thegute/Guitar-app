@@ -113,9 +113,9 @@ function FretboardImpl({ tuning = current().midis, fromFret = 0, toFret = 15, ma
       <svg className="fretboard" width={width * zoom.z} height={height * zoom.z} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Fretboard, frets ${fromFret} to ${toFret}`}>
         <defs>
           <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#4a2e25" />
-            <stop offset="0.5" stopColor="#3a231c" />
-            <stop offset="1" stopColor="#301d17" />
+            <stop offset="0" style={{ stopColor: 'var(--wood-1, #4a2e25)' }} />
+            <stop offset="0.5" style={{ stopColor: 'var(--wood-2, #3a231c)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--wood-3, #301d17)' }} />
           </linearGradient>
         </defs>
         <rect x={left} y={PAD_Y - 10} width={xs[xs.length - 1] - left} height={boardH + 20} fill="url(#wood)" rx={2} />
@@ -129,11 +129,11 @@ function FretboardImpl({ tuning = current().midis, fromFret = 0, toFret = 15, ma
           if (f % 12 === 0)
             return (
               <g key={`in${f}`}>
-                <circle cx={cx} cy={PAD_Y + boardH * 0.3} r={6} fill="#e9e1d3" opacity={0.85} />
-                <circle cx={cx} cy={PAD_Y + boardH * 0.7} r={6} fill="#e9e1d3" opacity={0.85} />
+                <circle cx={cx} cy={PAD_Y + boardH * 0.3} r={6} style={{ fill: "var(--inlay, #e9e1d3)" }} opacity={0.85} />
+                <circle cx={cx} cy={PAD_Y + boardH * 0.7} r={6} style={{ fill: "var(--inlay, #e9e1d3)" }} opacity={0.85} />
               </g>
             )
-          return INLAYS.includes(f) ? <circle key={`in${f}`} cx={cx} cy={PAD_Y + boardH / 2} r={6} fill="#e9e1d3" opacity={0.85} /> : null
+          return INLAYS.includes(f) ? <circle key={`in${f}`} cx={cx} cy={PAD_Y + boardH / 2} r={6} style={{ fill: "var(--inlay, #e9e1d3)" }} opacity={0.85} /> : null
         })}
         {/* nut / frets */}
         {xs.map((x, i) => {

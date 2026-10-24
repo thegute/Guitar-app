@@ -101,11 +101,15 @@ const only = process.argv[2]
     await page.waitForTimeout(200)
     out.inspect = await page.textContent('.next')
 
-    // songs sheet: paste a text tab with chords
-    await page.click('button:has-text("Songs")')
-    await page.waitForSelector('.sheet')
+    // Songs tab → Add a song: paste a text tab with chords
+    const addSong = async () => {
+      await page.click('nav.nav button:has-text("Songs")')
+      await page.click('.subtabs [role=tab]:has-text("Add a song")')
+      await page.waitForSelector('.songs-screen textarea')
+    }
+    await addSong()
     await page.screenshot({ path: `${DIR}/play-${vp.name}-6-sheet.png` })
-    await page.fill('.sheet textarea', `Wish riff (test)
+    await page.fill('.songs-screen textarea', `Wish riff (test)
 G              Em7
 e|-----------------|---0-------0-----|
 B|-----3-----3-----|---3-------3-----|
@@ -113,8 +117,8 @@ G|-------0-------0-|-------0-------0-|
 D|---0-------0-----|-2-------2-------|
 A|-----------------|-----------------|
 E|-3---------------|-0---------------|`)
-    await page.fill('.sheet input[aria-label="Song title"]', 'Pasted riff')
-    await page.click('.sheet button:text-is("Load tab")')
+    await page.fill('.songs-screen input[aria-label="Song title"]', 'Pasted riff')
+    await page.click('.songs-screen button:text-is("Load tab")')
     await page.waitForTimeout(400)
     out.pastedTitle = await page.textContent('.song-title b')
     out.pastedChords = await page.$$eval('.tab-chord', e => e.map(x => x.textContent).join(' '))
@@ -122,8 +126,8 @@ E|-3---------------|-0---------------|`)
     await page.screenshot({ path: `${DIR}/play-${vp.name}-7-pasted.png` })
 
     // open a Guitar Pro file
-    await page.click('button:has-text("Songs")')
-    await page.setInputFiles('.sheet input[type=file]', `${DIR}/riff.gp`)
+    await addSong()
+    await page.setInputFiles('.songs-screen input[type=file]', `${DIR}/riff.gp`)
     await page.waitForTimeout(1500)
     out.gpTitle = await page.textContent('.song-title b')
     out.gpTrack = await page.$eval('.song-title select', s => s.options[s.selectedIndex].text).catch(() => 'no select')

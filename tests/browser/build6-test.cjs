@@ -98,8 +98,9 @@ async function overflow(page) {
   const sound = await page.evaluate(async () => { const r = await fetch('samples/acoustic/index.json'); return r.ok ? Object.keys(await r.json()).length : 0 })
   if (sound < 8) problems.push('acoustic samples missing: ' + sound)
   // strum-along: open the Amazing Grace chord sheet
-  await page.click('text=Songs')
-  await page.click('.sheet >> text=Amazing Grace')
+  await page.click('nav.nav button:has-text("Songs")')
+  await page.click('.subtabs [role=tab]:has-text("Practice")')
+  await page.click('.songs-screen >> text=Amazing Grace')
   await page.waitForTimeout(500)
   const lyric = await page.$$eval('.tab-lyric', els => els.map(e => e.textContent).join(' | '))
   if (!/Amazing grace/.test(lyric)) problems.push('chord sheet lyrics missing: ' + lyric.slice(0, 80))
@@ -123,14 +124,18 @@ async function overflow(page) {
   await page.screenshot({ path: `${DIR}/b6-feature-intime.png` })
   await page.click('button.listen')
   await page.click('.tab-tools >> text=Wait for me')
-  // split layout
-  await page.click('.tab-tools >> text=Split')
+  // split layout (in Options)
+  const options = async () => { await page.click('.opts-btn'); await page.waitForSelector('.play-opts') }
+  await options()
+  await page.click('.play-opts label:has-text("Split")')
+  await page.click('.play-opts >> text=Done')
   await page.waitForTimeout(300)
   if (!(await page.$('.play.tabletop'))) problems.push('split layout did not switch on')
   await page.screenshot({ path: `${DIR}/b6-feature-split.png` })
-  await page.click('.tab-tools >> text=Split')
+  await options()
+  await page.click('.play-opts label:has-text("Split")')
   // gear setup opens and walks to step 2
-  await page.click('.tab-tools >> text=Set up input')
+  await page.click('.play-opts >> text=Set up your input')
   await page.waitForSelector('.sheet.gear')
   await page.click('.sheet.gear >> text=Next')
   await page.screenshot({ path: `${DIR}/b6-feature-gear.png` })
@@ -138,6 +143,7 @@ async function overflow(page) {
   // backup downloads a file on the web version
   await page.click('nav >> text=Learn')
   await page.click('[aria-label="Settings"]')
+  await page.click('.subtabs [role=tab]:has-text("Backup")')
   const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 8000 }).catch(() => null), page.click('text=Back up now')])
   if (!dl) problems.push('backup did not download')
   else {

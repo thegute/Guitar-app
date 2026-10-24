@@ -1,19 +1,19 @@
 // Play along: the tab, a YouTube mini player, the mic following your playing note by note,
 // and the scales / chords of the song for soloing.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { PsyArt } from '../components/PsyArt'
 import { TabView, type LabelMode } from '../components/TabView'
 import { ChordDiagram } from '../components/ChordDiagram'
 import { YouTubePlayer } from '../components/YouTubePlayer'
 import { HarmonyPanel, stringLabel } from '../components/HarmonyPanel'
 import { Chips, usePersist } from '../components/Controls'
-import { SongsSheet } from './SongsSheet'
 import { InputPicker } from '../components/InputPicker'
 import { NoteListener, matchNote, type FollowStep } from '../tabs/follow'
 import { defaultTrack, flatten, playable, trackPickup, type SongNote, type SongTrack } from '../tabs/model'
 import { detectKey, improvisationScales, type KeyGuess } from '../tabs/keyDetect'
 import { chordInfo, chordTimeline, guessBarChords } from '../tabs/harmony'
 import { docInstrument, getSong, listSongs, saveSong, type SongDoc } from '../tabs/library'
-import { go, onOpenSong, onOpenSongs, takePendingDoc, takePendingSongs } from '../nav'
+import { go, onOpenSong, takePendingDoc } from '../nav'
 import { bump, bumpCounts, usePracticeTimer } from '../learn/progress'
 import { gear, isSetUp, kindOf, setGear, useGear } from '../audio/gear'
 import { GearSetup } from '../components/GearSetup'
@@ -33,7 +33,7 @@ import { setTuning, useInstrument } from '../instrument'
 import { Splitter } from '../components/Splitter'
 import { HandShape } from '../components/HandShape'
 import { groupAt, handGroups } from '../play/handShape'
-import { IconExpand, IconShrink } from '../components/Icons'
+import { IconExpand, IconShrink, IconSliders } from '../components/Icons'
 import { setPlayFocus, useMedia } from '../ui'
 import { checkSong } from '../play/songCheck'
 import { chordHelp } from '../play/chordHelp'
@@ -98,14 +98,8 @@ export function PlayScreen() {
   // each instrument remembers its own last song (guitar and ukulele tabs are kept apart)
   const [songId, setSongId] = usePersist(`playSong:${inst.id}`, '')
   const [doc, setDoc] = useState<SongDoc | null>(null)
-  const [sheet, setSheet] = useState(false)
-  const [sheetFocus, setSheetFocus] = useState<string | null>(null)
-  // another screen (Learn's plan, the guide) can open the Songs panel at a section
-  useEffect(() => {
-    const s = takePendingSongs()
-    if (s) { setSheetFocus(s); setSheet(true) }
-    return onOpenSongs(sec => { takePendingSongs(); setSheetFocus(sec); setSheet(true) })
-  }, [])
+  /** the Options panel (everything that isn't Wait/In time, Loop and Hear it) */
+  const [opts, setOpts] = useState(false)
   const [view, setView] = usePersist<View>('playView', 'tab')
   const [labelMode, setLabelMode] = usePersist<LabelMode>('playLabels', 'both')
   const [strict, setStrict] = usePersist('playStrict', false)
@@ -686,6 +680,7 @@ export function PlayScreen() {
         </span>
         <InputPicker
           active={input}
+          needsSetup={!isSetUp()}
           onChanged={() => {
             // switch inputs on the fly
             if (!listener.current) return
@@ -722,6 +717,7 @@ export function PlayScreen() {
           </>
         ) : done ? (
           <>
+            <PsyArt kind="face" className="finish-face" />
             <b>Finished!</b>
             <span className="small muted">{firstTry !== null ? `${firstTry}% of notes right first time.` : ''}</span>
             <button className="btn sm" onClick={() => restart()}>Play again</button>
@@ -766,67 +762,106 @@ export function PlayScreen() {
   )
 
   const tabTools = (
-    <div className="tab-tools">
+    <div className="tab-tools" role="toolbar" aria-label="Play controls">
       <Chips label="Follow mode" items={[{ id: 'wait', label: 'Wait for me' }, { id: 'time', label: 'In time' }]} value={mode} onChange={v => setMode(v)} />
       {loop ? (
-        <span className="loop-chip">⟲ Bars {loop.from + 1}–{loop.to + 1}<button onClick={() => setLoop(undefined)} aria-label="Stop looping">✕</button></span>
+        <span className="loop-chip">⟲ {loop.from === loop.to ? `Bar ${loop.from + 1}` : `Bars ${loop.from + 1}–${loop.to + 1}`}<button onClick={() => setLoop(undefined)} aria-label="Stop looping">✕</button></span>
       ) : (
-        <button className="btn sm" aria-pressed={!!selecting} onClick={() => setSelecting(selecting ? null : {})}>⟲ Loop a section</button>
+        <button className="btn sm" aria-pressed={!!selecting} onClick={() => setSelecting(selecting ? null : {})}>⟲ Loop</button>
       )}
       <button className={`btn sm hear${playAt >= 0 ? ' on' : ''}`} onClick={preview} aria-pressed={playAt >= 0}>
         {playAt >= 0 ? '■ Stop' : '▶ Hear it'}
       </button>
-      {bandAvail && (
-        <button className="btn sm" aria-pressed={bandOn} onClick={() => { setBandOn(!bandOn); if (playAt >= 0) stopPreview() }}
-          title={doc.song.backing ? 'Drums and bass from the chords, with Hear it and In time' : 'The drums, bass and other parts of this song, with Hear it and In time'}>🥁 Band</button>
+      {recording && (
+        <button className="btn sm rec on" aria-pressed onClick={() => void toggleRec()} aria-label="Stop recording">⏹ {Math.floor(recSecs / 60)}:{String(recSecs % 60).padStart(2, '0')}</button>
       )}
-      <button className={`btn sm rec${recording ? ' on' : ''}`} aria-pressed={recording} onClick={() => void toggleRec()}
-        title="Record yourself playing, then listen back. Stays on the phone.">{recording ? `⏹ ${Math.floor(recSecs / 60)}:${String(recSecs % 60).padStart(2, '0')}` : '⏺ Record'}</button>
-      <label className="sound-pick" title={soundInfo(hearSound).hint}>
-        <span className="small">Sound</span>
-        <select className="select sm" value={soundSel} aria-label="Sound for Hear it and tapped notes" onChange={e => {
-          const v = e.target.value as 'auto' | SoundId
-          setSoundChoice(v)
-          if (playAt >= 0) stopPreview()
-        }}>
-          <option value="auto">Auto ({soundInfo(activeSound(songSound)).label})</option>
-          {SOUNDS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-        </select>
-      </label>
-      <Chips label="Playback speed" items={[{ id: 0.5, label: '½' }, { id: 0.75, label: '¾' }, { id: 1, label: `1× · ${Math.round(songBpm)} bpm` }]} value={speed} onChange={v => { setSpeed(v); if (playAt >= 0) { stopPreview() } }} />
-      {isSheet ? (
-        <label className="sound-pick" title={strumPat?.how ?? 'Show a strum pattern over the chords'}>
-          <span className="small">Strum</span>
-          <select className="select sm" value={strumId} aria-label="Strum pattern" onChange={e => doc && setStrumBySong({ ...strumBySong, [doc.id]: e.target.value })}>
-            {patternsFor(meter).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-            <option value="off">No arrows</option>
-          </select>
-        </label>
-      ) : (
-        <button className="btn sm" aria-pressed={counts} onClick={() => setCounts(!counts)} title="Show the rhythm under the tab: note stems and the count (1 & 2 &)">1 & 2 &</button>
-      )}
-      <Chips label="Tab numbers" items={[{ id: 'fret', label: 'Frets' }, { id: 'note', label: 'Notes' }, { id: 'both', label: 'Both' }]} value={labelMode} onChange={setLabelMode} />
-      {mode === 'time' && (
-        <>
-          <button className="btn sm" aria-pressed={click} onClick={() => setClick(!click)}>Click</button>
-          <button className="btn sm" aria-pressed={guide} onClick={() => setGuide(!guide)} title="Play the tab quietly while you play">Hear tab too</button>
-          {loop && <button className="btn sm" aria-pressed={trainer.on} onClick={() => setTrainer({ ...trainer, on: !trainer.on })} title={`Starts at ${Math.round(trainer.start * 100)}% and speeds up ${Math.round(trainer.step * 100)}% after each pass of ${trainer.pass}% or better`}>Speed trainer</button>}
-        </>
-      )}
-      <button className="btn sm" onClick={() => restart()}>Restart</button>
-      <button className="btn sm" aria-pressed={handOn} onClick={() => setHandOn(!handOn)} title="Show where your fretting hand goes, with finger numbers">✋ Hand</button>
-      <span className="zoom-btns" role="group" aria-label="Tab size">
-        <button className="btn sm" onClick={() => setTabZoom(z => Math.max(0.7, Math.round((z - 0.1) * 10) / 10))} aria-label="Smaller tab">A−</button>
-        <button className="btn sm" onClick={() => setTabZoom(z => Math.min(2.4, Math.round((z + 0.1) * 10) / 10))} aria-label="Bigger tab">A+</button>
-      </span>
-      <button className="btn sm" aria-pressed={split} onClick={() => setSplitPref(split ? 'off' : 'on')} title="Video and readout on top, tab below (automatic when the Fold is half-folded)">Split</button>
-      <button className="btn sm" aria-pressed={strict} onClick={() => setStrict(!strict)} title="Only count the note in the exact octave">Exact octave</button>
-      <label className="sens" title="How easily a sound counts as a note. Set it properly in Set up input.">
-        <span className="small">Sensitivity</span>
-        <input type="range" min={0.4} max={3} step={0.05} value={3.4 - gate} aria-label="Note sensitivity"
-          onChange={e => { const g = Math.round((3.4 - Number(e.target.value)) * 100) / 100; setGear(gearKind, { gate: g }); if (listener.current) listener.current.gate = g }} />
-      </label>
-      <button className="btn sm" onClick={() => setGearOpen(true)}>Set up input</button>
+      <button className="btn sm opts-btn" aria-expanded={opts} onClick={() => setOpts(true)} aria-label="Options: speed, sound, band, record, how the tab looks">
+        <IconSliders /><span className="opts-label">Options</span>
+      </button>
+    </div>
+  )
+
+  const optionsPanel = opts && (
+    <div className="sheet-backdrop" onClick={() => setOpts(false)}>
+      <div className="sheet play-opts" role="dialog" aria-modal="true" aria-label="Play options" onClick={e => e.stopPropagation()}>
+        <div className="sheet-head">
+          <h2>Options</h2>
+          <button className="btn sm" onClick={() => setOpts(false)}>Done</button>
+        </div>
+
+        <section className="opt-group" aria-label="Playback">
+          <h3>Playback</h3>
+          <div className="opt-row"><span className="opt-name">Speed</span>
+            <Chips label="Playback speed" items={[{ id: 0.5, label: '½' }, { id: 0.75, label: '¾' }, { id: 1, label: `1× · ${Math.round(songBpm)} bpm` }]} value={speed} onChange={v => { setSpeed(v); if (playAt >= 0) { stopPreview() } }} />
+          </div>
+          <label className="opt-row" title={soundInfo(hearSound).hint}><span className="opt-name">Sound</span>
+            <select className="select sm" value={soundSel} aria-label="Sound for Hear it and tapped notes" onChange={e => {
+              const v = e.target.value as 'auto' | SoundId
+              setSoundChoice(v)
+              if (playAt >= 0) stopPreview()
+            }}>
+              <option value="auto">Auto ({soundInfo(activeSound(songSound)).label})</option>
+              {SOUNDS.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
+            </select>
+          </label>
+          {bandAvail && (
+            <label className="opt-row opt-check">
+              <input type="checkbox" checked={bandOn} onChange={() => { setBandOn(!bandOn); if (playAt >= 0) stopPreview() }} />
+              <span><b>🥁 Play with the band</b><span className="small muted">{doc.song.backing ? 'Drums and bass from the chords' : 'The drums, bass and other parts of this song'}, with Hear it and In time.</span></span>
+            </label>
+          )}
+          {mode === 'time' && (
+            <>
+              <label className="opt-row opt-check"><input type="checkbox" checked={click} onChange={() => setClick(!click)} /><span><b>Click</b><span className="small muted">A metronome click while you play in time.</span></span></label>
+              <label className="opt-row opt-check"><input type="checkbox" checked={guide} onChange={() => setGuide(!guide)} /><span><b>Hear the tab too</b><span className="small muted">The tab plays quietly along with you.</span></span></label>
+              {loop && <label className="opt-row opt-check"><input type="checkbox" checked={trainer.on} onChange={() => setTrainer({ ...trainer, on: !trainer.on })} /><span><b>Speed trainer</b><span className="small muted">Starts at {Math.round(trainer.start * 100)}% and speeds up {Math.round(trainer.step * 100)}% after each pass of {trainer.pass}% or better.</span></span></label>}
+            </>
+          )}
+          <button className={`btn rec${recording ? ' on' : ''}`} onClick={() => { void toggleRec(); setOpts(false) }}>
+            {recording ? `⏹ Stop recording (${Math.floor(recSecs / 60)}:${String(recSecs % 60).padStart(2, '0')})` : '⏺ Record yourself'}
+          </button>
+        </section>
+
+        <section className="opt-group" aria-label="How the tab looks">
+          <h3>The tab</h3>
+          <div className="opt-row"><span className="opt-name">Numbers</span>
+            <Chips label="Tab numbers" items={[{ id: 'fret', label: 'Frets' }, { id: 'note', label: 'Notes' }, { id: 'both', label: 'Both' }]} value={labelMode} onChange={setLabelMode} />
+          </div>
+          {isSheet ? (
+            <label className="opt-row" title={strumPat?.how ?? 'Show a strum pattern over the chords'}><span className="opt-name">Strum</span>
+              <select className="select sm" value={strumId} aria-label="Strum pattern" onChange={e => doc && setStrumBySong({ ...strumBySong, [doc.id]: e.target.value })}>
+                {patternsFor(meter).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                <option value="off">No arrows</option>
+              </select>
+            </label>
+          ) : (
+            <label className="opt-row opt-check"><input type="checkbox" checked={counts} onChange={() => setCounts(!counts)} /><span><b>Count it: 1 & 2 &</b><span className="small muted">Note stems and the count under the tab.</span></span></label>
+          )}
+          <label className="opt-row opt-check"><input type="checkbox" checked={handOn} onChange={() => setHandOn(!handOn)} /><span><b>✋ Where your fingers go</b><span className="small muted">A small neck with finger numbers for the part you're on.</span></span></label>
+          <div className="opt-row"><span className="opt-name">Size</span>
+            <span className="zoom-btns" role="group" aria-label="Tab size">
+              <button className="btn sm" onClick={() => setTabZoom(z => Math.max(0.7, Math.round((z - 0.1) * 10) / 10))} aria-label="Smaller tab">A−</button>
+              <span className="small muted zoom-val">{Math.round(tabZoom * 100)}%</span>
+              <button className="btn sm" onClick={() => setTabZoom(z => Math.min(2.4, Math.round((z + 0.1) * 10) / 10))} aria-label="Bigger tab">A+</button>
+            </span>
+            <span className="small muted">or pinch the tab</span>
+          </div>
+          <label className="opt-row opt-check"><input type="checkbox" checked={split} onChange={() => setSplitPref(split ? 'off' : 'on')} /><span><b>Split screen</b><span className="small muted">Video and readout on top, the tab below (automatic when the Fold is half-folded).</span></span></label>
+        </section>
+
+        <section className="opt-group" aria-label="Listening">
+          <h3>Listening</h3>
+          <label className="opt-row opt-check"><input type="checkbox" checked={strict} onChange={() => setStrict(!strict)} /><span><b>Exact octave</b><span className="small muted">Only count the note in the octave the tab shows.</span></span></label>
+          <label className="opt-row" title="How easily a sound counts as a note. Set it properly in Set up input."><span className="opt-name">Sensitivity</span>
+            <input type="range" min={0.4} max={3} step={0.05} value={3.4 - gate} aria-label="Note sensitivity"
+              onChange={e => { const g = Math.round((3.4 - Number(e.target.value)) * 100) / 100; setGear(gearKind, { gate: g }); if (listener.current) listener.current.gate = g }} />
+          </label>
+          <div className="row">
+            <button className="btn sm" onClick={() => { setOpts(false); setGearOpen(true) }}>{isSetUp() ? 'Set up input again' : 'Set up your input (2 min)'}</button>
+            <button className="btn sm" onClick={() => { restart(); setOpts(false) }}>Start over</button>
+          </div>
+        </section>
+      </div>
     </div>
   )
 
@@ -845,7 +880,6 @@ export function PlayScreen() {
         ...(split && posture.tabletop ? { ['--fold-top' as string]: `${posture.top}px`, ['--fold-hinge' as string]: `${posture.hinge}px` } : {}),
       }}>
       <header className="play-head">
-        <button className="btn sm" onClick={() => { setSheetFocus(null); setSheet(true) }}>Songs</button>
         <div className="song-title">
           <button className="song-name" onClick={() => (checkOpen ? closeCheck() : setCheckOpen(true))} aria-expanded={checkOpen} title="Song check: chords, techniques, level and a speed to start at">
             <b>{doc.title}</b>
@@ -878,9 +912,6 @@ export function PlayScreen() {
           sync={doc.ytSync} onSync={sync => update({ ytSync: sync })} tabBpm={songBpm} />}
         {sideOpen && readout(false)}
         {sideOpen && micError && <p className="notice small">{micError}</p>}
-        {sideOpen && !isSetUp() && !micError && (
-          <p className="notice small gear-hint">First time? <button className="btn sm" onClick={() => setGearOpen(true)}>Set up your input</button> takes two minutes and makes note detection and timing match your mic or amp.</p>
-        )}
       </section>
 
       <Splitter dir="row" className="split-top" name="the video and readout" open={sideOpen}
@@ -974,14 +1005,7 @@ export function PlayScreen() {
       </section>
 
       {gearOpen && <GearSetup onClose={() => setGearOpen(false)} />}
-      {sheet && (
-        <SongsSheet
-          currentId={doc.id}
-          focus={sheetFocus}
-          onClose={() => setSheet(false)}
-          onOpen={d => { setSheet(false); setDoc(d); setSongId(d.id) }}
-        />
-      )}
+      {optionsPanel}
     </div>
   )
 }

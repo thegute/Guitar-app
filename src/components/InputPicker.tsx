@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { getChoice, listInputs, onInputChange, setChoice, type InputChoice, type InputDevice } from '../audio/input'
 import { GearSetup } from './GearSetup'
 
-export function InputPicker({ active, onChanged }: { active?: { label: string; external: boolean } | null; onChanged?: () => void }) {
+export function InputPicker({ active, onChanged, needsSetup = false }: { active?: { label: string; external: boolean } | null; onChanged?: () => void; needsSetup?: boolean }) {
   const [open, setOpen] = useState(false)
   const [choice, setC] = useState<InputChoice>(getChoice())
   const [devs, setDevs] = useState<InputDevice[]>([])
@@ -32,8 +32,9 @@ export function InputPicker({ active, onChanged }: { active?: { label: string; e
 
   return (
     <>
-      <button className="btn sm input-btn" onClick={() => setOpen(true)} aria-label="Choose the sound input">
+      <button className={`btn sm input-btn${needsSetup ? ' needs-setup' : ''}`} onClick={() => setOpen(true)} aria-label={needsSetup ? 'Choose and set up the sound input (not set up yet)' : 'Choose the sound input'}>
         {now === 'amp' ? '🎸' : '🎤'} {active ? (active.external ? 'Amp' : 'Mic') : choice === 'auto' ? 'Auto' : choice === 'mic' ? 'Mic' : 'Amp'} ▾
+        {needsSetup && <i className="setup-dot" aria-hidden="true" />}
       </button>
       {open && (
         <div className="sheet-backdrop" onClick={() => setOpen(false)}>
@@ -42,6 +43,12 @@ export function InputPicker({ active, onChanged }: { active?: { label: string; e
               <h2>Sound input</h2>
               <button className="btn sm" onClick={() => setOpen(false)}>Done</button>
             </div>
+            {needsSetup && (
+              <div className="notice small setup-first">
+                <span><b>First time?</b> A two-minute setup makes note detection and timing match your mic or amp.</span>
+                <button className="btn sm primary" onClick={() => { setOpen(false); setSetup(true) }}>Set it up now</button>
+              </div>
+            )}
             {active && <p className="small muted" style={{ margin: 0 }}>Listening to: <b style={{ color: 'var(--pearl)' }}>{active.label}</b></p>}
             <ul className="song-list">
               <li className={choice === 'auto' ? 'on' : ''}>

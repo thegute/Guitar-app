@@ -13,7 +13,10 @@ export type Go =
   | { exercise: 'spider' | 'penta1' }
   | { song: string; loop?: { from: number; to: number } }
   | { songbook: { song: string; part: string } }
-  | { songs: 'songbook' }
+  | { songs: 'songbook' | 'mine' | 'practice' | 'add' }
+  | { settings: 'you' | 'sound' | 'look' | 'backup' }
+  | { jam: 'jam' | 'solo' | 'tab' | 'find' }
+  | { learn: 'today' | 'course' | 'explore' }
 
 export interface Goal { label: string; done: boolean; go: Go; guitar: boolean }
 export interface Stage { id: string; title: string; why: string; goals: Goal[] }

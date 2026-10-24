@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { setShowArt, useUi } from '../ui'
+import { useActiveTheme } from '../theme'
+import { psySrc } from './PsyArt'
 
 export function useShowArt(): [boolean, (v: boolean) => void] {
   return [useUi().showArt, setShowArt]
@@ -11,11 +13,13 @@ export function useShowArt(): [boolean, (v: boolean) => void] {
 export function ArtThumb({ className = '', label = 'Open the KGuitar poster' }: { className?: string; label?: string }) {
   const [show] = useShowArt()
   const [open, setOpen] = useState(false)
+  // Psychedelic mode: her face in a round, glowing frame instead of the whole poster
+  const psy = useActiveTheme() === 'psy'
   if (!show) return null
   return (
     <>
-      <button className={`art-thumb ${className}`} onClick={() => setOpen(true)} aria-label={label} title="KGuitar poster">
-        <img src="art.jpg" alt="" loading="lazy" decoding="async" />
+      <button className={`art-thumb ${className}${psy ? ' psy-thumb' : ''}`} onClick={() => setOpen(true)} aria-label={label} title="KGuitar poster">
+        <img src={psy ? psySrc('face') : 'art.jpg'} alt="" loading="lazy" decoding="async" />
       </button>
       {open && <ArtViewer onClose={() => setOpen(false)} />}
     </>

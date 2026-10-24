@@ -51,10 +51,27 @@ async function playHasTab(page) {
   await page.waitForFunction(() => document.querySelectorAll('.tab-note').length > 0 || document.querySelectorAll('.tab-chord').length > 0, null, { timeout: 6000 })
   return page.evaluate(() => ({ title: document.querySelector('.song-name b')?.textContent ?? '', notes: document.querySelectorAll('.tab-note').length, chords: document.querySelectorAll('.tab-chord').length }))
 }
+const sub = (page, label) => page.locator(`.subtabs [role=tab]:has-text("${label}")`).first().click()
 async function openLearnTool(page, label) {
   await nav(page, 'Learn')
-  await page.waitForSelector('.today-card')
+  await page.waitForSelector('.learn-head')
+  await sub(page, 'Explore')
   await page.locator(`.tool:has-text("${label}")`).first().click()
+}
+async function songsPage(page, label) { await nav(page, 'Songs'); await sub(page, label); await page.waitForTimeout(200) }
+async function openSongbook(page) { await songsPage(page, 'Songbook'); await page.waitForSelector('.songbook-page') }
+async function pasteTab(page, text) {
+  await songsPage(page, 'Add a song')
+  await page.locator('.songs-screen textarea').first().fill(text)
+  await page.getByRole('button', { name: 'Load tab', exact: true }).click()
+}
+async function options(page) { await page.locator('.opts-btn').click(); await page.waitForSelector('.play-opts') }
+async function optionsDone(page) { await page.locator('.play-opts button:has-text("Done")').click() }
+async function setOption(page, label, on) {
+  await options(page)
+  const box = page.locator(`.play-opts label:has-text("${label}") input[type=checkbox]`).first()
+  if ((await box.isChecked()) !== on) await box.click()
+  await optionsDone(page)
 }
 const shot = (page, name) => page.screenshot({ path: `${DIR}/b13-${name}.png` })
 
@@ -138,11 +155,7 @@ async function songbook(browser) {
   for (const inst of [{ id: 'guitar', tuning: {} }, { id: 'tenor', tuning: {} }]) {
     const page = await newPage(browser, { 'kg:tab2': 'play', 'kg:instrument': inst, 'kg:sbLevel': 0, 'kg:sbGenre': 'all' })
     await page.waitForSelector('.play-head')
-    const openSheet = async () => {
-      await page.locator('.play-head button:has-text("Songs")').click()
-      await page.waitForSelector('.sheet #fold-songsBook')
-      if ((await page.locator('#fold-songsBook .fold-toggle').getAttribute('aria-expanded')) !== 'true') await page.locator('#fold-songsBook .fold-toggle').click()
-    }
+    const openSheet = () => openSongbook(page)
     await openSheet()
     await shot(page, `songbook-${inst.id}`)
     const total = await page.locator('.sb-part').count()
@@ -155,7 +168,6 @@ async function songbook(browser) {
       await part.scrollIntoViewIfNeeded()
       await part.click()
       try {
-        await page.waitForSelector('.sheet', { state: 'detached', timeout: 5000 })
         const t = await playHasTab(page)
         if (!t.notes && !t.chords) bad(`songbook ${inst.id} ${song} / ${label}: empty`)
         // the song check opens by itself on a new song
@@ -165,8 +177,12 @@ async function songbook(browser) {
       } catch (e) { bad(`songbook ${inst.id} ${song} / ${label}: ${e.message.split('\n')[0]}`); await shot(page, `fail-sb-${inst.id}-${i}`); await page.keyboard.press('Escape').catch(() => {}) }
     }
     // Hear it with the band on the last song opened
-    if (await page.locator('button:has-text("Band")').count()) {
-      const bandOn = await page.locator('button:has-text("Band")').getAttribute('aria-pressed')
+    await options(page)
+    const bandBox = page.locator('.play-opts label:has-text("band") input')
+    const hasBand = await bandBox.count()
+    const bandOn = hasBand ? await bandBox.isChecked() : false
+    await optionsDone(page)
+    if (hasBand) {
       const where = () => page.evaluate(() => { const c = document.querySelector('.tab-cursor'); const bar = c?.closest('svg')?.getAttribute('data-bar'); return `${bar}:${Math.round(Number(c?.getAttribute('x') ?? -1))}` })
       const before = await where()
       await page.locator('button.hear').click()
@@ -177,7 +193,7 @@ async function songbook(browser) {
       await page.locator('button.hear').click()
       if (!playing || before === after) bad(`songbook ${inst.id}: Hear it with the band: playing ${playing}, playhead ${before} → ${after}`)
       console.log(`  band ${bandOn}, playhead ${before} → ${after}`)
-    } else bad(`songbook ${inst.id}: no Band button on a songbook song`)
+    } else bad(`songbook ${inst.id}: no band option on a songbook song`)
     console.log(`songbook ${inst.id}: ${opened}/${total} parts opened`)
     if (page.errors.length) bad(`songbook ${inst.id} page errors: ` + page.errors.join(' | '))
     await page.context().close()
@@ -194,7 +210,7 @@ async function plan(browser) {
     await shot(page, `learn-home${away ? '-away' : ''}`)
     const steps = await page.locator('.today-plan .plan-list button, section[aria-label="Today\'s plan"] .plan-list button').count() || await page.locator('.plan-list button').count()
     for (let i = 0; i < steps; i++) {
-      await nav(page, 'Learn'); await page.waitForSelector('.today-card')
+      await nav(page, 'Learn'); await page.waitForSelector('.learn-head'); await sub(page, 'Today'); await page.waitForSelector('.today-card')
       const b = page.locator('.plan-list button').nth(i)
       const title = (await b.locator('b').textContent()).trim()
       await b.click()
@@ -203,15 +219,17 @@ async function plan(browser) {
         if (await page.locator('.play-head').count()) { const t = await playHasTab(page); if (!t.notes && !t.chords) bad(`plan step "${title}": empty tab`) }
       } catch { bad(`plan${away ? ' (away)' : ''} step "${title}": nothing happened`) }
     }
-    await nav(page, 'Learn'); await page.waitForSelector('.today-card')
+    const toPath = async () => { await nav(page, 'Learn'); await page.waitForSelector('.learn-head'); await sub(page, 'Course'); await page.waitForSelector('.goal-list') }
+    await toPath()
     const goals = await page.locator('.goal-list button').count()
     for (let i = 0; i < goals; i++) {
-      await nav(page, 'Learn'); await page.waitForSelector('.today-card')
+      await toPath()
       const g = page.locator('.goal-list button').nth(i)
       const label = (await g.textContent()).trim().slice(0, 50)
       await g.click()
-      try { await page.waitForFunction(() => !document.querySelector('.today-card'), null, { timeout: 6000 }) } catch { bad(`path goal "${label}": nothing happened`) }
+      try { await page.waitForFunction(() => !document.querySelector('.goal-list'), null, { timeout: 6000 }) } catch { bad(`path goal "${label}": nothing happened`) }
     }
+    await nav(page, 'Learn'); await sub(page, 'Today')
     console.log(`plan${away ? ' (away)' : ''}: ${steps} steps, ${goals} path goals`)
     if (page.errors.length) bad('plan page errors: ' + page.errors.join(' | '))
     await page.context().close()
@@ -224,7 +242,7 @@ async function play(browser) {
   await page.waitForSelector('.tab-note')
   await page.locator('.song-check button:has-text("Got it")').click().catch(() => {})
   // counts under the tab
-  await page.locator('button:has-text("1 & 2 &")').click()
+  await setOption(page, 'Count it', true)
   const counts = await page.locator('.tab-count').count()
   if (counts < 8) bad(`counts: ${counts} labels`)
   const first = await page.locator('.tab-count').allTextContents()
@@ -238,13 +256,8 @@ async function play(browser) {
   // a pasted tab in drop D with two empty bars at the start: retune warning + rest block
   const dropD = ['Riff in drop D', 'e|--------|--------|-----------|-----------|', 'B|--------|--------|-----------|-----------|', 'G|--------|--------|-----------|-----------|',
     'D|--------|--------|-----------|-----------|', 'A|--------|--------|-----------|-----------|', 'D|--------|--------|-0-0-3-0-5-|-0-0-3-5-0-|'].join('\n')
-  await page.locator('.play-head button:has-text("Songs")').click()
-  await page.waitForSelector('.sheet')
-  const ta = page.locator('.sheet textarea').first()
-  await ta.scrollIntoViewIfNeeded()
-  await ta.fill(dropD)
-  await page.locator('.sheet button.primary:text-is("Load tab")').click()
-  await page.waitForSelector('.sheet', { state: 'detached', timeout: 5000 }).catch(() => bad('pasted tab did not open'))
+  await pasteTab(page, dropD)
+  await page.waitForSelector('.play-head', { timeout: 5000 }).catch(() => bad('pasted tab did not open'))
   await page.waitForSelector('.tab-note')
   await page.locator('.song-check button:has-text("Got it")').click().catch(() => {})
   if (!(await page.locator('.notice.retune').count())) bad('no retune warning for a drop D tab')
@@ -263,10 +276,9 @@ async function play(browser) {
 
   // a Guitar Pro file whose part comes in late: the empty bars become one rest block
   if (fs.existsSync(`${DIR}/late.gp`)) {
-    await page.locator('.play-head button:has-text("Songs")').click()
-    await page.waitForSelector('.sheet')
-    await page.locator('.sheet input[type=file]').setInputFiles(`${DIR}/late.gp`)
-    await page.waitForSelector('.sheet', { state: 'detached', timeout: 8000 }).catch(() => {})
+    await songsPage(page, 'Add a song')
+    await page.locator('.songs-screen input[type=file]').setInputFiles(`${DIR}/late.gp`)
+    await page.waitForSelector('.play-head', { timeout: 8000 }).catch(() => {})
     await page.waitForSelector('.tab-note', { timeout: 8000 })
     await page.locator('.song-check button:has-text("Got it")').click().catch(() => {})
     const rest = await page.locator('.tab-lead-rest').textContent().catch(() => '')
@@ -277,13 +289,12 @@ async function play(browser) {
 
   // a chord sheet: strum pattern arrows; the fake mic strums G / C / D, so an Am asks for help with the chord
   const sheet = 'Help test\n\nAm        Am\nOne two three four\nAm        Am\nFive six seven eight'
-  await page.locator('.play-head button:has-text("Songs")').click()
-  await page.waitForSelector('.sheet')
-  await page.locator('.sheet textarea').first().fill(sheet)
-  await page.locator('.sheet button.primary:text-is("Load tab")').click()
+  await pasteTab(page, sheet)
   await page.waitForSelector('.tab-chord')
   await page.locator('.song-check button:has-text("Got it")').click().catch(() => {})
-  await page.selectOption('select[aria-label="Strum pattern"]', { index: 2 }).catch(() => bad('no strum menu on a chord sheet'))
+  await options(page)
+  await page.selectOption('.play-opts select[aria-label="Strum pattern"]', { index: 2 }).catch(() => bad('no strum menu on a chord sheet'))
+  await optionsDone(page)
   await page.waitForTimeout(300)
   const arrows = await page.locator('.strum-arrow').count()
   if (arrows < 4) bad(`strum arrows: ${arrows}`)
@@ -297,10 +308,10 @@ async function play(browser) {
   await shot(page, 'play-chordhelp')
 
   // record yourself (the fake mic), then the take bar
-  await page.locator('button.rec').scrollIntoViewIfNeeded()
-  await page.locator('button.rec').click()
+  await options(page)
+  await page.locator('.play-opts button.rec').click()
   await page.waitForTimeout(2200)
-  await page.locator('button.rec').click()
+  await page.locator('.tab-tools button.rec').click()
   try { await page.waitForSelector('.take-bar audio', { timeout: 4000 }) } catch { bad('no recording after Record') }
   await shot(page, 'play-take')
   await page.locator('.take-bar button[aria-label="Delete this recording"]').click().catch(() => {})
@@ -322,10 +333,9 @@ async function play(browser) {
 
 // ---------------------------------------------------------------- finder
 async function finder(browser) {
-  const page = await newPage(browser, { 'kg:tab2': 'progressions', 'kg:fold:jamFinder': true })
-  await page.waitForSelector('#fold-jamFinder')
-  await page.locator('#fold-jamFinder').scrollIntoViewIfNeeded()
-  await page.locator('#fold-jamFinder button.listen').click()
+  const page = await newPage(browser, { 'kg:tab2': 'progressions', 'kg:sub:jam': 'find' })
+  await page.waitForSelector('.song-finder')
+  await page.locator('.song-finder button.listen').click()
   let chips = []
   for (let i = 0; i < 40; i++) {
     await page.waitForTimeout(500)
@@ -334,7 +344,7 @@ async function finder(browser) {
   }
   const heard = await page.locator('.finder-heard').textContent().catch(() => '')
   await shot(page, 'finder')
-  await page.locator('#fold-jamFinder button.listen').click()
+  await page.locator('.song-finder button.listen').click()
   const names = [...new Set(chips)]
   console.log(`finder: heard "${heard}", chords ${chips.join(' ')}`)
   for (const c of ['G', 'C', 'D']) if (!names.includes(c)) bad(`finder missed ${c}: ${chips.join(' ')}`)
@@ -347,7 +357,8 @@ async function finder(browser) {
   console.log('  Jam chords after Use in Jam:', jamChords.join(' '))
   if (jamChords.join(' ') !== 'G C D') bad(`Use in Jam loaded ${jamChords.join(' ')}`)
   await shot(page, 'finder-jam')
-  // and as a chord sheet in Play
+  // and as a chord sheet in Play (the chords found are still there on Find chords)
+  await sub(page, 'Find chords')
   await page.locator('.song-finder button:has-text("Open as a chord sheet")').click()
   try { const t = await playHasTab(page); if (!t.chords) bad('finder chord sheet has no chords') } catch { bad('finder: Open as a chord sheet did nothing') }
   if (page.errors.length) bad('finder page errors: ' + page.errors.join(' | '))
@@ -361,6 +372,7 @@ async function learnmisc(browser) {
   const page = await newPage(browser, { 'kg:tab2': 'learn', 'kg:skillLog': skills })
   await page.waitForSelector('.today-card')
   // bends
+  await sub(page, 'Explore')
   await page.locator('.tool:has-text("Bends")').click()
   await page.waitForSelector('.bend-trainer')
   await page.locator('.bend-trainer button:has-text("Start listening")').click()
@@ -385,8 +397,8 @@ async function learnmisc(browser) {
   await shot(page, 'settings-about')
   await page.locator('button:has-text("Back")').first().click()
   // a quiz on the neck: a tap on the wrong string says which string to use
-  await page.evaluate(() => localStorage.setItem('kg:fold:learnCourse', 'true'))
-  await page.reload(); await page.waitForSelector('.today-card')
+  await page.waitForSelector('.learn-head')
+  await sub(page, 'Course')
   await page.locator('.unit-head').first().click()
   await page.locator('.unit.open .quiz-list button').first().click()
   await page.waitForSelector('.quiz-card')
@@ -440,30 +452,31 @@ async function sizes(browser) {
       await page.screenshot({ path: `${DIR}/b13-size-${name}-${theme}-${n}.png` })
     }
     await check('learn')
+    await sub(page, 'Explore'); await check('learn-explore')
+    await sub(page, 'Course'); await check('learn-course')
+    await sub(page, 'Explore')
     await page.locator('.tool:has-text("Theory")').click(); await page.locator('.continue-card').click(); await page.waitForSelector('article.lesson')
     await page.locator('.lesson-video').scrollIntoViewIfNeeded(); await check('lesson-video')
     await page.locator('.lesson-ex').first().scrollIntoViewIfNeeded(); await check('lesson-play')
-    await nav(page, 'Learn'); await nav(page, 'Learn'); await page.waitForSelector('.today-card')
+    await nav(page, 'Learn'); await nav(page, 'Learn'); await page.waitForSelector('.learn-head')
     await page.locator('.tool:has-text("Technique")').click(); await page.locator('.plan-list button').nth(7).click(); await page.waitForSelector('article.technique'); await check('technique')
-    await nav(page, 'Learn'); await page.waitForSelector('.today-card')
+    await nav(page, 'Learn'); await page.waitForSelector('.learn-head')
     await page.locator('.tool:has-text("Bends")').click(); await page.waitForSelector('.bend-trainer'); await check('bends')
-    await nav(page, 'Learn'); await page.waitForSelector('.today-card')
+    await nav(page, 'Learn'); await page.waitForSelector('.learn-head')
     await page.locator('.tool:has-text("Progress")').click(); await page.waitForTimeout(300); await check('progress')
-    await nav(page, 'Learn'); await page.waitForSelector('.today-card')
+    await nav(page, 'Learn'); await page.waitForSelector('.learn-head')
     await page.locator('[aria-label="Settings"]').click(); await page.locator('text=About you').first().scrollIntoViewIfNeeded(); await check('about')
     // Play: songbook sheet, a songbook song with its song check, counts
-    await nav(page, 'Play'); await page.waitForSelector('.play-head')
-    await page.locator('.play-head button:has-text("Songs")').click(); await page.waitForSelector('.sheet #fold-songsBook')
-    if ((await page.locator('#fold-songsBook .fold-toggle').getAttribute('aria-expanded')) !== 'true') await page.locator('#fold-songsBook .fold-toggle').click()
-    await page.locator('#fold-songsBook').scrollIntoViewIfNeeded(); await check('songbook')
+    await openSongbook(page); await check('songbook')
     await page.locator('.sb-part').nth(3).click(); await page.waitForSelector('.song-check'); await check('songcheck')
     await page.locator('.song-check button:has-text("Got it")').click()
-    if (!(await page.locator('button[aria-pressed="true"]:has-text("1 & 2 &")').count())) await page.locator('button:has-text("1 & 2 &")').click()
+    await options(page); await check('options')
+    await optionsDone(page)
+    await setOption(page, 'Count it', true)
     await check('counts')
     // Jam: the chord finder
     await nav(page, 'Jam'); await page.waitForSelector('.jam')
-    if ((await page.locator('#fold-jamFinder .fold-toggle').getAttribute('aria-expanded')) !== 'true') await page.locator('#fold-jamFinder .fold-toggle').click()
-    await page.locator('#fold-jamFinder').scrollIntoViewIfNeeded(); await check('finder')
+    await sub(page, 'Find chords'); await page.waitForSelector('.song-finder'); await check('finder')
     if (page.errors.length) bad(`sizes ${name}/${theme} page errors: ` + page.errors.join(' | '))
     console.log(`sizes ${name}/${theme} done`)
     await page.context().close()
@@ -474,9 +487,7 @@ async function sizes(browser) {
 async function intime(browser) {
   const page = await newPage(browser, { 'kg:tab2': 'play', 'kg:playBand': true, 'kg:sbGenre': 'reggae', 'kg:sbLevel': 0 })
   await page.waitForSelector('.play-head')
-  await page.locator('.play-head button:has-text("Songs")').click()
-  await page.waitForSelector('.sheet #fold-songsBook')
-  if ((await page.locator('#fold-songsBook .fold-toggle').getAttribute('aria-expanded')) !== 'true') await page.locator('#fold-songsBook .fold-toggle').click()
+  await openSongbook(page)
   await page.locator('.sb-part:has-text("Words")').first().click()
   await page.waitForSelector('.tab-chord')
   await page.locator('.song-check button:has-text("Got it")').click().catch(() => {})
@@ -497,14 +508,14 @@ async function intime(browser) {
 // ---------------------------------------------------------------- melody
 async function melody() {
   const browser = await launch('ode.wav')
-  const page = await newPage(browser, { 'kg:tab2': 'progressions', 'kg:fold:jamFinder': true })
-  await page.waitForSelector('#fold-jamFinder')
-  await page.locator('#fold-jamFinder button:has-text("Notes (melody)")').click()
-  await page.locator('#fold-jamFinder button.listen').click()
+  const page = await newPage(browser, { 'kg:tab2': 'progressions', 'kg:sub:jam': 'find' })
+  await page.waitForSelector('.song-finder')
+  await page.locator('.song-finder button:has-text("Notes (melody)")').click()
+  await page.locator('.song-finder button.listen').click()
   let notes = ''
   for (let i = 0; i < 36; i++) { await page.waitForTimeout(500); notes = (await page.locator('.finder-notes').textContent().catch(() => '')) ?? '' }
   await shot(page, 'finder-melody')
-  await page.locator('#fold-jamFinder button.listen').click()
+  await page.locator('.song-finder button.listen').click()
   console.log(`melody: heard ${notes}`)
   // ode.wav: E E F G G A(wrong) F E D C C D E E D D …
   if (!/E E F G G A F E D C C D E E D D/.test(notes)) bad(`melody notes: ${notes}`)

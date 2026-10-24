@@ -43,3 +43,9 @@ node tests/browser/build13-test.cjs [lessons technique songbook plan play intime
 landscape, day and night; the first-launch welcome and guide, recorded sounds, strum-along chord sheet, footswitch,
 play in time, split layout, input setup, backup download, old tab names): `node tests/browser/build6-test.cjs`.
 Browser tests set `kg:welcomed` so the first-launch welcome doesn't cover the app.
+
+**Build 14** (the five-tab menu, tabs across the top of screens, Play's Options panel and the three looks: every screen and
+sub-tab in Day, Night and Psychedelic on the Fold cover and inner screens, plus Psychedelic on a small phone and a 12" tablet;
+no sideways overflow, no page errors, a contrast check of every visible word against the pixels really behind it; the Options
+panel; the Songs tab; Psychedelic art, motion switch and Jam beat pulse): `node tests/browser/build14-test.cjs [tour play songs psy]`
+(`TOUR=psy:cover,day:inner` limits the tour).
