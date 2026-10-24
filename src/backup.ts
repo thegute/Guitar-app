@@ -66,7 +66,7 @@ export function backupSummary(b: Backup) {
     const logs = JSON.parse(b.storage['kg:practiceLog'] ?? '{}') as Record<string, { guitar: number; study: number }>
     days = Object.values(logs).filter(d => d.guitar + d.study >= 300).length
   } catch { /* no practice log */ }
-  return { date: new Date(b.createdAt), songs: b.songs.filter(s => s.source !== 'example' && s.source !== 'lesson').length, days }
+  return { date: new Date(b.createdAt), songs: b.songs.filter(s => s.source !== 'example' && s.source !== 'lesson' && s.source !== 'songbook').length, days }
 }
 
 /** Replace what's on this phone with the backup, then reload the app. */

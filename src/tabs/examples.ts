@@ -95,19 +95,25 @@ I once was lost, but now am found
 G          D           G
 Was blind, but now I see`
 
+// the real rhythm of the melodies, in beats per note, bar by bar (the text tab only has even spacing)
+const q4 = [1, 1, 1, 1]
+const odeRhythm = [q4, q4, q4, [1.5, 0.5, 2], q4, q4, q4, [1.5, 0.5, 2]]
+const greenRhythm = [[1], [2, 1], [1.5, 0.5, 1], [1, 1, 1], [1.5, 0.5, 1], [1, 1, 1], [1.5, 0.5, 1], [1, 2]]
+const twinkleRhythm = [q4, [1, 1, 2], q4, [1, 1, 2]]
+
 export type ExampleFor = 'guitar' | 'tenor' | 'baritone' | 'any'
-export const EXAMPLES: { id: string; title: string; text: string; for: ExampleFor }[] = [
-  { id: 'ode', title: 'Ode to Joy (Beethoven)', text: ode, for: 'guitar' },
-  { id: 'green', title: 'Greensleeves (traditional)', text: green, for: 'guitar' },
-  { id: 'pent', title: 'A minor pentatonic, box 1', text: pent, for: 'guitar' },
+export const EXAMPLES: { id: string; title: string; text: string; for: ExampleFor; rhythm?: number[][]; meter?: number }[] = [
+  { id: 'ode', title: 'Ode to Joy (Beethoven)', text: ode, for: 'guitar', rhythm: odeRhythm },
+  { id: 'green', title: 'Greensleeves (traditional)', text: green, for: 'guitar', rhythm: greenRhythm, meter: 3 },
+  { id: 'pent', title: 'A minor pentatonic, box 1', text: pent, for: 'guitar', meter: 3 },
   { id: 'blues', title: 'Blues shuffle riff in A', text: blues, for: 'guitar' },
-  { id: 'uke-ode', title: 'Ode to Joy (ukulele)', text: ukeOde, for: 'tenor' },
-  { id: 'uke-twinkle', title: 'Twinkle Twinkle (ukulele)', text: ukeTwinkle, for: 'tenor' },
-  { id: 'uke-scale', title: 'C major scale (ukulele)', text: ukeScale, for: 'tenor' },
-  { id: 'uke-strum', title: 'Strum along: C–Am–F–G (ukulele)', text: ukeStrum, for: 'tenor' },
-  { id: 'bari-ode', title: 'Ode to Joy (baritone)', text: bariOde, for: 'baritone' },
-  { id: 'bari-green', title: 'Greensleeves (baritone)', text: bariGreen, for: 'baritone' },
-  { id: 'bari-strum', title: 'Strum along: G–Em–C–D (baritone)', text: bariStrum, for: 'baritone' },
+  { id: 'uke-ode', title: 'Ode to Joy (ukulele)', text: ukeOde, for: 'tenor', rhythm: odeRhythm },
+  { id: 'uke-twinkle', title: 'Twinkle Twinkle (ukulele)', text: ukeTwinkle, for: 'tenor', rhythm: twinkleRhythm },
+  { id: 'uke-scale', title: 'C major scale (ukulele)', text: ukeScale, for: 'tenor', rhythm: [q4, q4, q4, q4] },
+  { id: 'uke-strum', title: 'Strum along: C–Am–F–G (ukulele)', text: ukeStrum, for: 'tenor', rhythm: [q4, q4, q4, q4] },
+  { id: 'bari-ode', title: 'Ode to Joy (baritone)', text: bariOde, for: 'baritone', rhythm: odeRhythm },
+  { id: 'bari-green', title: 'Greensleeves (baritone)', text: bariGreen, for: 'baritone', rhythm: greenRhythm, meter: 3 },
+  { id: 'bari-strum', title: 'Strum along: G–Em–C–D (baritone)', text: bariStrum, for: 'baritone', rhythm: [q4, q4, q4, q4] },
   { id: 'grace', title: 'Amazing Grace (chord sheet, strum along)', text: grace, for: 'any' },
 ]
 
@@ -129,5 +135,10 @@ export function exampleDoc(id: string, tuning?: string[]): SongDoc {
   const fallback = tuning && tuning.length === (ex.for === 'guitar' ? 6 : 4) ? tuning : undefined
   const song = fromTextTab(parseTextTab(ex.text, ex.title, fallback)!)
   song.title = ex.title
+  if (ex.meter) song.meter = ex.meter
+  if (ex.rhythm) song.tracks[0].bars.forEach((bar, bi) => {
+    const r = ex.rhythm![bi]
+    if (r && r.length === bar.steps.length) bar.steps.forEach((st, si) => { st.dur = r[si] })
+  })
   return { id: 'ex-' + ex.id, title: ex.title, source: 'example', inst: ex.for, song, updated: Date.now() }
 }

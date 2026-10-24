@@ -1,13 +1,22 @@
 // Learn: today's goal and streak, the away-from-guitar switch, today's plan, quests, the practice course,
 // the path to mastery, and the tools (ear training, theory, CAGED, circle of fifths, chord changes, rhythm).
 import { ArtThumb } from '../components/Art'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { IconGear } from '../components/Icons'
 import { Fold } from '../components/Fold'
 import { useInstrument } from '../instrument'
 import { buildExercise, ESSENTIALS } from '../tabs/exercises'
-import { getSong, type SongDoc } from '../tabs/library'
-import { go as goTab, openInPlay } from '../nav'
+import { getSong, refreshBuiltIn, type SongDoc } from '../tabs/library'
+import { loadSongbookDoc } from '../tabs/songbookDocs'
+import { profile, profileSkipped, skipProfile } from './profile'
+import { ProfileForm } from '../components/ProfileForm'
+import { BendTrainer } from './BendTrainer'
+import { TechniqueList, TechniqueView } from './TechniqueLessons'
+import { TECHNIQUES, drillSong, techniquesDone, type Technique } from './techniques'
+import { lessonTab, type LessonEx } from './lessonExtras'
+import { exampleDoc } from '../tabs/examples'
+import type { Song } from '../tabs/model'
+import { go as goTab, openInPlay, openSongs } from '../nav'
 import { allLogs, dailyGoalMin, dayCounts, dayKey, isAway, setAway, stars, streak, todayLog, useProgress, COUNTS_AFTER_SEC } from './progress'
 import { freezes, levelInfo, questProgress, todaysQuests } from './game'
 import { course, findQuiz } from './quiz'
@@ -28,6 +37,7 @@ import { ago } from '../components/BackupPanel'
 type Route =
   | { k: 'home' } | { k: 'quiz'; id: string } | { k: 'lesson'; id: string } | { k: 'lessons' } | { k: 'ear' } | { k: 'caged' }
   | { k: 'changes' } | { k: 'rhythm' } | { k: 'circle' } | { k: 'progress' } | { k: 'settings' } | { k: 'guide' }
+  | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' }
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -69,6 +79,19 @@ export function LearnScreen() {
   const [openUnit, setOpenUnit] = useState<string | null>(null)
   const [allStages, setAllStages] = useState(false)
   const [awayNote, setAwayNote] = useState('')
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const f = () => setTick(t => t + 1)
+    window.addEventListener('kg:profile', f)
+    return () => window.removeEventListener('kg:profile', f)
+  }, [])
+  // the Learn button again: back to Learn's home
+  useEffect(() => {
+    const f = (e: Event) => { if ((e as CustomEvent).detail === 'learn') setStack([{ k: 'home' }]) }
+    window.addEventListener('kg:navTop', f)
+    return () => window.removeEventListener('kg:navTop', f)
+  }, [])
+
   const route = stack[stack.length - 1]
   const push = (r: Route) => { setStack(s => [...s, r]); document.getElementById('main')?.scrollTo({ top: 0 }) }
   const back = () => setStack(s => (s.length > 1 ? s.slice(0, -1) : s))
@@ -81,12 +104,49 @@ export function LearnScreen() {
     const doc: SongDoc = { id, title: song.title, source: 'lesson', inst: inst.id, song, updated: Date.now() }
     openInPlay(doc)
   }
+  async function openSongbook(song: string, part: string) {
+    const doc = await loadSongbookDoc(song, part, inst)
+    if (doc) openInPlay(doc)
+  }
+  function runDrill(t: Technique) {
+    const d = t.drill
+    if ('tool' in d) push({ k: d.tool })
+    else if ('exercise' in d) void openExercise(d.exercise)
+    else if ('songbook' in d) void openSongbook(d.songbook.song, d.songbook.part)
+    else {
+      const song = drillSong(d.tab, inst.midis)
+      if (!song) return
+      openInPlay({ id: `tech:${d.tab}:${inst.id}:${inst.tuning.id}`, title: song.title, source: 'lesson', inst: inst.id, song, updated: Date.now() })
+    }
+  }
+  /** A lesson's "Play" exercise: a practice tab, a songbook part, a technique drill or a tool. */
+  function runLessonEx(ex: LessonEx) {
+    if ('tool' in ex) {
+      if (ex.tool === 'jam') goTab('progressions')
+      else push({ k: ex.tool })
+      return
+    }
+    if ('songbook' in ex) { void openSongbook(ex.songbook.song, ex.songbook.part); return }
+    if ('example' in ex) {
+      void refreshBuiltIn(exampleDoc(ex.example, inst.tuning.notes)).then(openInPlay)
+      return
+    }
+    let song: Song | null = null
+    let key = ''
+    if ('spec' in ex) { song = buildExercise(ex.spec, inst.midis); key = `${ex.spec.kind}:${ex.spec.root}:${ex.spec.type}:${ex.spec.position}:${ex.spec.scale ?? ''}` }
+    else if ('drill' in ex) { song = drillSong(ex.drill, inst.midis); key = `drill:${ex.drill}` }
+    else { song = lessonTab(ex.tab, inst.midis); key = `tab:${ex.tab}` }
+    if (!song || !song.tracks[0].bars.length) return
+    openInPlay({ id: `lib:${inst.id}:${inst.tuning.id}:${key}`, title: song.title, source: 'lesson', inst: inst.id, song, updated: Date.now() })
+  }
   function launch(g: Go) {
     if ('quiz' in g) push({ k: 'quiz', id: g.quiz })
     else if ('lesson' in g) push({ k: 'lesson', id: g.lesson })
     else if ('tool' in g) push({ k: g.tool })
     else if ('tab' in g) goTab(g.tab)
     else if ('song' in g) void getSong(g.song).then(doc => { if (doc) openInPlay(g.loop ? { ...doc, loop: g.loop } : doc); else goTab('play') })
+    else if ('songbook' in g) void openSongbook(g.songbook.song, g.songbook.part)
+    else if ('songs' in g) openSongs('songbook')
     else void openExercise(g.exercise)
   }
 
@@ -99,8 +159,11 @@ export function LearnScreen() {
   if (route.k === 'ear') return <EarTrainer inst={inst} onExit={back} />
   if (route.k === 'caged') return <CagedExplorer inst={inst} onExit={back} onQuiz={id => push({ k: 'quiz', id })} />
   if (route.k === 'lessons') return <LessonList onOpen={id => push({ k: 'lesson', id })} onExit={back} />
-  if (route.k === 'lesson') return <LessonView id={route.id} inst={inst} onExit={back} onOpen={id => replace({ k: 'lesson', id })} onGo={launch} />
+  if (route.k === 'lesson') return <LessonView id={route.id} inst={inst} onExit={back} onOpen={id => replace({ k: 'lesson', id })} onGo={launch} onExercise={runLessonEx} />
   if (route.k === 'changes') return <ChordChanges inst={inst} onExit={back} />
+  if (route.k === 'bends') return <BendTrainer inst={inst} onExit={back} />
+  if (route.k === 'techniques') return <TechniqueList onExit={back} onOpen={id => push({ k: 'technique', id })} />
+  if (route.k === 'technique') return <TechniqueView id={route.id} inst={inst} onExit={back} onDrill={t => runDrill(t)} />
   if (route.k === 'rhythm') return <RhythmTrainer onExit={back} />
   if (route.k === 'circle') return <CircleTool onExit={back} onQuiz={id => push({ k: 'quiz', id })} />
   if (route.k === 'progress') return <ProgressView inst={inst} onExit={back} />
@@ -126,6 +189,7 @@ export function LearnScreen() {
     ? st.current > 0 ? `${toKeep} more minute${toKeep === 1 ? '' : 's'} keeps your ${st.current}-day streak alive.` : `${toKeep} minutes today starts a new streak.`
     : minutes < goal ? `Streak safe for today. ${goal - minutes} min to your goal.` : 'Goal done for today. Nice work!'
   const plan = todaysPlan(inst, away, d)
+  const askAbout = !profile() && !profileSkipped()
   const planDone = plan.filter(p => p.done).length
   const quests = todaysQuests(away)
   const units = course(inst)
@@ -144,6 +208,9 @@ export function LearnScreen() {
   }
 
   const tools: { id: Route['k']; title: string; sub: string; needs?: boolean }[] = [
+    { id: 'songbook' as Route['k'], title: 'Songbook', sub: 'Folk, bluegrass, reggae' },
+    { id: 'techniques', title: 'Technique', sub: `${techniquesDone().size} of ${TECHNIQUES.length} skills practised` },
+    { id: 'bends', title: 'Bends & vibrato', sub: 'Bend to pitch with a needle' },
     { id: 'ear', title: 'Ear training', sub: 'Drone-based, by feel' },
     { id: 'lessons', title: 'Theory', sub: `${read} of ${LESSONS.length} lessons read` },
     { id: 'caged', title: `${inst.shapeSystem.join('')} explorer`, sub: 'Five shapes, whole neck' },
@@ -197,6 +264,14 @@ export function LearnScreen() {
 
       <div className="learn-cols">
         <div className="learn-col">
+
+          {askAbout && (
+            <section className="panel about-card" aria-label="About you">
+              <div className="sec-head"><h2>Make the plan yours</h2><button className="btn sm ghost" onClick={skipProfile}>Not now</button></div>
+              <p className="small muted" style={{ margin: 0 }}>Three quick questions, and today's plan picks songs and practice at your level.</p>
+              <ProfileForm />
+            </section>
+          )}
 
           <section className="panel plan" aria-label="Today's plan">
             <div className="sec-head">
@@ -303,7 +378,7 @@ export function LearnScreen() {
           <section aria-label="Tools">
             <div className="tool-grid">
               {tools.map(t => (
-                <button key={t.id} className="tool" onClick={() => push({ k: t.id } as Route)}>
+                <button key={t.id} className="tool" onClick={() => ((t.id as string) === 'songbook' ? openSongs('songbook') : push({ k: t.id } as Route))}>
                   <b>{t.title}</b>
                   <span className="small muted">{t.needs && away ? `Needs your ${inst.noun}` : t.sub}</span>
                 </button>

@@ -4,6 +4,8 @@ import type { Instrument } from '../instrument'
 import { allLogs, dayCounts, dayKey, itemStats, mastery, stars, streak, type DayLog, type Activity } from './progress'
 import { ALL_BADGES, earnedBadges, freezes, levelInfo } from './game'
 import { course } from './quiz'
+import { Zoomable } from '../components/Zoomable'
+import { changesTrend, cleanSpeeds, rhythmTrend, timingTrend, type Point } from './trends'
 
 const WEEKS = 16
 const DAY_NAMES = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
@@ -77,6 +79,7 @@ export function ProgressView({ inst, onExit }: { inst: Instrument; onExit: () =>
 
       <section className="panel stack" style={{ gap: 8 }}>
         <h2 style={{ margin: 0 }}>Practice calendar</h2>
+        <Zoomable id="calendar" max={2.5}>
         <div className="heat" role="img" aria-label={`Practice over the last ${WEEKS} weeks`}>
           <div className="heat-days">{DAY_NAMES.map((n, i) => <span key={i}>{n}</span>)}</div>
           {grid.map((col, w) => (
@@ -91,12 +94,15 @@ export function ProgressView({ inst, onExit }: { inst: Instrument; onExit: () =>
             </div>
           ))}
         </div>
+        </Zoomable>
         <div className="heat-legend small muted">
           <span>Less</span><i className="heat-cell l1" /><i className="heat-cell l2" /><i className="heat-cell l3" /><i className="heat-cell l4" /><span>More</span>
           <i className="heat-cell l2 away" /><span>away day</span>
           <i className="heat-cell frozen" /><span>freeze</span>
         </div>
       </section>
+
+      <SkillTrends instId={inst.id} />
 
       <section className="panel stack" style={{ gap: 8 }}>
         <h2 style={{ margin: 0 }}>This week</h2>
@@ -157,5 +163,61 @@ export function ProgressView({ inst, onExit }: { inst: Instrument; onExit: () =>
         </div>
       </section>
     </div>
+  )
+}
+
+/** A small line of points: one per practice day, with the first and latest value. */
+function Spark({ points, unit, label, max }: { points: Point[]; unit: string; label: string; max?: number }) {
+  const W = 220, H = 44
+  if (!points.length) return null
+  const vs = points.map(p => p.value)
+  const hi = max ?? Math.max(...vs) * 1.1, lo = Math.min(0, ...vs)
+  const x = (i: number) => (points.length === 1 ? W / 2 : 4 + (i / (points.length - 1)) * (W - 8))
+  const y = (v: number) => H - 4 - ((v - lo) / Math.max(1e-6, hi - lo)) * (H - 8)
+  const d = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(' ')
+  const first = vs[0], last = vs[vs.length - 1]
+  return (
+    <div className="trend">
+      <div className="trend-head"><b>{label}</b><span className="small muted">{points.length} day{points.length === 1 ? '' : 's'}</span></div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} role="img" aria-label={`${label}: ${first}${unit} at first, ${last}${unit} now`}>
+        <path className="trend-line" d={d} />
+        {points.map((p, i) => <circle key={p.day} className="trend-dot" cx={x(i)} cy={y(p.value)} r={i === points.length - 1 ? 3.5 : 2} />)}
+      </svg>
+      <span className="small">{points.length > 1 ? <>From <b>{first}{unit}</b> to <b>{last}{unit}</b>{last > first ? ' ↑' : last < first ? ' ↓' : ''}</> : <>So far: <b>{last}{unit}</b></>}</span>
+    </div>
+  )
+}
+
+function SkillTrends({ instId }: { instId: string }) {
+  const changes = changesTrend(), timing = timingTrend(instId), rhythm = rhythmTrend(), speeds = cleanSpeeds(instId)
+  const pct = (v: number) => (v >= 1 ? 'full speed' : v >= 0.75 ? `${Math.round(v * 100)}%` : `${Math.round(v * 100)}%`)
+  if (!changes.length && !timing.length && !rhythm.length && !speeds.length) {
+    return (
+      <section className="panel stack" style={{ gap: 6 }}>
+        <h2 style={{ margin: 0 }}>Skill trends</h2>
+        <p className="small muted" style={{ margin: 0 }}>Do a round of chord changes, play a song In time or try the rhythm trainer, and your progress shows up here day by day.</p>
+      </section>
+    )
+  }
+  return (
+    <section className="panel stack" style={{ gap: 10 }}>
+      <h2 style={{ margin: 0 }}>Skill trends</h2>
+      <div className="trends">
+        <Spark points={changes} unit=" a minute" label="Chord changes" />
+        <Spark points={timing} unit="%" label="On time (In time)" max={100} />
+        <Spark points={rhythm} unit="%" label="Rhythm trainer" max={100} />
+      </div>
+      {speeds.length > 0 && (
+        <div className="stack" style={{ gap: 4 }}>
+          <b>Clean speed per song</b>
+          <ul className="act-list small">
+            {speeds.map(s => (
+              <li key={s.id}><span>{s.title}</span><b>{s.best > s.first ? `${pct(s.first)} → ${pct(s.best)}` : pct(s.best)}</b></li>
+            ))}
+          </ul>
+          <span className="small muted">The fastest speed you've played each song at 85% or better.</span>
+        </div>
+      )}
+    </section>
   )
 }

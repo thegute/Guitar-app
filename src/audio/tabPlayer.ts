@@ -3,6 +3,7 @@
 import { audio } from './engine'
 import { playNote, strum, isPowerChord, activeSound, soundInfo, type SoundId } from './pluck'
 import type { FlatStep } from '../tabs/model'
+import { BandVoices, type BandEvent } from './band'
 
 export class TabPlayer {
   onStep?: (flatIdx: number) => void
@@ -18,6 +19,13 @@ export class TabPlayer {
   sound?: SoundId
   /** overall level (the quiet guide while you play uses less) */
   level = 1
+  /** the band under the tab: events for each step, with their offset in beats (see audio/band.ts) */
+  band?: { off: number; e: BandEvent }[][]
+  /** false: the band only (In time with the band, you play the part) */
+  part = true
+  /** chord sheets: play each chord with this strum pattern; offs = each step's start inside its bar */
+  strum?: { hits: [number, string][]; offs: number[] }
+  private voices = new BandVoices()
 
   /** Play steps [from, to) at the given tempo (quarter notes per minute). With `loopFrom`, it jumps back there at `to` and keeps going. */
   play(flat: FlatStep[], from: number, bpm: number, to = flat.length, loopFrom?: number) {
@@ -36,12 +44,31 @@ export class TabPlayer {
           i = loopFrom
         }
         const st = flat[i].step
+        const spb = 60 / bpm
+        for (const { off, e } of this.band?.[i] ?? []) this.voices.play(e, t + off * spb, spb)
+        if (!this.part) { this.queue.push({ t, i }); t += st.dur * spb; i++; continue }
         const notes = st.notes
         const ns = notes.filter(n => n.tech !== 'x')
         notes.forEach(n => { if (n.tech === 'x') { this.ringing.get(n.string)?.stop(t); this.ringing.delete(n.string) } })
         // through a distorted amp, players mute the last note when they pick the next one (otherwise it's mush)
         if (amp && ns.length === 1) { this.ringing.forEach(h => h.stop(t)); this.ringing.clear() }
-        if (isPowerChord(ns.map(n => n.midi)) && ns.length >= 2) {
+        const sp = this.strum
+        if (sp && st.chord && new Set(ns.map(n => n.midi % 12)).size >= 3) {
+          // strum along: down, up, bass note or a short chop at each stroke of the pattern
+          const off = sp.offs[i] ?? 0
+          const ms = ns.map(n => n.midi)
+          this.ringing.forEach(h => h.stop(t))
+          this.ringing.clear()
+          for (const [p, k] of sp.hits) {
+            if (p < off - 1e-6 || p >= off + st.dur - 1e-6) continue
+            const at = t + (p - off) * spb
+            const h = k === 'B' ? playNote(Math.min(...ms), at, 0.7 * this.level, undefined, { sound: this.sound })
+              : strum(k === 'U' ? ms.slice(-4) : ms, at, { up: k === 'U', gain: (k === 'X' ? 0.5 : 0.62) * this.level, sound: this.sound, spread: k === 'X' ? 0.006 : 0.014 })
+            if (k === 'X') h.stop(at + 0.11)
+            this.all.push(h)
+            this.ringing.set(-1 - this.all.length, h)
+          }
+        } else if (isPowerChord(ns.map(n => n.midi)) && ns.length >= 2) {
           // power chords play as one recorded chord on the amp sounds (palm muted if the tab says PM)
           ns.forEach(n => this.ringing.get(n.string)?.stop(t))
           const h = strum(ns.map(n => n.midi), t, { gain: 0.7 * this.level, sound: this.sound, pm: ns.some(n => n.tech === 'PM'), spread: 0.012 })
@@ -88,6 +115,7 @@ export class TabPlayer {
     const now = audio().currentTime
     for (const h of this.all) h.stop(now)
     this.all = []
+    this.voices.stop(now)
     this.ringing.clear()
     this.queue = []
     this.playing = false

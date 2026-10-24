@@ -59,6 +59,8 @@ export class NoteListener {
   private chroma: { acc: number[]; at: number } | null = null
   private raf = 0
 
+  /** the open input while listening (so a recording can share it) */
+  get mediaStream() { return this.stream }
   /** loudness needed to count as a note: lower = more sensitive */
   get gate() { return this.gateV }
   set gate(g: number) { this.gateV = g; if (this.det) this.det.gate = g }

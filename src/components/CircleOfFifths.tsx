@@ -2,6 +2,7 @@
 // Shows the chords of the selected key as one connected slice, roman numerals, the key signature,
 // and lights up whichever chord is sounding.
 import { pc } from '../theory/notes'
+import { useZoomBox } from './Zoomable'
 
 export const CIRCLE_MAJOR = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'Db', 'Ab', 'Eb', 'Bb', 'F']
 export const CIRCLE_MINOR = ['Am', 'Em', 'Bm', 'F#m', 'C#m', 'G#m', 'D#m', 'Bbm', 'Fm', 'Cm', 'Gm', 'Dm']
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export function CircleOfFifths({ tonic, minor = false, active, used = [], onPick, size = 320, showRomans = true }: Props) {
+  const zoom = useZoomBox('circle')
   const S = 320
   const c = S / 2
   const R = [154, 112, 76, 46] // outer edge, major/minor border, minor/dim border, inner hole
@@ -80,7 +82,9 @@ export function CircleOfFifths({ tonic, minor = false, active, used = [], onPick
     })
 
   return (
-    <svg className="cof" viewBox={`0 0 ${S} ${S}`} width={size} height={size} role="img" aria-label={`Circle of fifths, key of ${tonic} ${minor ? 'minor' : 'major'}`}>
+    <div className="zoom-host cof-zoom">
+    <div className={`cof-scroll${zoom.z > 1.02 ? ' zoomed' : ''}`} ref={zoom.box}>
+    <svg className="cof" viewBox={`0 0 ${S} ${S}`} width={size * zoom.z} height={size * zoom.z} role="img" aria-label={`Circle of fifths, key of ${tonic} ${minor ? 'minor' : 'major'}`}>
       {ring(CIRCLE_MAJOR, R[1], R[0], 'maj', romanMaj, 19)}
       {ring(CIRCLE_MINOR, R[2], R[1], 'min', romanMin, 14)}
       {ring(CIRCLE_DIM, R[3], R[2], 'dim', romanDim, 11)}
@@ -88,5 +92,8 @@ export function CircleOfFifths({ tonic, minor = false, active, used = [], onPick
       <text x={c} y={c - 4} textAnchor="middle" fontSize={15} fontWeight={700} fill="var(--pearl)">{tonic}{minor ? 'm' : ''}</text>
       <text x={c} y={c + 13} textAnchor="middle" fontSize={10} fill="var(--pearl-2)">{SIG[key]}</text>
     </svg>
+    </div>
+    {zoom.reset}
+    </div>
   )
 }

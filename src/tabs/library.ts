@@ -6,7 +6,7 @@ export interface SongDoc {
   id: string
   title: string
   artist?: string
-  source: 'gp' | 'text' | 'chords' | 'example' | 'lesson' | 'jam'
+  source: 'gp' | 'text' | 'chords' | 'example' | 'lesson' | 'jam' | 'songbook'
   /** which bank the song lives in: the instrument mode it was added in */
   inst?: InstrumentId
   song: Song
@@ -83,6 +83,17 @@ export async function listSongs(inst?: InstrumentId): Promise<SongDoc[]> {
   }
   return all.filter(d => !inst || docInstrument(d) === inst).sort((a, b) => b.updated - a.updated)
 }
+/** A built-in tab (example, songbook part) made fresh so fixes in a new build reach it, keeping what you added to
+ *  your saved copy: video link and sync, chord edits, key, loop, track and where you left off. Saves and returns it. */
+export async function refreshBuiltIn(fresh: SongDoc): Promise<SongDoc> {
+  const old = await getSong(fresh.id)
+  const doc: SongDoc = old
+    ? { ...fresh, youtube: old.youtube, ytSync: old.ytSync, chords: old.chords, key: old.key, loop: old.loop, track: old.track, cursor: old.cursor }
+    : fresh
+  await saveSong(doc)
+  return doc
+}
+
 export async function getSong(id: string): Promise<SongDoc | undefined> {
   try {
     return await tx<SongDoc | undefined>('readonly', s => s.get(id))

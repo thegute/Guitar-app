@@ -1,7 +1,7 @@
 // A small YouTube player for playing along: speed control and an A–B loop for practising a section.
 import { useEffect, useRef, useState } from 'react'
 import { youtubeId, youtubeStart } from '../tabs/library'
-import type { VideoApi, VideoSync } from '../play/inTime'
+import { fitTaps, type VideoApi, type VideoSync } from '../play/inTime'
 
 interface YTPlayer {
   playVideo(): void
@@ -53,9 +53,11 @@ interface Props {
   onSync?: (s: VideoSync | undefined) => void
   /** the tab's tempo, the starting guess for syncing */
   tabBpm?: number
+  /** the line under the link box (default: use headphones so the mic hears only you) */
+  note?: string
 }
 
-export function YouTubePlayer({ url, onUrl, onApi, sync, onSync, tabBpm = 90 }: Props) {
+export function YouTubePlayer({ url, onUrl, onApi, sync, onSync, tabBpm = 90, note = 'Use headphones, so the mic hears only your guitar.' }: Props) {
   const id = url ? youtubeId(url) : null
   const [draft, setDraft] = useState('')
   const [bad, setBad] = useState(false)
@@ -75,7 +77,7 @@ export function YouTubePlayer({ url, onUrl, onApi, sync, onSync, tabBpm = 90 }: 
             <button className="btn primary" type="submit">Add</button>
           </div>
           {bad && <span className="small" style={{ color: 'var(--jewel)' }}>That doesn't look like a YouTube link.</span>}
-          <span className="small muted">Use headphones, so the mic hears only your guitar.</span>
+          <span className="small muted">{note}</span>
         </form>
       </div>
     )
@@ -94,7 +96,10 @@ function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90 }: Props & { 
   const [loop, setLoop] = useState(false)
   const [syncOpen, setSyncOpen] = useState(false)
   const [bpmDraft, setBpmDraft] = useState(String(Math.round(sync?.bpm ?? tabBpm)))
-  const taps = useRef<number[]>([])
+  // tap to sync: video times of the taps
+  const vtaps = useRef<number[]>([])
+  const [tapCount, setTapCount] = useState(0)
+  const [tapNote, setTapNote] = useState('')
   const start = youtubeStart(url)
   const origin = typeof location !== 'undefined' && /^https?:/.test(location.origin) ? location.origin : ''
   const src = `https://www.youtube.com/embed/${id}?enablejsapi=1&playsinline=1&rel=0&start=${start}${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`
@@ -189,30 +194,37 @@ function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90 }: Props & { 
       {syncOpen && onSync && (
         <div className="yt-sync small">
           <p style={{ margin: 0 }}>Line the video up with the tab, so the tab scrolls with the recording in <b>In time</b> mode.</p>
-          <ol>
-            <li>Play the video from the start.</li>
-            <li>Tap <b>Bar 1 starts now</b> right on the first beat of the tab's first bar.</li>
-            <li>Set the recording's tempo: type it, or tap <b>Tap the beat</b> along with the music 8 times.</li>
-          </ol>
+          <p style={{ margin: 0 }}><b>Tap to sync:</b> play the video and tap <b>Tap along</b> on every beat, starting on the first beat of the tab. After 8 taps the tempo and start are set; keep tapping to make it more exact.</p>
           <div className="row">
-            <button className="btn sm primary" onClick={() => onSync({ offset: now(), bpm: Number(bpmDraft) || tabBpm })}>Bar 1 starts now</button>
-            <label className="row" style={{ gap: 4 }}>BPM <input className="input" style={{ width: 70, flex: 'none' }} inputMode="numeric" value={bpmDraft} onChange={e => { setBpmDraft(e.target.value); const v = Number(e.target.value); if (sync && v > 20 && v < 320) onSync({ ...sync, bpm: v }) }} /></label>
-            <button className="btn sm" onClick={() => {
-              const t = performance.now()
-              taps.current = [...taps.current.filter(x => t - x < 4000), t].slice(-9)
-              const ts = taps.current
-              if (ts.length >= 4) {
-                const gap = (ts[ts.length - 1] - ts[0]) / (ts.length - 1) / 1000
-                const r = player.current?.getPlaybackRate?.() ?? 1
-                const bpm = Math.round(60 / (gap * r))
-                setBpmDraft(String(bpm))
-                if (sync) onSync({ ...sync, bpm })
+            <button className="btn primary tap-sync" disabled={!ready} onClick={() => {
+              const t = now()
+              // a pause of more than 3 seconds starts a new set of taps
+              const prev = vtaps.current
+              // the same moment again (the video is paused) or a double tap: not a beat
+              if (prev.length && Math.abs(t - prev[prev.length - 1]) < 0.12) { setTapNote('Play the video, then tap on the beat.'); return }
+              setTapNote('')
+              vtaps.current = prev.length && (t - prev[prev.length - 1] > 3 || t < prev[prev.length - 1]) ? [t] : [...prev, t].slice(0, 200)
+              setTapCount(vtaps.current.length)
+              const fit = fitTaps(vtaps.current)
+              if (fit && vtaps.current.length >= 8) {
+                const bpm = Math.round((60 / fit.spb) * 10) / 10
+                setBpmDraft(String(Math.round(bpm)))
+                onSync({ offset: fit.offset, bpm })
               }
-            }}>Tap the beat</button>
+            }}>Tap along{tapCount ? ` (${tapCount})` : ''}</button>
+            {tapCount > 0 && tapCount < 8 && !tapNote && <span className="muted">{8 - tapCount} more…</span>}
+            {tapNote && <span className="muted">{tapNote}</span>}
           </div>
+          <details>
+            <summary>Set it by hand</summary>
+            <div className="row" style={{ marginTop: 6 }}>
+              <button className="btn sm" onClick={() => onSync({ offset: now(), bpm: Number(bpmDraft) || tabBpm })}>Bar 1 starts now</button>
+              <label className="row" style={{ gap: 4 }}>BPM <input className="input" style={{ width: 70, flex: 'none' }} inputMode="numeric" value={bpmDraft} onChange={e => { setBpmDraft(e.target.value); const v = Number(e.target.value); if (sync && v > 20 && v < 320) onSync({ ...sync, bpm: v }) }} /></label>
+            </div>
+          </details>
           {sync && (
             <div className="row">
-              <span>Bar 1 at {fmt(sync.offset)}.{String(Math.round((sync.offset % 1) * 10))} · {Math.round(sync.bpm)} BPM</span>
+              <span>✓ Bar 1 at {fmt(sync.offset)}.{String(Math.floor((sync.offset % 1) * 10))}, {Math.round(sync.bpm)} BPM</span>
               <button className="btn sm" onClick={() => onSync({ ...sync, offset: sync.offset - 0.05 })}>Tab is late</button>
               <button className="btn sm" onClick={() => onSync({ ...sync, offset: sync.offset + 0.05 })}>Tab is early</button>
               <button className="btn sm ghost" onClick={() => onSync(undefined)}>Clear</button>

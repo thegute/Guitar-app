@@ -252,7 +252,7 @@ export const QUIZZES: QuizDef[] = [
     items: inst => OPEN_CHORDS[inst.id].filter(n => openShape(n, inst)).map(n => `cs:${inst.id}:${n}`),
     make: (item, inst, rnd) => {
       const name = item.split(':')[2]
-      const opts = shuffle([name, ...distractors(name, OPEN_CHORDS[inst.id], rnd, 2)], rnd)
+      const opts = shuffle([name, ...distractors(name, OPEN_CHORDS[inst.id].filter(n => openShape(n, inst)), rnd, 2)], rnd)
       return {
         item, prompt: `Which shape is ${name}?`,
         input: { type: 'diagrams', options: opts.map(o => ({ id: o, voicing: openShape(o, inst)! })).filter(o => o.voicing) },

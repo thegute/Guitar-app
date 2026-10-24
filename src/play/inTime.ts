@@ -3,7 +3,8 @@
 import { audio } from '../audio/engine'
 import { playClick } from '../audio/metronome'
 import { playNote, type SoundId } from '../audio/pluck'
-import { playable, type FlatStep } from '../tabs/model'
+import { pickupShift, playable, type FlatStep } from '../tabs/model'
+import { BandVoices, type BandEvent } from '../audio/band'
 
 export interface TimedStep {
   flat: number
@@ -15,15 +16,35 @@ export interface TimedStep {
   chord: boolean
 }
 
-/** Lay the tab out on a beat timeline. */
-export function timeline(flat: FlatStep[]): { steps: TimedStep[]; total: number; beatOf: number[] } {
+/** Lay the tab out on a beat timeline. With a strum pattern, each chord of a chord sheet becomes one step per
+ *  strum (timed separately; a bass stroke is judged by its bass note). */
+export function timeline(flat: FlatStep[], strum?: { hits: [number, string][] } | null, meter = 4): { steps: TimedStep[]; total: number; beatOf: number[] } {
   const steps: TimedStep[] = []
   const beatOf: number[] = []
   let b = 0
+  let barAt = 0, bar = -1
+  // a short first bar is a pickup that ends on the last beat
+  const lens: number[] = []
+  for (const f of flat) lens[f.bar] = (lens[f.bar] ?? 0) + f.step.dur
+  const pick = pickupShift(Array.from(lens, l => l ?? 0), meter)
   flat.forEach((f, i) => {
+    if (f.bar !== bar) {
+      // where this bar starts
+      bar = f.bar
+      barAt = i === 0 ? b - pick : b
+    }
     beatOf.push(b)
     const ns = playable(f.step)
-    if (ns.length) steps.push({ flat: i, beat: b, dur: f.step.dur, midis: ns.map(n => n.midi), chord: new Set(ns.map(n => n.midi % 12)).size >= 3 })
+    const chord = new Set(ns.map(n => n.midi % 12)).size >= 3
+    if (ns.length && strum && chord && f.step.chord) {
+      const off = b - barAt
+      const hits = strum.hits.filter(([p]) => p >= off - 1e-6 && p < off + f.step.dur - 1e-6)
+      for (const [p, k] of hits) {
+        const low = ns.reduce((a, n) => (n.midi < a.midi ? n : a))
+        steps.push(k === 'B' ? { flat: i, beat: barAt + p, dur: 0.5, midis: [low.midi], chord: false } : { flat: i, beat: barAt + p, dur: 0.5, midis: ns.map(n => n.midi), chord: true })
+      }
+      if (!hits.length) steps.push({ flat: i, beat: b, dur: f.step.dur, midis: ns.map(n => n.midi), chord })
+    } else if (ns.length) steps.push({ flat: i, beat: b, dur: f.step.dur, midis: ns.map(n => n.midi), chord })
     b += f.step.dur
   })
   return { steps, total: b, beatOf }
@@ -77,13 +98,15 @@ export class InternalClock implements Clock {
   private timer: ReturnType<typeof setInterval> | null = null
   private nextClick = 0
   private guideNext = 0
+  private bandNext = 0
+  private voices = new BandVoices()
   private stopped = false
   passes = 0
   constructor(
     private fromBeat: number,
     private toBeat: number,
     bpm: number,
-    private opts: { loop: boolean; click: boolean; countIn: number; guide?: { steps: TimedStep[]; flat: FlatStep[]; sound?: SoundId }; onWrap?: () => number | void },
+    private opts: { loop: boolean; click: boolean; countIn: number; guide?: { steps: TimedStep[]; flat: FlatStep[]; sound?: SoundId }; band?: BandEvent[]; onWrap?: () => number | void },
   ) {
     this.spbNow = 60 / bpm
     const ctx = audio()
@@ -111,12 +134,24 @@ export class InternalClock implements Clock {
       this.t0 = wrapAt
       this.nextClick = Math.ceil(this.fromBeat)
       this.guideNext = 0
+      this.bandNext = 0
     }
     if (this.opts.click) {
       while (this.nextClick < this.toBeat && this.timeOf(this.nextClick) <= horizon) {
         const t = this.timeOf(this.nextClick)
         if (t >= ctx.currentTime - 0.01) playClick(t, 'wood', Math.round(this.nextClick) % 4 === 0 ? 'accent' : 'beat', 0.55)
         this.nextClick++
+      }
+    }
+    const band = this.opts.band
+    if (band) {
+      // the band: drums, bass and other parts on the same beat timeline
+      if (!this.bandNext) while (this.bandNext < band.length && band[this.bandNext].beat < this.fromBeat - 1e-6) this.bandNext++
+      while (this.bandNext < band.length && band[this.bandNext].beat < this.toBeat - 1e-6 && this.timeOf(band[this.bandNext].beat) <= horizon) {
+        const e = band[this.bandNext]
+        const t = this.timeOf(e.beat)
+        if (t >= ctx.currentTime - 0.01) this.voices.play(e, t, this.spbNow)
+        this.bandNext++
       }
     }
     const g = this.opts.guide
@@ -140,6 +175,7 @@ export class InternalClock implements Clock {
     this.stopped = true
     if (this.timer) clearInterval(this.timer)
     this.timer = null
+    this.voices.stop(audio().currentTime)
   }
 }
 
@@ -200,4 +236,22 @@ export function matchTimed(
     if (!best || Math.abs(errMs) < Math.abs(best.errMs)) best = { step: i, errMs }
   }
   return best
+}
+
+/** Tap to sync: fit evenly spaced beats to tap times (seconds). Missed or doubled taps are absorbed: each tap is
+ *  given the beat number nearest the median gap, then a straight line gives the start (offset) and seconds per beat. */
+export function fitTaps(times: number[]): { offset: number; spb: number } | null {
+  if (times.length < 4) return null
+  const gaps = times.slice(1).map((t, i) => t - times[i]).filter(g => g > 0.15).sort((a, b) => a - b)
+  if (!gaps.length) return null
+  const med = gaps[Math.floor(gaps.length / 2)]
+  const idx = times.map(t => Math.round((t - times[0]) / med))
+  const n = times.length
+  const mx = idx.reduce((a, b) => a + b, 0) / n, my = times.reduce((a, b) => a + b, 0) / n
+  let sxy = 0, sxx = 0
+  for (let i = 0; i < n; i++) { sxy += (idx[i] - mx) * (times[i] - my); sxx += (idx[i] - mx) ** 2 }
+  if (!sxx) return null
+  const spb = sxy / sxx
+  if (spb < 0.18 || spb > 2) return null
+  return { offset: my - spb * mx, spb }
 }

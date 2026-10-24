@@ -14,6 +14,8 @@ import { parseSymbol } from '../theory/chords'
 import { pc, SHARPS, FLATS, keyPrefersFlats } from '../theory/notes'
 import { chordShapes, SUFFIX_IV, type Instrument } from '../instrument'
 import { addXp, bump, isAway, usePracticeTimer } from './progress'
+import { logSkill } from './trends'
+import { Zoomable } from '../components/Zoomable'
 
 function read<T>(k: string, d: T): T {
   try { const raw = localStorage.getItem(k); return raw ? (JSON.parse(raw) as T) : d } catch { return d }
@@ -128,6 +130,7 @@ export function ChordChanges({ inst, onExit }: { inst: Instrument; onExit: () =>
     h[key] = [...(h[key] ?? []), n].slice(-12)
     write('kg:changesHistory', h)
     setHist(h)
+    logSkill('changes', n, key)
     bump('changesRounds')
     addXp(15)
     setPhase('done')
@@ -149,12 +152,14 @@ export function ChordChanges({ inst, onExit }: { inst: Instrument; onExit: () =>
       </p>
       {away && <p className="notice small">You're in away mode. This one needs your {inst.noun}, so save it for when you're home.</p>}
       <Chips label="Chord pair" items={pairs.map((p, i) => ({ id: i, label: p.join(' ↔ ') }))} value={pi % pairs.length} onChange={v => { setPi(v); setPhase('ready') }} />
+      <Zoomable id="changes" max={2.2}>
       <div className="changes-chords">
         {pair.map((sym, i) => shapes[i] && (
           <ChordDiagram key={sym} name={sym} voicing={shapes[i]!} active={phase === 'run' && cur === i} size={1.05}
             onClick={() => strum(shapes[i]!.frets.map((f, s) => (f < 0 ? -1 : inst.midis[s] + f)).filter(m => m > 0))} />
         ))}
       </div>
+      </Zoomable>
       <div className="row">
         <label className="row small" style={{ gap: 6 }}>
           <input type="checkbox" checked={useMic} onChange={e => setUseMic(e.target.checked)} disabled={phase === 'run' || phase === 'count'} />
@@ -337,6 +342,7 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
     const errs = rs.flatMap(r => r.errs)
     const mean = errs.length ? Math.round(errs.reduce((a, b) => a + b, 0) / errs.length) : 0
     setDone({ pct, mean })
+    logSkill('rhythm', pct)
     bump('rhythmRounds')
     if (pct >= 80) {
       bump('rhythm80')

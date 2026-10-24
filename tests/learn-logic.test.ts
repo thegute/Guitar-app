@@ -65,6 +65,9 @@ for (const inst of instruments()) {
       else if (single) ok(acc.length === 1, `${quiz.id} ${item} (${inst.tuning.id}): ${acc.length} accepted answers for "${q.prompt}" ${q.sub ?? ''} ${JSON.stringify(acc).slice(0, 120)}`)
       else ok(acc.length >= 1, `${quiz.id} ${item} (${inst.tuning.id}): no accepted spot for "${q.prompt}"`)
       if (q.input.type === 'choices') ok(new Set(q.input.options.map(o => o.label)).size === q.input.options.length, `${quiz.id} ${item}: duplicate choice labels ${q.input.options.map(o => o.label)}`)
+      // something to choose between: at least one wrong option next to the right one
+      if (q.input.type === 'choices' || q.input.type === 'diagrams') ok(q.input.options.length >= 2, `${quiz.id} ${item} (${inst.tuning.id}): only ${q.input.options.length} option(s)`)
+      if (q.input.type === 'diagrams' && quiz.items(inst).length >= 3) ok(q.input.options.length >= 3, `${quiz.id} ${item} (${inst.tuning.id}): ${q.input.options.length} shapes to pick from`)
     }
   }
 }

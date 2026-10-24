@@ -11,6 +11,7 @@ import { pc, SHARPS } from '../theory/notes'
 import type { Instrument } from '../instrument'
 import { cagedShapes, shapeWindow } from './caged'
 import { usePracticeTimer } from './progress'
+import { Zoomable } from '../components/Zoomable'
 
 type Overlay = 'chord' | 'arp' | 'penta' | 'scale' | 'triads'
 const IV = ['R', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7']
@@ -107,7 +108,7 @@ export function CagedExplorer({ inst, onExit, onQuiz }: { inst: Instrument; onEx
           </p>
         ) : shape && (
           <div className="caged-detail">
-            {voicing && <ChordDiagram name={`${name} · ${shape.letter} shape`} voicing={voicing} onClick={() => hear()} size={0.95} />}
+            {voicing && <Zoomable id="cagedChord" max={2.2}><ChordDiagram name={`${name} · ${shape.letter} shape`} voicing={voicing} onClick={() => hear()} size={0.95} /></Zoomable>}
             <div className="stack" style={{ gap: 6 }}>
               <p className="small" style={{ margin: 0 }}><b>{shape.letter} shape, frets {shape.lo}–{shape.hi}.</b> {SHAPE_TIPS[shape.letter]}</p>
               <p className="small muted" style={{ margin: 0 }}>

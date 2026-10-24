@@ -80,7 +80,11 @@ export default function App() {
       </main>
       <nav className={`nav${drawer ? ' drawer' : ''}`} aria-label="Sections" onPointerDown={navDown} onPointerMove={navMove} onPointerUp={navUp} onPointerCancel={navUp}>
         {TABS.map(t => (
-          <button key={t.id} aria-current={tab === t.id ? 'page' : undefined} onClick={() => { setTab(t.id); setDrawer(false) }}>
+          <button key={t.id} aria-current={tab === t.id ? 'page' : undefined} onClick={() => {
+            // tapping the section you're in takes you back to its start (Learn's home, the top of the page)
+            if (tab === t.id) { window.dispatchEvent(new CustomEvent('kg:navTop', { detail: t.id })); document.getElementById('main')?.scrollTo({ top: 0, behavior: 'smooth' }) }
+            setTab(t.id); setDrawer(false)
+          }}>
             <span className="nav-icon">
               <t.icon />
               {t.id === 'learn' && <i className={`nav-badge${goalDone ? ' done' : ''}`} aria-label={goalDone ? "today's goal done" : "today's goal not done yet"}>{goalDone ? '✓' : ''}</i>}

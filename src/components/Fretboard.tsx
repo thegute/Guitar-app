@@ -1,3 +1,4 @@
+import { useZoomBox } from './Zoomable'
 import { memo, useEffect, useRef, useState, type JSX } from 'react'
 import { current } from '../instrument'
 
@@ -18,6 +19,8 @@ interface Props {
   toFret?: number
   markFor: (midi: number, string: number, fret: number) => Mark | null
   onTap?: (midi: number, string: number, fret: number) => void
+  /** pinch zoom is remembered under this name (all fretboards share one by default) */
+  zoomId?: string
   /** smallest fret width in px (sets overall size) */
   minFretPx?: number
   /** tighter string spacing for small screens */
@@ -40,7 +43,8 @@ const RING: Partial<Record<MarkRole, [string, number]>> = {
   ghost: ['var(--nickel)', 1.2], next: ['var(--fb-ring)', 2.5], common: ['var(--fb-ring)', 3], target: ['var(--fb-gold)', 3],
 }
 
-function FretboardImpl({ tuning = current().midis, fromFret = 0, toFret = 15, markFor, onTap, minFretPx, compact }: Props) {
+function FretboardImpl({ tuning = current().midis, fromFret = 0, toFret = 15, markFor, onTap, minFretPx, compact, zoomId = 'fretboard' }: Props) {
+  const zoom = useZoomBox(zoomId)
   const STR_GAP = compact ? 25 : 30
   const nStr = tuning.length
   const wrap = useRef<HTMLDivElement>(null)
@@ -53,6 +57,15 @@ function FretboardImpl({ tuning = current().midis, fromFret = 0, toFret = 15, ma
     setAvail(el.clientWidth)
     return () => ro.disconnect()
   }, [])
+  // when the neck is wider than the screen: arrows at the edges show there's more, and slide it along
+  const [edge, setEdge] = useState({ left: false, right: false })
+  const onScroll = () => {
+    const el = wrap.current
+    if (!el) return
+    const next = { left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 }
+    setEdge(e => (e.left === next.left && e.right === next.right ? e : next))
+  }
+  const slide = (dir: number) => wrap.current?.scrollBy({ left: dir * wrap.current.clientWidth * 0.7, behavior: 'smooth' })
   const frets = toFret - fromFret
   // size frets to fill the available width (scroll only when they would get too small)
   let S = 0
@@ -68,6 +81,7 @@ function FretboardImpl({ tuning = current().midis, fromFret = 0, toFret = 15, ma
   const xs: number[] = [left]
   for (const w of widths) xs.push(xs[xs.length - 1] + w)
   const width = xs[xs.length - 1] + 12
+  useEffect(() => { onScroll() }, [width, zoom.z, avail]) // eslint-disable-line react-hooks/exhaustive-deps
   const boardH = STR_GAP * (nStr - 1)
   const height = PAD_Y * 2 + boardH + 18
   const y = (s: number) => PAD_Y + (nStr - 1 - s) * STR_GAP // high string at top
@@ -94,8 +108,9 @@ function FretboardImpl({ tuning = current().midis, fromFret = 0, toFret = 15, ma
   }
 
   return (
-    <div className="fretboard-wrap" ref={wrap}>
-      <svg className="fretboard" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Fretboard, frets ${fromFret} to ${toFret}`}>
+    <div className="zoom-host">
+    <div className={`fretboard-wrap${zoom.z > 1.02 ? ' zoomed' : ''}`} ref={el => { wrap.current = el; zoom.box.current = el }} onScroll={onScroll}>
+      <svg className="fretboard" width={width * zoom.z} height={height * zoom.z} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Fretboard, frets ${fromFret} to ${toFret}`}>
         <defs>
           <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor="#4a2e25" />
@@ -137,8 +152,24 @@ function FretboardImpl({ tuning = current().midis, fromFret = 0, toFret = 15, ma
             <text key={`n${f}`} x={noteX(f)} y={height - 4} textAnchor="middle" fontSize={13} fill="var(--ink-3)">{f}</text>
           ) : null,
         )}
+        {/* when the board can be tapped, every string and fret is a target, not just the dots shown */}
+        {onTap && Array.from({ length: nStr }, (_, st) => st).flatMap(st => {
+          const from = fromFret === 0 ? 0 : fromFret + 1
+          const out: JSX.Element[] = []
+          for (let f = from; f <= toFret; f++) {
+            const x0 = f === 0 ? 0 : xs[f - fromFret - 1]
+            const x1 = f === 0 ? left : xs[f - fromFret]
+            out.push(<rect key={`hit${st}-${f}`} className="fb-hit" x={x0} y={y(st) - STR_GAP / 2} width={x1 - x0} height={STR_GAP}
+              fill="transparent" data-string={st} data-fret={f} onClick={() => onTap(tuning[st] + f, st, f)} />)
+          }
+          return out
+        })}
         {marks}
       </svg>
+    </div>
+    {edge.left && <button type="button" className="fb-more left" onClick={() => slide(-1)} aria-label="Show the lower frets">‹</button>}
+    {edge.right && <button type="button" className="fb-more right" onClick={() => slide(1)} aria-label="Show the higher frets">›</button>}
+    {zoom.reset}
     </div>
   )
 }

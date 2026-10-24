@@ -24,6 +24,21 @@ node tests/browser/learn-test.cjs
 ```
 **Jam:** `node tests/browser/jam-test.cjs`. **Theme screenshots:** `node tests/browser/theme-shots.cjs`.
 
+**Quizzes by tapping** (every quiz in the practice course on guitar in away mode, tenor and baritone ukulele and DADGAD guitar:
+the first question of each gets a wrong answer, the rest the right one, tapped on the neck, note buttons, choices or chord
+diagrams the way a finger would): `node tests/browser/quiz-test.cjs [guitar|tenor|baritone|guitar-dadgad]`.
+
+**Build 13** (every theory lesson's Read / Watch / Play and each exercise, every technique drill, every songbook part on guitar
+and tenor ukulele with Hear it + band, today's plan and the path in and out of away mode, song check, retune warning, counts,
+strum arrows, rest blocks, record yourself, chord help and pinch zoom in Play, In time with the band, Find the chords in Jam
+with strummed chords as the mic and Notes mode with a plucked melody, bends, trends, About you, the wrong-string quiz hint,
+and the new screens on every size in day and night):
+```
+node tests/browser/gen-chords.cjs
+node tests/browser/out/make-gp.mjs tests/browser/out/late.gp late
+node tests/browser/build13-test.cjs [lessons technique songbook plan play intime finder melody learnmisc sizes]
+```
+
 **Build 6** (every main screen on a small phone, the Fold cover and inner screens and a 12" tablet in portrait and
 landscape, day and night; the first-launch welcome and guide, recorded sounds, strum-along chord sheet, footswitch,
 play in time, split layout, input setup, backup download, old tab names): `node tests/browser/build6-test.cjs`.

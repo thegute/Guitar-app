@@ -9,6 +9,7 @@ import { PedalSettings } from '../controls/PedalSettings'
 import { BackupPanel } from '../components/BackupPanel'
 import { useShowArt } from '../components/Art'
 import { HintHead } from '../components/Fold'
+import { ProfileForm } from '../components/ProfileForm'
 import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, instrumentSound, activeSound, soundInfo, SOUNDS, type SoundId } from '../audio/pluck'
 import { audio } from '../audio/engine'
 import { gear, isSetUp, latencyMs, useGear } from '../audio/gear'
@@ -21,6 +22,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
   const theme = useTheme()
   const [showArt, setShowArt] = useShowArt()
   const [ask, setAsk] = useState<InstrumentId | null>(null)
+  const [savedProfile, setSavedProfile] = useState(false)
   const [rem, setRem] = useState<ReminderSettings>(reminderSettings)
   const [remMsg, setRemMsg] = useState('')
   const [setup, setSetup] = useState(false)
@@ -113,6 +115,12 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
           <input type="checkbox" checked={showArt} onChange={e => setShowArt(e.target.checked)} />
           <span>Show the KGuitar poster (small, in the menu and on Learn; tap it to see it full size)</span>
         </label>
+      </section>
+
+      <section className="panel stack" style={{ gap: 10 }}>
+        <HintHead title="About you" hint="Your level, what you want to get better at and the music you like. Today's plan and the songbook use them." />
+        <ProfileForm saveLabel="Save" onSaved={() => setSavedProfile(true)} />
+        {savedProfile && <span className="small muted" role="status">Saved. Today's plan has been updated.</span>}
       </section>
 
       <section className="panel stack" style={{ gap: 10 }}>

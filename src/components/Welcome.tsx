@@ -5,6 +5,7 @@ import { GearSetup } from './GearSetup'
 import { setDailyGoalMin, dailyGoalMin } from '../learn/progress'
 import { enableReminders, reminderSettings } from '../learn/reminders'
 import { go } from '../nav'
+import { ProfileForm } from './ProfileForm'
 
 const KEY = 'kg:welcomed'
 export function needsWelcome() {
@@ -39,7 +40,7 @@ export function Welcome({ onDone }: { onDone: (then?: 'guide' | 'play') => void 
           <>
             <img className="welcome-art" src="art.jpg" alt="KGuitar's samurai chocolate lab with a neon guitar and a katana" />
             <div className="welcome-hello">
-              <div className="gear-steps" aria-hidden>{[0, 1, 2, 3, 4].map(i => <i key={i} className={i === 0 ? 'on' : ''} />)}</div>
+              <div className="gear-steps" aria-hidden>{[0, 1, 2, 3, 4, 5].map(i => <i key={i} className={i === 0 ? 'on' : ''} />)}</div>
               <h1>Welcome to KGuitar</h1>
               <p>Play along with real songs and tabs: KGuitar <b>listens while you play</b> and lights up every note you get right.</p>
               <p className="small muted">It also teaches theory, trains your ear, makes backing tracks to jam over, and helps you practise a little every day. It takes a minute to set up.</p>
@@ -47,7 +48,7 @@ export function Welcome({ onDone }: { onDone: (then?: 'guide' | 'play') => void 
             </div>
           </>
         )}
-        {step > 0 && <div className="gear-steps" aria-hidden>{[0, 1, 2, 3, 4].map(i => <i key={i} className={i < step ? 'done' : i === step ? 'on' : ''} />)}</div>}
+        {step > 0 && <div className="gear-steps" aria-hidden>{[0, 1, 2, 3, 4, 5].map(i => <i key={i} className={i < step ? 'done' : i === step ? 'on' : ''} />)}</div>}
         {step === 1 && (
           <>
             <h2>What do you play?</h2>
@@ -71,16 +72,24 @@ export function Welcome({ onDone }: { onDone: (then?: 'guide' | 'play') => void 
         )}
         {step === 2 && (
           <>
+            <h2>About you</h2>
+            <p className="small muted">So KGuitar can pick songs and practice at your level. You can change this any time in Learn → Settings.</p>
+            <ProfileForm saveLabel="Next" onSaved={() => setStep(3)} />
+            <button className="btn ghost" onClick={() => setStep(3)}>Skip</button>
+          </>
+        )}
+        {step === 3 && (
+          <>
             <h2>Let KGuitar hear you</h2>
             <p>Acoustic: the phone's mic hears you. Electric: plug a USB amp or audio interface into the phone.</p>
             <p className="small muted">A two-minute setup tunes note detection to your room and instrument. Allow the microphone when the phone asks: KGuitar only listens while you're playing and nothing is recorded or sent anywhere.</p>
             <div className="row">
               <button className="btn primary" onClick={() => setGear(true)}>Set up now</button>
-              <button className="btn" onClick={() => setStep(3)}>Later</button>
+              <button className="btn" onClick={() => setStep(4)}>Later</button>
             </div>
           </>
         )}
-        {step === 3 && (
+        {step === 4 && (
           <>
             <h2>A little every day</h2>
             <p>How many minutes a day? Any 5 minutes keeps your streak going, with or without your instrument.</p>
@@ -92,13 +101,13 @@ export function Welcome({ onDone }: { onDone: (then?: 'guide' | 'play') => void 
               <span>Remind me every day at</span>
               <input className="input" type="time" value={time} style={{ flex: 'none' }} onChange={e => setTime(e.target.value || '18:00')} />
             </label>
-            <button className="btn primary big" onClick={() => setStep(4)}>Next</button>
+            <button className="btn primary big" onClick={() => setStep(5)}>Next</button>
           </>
         )}
-        {step === 4 && (
+        {step === 5 && (
           <>
             <h2>You're set</h2>
-            <p>Start with the tour (two minutes, shows what everything does), or jump in: open a song in <b>Play</b>, tap <b>Listen</b> and play.</p>
+            <p>Start with the tour (two minutes, shows what everything does), or jump in: open a song from the <b>Songbook</b> in <b>Play</b>, tap <b>Listen</b> and play.</p>
             <div className="stack" style={{ gap: 8 }}>
               <button className="btn primary big" onClick={() => void finish('guide')}>Show me around</button>
               <button className="btn big" onClick={() => void finish('play')}>Start playing</button>
@@ -106,7 +115,7 @@ export function Welcome({ onDone }: { onDone: (then?: 'guide' | 'play') => void 
           </>
         )}
       </div>
-      {gear && <GearSetup onClose={() => { setGear(false); setStep(3) }} />}
+      {gear && <GearSetup onClose={() => { setGear(false); setStep(4) }} />}
     </div>
   )
 }

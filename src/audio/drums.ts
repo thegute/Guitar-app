@@ -189,7 +189,7 @@ export const GROOVES: Groove[] = [
   { id: 'steppers', level: 1.2, label: 'Reggae steppers', fill: 'reggae', kit: { kick: 'kickbig' }, hits: [...q('kick', 0.95), [2, 'rim', 1], ...e16('hat', 0.4)] },
   { id: 'train', label: 'Country train beat', fill: 'rock', hits: [[0, 'kick', 1], [2, 'kick', 1], ...e16('ghost', 1), [1, 'snare', 0.8], [3, 'snare', 0.8]] },
 ]
-const grooveOf = (id: string) => GROOVES.find(x => x.id === id)
+export const grooveOf = (id: string) => GROOVES.find(x => x.id === id)
 
 /** The last beat of a phrase: a fill that leads into the next bar. */
 const FILLS: Record<Fill, Hit[]> = {

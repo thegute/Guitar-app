@@ -121,8 +121,33 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   course (Continue button, units start closed), path as folds. Songs sheet: your songs first, generators folded.
   Settings explanations behind ⓘ. `.panel .panel` drops its frame.
 
+## Build 13 (songbook, coaching, Find the chords, pinch zoom)
+- Songbook: `tabs/songbook.ts` (~30 folk / bluegrass / reggae songs; ABC melodies via `tabs/abc.ts`, chord charts, parts
+  words / melody / rhythm / octaves at levels 1–4; reggae = originals + public-domain tunes; lyrics only pre-1929),
+  `tabs/fingering.ts` (Viterbi fingering), `components/Songbook.tsx` (Songs sheet fold `songsBook`), ids `sb:song:part:inst:tuning`.
+  Open built-ins through `refreshBuiltIn` (library.ts) / `loadSongbookDoc`: made fresh, keeping the owner's video, chords, loop.
+- Song model: `meter`, `strum`, `drums` (GP percussion), `backing` ({groove, bass}); `trackPickup`/`pickupShift` (model.ts)
+  is the one pickup rule (a first bar shorter than the bars after it). Examples carry their real rhythm (`EXAMPLES[].rhythm`).
+- Play: song check (`play/songCheck.ts`, `SongCheckCard.tsx`, opens once per new song, `kg:checked`), retune notice,
+  🥁 Band (`audio/band.ts`: GP drums/bass/other tracks or songbook backing; `kg:playBand`), ⏺ Record (`audio/takeRecorder.ts`),
+  1 & 2 & counts (`kg:tabCounts`), strum coach for chord sheets (`play/strumCoach.ts`, `kg:strumBySong`, In time judges each
+  strum), chord help (`play/chordHelp.ts`), clean-run nudge to In time, rest blocks (`restRuns`), tap-to-sync in the video.
+- Learn: About you (`learn/profile.ts`, Welcome step + Settings) drives the plan and songbook picks; lessons are Read / Watch /
+  Play (`learn/lessonExtras.ts`: a YouTube video per lesson, checked with oEmbed, and exercises incl. `lessonTab` tabs);
+  Technique (`learn/techniques.ts`, `TechniqueLessons.tsx`), Bends & vibrato (`BendTrainer.tsx`), skill trends (`learn/trends.ts`).
+  Quiz necks: every string/fret is a tap target (`fb-hit`); a tap on the wrong string says which string to use.
+- Jam: Find the chords (`components/SongFinder.tsx`, `audio/chordFinder.ts`, `audio/voiceGate.ts`): mic only (never YouTube
+  audio), chords (chroma templates) or a melody (NoteSegmenter), talking always and singing optionally left out.
+- Amp tones: whole recorded chords (`maj`/`min` groups, bass 40–52) for strums on crunch/metal.
+- Pinch zoom (`components/Zoomable.tsx`: `usePinch`, `Zoomable`, `useZoomBox`, `kg:zoom:<id>`): tab, fretboards (edge arrows when
+  wider than the screen), chord shapes, circle, hand shape, calendar, Jam cards. Tapping the current menu tab goes back to its start.
+- Tests: `tests/build13-logic.test.ts`; browser `tests/browser/build13-test.cjs` (lessons, technique, songbook, plan, play,
+  intime, finder, melody, learnmisc, sizes) and `tests/browser/quiz-test.cjs` (every quiz answered by tapping on screen, right
+  and wrong). Fake mics: `gen-chords.cjs` (chords.wav), `gen-ode.cjs` (ode.wav); `make-gp.mjs <out> late` for rest blocks.
+  Lesson videos were checked with YouTube oEmbed (title back = exists and embeddable); WebFetch reaches it, the shell can't.
+
 ## Next up — pick up here
-1. More review if the owner asks; the owner may want to change the hand-shape guide after trying it.
+1. The owner tries build 13 step by step; fix what they find.
 2. Keep the brother's Docs guide (https://claude.ai/artifact/7Cuc18hXrt23FDQ1PniqV5) in step with the in-app guide.
 
 ## Ideas not done yet

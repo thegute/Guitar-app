@@ -28,7 +28,7 @@ function clean(text: string) {
 }
 
 /** The shape to show and listen for: the first (most common) shape on this instrument. */
-function shapeNotes(name: string, inst: Instrument, capo: number) {
+export function shapeNotes(name: string, inst: Instrument, capo: number) {
   const { root, suffix } = parseSymbol(name)
   const v = chordShapes(root, suffix, inst)[0] ?? generateShapes(root, suffix, inst.midis, 1)[0] ?? generateShapes(root, 'major', inst.midis, 1)[0]
   if (!v) return []

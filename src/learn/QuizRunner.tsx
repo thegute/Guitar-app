@@ -10,10 +10,11 @@ import { audio } from '../audio/engine'
 import { NoteListener } from '../tabs/follow'
 import { ChromaListener, chordMatch } from '../audio/chroma'
 import { FLATS, SHARPS } from '../theory/notes'
-import type { Instrument } from '../instrument'
+import { stringName, type Instrument } from '../instrument'
 import type { Answer, Question, QuizDef } from './quiz'
 import { bump, itemStats, itemWeight, recordItem, setStars, todayLog, usePracticeTimer, isAway } from './progress'
 import { bumpCombo } from './game'
+import { Zoomable } from '../components/Zoomable'
 
 const NAT = [0, 2, 4, 5, 7, 9, 11]
 const label = (p: number) => (SHARPS[p] === FLATS[p] ? SHARPS[p] : `${SHARPS[p]}/${FLATS[p]}`)
@@ -39,6 +40,8 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
   const [done, setDone] = useState(false)
   const [micMsg, setMicMsg] = useState('')
   const [micInput, setMicInput] = useState<{ label: string; external: boolean } | null>(null)
+  // a tap on a string the question doesn't use: say which string to use instead of doing nothing
+  const [neckHint, setNeckHint] = useState('')
   const shownAt = useRef(0)
   const lastItem = useRef('')
   const xpStart = useRef(todayLog().xp ?? 0)
@@ -64,6 +67,7 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
     setPicked([])
     setSpell([])
     setMicMsg('')
+    setNeckHint('')
     triedWrong.current = false
     live.current.answered = false
     shownAt.current = performance.now()
@@ -175,6 +179,7 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
     return <QuizEnd quiz={quiz} pct={pct} stars={stars} played={playMode} xp={(todayLog().xp ?? 0) - xpStart.current} onAgain={() => { setN(0); setRight(0); setTimes([]); setCombo(0); setDone(false); xpStart.current = todayLog().xp ?? 0; next() }} onExit={onExit} />
   }
   if (!q) return null
+  if ((window as unknown as { __kgTest?: boolean }).__kgTest) (window as unknown as { __kgQuestion?: Question }).__kgQuestion = q
 
   const reveal = result ? q.reveal ?? [] : []
   const neckInput = q.input.type === 'neck' ? q.input : null
@@ -189,7 +194,15 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
   }
   const onNeckTap = (_m: number, s: number, f: number) => {
     if (result || !neckInput || playMode) return
-    if (neckInput.strings && !neckInput.strings.includes(s)) return
+    if (neckInput.strings && !neckInput.strings.includes(s)) {
+      const names = neckInput.strings.map(x => stringName(inst.midis, x))
+      // the neck is drawn with the first string at the bottom and the last at the top
+      const one = neckInput.strings.length === 1 ? neckInput.strings[0] : -1
+      const where = one === 0 ? ': the bottom line of the neck' : one === inst.midis.length - 1 ? ': the top line of the neck' : ''
+      setNeckHint(`That's the ${stringName(inst.midis, s)} string. Tap on the ${names.join(', ')} string${names.length > 1 ? 's' : ''}${where}.`)
+      return
+    }
+    setNeckHint('')
     if (picked.some(p => p.s === s && p.f === f)) { setPicked(picked.filter(p => !(p.s === s && p.f === f))); return }
     // one note per string when finding triads
     const next = neckInput.strings && neckInput.count > 1 ? [...picked.filter(p => p.s !== s), { s, f }] : [...picked, { s, f }]
@@ -224,7 +237,7 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
         <div className="quiz-prompt">{q.prompt}</div>
         {q.sub && <div className="small muted">{q.sub}</div>}
         {q.audio && <button className="btn sm" style={{ marginTop: 8 }} onClick={() => playAudio()}>▶ Play again</button>}
-        {q.diagram && <div className="quiz-diagram"><ChordDiagram voicing={q.diagram} size={1.3} /></div>}
+        {q.diagram && <Zoomable id="quizDiagram" max={2.2}><div className="quiz-diagram"><ChordDiagram voicing={q.diagram} size={1.3} /></div></Zoomable>}
         {(q.neck || (result && reveal.length > 0)) && (
           <Fretboard tuning={inst.midis} fromFret={q.neck?.from ?? 0} toFret={q.neck?.to ?? 13} markFor={markFor} onTap={onNeckTap} compact />
         )}
@@ -249,9 +262,11 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
             </div>
           )}
           {q.input.type === 'diagrams' && (
-            <div className="row" style={{ justifyContent: 'center' }}>
-              {q.input.options.map(o => <ChordDiagram key={o.id} voicing={o.voicing} onClick={() => answer({ choice: o.id })} />)}
-            </div>
+            <Zoomable id="quizChords" max={2.2}>
+              <div className="row" style={{ justifyContent: 'center' }}>
+                {q.input.options.map(o => <ChordDiagram key={o.id} voicing={o.voicing} onClick={() => answer({ choice: o.id })} />)}
+              </div>
+            </Zoomable>
           )}
           {q.input.type === 'spell' && (
             <>
@@ -263,6 +278,7 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
               <button className="btn primary" disabled={spell.length !== 3} onClick={() => answer({ pcs: spell })}>Check</button>
             </>
           )}
+          {neckInput && neckHint && <p className="small fb bad" role="status" style={{ margin: 0 }}>{neckHint}</p>}
           {neckInput && <p className="small muted" style={{ margin: 0 }}>{neckInput.count > 1 ? `Tap ${neckInput.count} spots on the neck (${picked.length}/${neckInput.count}). Tap a dot again to remove it.` : 'Tap the spot on the neck.'}</p>}
         </div>
       )}

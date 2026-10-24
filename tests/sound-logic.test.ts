@@ -84,6 +84,11 @@ for (const id of [...SOUNDS.map(s => s.id).filter(x => x !== 'synth'), 'bass']) 
     // rhythm parts have several takes (played in turn and left/right)
     ok(Object.values(groups[g] ?? {}).every(v => Array.isArray(v) && v.length >= 2), `${id}: ${g} has takes`)
   }
+  // whole major and minor chords recorded through the amp, on every bass note from E to E
+  if (amp) for (const g of ['maj', 'min']) {
+    const keys = Object.keys(groups[g] ?? {}).map(Number)
+    ok(keys.length === 13 && Math.min(...keys) === 40 && Math.max(...keys) === 52, `${id}: ${g} chords ${keys.join(',')}`)
+  }
 }
 
 console.log(`sound logic: ${checks} checks, ${fails} failed`)

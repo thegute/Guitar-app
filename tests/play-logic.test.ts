@@ -138,5 +138,17 @@ eq('gp bar1 notes', lead.bars[0].steps.map(s => s.notes.map(n => `${n.string}:${
 eq('gp durations', lead.bars[0].steps.map(s => s.dur), [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
 eq('gp bar2 quarters', lead.bars[1].steps.map(s => s.dur), [1, 1, 1, 1])
 
+// Build 13: a Guitar Pro file's drum part comes along (for "play with the band"); rest bars keep their length
+{
+  const tex = `\\title "Band Test"\n\\tempo 100\n.\n\\track "Gtr"\n\\staff {tabs}\n\\tuning e4 b3 g3 d3 a2 e2\n:1 r | :4 5.3 7.3 5.2 8.2 |\n\\track "Drums"\n\\instrument percussion\n\\staff {score}\n\\articulation defaults\n:4 36 42 38 42 | 36 42 38 42 |`
+  try {
+    const score = importer.ScoreLoader.loadAlphaTex(tex, new Settings())
+    const song = importGuitarPro(new exporter.Gp7Exporter().export(score, new Settings()), 'b.gp')
+    const d = song.drums ?? []
+    if (!(d.length === 8 && d[4].beat === 4 && d[0].voice === 'kick' && d[2].voice === 'snare')) { console.log('FAIL GP drums', JSON.stringify(d.slice(0, 5))); fails++ }
+    if (!(song.tracks.length === 1 && song.tracks[0].bars[0].steps.reduce((a, x) => a + x.dur, 0) === 4)) { console.log('FAIL rest bar length'); fails++ }
+  } catch (e) { console.log('FAIL GP with drums', (e as Error).message); fails++ }
+}
+
 console.log(fails ? `\n${fails} FAILED` : '\nall passed')
 process.exit(fails ? 1 : 0)

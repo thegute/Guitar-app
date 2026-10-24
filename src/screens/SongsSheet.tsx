@@ -1,10 +1,11 @@
 // Your songs: open a Guitar Pro file, paste a text tab, or pick a saved song or an example.
 import { Fold, HintHead } from '../components/Fold'
+import { Songbook } from '../components/Songbook'
 import { ProgressionTabs } from '../components/ProgressionTabs'
 import { LickMaker } from '../components/LickMaker'
 import { STARTER_PROGS, jamProgression, starterProgression } from '../tabs/fromProgression'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { deleteSong, listSongs, saveSong, youtubeId, type SongDoc } from '../tabs/library'
+import { deleteSong, listSongs, refreshBuiltIn, saveSong, youtubeId, type SongDoc } from '../tabs/library'
 import { EXAMPLES, exampleDoc, exampleId } from '../tabs/examples'
 import { songFromFile, songFromText } from '../tabs/importer'
 import { ago, songStats } from '../play/songStats'
@@ -28,9 +29,11 @@ interface Props {
   currentId: string
   onClose: () => void
   onOpen: (d: SongDoc) => void
+  /** open at this section (e.g. 'songbook') */
+  focus?: string | null
 }
 
-export function SongsSheet({ currentId, onClose, onOpen }: Props) {
+export function SongsSheet({ currentId, onClose, onOpen, focus }: Props) {
   const inst = useInstrument()
   const [songs, setSongs] = useState<SongDoc[]>([])
   const [text, setText] = useState('')
@@ -127,10 +130,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
   }
 
   async function openExample(id: string) {
-    const existing = songs.find(s => s.id === exampleId(id, inst.id))
-    const doc = existing ?? exampleDoc(id, inst.tuning.notes)
-    if (!existing) await saveSong(doc)
-    onOpen(doc)
+    onOpen(await refreshBuiltIn(exampleDoc(id, inst.tuning.notes)))
   }
 
   return (
@@ -140,6 +140,8 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
           <h2>Songs</h2>
           <button className="btn sm" onClick={onClose}>Close</button>
         </div>
+
+        {focus === 'songbook' && <Songbook currentId={currentId} onOpen={onOpen} focus />}
 
         <section className="panel stack" style={{ gap: 8 }}>
           <HintHead level={3} title="Find a tab" hint={<>Opens the site in your browser. Then either download the Guitar Pro file and come back to <b>Upload tab files</b>, or copy the tab text and tap <b>Paste from clipboard</b>.</>} />
@@ -179,13 +181,13 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
 
         <section>
           <h3>Your {inst.label.toLowerCase()} songs</h3>
-          {songs.filter(s => s.source !== 'example' && s.source !== 'lesson').length === 0 && <p className="small muted">Songs you add in {inst.label.toLowerCase()} mode are saved on this phone and only show up in {inst.label.toLowerCase()} mode.</p>}
+          {songs.filter(s => s.source !== 'example' && s.source !== 'lesson' && s.source !== 'songbook').length === 0 && <p className="small muted">Songs you add in {inst.label.toLowerCase()} mode are saved on this phone and only show up in {inst.label.toLowerCase()} mode.</p>}
           {moved && <p className="small muted" role="status">{moved}</p>}
-          {songs.filter(s => s.source !== 'example' && s.source !== 'lesson').length > 4 && (
+          {songs.filter(s => s.source !== 'example' && s.source !== 'lesson' && s.source !== 'songbook').length > 4 && (
             <input className="input" type="search" style={{ width: '100%', marginBottom: 6 }} placeholder="Search your songs" value={filter} onChange={e => setFilter(e.target.value)} aria-label="Search your songs" />
           )}
           <ul className="song-list">
-            {songs.filter(s => s.source !== 'example' && s.source !== 'lesson' && (!filter.trim() || `${s.title} ${s.artist ?? ''}`.toLowerCase().includes(filter.trim().toLowerCase()))).map(s => (
+            {songs.filter(s => s.source !== 'example' && s.source !== 'lesson' && s.source !== 'songbook' && (!filter.trim() || `${s.title} ${s.artist ?? ''}`.toLowerCase().includes(filter.trim().toLowerCase()))).map(s => (
               <li key={s.id} className={s.id === currentId ? 'on' : ''}>
                 <button className="song-open" onClick={() => onOpen(s)}>
                   <b>{s.title}</b>
@@ -227,6 +229,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
             ))}
           </ul>
         </section>
+        {focus !== 'songbook' && <Songbook currentId={currentId} onOpen={onOpen} />}
         <Fold id="songsPractice" title="Practice tabs" summary="scales, arpeggios, licks"
           hint="They play along like any song: the mic follows you, Hear it plays them, and you can loop any part.">
           <ul className="song-list">

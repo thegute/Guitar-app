@@ -7,6 +7,7 @@ import { Fretboard } from '../components/Fretboard'
 import { Chips, KeyPicker, usePersist } from '../components/Controls'
 import { strum } from '../audio/pluck'
 import { pc, friendly, INTERVAL_LABELS } from '../theory/notes'
+import { Zoomable } from '../components/Zoomable'
 
 const TONAL_SUFFIX: Record<string, string> = {
   major: '', minor: 'm', '5': '5', aug7: '7#5', mmaj7: 'mMaj7', alt: '7alt', '69': '6/9', m69: 'm6/9', '9#11': '9#11',
@@ -51,12 +52,14 @@ export function ChordsScreen() {
             </div>
           </div>
           <p className="small muted" style={{ marginTop: 8 }}>{vs.length} shapes. Tap a shape to hear it.</p>
-          <div className="row scroll-x" style={{ flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 6 }}>
-            {vs.map((vv, i) => (
-              <ChordDiagram key={i} voicing={vv} active={i === sel} onClick={() => play(i)} />
-            ))}
-            {vs.length === 0 && <p className="muted">No shapes for this chord yet.</p>}
-          </div>
+          <Zoomable id="chordShapes" max={2.5}>
+            <div className="row" style={{ flexWrap: 'wrap', paddingBottom: 6 }}>
+              {vs.map((vv, i) => (
+                <ChordDiagram key={i} voicing={vv} active={i === sel} onClick={() => play(i)} />
+              ))}
+              {vs.length === 0 && <p className="muted">No shapes for this chord yet.</p>}
+            </div>
+          </Zoomable>
         </div>
         <div className="panel">
           <div className="row" style={{ justifyContent: 'space-between' }}>

@@ -1,6 +1,6 @@
 // Calmer screens: a section that folds away to one line (its title and a short summary, e.g. "2 of 3 done"),
 // and a small ⓘ that shows a section's explanation only when you want it. Nothing is removed, just tucked in.
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { usePersist } from './Controls'
 import { IconChevron } from './Icons'
 
@@ -15,7 +15,7 @@ export function useHint(text: ReactNode, label = 'What is this?'): [ReactNode, R
   return [button, body]
 }
 
-export function Fold({ id, title, summary, hint, defaultOpen = false, children, className = '' }: {
+export function Fold({ id, title, summary, hint, defaultOpen = false, forceOpen = false, children, className = '' }: {
   /** remembered per section */
   id: string
   title: ReactNode
@@ -24,13 +24,16 @@ export function Fold({ id, title, summary, hint, defaultOpen = false, children, 
   /** the section's explanation, behind an ⓘ */
   hint?: ReactNode
   defaultOpen?: boolean
+  /** open it now (e.g. another screen sent you here) */
+  forceOpen?: boolean
   children: ReactNode
   className?: string
 }) {
   const [open, setOpen] = usePersist(`fold:${id}`, defaultOpen)
+  useEffect(() => { if (forceOpen) setOpen(true) }, [forceOpen, setOpen])
   const [hintBtn, hintText] = useHint(hint ?? null)
   return (
-    <section className={`panel fold${open ? ' open' : ''} ${className}`} aria-label={typeof title === 'string' ? title : undefined}>
+    <section id={`fold-${id}`} className={`panel fold${open ? ' open' : ''} ${className}`} aria-label={typeof title === 'string' ? title : undefined}>
       <div className="fold-head">
         <button className="fold-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
           <span className="fold-title">{title}</span>

@@ -5,7 +5,8 @@ Run:  python3 tools/render_tones.py --gear "<folder with 'Amp Models & Presets' 
 
 Chain per note: modelled guitar string (tools/guitar_di.py) -> optional boost -> amp (NAM capture or a clean preamp)
 -> cab / body impulse response -> a little room -> level match -> MP3.
-Tones with an amp also get palm-muted notes and power chords (rendered as whole chords so the amp distorts them together).
+Tones with an amp also get palm-muted notes, power chords and full major / minor chords (E- and A-shape barre chords on
+every bass note from E to E), each rendered as a whole chord so the amp distorts the strings together, as a real amp does.
 """
 import argparse
 import json
@@ -35,11 +36,11 @@ TONES = {
     # modern metal: tube-screamer style boost into the 5150 lead channel, Mesa 4x12 cab
     'metal': dict(amp='MirrorProfiles 5150 Block Letter RED 1.nam', boost=True, ir='mes412', pickup='bridge', di=0.30,
                   notes=range(36, 88, 2), pm=range(36, 66, 2), power=range(36, 64, 2), room=0.05, dur=2.6,
-                  human=1.0, variants={'pm': 2, 'power': 2, 'powerpm': 3}, weight=[(110, 1.0, 2.0), (280, 0.9, 3.0)]),
+                  human=1.0, variants={'pm': 2, 'power': 2, 'powerpm': 3}, weight=[(110, 1.0, 2.0), (280, 0.9, 3.0)], chords=range(40, 53)),
     # rock crunch: the 5150's British-voiced green channel with the guitar volume rolled back a little, V30 cab
     'crunch': dict(amp='MirrorProfiles 5150 Brit Vintage Green Crunch.nam', boost=False, ir='v30', pickup='bridge', di=0.13,
                    notes=range(36, 88, 3), pm=range(36, 66, 3), power=range(36, 64, 2), room=0.07, dur=2.6,
-                   human=1.0, variants={'pm': 2, 'power': 2, 'powerpm': 3}, weight=[(120, 1.0, 2.0), (300, 0.9, 1.5)]),
+                   human=1.0, variants={'pm': 2, 'power': 2, 'powerpm': 3}, weight=[(120, 1.0, 2.0), (300, 0.9, 1.5)], chords=range(40, 53)),
     # clean electric: neck single coil, a clean preamp, the '66 Deluxe Reverb 1x12 cab and a touch of spring-ish room
     'clean': dict(amp=None, ir='deluxe', pickup='neck_single', hardness=1.5, di=0.35, notes=range(36, 88, 3), room=0.12, dur=3.2),
     # steel-string acoustic: undersaddle signal through the Gibson J-45 body and mics
@@ -111,6 +112,26 @@ def di_power(root, tone, dur, mute=0.0, seed=0):
                        human=tone.get('human', 0.0), seed=seed)
 
 
+def chord_shape(root, minor):
+    """An E-shape barre chord (bass note on the low E string) up to B, then A-shape (bass on the A string)."""
+    tuning = [40, 45, 50, 55, 59, 64]
+    if root <= 47:
+        f = root - 40
+        frets = [f, f + 2, f + 2, f if minor else f + 1, f, f]
+        strings = range(6)
+    else:
+        f = root - 45
+        frets = [f, f + 2, f + 2, f + 1 if minor else f + 2, f]
+        strings = range(1, 6)
+    places = [(s, fr) for s, fr in zip(strings, frets)]
+    return [tuning[s] + fr for s, fr in places], places
+
+
+def di_chord(root, minor, tone, dur, seed=0):
+    midis, places = chord_shape(root, minor)
+    return strum_notes(midis, dur, spread=0.011, places=places, pickup='bridge', hardness=1.6, human=tone.get('human', 0.0), seed=seed + root * 3 + minor)
+
+
 class Chain:
     def __init__(self, gear, name, tone):
         self.t = tone
@@ -169,8 +190,19 @@ def render(gear, name, out_root, only=None):
     ch = Chain(gear, name, tone)
     out_dir = os.path.join(out_root, name)
     os.makedirs(out_dir, exist_ok=True)
-    for f in os.listdir(out_dir):
-        os.remove(os.path.join(out_dir, f))
+    old_index = {}
+    if only and os.path.exists(os.path.join(out_dir, 'index.json')):
+        # re-render some groups only: keep the rest of the bank as it is
+        with open(os.path.join(out_dir, 'index.json')) as fh:
+            old_index = json.load(fh)
+        for g in only:
+            for v in old_index.pop(g, {}).values():
+                for f in ([v] if isinstance(v, str) else v):
+                    if os.path.exists(os.path.join(out_dir, f)):
+                        os.remove(os.path.join(out_dir, f))
+    else:
+        for f in os.listdir(out_dir):
+            os.remove(os.path.join(out_dir, f))
     dur = tone['dur']
     nv = tone.get('variants', {})
     # several takes of the parts that repeat (palm mutes, power chords): played in turn, and left/right as a
@@ -181,6 +213,9 @@ def render(gear, name, out_root, only=None):
     if tone.get('power'):
         groups['power'] = [(m, v, lambda m=m, v=v: di_power(m, tone, dur + 0.3, seed=v), dur) for m in tone['power'] for v in range(nv.get('power', 1))]
         groups['powerpm'] = [(m, v, lambda m=m, v=v: di_power(m, tone, 1.0, mute=0.9, seed=v), 0.75) for m in tone['power'] for v in range(nv.get('powerpm', 1))]
+    if tone.get('chords'):
+        groups['maj'] = [(m, v, lambda m=m, v=v: di_chord(m, False, tone, 2.4, seed=v), 2.1) for m in tone['chords'] for v in range(nv.get('maj', 1))]
+        groups['min'] = [(m, v, lambda m=m, v=v: di_chord(m, True, tone, 2.4, seed=v), 2.1) for m in tone['chords'] for v in range(nv.get('min', 1))]
     rendered = {}
     rng = np.random.default_rng(5)
     for g, items in groups.items():
@@ -188,14 +223,18 @@ def render(gear, name, out_root, only=None):
             continue
         for m, v, make, d in items:
             di = make()
-            lvl = tone['di'] * (1.25 if g.startswith('power') else 1.0) * (0.85 if g.endswith('pm') else 1.0)
+            lvl = tone['di'] * (1.25 if g.startswith('power') or g in ('maj', 'min') else 1.0) * (0.85 if g.endswith('pm') else 1.0)
             if v:
                 lvl *= 10 ** (rng.normal(0, 0.8) / 20)  # another take, picked a touch harder or softer
             y = ch.run(di, lvl)
             rendered[(g, m, v)] = finish(y, d, fade=0.12 if g.endswith('pm') else 0.6)
             print(f'  {name} {g} {m} take {v + 1}', flush=True)
     # one gain for the whole tone (so loud and soft notes keep their natural balance) plus a gentle per-note evening out
-    ref = np.median([loudness(y) for (g, _, _), y in rendered.items() if g == 'notes'])
+    refs = [loudness(y) for (g, _, _), y in rendered.items() if g == 'notes']
+    if not refs:
+        # only some groups re-rendered: measure a few single notes for the same overall level
+        refs = [loudness(finish(ch.run(di_note(m, tone, dur + 0.3), tone['di']), dur)) for m in (45, 52, 57, 64)]
+    ref = np.median(refs)
     target = 10 ** (-17 / 20)
     index = {}
     for (g, m, v), y in rendered.items():
@@ -204,7 +243,7 @@ def render(gear, name, out_root, only=None):
         pk = np.max(np.abs(y))
         if pk > 0.95:
             y *= 0.95 / pk
-        prefix = {'notes': 'n', 'pm': 'm', 'power': 'p', 'powerpm': 'q'}[g]
+        prefix = {'notes': 'n', 'pm': 'm', 'power': 'p', 'powerpm': 'q', 'maj': 'cmaj', 'min': 'cmin'}[g]
         fname = f'{prefix}{m}{"abcdef"[v] if nv.get(g, 1) > 1 else ""}.mp3'
         # distorted guitar is dense: a higher bitrate keeps it from sounding swirly
         write_mp3(y, os.path.join(out_dir, fname), kbps=112 if tone.get('amp') else 80)
@@ -212,6 +251,8 @@ def render(gear, name, out_root, only=None):
             index.setdefault(g, {}).setdefault(str(m), []).append(fname)
         else:
             index.setdefault(g, {})[str(m)] = fname
+    for g, v in old_index.items():
+        index.setdefault(g, v)
     with open(os.path.join(out_dir, 'index.json'), 'w') as fh:
         json.dump(index, fh)
     size = sum(os.path.getsize(os.path.join(out_dir, f)) for f in os.listdir(out_dir))
@@ -222,7 +263,7 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--gear', default=os.environ.get('KG_GEAR', '/mnt/user-data/uploads/Downloads'))
     ap.add_argument('--out', default=os.path.join(ROOT, 'public', 'samples'))
-    ap.add_argument('--only', nargs='*', help='only these groups: notes pm power powerpm')
+    ap.add_argument('--only', nargs='*', help='only these groups: notes pm power powerpm maj min')
     ap.add_argument('tones', nargs='*', default=list(TONES))
     a = ap.parse_args()
     for t in a.tones:

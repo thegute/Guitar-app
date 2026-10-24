@@ -10,6 +10,7 @@ import type { Instrument } from '../instrument'
 import { CHAPTERS, LESSONS, lessonById, type Block, type Lesson } from './lessons'
 import { addXp, bump, logDone, usePracticeTimer } from './progress'
 import type { Go } from './path'
+import { LESSON_EXTRAS, videoThumb, videoUrl, type LessonEx, type LessonVideo } from './lessonExtras'
 
 const READ = 'kg:lessonsRead'
 export function lessonsRead(): string[] {
@@ -132,7 +133,34 @@ function BlockView({ b, inst, onGo }: { b: Block; inst: Instrument; onGo: (g: Go
   return go ? <button className="btn lesson-practice" onClick={() => onGo(go)}>{b.practice.label}</button> : null
 }
 
-export function LessonView({ id, inst, onExit, onOpen, onGo }: { id: string; inst: Instrument; onExit: () => void; onOpen: (id: string) => void; onGo: (g: Go) => void }) {
+/** Watch: the lesson's YouTube video. The picture loads first; tapping it plays the video here. */
+function LessonVideoCard({ video }: { video: LessonVideo }) {
+  const [play, setPlay] = useState(false)
+  useEffect(() => setPlay(false), [video.id])
+  const origin = typeof location !== 'undefined' && /^https?:/.test(location.origin) ? location.origin : ''
+  return (
+    <div className="lesson-video">
+      <div className="lv-frame">
+        {play ? (
+          <iframe src={`https://www.youtube.com/embed/${video.id}?playsinline=1&rel=0&autoplay=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`}
+            title={video.title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin" />
+        ) : (
+          <button className="lv-poster" onClick={() => setPlay(true)} aria-label={`Play the video: ${video.title}`}>
+            <img src={videoThumb(video.id)} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = 'none' }} />
+            <span className="lv-play" aria-hidden="true">▶</span>
+          </button>
+        )}
+      </div>
+      <div className="lv-meta">
+        <span className="small"><b>{video.title}</b></span>
+        <a className="small" href={videoUrl(video.id)} target="_blank" rel="noreferrer">Open in YouTube ↗</a>
+      </div>
+    </div>
+  )
+}
+
+export function LessonView({ id, inst, onExit, onOpen, onGo, onExercise }: { id: string; inst: Instrument; onExit: () => void; onOpen: (id: string) => void; onGo: (g: Go) => void; onExercise?: (ex: LessonEx) => void }) {
   const lesson = lessonById(id) ?? LESSONS[0]
   const [done, setDone] = useState(() => lessonsRead().includes(lesson.id))
   const [first, setFirst] = useState(false)
@@ -142,6 +170,7 @@ export function LessonView({ id, inst, onExit, onOpen, onGo }: { id: string; ins
   const next = LESSONS[i + 1]
   const prev = LESSONS[i - 1]
   const chapter = CHAPTERS.find(c => c.id === lesson.chapter)
+  const extra = LESSON_EXTRAS[lesson.id]
   return (
     <article className="lesson stack">
       <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -152,9 +181,30 @@ export function LessonView({ id, inst, onExit, onOpen, onGo }: { id: string; ins
         <p className="small muted" style={{ margin: 0 }}>{chapter?.title}</p>
         <h1 style={{ margin: '2px 0 0' }}>{lesson.title}</h1>
       </header>
+      {extra && <h2 className="lesson-step"><span aria-hidden="true">1</span> Read</h2>}
       <div className="lesson-body">
         {lesson.blocks.map((b, k) => <BlockView key={k} b={b} inst={inst} onGo={onGo} />)}
       </div>
+      {extra?.video && (
+        <section className="stack" style={{ gap: 8 }}>
+          <h2 className="lesson-step"><span aria-hidden="true">2</span> Watch</h2>
+          <p className="small muted" style={{ margin: 0 }}>The same idea, explained on video by a YouTube teacher.</p>
+          <LessonVideoCard video={extra.video} />
+        </section>
+      )}
+      {extra && extra.exercises.length > 0 && onExercise && (
+        <section className="stack" style={{ gap: 8 }}>
+          <h2 className="lesson-step"><span aria-hidden="true">{extra.video ? 3 : 2}</span> Play</h2>
+          <p className="small muted" style={{ margin: 0 }}>Opens in Play: tap Listen and the notes light up as you get them. Take it slow.</p>
+          <div className="lesson-exercises">
+            {extra.exercises.map((ex, k) => (
+              <button key={k} className="btn lesson-ex" onClick={() => onExercise(ex)}>
+                <span aria-hidden="true">{'tool' in ex ? '◎' : '♪'}</span> {ex.label}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       {lesson.offtonic && (
         <a className="lesson-source" href={lesson.offtonic} target="_blank" rel="noreferrer">
           Read the full chapter on Offtonic Theory

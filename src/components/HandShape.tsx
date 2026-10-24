@@ -2,6 +2,7 @@
 // a dot for every note with the finger that plays it (1 index … 4 pinky), open strings by the nut,
 // and the note you play next glowing. Just before the hand has to move, it says where to.
 import type { HandGroup } from '../play/handShape'
+import { useZoomBox } from './Zoomable'
 import type { SongNote } from '../tabs/model'
 
 interface Props {
@@ -19,6 +20,7 @@ export function HandShape({ group, next, moveSoon, expected, nStr, stringNames, 
   const FW = compact ? 34 : 38, SG = compact ? 11 : 13, L = compact ? 34 : 40, T = compact ? 14 : 18
   const frets = [0, 1, 2, 3].map(i => group.base + i)
   const W = L + FW * 4 + 8
+  const zoom = useZoomBox('hand', 2.5)
   const H = T + SG * (nStr - 1) + (compact ? 8 : 12)
   const y = (s: number) => T + (nStr - 1 - s) * SG
   const x = (fret: number) => (fret === 0 ? L - 12 : L + (fret - group.base) * FW + FW / 2)
@@ -31,7 +33,9 @@ export function HandShape({ group, next, moveSoon, expected, nStr, stringNames, 
         <b>{label}</b>
         {move && <span className="hand-move">next: {next!.open ? 'open position' : `fret ${next!.base}`} →</span>}
       </div>
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${label}: ${group.notes.filter(n => n.fret > 0).map(n => `finger ${n.finger} on ${stringNames[n.string]} string fret ${n.fret}`).join(', ')}`}>
+      <div className="zoom-host">
+      <div className={`hand-scroll${zoom.z > 1.02 ? ' zoomed' : ''}`} ref={zoom.box}>
+      <svg width={W * zoom.z} height={H * zoom.z} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${label}: ${group.notes.filter(n => n.fret > 0).map(n => `finger ${n.finger} on ${stringNames[n.string]} string fret ${n.fret}`).join(', ')}`}>
         {frets.map((f, i) => <text key={f} className="hand-fretno" x={L + i * FW + FW / 2} y={T - 6} textAnchor="middle">{f}</text>)}
         {Array.from({ length: nStr }, (_, s) => (
           <g key={s}>
@@ -53,6 +57,9 @@ export function HandShape({ group, next, moveSoon, expected, nStr, stringNames, 
           )
         })}
       </svg>
+      </div>
+      {zoom.reset}
+      </div>
     </div>
   )
 }

@@ -23,6 +23,11 @@ interface Args {
   speed: number
   click: boolean
   guide: boolean
+  /** chord sheets: time every strum of this pattern */
+  strum?: { hits: [number, string][] } | null
+  meter?: number
+  /** the band (drums, bass, other parts) to play under you, or undefined */
+  band?: import('../audio/band').BandEvent[]
   /** the guitar sound the guide plays in */
   sound?: SoundId
   strict: boolean
@@ -74,7 +79,7 @@ export function useInTime(a: Args) {
   const start = useCallback(() => {
     const A = args.current
     stop()
-    const tl = timeline(A.flat)
+    const tl = timeline(A.flat, A.strum, A.meter)
     if (!tl.steps.length) return
     const barStart = (bar: number) => { const i = A.flat.findIndex(f => f.bar >= bar); return i < 0 ? tl.total : tl.beatOf[i] }
     const startBar = A.flat[Math.max(0, A.startFlat)]?.bar ?? 0
@@ -94,6 +99,7 @@ export function useInTime(a: Args) {
       clock = new InternalClock(fromBeat, toBeat, A.songBpm * speed, {
         loop: !!A.loop, click: A.click, countIn: 4,
         guide: A.guide ? { steps: tl.steps, flat: A.flat, sound: A.sound } : undefined,
+        band: A.band,
         onWrap: () => {
           // end of a pass (decided just before the loop restarts): score it, maybe speed up
           const r = run.current

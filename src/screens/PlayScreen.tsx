@@ -9,11 +9,11 @@ import { Chips, usePersist } from '../components/Controls'
 import { SongsSheet } from './SongsSheet'
 import { InputPicker } from '../components/InputPicker'
 import { NoteListener, matchNote, type FollowStep } from '../tabs/follow'
-import { defaultTrack, flatten, playable, type SongNote, type SongTrack } from '../tabs/model'
+import { defaultTrack, flatten, playable, trackPickup, type SongNote, type SongTrack } from '../tabs/model'
 import { detectKey, improvisationScales, type KeyGuess } from '../tabs/keyDetect'
 import { chordInfo, chordTimeline, guessBarChords } from '../tabs/harmony'
 import { docInstrument, getSong, listSongs, saveSong, type SongDoc } from '../tabs/library'
-import { onOpenSong, takePendingDoc } from '../nav'
+import { go, onOpenSong, onOpenSongs, takePendingDoc, takePendingSongs } from '../nav'
 import { bump, bumpCounts, usePracticeTimer } from '../learn/progress'
 import { gear, isSetUp, kindOf, setGear, useGear } from '../audio/gear'
 import { GearSetup } from '../components/GearSetup'
@@ -29,12 +29,21 @@ import { playNote, strum, SOUNDS, activeSound, onSoundChange, setSoundChoice, so
 import { audio, keepAwake } from '../audio/engine'
 import { TabPlayer } from '../audio/tabPlayer'
 import { keyPrefersFlats, pcName } from '../theory/notes'
-import { useInstrument } from '../instrument'
+import { setTuning, useInstrument } from '../instrument'
 import { Splitter } from '../components/Splitter'
 import { HandShape } from '../components/HandShape'
 import { groupAt, handGroups } from '../play/handShape'
 import { IconExpand, IconShrink } from '../components/Icons'
 import { setPlayFocus, useMedia } from '../ui'
+import { checkSong } from '../play/songCheck'
+import { chordHelp } from '../play/chordHelp'
+import { patternsFor, strumPattern } from '../play/strumCoach'
+import { TakeRecorder, saveTake } from '../audio/takeRecorder'
+import { bandByStep, bandEvents, hasBand } from '../audio/band'
+import { SongCheckCard, RetuneNotice } from '../components/SongCheckCard'
+import { profile } from '../learn/profile'
+import { Zoomable } from '../components/Zoomable'
+
 
 type View = 'tab' | 'solo' | 'both'
 /** How you've arranged Play: panel sizes (px) and which panels are showing. */
@@ -60,6 +69,8 @@ interface Feedback {
   note?: SongNote
   expected?: SongNote[]
   skipped?: number
+  /** strum-along: which string or chord note didn't come out */
+  chordHelp?: string
 }
 
 function keyFromTrack(track: SongTrack): { guesses: KeyGuess[]; weights: number[] } {
@@ -88,6 +99,13 @@ export function PlayScreen() {
   const [songId, setSongId] = usePersist(`playSong:${inst.id}`, '')
   const [doc, setDoc] = useState<SongDoc | null>(null)
   const [sheet, setSheet] = useState(false)
+  const [sheetFocus, setSheetFocus] = useState<string | null>(null)
+  // another screen (Learn's plan, the guide) can open the Songs panel at a section
+  useEffect(() => {
+    const s = takePendingSongs()
+    if (s) { setSheetFocus(s); setSheet(true) }
+    return onOpenSongs(sec => { takePendingSongs(); setSheetFocus(sec); setSheet(true) })
+  }, [])
   const [view, setView] = usePersist<View>('playView', 'tab')
   const [labelMode, setLabelMode] = usePersist<LabelMode>('playLabels', 'both')
   const [strict, setStrict] = usePersist('playStrict', false)
@@ -115,6 +133,8 @@ export function PlayScreen() {
   const lastOnset = useRef(0)
   const [listening, setListening] = useState(false)
   const [micError, setMicError] = useState('')
+  /** after a clean Wait-for-me run: suggest In time */
+  const [nudge, setNudge] = useState(false)
   const [live, setLive] = useState<number | null>(null)
   const [input, setInput] = useState<{ label: string; external: boolean } | null>(null)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
@@ -131,6 +151,34 @@ export function PlayScreen() {
   const gearKind = kindOf(input?.external)
   const gate = gear(gearKind).gate
   const listener = useRef<NoteListener | null>(null)
+  // record yourself: what the mic or amp hears, to listen back (only while Record is on)
+  const recorder = useRef<TakeRecorder | null>(null)
+  const [recording, setRecording] = useState(false)
+  const [recSecs, setRecSecs] = useState(0)
+  const [take, setTake] = useState<{ url: string; blob: Blob; seconds: number; title: string } | null>(null)
+  useEffect(() => {
+    if (!recording) return
+    const t = setInterval(() => setRecSecs(Math.round((Date.now() - (recorder.current?.startedAt ?? Date.now())) / 1000)), 500)
+    return () => clearInterval(t)
+  }, [recording])
+  useEffect(() => () => { void recorder.current?.stop() }, [])
+  async function toggleRec() {
+    if (recording) {
+      const r = await recorder.current?.stop()
+      setRecording(false)
+      if (r) setTake(old => { if (old) URL.revokeObjectURL(old.url); return { url: URL.createObjectURL(r.blob), blob: r.blob, seconds: r.seconds, title: docRef.current?.title ?? 'Take' } })
+      return
+    }
+    try {
+      const rec = (recorder.current ??= new TakeRecorder())
+      await rec.start(listener.current?.mediaStream)
+      setRecSecs(0)
+      setRecording(true)
+    } catch {
+      setMicError('Recording needs the microphone: allow it for KGuitar in the phone\'s settings, then try again.')
+    }
+  }
+  const docRef = useRef<SongDoc | null>(null)
 
   // ---------- load the song ----------
   useEffect(() => {
@@ -172,6 +220,7 @@ export function PlayScreen() {
 
   const trackIdx = doc ? Math.min(doc.track ?? defaultTrack(doc.song, inst.strings), doc.song.tracks.length - 1) : 0
   const track = doc?.song.tracks[trackIdx] ?? null
+  docRef.current = doc
   const flat = useMemo(() => (track ? flatten(track) : []), [track])
   const hands = useMemo(() => handGroups(flat), [flat])
   const follow = useMemo(() => {
@@ -224,6 +273,26 @@ export function PlayScreen() {
   const tips = useMemo(() => (keyData ? improvisationScales(key, keyData.weights) : []), [key, keyData])
   const guesses = useMemo(() => (track ? guessBarChords(track, key, flats) : []), [track, key, flats])
   const timeline = useMemo(() => (track ? chordTimeline(track, doc?.chords ?? {}, guesses) : { spans: [], at: new Int32Array(0) }), [track, doc?.chords, guesses])
+  // song check: what this song asks of you (shown the first time you open a song, and from the title)
+  const check = useMemo(() => (doc && track ? checkSong(doc.song, track, inst, [...new Set(timeline.spans.map(s => s.name))], profile()?.level ?? 2) : null),
+    [doc?.song, track, inst, timeline.spans]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [checkOpen, setCheckOpen] = useState(false)
+  useEffect(() => { setNudge(false) }, [doc?.id])
+  const [retuneHidden, setRetuneHidden] = useState('')
+  useEffect(() => {
+    if (!doc || doc.source === 'lesson') { setCheckOpen(false); return }
+    let seen: string[] = []
+    try { seen = JSON.parse(localStorage.getItem('kg:checked') ?? '[]') as string[] } catch { /* none yet */ }
+    setCheckOpen(!seen.includes(doc.id))
+  }, [doc?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const closeCheck = () => {
+    setCheckOpen(false)
+    if (!doc) return
+    try {
+      const seen = JSON.parse(localStorage.getItem('kg:checked') ?? '[]') as string[]
+      if (!seen.includes(doc.id)) localStorage.setItem('kg:checked', JSON.stringify([...seen, doc.id].slice(-400)))
+    } catch { /* storage unavailable */ }
+  }
 
   const done = pos >= follow.idx.length
   const cursorFlat = done ? -1 : follow.idx[pos]
@@ -286,7 +355,7 @@ export function PlayScreen() {
         for (let k = loopRange.a; k <= loopRange.b; k++) if (st[follow.idx[k]] === 1) ok++
         const score = Math.round((ok / (loopRange.b - loopRange.a + 1)) * 100)
         setPasses(p => ({ n: p.n + 1, last: score, best: Math.max(p.best ?? 0, score) }))
-        if (score >= 90) bump('loop90')
+        if (score >= 90) { bump('loop90'); setNudge(true) }
         const lp = ref.current.loop
         saveRun(score, 'wait', 1, false, lp ? [lp.from, lp.to] : undefined)
         setTimeout(() => {
@@ -299,17 +368,20 @@ export function PlayScreen() {
         // score = notes right first time
         let ok = 0, n = 0
         for (const i of follow.idx) { const v = st[i]; if (v) { n++; if (v === 1) ok++ } }
-        if (n) saveRun(Math.round((ok / follow.idx.length) * 100), 'wait', 1, follow.idx.length > 0 && n >= follow.idx.length * 0.8)
+        const sc = Math.round((ok / Math.max(1, follow.idx.length)) * 100)
+        if (n) saveRun(sc, 'wait', 1, follow.idx.length > 0 && n >= follow.idx.length * 0.8)
+        // a clean run while waiting for you: time to try it in time
+        if (n && sc >= 85) setNudge(true)
       }
       setPos(next)
     }
     setVersion(v => v + 1)
   }, [])
-  const missAt = useCallback((heard: number, chordText?: string) => {
+  const missAt = useCallback((heard: number, chordText?: string, help?: string) => {
     const { pos, follow } = ref.current
     const fi = follow.idx[pos]
     if (fi !== undefined && states.current[fi] === 0) states.current[fi] = 3
-    setFeedback({ ok: false, heard, chordText })
+    setFeedback({ ok: false, heard, chordText, chordHelp: help })
     setPulse(p => ({ ok: false, key: (p?.key ?? 0) + 1 }))
     setVersion(v => v + 1)
   }, [])
@@ -334,7 +406,14 @@ export function PlayScreen() {
     const pcs = [...new Set(want.midis.map(m => m % 12))]
     const top = chroma.map((v, i) => ({ v, i })).sort((x, y) => y.v - x.v).slice(0, 3).map(x => noteName(x.i, ref.current.flats))
     if (chordMatch(chroma, pcs).ok) hitAt(pos, 0, want.midis[0], top.join(' '))
-    else missAt(want.midis[0], top.join(', '))
+    else {
+      // say which string or chord note didn't come out
+      const fi = follow.idx[pos]
+      const notes = fi !== undefined ? ref.current.flat[fi]?.step.notes ?? [] : []
+      const tuning = ref.current.doc?.song.tracks[ref.current.doc?.track ?? 0]?.tuning ?? []
+      const help = notes.length ? chordHelp(chroma, notes, tuning, pcv => noteName(pcv, ref.current.flats)).text : undefined
+      missAt(want.midis[0], top.join(', '), help)
+    }
   }, [hitAt, missAt])
 
   async function toggleListen() {
@@ -398,8 +477,34 @@ export function PlayScreen() {
   }
 
   // ---------- play in time ----------
+  // rhythm under the tab: counts and stems for tabs, the strum coach's arrows for chord sheets
+  const [counts, setCounts] = usePersist('tabCounts', (profile()?.level ?? 2) <= 2)
+  const meter = doc?.song.meter ?? 4
+  const isSheet = useMemo(() => !!track && track.bars.every(b => b.steps.every(s => !s.notes.length || !!s.chord)) && track.bars.some(b => b.steps.some(s => s.chord)), [track])
+  const [strumBySong, setStrumBySong] = usePersist<Record<string, string>>('strumBySong', {})
+  const strumId = doc ? strumBySong[doc.id] ?? doc.song.strum ?? (meter === 3 ? 'waltz' : 'folk') : 'off'
+  const strumPat = isSheet && strumId !== 'off' ? strumPattern(strumId) ?? null : null
+  // each step's start inside its bar (pickup bars end on the last beat)
+  const stepOffs = useMemo(() => {
+    const out: number[] = []
+    if (!track) return out
+    const pick = trackPickup(track, meter)
+    track.bars.forEach((bar, bi) => {
+      let o = bi === 0 ? pick : 0
+      for (const st of bar.steps) { out.push(o); o += st.dur }
+    })
+    return out
+  }, [track, meter])
+  // the band: a Guitar Pro file's other parts, or drums and bass from the chords (songbook)
+  const [bandOn, setBandOn] = usePersist('playBand', true)
+  const bandAvail = !!doc && !!track && hasBand(doc.song, trackIdx)
+  const bandEv = useMemo(() => (doc && bandAvail ? bandEvents(doc.song, trackIdx) : []), [doc?.song, trackIdx, bandAvail]) // eslint-disable-line react-hooks/exhaustive-deps
+  const bandSteps = useMemo(() => bandByStep(bandEv, flat), [bandEv, flat])
+  const withBand = bandOn && bandAvail
   const inTime = useInTime({
-    flat, loop: loop, startFlat: cursorFlat >= 0 ? cursorFlat : 0, songBpm, speed, click, guide, sound: hearSound, strict, trainer, video,
+    band: withBand ? bandEv : undefined,
+    strum: strumPat, meter,
+    flat, loop: loop, startFlat: withBand && pos === 0 ? 0 : cursorFlat >= 0 ? cursorFlat : 0, songBpm, speed, click, guide, sound: hearSound, strict, trainer, video,
     sync: showVideo ? doc?.ytSync : undefined, states,
     latencyMs: () => latencyMs(kindOf(listener.current?.external)),
     onExpect: (now, next) => listener.current?.expect(now, next),
@@ -452,6 +557,8 @@ export function PlayScreen() {
     if (listening) void toggleListen()
     const p = (player.current ??= new TabPlayer())
     p.sound = hearSound
+    p.band = withBand ? bandSteps : undefined
+    p.strum = strumPat ? { hits: strumPat.hits, offs: stepOffs } : undefined
     p.onStep = i => setPlayAt(i)
     p.onEnd = () => setPlayAt(-1)
     if (loopRange) {
@@ -463,7 +570,8 @@ export function PlayScreen() {
       p.play(flat, from, songBpm * speed, b, a)
       return
     }
-    const from = cursorFlat >= 0 ? cursorFlat : 0
+    // with the band, starting at the first note plays the intro too
+    const from = withBand && pos === 0 ? 0 : cursorFlat >= 0 ? cursorFlat : 0
     setPlayAt(from)
     p.play(flat, from, songBpm * speed)
   }
@@ -626,7 +734,7 @@ export function PlayScreen() {
             </span>
             {wantChord ? (
               <span className="next-notes next-chord">
-                {chordVoicing && <ChordDiagram voicing={chordVoicing} size={0.5} onClick={hearNext} />}
+                {chordVoicing && <Zoomable id="readoutChord" max={3}><ChordDiagram voicing={chordVoicing} size={0.5} onClick={hearNext} /></Zoomable>}
                 <span className="nn"><b className="amber chord-big">{chordName ?? 'Chord'}</b> strum it and let it ring</span>
                 <button className="btn sm ghost" onClick={hearNext} aria-label="Hear the chord">▶</button>
               </span>
@@ -642,7 +750,7 @@ export function PlayScreen() {
               feedback.ok ? (
                 <span className="fb ok">✓ Got it: {feedback.chordText ? `the chord (${feedback.chordText})` : noteName(feedback.heard, flats)}{feedback.note ? ` · ${where(feedback.note)}` : ''}{feedback.skipped ? ` (skipped ${feedback.skipped})` : ''}</span>
               ) : feedback.chordText ? (
-                <span className="fb bad">✗ Heard mostly {feedback.chordText}: the chord needs {[...new Set(expected.map(n => noteName(n.midi, flats)))].join(' ')}. Strum all the strings and let them ring.</span>
+                <span className="fb bad">✗ {feedback.chordHelp ?? <>Heard mostly {feedback.chordText}: the chord needs {[...new Set(expected.map(n => noteName(n.midi, flats)))].join(' ')}. Strum all the strings and let them ring.</>}</span>
               ) : (
                 <span className="fb bad">✗ You played {noteName(feedback.heard, flats)}{octave(feedback.heard)}: the tab wants {expected.map(n => noteName(n.midi, flats)).join(' or ')}</span>
               )
@@ -668,6 +776,12 @@ export function PlayScreen() {
       <button className={`btn sm hear${playAt >= 0 ? ' on' : ''}`} onClick={preview} aria-pressed={playAt >= 0}>
         {playAt >= 0 ? '■ Stop' : '▶ Hear it'}
       </button>
+      {bandAvail && (
+        <button className="btn sm" aria-pressed={bandOn} onClick={() => { setBandOn(!bandOn); if (playAt >= 0) stopPreview() }}
+          title={doc.song.backing ? 'Drums and bass from the chords, with Hear it and In time' : 'The drums, bass and other parts of this song, with Hear it and In time'}>🥁 Band</button>
+      )}
+      <button className={`btn sm rec${recording ? ' on' : ''}`} aria-pressed={recording} onClick={() => void toggleRec()}
+        title="Record yourself playing, then listen back. Stays on the phone.">{recording ? `⏹ ${Math.floor(recSecs / 60)}:${String(recSecs % 60).padStart(2, '0')}` : '⏺ Record'}</button>
       <label className="sound-pick" title={soundInfo(hearSound).hint}>
         <span className="small">Sound</span>
         <select className="select sm" value={soundSel} aria-label="Sound for Hear it and tapped notes" onChange={e => {
@@ -680,6 +794,17 @@ export function PlayScreen() {
         </select>
       </label>
       <Chips label="Playback speed" items={[{ id: 0.5, label: '½' }, { id: 0.75, label: '¾' }, { id: 1, label: `1× · ${Math.round(songBpm)} bpm` }]} value={speed} onChange={v => { setSpeed(v); if (playAt >= 0) { stopPreview() } }} />
+      {isSheet ? (
+        <label className="sound-pick" title={strumPat?.how ?? 'Show a strum pattern over the chords'}>
+          <span className="small">Strum</span>
+          <select className="select sm" value={strumId} aria-label="Strum pattern" onChange={e => doc && setStrumBySong({ ...strumBySong, [doc.id]: e.target.value })}>
+            {patternsFor(meter).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+            <option value="off">No arrows</option>
+          </select>
+        </label>
+      ) : (
+        <button className="btn sm" aria-pressed={counts} onClick={() => setCounts(!counts)} title="Show the rhythm under the tab: note stems and the count (1 & 2 &)">1 & 2 &</button>
+      )}
       <Chips label="Tab numbers" items={[{ id: 'fret', label: 'Frets' }, { id: 'note', label: 'Notes' }, { id: 'both', label: 'Both' }]} value={labelMode} onChange={setLabelMode} />
       {mode === 'time' && (
         <>
@@ -692,7 +817,7 @@ export function PlayScreen() {
       <button className="btn sm" aria-pressed={handOn} onClick={() => setHandOn(!handOn)} title="Show where your fretting hand goes, with finger numbers">✋ Hand</button>
       <span className="zoom-btns" role="group" aria-label="Tab size">
         <button className="btn sm" onClick={() => setTabZoom(z => Math.max(0.7, Math.round((z - 0.1) * 10) / 10))} aria-label="Smaller tab">A−</button>
-        <button className="btn sm" onClick={() => setTabZoom(z => Math.min(1.8, Math.round((z + 0.1) * 10) / 10))} aria-label="Bigger tab">A+</button>
+        <button className="btn sm" onClick={() => setTabZoom(z => Math.min(2.4, Math.round((z + 0.1) * 10) / 10))} aria-label="Bigger tab">A+</button>
       </span>
       <button className="btn sm" aria-pressed={split} onClick={() => setSplitPref(split ? 'off' : 'on')} title="Video and readout on top, tab below (automatic when the Fold is half-folded)">Split</button>
       <button className="btn sm" aria-pressed={strict} onClick={() => setStrict(!strict)} title="Only count the note in the exact octave">Exact octave</button>
@@ -720,9 +845,11 @@ export function PlayScreen() {
         ...(split && posture.tabletop ? { ['--fold-top' as string]: `${posture.top}px`, ['--fold-hinge' as string]: `${posture.hinge}px` } : {}),
       }}>
       <header className="play-head">
-        <button className="btn sm" onClick={() => setSheet(true)}>Songs</button>
+        <button className="btn sm" onClick={() => { setSheetFocus(null); setSheet(true) }}>Songs</button>
         <div className="song-title">
-          <b>{doc.title}</b>
+          <button className="song-name" onClick={() => (checkOpen ? closeCheck() : setCheckOpen(true))} aria-expanded={checkOpen} title="Song check: chords, techniques, level and a speed to start at">
+            <b>{doc.title}</b>
+          </button>
           {doc.song.tracks.length > 1 ? (
             <select className="select sm" value={trackIdx} onChange={e => update({ track: Number(e.target.value), cursor: 0 })} aria-label="Track">
               {doc.song.tracks.map((t, i) => <option key={i} value={i}>{t.name}</option>)}
@@ -776,6 +903,31 @@ export function PlayScreen() {
         {!sideOpen && readout(true)}
         {!sideOpen && micError && <p className="notice small">{micError}</p>}
         {tabTools}
+        {nudge && mode === 'wait' && (
+          <div className="notice nudge" role="status">
+            <span><b>Clean run!</b> Next step: play it <b>In time</b>, with the beat. Start at ¾ speed{bandAvail ? ' with the band' : ''}.</span>
+            <span className="row" style={{ flexWrap: 'nowrap', gap: 6 }}>
+              <button className="btn sm primary" onClick={() => { setMode('time'); setSpeed(0.75); setNudge(false) }}>Try In time</button>
+              <button className="btn sm ghost" aria-label="Not now" onClick={() => setNudge(false)}>✕</button>
+            </span>
+          </div>
+        )}
+        {take && !recording && (
+          <div className="take-bar" role="group" aria-label="Your recording">
+            <span className="small"><b>Your take</b> {Math.floor(take.seconds / 60)}:{String(Math.round(take.seconds % 60)).padStart(2, '0')}</span>
+            <audio src={take.url} controls preload="metadata" />
+            <button className="btn sm" onClick={() => void saveTake(take.blob, take.title)}>Save</button>
+            <button className="btn sm ghost" aria-label="Delete this recording" onClick={() => { URL.revokeObjectURL(take.url); setTake(null) }}>✕</button>
+          </div>
+        )}
+        {check?.tuning && retuneHidden !== doc.id && (
+          <RetuneNotice check={check} current={inst.tuning.name.replace(/\s*\(.*\)$/, '')} onClose={() => setRetuneHidden(doc.id)}
+            onTune={() => { if (check.tuning?.id) setTuning(inst.id, check.tuning.id); go('tuner') }} />
+        )}
+        {checkOpen && check && (
+          <SongCheckCard check={check} speed={speed} onSpeed={v => { setSpeed(v); if (playAt >= 0) stopPreview() }}
+            onLoopBar={b => { setLoop({ from: b, to: b }); closeCheck() }} onClose={closeCheck} />
+        )}
         {selecting && (
           <div className="select-hint">
             <span>{selecting.first === undefined ? 'Tap the first bar of the part you want to loop.' : `Start: bar ${selecting.first + 1}. Now tap the last bar (or the same bar again).`}</span>
@@ -783,7 +935,8 @@ export function PlayScreen() {
           </div>
         )}
         <TabView track={track} mode={labelMode} flats={flats} cursor={inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0 || inTime.running} states={states.current}
-          flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} zoom={tabZoom} />
+          flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} zoom={tabZoom} onZoom={setTabZoom}
+          meter={meter} counts={counts} strum={strumPat} />
         {track.capo > 0 && <p className="small muted cap">Capo on fret {track.capo}: frets are counted from the capo.</p>}
         {track.tuning.length !== inst.strings && (
           <p className="small muted cap">This tab is for a {track.tuning.length}-string instrument; you're in {inst.label.toLowerCase()} mode. Pick a {inst.strings}-string tab from Songs to play along on your {inst.noun}.</p>
@@ -824,6 +977,7 @@ export function PlayScreen() {
       {sheet && (
         <SongsSheet
           currentId={doc.id}
+          focus={sheetFocus}
           onClose={() => setSheet(false)}
           onOpen={d => { setSheet(false); setDoc(d); setSongId(d.id) }}
         />

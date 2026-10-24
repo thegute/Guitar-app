@@ -39,3 +39,21 @@ export function takePendingDoc(): SongDoc | null {
   pendingDoc = null
   return d
 }
+
+let pendingSheet: string | null = null
+const sheetListeners = new Set<(section: string) => void>()
+/** Open Play's Songs panel at a section (e.g. the songbook). */
+export function openSongs(section = 'songbook') {
+  pendingSheet = section
+  sheetListeners.forEach(f => f(section))
+  go('play')
+}
+export function onOpenSongs(f: (section: string) => void) {
+  sheetListeners.add(f)
+  return () => { sheetListeners.delete(f) }
+}
+export function takePendingSongs(): string | null {
+  const s = pendingSheet
+  pendingSheet = null
+  return s
+}

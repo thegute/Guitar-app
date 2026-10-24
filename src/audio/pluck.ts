@@ -100,7 +100,7 @@ export function soundForProgram(program: number | undefined): SoundId | null {
 }
 
 const SOUND_KEY = 'kg:sound'
-type GroupId = 'notes' | 'pm' | 'power' | 'powerpm'
+type GroupId = 'notes' | 'pm' | 'power' | 'powerpm' | 'maj' | 'min'
 interface Sample { buf: AudioBuffer; off: number }
 /** samples by note; several takes of a note are played in turn (and left/right when double-tracked) */
 interface Group { keys: number[]; map: Map<number, Sample[]>; last: Map<number, number> }
@@ -277,7 +277,28 @@ export function isPowerChord(midis: number[]) {
   return (m.length === 2 || m.length === 3) && m[1] - m[0] === 7 && (m.length === 2 || m[2] - m[0] === 12)
 }
 
-/** Strum notes (low to high for a downstroke). Amp tones play power chords as recorded chords. */
+/** A major or minor chord (7ths count as their triad), and the bass note to play it from: for amp tones, which
+ *  have whole chords recorded through the amp. Null for anything else (sus, dim, two notes …). */
+export function chordKind(midis: number[]): { minor: boolean; bass: number } | null {
+  const pcs = new Set(midis.map(m => ((m % 12) + 12) % 12))
+  if (pcs.size < 3) return null
+  const low = Math.min(...midis)
+  // the root: the lowest note if it works, otherwise any note with a third and a fifth above it
+  const cands = [low % 12, ...[...pcs].filter(p => p !== low % 12)]
+  for (const r of cands) {
+    const has = (i: number) => pcs.has((r + i) % 12)
+    if (!has(7) || has(6) || has(8)) continue
+    const maj = has(4), min = has(3)
+    if (maj === min) continue
+    // the root's bass note nearest the chord's lowest note, not above it
+    let bass = low - (((low - r) % 12) + 12) % 12
+    if (low - bass > 7) bass += 12
+    return { minor: min, bass }
+  }
+  return null
+}
+
+/** Strum notes (low to high for a downstroke). Amp tones play power chords and major / minor chords as recorded chords. */
 export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: number; gain?: number; dest?: AudioNode; sound?: SoundId; pm?: boolean; double?: boolean } = {}): Handle {
   const ctx = audio()
   const t0 = when || ctx.currentTime + 0.01
@@ -299,6 +320,22 @@ export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: 
         return { stop: (at?: number) => hs.forEach(x => x.stop(at)) }
       }
       return playSample(take(g, k).s, rate, t0, gain * 1.45, opts.dest)
+    }
+  }
+  // full chords through an amp: a recorded chord (the amp distorts the strings together, like a real one)
+  const ck = bank && !opts.pm ? chordKind(midis) : null
+  const cg = ck ? bank!.groups[ck.minor ? 'min' : 'maj'] : undefined
+  if (ck && cg) {
+    const k = nearest(cg, ck.bass)
+    if (Math.abs(k - ck.bass) <= 3) {
+      const rate = Math.pow(2, (ck.bass - k) / 12)
+      if (opts.double) {
+        const a = take(cg, k)
+        const hs = [playSample(a.s, rate, t0, gain * 1.1, opts.dest, -0.85),
+          playSample(a.s, rate * Math.pow(2, 7 / 1200), t0 + 0.009 + Math.random() * 0.008, gain * 1.1, opts.dest, 0.85)]
+        return { stop: (at?: number) => hs.forEach(x => x.stop(at)) }
+      }
+      return playSample(take(cg, k).s, rate, t0, gain * 1.4, opts.dest)
     }
   }
   const order = opts.up ? [...midis].reverse() : midis

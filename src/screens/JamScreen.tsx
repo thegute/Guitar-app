@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   MODES, STYLES, FLAVORS, ENDINGS, SPICE, STYLE_DEFAULTS, FN_LABEL,
-  randomProgression, swapChord, suggestions, scalesForProgression, scaleForChord, progChordPcs, resolveFlavor, typeTones,
+  randomProgression, swapChord, spell, suggestions, scalesForProgression, scaleForChord, progChordPcs, resolveFlavor, typeTones,
   type ModeId, type Style, type Flavor, type Ending, type ProgChord,
 } from '../theory/progressions'
 import type { Voicing } from '../theory/chords'
@@ -32,6 +32,8 @@ import { LickMaker } from '../components/LickMaker'
 import { patternForStrum } from '../tabs/picking'
 import { saveSong } from '../tabs/library'
 import { openInPlay } from '../nav'
+import { SongFinder } from '../components/SongFinder'
+import { Zoomable } from '../components/Zoomable'
 import { pc } from '../theory/notes'
 
 const COUNTS = [2, 4, 8, 12, 16]
@@ -345,7 +347,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
 
   // ---------- pieces ----------
   const [cardsHint, cardsHintBody] = useHint('Tap a chord to hear it, tap its diagram for another shape, ↻ swaps it for a different chord that does the same job, and the lock keeps it when you roll again.', 'How the chord cards work')
-  const summary = `${tonic} ${MODES.find(m => m.id === mode)!.label.toLowerCase()} · ${STYLES.find(s => s.id === style)!.label} · ${count} chords · ${totalBars} bar${totalBars === 1 ? '' : 's'}`
+  const summary = `${tonic} ${MODES.find(m => m.id === mode)!.label.toLowerCase()} · ${STYLES.find(s => s.id === style)!.label} · ${prog.length || count} chord${(prog.length || count) === 1 ? '' : 's'} · ${totalBars} bar${totalBars === 1 ? '' : 's'}`
 
   const options = (
     <div className="panel stack jam-options">
@@ -371,6 +373,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   )
 
   const cards = (
+    <Zoomable id="jamCards" max={2.2}>
     <div className={`prog-cards${prog.length > 8 ? ' many' : ''}`}>
       {prog.map((c, i) => {
         const v = chosen[i]
@@ -401,6 +404,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         )
       })}
     </div>
+    </Zoomable>
   )
 
   const chordInfo = cur && (
@@ -606,6 +610,18 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         {chordInfo}
         {transportRow}
       </div>
+      <Fold id="jamFinder" title="Find the chords from a song" summary="listen to a video or a record"
+        hint="Play a song out loud (a YouTube video here, or any recording) and KGuitar listens through the mic: it writes down the chords and the key, or a melody line as a tab. Talking and singing are left out.">
+        <SongFinder
+          onUseInJam={(root, minor, chords) => {
+            const m: ModeId = minor ? 'minor' : 'major'
+            setTonic(root)
+            setMode(m)
+            load(chords.map(c => spell(root, m, { semi: (pc(c.root) - pc(root) + 12) % 12, type: c.q })).map(c => ({ ...c, beats: rate })))
+            document.getElementById('main')?.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
+      </Fold>
       <Fold id="jamTabs" title="Make it a tab" summary="fingerpicking · chord melody · licks"
         hint={`Turn ${prog.map(c => c.symbol).join(' – ')} into a fingerpicking tab or a chord melody, or get licks in ${tonic} to solo with. Then play along in Play: the mic follows you note by note.`}>
         <div className="seg" role="group" aria-label="What to make">
