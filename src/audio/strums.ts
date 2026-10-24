@@ -1,5 +1,5 @@
 // Strumming and picking patterns for the backing guitar.
-import { playNote } from './pluck'
+import { playNote, strum as strumNotes, isPowerChord, soundInfo, type Handle, type SoundId } from './pluck'
 
 /**
  * Hit kinds: D down strum, U up strum, B bass note (root), A alternate bass (next string up),
@@ -29,51 +29,55 @@ export const STRUMS: { id: string; label: string; hits: Hit[] }[] = [
   { id: 'rumba', label: 'Rumba / flamenco', hits: [[0, 'D'], [0.5, 'X'], [0.75, 'U'], [1, 'D'], [1.5, 'U'], [2, 'D'], [2.5, 'X'], [2.75, 'U'], [3, 'D'], [3.5, 'U']] },
 ]
 
-export interface Handle { stop: (at?: number) => void }
+export type { Handle }
 
-/** Play one hit of a pattern for a chord voicing (midis low → high). */
-export function playHit(kind: Kind, midis: number[], when: number, gain: number, dest?: AudioNode): Handle[] {
+/** Play one hit of a pattern for a chord voicing (midis low → high) in the given guitar sound. */
+export function playHit(kind: Kind, midis: number[], when: number, gain: number, dest?: AudioNode, sound?: SoundId): Handle[] {
   if (!midis.length) return []
   const hs: Handle[] = []
-  const strum = (notes: number[], up: boolean, g: number, spread = 0.014) => {
-    const order = up ? [...notes].reverse() : notes
-    order.forEach((m, i) => hs.push(playNote(m, when + i * spread, g, dest)))
-  }
+  const amp = sound ? !!soundInfo(sound).amp : false
+  const chord = (notes: number[], o: { up?: boolean; g: number; spread?: number; pm?: boolean }) =>
+    hs.push(strumNotes(notes, when, { up: o.up, gain: o.g, spread: o.spread ?? 0.014, dest, sound, pm: o.pm }))
+  const note = (m: number, g: number, pm = false) => hs.push(playNote(m, when, g, dest, { sound, pm }))
+  // power chords stay whole on upstrokes too (they're only 2-3 strings)
+  const top = (n: number) => (isPowerChord(midis) ? midis : midis.slice(-n))
   switch (kind) {
     case 'D':
-      strum(midis, false, gain)
+      chord(midis, { g: gain })
       break
     case 'U':
-      strum(midis.slice(-4), true, gain * 0.7, 0.01)
+      chord(top(4), { up: true, g: gain * 0.7 / 0.75, spread: 0.01 })
       break
     case 'S': {
-      strum(midis.length > 3 ? midis.slice(-4) : midis, false, gain * 0.8, 0.008)
+      chord(midis.length > 3 && !isPowerChord(midis) ? midis.slice(-4) : midis, { g: gain * 0.8, spread: 0.008 })
       const end = when + 0.16
       hs.forEach(h => h.stop(end))
       break
     }
     case 'X': {
-      // muted chuck: a very short strum
-      strum(midis.slice(-4), false, gain * 0.35, 0.004)
-      hs.forEach(h => h.stop(when + 0.035))
+      // muted chuck: a very short strum (through an amp: a tight palm-muted chug)
+      if (amp) chord(midis.slice(0, Math.min(3, midis.length)), { g: gain * 0.45, spread: 0.004, pm: true })
+      else chord(midis.slice(-4), { g: gain * 0.35, spread: 0.004 })
+      hs.forEach(h => h.stop(when + (amp ? 0.06 : 0.035)))
       break
     }
     case 'P': {
-      strum(midis.slice(0, Math.min(3, midis.length)), false, gain * 0.85, 0.004)
-      hs.forEach(h => h.stop(when + 0.11))
+      // palm-muted chug on the low strings: recorded palm mutes when the sound has them
+      chord(midis.slice(0, Math.min(3, midis.length)), { g: gain * 0.85, spread: 0.004, pm: true })
+      hs.forEach(h => h.stop(when + (amp ? 0.2 : 0.11)))
       break
     }
     case 'B':
-      hs.push(playNote(midis[0], when, gain * 0.95, dest))
+      note(midis[0], gain * 0.95)
       break
     case 'A':
-      hs.push(playNote(midis[Math.min(1, midis.length - 1)], when, gain * 0.85, dest))
+      note(midis[Math.min(1, midis.length - 1)], gain * 0.85)
       break
     default: {
       // aN: the Nth note counted from the top so it works for 4, 5 or 6-string voicings
       const n = parseInt(kind.slice(1), 10)
       const idx = Math.max(0, midis.length - (7 - n))
-      hs.push(playNote(midis[Math.min(idx, midis.length - 1)], when, gain * 0.8, dest))
+      note(midis[Math.min(idx, midis.length - 1)], gain * 0.8)
     }
   }
   return hs

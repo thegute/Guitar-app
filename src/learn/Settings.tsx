@@ -8,7 +8,7 @@ import { GearSetup } from '../components/GearSetup'
 import { PedalSettings } from '../controls/PedalSettings'
 import { BackupPanel } from '../components/BackupPanel'
 import { useShowArt } from '../components/Art'
-import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, type SoundId } from '../audio/pluck'
+import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, instrumentSound, activeSound, soundInfo, SOUNDS, type SoundId } from '../audio/pluck'
 import { audio } from '../audio/engine'
 import { gear, isSetUp, latencyMs, useGear } from '../audio/gear'
 import { enableReminders, reminderSettings, remindersAvailable, updateReminderSettings, type ReminderSettings } from './reminders'
@@ -29,10 +29,12 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
     setSoundChoice(c)
     const ctx = audio()
     await ctx.resume()
-    await loadSound(c === 'auto' ? (inst.isUke ? 'nylon' : 'acoustic') : c)
-    // a C chord on whatever you're playing
+    const id = c === 'auto' ? instrumentSound() : c
+    await loadSound(id)
+    // the amp sounds play a power chord, the others a C chord on whatever you're playing
+    if (soundInfo(id).amp && !inst.isUke) { strum([45, 52, 57], ctx.currentTime + 0.05, { sound: id }); return }
     const frets = inst.id === 'tenor' ? [0, 0, 0, 3] : inst.id === 'baritone' ? [2, 0, 1, 0] : [-1, 3, 2, 0, 1, 0]
-    strum(inst.midis.map((m, i) => (frets[i] < 0 ? -1 : m + frets[i])).filter(m => m > 0), ctx.currentTime + 0.05, { spread: 0.03 })
+    strum(inst.midis.map((m, i) => (frets[i] < 0 ? -1 : m + frets[i])).filter(m => m > 0), ctx.currentTime + 0.05, { spread: 0.03, sound: id })
   }
   useGear()
   const goal = dailyGoalMin()
@@ -100,8 +102,9 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
 
       <section className="panel stack" style={{ gap: 10 }}>
         <h2 style={{ margin: 0 }}>Playback sound</h2>
-        <Chips<'auto' | SoundId> label="Sound" items={[{ id: 'auto', label: inst.isUke ? 'Match my instrument (nylon)' : 'Match my instrument (acoustic)' }, { id: 'acoustic', label: 'Steel-string acoustic' }, { id: 'electric', label: 'Clean electric' }, { id: 'nylon', label: 'Nylon / ukulele-like' }, { id: 'synth', label: 'Simple synth' }]} value={sound} onChange={v => void tryIt(v)} wrap />
-        <p className="small muted" style={{ margin: 0 }}>Used for Hear it, Jam's backing, tapping notes and the quizzes. Tap one to hear it.</p>
+        <Chips<'auto' | SoundId> label="Sound" items={[{ id: 'auto', label: `Auto (${inst.isUke ? 'nylon' : 'acoustic'}, or the song's own guitar)` }, ...SOUNDS.map(x => ({ id: x.id, label: x.label }))]} value={sound} onChange={v => void tryIt(v)} wrap />
+        <p className="small muted" style={{ margin: 0 }}>{soundInfo(activeSound()).hint}</p>
+        <p className="small muted" style={{ margin: 0 }}>Used for Hear it, tapping notes and the quizzes. On Auto, a Guitar Pro tab plays in its own guitar sound (acoustic, clean, overdrive or distortion). You can also switch it next to Hear it. Jam picks a sound for each style; change it there under Guitar sound. The amp sounds were made from your own Peavey 5150 captures and cab impulse responses; your files aren't inside the app, only the finished notes. Your own playing is never sent back out of the phone: you hear it only through your amp.</p>
       </section>
 
       <section className="panel stack" style={{ gap: 10 }}>
@@ -148,7 +151,9 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
 
       <section className="panel stack small" style={{ gap: 6 }}>
         <h2 style={{ margin: 0 }}>Credits</h2>
-        <span className="muted">Guitar sounds: tonejs-instruments samples by Nicholaus P. Brosowsky (github.com/nbrosowsky/tonejs-instruments).</span>
+        <span className="muted">Recorded guitar and bass: tonejs-instruments samples by Nicholaus P. Brosowsky (github.com/nbrosowsky/tonejs-instruments).</span>
+        <span className="muted">Drums: AVL Drumkits by Glen MacArthur (bandshed.net/avldrumkits, CC BY-SA 3.0); the trimmed samples in this app are shared under the same licence.</span>
+        <span className="muted">Amp and acoustic sounds: rendered from the owner's own Neural Amp Modeler captures (MirrorProfiles 5150) and impulse responses (York Audio, Tone Factor, Calypso, PastToFutureReverbs).</span>
         <span className="muted">Theory lessons follow the chapters of Offtonic Theory (offtonic.com/theory); the lesson text here is original.</span>
         <span className="muted">Chord shapes: chords-db (github.com/tombatossals/chords-db). Guitar Pro import: alphaTab. Pitch detection: pitchy.</span>
       </section>

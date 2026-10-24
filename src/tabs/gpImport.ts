@@ -6,6 +6,7 @@ const QUARTER_TICKS = 960
 
 function techOf(n: model.Note): string | undefined {
   if (n.isDead) return 'x'
+  if (n.isPalmMute) return 'PM'
   if (n.isHammerPullOrigin && n.hammerPullDestination) return n.hammerPullDestination.fret >= n.fret ? 'h' : 'p'
   if (n.slideOutType !== model.SlideOutType.None) return n.slideOutType === model.SlideOutType.OutDown ? '\\' : '/'
   if (n.hasBend) return 'b'
@@ -38,7 +39,8 @@ export function importGuitarPro(bytes: Uint8Array, fileName = 'Song'): Song {
         })
       return { steps }
     })
-    tracks.push({ name: t.name?.trim() || `Track ${tracks.length + 1}`, tuning, capo, bars })
+    const program = t.playbackInfo?.program
+    tracks.push({ name: t.name?.trim() || `Track ${tracks.length + 1}`, tuning, capo, bars, ...(typeof program === 'number' ? { program } : {}) })
   }
   if (!tracks.length) throw new Error('No guitar tracks found in this file.')
   const title = score.title?.trim() || fileName.replace(/\.[^.]+$/, '')

@@ -2,7 +2,7 @@
 // you play is judged early / on time / late. Includes the speed trainer for looped sections.
 import { audio } from '../audio/engine'
 import { playClick } from '../audio/metronome'
-import { playNote } from '../audio/pluck'
+import { playNote, type SoundId } from '../audio/pluck'
 import { playable, type FlatStep } from '../tabs/model'
 
 export interface TimedStep {
@@ -83,7 +83,7 @@ export class InternalClock implements Clock {
     private fromBeat: number,
     private toBeat: number,
     bpm: number,
-    private opts: { loop: boolean; click: boolean; countIn: number; guide?: { steps: TimedStep[]; flat: FlatStep[] }; onWrap?: () => number | void },
+    private opts: { loop: boolean; click: boolean; countIn: number; guide?: { steps: TimedStep[]; flat: FlatStep[]; sound?: SoundId }; onWrap?: () => number | void },
   ) {
     this.spbNow = 60 / bpm
     const ctx = audio()
@@ -125,7 +125,7 @@ export class InternalClock implements Clock {
       while (this.guideNext < inRange.length && this.timeOf(inRange[this.guideNext].beat) <= horizon) {
         const s = inRange[this.guideNext]
         const t = this.timeOf(s.beat)
-        if (t >= ctx.currentTime - 0.01) s.midis.forEach((m, k) => playNote(m, t + (s.chord ? k * 0.012 : 0), s.chord ? 0.3 : 0.4))
+        if (t >= ctx.currentTime - 0.01) s.midis.forEach((m, k) => playNote(m, t + (s.chord ? k * 0.012 : 0), s.chord ? 0.3 : 0.4, undefined, { sound: g.sound }))
         this.guideNext++
       }
     }

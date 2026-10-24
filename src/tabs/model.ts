@@ -30,6 +30,8 @@ export interface SongTrack {
   tuning: number[]
   capo: number
   bars: SongBar[]
+  /** General MIDI instrument from a Guitar Pro file (25 acoustic, 29 overdrive, 30 distortion ...): picks the Hear it sound */
+  program?: number
 }
 export interface Song {
   title: string

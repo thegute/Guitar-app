@@ -25,7 +25,7 @@ import { recordRun } from '../play/songStats'
 import { useFoldPosture } from '../play/fold'
 import type { VideoApi } from '../play/inTime'
 import { exampleDoc } from '../tabs/examples'
-import { playNote, strum } from '../audio/pluck'
+import { playNote, strum, SOUNDS, activeSound, onSoundChange, setSoundChoice, soundChoice, soundForProgram, soundInfo, loadSound, type SoundId } from '../audio/pluck'
 import { audio, keepAwake } from '../audio/engine'
 import { TabPlayer } from '../audio/tabPlayer'
 import { keyPrefersFlats, pcName } from '../theory/notes'
@@ -384,6 +384,12 @@ export function PlayScreen() {
   const [playAt, setPlayAt] = useState(-1)
   const [speed, setSpeed] = usePersist('playSpeed', 1)
   const songBpm = doc?.song.tempo ?? 90
+  // the sound for Hear it and tapped notes: your pick, or (on Auto) the guitar the Guitar Pro file asks for
+  const [soundSel, setSoundSel] = useState(soundChoice())
+  useEffect(() => onSoundChange(() => setSoundSel(soundChoice())), [])
+  const songSound = soundForProgram(track?.program)
+  const hearSound: SoundId = soundSel === 'auto' ? activeSound(songSound) : soundSel
+  useEffect(() => { void loadSound(hearSound) }, [hearSound])
   function stopPreview() {
     player.current?.stop()
     setPlayAt(-1)
@@ -391,7 +397,7 @@ export function PlayScreen() {
 
   // ---------- play in time ----------
   const inTime = useInTime({
-    flat, loop: loop, startFlat: cursorFlat >= 0 ? cursorFlat : 0, songBpm, speed, click, guide, strict, trainer, video,
+    flat, loop: loop, startFlat: cursorFlat >= 0 ? cursorFlat : 0, songBpm, speed, click, guide, sound: hearSound, strict, trainer, video,
     sync: showVideo ? doc?.ytSync : undefined, states,
     latencyMs: () => latencyMs(kindOf(listener.current?.external)),
     onExpect: (now, next) => listener.current?.expect(now, next),
@@ -443,6 +449,7 @@ export function PlayScreen() {
     if (playAt >= 0) { stopPreview(); return }
     if (listening) void toggleListen()
     const p = (player.current ??= new TabPlayer())
+    p.sound = hearSound
     p.onStep = i => setPlayAt(i)
     p.onEnd = () => setPlayAt(-1)
     if (loopRange) {
@@ -509,19 +516,19 @@ export function PlayScreen() {
     void ctx.resume()
     if (note) {
       setInspect(note)
-      if (note.tech !== 'x') playNote(note.midi, ctx.currentTime + 0.02)
+      if (note.tech !== 'x') playNote(note.midi, ctx.currentTime + 0.02, 0.8, undefined, { sound: hearSound, pm: note.tech === 'PM' })
     } else {
       const ns = playable(flat[follow.idx[k]]?.step ?? { notes: [], dur: 0 })
       setInspect(ns[0] ?? null)
-      if (ns.length) strum(ns.map(n => n.midi), ctx.currentTime + 0.02, { spread: 0.02 })
+      if (ns.length) strum(ns.map(n => n.midi), ctx.currentTime + 0.02, { spread: 0.02, sound: hearSound })
     }
-  }, [flat])
+  }, [flat, hearSound])
 
   function hearNext() {
     if (!expected.length) return
     const ctx = audio()
     void ctx.resume()
-    strum(expected.map(n => n.midi), ctx.currentTime + 0.02, { spread: 0.02 })
+    strum(expected.map(n => n.midi), ctx.currentTime + 0.02, { spread: 0.02, sound: hearSound })
   }
 
   const firstTry = useMemo(() => {
@@ -659,6 +666,17 @@ export function PlayScreen() {
       <button className={`btn sm hear${playAt >= 0 ? ' on' : ''}`} onClick={preview} aria-pressed={playAt >= 0}>
         {playAt >= 0 ? '■ Stop' : '▶ Hear it'}
       </button>
+      <label className="sound-pick" title={soundInfo(hearSound).hint}>
+        <span className="small">Sound</span>
+        <select className="select sm" value={soundSel} aria-label="Sound for Hear it and tapped notes" onChange={e => {
+          const v = e.target.value as 'auto' | SoundId
+          setSoundChoice(v)
+          if (playAt >= 0) stopPreview()
+        }}>
+          <option value="auto">Auto ({soundInfo(activeSound(songSound)).label})</option>
+          {SOUNDS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+        </select>
+      </label>
       <Chips label="Playback speed" items={[{ id: 0.5, label: '½' }, { id: 0.75, label: '¾' }, { id: 1, label: `1× · ${Math.round(songBpm)} bpm` }]} value={speed} onChange={v => { setSpeed(v); if (playAt >= 0) { stopPreview() } }} />
       <Chips label="Tab numbers" items={[{ id: 'fret', label: 'Frets' }, { id: 'note', label: 'Notes' }, { id: 'both', label: 'Both' }]} value={labelMode} onChange={setLabelMode} />
       {mode === 'time' && (

@@ -1,6 +1,7 @@
 // Runs a "play in time" session for the Play screen: the clock (own click or a synced video), the moving cursor,
 // judging each note or strum, loop passes and the speed trainer.
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react'
+import type { SoundId } from '../audio/pluck'
 import { audio, keepAwake } from '../audio/engine'
 import { chordMatch } from '../audio/chroma'
 import type { FlatStep } from '../tabs/model'
@@ -22,6 +23,8 @@ interface Args {
   speed: number
   click: boolean
   guide: boolean
+  /** the guitar sound the guide plays in */
+  sound?: SoundId
   strict: boolean
   trainer: TrainerOpts
   video: MutableRefObject<VideoApi | null>
@@ -90,7 +93,7 @@ export function useInTime(a: Args) {
     } else {
       clock = new InternalClock(fromBeat, toBeat, A.songBpm * speed, {
         loop: !!A.loop, click: A.click, countIn: 4,
-        guide: A.guide ? { steps: tl.steps, flat: A.flat } : undefined,
+        guide: A.guide ? { steps: tl.steps, flat: A.flat, sound: A.sound } : undefined,
         onWrap: () => {
           // end of a pass (decided just before the loop restarts): score it, maybe speed up
           const r = run.current

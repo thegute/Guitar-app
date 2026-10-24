@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   MODES, STYLES, FLAVORS, ENDINGS, SPICE, STYLE_DEFAULTS, FN_LABEL,
-  randomProgression, swapChord, suggestions, scalesForProgression, scaleForChord, progChordPcs, resolveFlavor,
+  randomProgression, swapChord, suggestions, scalesForProgression, scaleForChord, progChordPcs, resolveFlavor, typeTones,
   type ModeId, type Style, type Flavor, type Ending, type ProgChord,
 } from '../theory/progressions'
 import type { Voicing } from '../theory/chords'
@@ -15,7 +15,8 @@ import { CircleOfFifths } from '../components/CircleOfFifths'
 import { InputPicker } from '../components/InputPicker'
 import { Chips, Field, KeyPicker, usePersist } from '../components/Controls'
 import { IconDice, IconLock, IconPlay, IconStop } from '../components/Icons'
-import { strum, preload } from '../audio/pluck'
+import { strum as strumNotes, preload, SOUNDS, soundInfo, type SoundId } from '../audio/pluck'
+import { BASSLINES } from '../audio/bass'
 import { audio, keepAwake } from '../audio/engine'
 import { JamTransport } from '../audio/jam'
 import { InputRecorder, makeLayerBuffer, measureLatency } from '../audio/looper'
@@ -78,6 +79,9 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [chordsOn, setChordsOn] = usePersist('jamChordsOn', true)
   const [drumsOn, setDrumsOn] = usePersist('jamDrumsOn', true)
   const [clickOn, setClickOn] = usePersist('jamClick', false)
+  const [toneId, setToneId] = usePersist<'auto' | SoundId>('jamTone', 'auto')
+  const [bassId, setBassId] = usePersist('jamBass', 'auto')
+  const [bassOn, setBassOn] = usePersist('jamBassOn', true)
   const [optionsOpen, setOptionsOpen] = usePersist('jamOptionsOpen', false)
   const [showCircle, setShowCircle] = usePersist('jamCircle', true)
   const [prog, setProg] = usePersist<ProgChord[]>('jamProg', [])
@@ -91,6 +95,11 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const setStyle = (s: Style) => { setStyleRaw(s); setBpm(STYLE_DEFAULTS[s].bpm) }
   const strumKind = strumId === 'auto' ? STYLE_DEFAULTS[style].strum : strumId
   const drums = drumId === 'auto' ? STYLE_DEFAULTS[style].drums : drumId
+  const bassLine = bassId === 'auto' ? STYLE_DEFAULTS[style].bass : bassId
+  // each style picks a guitar sound (a ukulele keeps its nylon sound for the acoustic styles)
+  const styleTone = (inst.isUke && ['acoustic', 'j45'].includes(STYLE_DEFAULTS[style].tone) ? 'nylon' : STYLE_DEFAULTS[style].tone) as SoundId
+  const tone: SoundId = toneId === 'auto' ? styleTone : toneId
+  const strum = (midis: number[]) => strumNotes(midis, 0, { sound: tone })
   const resolvedFlavor = resolveFlavor(flavor, style)
 
   // ---------- looper ----------
@@ -197,9 +206,9 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   // ---------- transport ----------
   function applySong() {
     const t = tr()
-    chosen.forEach(v => preload(midisOf(v)))
-    t.setSong(prog.map((c, i) => ({ midis: midisOf(chosen[i]), beats: c.beats ?? 4 })), bpm, strumKind, drums)
-    t.setMix({ chords: chordsOn && (!rec || backingWhileRec), drums: drumsOn, click: clickOn })
+    chosen.forEach(v => preload(midisOf(v), tone))
+    t.setSong(prog.map((c, i) => ({ midis: midisOf(chosen[i]), beats: c.beats ?? 4, root: pc(c.root), tones: typeTones(c.type) })), bpm, strumKind, drums, bassLine, tone)
+    t.setMix({ chords: chordsOn && (!rec || backingWhileRec), drums: drumsOn, click: clickOn, bass: bassOn })
   }
   function startPlay(countIn = 0) {
     applySong()
@@ -220,10 +229,10 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   useEffect(() => {
     if (transport.current?.playing && !rec) startPlay(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bpm, strumKind, drums, prog, shapeIdx, shapePref])
+  }, [bpm, strumKind, drums, prog, shapeIdx, shapePref, bassLine, tone])
   useEffect(() => {
-    transport.current?.setMix({ chords: chordsOn && (!rec || backingWhileRec), drums: drumsOn, click: clickOn })
-  }, [chordsOn, drumsOn, clickOn, rec, backingWhileRec])
+    transport.current?.setMix({ chords: chordsOn && (!rec || backingWhileRec), drums: drumsOn, click: clickOn, bass: bassOn })
+  }, [chordsOn, drumsOn, clickOn, rec, backingWhileRec, bassOn])
 
   // follow the playhead
   useEffect(() => {
@@ -391,6 +400,12 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         {pos.countIn > 0 && <span className="count-in readout">{pos.countIn}</span>}
       </div>
       <div className="row">
+        <Field label="Guitar sound">
+          <select className="select" value={toneId} onChange={e => { const v = e.target.value as 'auto' | SoundId; setToneId(v); strumNotes(midisOf(chosen[Math.max(0, selected)]), 0, { sound: v === 'auto' ? styleTone : v }) }} title={soundInfo(tone).hint}>
+            <option value="auto">Match the style ({soundInfo(styleTone).label})</option>
+            {SOUNDS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+          </select>
+        </Field>
         <Field label="Strum">
           <select className="select" value={strumId} onChange={e => setStrumId(e.target.value)}>
             <option value="auto">Match the style ({STRUMS.find(s => s.id === STYLE_DEFAULTS[style].strum)?.label})</option>
@@ -404,10 +419,18 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
             {GROOVES.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}
           </select>
         </Field>
+        <Field label="Bass">
+          <select className="select" value={bassId} onChange={e => setBassId(e.target.value)}>
+            <option value="auto">Match the style ({BASSLINES.find(b => b.id === STYLE_DEFAULTS[style].bass)?.label ?? 'none'})</option>
+            <option value="off">No bass</option>
+            {BASSLINES.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
+          </select>
+        </Field>
       </div>
       <div className="row">
         <span className="small muted">Hear:</span>
         <button className="chip" aria-pressed={chordsOn} onClick={() => setChordsOn(!chordsOn)} title="The app's strumming. Turn it off to play the chords yourself.">Backing guitar</button>
+        <button className="chip" aria-pressed={bassOn} onClick={() => setBassOn(!bassOn)}>Bass</button>
         <button className="chip" aria-pressed={drumsOn} onClick={() => setDrumsOn(!drumsOn)}>Drums</button>
         <button className="chip" aria-pressed={clickOn} onClick={() => setClickOn(!clickOn)}>Click</button>
       </div>
