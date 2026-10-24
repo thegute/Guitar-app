@@ -56,8 +56,9 @@ async function overflow(page) {
         }
         await back()
       }
-      // a quiz in tap mode
-      await page.click('.quiz-list button >> nth=0')
+      // a quiz in tap mode (the practice course folds away: open it, then Continue)
+      if (!(await page.isVisible('.course-next'))) await page.click('.fold-toggle:has-text("Practice course")')
+      await page.click('.course-next')
       await page.waitForSelector('.quiz-card')
       await shot('quiz')
       const opt = await page.$('.note-btn, .choice-btn')

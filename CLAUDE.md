@@ -110,6 +110,17 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
 - Chord strum-along (chroma) bench (scratch only): right chords 18/18 accepted on acoustic and clean; major/minor mix-ups
   rejected; a triad is accepted where a 7th chord is expected (3rd harmonics) — left lenient on purpose.
 
+## Build 12 (owner: "a little cluttered", distorted "fake, like a keyboard" and "thin" in Jam)
+- Tones: `guitar_di.pluck(human=1)` (attack pitch settle, detune/wander, pick click, varied pick spot/strength);
+  render_tones `variants` (pm 2, power 2, powerpm 3 takes; index values may be lists), `weight` EQ, 112 kbps. pluck.ts
+  `take()` rotates takes; `double` = two takes hard L/R (+ tiny detune if one take) — Jam rhythm on amp tones only.
+  SoundInfo.band = Jam mix level (metal 2.0, crunch 1.45); BassLine.drive feeds JamTransport's driven bass path.
+- Declutter (owner said keep the Play toolbar as is): `components/Fold.tsx` (Fold = folding section with summary +
+  remembered state `kg:fold:<id>`, useHint/HintHead = ⓘ explanations). Jam: Band line + editor, Make it a tab
+  segmented (pick | melody | licks; ProgressionTabs `part`), Looper/Scales/Circle/Famous as folds. Learn: quests,
+  course (Continue button, units start closed), path as folds. Songs sheet: your songs first, generators folded.
+  Settings explanations behind ⓘ. `.panel .panel` drops its frame.
+
 ## Next up — pick up here
 1. More review if the owner asks; the owner may want to change the hand-shape guide after trying it.
 2. Keep the brother's Docs guide (https://claude.ai/artifact/7Cuc18hXrt23FDQ1PniqV5) in step with the in-app guide.

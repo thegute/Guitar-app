@@ -24,6 +24,8 @@ interface Props {
   onOpen: (doc: SongDoc) => void
   /** suggested picking pattern (e.g. from Jam's strum choice) */
   suggest?: string
+  /** show only the fingerpicking or the chord melody part (Jam switches between them) */
+  part?: 'pick' | 'melody'
 }
 
 export function Preview({ doc, minor }: { doc: SongDoc; minor: boolean }) {
@@ -55,7 +57,7 @@ export function Preview({ doc, minor }: { doc: SongDoc; minor: boolean }) {
   )
 }
 
-export function ProgressionTabs({ chords, voicings, tonic, mode, bpm, onOpen, suggest }: Props) {
+export function ProgressionTabs({ chords, voicings, tonic, mode, bpm, onOpen, suggest, part }: Props) {
   const inst = useInstrument()
   const [patId, setPatId] = usePersist('pickPattern', suggest ?? 'travis')
   const [style, setStyle] = usePersist<MelodyStyle>('cmStyle', 'ballad')
@@ -83,8 +85,8 @@ export function ProgressionTabs({ chords, voicings, tonic, mode, bpm, onOpen, su
   if (!chords.length) return null
   return (
     <div className="stack prog-tabs" style={{ gap: 10 }}>
-      <div className="stack" style={{ gap: 6 }}>
-        <h3 style={{ margin: 0 }}>Fingerpicking tab</h3>
+      {part !== 'melody' && <div className="stack" style={{ gap: 6 }}>
+        {!part && <h3 style={{ margin: 0 }}>Fingerpicking tab</h3>}
         <label className="field">
           <span>Pattern</span>
           <select className="select" value={patId} onChange={e => { setPatId(e.target.value); setShow('pick') }}>
@@ -99,11 +101,11 @@ export function ProgressionTabs({ chords, voicings, tonic, mode, bpm, onOpen, su
           <button className="btn primary" disabled={!pickDoc} onClick={() => pickDoc && onOpen(pickDoc)}>Open in Play</button>
         </div>
         {show === 'pick' && pickDoc && <Preview doc={pickDoc} minor={minor} />}
-      </div>
+      </div>}
 
-      <div className="stack" style={{ gap: 6 }}>
-        <h3 style={{ margin: 0 }}>Chord melody</h3>
-        <p className="small muted" style={{ margin: 0 }}>A tune written over these chords, with the melody on top and the chords under it. Every one is different: roll again until you like it, and keep the parts you like.</p>
+      {part !== 'pick' && <div className="stack" style={{ gap: 6 }}>
+        {!part && <h3 style={{ margin: 0 }}>Chord melody</h3>}
+        <p className="small muted" style={{ margin: 0 }}>A tune over these chords, melody on top and chords under it. Roll again until you like it.</p>
         <Chips label="Style" wrap items={MELODY_STYLES.map(s => ({ id: s.id, label: s.label }))} value={style} onChange={setStyle} />
         <p className="small muted" style={{ margin: 0 }}>{MELODY_STYLES.find(s => s.id === style)?.feel}</p>
         <Chips label="Level" items={MELODY_LEVELS.map(l => ({ id: l.id, label: l.label }))} value={level} onChange={setLevel} />
@@ -123,7 +125,7 @@ export function ProgressionTabs({ chords, voicings, tonic, mode, bpm, onOpen, su
           </>
         )}
         {mel && show !== 'melody' && <button className="btn sm ghost" onClick={() => setShow('melody')}>Show the melody</button>}
-      </div>
+      </div>}
     </div>
   )
 }

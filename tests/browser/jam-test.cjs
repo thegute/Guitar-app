@@ -63,6 +63,8 @@ const only = process.argv[2]
     await page.$eval('input[aria-label="Loop tempo"]', el => { const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(el, '160'); el.dispatchEvent(new Event('input', { bubbles: true })) })
     out.tempoLabel = await page.textContent('.jam .field span')
     // record a layer
+    // the looper folds away: open it first
+    if (!(await page.isVisible('.looper button.rec'))) await page.click('.fold-toggle:has-text("Looper")')
     await page.click('.looper button.rec')
     await page.waitForTimeout(800)
     out.countIn = await page.textContent('.looper .rec-meter').catch(() => 'none')
@@ -80,7 +82,8 @@ const only = process.argv[2]
     out.layers2 = await page.$$eval('.layers li', e => e.length)
     await page.click('button:has-text("Stop")')
     await page.click('button:has-text("Clear")')
-    // circle of fifths: pick D
+    // circle of fifths: pick D (open its section if it's folded)
+    if (!(await page.isVisible('.cof-cell'))) await page.click('.fold-toggle:has-text("Circle of fifths")')
     await page.locator('.cof-cell', { has: page.locator('text', { hasText: /^D$/ }) }).first().locator('path').click().catch(e => errors.push('circle click ' + e.message.slice(0, 80)))
     await page.waitForTimeout(200)
     out.afterCircle = await page.textContent('.jam .small.muted')

@@ -1,4 +1,5 @@
 // Your songs: open a Guitar Pro file, paste a text tab, or pick a saved song or an example.
+import { Fold, HintHead } from '../components/Fold'
 import { ProgressionTabs } from '../components/ProgressionTabs'
 import { LickMaker } from '../components/LickMaker'
 import { STARTER_PROGS, jamProgression, starterProgression } from '../tabs/fromProgression'
@@ -141,7 +142,7 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
         </div>
 
         <section className="panel stack" style={{ gap: 8 }}>
-          <h3 style={{ margin: 0 }}>Find a tab</h3>
+          <HintHead level={3} title="Find a tab" hint={<>Opens the site in your browser. Then either download the Guitar Pro file and come back to <b>Upload tab files</b>, or copy the tab text and tap <b>Paste from clipboard</b>.</>} />
           <form className="row" style={{ flexWrap: 'nowrap' }} onSubmit={e => { e.preventDefault(); if (query.trim()) window.open(SITES[0].url(query.trim()), '_blank') }}>
             <input className="input" type="search" placeholder="Song or artist" value={query} onChange={e => setQuery(e.target.value)} aria-label="Search for a tab" />
           </form>
@@ -152,23 +153,15 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
               </a>
             ))}
           </div>
-          <p className="small muted" style={{ margin: 0 }}>
-            Opens the site in your browser. Then either download the Guitar Pro file and come back to <b>Upload tab files</b>,
-            or copy the tab text and tap <b>Paste from clipboard</b>.
-          </p>
         </section>
 
         <section className="panel stack" style={{ gap: 10 }}>
-          <h3 style={{ margin: 0 }}>Add a song</h3>
+          <HintHead level={3} title="Add a song" hint={<>Guitar Pro (.gp .gp5 .gpx .gp4 .gp3) or text tabs (.txt). <b>From Google Drive:</b> in the picker, tap ☰ and choose Drive (or your Google account), then open your tabs folder. Nothing gets saved to the phone first. Long-press a file to select several and import them all at once.</>} />
           <div className="row">
             <button className="btn primary" disabled={busy} onClick={() => file.current?.click()}>{busy ? 'Importing…' : 'Upload tab files'}</button>
             <button className="btn" onClick={() => void pasteClipboard()}>Paste from clipboard</button>
             <input ref={file} type="file" multiple hidden onChange={e => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; if (fs.length) void openFiles(fs) }} />
           </div>
-          <p className="small muted" style={{ margin: 0 }}>
-            Guitar Pro (.gp .gp5 .gpx .gp4 .gp3) or text tabs (.txt). <b>From Google Drive:</b> in the picker, tap ☰ and choose Drive (or your Google account),
-            then open your tabs folder. Nothing gets saved to the phone first. Long-press a file to select several and import them all at once.
-          </p>
           <label className="field">
             <span>…or paste a text tab or a chord sheet (chords above the words) from Ultimate Guitar or any tab site</span>
             <textarea className="input mono" rows={6} value={text} onChange={e => setText(e.target.value)} placeholder={inst.strings === 4 ? `${[...inst.tuning.notes].reverse().map(n => n[0]).join('|-----------|\n')}|-----------|` : 'e|-----0-----|\nB|---1---1---|\nG|-2-------2-|\nD|-----------|\nA|-----------|\nE|-----------|'} spellCheck={false} />
@@ -182,51 +175,6 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
           {imported && <p className="notice small" role="status">{imported}</p>}
           {yt.trim() && !link && <span className="small" style={{ color: 'var(--jewel)' }}>That YouTube link doesn't look right.</span>}
           {error && <p className="notice small" role="alert">{error}</p>}
-        </section>
-
-        <section className="panel stack" style={{ gap: 8 }}>
-          <h3 style={{ margin: 0 }}>Practice tabs: scales, arpeggios and licks</h3>
-          <p className="small muted" style={{ margin: 0 }}>They play along like any song: the mic follows you, Hear it plays them, and you can loop any part.</p>
-          <ul className="song-list">
-            {ESSENTIALS.slice(0, 6).map(e => (
-              <li key={e.title}>
-                <button className="song-open" onClick={() => void openExercise(e.spec)}>
-                  <b>{e.title}</b>
-                  <span className="small muted">{e.why}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          <details>
-            <summary className="small">More essentials</summary>
-            <ul className="song-list" style={{ marginTop: 6 }}>
-              {ESSENTIALS.slice(6).map(e => (
-                <li key={e.title}><button className="song-open" onClick={() => void openExercise(e.spec)}><b>{e.title}</b><span className="small muted">{e.why}</span></button></li>
-              ))}
-            </ul>
-          </details>
-          <h3 style={{ margin: '8px 0 0' }}>Build your own</h3>
-          <Chips label="Kind" items={KINDS} value={exKind} onChange={setExKind} />
-          {exKind !== 'warmup' && <KeyPicker value={exRoot} onChange={setExRoot} />}
-          <Chips label="Type" wrap items={typeOptions} value={exType[exKind]} onChange={v => setExType({ ...exType, [exKind]: v })} />
-          {exKind === 'sequence' && (
-            <Chips label="Scale" items={EX_SCALES.map(x => ({ id: x.id, label: x.label }))} value={exScale} onChange={setExScale} />
-          )}
-          {posCount > 0 && (
-            <Chips label="Position" items={[...Array.from({ length: posCount }, (_, i) => ({ id: i, label: `Position ${i + 1}` })), { id: -1, label: 'All positions' }]} value={exPos >= posCount ? 0 : exPos} onChange={setExPos} />
-          )}
-          {exKind === 'lick' && <p className="small muted" style={{ margin: 0 }}>{EX_LICKS.find(l => l.id === exType.lick)?.feel}</p>}
-          <div className="row">
-            <button className="btn primary" onClick={() => void openExercise({ kind: exKind, root: exRoot, type: exType[exKind], position: posCount ? (exPos >= posCount ? 0 : exPos) : 0, scale: exScale })}>Open in Play</button>
-          </div>
-        </section>
-
-        <PickingSection onOpen={async d => { await saveSong(d); onOpen(d) }} />
-
-        <section className="panel stack" style={{ gap: 8 }}>
-          <h3 style={{ margin: 0 }}>Lick generator</h3>
-          <p className="small muted" style={{ margin: 0 }}>New practice licks in bluegrass, rock, prog metal, metal, folk or country. Roll until you like one, then open it and play along.</p>
-          <LickMaker onOpen={async d => { await saveSong(d); onOpen(d) }} />
         </section>
 
         <section>
@@ -279,6 +227,46 @@ export function SongsSheet({ currentId, onClose, onOpen }: Props) {
             ))}
           </ul>
         </section>
+        <Fold id="songsPractice" title="Practice tabs" summary="scales, arpeggios, licks"
+          hint="They play along like any song: the mic follows you, Hear it plays them, and you can loop any part.">
+          <ul className="song-list">
+            {ESSENTIALS.slice(0, 6).map(e => (
+              <li key={e.title}>
+                <button className="song-open" onClick={() => void openExercise(e.spec)}>
+                  <b>{e.title}</b>
+                  <span className="small muted">{e.why}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <details>
+            <summary className="small">More essentials</summary>
+            <ul className="song-list" style={{ marginTop: 6 }}>
+              {ESSENTIALS.slice(6).map(e => (
+                <li key={e.title}><button className="song-open" onClick={() => void openExercise(e.spec)}><b>{e.title}</b><span className="small muted">{e.why}</span></button></li>
+              ))}
+            </ul>
+          </details>
+          <h3 style={{ margin: '8px 0 0' }}>Build your own</h3>
+          <Chips label="Kind" items={KINDS} value={exKind} onChange={setExKind} />
+          {exKind !== 'warmup' && <KeyPicker value={exRoot} onChange={setExRoot} />}
+          <Chips label="Type" wrap items={typeOptions} value={exType[exKind]} onChange={v => setExType({ ...exType, [exKind]: v })} />
+          {exKind === 'sequence' && (
+            <Chips label="Scale" items={EX_SCALES.map(x => ({ id: x.id, label: x.label }))} value={exScale} onChange={setExScale} />
+          )}
+          {posCount > 0 && (
+            <Chips label="Position" items={[...Array.from({ length: posCount }, (_, i) => ({ id: i, label: `Position ${i + 1}` })), { id: -1, label: 'All positions' }]} value={exPos >= posCount ? 0 : exPos} onChange={setExPos} />
+          )}
+          {exKind === 'lick' && <p className="small muted" style={{ margin: 0 }}>{EX_LICKS.find(l => l.id === exType.lick)?.feel}</p>}
+          <div className="row">
+            <button className="btn primary" onClick={() => void openExercise({ kind: exKind, root: exRoot, type: exType[exKind], position: posCount ? (exPos >= posCount ? 0 : exPos) : 0, scale: exScale })}>Open in Play</button>
+          </div>
+        </Fold>
+        <PickingSection onOpen={async d => { await saveSong(d); onOpen(d) }} />
+        <Fold id="songsLicks" title="Lick generator" summary="bluegrass to metal"
+          hint="New practice licks in bluegrass, rock, prog metal, metal, folk or country. Roll until you like one, then open it and play along.">
+          <LickMaker onOpen={async d => { await saveSong(d); onOpen(d) }} />
+        </Fold>
 
         <section>
           <h3>Practice examples</h3>
@@ -303,9 +291,8 @@ function PickingSection({ onOpen }: { onOpen: (d: SongDoc) => void }) {
   const useJam = src === 'jam' && !!jam
   const prog = useMemo(() => (useJam ? { mode: jam!.mode, chords: jam!.chords } : starterProgression(src === 'jam' ? 'pop' : src, key)), [useJam, jam, src, key])
   return (
-    <section className="panel stack" style={{ gap: 8 }}>
-      <h3 style={{ margin: 0 }}>Fingerpicking and chord melody</h3>
-      <p className="small muted" style={{ margin: 0 }}>Travis picking, arpeggios or a chord melody over a progression: the one you made in Jam, or a classic one.</p>
+    <Fold id="songsPicking" title="Fingerpicking & chord melody" summary="over a progression"
+      hint="Travis picking, arpeggios or a chord melody over a progression: the one you made in Jam, or a classic one.">
       <label className="field">
         <span>Progression</span>
         <select className="select" value={useJam ? 'jam' : src === 'jam' ? 'pop' : src} onChange={e => setSrc(e.target.value)}>
@@ -315,6 +302,6 @@ function PickingSection({ onOpen }: { onOpen: (d: SongDoc) => void }) {
       </label>
       {!useJam && <KeyPicker value={key} onChange={setKey} />}
       <ProgressionTabs chords={prog.chords} tonic={useJam ? jam!.tonic : key} mode={prog.mode} bpm={useJam ? jam!.bpm : 80} onOpen={onOpen} />
-    </section>
+    </Fold>
   )
 }

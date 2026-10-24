@@ -14,7 +14,8 @@ import { Fretboard } from '../components/Fretboard'
 import { CircleOfFifths } from '../components/CircleOfFifths'
 import { InputPicker } from '../components/InputPicker'
 import { Chips, Field, KeyPicker, usePersist } from '../components/Controls'
-import { IconDice, IconLock, IconPlay, IconStop } from '../components/Icons'
+import { IconDice, IconLock, IconPlay, IconStop, IconPencil } from '../components/Icons'
+import { Fold, useHint } from '../components/Fold'
 import { strum as strumNotes, preload, SOUNDS, soundInfo, loadSound, loadBank, bankLoaded, type SoundId } from '../audio/pluck'
 import { BASSLINES } from '../audio/bass'
 import { audio, keepAwake } from '../audio/engine'
@@ -82,8 +83,10 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [toneId, setToneId] = usePersist<'auto' | SoundId>('jamTone', 'auto')
   const [bassId, setBassId] = usePersist('jamBass', 'auto')
   const [bassOn, setBassOn] = usePersist('jamBassOn', true)
+  const [bandOpen, setBandOpen] = useState(false)
+  const [tabPart, setTabPart] = usePersist<'pick' | 'melody' | 'licks'>('jamTabPart', 'pick')
   const [optionsOpen, setOptionsOpen] = usePersist('jamOptionsOpen', false)
-  const [showCircle, setShowCircle] = usePersist('jamCircle', true)
+  const [showCircle] = usePersist('jamCircle', true)
   const [prog, setProg] = usePersist<ProgChord[]>('jamProg', [])
   const [shapeIdx, setShapeIdx] = useState<number[]>([])
   const [locks, setLocks] = useState<boolean[]>([])
@@ -341,6 +344,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const locked = hasLoop || !!rec
 
   // ---------- pieces ----------
+  const [cardsHint, cardsHintBody] = useHint('Tap a chord to hear it, tap its diagram for another shape, ↻ swaps it for a different chord that does the same job, and the lock keeps it when you roll again.', 'How the chord cards work')
   const summary = `${tonic} ${MODES.find(m => m.id === mode)!.label.toLowerCase()} · ${STYLES.find(s => s.id === style)!.label} · ${count} chords · ${totalBars} bar${totalBars === 1 ? '' : 's'}`
 
   const options = (
@@ -416,7 +420,15 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         </Field>
         {pos.countIn > 0 && <span className="count-in readout">{pos.countIn}</span>}
       </div>
-      <div className="row">
+      <button className="band-line" aria-expanded={bandOpen} onClick={() => setBandOpen(!bandOpen)}>
+        <span className="small muted">Band</span>
+        <span className="band-parts">
+          <b>{soundInfo(tone).label}</b> · {STRUMS.find(x => x.id === strumKind)?.label ?? strumKind} · {drums === 'off' ? 'no drums' : `${GROOVES.find(g => g.id === drums)?.label ?? drums} drums`} · {bassLine === 'off' ? 'no bass' : `${BASSLINES.find(b => b.id === bassLine)?.label ?? bassLine} bass`}
+        </span>
+        <IconPencil />
+      </button>
+      {bandOpen && (
+      <div className="row band-edit">
         <Field label="Guitar sound">
           <select className="select" value={toneId} onChange={e => { const v = e.target.value as 'auto' | SoundId; setToneId(v); strumNotes(midisOf(chosen[Math.max(0, selected)]), 0, { sound: v === 'auto' ? styleTone : v }) }} title={soundInfo(tone).hint}>
             <option value="auto">Match the style ({soundInfo(styleTone).label})</option>
@@ -444,7 +456,8 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
           </select>
         </Field>
       </div>
-      <div className="row">
+      )}
+      <div className="row hear-row">
         <span className="small muted">Hear:</span>
         <button className="chip" aria-pressed={chordsOn} onClick={() => setChordsOn(!chordsOn)} title="The app's strumming. Turn it off to play the chords yourself.">Backing guitar</button>
         <button className="chip" aria-pressed={bassOn} onClick={() => setBassOn(!bassOn)}>Bass</button>
@@ -455,14 +468,11 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   )
 
   const looper = (
-    <div className="panel stack looper">
+    <div className="stack looper">
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h3 style={{ margin: 0 }}>Looper: record yourself</h3>
+        <span className="small muted">Records from:</span>
         <InputPicker active={inputInfo} />
       </div>
-      <p className="small muted" style={{ margin: 0 }}>
-        Tap Record, listen to the count-in, and play the progression once through ({totalBars} bars). Recording starts and stops on the beat by itself and is exactly one loop long, so it repeats perfectly in time with the drums and click. Then solo over yourself.
-      </p>
       <div className="row">
         <button className={`btn big rec${rec ? ' on' : ''}`} onClick={() => (rec ? stopAll() : void record(false))} disabled={!!calib?.running}>
           <span className="rec-dot" /> {rec ? (recWaiting ? 'Get ready…' : 'Recording…') : hasLoop ? 'Record again' : 'Record'}
@@ -521,8 +531,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   )
 
   const scalesPanel = (
-    <div className="panel stack">
-      <h3 style={{ margin: 0 }}>Scales to solo with</h3>
+    <div className="stack">
       <div className="stack" style={{ gap: 6 }}>
         {tips.map((t, i) => (
           <button key={i} onClick={() => setTipIdx(i)} aria-pressed={i === tipIdx} className={`tip-btn${i === tipIdx ? ' on' : ''}`}>
@@ -541,7 +550,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   )
 
   const neck = info && tip && (
-    <div className="panel">
+    <div>
       <h3 style={{ marginTop: 0 }}>{tip.root} {scaleById(tip.scale).label}{cur ? <span className="muted"> · {cur.symbol} notes in amber</span> : null}</h3>
       <Fretboard
         tuning={inst.midis}
@@ -556,17 +565,12 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         }}
         onTap={midi => strum([midi])}
       />
-      <p className="small muted" style={{ margin: '8px 0 0' }}>Land on the amber notes when each chord starts: that's how a solo follows the changes.</p>
     </div>
   )
 
   const circle = (
-    <div className="panel cof-panel">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h3 style={{ margin: 0 }}>Circle of fifths</h3>
-        <button className="btn sm" onClick={() => setShowCircle(!showCircle)}>{showCircle ? 'Hide' : 'Show'}</button>
-      </div>
-      {showCircle && (
+    <div className="cof-panel">
+      {(
         <>
           <div className="cof-wrap">
             <CircleOfFifths
@@ -578,10 +582,6 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
               size={300}
             />
           </div>
-          <p className="small muted" style={{ margin: 0 }}>
-            The shaded slice is your key: its chords sit right next to each other. Neighbours share all but one note, so moving one step around the circle
-            (like V → I) is the strongest move in music. Teal rings are the chords in this progression; the amber one is playing. Tap a key to switch.
-          </p>
         </>
       )}
     </div>
@@ -596,33 +596,42 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
       {optionsOpen && options}
       <div className="panel stack">
         <div className="row" style={{ justifyContent: 'space-between' }}>
-          <span className="small muted">{summary}</span>
+          <span className="row" style={{ gap: 6, minWidth: 0 }}><span className="small muted">{summary}</span>{cardsHint}</span>
           <button className="btn primary big" onClick={roll} disabled={locked} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             <IconDice /> New progression
           </button>
         </div>
+        {cardsHintBody}
         {cards}
-        <p className="small muted" style={{ margin: 0 }}>Tap a chord to hear it, tap its diagram for another shape, ↻ swaps it for a different chord that does the same job, and the lock keeps it when you roll again.</p>
         {chordInfo}
         {transportRow}
       </div>
-      <div className="panel stack">
-        <h2 style={{ margin: 0 }}>Make it a tab</h2>
-        <p className="small muted" style={{ margin: 0 }}>Turn {prog.map(c => c.symbol).join(' – ')} into a fingerpicking tab or a chord melody, then play along in Play: the mic follows you note by note.</p>
-        <ProgressionTabs chords={prog} voicings={chosen} tonic={tonic} mode={mode} bpm={bpm} suggest={patternForStrum(strumKind)}
-          onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
-        <h3 style={{ margin: '6px 0 0' }}>Licks in {tonic}</h3>
-        <p className="small muted" style={{ margin: 0 }}>Practice licks in the key of this progression, to use in your solos over it.</p>
-        <LickMaker fixedKey={tonic} onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
-      </div>
-      {looper}
-      <div className="split">
+      <Fold id="jamTabs" title="Make it a tab" summary="fingerpicking · chord melody · licks"
+        hint={`Turn ${prog.map(c => c.symbol).join(' – ')} into a fingerpicking tab or a chord melody, or get licks in ${tonic} to solo with. Then play along in Play: the mic follows you note by note.`}>
+        <div className="seg" role="group" aria-label="What to make">
+          {([['pick', 'Fingerpicking'], ['melody', 'Chord melody'], ['licks', `Licks in ${tonic}`]] as const).map(([id, label]) => (
+            <button key={id} aria-pressed={tabPart === id} onClick={() => setTabPart(id)}>{label}</button>
+          ))}
+        </div>
+        {tabPart === 'licks'
+          ? <LickMaker fixedKey={tonic} onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
+          : <ProgressionTabs part={tabPart} chords={prog} voicings={chosen} tonic={tonic} mode={mode} bpm={bpm} suggest={patternForStrum(strumKind)}
+            onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />}
+      </Fold>
+      <Fold id="jamLooper" title="Looper" summary={rec ? 'recording…' : hasLoop ? `${layers.length} layer${layers.length > 1 ? 's' : ''}` : 'record yourself, then solo over it'}
+        hint={`Tap Record, listen to the count-in, and play the progression once through (${totalBars} bars). Recording starts and stops on the beat by itself and is exactly one loop long, so it repeats perfectly in time with the drums and click. Then solo over yourself.`}>
+        {looper}
+      </Fold>
+      <Fold id="jamScales" title="Scales to solo with" defaultOpen summary={tip ? `${tip.root} ${scaleById(tip.scale).label}` : undefined}
+        hint="Land on the amber notes when each chord starts: that's how a solo follows the changes.">
         {scalesPanel}
+        {neck}
+      </Fold>
+      <Fold id="jamCircle" title="Circle of fifths" defaultOpen={showCircle} summary={`${tonic} ${minorKey ? 'minor' : 'major'}`}
+        hint="The shaded slice is your key: its chords sit right next to each other. Neighbours share all but one note, so moving one step around the circle (like V → I) is the strongest move in music. Teal rings are the chords in this progression; the amber one is playing. Tap a key to switch.">
         {circle}
-      </div>
-      {neck}
-      <div className="panel">
-        <h2 style={{ marginTop: 0 }}>Famous progressions in {tonic}</h2>
+      </Fold>
+      <Fold id="jamFamous" title="Famous progressions" summary={`${sugg.length} in ${tonic}`}>
         <div className="stack" style={{ gap: 8 }}>
           {sugg.map((s, i) => (
             <div key={i} className="row" style={{ justifyContent: 'space-between', borderTop: i ? '1px solid var(--hairline)' : 'none', paddingTop: i ? 8 : 0 }}>
@@ -635,7 +644,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
             </div>
           ))}
         </div>
-      </div>
+      </Fold>
     </div>
   )
 }

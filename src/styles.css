@@ -1020,3 +1020,9 @@ details summary { cursor: pointer; color: var(--pearl-2); }
   background: none; color: inherit; font: inherit; padding: 10px 12px; cursor: pointer; min-height: 48px; }
 .band-line .band-parts { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .band-line .band-parts b { font-weight: 600; }
+
+.jam .hear-row { gap: 6px; }
+.jam .hear-row .chip { min-height: 34px; padding: 0 11px; font-size: 14px; }
+.band-edit { padding: 2px 0 4px; }
+.course-next { width: 100%; justify-content: flex-start; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }
+.hint-head { display: flex; align-items: center; gap: 8px; }

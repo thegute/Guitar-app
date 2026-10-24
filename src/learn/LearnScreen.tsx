@@ -3,6 +3,7 @@
 import { ArtThumb } from '../components/Art'
 import { useState } from 'react'
 import { IconGear } from '../components/Icons'
+import { Fold } from '../components/Fold'
 import { useInstrument } from '../instrument'
 import { buildExercise, ESSENTIALS } from '../tabs/exercises'
 import { getSong, type SongDoc } from '../tabs/library'
@@ -135,7 +136,7 @@ export function LearnScreen() {
   const stage = path[si]
   const read = lessonsRead().length
   const changesBest = (() => { try { return Math.max(0, ...Object.entries(JSON.parse(localStorage.getItem('kg:changesBest') ?? '{}') as Record<string, number>).filter(([k]) => k.startsWith(inst.id + ':')).map(([, v]) => v)) } catch { return 0 } })()
-  const unitOpen = openUnit ?? units.find(u => u.quizzes.some(q => q.id === nq.id))?.unit ?? units[0]?.unit
+  const unitOpen = openUnit ?? ''
 
   function toggleAway(on: boolean) {
     setAway(on)
@@ -215,11 +216,7 @@ export function LearnScreen() {
             </ol>
           </section>
 
-          <section className="panel" aria-label="Daily quests">
-            <div className="sec-head">
-              <h2>Daily quests</h2>
-              <span className="small muted">new ones tomorrow</span>
-            </div>
+          <Fold id="learnQuests" title="Daily quests" summary={`${quests.filter(q => questProgress(q, d).done).length}/${quests.length} done · new ones tomorrow`}>
             <ul className="quest-list">
               {quests.map(q => {
                 const pr = questProgress(q, d)
@@ -232,15 +229,13 @@ export function LearnScreen() {
                 )
               })}
             </ul>
-          </section>
+          </Fold>
         </div>
 
         <div className="learn-col">
-          <section className="panel" aria-label="Practice course">
-            <div className="sec-head">
-              <h2>Practice course</h2>
-              <span className="small muted">tap mode or play mode</span>
-            </div>
+          <Fold id="learnCourse" title="Practice course" summary={`next: ${nq.title}`}
+            hint="Quizzes in two ways: tap the answer, or play it on your guitar and the app listens. Three stars each.">
+            <button className="btn primary course-next" onClick={() => push({ k: 'quiz', id: nq.id })}>Continue: {nq.title}</button>
             <div className="units">
               {units.map(u => {
                 const earned = u.quizzes.reduce((a, q) => a + (s[q.id] ?? 0), 0)
@@ -271,13 +266,9 @@ export function LearnScreen() {
                 )
               })}
             </div>
-          </section>
+          </Fold>
 
-          <section className="panel path" aria-label="Path to mastery">
-            <div className="sec-head">
-              <h2>Path to mastery</h2>
-              <span className="small muted">stage {si + 1} of {path.length}</span>
-            </div>
+          <Fold id="learnPath" className="path" title="Path to mastery" summary={`stage ${si + 1} of ${path.length}: ${stage.title}`}>
             <div className="stage-dots" aria-hidden>{path.map((p, i) => <i key={p.id} className={i < si ? 'done' : i === si ? 'on' : ''} />)}</div>
             <h3 style={{ margin: '4px 0 0' }}>{stage.title}</h3>
             <p className="small muted" style={{ margin: 0 }}>{stage.why}</p>
@@ -301,7 +292,7 @@ export function LearnScreen() {
                 ))}
               </ol>
             )}
-          </section>
+          </Fold>
 
           {st.total >= 5 && (!lastBackup() || Date.now() - lastBackup()! > 14 * 864e5) && (
             <button className="backup-nudge" onClick={() => push({ k: 'settings' })}>

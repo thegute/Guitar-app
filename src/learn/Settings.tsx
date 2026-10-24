@@ -8,6 +8,7 @@ import { GearSetup } from '../components/GearSetup'
 import { PedalSettings } from '../controls/PedalSettings'
 import { BackupPanel } from '../components/BackupPanel'
 import { useShowArt } from '../components/Art'
+import { HintHead } from '../components/Fold'
 import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, instrumentSound, activeSound, soundInfo, SOUNDS, type SoundId } from '../audio/pluck'
 import { audio } from '../audio/engine'
 import { gear, isSetUp, latencyMs, useGear } from '../audio/gear'
@@ -85,7 +86,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
       </section>
 
       <section className="panel stack" style={{ gap: 10 }}>
-        <h2 style={{ margin: 0 }}>Your guitar input</h2>
+        <HintHead title="Your guitar input" hint="Two minutes per input: it measures your room, your strings and the delay of your headphones, so notes are heard reliably and recordings land on the beat." />
         <ul className="act-list small">
           {(['mic', 'usb'] as const).map(k => (
             <li key={k}>
@@ -95,22 +96,19 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
           ))}
         </ul>
         <button className="btn" onClick={() => setSetup(true)}>Set up an input</button>
-        <p className="small muted" style={{ margin: 0 }}>Two minutes per input: it measures your room, your strings and the delay of your headphones, so notes are heard reliably and recordings land on the beat.</p>
       </section>
 
       <PedalSettings />
 
       <section className="panel stack" style={{ gap: 10 }}>
-        <h2 style={{ margin: 0 }}>Playback sound</h2>
+        <HintHead title="Playback sound" hint="Used for Hear it, tapping notes and the quizzes. On Auto, a Guitar Pro tab plays in its own guitar sound (acoustic, clean, overdrive or distortion). You can also switch it next to Hear it. Jam picks a sound for each style; change it there under Band. The amp sounds were made from your own Peavey 5150 captures and cab impulse responses; your files aren't inside the app, only the finished notes. Your own playing is never sent back out of the phone: you hear it only through your amp." />
         <Chips<'auto' | SoundId> label="Sound" items={[{ id: 'auto', label: `Auto (${inst.isUke ? 'nylon' : 'acoustic'}, or the song's own guitar)` }, ...SOUNDS.map(x => ({ id: x.id, label: x.label }))]} value={sound} onChange={v => void tryIt(v)} wrap />
         <p className="small muted" style={{ margin: 0 }}>{soundInfo(activeSound()).hint}</p>
-        <p className="small muted" style={{ margin: 0 }}>Used for Hear it, tapping notes and the quizzes. On Auto, a Guitar Pro tab plays in its own guitar sound (acoustic, clean, overdrive or distortion). You can also switch it next to Hear it. Jam picks a sound for each style; change it there under Guitar sound. The amp sounds were made from your own Peavey 5150 captures and cab impulse responses; your files aren't inside the app, only the finished notes. Your own playing is never sent back out of the phone: you hear it only through your amp.</p>
       </section>
 
       <section className="panel stack" style={{ gap: 10 }}>
-        <h2 style={{ margin: 0 }}>Look</h2>
+        <HintHead title="Look" hint={'Night is dim and low-glare for practising in bed. "Match my phone" switches with your phone\'s dark mode.'} />
         <Chips<ThemeChoice> label="Theme" items={[{ id: 'auto', label: 'Match my phone' }, { id: 'day', label: 'Day' }, { id: 'night', label: 'Night' }]} value={theme} onChange={setTheme} />
-        <p className="small muted" style={{ margin: 0 }}>Night is dim and low-glare for practising in bed. "Match my phone" switches with your phone's dark mode.</p>
         <label className="row" style={{ gap: 8 }}>
           <input type="checkbox" checked={showArt} onChange={e => setShowArt(e.target.checked)} />
           <span>Show the KGuitar poster (small, in the menu and on Learn; tap it to see it full size)</span>
@@ -118,13 +116,12 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
       </section>
 
       <section className="panel stack" style={{ gap: 10 }}>
-        <h2 style={{ margin: 0 }}>Daily goal</h2>
+        <HintHead title="Daily goal" hint="Any 5 minutes keeps your streak alive, with or without your guitar. Hitting the goal earns a bonus." />
         <Chips label="Minutes a day" items={[5, 10, 15, 20, 30, 45, 60].map(m => ({ id: m, label: `${m} min` }))} value={goal} onChange={setDailyGoalMin} />
-        <p className="small muted" style={{ margin: 0 }}>Any 5 minutes keeps your streak alive, with or without your guitar. Hitting the goal earns a bonus.</p>
       </section>
 
       <section className="panel stack" style={{ gap: 10 }}>
-        <h2 style={{ margin: 0 }}>Reminders</h2>
+        <HintHead title="Reminders" hint="Reminders skip days you've already practised, and they suggest guitar-free practice too, so they work on shift days." />
         <label className="row" style={{ gap: 8 }}>
           <input type="checkbox" checked={rem.on} onChange={e => void changeRem({ ...rem, on: e.target.checked }, e.target.checked)} />
           <span>Remind me to practise every day</span>
@@ -144,7 +141,6 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         )}
         {remMsg && <p className="small" role="status" style={{ margin: 0 }}>{remMsg}</p>}
         {!remindersAvailable() && !remMsg && <p className="small muted" style={{ margin: 0 }}>Reminders are sent by the Android app.</p>}
-        <p className="small muted" style={{ margin: 0 }}>Reminders skip days you've already practised, and they suggest guitar-free practice too, so they work on shift days.</p>
       </section>
 
       <BackupPanel />

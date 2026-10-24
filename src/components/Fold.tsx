@@ -44,3 +44,15 @@ export function Fold({ id, title, summary, hint, defaultOpen = false, children, 
     </section>
   )
 }
+
+/** A section heading with its explanation tucked behind an ⓘ. */
+export function HintHead({ title, hint, level = 2 }: { title: ReactNode; hint: ReactNode; level?: 2 | 3 }) {
+  const [btn, body] = useHint(hint)
+  const H = level === 2 ? 'h2' : 'h3'
+  return (
+    <>
+      <div className="hint-head"><H style={{ margin: 0 }}>{title}</H>{btn}</div>
+      {body}
+    </>
+  )
+}
