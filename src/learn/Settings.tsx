@@ -4,8 +4,9 @@ import { Chips } from '../components/Controls'
 import { INSTRUMENTS, setInstrument, setTuning, type Instrument, type InstrumentId } from '../instrument'
 import { setPsyMotion, setTheme, usePsyMotion, useTheme, usePsyDog, setPsyDog, type ThemeChoice } from '../theme'
 import { SubTabs, useSubTab } from '../components/SubTabs'
-import { psySrc, PsyDog, PsyPiece, PsyScene } from '../components/PsyArt'
-import { BREEDS } from '../art/dogs'
+import { PsyDog, PsyPic } from '../components/PsyArt'
+import { DOGS, GALLERY, cardSrc, picSrc, thumbSrc } from '../art/samurai'
+import { ArtViewer } from '../components/Art'
 import { dailyGoalMin, setDailyGoalMin, useProgress } from './progress'
 import { GearSetup } from '../components/GearSetup'
 import { PedalSettings } from '../controls/PedalSettings'
@@ -69,7 +70,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         <button className="btn sm" onClick={onExit}>← Back</button>
       </div>
       <header className="screen-head">
-        <PsyScene piece="oni" oni="blue" className="screen-art" />
+        <PsyPic id="torii" at="50% 40%" className="screen-art" />
         <h1 style={{ margin: 0 }}>Settings</h1>
       </header>
       <SubTabs label="Settings" value={page} onChange={setPage} tabs={[
@@ -162,7 +163,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
 
       {page === 'look' && <>
       <section className="panel stack" style={{ gap: 12 }}>
-        <HintHead title="Look" hint={'Night is dim and low-glare for practising in bed. Psychedelic is neon colours, the samurai dog and trippy art all through the app, with the words kept on dark cards so they stay easy to read. "Match my phone" switches between Day and Night with your phone\'s dark mode.'} />
+        <HintHead title="Look" hint={'Psychedelic is neon colours with the samurai dogs and the rest of the KGuitar artwork all through the app, with the words kept on dark cards so they stay easy to read. Night is dim and low-glare for practising in bed. "Match my phone" switches between Day and Night with your phone\'s dark mode.'} />
         <div className="theme-cards" role="radiogroup" aria-label="Theme">
           {([
             { id: 'auto', label: 'Match my phone', sub: 'Day or Night' },
@@ -171,7 +172,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
             { id: 'psy', label: 'Psychedelic', sub: 'Neon, trippy, the dog' },
           ] as { id: ThemeChoice; label: string; sub: string }[]).map(t => (
             <button key={t.id} role="radio" aria-checked={theme === t.id} className={`theme-card t-${t.id}${theme === t.id ? ' on' : ''}`} onClick={() => setTheme(t.id)}>
-              <span className="theme-swatch" aria-hidden="true" style={t.id === 'psy' ? { backgroundImage: `url(${psySrc('pop')})` } : undefined} />
+              <span className="theme-swatch" aria-hidden="true" style={t.id === 'psy' ? { backgroundImage: `url(${cardSrc('shrooms')})` } : undefined} />
               <b>{t.label}</b>
               <span className="small muted">{t.sub}</span>
             </button>
@@ -186,13 +187,13 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         {theme === 'psy' && (
           <div className="stack samurai-pick" style={{ gap: 8 }}>
             <h3 style={{ margin: 0 }}>Your samurai</h3>
-            <p className="small muted" style={{ margin: 0 }}>The samurai dog who greets you: on finished songs, quizzes, celebrations and empty pages. Every one has a guitar.</p>
+            <p className="small muted" style={{ margin: 0 }}>The samurai dog who greets you on finished songs, quizzes, celebrations and empty pages. Every one has a guitar.</p>
             <div className="dog-cards" role="radiogroup" aria-label="Your samurai">
               <button role="radio" aria-checked={dog === 'mix'} className={`dog-card${dog === 'mix' ? ' on' : ''}`} onClick={() => setPsyDog('mix')}>
-                <PsyPiece kind="crossed" className="dog-card-art" />
+                <span className="dog-card-art dog-mix"><PsyDog breed="shiba" /><PsyDog breed="lab" /><PsyDog breed="husky" /></span>
                 <span>Mix it up</span>
               </button>
-              {BREEDS.map(b => (
+              {DOGS.map(b => (
                 <button key={b.id} role="radio" aria-checked={dog === b.id} className={`dog-card${dog === b.id ? ' on' : ''}`} onClick={() => setPsyDog(b.id)}>
                   <PsyDog breed={b.id} className="dog-card-art" />
                   <span>{b.name}</span>
@@ -201,6 +202,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
             </div>
           </div>
         )}
+        {theme === 'psy' && <ArtGallery />}
         <label className="opt-row opt-check">
           <input type="checkbox" checked={showArt} onChange={e => setShowArt(e.target.checked)} />
           <span><b>Show the KGuitar poster</b><span className="small muted">Small, in the menu and on Learn. Tap it to see it full size.</span></span>
@@ -237,6 +239,28 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Every piece of the KGuitar artwork: tap one to see it full screen. */
+function ArtGallery() {
+  const [open, setOpen] = useState<number | null>(null)
+  const item = open === null ? null : GALLERY[open]
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      <h3 style={{ margin: 0 }}>The art</h3>
+      <p className="small muted" style={{ margin: 0 }}>All the KGuitar artwork. Tap a picture to see it full screen, then tap to zoom in.</p>
+      <div className="art-grid">
+        {GALLERY.map((g, i) => (
+          <button key={g.id} className={`art-tile${g.wide ? ' wide' : ''}`} onClick={() => setOpen(i)} aria-label={g.title}>
+            <img src={thumbSrc(g.id)} alt="" loading="lazy" decoding="async" />
+          </button>
+        ))}
+      </div>
+      {item && <ArtViewer src={picSrc(item.id)} alt={item.title} onClose={() => setOpen(null)}
+        onPrev={() => setOpen(i => (i === null ? 0 : (i + GALLERY.length - 1) % GALLERY.length))}
+        onNext={() => setOpen(i => (i === null ? 0 : (i + 1) % GALLERY.length))} />}
     </div>
   )
 }

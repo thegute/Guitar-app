@@ -168,25 +168,27 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   no sideways overflow, no errors, and a pixel contrast check of visible text against what's really behind it; play options; songs;
   psy art/motion/beat). Older browser tests were moved to the new layout.
 
-## Build 15 (owner: "make psychedelic the default", "more psychedelic art: mushrooms, suns, moons, waves, oni masks, other dog samurais of different breeds", "make sure they have guitars")
+## Build 15 → 16 (owner: Psychedelic the default; then "I don't like those dogs, use these", "use these images, take snippets")
 - Psychedelic is the default (`themeChoice()` falls back to 'psy'); `kg:psyDefault` makes every install switch to it once
   (browser tests seed `kg:psyDefault` so a seeded theme sticks). theme-color and the Android background are #14002b.
-- Drawn art in `src/art/` (original SVG strings, shared by the app and the gallery script): `dogs.ts` (11 breeds: lab, shiba, husky,
-  shepherd, doberman, pug, corgi, beagle, dalmatian, poodle, golden; kabuto with a crest, armour, some with a katana, EVERY dog with a
-  guitar slung across the chest and paws on it), `guitars.ts` (electric / acoustic / pointy shapes, paint jobs swirl / rainbow / flames /
-  galaxy / mushroom, music notes), `scenes.ts` (oni masks in 4 colours, mushrooms, sun with a third eye, crescent moon, ukiyo-e wave
-  band, sakura petal, parade of dogs over the waves, header scenes incl. a guitar scene, crossed guitars). Gallery:
-  `npx -y esbuild@0.25 tools/psy-gallery.ts --bundle --platform=node --format=esm --outfile=node_modules/.tmp/g.mjs && node node_modules/.tmp/g.mjs out.html`
-  then `node tools/shot.cjs out.html out.png`.
-- `components/PsyArt.tsx`: PsyDog (your samurai `kg:psyDog`, 'mix' = by place and day; `breedOf(id)` for songs), PsyPiece, PsyScene,
-  PsyParade, PsyBand (Jam header, nods with `--beat` while playing), PsyBackdrop (liquid + floating sun, moon, guitar, oni, mushrooms, waves).
-- Where it shows: Songs header parade; My songs rows each with their own dog; empty pages, Finished!, quiz end and celebrations show
-  your samurai (big celebrations add crossed guitars over the tunnel); Learn header sun scene and a sticker on every Explore tool;
-  Jam band; Tools header per tool (Tuner guitar, Tempo sun, Chords mushrooms, Scales moon); Settings header blue oni and
-  Look → Your samurai picker (Mix it up + 11 breeds). Loose field labels get a dark chip in psy so they read over the art.
+- ALL Psychedelic pictures come from the owner's own artwork in `art/` (samurai-dogs.jpg, samurai-dogs-2.jpg, psy-scenes.jpg,
+  concert.jpg, ninja.jpg, princess.jpg, story.jpg, kguitar-art.jpg). `python3 tools/make-samurai.py` cuts them into
+  `public/samurai/`: faces `<dog>.webp` (12 dogs: lab, princess (Brandy), shiba, husky, shepherd, boxer, golden, rottweiler,
+  frenchie, akita, doberman, muscle = pit bull), `card-*` (900 px whole pictures), `wide-*` (banners dragon / vortex / torii / waves,
+  story rise / march / attack / peace, the concert `stage`), `float-*` (soft-edged round snippets), `strip.webp` (all heads),
+  `thumb-*` (gallery). Crop boxes and panel edges are in the script. My drawn SVG dogs/scenes were removed (owner didn't like them).
+- `src/art/samurai.ts` (DOGS with names and cards, GALLERY, src helpers, STRIP_ORDER, hashStr); `components/PsyArt.tsx`: PsyDog
+  (face; your samurai `kg:psyDog`, 'mix' = by place and day; `breedOf(id)` for songs), PsyDogCard, PsyPic (header picture,
+  object-position), PsyStrip, Mandala, PsyBackdrop (liquid + floating snippets). `make-psy-art.py` now only makes face / tunnel / liquid.
+- Where it shows: Songs header = strip; My songs rows = a face each; Learn header = the march, today card = peace; Explore tool
+  stickers = faces; Jam header = the concert stage (pulses with the beat); Tools: Tuner dragon guitar, Tempo amp vortex, Chords
+  mushroom guitar, Scales waves; Settings header = torii volcanoes; Finished / quiz end = your samurai's face; empty pages and big
+  celebrations = one of its whole cards; Settings → Look: Your samurai (Mix + 12) and The art (gallery, `ArtViewer` with ‹ ›).
+- Only whole pictures move (cheap for the phone); loose field labels get a dark chip in psy so they read over the art.
 
 ## Next up — pick up here
-1. The owner tries build 15 (Psychedelic by default, samurai dogs with guitars, new art); fix what they find.
+1. The owner tries build 16 (their own artwork all through Psychedelic mode); fix what they find. Dog names used: "Brandy the princess"
+   (from the art), the others by breed; ask if the poster lab has a name to show.
 2. Keep the brother's Docs guide (https://claude.ai/artifact/7Cuc18hXrt23FDQ1PniqV5) in step with the in-app guide.
 
 ## Ideas not done yet

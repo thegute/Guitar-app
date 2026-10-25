@@ -3,8 +3,7 @@
 // drifting colour behind everything (the drifting can be switched off; it also stops if the phone asks for less motion).
 import { useSyncExternalStore } from 'react'
 import { SystemBars, SystemBarsStyle } from '@capacitor/core'
-import { BREED_IDS, type BreedId } from './art/dogs'
-import { hashStr } from './art/svg'
+import { DOG_IDS, hashStr, type DogId } from './art/samurai'
 
 export type ThemeChoice = 'auto' | 'day' | 'night' | 'psy'
 export type ActiveTheme = 'day' | 'night' | 'psy'
@@ -86,11 +85,11 @@ export function useActiveTheme(): ActiveTheme {
   return activeTheme()
 }
 /** Your samurai: the dog breed that greets you in Psychedelic mode, or 'mix' for a different one each time. */
-export type DogChoice = BreedId | 'mix'
+export type DogChoice = DogId | 'mix'
 export function psyDogChoice(): DogChoice {
   try {
     const v = JSON.parse(localStorage.getItem(DOG) ?? '"mix"') as DogChoice
-    return v === 'mix' || BREED_IDS.includes(v) ? v : 'mix'
+    return v === 'mix' || DOG_IDS.includes(v) ? v : 'mix'
   } catch { return 'mix' }
 }
 export function setPsyDog(d: DogChoice) {
@@ -98,12 +97,12 @@ export function setPsyDog(d: DogChoice) {
   changed()
 }
 /** A breed for a place in the app (the same all day for the same place when mixing). */
-export function breedFor(seed: string, choice: DogChoice = psyDogChoice()): BreedId {
+export function breedFor(seed: string, choice: DogChoice = psyDogChoice()): DogId {
   if (choice !== 'mix') return choice
-  return BREED_IDS[hashStr(seed + new Date().toDateString()) % BREED_IDS.length]
+  return DOG_IDS[hashStr(seed + new Date().toDateString()) % DOG_IDS.length]
 }
 /** A breed that depends only on the seed (songs keep their dog). */
-export const breedOf = (seed: string): BreedId => BREED_IDS[hashStr(seed) % BREED_IDS.length]
+export const breedOf = (seed: string): DogId => DOG_IDS[hashStr(seed) % DOG_IDS.length]
 export function usePsyDog(): DogChoice {
   useSyncExternalStore(subscribe, () => version)
   return psyDogChoice()

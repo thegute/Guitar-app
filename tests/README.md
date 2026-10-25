@@ -48,5 +48,5 @@ Browser tests set `kg:welcomed` so the first-launch welcome doesn't cover the ap
 sub-tab in Day, Night and Psychedelic on the Fold cover and inner screens, plus Psychedelic on a small phone and a 12" tablet;
 no sideways overflow, no page errors, a contrast check of every visible word against the pixels really behind it; the Options
 panel; the Songs tab; Psychedelic art, motion switch and Jam beat pulse): `node tests/browser/build14-test.cjs [tour play songs psy]`
-(`TOUR=psy:cover,day:inner` limits the tour). Build 15 adds to `psy`: Psychedelic is the default, 12 samurai choices, the chosen
-dog greets you on the empty My songs page, every dog has a guitar.
+(`TOUR=psy:cover,day:inner` limits the tour). Build 15/16 add to `psy`: Psychedelic is the default, 13 samurai choices (Mix + 12 dogs from the owner's
+artwork), the chosen dog greets you on the empty My songs page, every picture loads, and the art gallery opens and steps through.

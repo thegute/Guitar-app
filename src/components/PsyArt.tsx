@@ -1,15 +1,12 @@
-// Psychedelic mode's pictures. Two kinds:
-//  - trippy versions of the KGuitar poster (the samurai dog), as images made by tools/make-psy-art.py;
-//  - original drawn art (src/art): samurai dogs of many breeds with psychedelic guitars, oni masks, mushrooms,
-//    a smiling sun, a sleepy moon, ukiyo-e waves and guitars on their own.
+// Psychedelic mode's pictures, all from the owner's own ukiyo-e artwork (src/art/samurai.ts, public/samurai/):
+// samurai dog faces and whole cards, banners and story panels for the screen headers, round snippets floating
+// behind the cards, plus trippy versions of the KGuitar poster (tools/make-psy-art.py) and a drawn mandala.
 // Everything here renders only in Psychedelic mode; in Day and Night these render nothing.
-import { useMemo, type CSSProperties } from 'react'
+import type { CSSProperties } from 'react'
 import { useActiveTheme, usePsyDog, breedFor } from '../theme'
-import { dogSvg, type BreedId } from '../art/dogs'
-import { sunSvg, moonSvg, mushroomsSvg, oniSvg, waveSvg, waveTileSvg, paradeSvg, skySceneSvg, crossedGuitarsSvg, type OniColour, type ScenePiece } from '../art/scenes'
-import { guitarArtSvg, type GuitarKind, type GuitarPaint } from '../art/guitars'
+import { DOGS, dogFace, cardSrc, picSrc, dogStrip, floatSrc, hashStr, type DogId, type CardId, type WideId, type FloatId } from '../art/samurai'
 
-export type PsyKind = 'face' | 'pop' | 'kaleido' | 'melt' | 'shrooms' | 'tunnel' | 'liquid' | 'mandala'
+export type PsyKind = 'face' | 'tunnel' | 'liquid' | 'mandala'
 const BASE = import.meta.env.BASE_URL ?? '/'
 export const psySrc = (k: Exclude<PsyKind, 'mandala'>) => `${BASE}psy/${k}.webp`
 
@@ -20,71 +17,43 @@ export function PsyArt({ kind, className = '', style }: { kind: PsyKind; classNa
   return <img className={`psy-art psy-${kind} ${className}`} src={psySrc(kind)} alt="" aria-hidden="true" draggable={false} style={style} />
 }
 
-/** Drawn art from an SVG string (our own, made in src/art; never user content). */
-function Svg({ html, className = '', style }: { html: string; className?: string; style?: CSSProperties }) {
-  return <span className={`psy-art psy-svg ${className}`} style={style} aria-hidden="true" dangerouslySetInnerHTML={{ __html: html }} />
-}
+const dog = (id: DogId) => DOGS.find(d => d.id === id) ?? DOGS[0]
 
-/** A samurai dog. With no `breed`, it's your samurai (Settings → Look), or a mix chosen by `seed`. */
-export function PsyDog({ breed, seed = 'dog', halo = true, frame = 'bust', className = '', style }: {
-  breed?: BreedId; seed?: string; halo?: boolean; frame?: 'bust' | 'portrait'; className?: string; style?: CSSProperties
-}) {
+/** A samurai dog's face (shown round). With no `breed`, it's your samurai (Settings → Look), or a mix chosen by `seed`. */
+export function PsyDog({ breed, seed = 'dog', className = '', style }: { breed?: DogId; seed?: string; className?: string; style?: CSSProperties }) {
   const theme = useActiveTheme()
   const choice = usePsyDog()
+  if (theme !== 'psy') return null
   const id = breed ?? breedFor(seed, choice)
-  const html = useMemo(() => dogSvg(id, { halo, frame }), [id, halo, frame])
-  if (theme !== 'psy') return null
-  return <Svg html={html} className={`psy-dogpic ${className}`} style={style} />
+  return <img className={`psy-art psy-face dog-${id} ${className}`} src={dogFace(id)} alt="" aria-hidden="true" draggable={false} style={style} title={dog(id).name} />
 }
 
-export type PieceKind = 'sun' | 'moon' | 'shrooms' | 'oni' | 'wave' | 'guitar' | 'crossed'
-/** One drawn piece on its own. */
-export function PsyPiece({ kind, oni = 'red', guitar = ['electric', 'swirl'], className = '', style }: {
-  kind: PieceKind; oni?: OniColour; guitar?: [GuitarKind, GuitarPaint]; className?: string; style?: CSSProperties
-}) {
+/** A samurai dog's whole picture (one of its cards, picked by `seed`). */
+export function PsyDogCard({ breed, seed = 'card', className = '' }: { breed?: DogId; seed?: string; className?: string }) {
   const theme = useActiveTheme()
-  const html = useMemo(() => kind === 'sun' ? sunSvg() : kind === 'moon' ? moonSvg() : kind === 'shrooms' ? mushroomsSvg() : kind === 'oni' ? oniSvg(oni)
-    : kind === 'wave' ? waveSvg() : kind === 'crossed' ? crossedGuitarsSvg() : guitarArtSvg(guitar[0], guitar[1]), [kind, oni, guitar[0], guitar[1]]) // eslint-disable-line react-hooks/exhaustive-deps
+  const choice = usePsyDog()
   if (theme !== 'psy') return null
-  return <Svg html={html} className={`psy-piece piece-${kind} ${className}`} style={style} />
+  const id = breed ?? breedFor(seed, choice)
+  const cards = dog(id).cards
+  const c: CardId = cards[hashStr(seed) % cards.length]
+  return <img className={`psy-art psy-card dog-${id} ${className}`} src={cardSrc(c)} alt="" aria-hidden="true" draggable={false} />
 }
 
-/** A wide header scene: sky, a centrepiece and the waves. */
-export function PsyScene({ piece, oni, guitar, className = '' }: { piece: ScenePiece; oni?: OniColour; guitar?: [GuitarKind, GuitarPaint]; className?: string }) {
-  const theme = useActiveTheme()
-  const html = useMemo(() => skySceneSvg(piece, { oni, guitar }), [piece, oni, guitar?.[0], guitar?.[1]]) // eslint-disable-line react-hooks/exhaustive-deps
-  if (theme !== 'psy') return null
-  return <Svg html={html} className={`psy-scenepic ${className}`} />
-}
-
-/** Samurai dogs in a row over the waves (a different line-up each day). */
-export function PsyParade({ count = 5, sky = 'sun', className = '' }: { count?: number; sky?: 'sun' | 'moon'; className?: string }) {
-  const theme = useActiveTheme()
-  const day = new Date().toDateString()
-  const html = useMemo(() => {
-    const all: BreedId[] = ['lab', 'shiba', 'husky', 'corgi', 'pug', 'shepherd', 'beagle', 'dalmatian', 'golden', 'poodle', 'doberman']
-    const start = [...day].reduce((a, c) => a + c.charCodeAt(0), 0) % all.length
-    const ids = Array.from({ length: count }, (_, i) => all[(start + i * 3) % all.length])
-    return paradeSvg(ids, { sky })
-  }, [count, sky, day])
-  if (theme !== 'psy') return null
-  return <Svg html={html} className={`psy-paradepic ${className}`} />
-}
-
-/** Three samurai dogs that nod along with the beat while Jam plays. */
-export function PsyBand({ className = '' }: { className?: string }) {
+/** A picture behind a screen's title: a banner, a story panel or a card; `at` = object-position. */
+export function PsyPic({ id, at = '50% 40%', className = '' }: { id: CardId | WideId; at?: string; className?: string }) {
   const theme = useActiveTheme()
   if (theme !== 'psy') return null
-  return (
-    <span className={`psy-band ${className}`} aria-hidden="true">
-      <PsyDog breed="corgi" halo={false} className="band-dog" style={{ ['--i' as string]: 0 }} />
-      <PsyDog breed="lab" halo={false} className="band-dog" style={{ ['--i' as string]: 1 }} />
-      <PsyDog breed="husky" halo={false} className="band-dog" style={{ ['--i' as string]: 2 }} />
-    </span>
-  )
+  return <img className={`psy-art psy-pic pic-${id} ${className}`} src={picSrc(id)} alt="" aria-hidden="true" draggable={false} style={{ objectPosition: at }} />
 }
 
-/** An original, slowly turning mandala: rings of petals in neon colours. */
+/** The strip of samurai dog heads; `at` picks which part shows (0% = left end). */
+export function PsyStrip({ at = '0%', className = '' }: { at?: string; className?: string }) {
+  const theme = useActiveTheme()
+  if (theme !== 'psy') return null
+  return <img className={`psy-art psy-strip ${className}`} src={dogStrip()} alt="" aria-hidden="true" draggable={false} style={{ objectPosition: `${at} 30%` }} />
+}
+
+/** An original mandala (rings of petals in neon colours) that turns slowly round the daily-goal ring. */
 export function Mandala({ className = '', style }: { className?: string; style?: CSSProperties }) {
   const rings = [
     { n: 8, r: 18, len: 26, w: 10, c: '#ff3fd8' },
@@ -103,14 +72,11 @@ export function Mandala({ className = '', style }: { className?: string; style?:
         </radialGradient>
       </defs>
       {rings.map((g, k) => (
-        <g key={k} className={k % 2 ? 'spin-rev' : 'spin'} style={{ transformOrigin: '0 0', animationDuration: `${40 + k * 12}s` }}>
-          {Array.from({ length: g.n }, (_, i) => {
-            const a = (360 / g.n) * i
-            return (
-              <ellipse key={i} cx={0} cy={-(g.r + g.len / 2)} rx={g.w / 2} ry={g.len / 2} fill={g.c} fillOpacity={0.85}
-                stroke="#14002b" strokeWidth={0.8} transform={`rotate(${a})`} />
-            )
-          })}
+        <g key={k}>
+          {Array.from({ length: g.n }, (_, i) => (
+            <ellipse key={i} cx={0} cy={-(g.r + g.len / 2)} rx={g.w / 2} ry={g.len / 2} fill={g.c} fillOpacity={0.85}
+              stroke="#14002b" strokeWidth={0.8} transform={`rotate(${(360 / g.n) * i})`} />
+          ))}
         </g>
       ))}
       <circle r={16} fill="url(#psyCore)" stroke="#14002b" strokeWidth={1} />
@@ -119,26 +85,19 @@ export function Mandala({ className = '', style }: { className?: string; style?:
   )
 }
 
-/** The moving liquid colours behind the whole app, with the sun, the moon, a guitar, mushrooms, an oni and the
- *  waves floating in the gaps between the cards. */
+const FLOATERS: FloatId[] = ['oni-sun', 'oni-moon', 'eclipse', 'shroom-guitar', 'rainbow-moon', 'oni-smoke', 'wave']
+
+/** The moving liquid colours behind the whole app, with snippets of the artwork (the oni sun and moon, the eclipse,
+ *  the mushroom guitar, the waves …) floating in the gaps between the cards. */
 export function PsyBackdrop() {
   const theme = useActiveTheme()
-  const html = useMemo(() => ({
-    sun: sunSvg(), moon: moonSvg(), guitar: guitarArtSvg('electric', 'rainbow'), shrooms: mushroomsSvg(), oni: oniSvg('purple'),
-    wave: `url("data:image/svg+xml,${encodeURIComponent(waveTileSvg())}")`,
-  }), [])
   if (theme !== 'psy') return null
   return (
     <div className="psy-backdrop" aria-hidden="true">
       <div className="psy-liquid" />
       <div className="psy-veil" />
       <div className="psy-scenery">
-        <Svg html={html.sun} className="sc sc-sun" />
-        <Svg html={html.moon} className="sc sc-moon" />
-        <Svg html={html.guitar} className="sc sc-guitar" />
-        <Svg html={html.oni} className="sc sc-oni" />
-        <Svg html={html.shrooms} className="sc sc-shrooms" />
-        <div className="sc sc-wave" style={{ backgroundImage: html.wave }} />
+        {FLOATERS.map(f => <img key={f} className={`sc sc-${f}`} src={floatSrc(f)} alt="" draggable={false} />)}
       </div>
     </div>
   )

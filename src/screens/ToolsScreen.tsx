@@ -4,7 +4,7 @@ import { MetronomeScreen } from './MetronomeScreen'
 import { ChordsScreen } from './ChordsScreen'
 import { ScalesScreen } from './ScalesScreen'
 import type { ToolPage } from '../nav'
-import { PsyScene } from '../components/PsyArt'
+import { PsyPic } from '../components/PsyArt'
 
 const PAGES: { id: ToolPage; label: string }[] = [
   { id: 'tuner', label: 'Tuner' },
@@ -16,7 +16,8 @@ const PAGES: { id: ToolPage; label: string }[] = [
 export function ToolsScreen({ page, onPage, scaleJump }: { page: ToolPage; onPage: (p: ToolPage) => void; scaleJump: { root: string; scale: string } | null }) {
   return (
     <div className="tools">
-      <PsyScene className="tools-art" {...(page === 'tuner' ? { piece: 'guitar', guitar: ['acoustic', 'rainbow'] } : page === 'metronome' ? { piece: 'sun' } : page === 'chords' ? { piece: 'shrooms' } : { piece: 'moon' }) as Parameters<typeof PsyScene>[0]} />
+      {page === 'tuner' ? <PsyPic id="dragon" at="30% 45%" className="tools-art" /> : page === 'metronome' ? <PsyPic id="vortex" at="50% 50%" className="tools-art" />
+        : page === 'chords' ? <PsyPic id="shrooms" at="50% 52%" className="tools-art" /> : <PsyPic id="waves" at="40% 50%" className="tools-art" />}
       <div className="subtabs tools-switch" role="tablist" aria-label="Tools" style={{ ['--n' as string]: PAGES.length }}>
         {PAGES.map(p => (
           <button key={p.id} role="tab" aria-selected={page === p.id} onClick={() => onPage(p.id)}>{p.label}</button>

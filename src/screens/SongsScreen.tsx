@@ -5,7 +5,7 @@ import { Songbook } from '../components/Songbook'
 import { ProgressionTabs } from '../components/ProgressionTabs'
 import { LickMaker } from '../components/LickMaker'
 import { SubTabs, useSubTab } from '../components/SubTabs'
-import { PsyDog, PsyParade } from '../components/PsyArt'
+import { PsyDog, PsyDogCard, PsyStrip } from '../components/PsyArt'
 import { breedOf } from '../theme'
 import { STARTER_PROGS, jamProgression, starterProgression } from '../tabs/fromProgression'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -47,7 +47,7 @@ export function SongsScreen() {
   return (
     <div className="songs-screen stack">
       <header className="screen-head">
-        <PsyParade className="screen-art" />
+        <PsyStrip at="0%" className="screen-art" />
         <h1>Songs</h1>
       </header>
       <SubTabs label="Songs" value={page} onChange={setPage} tabs={[
@@ -78,7 +78,7 @@ function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook }: {
   if (!list.length) {
     return (
       <section className="panel empty-state">
-        <PsyDog seed="songs-empty" className="empty-art" />
+        <PsyDogCard seed="songs-empty" className="empty-card" />
         <h2>No songs of your own yet</h2>
         <p className="small muted">Add a Guitar Pro file or paste a tab you found online, or start with a song from the songbook. Songs you add in {inst.label.toLowerCase()} mode stay in {inst.label.toLowerCase()} mode.</p>
         <div className="row" style={{ justifyContent: 'center' }}>

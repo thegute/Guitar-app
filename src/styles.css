@@ -1359,7 +1359,6 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 .jam .beat-art { transform-origin: 50% 60%; }
 .jam.playing .beat-art { animation: psy-beat var(--beat, 0.6s) ease-out infinite; }
 .tools-art { width: 100%; height: 96px; object-fit: cover; object-position: 50% 55%; border-radius: 16px; margin-bottom: 10px; border: 1px solid rgba(255, 92, 220, 0.5); box-shadow: 0 0 22px rgba(44, 245, 166, 0.3); }
-.empty-art { width: 128px; height: 128px; border-radius: 50%; box-shadow: 0 0 0 4px #14002b, 0 0 0 7px #ff3fd8, 0 0 30px rgba(255, 63, 216, 0.8); }
 .pick-mandala { position: absolute; width: 154px; height: 154px; left: 50%; top: 50%; margin: -77px 0 0 -77px; opacity: 0.7; z-index: 0;
   -webkit-mask-image: radial-gradient(circle, transparent 0 47%, #000 53%); mask-image: radial-gradient(circle, transparent 0 47%, #000 53%); }
 .psy-thumb { border-radius: 50%; padding: 2px; border: 0; background: var(--rainbow); box-shadow: 0 0 16px rgba(255, 63, 216, 0.7); }
@@ -1367,9 +1366,9 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 .learn-art.psy-thumb { height: 58px; }
 .nav-art.psy-thumb { height: 58px; }
 
-/* the today card: kaleidoscope dog behind a dark glass */
+/* the today card: the 'peace returns' story panel behind a dark glass */
 [data-theme='psy'] .today-card {
-  background: linear-gradient(135deg, rgba(38, 7, 79, 0.86), rgba(20, 0, 43, 0.74)), url('/psy/kaleido.webp') center / cover;
+  background: linear-gradient(135deg, rgba(38, 7, 79, 0.86), rgba(20, 0, 43, 0.72)), url('/samurai/wide-peace.webp') 50% 30% / cover;
   border: 1px solid rgba(255, 92, 220, 0.55); box-shadow: 0 0 30px rgba(255, 63, 216, 0.35);
 }
 [data-theme='psy'] .pick-fill { stroke: #2cf5a6; filter: drop-shadow(0 0 4px rgba(44, 245, 166, 0.9)); }
@@ -1382,9 +1381,9 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 
 /* celebrations: a spinning rainbow tunnel and the dog */
 .celebrate-tunnel { position: absolute; left: 50%; top: 50%; width: 160vmax; height: 160vmax; margin: -80vmax 0 0 -80vmax; border-radius: 50%; opacity: 0.55; animation: psy-spin 9s linear infinite; z-index: 0; }
-.finish-face { width: 48px; height: 48px; border-radius: 50%; box-shadow: 0 0 0 2px #2cf5a6, 0 0 16px rgba(44, 245, 166, 0.8); }
+.finish-face { width: 48px; height: 48px; }
 .readout-box.mini .finish-face { width: 28px; height: 28px; }
-.celebrate-face { width: 56px; height: 56px; border-radius: 50%; flex: none; box-shadow: 0 0 0 3px #ff3fd8, 0 0 18px #ff3fd8; }
+.celebrate-face { width: 56px; height: 56px; flex: none; }
 [data-theme='psy'] .celebrate-card { position: relative; z-index: 1; background: #1c0641; border: 1px solid #ff3fd8; box-shadow: 0 0 40px rgba(255, 63, 216, 0.7); }
 [data-theme='psy'] .celebrate .confetti { z-index: 1; }
 
@@ -1397,20 +1396,17 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 /* ===================================================================================================== */
 /* build 15: drawn Psychedelic art (samurai dogs with guitars, oni, mushrooms, sun, moon, waves, guitars)  */
 /* ===================================================================================================== */
-.psy-svg { display: block; }
-.psy-svg > svg { display: block; width: 100%; height: 100%; }
-.psy-svg.screen-art { overflow: hidden; }
-
-/* the floating scenery behind the cards */
+/* snippets of the artwork floating behind the cards (soft-edged rounds, whole pictures moving only) */
 .psy-scenery { position: absolute; inset: 0; }
-.psy-scenery .sc { position: absolute; opacity: 0.55; }
-.sc-sun { width: 190px; height: 190px; top: -46px; right: -54px; }
-.sc-moon { width: 150px; height: 150px; top: 30%; left: -50px; }
-.sc-guitar { width: 140px; height: 183px; top: 46%; right: -40px; transform: rotate(12deg); }
-.sc-oni { width: 128px; height: 133px; top: 66%; left: -34px; opacity: 0.45 !important; }
-.sc-shrooms { width: 170px; height: 177px; bottom: 70px; right: 6%; }
-.sc-wave { left: 0; right: 0; bottom: 0; height: 120px; opacity: 0.75 !important; }
-@media (min-width: 760px) { .sc-sun { width: 260px; height: 260px; } .sc-moon { left: 90px; width: 190px; height: 190px; } .sc-oni { left: 96px; } }
+.psy-scenery .sc { position: absolute; opacity: 0.6; width: 170px; height: 170px; will-change: transform; }
+.sc-oni-sun { width: 210px !important; height: 210px !important; top: -50px; right: -60px; animation: psy-breathe 9s ease-in-out infinite; }
+.sc-oni-moon { top: 27%; left: -62px; animation: psy-float 8s ease-in-out infinite; }
+.sc-eclipse { width: 150px !important; height: 150px !important; top: 50%; right: -46px; animation: psy-float 11s ease-in-out infinite reverse; }
+.sc-shroom-guitar { bottom: 74px; right: 8%; animation: psy-breathe 7s ease-in-out infinite; }
+.sc-rainbow-moon { width: 130px !important; height: 130px !important; top: 70%; left: -40px; animation: psy-float 10s ease-in-out infinite; }
+.sc-oni-smoke { width: 140px !important; height: 140px !important; top: 9%; left: 34%; opacity: 0.4 !important; animation: psy-float 13s ease-in-out infinite reverse; }
+.sc-wave { width: 220px !important; height: 220px !important; bottom: -40px; left: -50px; animation: psy-breathe 12s ease-in-out infinite; }
+@media (min-width: 760px) { .sc-oni-sun { width: 280px !important; height: 280px !important; } .sc-oni-moon { left: 80px; width: 210px; height: 210px; } .sc-rainbow-moon, .sc-wave { left: 90px; } }
 
 /* motion (stopped by Settings → Look → Moving colours, and when the phone asks for less motion) */
 @keyframes psy-bob { 50% { transform: translateY(-4%); } }
@@ -1420,53 +1416,56 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 @keyframes dog-sway { 50% { transform: translateY(-3px); } }
 /* Only whole pictures move (the browser slides them without redrawing): the sun turns, the moon and the oni float,
    the guitar sways, the waves roll, the mushrooms breathe. Nothing inside a drawing is animated. */
-.psy-scenery .sc { will-change: transform; }
-.sc-sun { animation: psy-spin 160s linear infinite; }
-.sc-moon { animation: psy-float 8s ease-in-out infinite; }
-.sc-oni { animation: psy-float 11s ease-in-out infinite reverse; }
-.sc-guitar { animation: guitar-sway 7s ease-in-out infinite; }
-.sc-shrooms { animation: shroom-breathe 6s ease-in-out infinite; transform-origin: 50% 100%; }
-.sc-wave { right: auto !important; width: calc(100% + 185px); background: left bottom / auto 120px repeat-x; animation: wave-roll 16s linear infinite; }
-@keyframes psy-float { 50% { transform: translateY(-12px); } }
-@keyframes guitar-sway { 0%, 100% { transform: rotate(8deg); } 50% { transform: rotate(18deg) translateY(-6px); } }
-@keyframes shroom-breathe { 50% { transform: scale(1.04); } }
-@keyframes wave-roll { to { transform: translateX(-185px); } }
+@keyframes psy-float { 50% { transform: translateY(-14px); } }
+@keyframes psy-breathe { 50% { transform: scale(1.06) rotate(3deg); } }
 
 /* headers */
-[data-theme='psy'] .screen-head > .jam-band { position: absolute; z-index: 1; right: 96px; bottom: 0; height: 92%; display: flex; align-items: flex-end; pointer-events: none; }
-.jam-band .band-dog { width: 74px; height: 74px; margin-left: -12px; }
-.jam-band .band-dog { transform-origin: 50% 100%; }
-.jam.playing .jam-band .band-dog { will-change: transform; animation: dog-nod var(--beat, 0.6s) ease-in-out infinite; animation-delay: calc(var(--i, 0) * -0.12s); }
-@media (max-width: 380px) { .jam-band .band-dog:nth-child(3) { display: none; } }
-.psy-svg.tools-art { display: block; overflow: hidden; }
 [data-theme='psy'] .learn-head .learn-art { align-self: flex-end; }
 [data-theme='psy'] .sec-title { text-shadow: 0 1px 0 #14002b, 0 0 8px #14002b, 0 0 14px #14002b; }
 
 /* Learn tools: a sticker on the corner of each card */
 [data-theme='psy'] .tool { position: relative; padding-right: 34px; }
-.tool-badge { position: absolute; top: -10px; right: -6px; width: 48px; height: 48px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5)); }
+.tool-badge { position: absolute; top: -8px; right: -6px; width: 46px; height: 46px; }
 
 /* My songs: each song has its own samurai */
 [data-theme='psy'] .song-list .song-open:has(.song-dog) { position: relative; padding-left: 64px; min-height: 58px; justify-content: center; }
-.song-dog { position: absolute; left: 8px; top: 50%; width: 46px; height: 46px; margin-top: -23px; }
+.song-dog { position: absolute; left: 9px; top: 50%; width: 44px; height: 44px; margin-top: -22px; }
 
 /* your samurai on finished songs, quizzes, celebrations and empty pages */
-.psy-dogpic.empty-art, .psy-dogpic.finish-face, .psy-dogpic.celebrate-face, .quiz-dog, .song-dog, .dog-card-art { border-radius: 50%; overflow: hidden; }
-.psy-dogpic.empty-art { width: 140px; height: 140px; }
-.quiz-dog { width: 104px; height: 104px; margin: 0 auto 6px; box-shadow: 0 0 0 3px #14002b, 0 0 0 6px #ffd23f, 0 0 26px rgba(255, 210, 63, 0.6); }
-.celebrate-crossed { position: absolute; left: 50%; top: 6%; width: min(62vw, 300px); height: min(62vw, 300px); transform: translateX(-50%); z-index: 0; pointer-events: none; }
-.psy-dogpic.celebrate-face { width: 64px; height: 64px; }
+/* the samurai dogs: round faces with a neon ring, and whole cards */
+.psy-face { display: block; border-radius: 50%; object-fit: cover; background: #14002b; box-shadow: 0 0 0 2px #14002b, 0 0 0 4px var(--ring, #ff3fd8), 0 0 14px rgba(255, 63, 216, 0.45); }
+.psy-face.finish-face { --ring: #2cf5a6; }
+.psy-face.celebrate-face { width: 64px; height: 64px; }
+.quiz-dog { width: 104px; height: 104px; margin: 0 auto 10px; --ring: #ffd23f; }
+.psy-card { display: block; border-radius: 10px; box-shadow: 0 0 0 3px #14002b, 0 0 0 5px #ffd23f, 0 0 34px rgba(255, 63, 216, 0.6); }
+.empty-card { width: 158px; height: auto; margin: 4px auto 6px; }
+.celebrate-dogcard { position: absolute; left: 50%; top: 5%; height: min(36vh, 300px); width: auto; transform: translateX(-50%) rotate(-3deg); z-index: 0; pointer-events: none; }
+[data-theme='psy'] .celebrate.big .celebrate-card { margin-top: min(30vh, 250px); }
 
 /* Settings → Look → Your samurai */
 .dog-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 @media (min-width: 640px) { .dog-cards { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 .dog-card { display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font-weight: 600; font-size: 14px; line-height: 1.15; text-align: center; min-width: 0; }
 .dog-card.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent), 0 0 16px rgba(255, 63, 216, 0.5); }
-.dog-card-art { width: 72px; height: 72px; }
-.dog-card-art.piece-crossed { border-radius: 0; }
+.dog-card-art { width: 68px; height: 68px; }
+.dog-mix { position: relative; display: block; }
+.dog-mix .psy-face { position: absolute; width: 40px; height: 40px; }
+.dog-mix .psy-face:nth-child(1) { left: 0; top: 4px; } .dog-mix .psy-face:nth-child(2) { right: 0; top: 4px; } .dog-mix .psy-face:nth-child(3) { left: 14px; bottom: 0; }
 
-[data-motion='off'] .psy-scenery .sc, [data-motion='off'] .band-dog, [data-motion='off'] .psy-mandala { animation: none !important; }
-@media (prefers-reduced-motion: reduce) { .psy-scenery .sc, .band-dog, .psy-mandala { animation: none !important; } }
+[data-motion='off'] .psy-scenery .sc, [data-motion='off'] .psy-mandala { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .psy-scenery .sc, .psy-mandala { animation: none !important; } }
 /* small labels that sit straight on the moving background get a dark halo */
 [data-theme='psy'] .field > span { justify-self: start; color: var(--ink-2); background: rgba(20, 0, 43, 0.82); padding: 1px 7px; border-radius: 6px; }
 [data-theme='psy'] .screen-head h1 .small { color: var(--ink-2); text-shadow: 0 0 3px #14002b, 0 0 6px #14002b, 0 1px 0 #14002b; }
+
+/* Settings → Look → The art */
+.art-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+@media (min-width: 640px) { .art-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.art-tile { padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #14002b; aspect-ratio: 3 / 4; }
+.art-tile.wide { grid-column: span 3; aspect-ratio: auto; }
+.art-tile img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.art-tile.wide img { height: auto; }
+.art-prev, .art-next { position: fixed; top: 50%; z-index: 2; font-size: 26px; min-width: 44px; min-height: 52px; transform: translateY(-50%); }
+.art-prev { left: 8px; }
+.art-next { right: 8px; }
+.art-viewer.zoom .art-prev, .art-viewer.zoom .art-next { display: none; }
