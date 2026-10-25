@@ -194,9 +194,10 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
                 <span>Mix it up</span>
               </button>
               {DOGS.map(b => (
-                <button key={b.id} role="radio" aria-checked={dog === b.id} className={`dog-card${dog === b.id ? ' on' : ''}`} onClick={() => setPsyDog(b.id)}>
+                <button key={b.id} role="radio" aria-checked={dog === b.id} className={`dog-card${dog === b.id ? ' on' : ''}${b.name ? '' : ' unnamed'}`}
+                  onClick={() => setPsyDog(b.id)} aria-label={b.name ?? `Samurai ${b.breed}`}>
                   <PsyDog breed={b.id} className="dog-card-art" />
-                  <span>{b.name}</span>
+                  {b.name && <span>{b.name}</span>}
                 </button>
               ))}
             </div>
@@ -253,12 +254,12 @@ function ArtGallery() {
       <p className="small muted" style={{ margin: 0 }}>All the KGuitar artwork. Tap a picture to see it full screen, then tap to zoom in.</p>
       <div className="art-grid">
         {GALLERY.map((g, i) => (
-          <button key={g.id} className={`art-tile${g.wide ? ' wide' : ''}`} onClick={() => setOpen(i)} aria-label={g.title}>
+          <button key={g.id} className={`art-tile${g.wide ? ' wide' : ''}`} onClick={() => setOpen(i)} aria-label={`Picture ${i + 1} of ${GALLERY.length}`}>
             <img src={thumbSrc(g.id)} alt="" loading="lazy" decoding="async" />
           </button>
         ))}
       </div>
-      {item && <ArtViewer src={picSrc(item.id)} alt={item.title} onClose={() => setOpen(null)}
+      {item && <ArtViewer src={picSrc(item.id)} alt={`KGuitar art, picture ${open! + 1} of ${GALLERY.length}`} onClose={() => setOpen(null)}
         onPrev={() => setOpen(i => (i === null ? 0 : (i + GALLERY.length - 1) % GALLERY.length))}
         onNext={() => setOpen(i => (i === null ? 0 : (i + 1) % GALLERY.length))} />}
     </div>

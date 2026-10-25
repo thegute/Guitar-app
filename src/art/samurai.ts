@@ -7,40 +7,31 @@ export type CardId = 'lab' | 'concert' | 'ninja' | 'princess' | 'shiba' | 'husky
 export type WideId = 'dragon' | 'vortex' | 'torii' | 'waves' | 'rise' | 'march' | 'attack' | 'peace' | 'stage'
 export type FloatId = 'oni-sun' | 'oni-moon' | 'eclipse' | 'rainbow-moon' | 'shroom-guitar' | 'oni-smoke' | 'wave'
 
-export const DOGS: { id: DogId; name: string; cards: CardId[] }[] = [
-  { id: 'lab', name: 'Chocolate lab', cards: ['lab', 'concert', 'ninja'] },
-  { id: 'princess', name: 'Brandy the princess', cards: ['princess'] },
-  { id: 'shiba', name: 'Shiba Inu', cards: ['shiba'] },
-  { id: 'husky', name: 'Husky', cards: ['husky', 'husky-bass'] },
-  { id: 'shepherd', name: 'German shepherd', cards: ['shepherd', 'duel'] },
-  { id: 'boxer', name: 'Boxer', cards: ['boxer'] },
-  { id: 'golden', name: 'Golden retriever', cards: ['golden'] },
-  { id: 'rottweiler', name: 'Rottweiler', cards: ['rottweiler', 'duel'] },
-  { id: 'frenchie', name: 'French bulldog', cards: ['frenchie'] },
-  { id: 'akita', name: 'Akita', cards: ['akita'] },
-  { id: 'doberman', name: 'Doberman', cards: ['doberman'] },
-  { id: 'muscle', name: 'Pit bull', cards: ['muscle'] },
+/** `name` is shown under the dog (only Brandy, the owner's chocolate lab, has one); `breed` is read out by screen readers only. */
+export const DOGS: { id: DogId; name?: string; breed: string; cards: CardId[] }[] = [
+  { id: 'lab', name: 'Brandy', breed: 'chocolate lab', cards: ['lab', 'concert', 'ninja'] },
+  { id: 'princess', name: 'Brandy', breed: 'chocolate lab', cards: ['princess'] },
+  { id: 'shiba', breed: 'Shiba Inu', cards: ['shiba'] },
+  { id: 'husky', breed: 'husky', cards: ['husky', 'husky-bass'] },
+  { id: 'shepherd', breed: 'German shepherd', cards: ['shepherd', 'duel'] },
+  { id: 'boxer', breed: 'boxer', cards: ['boxer'] },
+  { id: 'golden', breed: 'golden retriever', cards: ['golden'] },
+  { id: 'rottweiler', breed: 'Rottweiler', cards: ['rottweiler', 'duel'] },
+  { id: 'frenchie', breed: 'French bulldog', cards: ['frenchie'] },
+  { id: 'akita', breed: 'Akita', cards: ['akita'] },
+  { id: 'doberman', breed: 'Doberman', cards: ['doberman'] },
+  { id: 'muscle', breed: 'pit bull', cards: ['muscle'] },
 ]
 export const DOG_IDS = DOGS.map(d => d.id)
 
-/** Everything for the gallery (Settings → Look → The art). */
-export const GALLERY: { id: CardId | WideId; wide?: boolean; title: string }[] = [
-  { id: 'stage', wide: true, title: 'The festival show' },
-  { id: 'concert', title: 'The festival show (whole poster)' },
-  { id: 'ninja', title: 'Ninja lab: music is my weapon' },
-  { id: 'lab', title: 'The KGuitar poster' },
-  { id: 'princess', title: 'Brandy the princess' },
-  { id: 'rise', wide: true, title: 'The princess rises' },
-  { id: 'march', wide: true, title: 'The night march' },
-  { id: 'attack', wide: true, title: 'The sound attack' },
-  { id: 'peace', wide: true, title: 'Peace returns' },
-  { id: 'shiba', title: 'Shiba Inu' }, { id: 'husky', title: 'Husky' }, { id: 'husky-bass', title: 'Husky on bass' },
-  { id: 'shepherd', title: 'German shepherd' }, { id: 'boxer', title: 'Boxer' }, { id: 'golden', title: 'Golden retriever' },
-  { id: 'rottweiler', title: 'Rottweiler' }, { id: 'duel', title: 'The duel' }, { id: 'frenchie', title: 'French bulldog' },
-  { id: 'akita', title: 'Akita' }, { id: 'doberman', title: 'Doberman' }, { id: 'muscle', title: 'Pit bull' },
-  { id: 'dragon', wide: true, title: 'Dragon guitar' }, { id: 'vortex', wide: true, title: 'Amp vortex' },
-  { id: 'torii', wide: true, title: 'Torii and oni volcanoes' }, { id: 'waves', wide: true, title: 'Waves of amps' },
-  { id: 'shrooms', title: 'Mushroom guitar' }, { id: 'dragon-amp', title: 'Dragon amp' }, { id: 'galaxy', title: 'Galaxy guitar' }, { id: 'skulls', title: 'Skull amp wall' },
+/** Everything for the gallery (Settings → Look → The art), in order. The pictures have no titles. */
+export const GALLERY: { id: CardId | WideId; wide?: boolean }[] = [
+  { id: 'stage', wide: true }, { id: 'concert' }, { id: 'ninja' }, { id: 'lab' }, { id: 'princess' },
+  { id: 'rise', wide: true }, { id: 'march', wide: true }, { id: 'attack', wide: true }, { id: 'peace', wide: true },
+  { id: 'shiba' }, { id: 'husky' }, { id: 'husky-bass' }, { id: 'shepherd' }, { id: 'boxer' }, { id: 'golden' },
+  { id: 'rottweiler' }, { id: 'duel' }, { id: 'frenchie' }, { id: 'akita' }, { id: 'doberman' }, { id: 'muscle' },
+  { id: 'dragon', wide: true }, { id: 'vortex', wide: true }, { id: 'torii', wide: true }, { id: 'waves', wide: true },
+  { id: 'shrooms' }, { id: 'dragon-amp' }, { id: 'galaxy' }, { id: 'skulls' },
 ]
 
 // order of the heads in strip.webp (left to right)

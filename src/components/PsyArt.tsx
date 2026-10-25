@@ -25,7 +25,7 @@ export function PsyDog({ breed, seed = 'dog', className = '', style }: { breed?:
   const choice = usePsyDog()
   if (theme !== 'psy') return null
   const id = breed ?? breedFor(seed, choice)
-  return <img className={`psy-art psy-face dog-${id} ${className}`} src={dogFace(id)} alt="" aria-hidden="true" draggable={false} style={style} title={dog(id).name} />
+  return <img className={`psy-art psy-face dog-${id} ${className}`} src={dogFace(id)} alt="" aria-hidden="true" draggable={false} style={style} />
 }
 
 /** A samurai dog's whole picture (one of its cards, picked by `seed`). */

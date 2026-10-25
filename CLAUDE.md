@@ -173,11 +173,12 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   (browser tests seed `kg:psyDefault` so a seeded theme sticks). theme-color and the Android background are #14002b.
 - ALL Psychedelic pictures come from the owner's own artwork in `art/` (samurai-dogs.jpg, samurai-dogs-2.jpg, psy-scenes.jpg,
   concert.jpg, ninja.jpg, princess.jpg, story.jpg, kguitar-art.jpg). `python3 tools/make-samurai.py` cuts them into
-  `public/samurai/`: faces `<dog>.webp` (12 dogs: lab, princess (Brandy), shiba, husky, shepherd, boxer, golden, rottweiler,
+  `public/samurai/`: faces `<dog>.webp` (12 dogs: lab = Brandy, the owner's chocolate lab (samurai poster, ninja, festival
+  show), princess = Brandy as a princess (her story panels too), shiba, husky, shepherd, boxer, golden, rottweiler,
   frenchie, akita, doberman, muscle = pit bull), `card-*` (900 px whole pictures), `wide-*` (banners dragon / vortex / torii / waves,
   story rise / march / attack / peace, the concert `stage`), `float-*` (soft-edged round snippets), `strip.webp` (all heads),
   `thumb-*` (gallery). Crop boxes and panel edges are in the script. My drawn SVG dogs/scenes were removed (owner didn't like them).
-- `src/art/samurai.ts` (DOGS with names and cards, GALLERY, src helpers, STRIP_ORDER, hashStr); `components/PsyArt.tsx`: PsyDog
+- `src/art/samurai.ts` (DOGS: `name` only for Brandy, `breed` for screen readers, cards; GALLERY without titles, src helpers, STRIP_ORDER, hashStr); `components/PsyArt.tsx`: PsyDog
   (face; your samurai `kg:psyDog`, 'mix' = by place and day; `breedOf(id)` for songs), PsyDogCard, PsyPic (header picture,
   object-position), PsyStrip, Mandala, PsyBackdrop (liquid + floating snippets). `make-psy-art.py` now only makes face / tunnel / liquid.
 - Where it shows: Songs header = strip; My songs rows = a face each; Learn header = the march, today card = peace; Explore tool
@@ -190,8 +191,10 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   (build13 melody). Loose field labels get a dark chip in psy so they read over the art.
 
 ## Next up — pick up here
-1. The owner tries build 16 (their own artwork all through Psychedelic mode); fix what they find. Dog names used: "Brandy the princess"
-   (from the art), the others by breed; ask if the poster lab has a name to show.
+1. The owner tries build 17 (their own artwork all through Psychedelic mode); fix what they find.
+   Owner: "don't put corny names in the app", "don't name the art, only Brandy should be named". So the only name on screen is
+   "Brandy" (the chocolate lab: `lab` and `princess` faces); other dogs show just their face (breed only as an aria-label);
+   the gallery has no titles. Never invent names or titles for the art or the dogs.
 2. Keep the brother's Docs guide (https://claude.ai/artifact/7Cuc18hXrt23FDQ1PniqV5) in step with the in-app guide.
 
 ## Ideas not done yet

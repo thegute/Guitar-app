@@ -26,7 +26,7 @@ export function ArtThumb({ className = '', label = 'Open the KGuitar poster' }: 
   )
 }
 
-const POSTER_ALT = 'A chocolate lab samurai in a horned helmet, drawing her katana, with a neon green Stratocaster, under a full moon over waves and a lava field'
+const POSTER_ALT = 'Brandy, a chocolate lab samurai in a horned helmet, drawing her katana, with a neon green Stratocaster, under a full moon over waves and a lava field'
 
 /** A picture full screen: tap to zoom in and drag around, tap again to fit. `onPrev` / `onNext` step through a set. */
 export function ArtViewer({ onClose, src = 'art.jpg', alt = POSTER_ALT, onPrev, onNext }: {

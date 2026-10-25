@@ -1449,7 +1449,7 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 /* Settings → Look → Your samurai */
 .dog-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 @media (min-width: 640px) { .dog-cards { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
-.dog-card { display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font-weight: 600; font-size: 14px; line-height: 1.15; text-align: center; min-width: 0; }
+.dog-card { display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font-weight: 600; font-size: 14px; line-height: 1.15; text-align: center; min-width: 0; align-content: center; }
 .dog-card.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent), 0 0 16px rgba(255, 63, 216, 0.5); }
 .dog-card-art { width: 68px; height: 68px; }
 .dog-mix { position: relative; display: block; }

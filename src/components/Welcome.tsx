@@ -38,7 +38,7 @@ export function Welcome({ onDone }: { onDone: (then?: 'guide' | 'play') => void 
       <div className={`welcome-card${step === 0 ? ' hello' : ''}`}>
         {step === 0 && (
           <>
-            <img className="welcome-art" src="art.jpg" alt="KGuitar's samurai chocolate lab with a neon guitar and a katana" />
+            <img className="welcome-art" src="art.jpg" alt="Brandy, KGuitar's samurai chocolate lab, with a neon guitar and a katana" />
             <div className="welcome-hello">
               <div className="gear-steps" aria-hidden>{[0, 1, 2, 3, 4, 5].map(i => <i key={i} className={i === 0 ? 'on' : ''} />)}</div>
               <h1>Welcome to KGuitar</h1>
