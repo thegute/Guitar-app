@@ -67,8 +67,35 @@ export interface OpenedInput {
 
 const RAW = { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
 
+// While any input is open, <html> carries data-listening and Psychedelic mode's moving background holds still: the
+// listening code shares the page's thread, and on a busy phone the motion could make it miss a quick re-picked note.
+let openTracks = 0
+function syncListening() {
+  const el = typeof document !== 'undefined' ? document.documentElement : null
+  if (!el?.dataset) return
+  if (openTracks > 0) el.dataset.listening = ''
+  else delete el.dataset.listening
+}
+function watch(stream: MediaStream): MediaStream {
+  for (const t of stream.getTracks()) {
+    let done = false
+    const end = () => { if (done) return; done = true; openTracks = Math.max(0, openTracks - 1); syncListening() }
+    openTracks++
+    const stop = t.stop.bind(t)
+    t.stop = () => { end(); stop() }
+    t.addEventListener?.('ended', end)
+  }
+  syncListening()
+  return stream
+}
+
 /** Open the chosen input, with all voice processing off (it would damage the guitar sound). */
 export async function openInput(): Promise<OpenedInput> {
+  const opened = await openRaw()
+  watch(opened.stream)
+  return opened
+}
+async function openRaw(): Promise<OpenedInput> {
   const choice = getChoice()
   const devs = await listInputs()
   let target: InputDevice | undefined

@@ -184,7 +184,10 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   stickers = faces; Jam header = the concert stage (pulses with the beat); Tools: Tuner dragon guitar, Tempo amp vortex, Chords
   mushroom guitar, Scales waves; Settings header = torii volcanoes; Finished / quiz end = your samurai's face; empty pages and big
   celebrations = one of its whole cards; Settings → Look: Your samurai (Mix + 12) and The art (gallery, `ArtViewer` with ‹ ›).
-- Only whole pictures move (cheap for the phone); loose field labels get a dark chip in psy so they read over the art.
+- Only whole pictures move (cheap for the phone), in synced steps 4 times a second (liquid 120s steps(480), floaters 12s steps(24),
+  mandala 60s steps(240)). While any input is open, `openInput()` (audio/input.ts) sets `data-listening` on <html> and the
+  background pauses: Find chords polls the mic on the page's thread, and under load the motion made it miss a re-picked note
+  (build13 melody). Loose field labels get a dark chip in psy so they read over the art.
 
 ## Next up — pick up here
 1. The owner tries build 16 (their own artwork all through Psychedelic mode); fix what they find. Dog names used: "Brandy the princess"

@@ -508,14 +508,18 @@ async function intime(browser) {
 // ---------------------------------------------------------------- melody
 async function melody() {
   const browser = await launch('ode.wav')
-  const page = await newPage(browser, { 'kg:tab2': 'progressions', 'kg:sub:jam': 'find' })
+  const page = await newPage(browser, { 'kg:tab2': 'progressions', 'kg:sub:jam': 'find', ...(process.env.MELODY_THEME ? { 'kg:theme': process.env.MELODY_THEME } : {}) })
   await page.waitForSelector('.song-finder')
   await page.locator('.song-finder button:has-text("Notes (melody)")').click()
   await page.locator('.song-finder button.listen').click()
   let notes = ''
   for (let i = 0; i < 36; i++) { await page.waitForTimeout(500); notes = (await page.locator('.finder-notes').textContent().catch(() => '')) ?? '' }
   await shot(page, 'finder-melody')
+  // the moving background holds still while the mic is open
+  if (!(await page.evaluate(() => document.documentElement.hasAttribute('data-listening')))) bad('melody: data-listening not set while listening')
   await page.locator('.song-finder button.listen').click()
+  await page.waitForTimeout(300)
+  if (await page.evaluate(() => document.documentElement.hasAttribute('data-listening'))) bad('melody: data-listening left on after stopping')
   console.log(`melody: heard ${notes}`)
   // ode.wav: E E F G G A(wrong) F E D C C D E E D D …
   if (!/E E F G G A F E D C C D E E D D/.test(notes)) bad(`melody notes: ${notes}`)

@@ -181,7 +181,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         {theme === 'psy' && (
           <label className="opt-row opt-check">
             <input type="checkbox" checked={motion} onChange={e => setPsyMotion(e.target.checked)} />
-            <span><b>Moving colours</b><span className="small muted">The background slowly drifts and the art turns. Switch off to save battery.</span></span>
+            <span><b>Moving colours</b><span className="small muted">The background slowly drifts and the art floats. It holds still while KGuitar listens to you. Switch off to save battery.</span></span>
           </label>
         )}
         {theme === 'psy' && (
