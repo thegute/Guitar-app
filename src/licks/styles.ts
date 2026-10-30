@@ -4,7 +4,7 @@
 //   'shift' movable styles slide the whole shape up or down the neck, staying near the style's usual frets (`zone`)
 export type LickStyleId =
   | 'blues' | 'rock' | 'altrock' | 'metal' | 'progmetal' | 'mathrock' | 'jazz' | 'mayer' | 'neosoul' | 'funk'
-  | 'hawaiian' | 'jawaiian' | 'bluegrass' | 'country' | 'folk'
+  | 'hawaiian' | 'jawaiian' | 'bluegrass' | 'country' | 'folk' | 'fingerstyle'
 
 export interface LickStyle {
   id: LickStyleId
@@ -68,5 +68,8 @@ export const LICK_STYLES: LickStyle[] = [
   { id: 'folk', label: 'Folk', group: 'Roots', minor: false, move: 'capo', zone: [0, 5], bpm: 92, program: 25,
     feel: 'Open-position melodies with hammer-ons and pull-offs, Travis picking, bass walks and arpeggios that let the strings ring.',
     listen: 'Doc Watson, James Taylor, Joni Mitchell, Nick Drake' },
+  { id: 'fingerstyle', label: 'Melodic fingerstyle (Marco Cirillo style)', group: 'Roots', minor: false, move: 'capo', zone: [0, 7], bpm: 72, program: 25,
+    feel: 'Fingerpicked and melodic: open-string chord colours (add9, maj7, sus), the thumb on the bass and the fingers on top, hammer-ons and harmonics inside the arpeggios, and runs where every note rings into the next. Slow down and let it breathe.',
+    listen: 'Marco Cirillo, Tommy Emmanuel (ballads), Andy McKee, Sungha Jung' },
 ]
 export const lickStyle = (id: string) => LICK_STYLES.find(s => s.id === id) ?? LICK_STYLES[0]

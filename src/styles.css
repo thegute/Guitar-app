@@ -1595,3 +1595,31 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 .chord-extras .btn.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 [data-theme='psy'] .fit-list li { background: #14002b; }
 @media (max-width: 420px) { .fit-list li { flex-wrap: wrap; } }
+
+/* ── Exercise library (Songs → Exercises) */
+.ex-controls { gap: 10px; }
+.ex-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 520px) { .ex-filters { grid-template-columns: 1fr 1fr; } .ex-filters > :first-child { grid-column: 1 / -1; } }
+.ex-count { gap: 8px; flex-wrap: wrap; align-items: center; }
+.ex-count > span:first-child { margin-right: auto; font-size: 15px; }
+.ex-check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; min-height: 34px; }
+.ex-check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.ex-pick { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
+.ex-pick .btn { min-width: 42px; padding: 0 10px; font-size: 18px; }
+.ex-pick .select, .ex-filters .select, .ex-settings .select { width: 100%; min-width: 0; }
+.ex-filters .field, .ex-settings .field { min-width: 0; }
+.ex-star.on { color: var(--gold-text); border-color: var(--gold); }
+.ex-desc { margin: 0; font-size: 14px; line-height: 1.45; }
+.ex-settings { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.4fr); gap: 8px; align-items: end; }
+@media (max-width: 520px) { .ex-settings { grid-template-columns: 1fr 1fr; } .ex-tempo { grid-column: 1 / -1; } }
+.ex-tempo input[type=range] { width: 100%; accent-color: var(--accent); min-height: 34px; }
+.ex-nokey { min-height: 42px; display: flex; align-items: center; color: var(--ink-3, inherit); font-size: 14px; }
+.ex-transport { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.ex-transport .btn.primary { min-width: 104px; }
+.ex-card { display: grid; gap: 8px; }
+.ex-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ex-chord { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 34px; line-height: 1; }
+.ex-count-in { color: var(--accent); }
+.ex-chord.ex-name { font-size: 22px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.ex-seek { width: 100%; accent-color: var(--accent); }
+.ex-status { margin: 0; min-height: 1.4em; }

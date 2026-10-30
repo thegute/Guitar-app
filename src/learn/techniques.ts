@@ -9,7 +9,7 @@ export interface Technique {
   steps: string[]
   video: { site: string; title: string; url: string }
   /** what to practise: a drill tab, a songbook part, or a Learn tool */
-  drill: { label: string } & ({ tab: string } | { songbook: { song: string; part: string } } | { tool: 'changes' | 'bends' } | { exercise: 'spider' })
+  drill: { label: string } & ({ tab: string } | { songbook: { song: string; part: string } } | { tool: 'changes' | 'bends' } | { exercise: 'spider' } | { exName: string })
 }
 
 export const TECHNIQUES: Technique[] = [
@@ -144,6 +144,18 @@ export const TECHNIQUES: Technique[] = [
     ],
     video: { site: 'JustinGuitar', title: 'Basic Travis Picking', url: 'https://justinguitar.com/guitar-lessons/basic-travis-picking-fo-108' },
     drill: { label: 'Travis picking: Red River Valley', songbook: { song: 'redriver', part: 'travis' } },
+  },
+  {
+    id: 'melodic', title: 'Melodic fingerstyle (Marco Cirillo style)', why: 'Open-string chords, a steady thumb and little hammer-ons inside the arpeggio: the calm, beautiful sound of melodic acoustic players.',
+    steps: [
+      'Thumb (p) takes the bass strings; index, middle and ring (i, m, a) each own one of the G, B and top strings. Rest each finger on its string before you play it.',
+      'Use shapes that keep strings ringing between chords: G, Cadd9, Em7 and D/F# all hold the 3rd fret on the top two strings, so those notes never stop.',
+      'Play slowly and let every note ring into the next. Don\'t lift a finger until it has to move.',
+      'Add colour inside the arpeggio: hammer a sus2 up to the major chord, or touch the 12th fret lightly for a bell-like harmonic.',
+      'Exercises → Melodic fingerstyle has the patterns, studies and cascading scales; the lick library has the phrases explained.',
+    ],
+    video: { site: 'Marco Cirillo on YouTube', title: 'Fingerstyle Technique for Beginners', url: 'https://www.youtube.com/watch?v=qzreNu9FWec' },
+    drill: { label: 'Peaceful progression, picked p-i-m-a', exName: 'Peaceful: rising arpeggio' },
   },
 ]
 

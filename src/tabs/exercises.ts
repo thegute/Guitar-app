@@ -17,6 +17,10 @@ export const EX_SCALES: { id: string; label: string; minor: boolean }[] = [
   { id: 'dorian', label: 'Dorian', minor: true },
   { id: 'mixolydian', label: 'Mixolydian', minor: false },
   { id: 'harmonic minor', label: 'Harmonic minor', minor: true },
+  { id: 'phrygian', label: 'Phrygian', minor: true },
+  { id: 'lydian', label: 'Lydian', minor: false },
+  { id: 'melodic minor', label: 'Melodic minor', minor: true },
+  { id: 'phrygian dominant', label: 'Phrygian dominant', minor: false },
 ]
 export const EX_SEQUENCES = [
   { id: 'threes', label: 'In 3s (1-2-3, 2-3-4 …)' },

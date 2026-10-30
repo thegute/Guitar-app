@@ -52,6 +52,24 @@ export function openSongs(section: 'mine' | 'songbook' | 'practice' | 'add' = 's
   setSubPage('songs', section)
   go('songs')
 }
+// ---- one exercise from the exercise library (Songs → Exercises)
+let pendingExercise: string | null = null
+const exerciseListeners = new Set<(code: string) => void>()
+export function onOpenExercise(f: (code: string) => void) {
+  exerciseListeners.add(f)
+  return () => { exerciseListeners.delete(f) }
+}
+/** Show one exercise (by code, e.g. "SC-12") in Songs → Exercises. */
+export function openExercise(code: string) {
+  pendingExercise = code
+  exerciseListeners.forEach(f => f(code))
+  openSongs('practice')
+}
+export function takePendingExercise(): string | null {
+  const c = pendingExercise
+  pendingExercise = null
+  return c
+}
 export function openJam(page: 'jam' | 'solo' | 'tab' | 'find' = 'jam') {
   setSubPage('jam', page)
   go('progressions')

@@ -69,6 +69,7 @@ const STYLE_ALIAS: [string, Style][] = ([
   ['country', 'country'], ['reggae', 'reggae'], ['ska', 'reggae'], ['latin', 'latin'], ['flamenco', 'latin'], ['rumba', 'latin'],
   ['lofi', 'lofi'], ['chill', 'lofi'], ['chillhop', 'lofi'], ['cinematic', 'epic'], ['epic', 'epic'], ['film', 'epic'], ['sad', 'sad'],
   ['emotional', 'sad'], ['melancholy', 'sad'], ['happy', 'happy'], ['uplifting', 'happy'], ['upbeat', 'happy'],
+  ['fingerstyle', 'fingerstyle'], ['melodic fingerstyle', 'fingerstyle'], ['cirillo', 'fingerstyle'], ['marco cirillo', 'fingerstyle'],
 ] as [string, Style][]).sort((a, b) => b[0].split(' ').length - a[0].split(' ').length)
 
 const TUNING_ALIAS: Record<string, string[]> = {

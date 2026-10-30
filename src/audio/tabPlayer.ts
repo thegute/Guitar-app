@@ -5,6 +5,7 @@ import { audio } from './engine'
 import { playNote, strum, isPowerChord, activeSound, soundInfo, type SoundId } from './pluck'
 import type { FlatStep } from '../tabs/model'
 import { BandVoices, type BandEvent } from './band'
+import { playClick, type ClickSound } from './metronome'
 
 export class TabPlayer {
   onStep?: (flatIdx: number) => void
@@ -27,6 +28,16 @@ export class TabPlayer {
   /** chord sheets: play each chord with this strum pattern; offs = each step's start inside its bar */
   strum?: { hits: [number, string][]; offs: number[] }
   private voices = new BandVoices()
+  /** beats of clicks before the first note (the first play only, not each loop) */
+  countIn = 0
+  /** a click on every beat while it plays */
+  click = false
+  clickSound: ClickSound = 'wood'
+  /** beats in a bar (where the accented click goes) */
+  meter = 4
+  /** count-in beats as they sound: 1, 2, 3 … then 0 when the music starts */
+  onCount?: (n: number) => void
+  private counts: { t: number; n: number }[] = []
 
   /** Play steps [from, to) at the given tempo (quarter notes per minute). With `loopFrom`, it jumps back there at `to` and keeps going. */
   play(flat: FlatStep[], from: number, bpm: number, to = flat.length, loopFrom?: number) {
@@ -38,6 +49,20 @@ export class TabPlayer {
     const amp = !!soundInfo(this.sound ?? activeSound()).amp
     let i = Math.max(0, from)
     this.endAt = 0
+    // where each step starts, in beats (for the clicks)
+    const beatAt: number[] = []
+    let acc = 0
+    for (const f of flat) { beatAt.push(acc); acc += f.step.dur }
+    this.counts = []
+    if (this.countIn > 0) {
+      const spb = 60 / bpm
+      for (let k = 0; k < this.countIn; k++) {
+        playClick(t + k * spb, this.clickSound, k % this.meter === 0 ? 'accent' : 'beat', 0.8)
+        this.counts.push({ t: t + k * spb, n: k + 1 })
+      }
+      t += this.countIn * spb
+      this.counts.push({ t, n: 0 })
+    }
     const schedule = () => {
       while (t < ctx.currentTime + 0.3) {
         if (i >= to) {
@@ -46,6 +71,10 @@ export class TabPlayer {
         }
         const st = flat[i].step
         const spb = 60 / bpm
+        if (this.click) {
+          const b0 = beatAt[i]
+          for (let k = Math.ceil(b0 - 1e-6); k < b0 + st.dur - 1e-6; k++) playClick(t + (k - b0) * spb, this.clickSound, k % this.meter === 0 ? 'accent' : 'beat', 0.6)
+        }
         for (const { off, e } of this.band?.[i] ?? []) this.voices.play(e, t + off * spb, spb)
         if (!this.part) { this.queue.push({ t, i }); t += st.dur * spb; i++; continue }
         const notes = st.notes
@@ -101,6 +130,7 @@ export class TabPlayer {
     const tick = () => {
       const now = ctx.currentTime
       let last = -1
+      while (this.counts.length && this.counts[0].t <= now) this.onCount?.(this.counts.shift()!.n)
       while (this.queue.length && this.queue[0].t <= now) last = this.queue.shift()!.i
       if (last >= 0) this.onStep?.(last)
       if (this.endAt && now >= this.endAt) {
@@ -123,6 +153,7 @@ export class TabPlayer {
     this.voices.stop(now)
     this.ringing.clear()
     this.queue = []
+    this.counts = []
     this.playing = false
   }
 }

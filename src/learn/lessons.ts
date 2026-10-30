@@ -138,7 +138,7 @@ export const LESSONS: Lesson[] = [
   { id: 'articulation', chapter: 'notation', title: 'Articulation and guitar techniques', offtonic: O('3-3.html'), minutes: 5, blocks: [
     { p: 'Articulations say *how* to play a note: **staccato** (short), **accent** (stronger), **legato** (smoothly connected). On guitar, articulation is technique:' },
     { list: ['**Hammer-on (h)**: pick one note, then slam a finger down for the next without picking.', '**Pull-off (p)**: flick the fretting finger off to sound a lower note.', '**Slide (/ \\)**: keep pressure and glide to a new fret.', '**Palm mute (P.M.)**: rest the side of your picking hand on the strings by the bridge for a tight chug.', '**Let ring**: hold notes down so they overlap like a harp.'] },
-    { practice: { label: 'Practice tabs with techniques (Songs → Practice → Licks)', tool: 'practice' } },
+    { practice: { label: 'Practice tabs with techniques (Songs → Exercises)', tool: 'practice' } },
   ] },
   { id: 'ornaments', chapter: 'notation', title: 'Ornaments: bends, vibrato and grace notes', offtonic: O('3-4.html'), minutes: 4, blocks: [
     { p: 'Ornaments decorate a note. In classical music: trills, turns, grace notes. On guitar the big ones are **bends** (pushing the string to raise the pitch), **vibrato** (a repeated small bend), and **grace-note slides** into a note.' },
@@ -257,7 +257,7 @@ export const LESSONS: Lesson[] = [
     { p: 'Add the **b5** to minor pentatonic and you get the **blues scale**. The five box shapes of the pentatonic link up across the whole neck.' },
     { play: { label: 'A minor pentatonic', seq: scale(A3, [0, 3, 5, 7, 10, 12]), gap: 0.3 } },
     { play: { label: 'A blues scale', seq: scale(A3, [0, 3, 5, 6, 7, 10, 12]), gap: 0.3 } },
-    { practice: { label: 'Play all 5 boxes as a tab (Songs → Practice)', tool: 'practice' } },
+    { practice: { label: 'Play all 5 boxes as a tab (Songs → Exercises)', tool: 'practice' } },
   ] },
   { id: 'harmonic-modes', chapter: 'modes', title: 'Harmonic minor and its modes', offtonic: O('7-6.html'), minutes: 5, blocks: [
     { p: 'Harmonic minor\'s raised 7th creates a big jump (b6 to 7) that sounds exotic. Its most-used mode is **Phrygian dominant** (start harmonic minor on its 5th): the sound of flamenco, klezmer and neoclassical metal. Play it over the V chord in a minor key (E7 in A minor).' },

@@ -1,5 +1,5 @@
 // Tapping a search result: go there, already set up (the chord, the scale, the tempo, the tuning, the jam).
-import { go, openInPlay, openJam, openSongs, learnGo, playAction, remount } from '../nav'
+import { go, openInPlay, openJam, openSongs, learnGo, playAction, remount, openExercise } from '../nav'
 import type { Go } from '../learn/path'
 import { current, setTuning } from '../instrument'
 import { getSong, refreshBuiltIn } from '../tabs/library'
@@ -25,6 +25,7 @@ export function launch(t: Target) {
   if ('go' in t) return launchGo(t.go)
   if ('play' in t) return playAction(t.play)
   if ('guide' in t) return learnGo({ guide: t.guide })
+  if ('exercise' in t) return openExercise(t.exercise)
   if ('example' in t) {
     void refreshBuiltIn(exampleDoc(t.example, current().tuning.notes)).then(openInPlay)
     return

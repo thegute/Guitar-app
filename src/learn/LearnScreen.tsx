@@ -8,6 +8,7 @@ import { PsyArt, PsyDog, PsyPic } from '../components/PsyArt'
 import type { DogId } from '../art/samurai'
 import { useInstrument } from '../instrument'
 import { buildExercise, ESSENTIALS } from '../tabs/exercises'
+import { exerciseCatalog } from '../exercises/catalog'
 import { getSong, refreshBuiltIn, type SongDoc } from '../tabs/library'
 import { loadSongbookDoc } from '../tabs/songbookDocs'
 import { profile, profileSkipped, skipProfile } from './profile'
@@ -19,7 +20,7 @@ import { lessonTab, type LessonEx } from './lessonExtras'
 import { exampleDoc } from '../tabs/examples'
 import type { Song } from '../tabs/model'
 import { useBack } from '../back'
-import { go as goTab, openInPlay, openSongs, openJam, setSubPage, onLearnGo, takeLearnGo } from '../nav'
+import { go as goTab, openInPlay, openSongs, openJam, setSubPage, onLearnGo, takeLearnGo, openExercise as showExercise } from '../nav'
 import { allLogs, dailyGoalMin, dayCounts, dayKey, isAway, setAway, stars, streak, todayLog, useProgress, COUNTS_AFTER_SEC } from './progress'
 import { freezes, levelInfo, questProgress, todaysQuests } from './game'
 import { course, findQuiz } from './quiz'
@@ -118,6 +119,7 @@ export function LearnScreen() {
     const d = t.drill
     if ('tool' in d) push({ k: d.tool })
     else if ('exercise' in d) void openExercise(d.exercise)
+    else if ('exName' in d) { const e = exerciseCatalog(inst).find(x => x.name === d.exName); if (e) showExercise(e.code) }
     else if ('songbook' in d) void openSongbook(d.songbook.song, d.songbook.part)
     else {
       const song = drillSong(d.tab, inst.midis)
@@ -235,7 +237,7 @@ export function LearnScreen() {
   const groups: { title: string; tools: { id: Route['k']; title: string; sub: string; needs?: boolean }[] }[] = [
     { title: 'Play better', tools: [
       { id: 'techniques', title: 'Technique', sub: `${techniquesDone().size} of ${TECHNIQUES.length} skills practised` },
-      { id: 'licks', title: 'Must-know licks', sub: '15 styles, explained step by step' },
+      { id: 'licks', title: 'Must-know licks', sub: '16 styles, explained step by step' },
       { id: 'bends', title: 'Bends & vibrato', sub: 'Bend to pitch with a needle', needs: true },
       { id: 'changes', title: 'Chord changes', sub: changesBest ? `Best: ${changesBest} a minute` : 'One-minute drill', needs: true },
       { id: 'rhythm', title: 'Rhythm trainer', sub: 'Listen, then tap it back' },
@@ -446,6 +448,11 @@ export function LearnScreen() {
               </div>
             </section>
           ))}
+          <button className="tool songbook-link" onClick={() => openSongs('practice')}>
+            <ToolBadge id="exercises" />
+            <b>Exercises</b>
+            <span className="small muted">{exerciseCatalog(inst).length} practice pieces, beginner to expert, every technique: in the Songs tab</span>
+          </button>
           <button className="tool songbook-link" onClick={() => openSongs('songbook')}>
             <ToolBadge id="songbook" />
             <b>Songbook</b>
@@ -460,7 +467,7 @@ export function LearnScreen() {
 // Psychedelic mode: a samurai dog sticker on each Learn tool.
 const BADGES: Record<string, DogId> = {
   techniques: 'shepherd', licks: 'rottweiler', bends: 'doberman', changes: 'boxer', rhythm: 'shiba', lessons: 'akita', ear: 'husky',
-  caged: 'frenchie', circle: 'golden', progress: 'muscle', guide: 'lab', songbook: 'princess',
+  caged: 'frenchie', circle: 'golden', progress: 'muscle', guide: 'lab', songbook: 'princess', exercises: 'husky',
 }
 function ToolBadge({ id }: { id: string }) {
   const b = BADGES[id]

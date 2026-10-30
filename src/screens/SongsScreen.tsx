@@ -1,4 +1,5 @@
-// Songs: everything you can play, on four short pages: your songs, the songbook, practice tabs and generators,
+// Songs: everything you can play, on four short pages: your songs, the songbook, the exercise library (with the
+// picking-tab and lick makers),
 // and adding a song (find one online, upload Guitar Pro or text files, or paste a tab or chord sheet).
 import { Fold, HintHead } from '../components/Fold'
 import { Songbook } from '../components/Songbook'
@@ -16,14 +17,9 @@ import { ago, songStats } from '../play/songStats'
 import { Clipboard } from '@capacitor/clipboard'
 import { INSTRUMENTS, useInstrument, type InstrumentId } from '../instrument'
 import { KeyPicker, Chips, usePersist } from '../components/Controls'
-import { ESSENTIALS, EX_ARPS, EX_LICKS, EX_SCALES, EX_SEQUENCES, EX_WARMUPS, buildExercise, type ExerciseKind, type ExerciseSpec } from '../tabs/exercises'
+import { ExerciseBrowser } from '../exercises/ExerciseBrowser'
 import { openInPlay } from '../nav'
 import { TAB_SITES } from '../tabs/tabSites'
-
-const KINDS: { id: ExerciseKind; label: string }[] = [
-  { id: 'scale', label: 'Scales' }, { id: 'sequence', label: 'Sequences' }, { id: 'arpeggio', label: 'Arpeggios' },
-  { id: 'lick', label: 'Licks' }, { id: 'warmup', label: 'Warm-ups' },
-]
 
 const SITES = TAB_SITES
 
@@ -50,7 +46,7 @@ export function SongsScreen() {
       <SubTabs label="Songs" value={page} onChange={setPage} tabs={[
         { id: 'mine', label: 'My songs', badge: count || null },
         { id: 'songbook', label: 'Songbook' },
-        { id: 'practice', label: 'Practice' },
+        { id: 'practice', label: 'Exercises' },
         { id: 'add', label: 'Add a song' },
       ]} />
       {page === 'mine' && <MySongs songs={songs} currentId={currentId} onOpen={open} refresh={refresh} onAdd={() => setPage('add')} onSongbook={() => setPage('songbook')} />}
@@ -142,65 +138,16 @@ function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook }: {
 
 function PracticePage({ currentId, onOpen }: { currentId: string; onOpen: (d: SongDoc) => void }) {
   const inst = useInstrument()
-  const [error, setError] = useState('')
-  const [exKind, setExKind] = usePersist<ExerciseKind>('exKind', 'scale')
-  const [exRoot, setExRoot] = usePersist('exRoot', 'A')
-  const [exType, setExType] = usePersist<Record<ExerciseKind, string>>('exType', { scale: 'minor pentatonic', sequence: 'threes', arpeggio: 'maj', lick: 'box-desc', warmup: 'spider' })
-  const [exScale, setExScale] = usePersist('exScale', 'minor pentatonic')
-  const [exPos, setExPos] = usePersist('exPos', 0)
-  const typeOptions = exKind === 'scale' ? EX_SCALES.map(x => ({ id: x.id, label: x.label }))
-    : exKind === 'sequence' ? EX_SEQUENCES : exKind === 'arpeggio' ? EX_ARPS.map(x => ({ id: x.id, label: x.label }))
-      : exKind === 'lick' ? EX_LICKS.map(x => ({ id: x.id, label: x.label })) : EX_WARMUPS
-  const posCount = exKind === 'warmup' || exKind === 'lick' ? 0 : exKind === 'scale' && !/pentatonic|blues/.test(exType.scale) ? 7 : 5
-
-  async function openExercise(spec: ExerciseSpec) {
-    const song = buildExercise(spec, inst.midis)
-    if (!song.tracks[0].bars.length) { setError("That exercise doesn't fit this instrument. Try another position."); return }
-    const id = `lib:${inst.id}:${inst.tuning.id}:${spec.kind}:${spec.root}:${spec.type}:${spec.position}:${spec.scale ?? ''}`
-    const doc: SongDoc = { id, title: song.title, source: 'lesson', inst: inst.id, song, updated: Date.now() }
-    await saveSong(doc)
-    onOpen(doc)
-  }
   const saveOpen = async (d: SongDoc) => { await saveSong(d); onOpen(d) }
-
   return (
     <div className="stack" style={{ gap: 12 }}>
-      <section className="stack" style={{ gap: 6 }}>
-        <HintHead level={2} title="Practice tabs" hint="They play along like any song: the mic follows you, Hear it plays them, and you can loop any part." />
-        <ul className="song-list">
-          {ESSENTIALS.map(e => (
-            <li key={e.title}>
-              <button className="song-open" onClick={() => void openExercise(e.spec)}>
-                <b>{e.title}</b>
-                <span className="small muted">{e.why}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-        {error && <p className="notice small" role="alert">{error}</p>}
-      </section>
-      <Fold id="songsBuild" title="Build your own practice tab" summary="scales, sequences, arpeggios, licks, warm-ups">
-        <Chips label="Kind" items={KINDS} value={exKind} onChange={setExKind} />
-        {exKind !== 'warmup' && <KeyPicker value={exRoot} onChange={setExRoot} />}
-        <Chips label="Type" wrap items={typeOptions} value={exType[exKind]} onChange={v => setExType({ ...exType, [exKind]: v })} />
-        {exKind === 'sequence' && (
-          <Chips label="Scale" items={EX_SCALES.map(x => ({ id: x.id, label: x.label }))} value={exScale} onChange={setExScale} />
-        )}
-        {posCount > 0 && (
-          <Chips label="Position" items={[...Array.from({ length: posCount }, (_, i) => ({ id: i, label: `Position ${i + 1}` })), { id: -1, label: 'All positions' }]} value={exPos >= posCount ? 0 : exPos} onChange={setExPos} />
-        )}
-        {exKind === 'lick' && <p className="small muted" style={{ margin: 0 }}>{EX_LICKS.find(l => l.id === exType.lick)?.feel}</p>}
-        <div className="row">
-          <button className="btn primary" onClick={() => void openExercise({ kind: exKind, root: exRoot, type: exType[exKind], position: posCount ? (exPos >= posCount ? 0 : exPos) : 0, scale: exScale })}>Open in Play</button>
-        </div>
-      </Fold>
+      <ExerciseBrowser />
       <PickingSection onOpen={saveOpen} />
-      <Fold id="songsLicks" title="Lick generator" summary="bluegrass to metal"
-        hint="New practice licks in bluegrass, rock, prog metal, metal, folk or country. Roll until you like one, then open it and play along.">
+      <Fold id="songsLicks" title="Lick maker" summary="a new lick in any style"
+        hint="Builds a phrase from the lick library in the style, key, length and level you pick. Roll until you like one, then open it and play along.">
         <LickMaker onOpen={saveOpen} />
       </Fold>
-      <section className="stack" style={{ gap: 6 }}>
-        <h2 className="sec-title">Examples</h2>
+      <Fold id="songsExamples" title="Example songs" summary="try every feature on these">
         <ul className="song-list">
           {EXAMPLES.filter(e => e.for === inst.id || e.for === 'any').map(e => (
             <li key={e.id} className={exampleId(e.id, inst.id) === currentId ? 'on' : ''}>
@@ -208,7 +155,7 @@ function PracticePage({ currentId, onOpen }: { currentId: string; onOpen: (d: So
             </li>
           ))}
         </ul>
-      </section>
+      </Fold>
     </div>
   )
 }

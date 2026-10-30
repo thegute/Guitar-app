@@ -7,7 +7,7 @@ export type ModeId = 'major' | 'minor' | 'dorian' | 'mixolydian' | 'phrygian' | 
 export type Flavor = 'auto' | 'triads' | 'power' | 'sevenths' | 'extended' | 'sus' | 'jazzy'
 export type Style =
   | 'any' | 'pop' | 'rock' | 'classic' | 'punk' | 'metal' | 'grunge' | 'indie' | 'blues' | 'jazz' | 'bossa'
-  | 'neosoul' | 'funk' | 'gospel' | 'folk' | 'country' | 'reggae' | 'latin' | 'lofi' | 'epic' | 'sad' | 'happy'
+  | 'neosoul' | 'funk' | 'gospel' | 'folk' | 'country' | 'reggae' | 'latin' | 'lofi' | 'epic' | 'sad' | 'happy' | 'fingerstyle'
 export type Fn = 'T' | 'S' | 'D'
 export type Ending = 'loop' | 'cadence' | 'turnaround' | 'open'
 
@@ -44,6 +44,7 @@ export const STYLES: { id: Style; label: string }[] = [
   { id: 'epic', label: 'Cinematic / epic' },
   { id: 'sad', label: 'Sad / emotional' },
   { id: 'happy', label: 'Happy / uplifting' },
+  { id: 'fingerstyle', label: 'Melodic fingerstyle (Marco Cirillo style)' },
 ]
 
 export const FLAVORS: { id: Flavor; label: string; hint: string }[] = [
@@ -94,6 +95,7 @@ export const STYLE_DEFAULTS: Record<Style, { flavor: Exclude<Flavor, 'auto'>; st
   epic: { flavor: 'sus', strum: 'half', drums: 'halftime', bass: 'halftime', tone: 'crunch', bpm: 82, mode: 'minor' },
   sad: { flavor: 'sus', strum: 'arpeggio', drums: 'halftime', bass: 'ballad', tone: 'j45', bpm: 70 },
   happy: { flavor: 'triads', strum: 'pop', drums: 'disco', bass: 'disco', tone: 'acoustic', bpm: 120 },
+  fingerstyle: { flavor: 'sus', strum: 'arpeggio', drums: 'off', bass: 'off', tone: 'j45', bpm: 72 },
 }
 
 /**
@@ -217,16 +219,16 @@ const T = (name: string, modes: ModeId[], styles: Style[], chords: [number, stri
 
 export const TEMPLATES: Template[] = [
   T('Four-chord pop (I–V–vi–IV)', ['major'], ['pop', 'rock', 'punk', 'happy', 'any'], [[0, ''], [7, ''], [9, 'm'], [5, '']], 'Countless hits use this loop.'),
-  T('Sensitive (vi–IV–I–V)', ['major'], ['pop', 'sad', 'epic', 'indie'], [[9, 'm'], [5, ''], [0, ''], [7, '']]),
+  T('Sensitive (vi–IV–I–V)', ['major'], ['pop', 'sad', 'epic', 'indie', 'fingerstyle'], [[9, 'm'], [5, ''], [0, ''], [7, '']]),
   T('Three-chord rock (I–IV–V–IV)', ['major'], ['rock', 'classic', 'folk', 'punk', 'happy'], [[0, ''], [5, ''], [7, ''], [5, '']]),
   T("'50s doo-wop (I–vi–IV–V)", ['major'], ['pop', 'folk', 'happy'], [[0, ''], [9, 'm'], [5, ''], [7, '']]),
   T('Royal road (IV–V–iii–vi)', ['major'], ['pop', 'epic', 'lofi'], [[5, 'maj7'], [7, '7'], [4, 'm7'], [9, 'm']], 'A staple of J-pop and anime themes.'),
-  T('Canon (I–V–vi–iii–IV–I–IV–V)', ['major'], ['pop', 'folk', 'epic'], [[0, ''], [7, ''], [9, 'm'], [4, 'm'], [5, ''], [0, ''], [5, ''], [7, '']]),
+  T('Canon (I–V–vi–iii–IV–I–IV–V)', ['major'], ['pop', 'folk', 'epic', 'fingerstyle'], [[0, ''], [7, ''], [9, 'm'], [4, 'm'], [5, ''], [0, ''], [5, ''], [7, '']]),
   T('Hopeful minor (vi–IV–V–I)', ['major'], ['pop', 'epic', 'happy'], [[9, 'm'], [5, ''], [7, ''], [0, '']]),
   T('Axis with a twist (I–iii–IV–iv)', ['major'], ['sad', 'pop', 'rock', 'indie'], [[0, ''], [4, 'm'], [5, ''], [5, 'm']], 'The borrowed minor iv makes it bittersweet.'),
-  T('Bittersweet (I–IV–iv–I)', ['major'], ['sad', 'pop', 'folk', 'gospel'], [[0, ''], [5, ''], [5, 'm'], [0, '']], 'The minor iv is the bittersweet chord.'),
+  T('Bittersweet (I–IV–iv–I)', ['major'], ['sad', 'pop', 'folk', 'gospel', 'fingerstyle'], [[0, ''], [5, ''], [5, 'm'], [0, '']], 'The minor iv is the bittersweet chord.'),
   T('Cinematic lift (I–III–IV–iv)', ['major'], ['epic', 'indie', 'sad'], [[0, ''], [4, ''], [5, ''], [5, 'm']], 'The major III is a chromatic mediant: instant film-score feeling.'),
-  T('Dreamy vamp (Imaj7–IVmaj7)', ['major', 'lydian'], ['indie', 'lofi', 'neosoul'], [[0, 'maj7'], [5, 'maj7'], [0, 'maj7'], [5, 'maj7']]),
+  T('Dreamy vamp (Imaj7–IVmaj7)', ['major', 'lydian'], ['indie', 'lofi', 'neosoul', 'fingerstyle'], [[0, 'maj7'], [5, 'maj7'], [0, 'maj7'], [5, 'maj7']]),
   T('Indie climb (I–iii–vi–IV)', ['major'], ['indie', 'pop'], [[0, ''], [4, 'm'], [9, 'm'], [5, '']]),
   T('Punk drive (I–IV–vi–V)', ['major'], ['punk', 'rock'], [[0, '5'], [5, '5'], [9, '5'], [7, '5']]),
   T('Happy bounce (I–V–IV–V)', ['major'], ['happy', 'reggae', 'country'], [[0, ''], [7, ''], [5, ''], [7, '']]),
@@ -246,10 +248,10 @@ export const TEMPLATES: Template[] = [
   T('Aeolian rock (i–bVII–bVI–bVII)', ['minor'], ['rock', 'epic', 'metal'], [[0, 'm'], [10, ''], [8, ''], [10, '']]),
   T('Epic minor (i–bVI–bIII–bVII)', ['minor'], ['epic', 'sad', 'pop', 'metal'], [[0, 'm'], [8, ''], [3, ''], [10, '']]),
   T('Metal gallop (i–bVI–bVII–i)', ['minor', 'phrygian'], ['metal', 'epic'], [[0, '5'], [8, '5'], [10, '5'], [0, '5']]),
-  T('Andalusian cadence (i–bVII–bVI–V)', ['minor', 'harmonic', 'phrygian'], ['latin', 'epic', 'rock'], [[0, 'm'], [10, ''], [8, ''], [7, '']], 'Flamenco and surf rock descend this way.'),
+  T('Andalusian cadence (i–bVII–bVI–V)', ['minor', 'harmonic', 'phrygian'], ['latin', 'epic', 'rock', 'fingerstyle'], [[0, 'm'], [10, ''], [8, ''], [7, '']], 'Flamenco and surf rock descend this way.'),
   T('Minor ii–V–i', ['minor', 'harmonic'], ['jazz', 'sad', 'bossa'], [[2, 'm7b5'], [7, '7'], [0, 'm7'], [0, 'm7']]),
   T('Minor blues-rock (i–iv–v–i)', ['minor'], ['blues', 'rock', 'sad'], [[0, 'm'], [5, 'm'], [7, 'm'], [0, 'm']]),
-  T('Sad loop (i–VI–III–VII)', ['minor'], ['sad', 'pop', 'epic'], [[0, 'm'], [8, ''], [3, ''], [10, '']]),
+  T('Sad loop (i–VI–III–VII)', ['minor'], ['sad', 'pop', 'epic', 'fingerstyle'], [[0, 'm'], [8, ''], [3, ''], [10, '']]),
   T('Dorian vamp (i–IV)', ['dorian'], ['funk', 'rock', 'latin'], [[0, 'm7'], [5, '7'], [0, 'm7'], [5, '7']], 'The major IV is the Dorian sound.'),
   T('Dorian soul (i–ii)', ['dorian'], ['funk', 'jazz', 'neosoul'], [[0, 'm9'], [2, 'm7'], [0, 'm9'], [2, 'm7']]),
   T('One-chord funk (i9)', ['dorian', 'mixolydian'], ['funk'], [[0, 'm9'], [0, 'm9'], [0, 'm9'], [5, '9']], 'Funk lives on one chord and the groove.'),
@@ -438,6 +440,7 @@ function palette(mode: ModeId, style: Style, spice: number): Cand[] {
       case 'latin': if (has(k, 7, 8, 1)) k.weight *= 1.5; break
       case 'epic': if (has(k, 8, 10, 3)) k.weight *= 1.6; break
       case 'sad': if (t === 'm' || (k.borrowed && has(k, 5))) k.weight *= 1.4; break
+      case 'fingerstyle': if (has(k, 9, 5, 4, 2, 7)) k.weight *= 1.4; if (k.borrowed) k.weight *= 0.6; break
       case 'pop': if (k.borrowed) k.weight *= 0.6; break
     }
     if (style === 'happy' && t === 'm') k.weight *= 0.8

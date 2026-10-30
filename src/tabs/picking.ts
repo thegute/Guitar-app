@@ -46,6 +46,8 @@ export const PICK_PATTERNS: PickPattern[] = [
     hits: [h(0, 'R'), h(0.5, 'f1'), h(1, 'f2'), h(1.5, 'f1'), h(2, 'A'), h(2.5, 'f1'), h(3, 'f2'), h(3.5, 'f1')] },
   { id: 'arp-16', group: 'arpeggio', label: 'Sixteenth-note roll', how: 'Four quick notes per beat, rising: bass, 3rd, 2nd, top string. Start slow.',
     hits: [0, 1, 2, 3].flatMap(b => [h(b, b % 2 ? 'A' : 'R'), h(b + 0.25, 'f1'), h(b + 0.5, 'f2'), h(b + 0.75, 'f3')]) },
+  { id: 'falling', group: 'arpeggio', label: 'Falling arpeggio (p-a-m-i)', how: 'Bass, then the top string, the 2nd and the 3rd: the notes fall like rain. Let every one ring.',
+    hits: [h(0, 'R'), h(0.5, 'f3'), h(1, 'f2'), h(1.5, 'f1'), h(2, 'A'), h(2.5, 'f3'), h(3, 'f2'), h(3.5, 'f1')] },
   { id: 'arp-pinch', group: 'arpeggio', label: 'Pinch and ripple', how: 'Bass and top string together, then the middle strings ripple: a pretty pattern for slow songs.',
     hits: [h(0, 'R', 'f3'), h(0.5, 'f1'), h(1, 'f2'), h(1.5, 'f1'), h(2, 'A', 'f3'), h(2.5, 'f1'), h(3, 'f2'), h(3.5, 'f1')] },
   // bluegrass / folk rhythm guitar

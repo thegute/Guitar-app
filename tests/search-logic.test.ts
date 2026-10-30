@@ -26,7 +26,7 @@ const CASES: [string, RegExp, number?][] = [
   ['reminder', /Reminders/, 1], ['turn off notifications', /Reminders/, 1], ['ukulele', /Guitar or ukulele/, 2], ['bigger tab', /Make the tab bigger/, 1],
   ['note names', /Note names on the tab/, 1], ['which finger', /Where your fingers go/, 1], ['ear training', /^Ear training$/, 1],
   ['caged', /CAGED/, 1], ['circle of fifths', /Circle of fifths/i, 1], ['hammer ons', /Hammer-ons/, 1], ['bends', /Bends/, 2],
-  ['travis picking', /Travis/, 1], ['licks', /Lick generator/, 1], ['amazing grace', /Amazing Grace/, 1], ['footswitch', /footswitch/, 1],
+  ['travis picking', /Travis/, 1], ['licks', /Lick maker/, 1], ['amazing grace', /Amazing Grace/, 1], ['footswitch', /footswitch/, 1],
   ['what key is this song in', /Scales & chords for soloing/, 1], ['sync video', /Sync the video/, 1], ['capo', /Song check/, 1],
   ['how am i doing', /Progress/, 1], ['help', /Help: how to use KGuitar/, 1], ['palm mute', /Palm mut/, 1], ['strumming pattern', /Count it/, 2],
   ['chord changes faster', /chord changes/i, 1], ['in time', /In time/, 1], ['theory', /Theory lessons/, 1], ['full screen', /Full tab/, 1],
@@ -37,6 +37,10 @@ const CASES: [string, RegExp, number?][] = [
   ['how to use the app', /Help: how to use KGuitar/, 1], ['where do i start', /Help|five sections/, 2], ['delete a song', /My songs/, 2],
   ['youtube', /YouTube video/, 1], ['count in', /Click|In time/, 3], ['fingerpicking pattern', /Make it a tab|Travis/, 2],
   ['songs for beginners', /Songbook/, 2], ['light mode', /Day, Night or Psychedelic/, 1], ['animations', /Moving colours/, 1],
+  ['exercises', /Exercises/, 1], ['marco cirillo', /Melodic fingerstyle/, 1], ['beautiful fingerstyle', /Melodic fingerstyle/, 2],
+  ['spider walk', /Spider walk/, 1], ['sweep picking', /sweep/i, 3], ['WU-1', /Chromatic 1-2-3-4/, 1], ['bg-3', /./, 1],
+  ['cascading scale', /Cascading/, 2], ['guide tones', /Guide tones/, 2], ['must know licks', /Must-know licks/, 1],
+  ['what scale goes with a chord', /Chord library|Scales/, 3], ['barre chord exercise', /barre/i, 3], ['warm up', /warm|Exercises|Chromatic/i, 3],
 ]
 for (const [q, want, top = 3] of CASES) {
   const r = searchAll(idx, q, inst, 6)

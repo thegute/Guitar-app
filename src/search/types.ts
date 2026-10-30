@@ -27,14 +27,17 @@ export type Target =
   | { jam: JamTarget }
   | { example: string }
   | { guide: string }
+  /** one exercise by code ("SC-12"), or a whole type of them ("type:melodic") */
+  | { exercise: string }
 
 export type Kind =
   | 'feature' | 'setting' | 'chord' | 'scale' | 'tuning' | 'metronome' | 'jam' | 'mysong' | 'songbook' | 'practice'
-  | 'lesson' | 'technique' | 'quiz'
+  | 'lesson' | 'technique' | 'quiz' | 'exercise' | 'lick'
 
 export const KIND_LABEL: Record<Kind, string> = {
   feature: 'How to', setting: 'Settings', chord: 'Chord', scale: 'Scale', tuning: 'Tuning', metronome: 'Metronome', jam: 'Jam',
   mysong: 'Your song', songbook: 'Songbook', practice: 'Practice tab', lesson: 'Lesson', technique: 'Technique', quiz: 'Quiz',
+  exercise: 'Exercise', lick: 'Lick',
 }
 
 /** Something search can find. `keys` are the other words people use for it; `guide` links it to a guide item. */

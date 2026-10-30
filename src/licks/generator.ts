@@ -37,25 +37,29 @@ export function placedEvents(l: LickDef, p: Placement): LickEvent[] {
   return parseLick(l.tab).events.map(e => ({ dur: e.dur, notes: e.notes.map(n => (n.tech === 'x' ? n : { ...n, fret: n.fret + p.shift })) }))
 }
 
-/** For a tuning that isn't standard guitar (drop D, ukulele …): keep the pitches, find them on this instrument
- *  near the same part of the neck. */
-function retune(events: LickEvent[], capo: number, tuning: number[]): LickEvent[] {
+/** For a tuning that isn't standard guitar (drop D, ukulele …): keep the pitches (a capo's included: the result is
+ *  played without one), find them on this instrument near the same part of the neck, one note per string. */
+export function retune(events: LickEvent[], capo: number, tuning: number[]): LickEvent[] {
   const lo = Math.min(...tuning), hi = Math.max(...tuning) + 15
   let prev: number | null = null
-  return events.map(e => ({
-    dur: e.dur,
-    notes: e.notes.flatMap(n => {
-      let midi = STANDARD[n.string] + capo + n.fret
-      while (midi < lo + capo) midi += 12
-      while (midi > hi + capo) midi -= 12
-      const opts = tuning.map((open, s) => ({ string: s, fret: midi - capo - open })).filter(o => o.fret >= 0 && o.fret <= 17)
-      if (!opts.length) return []
-      const near = prev ?? n.fret
-      const best = opts.sort((a, b) => Math.abs(a.fret - near) - Math.abs(b.fret - near))[0]
-      prev = best.fret
-      return [{ string: best.string, fret: best.fret, ...(n.tech ? { tech: n.tech } : {}) }]
-    }),
-  }))
+  return events.map(e => {
+    const used = new Set<number>()
+    return {
+      dur: e.dur,
+      notes: e.notes.flatMap(n => {
+        let midi = STANDARD[n.string] + capo + n.fret
+        while (midi < lo) midi += 12
+        while (midi > hi) midi -= 12
+        const opts = tuning.map((open, s) => ({ string: s, fret: midi - open })).filter(o => o.fret >= 0 && o.fret <= 17 && !used.has(o.string))
+        if (!opts.length) return []
+        const near = prev ?? n.fret
+        const best = opts.sort((a, b) => Math.abs(a.fret - near) - Math.abs(b.fret - near))[0]
+        used.add(best.string)
+        if (n.tech !== 'x') prev = best.fret
+        return [{ string: best.string, fret: best.fret, ...(n.tech ? { tech: n.tech } : {}) }]
+      }),
+    }
+  })
 }
 
 export const keyLabel = (root: string, minor: boolean) => (keyPrefersFlats(root, minor) ? FLATS : SHARPS)[pc(root)] + (minor ? 'm' : '')
