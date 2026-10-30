@@ -2,6 +2,7 @@
 import { PitchDetector } from 'pitchy'
 import { audio } from './engine'
 import { openInput, type OpenedInput } from './input'
+import { rawPitch, type RawPitch } from './tunerPitch'
 
 export interface PitchReading {
   freq: number
@@ -19,6 +20,11 @@ export class PitchTracker {
   onReading?: (r: PitchReading | null) => void
   input: OpenedInput | null = null
 
+  /** `filter`: keep 60–1400 Hz only (the tuner: less rumble and hiss, steadier readings) */
+  constructor(private opts: { filter?: boolean; raw?: boolean } = {}) {}
+  /** the raw readings, unthresholded (the tuner smooths them itself) */
+  onRaw?: (r: RawPitch, t: number) => void
+
   async start() {
     const ctx = audio()
     this.input = await openInput()
@@ -26,7 +32,21 @@ export class PitchTracker {
     const src = ctx.createMediaStreamSource(this.stream)
     this.analyser = ctx.createAnalyser()
     this.analyser.fftSize = 4096
-    src.connect(this.analyser)
+    if (this.opts.filter) {
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 60; hp.Q.value = 0.6
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400; lp.Q.value = 0.6
+      src.connect(hp).connect(lp).connect(this.analyser)
+    } else src.connect(this.analyser)
+    if (this.opts.raw) {
+      const loop = () => {
+        this.raf = requestAnimationFrame(loop)
+        if (!this.analyser) return
+        this.analyser.getFloatTimeDomainData(this.buf)
+        this.onRaw?.(rawPitch(this.detector, this.buf, ctx.sampleRate), ctx.currentTime)
+      }
+      loop()
+      return
+    }
     this.detector.minVolumeDecibels = -50
     const loop = () => {
       this.raf = requestAnimationFrame(loop)

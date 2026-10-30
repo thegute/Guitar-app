@@ -1513,3 +1513,62 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 [data-theme='psy'] .search-sheet { background: #1c0641; border-color: #ff3fd8; }
 [data-theme='psy'] .search-hit { background: #14002b; border-color: rgba(255, 63, 216, 0.35); }
 [data-theme='psy'] .search-hit.on { border-color: #ff3fd8; box-shadow: 0 0 12px rgba(255, 63, 216, 0.5); }
+
+/* get ready: a few seconds before timed practice starts */
+.get-ready { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; background: rgba(10, 6, 16, 0.55); }
+.get-ready-card { display: grid; justify-items: center; gap: 6px; padding: 22px 34px 18px; border-radius: 22px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35); }
+.get-ready-label { font-size: 20px; font-weight: 600; color: var(--ink-2); }
+.get-ready-num { font-family: 'Barlow Condensed', sans-serif; font-size: 120px; line-height: 1; color: var(--accent); animation: get-ready-pop 1s ease-out; }
+@keyframes get-ready-pop { 0% { transform: scale(1.35); opacity: 0.3; } 25% { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .get-ready-num { animation: none; } }
+[data-theme='psy'] .get-ready-card { background: #1c0641; border-color: #ff3fd8; }
+[data-theme='psy'] .get-ready-num { color: #ffd23f; text-shadow: 0 0 18px rgba(255, 63, 216, 0.8); }
+
+/* tuner (build 18): string picker, big note and cents, needle, strobe band, trace */
+.tuner { --t-col: var(--ink-3); }
+.tuner.tune-ok { --t-col: var(--mint); }
+.tuner.tune-near { --t-col: var(--gold); }
+.tuner.tune-far { --t-col: var(--coral); }
+.tuner-strings { display: flex; flex-wrap: wrap; gap: 5px; }
+.tuner-strings .chip { min-width: 44px; padding-left: 8px; padding-right: 8px; position: relative; font-size: 17px; white-space: nowrap; }
+.tuner-strings .chip sub { font-size: 11px; opacity: 0.7; margin-left: 1px; }
+.tuner-strings .chip.on, .tuner-strings .chip[aria-checked='true'] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.tuner-string.heard { background: color-mix(in srgb, var(--t-col) 22%, transparent); }
+.tuner-string.done { border-color: var(--mint); }
+.tuner-string .tick { position: absolute; top: -7px; right: -5px; width: 18px; height: 18px; border-radius: 50%; background: var(--mint); color: #08130e; font-size: 12px; line-height: 18px; text-align: center; font-weight: 700; }
+.tuner-main { text-align: center; display: grid; gap: 6px; justify-items: center; padding-top: 16px; }
+.tuner-note { display: flex; align-items: baseline; justify-content: center; gap: 14px; min-height: 104px; }
+.tuner-name { font-family: 'Barlow Condensed', sans-serif; font-size: 104px; line-height: 1; font-weight: 600; color: var(--t-col); }
+.tuner-name sub { font-size: 32px; color: var(--ink-3); }
+.tuner-cents { font-family: 'Barlow Condensed', sans-serif; font-size: 40px; font-variant-numeric: tabular-nums; color: var(--t-col); min-width: 3.4em; text-align: left; }
+.tuner-advice { font-size: 19px; font-weight: 600; min-height: 26px; }
+.tuner.tune-ok .tuner-advice { color: var(--mint-text, var(--mint)); }
+.tuner-hz { font-variant-numeric: tabular-nums; min-height: 20px; }
+.tuner-gauge { width: 100%; max-width: 440px; }
+.tuner-gauge .g-arc { stroke: var(--surface-2); }
+.tuner-gauge .g-zone { stroke: var(--mint); opacity: 0.85; }
+.tuner-gauge .g-tick { stroke: var(--ink-3); }
+.tuner-gauge .g-mid { stroke: var(--mint); }
+.tuner-gauge .g-label { fill: var(--ink-3); font-size: 11px; }
+.tuner-gauge .g-needle { stroke: var(--t-col); }
+.tuner-gauge .g-hub { fill: var(--surface); stroke: var(--ink-3); }
+.strobe { position: relative; width: 100%; max-width: 440px; height: 34px; overflow: hidden; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); }
+.strobe-stripes { position: absolute; inset: 0 auto 0 0; width: calc(100% + 96px); will-change: transform;
+  background: repeating-linear-gradient(90deg, var(--t-col) 0 16px, transparent 16px 32px); opacity: 0.85; }
+.strobe-stripes.idle { opacity: 0.18; }
+.tuner-trace { width: 100%; max-width: 440px; height: 60px; border-radius: 8px; background: var(--surface-2); }
+.tuner-trace .t-zone { fill: var(--mint); opacity: 0.22; }
+.tuner-trace .t-mid { stroke: var(--mint); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.tuner-trace .t-line { stroke: var(--t-col); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.tuner-trace-label { display: flex; justify-content: space-between; width: 100%; max-width: 440px; margin-top: -2px; }
+.tuner-level { width: 100%; max-width: 260px; }
+.tuner-alldone { margin: 4px 0 0; font-weight: 700; color: var(--mint-text, var(--mint)); font-size: 18px; }
+@media (prefers-reduced-motion: reduce) { .strobe-stripes { transition: none; } }
+[data-theme='psy'] .tuner-main { background: #1c0641; }
+
+/* circle of fifths: sharps and flats round the outside */
+.cof-sig-ring { stroke: var(--surface); opacity: 0.92; }
+.cof-sig { fill: var(--ink-2); }
+.cof-sig.sharp { fill: var(--gold-text, var(--ink-2)); }
+.cof-sig.flat { fill: var(--mint-text, var(--ink-2)); }
+.cof-sig.on { fill: var(--ink); }

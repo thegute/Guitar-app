@@ -1,4 +1,5 @@
 // Practice tools: one-minute chord changes, the rhythm trainer and the circle of fifths explorer.
+import { micWhere } from '../audio/input'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChordDiagram } from '../components/ChordDiagram'
 import { CircleOfFifths, CIRCLE_MAJOR, keySignature } from '../components/CircleOfFifths'
@@ -16,6 +17,7 @@ import { chordShapes, SUFFIX_IV, type Instrument } from '../instrument'
 import { addXp, bump, isAway, usePracticeTimer } from './progress'
 import { logSkill } from './trends'
 import { Zoomable } from '../components/Zoomable'
+import { getReadySecs, useGetReady } from '../components/GetReady'
 
 function read<T>(k: string, d: T): T {
   try { const raw = localStorage.getItem(k); return raw ? (JSON.parse(raw) as T) : d } catch { return d }
@@ -72,7 +74,8 @@ export function ChordChanges({ inst, onExit }: { inst: Instrument; onExit: () =>
   async function begin() {
     clearInterval(timer.current)
     live.current = { count: 0, cur: 0, first: true }
-    setCount(0); setCur(0); setLeft(SECONDS); setPre(3); setMsg('')
+    const pre = Math.max(3, getReadySecs())
+    setCount(0); setCur(0); setLeft(SECONDS); setPre(pre); setMsg('')
     if (useMic) {
       try {
         const l = new ChromaListener()
@@ -88,7 +91,7 @@ export function ChordChanges({ inst, onExit }: { inst: Instrument; onExit: () =>
         await l.start()
         listener.current = l
       } catch {
-        setMsg("Couldn't open the microphone. Allow it in your phone settings, or turn off \"Count for me\" and tap instead.")
+        setMsg(`Couldn't open the microphone. Allow it ${micWhere()}, or turn off "Count for me" and tap instead.`)
         return
       }
     }
@@ -97,9 +100,9 @@ export function ChordChanges({ inst, onExit }: { inst: Instrument; onExit: () =>
     const ctx = audio()
     void ctx.resume()
     const t0 = ctx.currentTime + 0.1
-    for (let i = 0; i < 3; i++) playClick(t0 + i, 'wood', 'beat', 0.8)
-    playClick(t0 + 3, 'wood', 'accent', 1)
-    let p = 3
+    for (let i = 0; i < pre; i++) playClick(t0 + i, 'wood', 'beat', 0.8)
+    playClick(t0 + pre, 'wood', 'accent', 1)
+    let p = pre
     timer.current = window.setInterval(() => {
       p--
       setPre(p)
@@ -280,6 +283,7 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
     s.taps.push(heard - latMs() / 1000)
   }
 
+  const ready = useGetReady()
   async function start() {
     cancelAnimationFrame(raf.current)
     const pool = [...level.patterns].sort(() => Math.random() - 0.5)
@@ -410,8 +414,9 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
           <button className="btn" onClick={stop}>Stop</button>
         </div>
       ) : (
-        <button className="btn primary big" onClick={() => void start()}>{done ? 'Go again' : 'Start'}</button>
+        <button className="btn primary big" onClick={() => ready.start(() => void start())}>{done ? 'Go again' : 'Start'}</button>
       )}
+      {ready.overlay}
 
       {results.length > 0 && (
         <div className="row small">

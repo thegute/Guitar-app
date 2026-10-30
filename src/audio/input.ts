@@ -1,6 +1,22 @@
 // Where the guitar sound comes from: the phone's microphone (acoustic) or a USB audio interface /
 // guitar headphone amp plugged into the phone (electric), e.g. a Sonicake Amphonix 2 over USB-C.
 
+import { Capacitor } from '@capacitor/core'
+
+/** On a phone or tablet (the app, or a phone's browser), or on a computer. */
+export function onPhone(): boolean {
+  try { if (Capacitor.isNativePlatform()) return true } catch { /* web */ }
+  return typeof navigator !== 'undefined' && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)
+}
+/** "Phone mic" or "Computer mic" */
+export const micName = () => (onPhone() ? 'Phone mic' : 'Computer mic')
+
+/** Where to allow the microphone: the phone's app settings, or the browser's address bar on a computer. */
+export function micWhere(): string {
+  try { if (Capacitor.isNativePlatform()) return "in your phone settings (Apps → KGuitar → Permissions → Microphone)" } catch { /* web */ }
+  return "with the microphone icon in the browser's address bar (or the site settings), then reload the page"
+}
+
 export interface InputDevice {
   id: string
   label: string
@@ -113,13 +129,13 @@ async function openRaw(): Promise<OpenedInput> {
   }
   const stream = await navigator.mediaDevices.getUserMedia({ audio: RAW })
   const track = stream.getAudioTracks()[0]
-  const label = track?.label || 'Phone mic'
+  const label = track?.label || micName()
   // Android often routes the default input to a USB device as soon as it is plugged in
-  return { stream, label: EXTERNAL.test(label) ? label : 'Phone mic', external: EXTERNAL.test(label) }
+  return { stream, label: EXTERNAL.test(label) ? label : micName(), external: EXTERNAL.test(label) }
 }
 
 export function shortName(label: string, external: boolean) {
-  if (!external) return 'Phone mic'
+  if (!external) return micName()
   if (/amphonix|sonicake/i.test(label)) return 'Amphonix'
   const clean = label.replace(/\(.*?\)/g, '').replace(/usb[- ]?audio|audio device|\bdevice\b/gi, '').trim()
   return clean.length > 1 && clean.length < 16 ? clean : 'USB input'

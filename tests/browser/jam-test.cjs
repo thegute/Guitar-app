@@ -21,7 +21,7 @@ const only = process.argv[2]
     const errors = []
     page.on('pageerror', e => errors.push('pageerror: ' + e.message))
     page.on('console', m => { if (m.type() === 'error' && !/youtube|ERR_|net::/i.test(m.text())) errors.push('console: ' + m.text()) })
-    await page.addInitScript(() => { try { localStorage.setItem('kg:welcomed', '1') } catch { /* video iframe */ } })
+    await page.addInitScript(() => { try { localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:getReady', '0') } catch { /* video iframe */ } })
     await page.goto('http://localhost:4173/')
     await page.click('nav >> text=Jam')
     await page.waitForSelector('.prog-card')

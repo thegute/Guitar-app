@@ -99,7 +99,7 @@ async function run(name) {
     window.__kgTest = true
     if (sessionStorage.getItem('seeded')) return
     localStorage.clear()
-    localStorage.setItem('kg:welcomed', '1')
+    localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:getReady', '0')
     localStorage.setItem('kg:tab2', '"learn"')
     localStorage.setItem('kg:quizMode', '"tap"')
     localStorage.setItem('kg:sub:learn', '"course"')

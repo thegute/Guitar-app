@@ -1,5 +1,6 @@
 // Play along: the tab, a YouTube mini player, the mic following your playing note by note,
 // and the scales / chords of the song for soloing.
+import { micWhere } from '../audio/input'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PsyDog } from '../components/PsyArt'
 import { TabView, type LabelMode } from '../components/TabView'
@@ -16,6 +17,7 @@ import { docInstrument, getSong, listSongs, saveSong, type SongDoc } from '../ta
 import { go, onOpenSong, takePendingDoc, onPlayAction, takePlayAction } from '../nav'
 import type { PlayAction, PlayFocus } from '../search/types'
 import { useBack } from '../back'
+import { useGetReady } from '../components/GetReady'
 import { bump, bumpCounts, usePracticeTimer } from '../learn/progress'
 import { gear, isSetUp, kindOf, setGear, useGear } from '../audio/gear'
 import { GearSetup } from '../components/GearSetup'
@@ -109,6 +111,7 @@ export function PlayScreen() {
   // with no video link yet, the add-a-link box only opens when you tap Video (saves room on the cover screen)
   const [videoAsk, setVideoAsk] = useState(false)
   const [mode, setMode] = usePersist<'wait' | 'time'>('playMode', 'wait')
+  const ready = useGetReady()
   const [click, setClick] = usePersist('timeClick', true)
   const [guide, setGuide] = usePersist('timeGuide', false)
   const [trainer, setTrainer] = usePersist<TrainerOpts>('speedTrainer', { on: false, start: 0.6, step: 0.05, target: 1, pass: 90 })
@@ -171,7 +174,7 @@ export function PlayScreen() {
       setRecSecs(0)
       setRecording(true)
     } catch {
-      setMicError('Recording needs the microphone: allow it for KGuitar in the phone\'s settings, then try again.')
+      setMicError(`Recording needs the microphone: allow it for KGuitar ${micWhere()}, then try again.`)
     }
   }
   const docRef = useRef<SongDoc | null>(null)
@@ -449,7 +452,7 @@ export function PlayScreen() {
       setListening(true)
       void keepAwake(true)
     } catch {
-      setMicError('KGuitar needs microphone access to hear your guitar (this also covers a USB amp like the Amphonix). Allow it in your phone settings (Apps → KGuitar → Permissions), then try again.')
+      setMicError(`KGuitar needs microphone access to hear your guitar (this also covers a USB amp like the Amphonix or an audio interface). Allow it ${micWhere()}, then try again.`)
     }
   }
   const toggleListenRef = useRef(toggleListen)
@@ -521,9 +524,11 @@ export function PlayScreen() {
   usePracticeTimer('play', playAt >= 0 && !listening, false)
   async function toggleRun() {
     if (inTime.running) { inTime.stop(); return }
+    if (ready.counting) { ready.cancel(); return }
     stopPreview()
     if (!listening) await toggleListen()
-    inTime.start()
+    // a few seconds to get your hands on the guitar, then the count-in bar
+    ready.start(() => inTime.start())
   }
   useEffect(() => { if (mode === 'wait') inTime.stop() }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -920,6 +925,7 @@ export function PlayScreen() {
         ...(lay.topH > 0 ? { ['--top-h' as string]: `${lay.topH}px` } : {}),
         ...(split && posture.tabletop ? { ['--fold-top' as string]: `${posture.top}px`, ['--fold-hinge' as string]: `${posture.hinge}px` } : {}),
       }}>
+      {ready.overlay}
       <header className="play-head">
         <div className="song-title">
           <button className="song-name" data-find="check" onClick={() => (checkOpen ? closeCheck() : setCheckOpen(true))} aria-expanded={checkOpen} title="Song check: chords, techniques, level and a speed to start at">

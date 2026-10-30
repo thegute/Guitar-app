@@ -37,7 +37,7 @@ async function newPage(browser, seed = {}, viewport = SIZES.cover) {
     window.__kgTest = true
     try { if (window.top !== window || sessionStorage.getItem('seeded')) return } catch { return }
     localStorage.clear()
-    localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1')
+    localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:getReady', '0')
     for (const [k, v] of Object.entries(s)) localStorage.setItem(k, typeof v === 'string' && k === 'kg:psyMotion' ? v : JSON.stringify(v))
     sessionStorage.setItem('seeded', '1')
   }, seed)

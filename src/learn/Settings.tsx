@@ -1,4 +1,5 @@
 // Settings: instrument (with a confirm step so you can't switch by accident), tuning, look, daily goal and reminders.
+import { GET_READY_CHOICES, getReadySecs, setGetReadySecs } from '../components/GetReady'
 import { useEffect, useState } from 'react'
 import { Chips } from '../components/Controls'
 import { INSTRUMENTS, setInstrument, setTuning, type Instrument, type InstrumentId } from '../instrument'
@@ -28,6 +29,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
   const dog = usePsyDog()
   const [page, setPage] = useSubTab('settings', ['you', 'sound', 'look', 'backup'] as const)
   const [showArt, setShowArt] = useShowArt()
+  const [readySecs, setReadySecs] = useState(getReadySecs)
   const [ask, setAsk] = useState<InstrumentId | null>(null)
   const [savedProfile, setSavedProfile] = useState(false)
   const [rem, setRem] = useState<ReminderSettings>(reminderSettings)
@@ -110,6 +112,10 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
       <section className="panel stack" style={{ gap: 10 }}>
         <HintHead title="Daily goal" hint="Any 5 minutes keeps your streak alive, with or without your guitar. Hitting the goal earns a bonus." />
         <Chips label="Minutes a day" items={[5, 10, 15, 20, 30, 45, 60].map(m => ({ id: m, label: `${m} min` }))} value={goal} onChange={setDailyGoalMin} />
+      </section>
+      <section className="panel stack" style={{ gap: 10 }}>
+        <HintHead title="Get ready time" hint="Before anything that scores your timing (In time, the rhythm trainer, chord changes, exercises), a countdown gives you time to get your hands on the guitar. Then a bar of clicks counts you in." />
+        <Chips label="Seconds before timed practice starts" items={GET_READY_CHOICES.map(s => ({ id: s, label: s ? `${s} s` : 'Off' }))} value={readySecs} onChange={v => { setGetReadySecs(v); setReadySecs(v) }} />
       </section>
 
       <section className="panel stack" style={{ gap: 10 }}>

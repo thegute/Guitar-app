@@ -1,4 +1,5 @@
-// Interactive circle of fifths: major keys outside, their relative minors inside, diminished chords innermost.
+// Interactive circle of fifths: major keys outside, their relative minors inside, diminished chords innermost, and
+// round the outside how many sharps or flats each key has.
 // Shows the chords of the selected key as one connected slice, roman numerals, the key signature,
 // and lights up whichever chord is sounding.
 import { pc } from '../theory/notes'
@@ -8,6 +9,8 @@ export const CIRCLE_MAJOR = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'Db', 'Ab', 'Eb
 export const CIRCLE_MINOR = ['Am', 'Em', 'Bm', 'F#m', 'C#m', 'G#m', 'D#m', 'Bbm', 'Fm', 'Cm', 'Gm', 'Dm']
 export const CIRCLE_DIM = ['B°', 'F#°', 'C#°', 'G#°', 'D#°', 'A#°', 'E#°', 'C°', 'G°', 'D°', 'A°', 'E°']
 const SIG = ['no sharps or flats', '1♯', '2♯', '3♯', '4♯', '5♯', '6♯ / 6♭', '5♭', '4♭', '3♭', '2♭', '1♭']
+/** the same, short, for the ring round the outside */
+export const SIG_SHORT = ['0', '1♯', '2♯', '3♯', '4♯', '5♯', '6♯ 6♭', '5♭', '4♭', '3♭', '2♭', '1♭']
 
 /** Position of a major key on the circle (0 = C at the top). Works for any spelling. */
 export function circleIndex(root: string, minor = false) {
@@ -33,7 +36,7 @@ interface Props {
 
 export function CircleOfFifths({ tonic, minor = false, active, used = [], onPick, size = 320, showRomans = true }: Props) {
   const zoom = useZoomBox('circle')
-  const S = 320
+  const S = 372
   const c = S / 2
   const R = [154, 112, 76, 46] // outer edge, major/minor border, minor/dim border, inner hole
   const key = circleIndex(tonic, minor) // index of the relative major
@@ -84,7 +87,14 @@ export function CircleOfFifths({ tonic, minor = false, active, used = [], onPick
   return (
     <div className="zoom-host cof-zoom">
     <div className={`cof-scroll${zoom.z > 1.02 ? ' zoomed' : ''}`} ref={zoom.box}>
-    <svg className="cof" viewBox={`0 0 ${S} ${S}`} width={size * zoom.z} height={size * zoom.z} role="img" aria-label={`Circle of fifths, key of ${tonic} ${minor ? 'minor' : 'major'}`}>
+    <svg className="cof" viewBox={`0 0 ${S} ${S}`} width={size * zoom.z} height={size * zoom.z} role="img" aria-label={`Circle of fifths, key of ${tonic} ${minor ? 'minor' : 'major'}: ${SIG[key]}. Round the outside: the number of sharps or flats in each key.`}>
+      <circle cx={c} cy={c} r={170} className="cof-sig-ring" strokeWidth={30} fill="none" />
+      {SIG_SHORT.map((sg, i) => {
+        const [tx, ty] = pt(170, ang(i))
+        const flats = i >= 7, sharps = i >= 1 && i <= 5
+        return <text key={'sig' + i} x={tx} y={ty + 5} textAnchor="middle" fontSize={i === 0 || i === 6 ? 11 : 15} fontWeight={i === key ? 800 : 600}
+          className={`cof-sig${sharps ? ' sharp' : flats ? ' flat' : ''}${i === key ? ' on' : ''}`}>{sg}</text>
+      })}
       {ring(CIRCLE_MAJOR, R[1], R[0], 'maj', romanMaj, 19)}
       {ring(CIRCLE_MINOR, R[2], R[1], 'min', romanMin, 14)}
       {ring(CIRCLE_DIM, R[3], R[2], 'dim', romanDim, 11)}

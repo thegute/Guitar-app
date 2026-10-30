@@ -1,5 +1,6 @@
 // Gear setup: a two-minute walk-through that tunes note detection and timing to your input
 // (phone mic for acoustic, or a USB amp such as the Amphonix for electric). Saved per input kind.
+import { micWhere } from '../audio/input'
 import { useEffect, useRef, useState } from 'react'
 import { NoteListener } from '../tabs/follow'
 import { InputRecorder, measureLatency } from '../audio/looper'
@@ -68,7 +69,7 @@ export function GearSetup({ onClose }: { onClose: () => void }) {
       setNoise(lv[Math.floor(lv.length / 2)] ?? 0.002)
       setStep('low')
     } catch {
-      setMsg("Couldn't open the microphone. Allow microphone access for KGuitar in your phone settings, then try again.")
+      setMsg(`Couldn't open the microphone. Allow microphone access for KGuitar ${micWhere()}, then try again.`)
     } finally { setRunning(false) }
   }
 

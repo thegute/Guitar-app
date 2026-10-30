@@ -1,0 +1,45 @@
+name: Publish KGuitar on the web
+
+# The web version for computer browsers (Chrome, Firefox, Edge, Safari): built from main and published with
+# GitHub Pages at https://thegute.github.io/Guitar-app/ . Pages has to be switched on once in the repository
+# settings (Settings → Pages → Source: GitHub Actions); until then this job stops at the deploy step and the
+# Android build is not affected.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: touch dist/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

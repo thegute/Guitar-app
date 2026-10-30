@@ -1,5 +1,6 @@
 // Runs one quiz: questions picked by what you know least, answered by tapping or by playing (mic),
 // with instant feedback, a combo counter and stars at the end.
+import { micWhere } from '../audio/input'
 import { PsyDog } from '../components/PsyArt'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Fretboard, type Mark as FMark } from '../components/Fretboard'
@@ -164,7 +165,7 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
         const inp = (kind === 'chord' ? chords.input : notes.input)
         setMicInput(inp ? { label: inp.label, external: inp.external } : null)
       } catch {
-        setMicMsg('Microphone access is needed for play mode. Switch to tap mode, or allow the mic in your phone settings.')
+        setMicMsg(`Microphone access is needed for play mode. Switch to tap mode, or allow the mic ${micWhere()}.`)
       }
     })()
     return () => { stopped = true; notes.stop(); chords.stop(); notesRef.current = null }

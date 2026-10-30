@@ -33,7 +33,7 @@ async function overflow(page) {
       const page = await ctx.newPage()
       const errors = []
       page.on('pageerror', e => errors.push(e.message))
-      await page.addInitScript(t => { if (!sessionStorage.getItem('s')) { localStorage.clear(); localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:theme', JSON.stringify(t)); sessionStorage.setItem('s', '1') } }, theme)
+      await page.addInitScript(t => { if (!sessionStorage.getItem('s')) { localStorage.clear(); localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:getReady', '0'); localStorage.setItem('kg:theme', JSON.stringify(t)); sessionStorage.setItem('s', '1') } }, theme)
       await page.goto('http://localhost:4173/')
       await page.waitForSelector('.tab-note')
       const shot = async n => {
@@ -91,7 +91,7 @@ async function overflow(page) {
   await page.click('.guide-sec >> nth=1')
   await page.click('.guide-items >> text=Show me >> nth=0')
   await page.waitForTimeout(400)
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:tab2', '"play"') })
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:getReady', '0'); localStorage.setItem('kg:tab2', '"play"') })
   await page.reload()
   await page.waitForSelector('.tab-note')
   // recorded sounds load

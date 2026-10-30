@@ -1,5 +1,6 @@
 // Jam: generate chord progressions (lots of options), see every chord shape, play them back with strumming and drums,
 // record your own playing as a loop, and see which scales to solo with.
+import { micWhere } from '../audio/input'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   MODES, STYLES, FLAVORS, ENDINGS, SPICE, STYLE_DEFAULTS, FN_LABEL,
@@ -288,7 +289,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     try {
       await openRecorder()
     } catch {
-      setLoopError('KGuitar needs microphone access to record (this also covers a USB amp). Allow it in your phone settings and try again.')
+      setLoopError(`KGuitar needs microphone access to record (this also covers a USB amp). Allow it ${micWhere()} and try again.`)
       return
     }
     const t = tr()
