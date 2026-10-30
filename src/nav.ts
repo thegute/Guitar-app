@@ -1,5 +1,7 @@
 // App-wide navigation: lets one screen send you to another (e.g. Learn → Play with a practice tab loaded).
 import type { SongDoc } from './tabs/library'
+import type { Go } from './learn/path'
+import type { PlayAction } from './search/types'
 
 /** The main sections in the nav bar. */
 export type Tab = 'play' | 'songs' | 'learn' | 'progressions' | 'tools'
@@ -53,4 +55,56 @@ export function openSongs(section: 'mine' | 'songbook' | 'practice' | 'add' = 's
 export function openJam(page: 'jam' | 'solo' | 'tab' | 'find' = 'jam') {
   setSubPage('jam', page)
   go('progressions')
+}
+
+// ---- links from anywhere (search) into Learn's pages, Play's controls, and tools that read their settings on open
+
+/** A Learn page to open: anything a "Show me" link can open (a section of How to use KGuitar too). */
+export type LearnGo = Go
+let pendingLearn: LearnGo | null = null
+const learnListeners = new Set<(g: LearnGo) => void>()
+export function onLearnGo(f: (g: LearnGo) => void) {
+  learnListeners.add(f)
+  return () => { learnListeners.delete(f) }
+}
+/** Open a Learn page (a quiz, a lesson, a tool, a Settings page …) from another screen. */
+export function learnGo(g: LearnGo) {
+  if (learnListeners.size) learnListeners.forEach(f => f(g))
+  else pendingLearn = g
+  go('learn')
+}
+/** Learn calls this when it mounts. */
+export function takeLearnGo(): LearnGo | null {
+  const g = pendingLearn
+  pendingLearn = null
+  return g
+}
+
+let pendingPlay: PlayAction | null = null
+const playListeners = new Set<(a: PlayAction) => void>()
+export function onPlayAction(f: (a: PlayAction) => void) {
+  playListeners.add(f)
+  return () => { playListeners.delete(f) }
+}
+/** Go to Play and open something there (the Options sheet at Speed, the video, the song check …). */
+export function playAction(a: PlayAction) {
+  if (playListeners.size) playListeners.forEach(f => f(a))
+  else pendingPlay = a
+  go('play')
+}
+/** Play calls this when it mounts. */
+export function takePlayAction(): PlayAction | null {
+  const a = pendingPlay
+  pendingPlay = null
+  return a
+}
+
+const remountListeners = new Set<() => void>()
+export function onRemount(f: () => void) {
+  remountListeners.add(f)
+  return () => { remountListeners.delete(f) }
+}
+/** Tools and Jam read their settings when they open: after changing them from outside, open them afresh. */
+export function remount() {
+  remountListeners.forEach(f => f())
 }

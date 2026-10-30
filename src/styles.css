@@ -164,8 +164,8 @@ button { cursor: pointer; }
   content: ''; position: absolute; top: 0; left: 30%; right: 30%; height: 3px; border-radius: 0 0 3px 3px;
   background: var(--accent); box-shadow: 0 0 10px var(--glow);
 }
-/* bottom bar on phones: four sections and a small hide button */
-.nav { grid-template-columns: repeat(5, minmax(0, 1fr)) 38px; touch-action: pan-x; }
+/* bottom bar on phones: five sections, search and a small hide button */
+.nav { grid-template-columns: repeat(6, minmax(0, 1fr)) 34px; touch-action: pan-x; }
 .nav-extra { display: flex; align-items: center; justify-content: center; }
 .nav .nav-hide { flex-direction: row; gap: 2px; color: var(--pearl-3); font-size: 20px; min-width: 38px; height: 100%; }
 .nav .nav-art { display: none; }
@@ -173,6 +173,7 @@ button { cursor: pointer; }
   .app { grid-template-rows: none; grid-template-columns: 74px 1fr; }
   .nav { display: flex; flex-direction: column; border-top: 0; border-right: 1px solid var(--hairline); order: -1; padding-top: calc(14px + var(--sat)); padding-bottom: calc(10px + var(--sab)); touch-action: pan-y; }
   .nav > button { height: 66px; flex: none; font-size: 12px; }
+  .nav > .nav-search { height: 58px; margin-top: 6px; }
   .nav button[aria-current='page']::before { top: 25%; bottom: 25%; left: 0; right: auto; width: 3px; height: auto; border-radius: 0 3px 3px 0; }
   .nav-extra { margin-top: auto; flex-direction: column; gap: 10px; padding: 8px 0 0; }
   .nav .nav-art { display: block; }
@@ -1471,3 +1472,44 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 .art-prev { left: 8px; }
 .art-next { right: 8px; }
 .art-viewer.zoom .art-prev, .art-viewer.zoom .art-next { display: none; }
+
+/* ===================================================================================================== */
+/* Search (build 18): the menu button and the search sheet */
+.nav .nav-hide { min-width: 34px; }
+.nav-search .nav-icon svg { width: 22px; height: 22px; }
+.search-backdrop { align-items: flex-start; }
+.search-sheet {
+  width: min(640px, 100%); max-height: min(92vh, 100%); margin-top: calc(var(--sat) + 0px); border-radius: 0 0 18px 18px;
+  display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; overflow: hidden;
+}
+@media (min-width: 760px) { .search-backdrop { align-items: flex-start; padding-top: 8vh; } .search-sheet { border-radius: 16px; max-height: 80vh; } }
+.search-bar { display: flex; align-items: center; gap: 6px; position: relative; }
+.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-3); display: flex; pointer-events: none; }
+.search-icon svg { width: 20px; height: 20px; }
+.search-input { flex: 1; min-width: 0; padding-left: 40px; height: 46px; font-size: 18px; }
+.search-input::-webkit-search-cancel-button { display: none; }
+.search-clear { position: absolute; right: 74px; }
+.search-start, .search-none { padding: 4px 2px; gap: 12px; }
+.search-h { margin: 0; font-size: 14px; color: var(--ink-3); font-weight: 600; }
+.search-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.search-chips .chip { text-decoration: none; }
+.search-results { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.search-hit {
+  width: 100%; text-align: left; display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; cursor: pointer;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--ink); font: inherit;
+}
+.search-hit.on, .search-hit:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); outline: none; }
+.hit-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.hit-title { font-size: 17px; line-height: 1.2; }
+.hit-kind { flex: none; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: var(--surface); color: var(--ink-2); border: 1px solid var(--line); }
+.hit-kind.k-chord, .hit-kind.k-scale, .hit-kind.k-tuning, .hit-kind.k-metronome, .hit-kind.k-jam { color: var(--ink); border-color: var(--accent); }
+.hit-where { font-size: 13px; color: var(--ink-3); }
+.hit-text { font-size: 14px; color: var(--ink-2); line-height: 1.3; }
+.search-web { display: grid; gap: 6px; padding: 10px 2px 2px; border-top: 1px solid var(--line); }
+/* what search pointed at flashes for a moment */
+.find-flash { animation: find-flash 0.8s ease-in-out 3; border-radius: 10px; }
+@keyframes find-flash { 50% { box-shadow: 0 0 0 3px var(--accent), 0 0 18px var(--accent); } }
+@media (prefers-reduced-motion: reduce) { .find-flash { animation: none; box-shadow: 0 0 0 3px var(--accent); } }
+[data-theme='psy'] .search-sheet { background: #1c0641; border-color: #ff3fd8; }
+[data-theme='psy'] .search-hit { background: #14002b; border-color: rgba(255, 63, 216, 0.35); }
+[data-theme='psy'] .search-hit.on { border-color: #ff3fd8; box-shadow: 0 0 12px rgba(255, 63, 216, 0.5); }

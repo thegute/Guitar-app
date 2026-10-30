@@ -1,16 +1,18 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { KEYS } from '../theory/notes'
 
-export function Chips<T extends string | number>({ items, value, onChange, label, wrap, keyStyle }: {
+export function Chips<T extends string | number>({ items, value, onChange, label, wrap, keyStyle, find }: {
   items: { id: T; label: ReactNode }[]
   value: T
   onChange: (v: T) => void
   label: string
   wrap?: boolean
   keyStyle?: boolean
+  /** a name search uses to point at these chips (data-find) */
+  find?: string
 }) {
   return (
-    <div className={`chips${wrap ? ' wrap' : ''}`} role="group" aria-label={label}>
+    <div className={`chips${wrap ? ' wrap' : ''}`} role="group" aria-label={label} data-find={find}>
       {items.map(it => (
         <button key={String(it.id)} className={`chip${keyStyle ? ' key' : ''}`} aria-pressed={it.id === value} onClick={() => onChange(it.id)}>
           {it.label}

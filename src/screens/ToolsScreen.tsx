@@ -13,7 +13,8 @@ const PAGES: { id: ToolPage; label: string }[] = [
   { id: 'scales', label: 'Scales' },
 ]
 
-export function ToolsScreen({ page, onPage, scaleJump }: { page: ToolPage; onPage: (p: ToolPage) => void; scaleJump: { root: string; scale: string } | null }) {
+/** `jump` changes when search has set a tool up (a chord, a scale, a tempo, a tuning): the page opens afresh to read it. */
+export function ToolsScreen({ page, onPage, scaleJump, jump = 0 }: { page: ToolPage; onPage: (p: ToolPage) => void; scaleJump: { root: string; scale: string } | null; jump?: number }) {
   return (
     <div className="tools">
       {page === 'tuner' ? <PsyPic id="dragon" at="30% 45%" className="tools-art" /> : page === 'metronome' ? <PsyPic id="vortex" at="50% 50%" className="tools-art" />
@@ -23,10 +24,10 @@ export function ToolsScreen({ page, onPage, scaleJump }: { page: ToolPage; onPag
           <button key={p.id} role="tab" aria-selected={page === p.id} onClick={() => onPage(p.id)}>{p.label}</button>
         ))}
       </div>
-      {page === 'tuner' && <TunerScreen />}
-      {page === 'metronome' && <MetronomeScreen />}
-      {page === 'chords' && <ChordsScreen />}
-      {page === 'scales' && <ScalesScreen key={scaleJump ? scaleJump.root + scaleJump.scale : 'scales'} initial={scaleJump ?? undefined} />}
+      {page === 'tuner' && <TunerScreen key={jump} />}
+      {page === 'metronome' && <MetronomeScreen key={jump} />}
+      {page === 'chords' && <ChordsScreen key={jump} />}
+      {page === 'scales' && <ScalesScreen key={(scaleJump ? scaleJump.root + scaleJump.scale : 'scales') + jump} initial={scaleJump ?? undefined} />}
     </div>
   )
 }

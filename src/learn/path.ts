@@ -17,6 +17,8 @@ export type Go =
   | { settings: 'you' | 'sound' | 'look' | 'backup' }
   | { jam: 'jam' | 'solo' | 'tab' | 'find' }
   | { learn: 'today' | 'course' | 'explore' }
+  | { technique: string }
+  | { guide: string }
 
 export interface Goal { label: string; done: boolean; go: Go; guitar: boolean }
 export interface Stage { id: string; title: string; why: string; goals: Goal[] }

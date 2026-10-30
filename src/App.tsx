@@ -5,13 +5,17 @@ import { ToolsScreen } from './screens/ToolsScreen'
 import { SongsScreen } from './screens/SongsScreen'
 import { LearnScreen } from './learn/LearnScreen'
 import { CelebrationLayer } from './learn/Celebration'
-import { IconLearn, IconMenu, IconProgression, IconSongs, IconTab, IconTools } from './components/Icons'
+import { IconLearn, IconMenu, IconProgression, IconSearch, IconSongs, IconTab, IconTools } from './components/Icons'
 import { ArtThumb } from './components/Art'
 import { PsyBackdrop } from './components/PsyArt'
 import { setNavHidden, useMedia, useUi } from './ui'
 import { usePersist } from './components/Controls'
 import { useInstrument } from './instrument'
-import { isToolPage, onGo, TAB_IDS, type Tab, type ToolPage } from './nav'
+import { isToolPage, onGo, onRemount, TAB_IDS, type Tab, type ToolPage } from './nav'
+import { SearchSheet } from './components/SearchSheet'
+import { backInside, useBack } from './back'
+import { App as CapApp } from '@capacitor/app'
+import { Capacitor } from '@capacitor/core'
 import { dailyGoalMin, todayLog, useProgress } from './learn/progress'
 import { ACTION_LABEL, onPedal, type PedalAction } from './controls/pedals'
 import { ShareInbox } from './components/ShareInbox'
@@ -34,10 +38,53 @@ export default function App() {
   const [welcome, setWelcome] = useState(needsWelcome)
   const inst = useInstrument()
   useProgress()
+  // where a link (search, Show me, Open in Play) came from, so Back can return there
+  const cameFrom = useRef<Tab | null>(null)
+  const tabRef = useRef<Tab>(tab)
+  tabRef.current = tab
   useEffect(() => onGo(t => {
+    const to: Tab = isToolPage(t) ? 'tools' : t
+    if (to !== tabRef.current) cameFrom.current = tabRef.current
     if (isToolPage(t)) { setToolPage(t); setTab('tools') } else setTab(t)
     document.getElementById('main')?.scrollTo({ top: 0 })
   }), [setTab, setToolPage])
+  // search: the button in the menu, or / or Ctrl+K on a keyboard
+  const [search, setSearch] = useState(false)
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      const typing = e.target instanceof HTMLElement && (e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))
+      if ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) { e.preventDefault(); setSearch(true) }
+    }
+    addEventListener('keydown', k)
+    return () => removeEventListener('keydown', k)
+  }, [])
+  // tools and Jam open afresh when search has set them up
+  const [jump, setJump] = useState(0)
+  useEffect(() => onRemount(() => setJump(j => j + 1)), [])
+  // Back: close what's on top, step back inside the screen, back to where a link came from, then to Play
+  const [exitHint, setExitHint] = useState(0)
+  const backRef = useRef<() => void>(() => {})
+  backRef.current = () => {
+    if (backInside()) return
+    const from = cameFrom.current
+    cameFrom.current = null
+    if (from && from !== tab) { setTab(from); return }
+    if (tab !== 'play') { setTab('play'); return }
+    if (Date.now() - exitHint < 2000) { if (Capacitor.isNativePlatform()) void CapApp.exitApp(); return }
+    setExitHint(Date.now())
+  }
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      const h = CapApp.addListener('backButton', () => backRef.current())
+      return () => { void h.then(x => x.remove()) }
+    }
+    // in a browser, keep one page of history to catch the Back button
+    history.pushState({ kg: 1 }, '')
+    const pop = () => { backRef.current(); history.pushState({ kg: 1 }, '') }
+    addEventListener('popstate', pop)
+    return () => removeEventListener('popstate', pop)
+  }, [])
+  useEffect(() => { if (!exitHint) return; const t = setTimeout(() => setExitHint(0), 2000); return () => clearTimeout(t) }, [exitHint])
   // a short note on screen whenever a pedal does something, so you know it worked
   const [pedal, setPedal] = useState<{ a: PedalAction; k: number } | null>(null)
   useEffect(() => onPedal(a => setPedal(p => ({ a, k: (p?.k ?? 0) + 1 }))), [])
@@ -50,6 +97,7 @@ export default function App() {
   const hidden = ui.navHidden || (tab === 'play' && ui.playFocus)
   const [drawer, setDrawer] = useState(false)
   useEffect(() => { if (!hidden) setDrawer(false) }, [hidden])
+  useBack(drawer, () => setDrawer(false))
   useEffect(() => {
     if (!drawer) return
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setDrawer(false) }
@@ -78,9 +126,9 @@ export default function App() {
         {tab === 'play' && <PlayScreen key={inst.id} />}
         {tab === 'songs' && <SongsScreen key={inst.id} />}
         {tab === 'learn' && <LearnScreen key={inst.id} />}
-        {tab === 'tools' && <ToolsScreen page={toolPage} onPage={setToolPage} scaleJump={scaleJump} />}
+        {tab === 'tools' && <ToolsScreen page={toolPage} onPage={setToolPage} scaleJump={scaleJump} jump={jump} />}
         {tab === 'progressions' && (
-          <JamScreen onOpenScale={(root, scale) => { setScaleJump({ root, scale }); setToolPage('scales'); setTab('tools') }} />
+          <JamScreen key={jump} onOpenScale={(root, scale) => { setScaleJump({ root, scale }); setToolPage('scales'); setTab('tools') }} />
         )}
       </main>
       <nav className={`nav${drawer ? ' drawer' : ''}`} aria-label="Sections" onPointerDown={navDown} onPointerMove={navMove} onPointerUp={navUp} onPointerCancel={navUp}>
@@ -88,6 +136,7 @@ export default function App() {
           <button key={t.id} aria-current={tab === t.id ? 'page' : undefined} onClick={() => {
             // tapping the section you're in takes you back to its start (Learn's home, the top of the page)
             if (tab === t.id) { window.dispatchEvent(new CustomEvent('kg:navTop', { detail: t.id })); document.getElementById('main')?.scrollTo({ top: 0, behavior: 'smooth' }) }
+            cameFrom.current = null
             setTab(t.id); setDrawer(false)
           }}>
             <span className="nav-icon">
@@ -97,6 +146,10 @@ export default function App() {
             {t.label}
           </button>
         ))}
+        <button className="nav-search" onClick={() => { setSearch(true); setDrawer(false) }} aria-label="Search KGuitar" title="Search (/)">
+          <span className="nav-icon"><IconSearch /></span>
+          Search
+        </button>
         <div className="nav-extra">
           {(wide || drawer) && <ArtThumb className="nav-art" />}
           {drawer ? (
@@ -112,6 +165,8 @@ export default function App() {
         <button className="nav-pull" onClick={() => setDrawer(true)} aria-label="Show the menu" title="Menu"><IconMenu /></button>
       )}
       {drawer && <div className="nav-scrim" onClick={() => setDrawer(false)} aria-hidden />}
+      {search && <SearchSheet onClose={() => setSearch(false)} />}
+      {exitHint > 0 && <div className="pedal-toast" role="status">Press Back again to close KGuitar</div>}
       {pedal && <div key={pedal.k} className="pedal-toast" role="status">🦶 {ACTION_LABEL[pedal.a].replace(/ \(.*\)$/, '')}</div>}
       {welcome && <Welcome onDone={then => { setWelcome(false); if (then === 'guide') openGuide(); else setTab('play') }} />}
       <ShareInbox />

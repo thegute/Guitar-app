@@ -57,3 +57,6 @@ export const IconChevron = ({ open }: { open?: boolean }) => (
 export const IconPencil = () => (
   <svg viewBox="0 0 24 24" width="16" height="16" {...s} aria-hidden><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="M13.5 6.5l4 4" /></svg>
 )
+export const IconSearch = () => (
+  <svg viewBox="0 0 24 24" {...s}><circle cx="10.5" cy="10.5" r="6" /><path d="M15 15l5.5 5.5" /></svg>
+)

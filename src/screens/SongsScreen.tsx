@@ -18,17 +18,14 @@ import { INSTRUMENTS, useInstrument, type InstrumentId } from '../instrument'
 import { KeyPicker, Chips, usePersist } from '../components/Controls'
 import { ESSENTIALS, EX_ARPS, EX_LICKS, EX_SCALES, EX_SEQUENCES, EX_WARMUPS, buildExercise, type ExerciseKind, type ExerciseSpec } from '../tabs/exercises'
 import { openInPlay } from '../nav'
+import { TAB_SITES } from '../tabs/tabSites'
 
 const KINDS: { id: ExerciseKind; label: string }[] = [
   { id: 'scale', label: 'Scales' }, { id: 'sequence', label: 'Sequences' }, { id: 'arpeggio', label: 'Arpeggios' },
   { id: 'lick', label: 'Licks' }, { id: 'warmup', label: 'Warm-ups' },
 ]
 
-const SITES = [
-  { id: 'songsterr', label: 'Songsterr', url: (q: string) => `https://www.songsterr.com/?pattern=${encodeURIComponent(q)}` },
-  { id: 'ug', label: 'Ultimate Guitar', url: (q: string) => `https://www.ultimate-guitar.com/search.php?search_type=title&value=${encodeURIComponent(q)}` },
-  { id: 'gp', label: 'Guitar Pro files', url: (q: string) => `https://www.google.com/search?q=${encodeURIComponent(`${q} guitar pro tab gp5 OR gpx OR gp download`)}` },
-]
+const SITES = TAB_SITES
 
 const PAGES = ['mine', 'songbook', 'practice', 'add'] as const
 type Page = typeof PAGES[number]

@@ -1,11 +1,17 @@
 // How to use KGuitar: every feature explained in plain words, with a button to jump to it.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { GUIDE } from './guide'
 import type { Go } from './path'
 import { resetWelcome } from '../components/Welcome'
 
-export function GuideScreen({ onExit, onGo }: { onExit: () => void; onGo: (g: Go) => void }) {
-  const [open, setOpen] = useState<string>('start')
+export function GuideScreen({ onExit, onGo, initial }: { onExit: () => void; onGo: (g: Go) => void; initial?: string }) {
+  const [open, setOpen] = useState<string>(initial && GUIDE.some(s => s.id === initial) ? initial : 'start')
+  // opened at a section (from search): bring it into view
+  useEffect(() => {
+    if (!initial) return
+    const t = setTimeout(() => document.getElementById(`guide-${initial}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
+    return () => clearTimeout(t)
+  }, [initial])
   return (
     <div className="stack guide">
       <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -20,7 +26,7 @@ export function GuideScreen({ onExit, onGo }: { onExit: () => void; onGo: (g: Go
       {GUIDE.map((sec, n) => {
         const isOpen = open === sec.id
         return (
-          <section key={sec.id} className={`guide-sec${isOpen ? ' open' : ''}`}>
+          <section key={sec.id} id={`guide-${sec.id}`} className={`guide-sec${isOpen ? ' open' : ''}`}>
             <button className="guide-head" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? '' : sec.id)}>
               <span className="guide-num">{n + 1}</span>
               <span><b>{sec.title}</b><span className="small muted">{sec.intro}</span></span>

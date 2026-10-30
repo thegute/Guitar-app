@@ -1,7 +1,7 @@
 // Learn: today's goal and streak, the away-from-guitar switch, today's plan, quests, the practice course,
 // the path to mastery, and the tools (ear training, theory, CAGED, circle of fifths, chord changes, rhythm).
 import { ArtThumb } from '../components/Art'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { IconGear } from '../components/Icons'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { PsyArt, PsyDog, PsyPic } from '../components/PsyArt'
@@ -18,7 +18,8 @@ import { TECHNIQUES, drillSong, techniquesDone, type Technique } from './techniq
 import { lessonTab, type LessonEx } from './lessonExtras'
 import { exampleDoc } from '../tabs/examples'
 import type { Song } from '../tabs/model'
-import { go as goTab, openInPlay, openSongs, openJam, setSubPage } from '../nav'
+import { useBack } from '../back'
+import { go as goTab, openInPlay, openSongs, openJam, setSubPage, onLearnGo, takeLearnGo } from '../nav'
 import { allLogs, dailyGoalMin, dayCounts, dayKey, isAway, setAway, stars, streak, todayLog, useProgress, COUNTS_AFTER_SEC } from './progress'
 import { freezes, levelInfo, questProgress, todaysQuests } from './game'
 import { course, findQuiz } from './quiz'
@@ -38,7 +39,7 @@ import { ago } from '../components/BackupPanel'
 
 type Route =
   | { k: 'home' } | { k: 'quiz'; id: string } | { k: 'lesson'; id: string } | { k: 'lessons' } | { k: 'ear' } | { k: 'caged' }
-  | { k: 'changes' } | { k: 'rhythm' } | { k: 'circle' } | { k: 'progress' } | { k: 'settings' } | { k: 'guide' }
+  | { k: 'changes' } | { k: 'rhythm' } | { k: 'circle' } | { k: 'progress' } | { k: 'settings'; n?: number } | { k: 'guide'; sec?: string }
   | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' }
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
@@ -96,6 +97,7 @@ export function LearnScreen() {
   }, [])
 
   const route = stack[stack.length - 1]
+  useBack(stack.length > 1, () => setStack(s => (s.length > 1 ? s.slice(0, -1) : s)))
   const push = (r: Route) => { setStack(s => [...s, r]); document.getElementById('main')?.scrollTo({ top: 0 }) }
   const back = () => setStack(s => (s.length > 1 ? s.slice(0, -1) : s))
   const replace = (r: Route) => setStack(s => [...s.slice(0, -1), r])
@@ -150,11 +152,25 @@ export function LearnScreen() {
     else if ('song' in g) void getSong(g.song).then(doc => { if (doc) openInPlay(g.loop ? { ...doc, loop: g.loop } : doc); else goTab('play') })
     else if ('songbook' in g) void openSongbook(g.songbook.song, g.songbook.part)
     else if ('songs' in g) openSongs(g.songs)
-    else if ('settings' in g) { setSubPage('settings', g.settings); push({ k: 'settings' }) }
+    else if ('settings' in g) { setSubPage('settings', g.settings); push({ k: 'settings', n: Date.now() }) }
     else if ('jam' in g) openJam(g.jam)
     else if ('learn' in g) { setPage(g.learn); setStack([{ k: 'home' }]); document.getElementById('main')?.scrollTo({ top: 0 }) }
+    else if ('technique' in g) push({ k: 'technique', id: g.technique })
+    else if ('guide' in g) push({ k: 'guide', sec: g.guide })
     else void openExercise(g.exercise)
   }
+  // links from other screens (search): start from Learn's home so Back comes here
+  const launchRef = useRef(launch)
+  launchRef.current = launch
+  useEffect(() => {
+    const open = (g: Go) => {
+      if (!('learn' in g)) setStack([{ k: 'home' }])
+      launchRef.current(g)
+    }
+    const first = takeLearnGo()
+    if (first) open(first)
+    return onLearnGo(open)
+  }, [])
 
   // ---------- sub-screens ----------
   if (route.k === 'quiz') {
@@ -173,8 +189,8 @@ export function LearnScreen() {
   if (route.k === 'rhythm') return <RhythmTrainer onExit={back} />
   if (route.k === 'circle') return <CircleTool onExit={back} onQuiz={id => push({ k: 'quiz', id })} />
   if (route.k === 'progress') return <ProgressView inst={inst} onExit={back} />
-  if (route.k === 'settings') return <Settings inst={inst} onExit={back} />
-  if (route.k === 'guide') return <GuideScreen onExit={back} onGo={launch} />
+  if (route.k === 'settings') return <Settings key={route.n ?? 0} inst={inst} onExit={back} />
+  if (route.k === 'guide') return <GuideScreen key={route.sec ?? ''} initial={route.sec} onExit={back} onGo={launch} />
 
   // ---------- home ----------
   const d = todayLog()
