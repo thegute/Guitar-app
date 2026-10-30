@@ -1,6 +1,7 @@
 // How to use KGuitar: every feature explained in plain words, with a button to jump to it.
 import { useEffect, useState } from 'react'
 import { GUIDE } from './guide'
+import { lessonsAvailable } from '../lessons/folders'
 import type { Go } from './path'
 import { resetWelcome } from '../components/Welcome'
 
@@ -33,7 +34,7 @@ export function GuideScreen({ onExit, onGo, initial }: { onExit: () => void; onG
             </button>
             {isOpen && (
               <ul className="guide-items">
-                {sec.items.map(it => (
+                {sec.items.filter(it => !it.phoneOnly || lessonsAvailable()).map(it => (
                   <li key={it.title}>
                     <b>{it.title}</b>
                     <p className="small">{it.text}</p>

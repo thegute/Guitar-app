@@ -68,7 +68,9 @@ ok(oneDrop.hits.some(h => h[0] === 2 && h[1] === 'rim') && oneDrop.hits.some(h =
 // sample banks on disk
 const pieces = new Set(['kick', 'kickbig', 'kickmetal', 'snare', 'snaretight', 'ride', 'ridejazz'])
 const drums = JSON.parse(readFileSync('public/samples/drums/index.json', 'utf8')) as Record<string, string[]>
-for (const g of GROOVES) for (const [, v] of g.hits) if (!['kick', 'snare', 'ghost', 'ride'].includes(v)) pieces.add(v)
+// synthesized percussion (congas, cajón …) has no recordings
+const SYNTH_PERC = ['conga', 'congalo', 'bongo', 'bongolo', 'cajon', 'cajonslap', 'clave', 'guiro', 'snap', 'brush', 'brushtap', 'agogo']
+for (const g of GROOVES) for (const [, v] of g.hits) if (!['kick', 'snare', 'ghost', 'ride'].includes(v) && !SYNTH_PERC.includes(v)) pieces.add(v)
 for (const v of ['tom1', 'tom2', 'tom3', 'roto1', 'roto2', 'roto3', 'crash', 'open']) pieces.add(v)
 for (const p of pieces) ok(!!drums[p]?.length, `drum piece ${p}`)
 for (const files of Object.values(drums)) for (const f of files) ok(existsSync(`public/samples/drums/${f}`), `drum file ${f}`)

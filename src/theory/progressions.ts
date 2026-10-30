@@ -8,6 +8,7 @@ export type Flavor = 'auto' | 'triads' | 'power' | 'sevenths' | 'extended' | 'su
 export type Style =
   | 'any' | 'pop' | 'rock' | 'classic' | 'punk' | 'metal' | 'grunge' | 'indie' | 'blues' | 'jazz' | 'bossa'
   | 'neosoul' | 'funk' | 'gospel' | 'folk' | 'country' | 'reggae' | 'latin' | 'lofi' | 'epic' | 'sad' | 'happy' | 'fingerstyle'
+  | 'hiphop' | 'trap' | 'dance' | 'motown' | 'afrobeat' | 'reggaeton' | 'salsa' | 'island'
 export type Fn = 'T' | 'S' | 'D'
 export type Ending = 'loop' | 'cadence' | 'turnaround' | 'open'
 
@@ -45,6 +46,14 @@ export const STYLES: { id: Style; label: string }[] = [
   { id: 'sad', label: 'Sad / emotional' },
   { id: 'happy', label: 'Happy / uplifting' },
   { id: 'fingerstyle', label: 'Melodic fingerstyle (Marco Cirillo style)' },
+  { id: 'hiphop', label: 'Hip-hop / boom bap' },
+  { id: 'trap', label: 'Trap' },
+  { id: 'dance', label: 'House / dance' },
+  { id: 'motown', label: 'Motown / classic soul' },
+  { id: 'afrobeat', label: 'Afrobeat' },
+  { id: 'reggaeton', label: 'Reggaeton / Latin pop' },
+  { id: 'salsa', label: 'Salsa / son' },
+  { id: 'island', label: 'Island reggae (Jawaiian)' },
 ]
 
 export const FLAVORS: { id: Flavor; label: string; hint: string }[] = [
@@ -80,7 +89,7 @@ export const STYLE_DEFAULTS: Record<Style, { flavor: Exclude<Flavor, 'auto'>; st
   punk: { flavor: 'power', strum: 'punk', drums: 'punk', bass: 'root8', tone: 'crunch', bpm: 168 },
   metal: { flavor: 'power', strum: 'chug', drums: 'metal', bass: 'metal', tone: 'metal', bpm: 140, mode: 'minor' },
   grunge: { flavor: 'power', strum: 'eighths', drums: 'halftime', bass: 'halftime', tone: 'crunch', bpm: 98 },
-  indie: { flavor: 'sus', strum: 'arpeggio', drums: 'pop', bass: 'pop', tone: 'clean', bpm: 104 },
+  indie: { flavor: 'sus', strum: 'arpeggio', drums: 'motorik', bass: 'pop', tone: 'clean', bpm: 104 },
   blues: { flavor: 'sevenths', strum: 'shuffle', drums: 'shuffle', bass: 'boogie', tone: 'crunch', bpm: 84 },
   jazz: { flavor: 'jazzy', strum: 'comp', drums: 'swing', bass: 'walk', tone: 'electric', bpm: 128 },
   bossa: { flavor: 'jazzy', strum: 'bossa', drums: 'bossa', bass: 'bossa', tone: 'nylon', bpm: 132 },
@@ -90,12 +99,20 @@ export const STYLE_DEFAULTS: Record<Style, { flavor: Exclude<Flavor, 'auto'>; st
   folk: { flavor: 'triads', strum: 'travis', drums: 'off', bass: 'off', tone: 'j45', bpm: 100 },
   country: { flavor: 'triads', strum: 'country', drums: 'train', bass: 'country', tone: 'clean', bpm: 112 },
   reggae: { flavor: 'triads', strum: 'reggae', drums: 'reggae', bass: 'reggae', tone: 'clean', bpm: 78 },
-  latin: { flavor: 'triads', strum: 'rumba', drums: 'bossa', bass: 'bossa', tone: 'nylon', bpm: 104, mode: 'harmonic' },
+  latin: { flavor: 'triads', strum: 'rumba', drums: 'rumba', bass: 'bossa', tone: 'nylon', bpm: 104, mode: 'harmonic' },
   lofi: { flavor: 'jazzy', strum: 'arpeggio', drums: 'hiphop', bass: 'lofi', tone: 'clean', bpm: 74 },
   epic: { flavor: 'sus', strum: 'half', drums: 'halftime', bass: 'halftime', tone: 'crunch', bpm: 82, mode: 'minor' },
   sad: { flavor: 'sus', strum: 'arpeggio', drums: 'halftime', bass: 'ballad', tone: 'j45', bpm: 70 },
   happy: { flavor: 'triads', strum: 'pop', drums: 'disco', bass: 'disco', tone: 'acoustic', bpm: 120 },
   fingerstyle: { flavor: 'sus', strum: 'arpeggio', drums: 'off', bass: 'off', tone: 'j45', bpm: 72 },
+  hiphop: { flavor: 'jazzy', strum: 'arpeggio', drums: 'boombap', bass: 'lofi', tone: 'clean', bpm: 90 },
+  trap: { flavor: 'extended', strum: 'arpeggio', drums: 'trap', bass: 'ballad', tone: 'clean', bpm: 140, mode: 'minor' },
+  dance: { flavor: 'sevenths', strum: 'funk', drums: 'house', bass: 'disco', tone: 'clean', bpm: 124 },
+  motown: { flavor: 'triads', strum: 'quarters', drums: 'motown', bass: 'pop', tone: 'clean', bpm: 104 },
+  afrobeat: { flavor: 'extended', strum: 'funk', drums: 'afrobeat', bass: 'funk', tone: 'clean', bpm: 108, mode: 'dorian' },
+  reggaeton: { flavor: 'triads', strum: 'reggae', drums: 'reggaeton', bass: 'pop', tone: 'nylon', bpm: 94, mode: 'minor' },
+  salsa: { flavor: 'sevenths', strum: 'rumba', drums: 'clave', bass: 'bossa', tone: 'nylon', bpm: 100 },
+  island: { flavor: 'triads', strum: 'reggae', drums: 'island', bass: 'reggae', tone: 'acoustic', bpm: 88 },
 }
 
 /**
@@ -430,7 +447,12 @@ function palette(mode: ModeId, style: Style, spice: number): Cand[] {
       case 'punk': case 'happy': if (has(k, 0, 5, 7, 9) && !k.borrowed) k.weight *= 1.4; if (k.borrowed) k.weight *= 0.5; break
       case 'metal': if (has(k, 8, 10, 1)) k.weight *= 1.6; if (t === 'dim') k.weight *= 0.2; break
       case 'grunge': if (has(k, 3, 8, 10, 5)) k.weight *= 1.5; break
-      case 'indie': case 'lofi': if (has(k, 4, 9, 5, 2)) k.weight *= 1.4; break
+      case 'indie': case 'lofi': case 'hiphop': if (has(k, 4, 9, 5, 2)) k.weight *= 1.4; break
+      case 'trap': case 'reggaeton': if (t === 'm' || has(k, 8, 10, 3)) k.weight *= 1.4; break
+      case 'dance': case 'motown': if (has(k, 0, 5, 7, 9, 2)) k.weight *= 1.3; if (k.borrowed) k.weight *= 0.7; break
+      case 'afrobeat': if (has(k, 0, 5, 10, 2)) k.weight *= 1.3; break
+      case 'salsa': if (has(k, 7, 2, 5)) k.weight *= 1.4; break
+      case 'island': if (has(k, 0, 5, 7, 9)) k.weight *= 1.4; if (k.borrowed) k.weight *= 0.5; break
       case 'blues': if (['', '7'].includes(t) && has(k, 0, 5, 7, 10)) k.weight *= 1.6; break
       case 'jazz': case 'bossa': case 'neosoul': if (has(k, 2, 7, 9, 4)) k.weight *= 1.5; break
       case 'gospel': if (has(k, 5, 9, 2, 4) || (k.borrowed && has(k, 5))) k.weight *= 1.4; break

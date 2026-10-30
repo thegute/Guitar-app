@@ -26,7 +26,7 @@ import { gear, kindOf, latencyMs, setGear, useGear } from '../audio/gear'
 import { bump, usePracticeTimer } from '../learn/progress'
 import { usePedals } from '../controls/pedals'
 import { STRUMS } from '../audio/strums'
-import { GROOVES, loadKit, kitLoaded } from '../audio/drums'
+import { GROOVES, GROOVE_GROUPS, KITS, grooveOf, kitInfo, loadKit, kitLoaded, type KitId } from '../audio/drums'
 import { shapesFor as shapesForChord } from '../theory/shapes'
 import { ProgressionTabs } from '../components/ProgressionTabs'
 import { LickMaker } from '../components/LickMaker'
@@ -82,6 +82,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [bpm, setBpm] = usePersist('progBpm', 90)
   const [strumId, setStrumId] = usePersist('jamStrum', 'auto')
   const [drumId, setDrumId] = usePersist('jamDrums', 'auto')
+  const [kitId, setKitId] = usePersist<'auto' | KitId>('jamKit', 'auto')
   const [chordsOn, setChordsOn] = usePersist('jamChordsOn', true)
   const [drumsOn, setDrumsOn] = usePersist('jamDrumsOn', true)
   const [clickOn, setClickOn] = usePersist('jamClick', false)
@@ -103,6 +104,8 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const setStyle = (s: Style) => { setStyleRaw(s); setBpm(STYLE_DEFAULTS[s].bpm) }
   const strumKind = strumId === 'auto' ? STYLE_DEFAULTS[style].strum : strumId
   const drums = drumId === 'auto' ? STYLE_DEFAULTS[style].drums : drumId
+  const grooveKit: KitId = grooveOf(drums)?.kit ?? 'studio'
+  const kit: KitId = kitId === 'auto' ? grooveKit : kitId
   const bassLine = bassId === 'auto' ? STYLE_DEFAULTS[style].bass : bassId
   // each style picks a guitar sound (a ukulele keeps its nylon sound for the acoustic styles)
   const styleTone = (inst.isUke && ['acoustic', 'j45'].includes(STYLE_DEFAULTS[style].tone) ? 'nylon' : STYLE_DEFAULTS[style].tone) as SoundId
@@ -215,21 +218,21 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   function applySong() {
     const t = tr()
     chosen.forEach(v => preload(midisOf(v), tone))
-    t.setSong(prog.map((c, i) => ({ midis: midisOf(chosen[i]), beats: c.beats ?? 4, root: pc(c.root), tones: typeTones(c.type) })), bpm, strumKind, drums, bassLine, tone)
+    t.setSong(prog.map((c, i) => ({ midis: midisOf(chosen[i]), beats: c.beats ?? 4, root: pc(c.root), tones: typeTones(c.type) })), bpm, strumKind, drums, bassLine, tone, kitId === 'auto' ? null : kitId)
     t.setMix({ chords: chordsOn && (!rec || backingWhileRec), drums: drumsOn, click: clickOn, bass: bassOn })
   }
   // load the sounds this style needs ahead of time, so the first bars aren't the stand-in synth
   useEffect(() => {
     void loadSound(tone)
-    if (drums !== 'off') void loadKit()
+    if (drums !== 'off') void loadKit(kit)
     if (bassLine !== 'off') void loadBank('bass')
-  }, [tone, drums, bassLine])
+  }, [tone, drums, bassLine, kit])
   const [loadingSounds, setLoadingSounds] = useState(false)
   async function playWhenReady() {
-    const ready = () => bankLoaded(tone) && (drums === 'off' || kitLoaded()) && (bassLine === 'off' || bankLoaded('bass'))
+    const ready = () => bankLoaded(tone) && (drums === 'off' || kitLoaded(kit)) && (bassLine === 'off' || bankLoaded('bass'))
     if (!ready()) {
       setLoadingSounds(true)
-      const all = Promise.all([loadSound(tone), drums !== 'off' ? loadKit() : null, bassLine !== 'off' ? loadBank('bass') : null])
+      const all = Promise.all([loadSound(tone), drums !== 'off' ? loadKit(kit) : null, bassLine !== 'off' ? loadBank('bass') : null])
       await Promise.race([all, new Promise(r => setTimeout(r, 6000))])
       setLoadingSounds(false)
     }
@@ -254,7 +257,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   useEffect(() => {
     if (transport.current?.playing && !rec) startPlay(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bpm, strumKind, drums, prog, shapeIdx, shapePref, bassLine, tone])
+  }, [bpm, strumKind, drums, prog, shapeIdx, shapePref, bassLine, tone, kitId])
   useEffect(() => {
     transport.current?.setMix({ chords: chordsOn && (!rec || backingWhileRec), drums: drumsOn, click: clickOn, bass: bassOn })
   }, [chordsOn, drumsOn, clickOn, rec, backingWhileRec, bassOn])
@@ -430,7 +433,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
       <button className="band-line" aria-expanded={bandOpen} onClick={() => setBandOpen(!bandOpen)}>
         <span className="small muted">Band</span>
         <span className="band-parts">
-          <b>{soundInfo(tone).label}</b> · {STRUMS.find(x => x.id === strumKind)?.label ?? strumKind} · {drums === 'off' ? 'no drums' : `${GROOVES.find(g => g.id === drums)?.label ?? drums} drums`} · {bassLine === 'off' ? 'no bass' : `${BASSLINES.find(b => b.id === bassLine)?.label ?? bassLine} bass`}
+          <b>{soundInfo(tone).label}</b> · {STRUMS.find(x => x.id === strumKind)?.label ?? strumKind} · {drums === 'off' ? 'no drums' : `${GROOVES.find(g => g.id === drums)?.label ?? drums} drums (${kitInfo(kit).label.toLowerCase()})`} · {bassLine === 'off' ? 'no bass' : `${BASSLINES.find(b => b.id === bassLine)?.label ?? bassLine} bass`}
         </span>
         <IconPencil />
       </button>
@@ -452,9 +455,19 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
           <select className="select" value={drumId} onChange={e => setDrumId(e.target.value)}>
             <option value="auto">Match the style ({GROOVES.find(g => g.id === STYLE_DEFAULTS[style].drums)?.label ?? 'none'})</option>
             <option value="off">No drums</option>
-            {GROOVES.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}
+            {GROOVE_GROUPS.map(gr => (
+              <optgroup key={gr} label={gr}>{GROOVES.filter(g => g.group === gr).map(g => <option key={g.id} value={g.id}>{g.label}</option>)}</optgroup>
+            ))}
           </select>
         </Field>
+        {drums !== 'off' && (
+          <Field label="Drum kit">
+            <select className="select" value={kitId} onChange={e => setKitId(e.target.value as 'auto' | KitId)} title={kitInfo(kit).hint}>
+              <option value="auto">Match the beat ({kitInfo(grooveKit).label})</option>
+              {KITS.map(k => <option key={k.id} value={k.id}>{k.label}</option>)}
+            </select>
+          </Field>
+        )}
         <Field label="Bass">
           <select className="select" value={bassId} onChange={e => setBassId(e.target.value)}>
             <option value="auto">Match the style ({BASSLINES.find(b => b.id === STYLE_DEFAULTS[style].bass)?.label ?? 'none'})</option>

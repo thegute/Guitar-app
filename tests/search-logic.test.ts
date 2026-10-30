@@ -91,7 +91,7 @@ ok(terms('how do I do it').length === 0, 'filler words drop out')
 const linked = new Set(FEATURES.flatMap(f => (Array.isArray(f.guide) ? f.guide : f.guide ? [f.guide] : [])))
 for (const sec of GUIDE) {
   if (sec.id === 'tips') continue
-  for (const it of sec.items) ok(linked.has(it.title), `guide item "${it.title}" is linked from search`)
+  for (const it of sec.items.filter(i => !i.phoneOnly)) ok(linked.has(it.title), `guide item "${it.title}" is linked from search`)
 }
 // every guide item's own title finds itself (or its search entry) first
 for (const f of FEATURES) {

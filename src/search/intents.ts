@@ -70,6 +70,10 @@ const STYLE_ALIAS: [string, Style][] = ([
   ['lofi', 'lofi'], ['chill', 'lofi'], ['chillhop', 'lofi'], ['cinematic', 'epic'], ['epic', 'epic'], ['film', 'epic'], ['sad', 'sad'],
   ['emotional', 'sad'], ['melancholy', 'sad'], ['happy', 'happy'], ['uplifting', 'happy'], ['upbeat', 'happy'],
   ['fingerstyle', 'fingerstyle'], ['melodic fingerstyle', 'fingerstyle'], ['cirillo', 'fingerstyle'], ['marco cirillo', 'fingerstyle'],
+  ['hip hop', 'hiphop'], ['hiphop', 'hiphop'], ['boom bap', 'hiphop'], ['rap', 'hiphop'], ['trap', 'trap'], ['808', 'trap'],
+  ['house', 'dance'], ['dance', 'dance'], ['edm', 'dance'], ['techno', 'dance'], ['motown', 'motown'], ['classic soul', 'motown'],
+  ['afrobeat', 'afrobeat'], ['afrobeats', 'afrobeat'], ['reggaeton', 'reggaeton'], ['dembow', 'reggaeton'], ['latin pop', 'reggaeton'],
+  ['salsa', 'salsa'], ['son', 'salsa'], ['jawaiian', 'island'], ['island reggae', 'island'], ['hawaiian reggae', 'island'],
 ] as [string, Style][]).sort((a, b) => b[0].split(' ').length - a[0].split(' ').length)
 
 const TUNING_ALIAS: Record<string, string[]> = {

@@ -2,7 +2,7 @@
 // recorded loop layers, all locked to one clock so recordings line up with the progression.
 import { audio, out } from './engine'
 import { playClick } from './metronome'
-import { playGrooveBar, loadKit } from './drums'
+import { playGrooveBar, loadKit, grooveOf, type KitId } from './drums'
 import { playHit, strumPattern, type Handle } from './strums'
 import { BassPlayer, bassLine, type BassChord } from './bass'
 import { loadBank, loadSound, soundInfo, type SoundId } from './pluck'
@@ -40,6 +40,8 @@ export class JamTransport {
   bpm = 90
   strum = 'pop'
   drums = 'pop'
+  /** play the groove on this kit instead of its own */
+  kit: KitId | null = null
   bass = 'off'
   sound: SoundId = 'acoustic'
   private bassPlayer = new BassPlayer()
@@ -83,12 +85,13 @@ export class JamTransport {
   get spb() { return 60 / this.bpm }
   get loopDur() { return this.loopBeats * this.spb }
 
-  setSong(chords: JamChord[], bpm: number, strum: string, drums: string, bass = 'off', sound: SoundId = 'acoustic') {
+  setSong(chords: JamChord[], bpm: number, strum: string, drums: string, bass = 'off', sound: SoundId = 'acoustic', kit: KitId | null = null) {
     this.chords = chords
     this.bass = bass
     this.sound = sound
+    this.kit = kit
     void loadSound(sound)
-    if (drums !== 'off') void loadKit()
+    if (drums !== 'off') void loadKit(kit ?? grooveOf(drums)?.kit)
     if (bass !== 'off') void loadBank('bass')
     const drive = bassLine(bass)?.drive ?? 0
     const now = audio().currentTime
@@ -247,7 +250,7 @@ export class JamTransport {
         const beats = Math.min(4, this.loopBeats - lb)
         // a fill in the last bar of the loop, a crash when it comes round again
         const lastBar = lb + 4 >= this.loopBeats && this.loopBeats >= 8
-        playGrooveBar(this.drums, t, this.spb, 0.9, this.drumsBus, beats, 0, { fill: lastBar, crash: lb === 0 && b > 0 })
+        playGrooveBar(this.drums, t, this.spb, 0.9, this.drumsBus, beats, 0, { fill: lastBar, crash: lb === 0 && b > 0, ...(this.kit ? { kit: this.kit } : {}) })
       }
       if (!this.chords.length) continue
       const ci = this.chordIndexAt(lb)

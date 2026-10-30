@@ -1,7 +1,7 @@
 // "Play with the band": the other parts of a song under the one you're playing. A Guitar Pro file's drums, bass
 // and other guitars, or (for songbook songs and anything with chord names) drums and bass made from the chords.
 // Events are in beats from the start of the song, laid out on the same timeline as the tab you're playing.
-import { playDrum, grooveOf, type Voice } from './drums'
+import { playDrum, grooveOf, type KitSel, type Voice } from './drums'
 import { bassLine, bassMidi } from './bass'
 import { playBass, playNote, strum, soundForProgram, type Handle, type SoundId } from './pluck'
 import { parseSymbol } from '../theory/chords'
@@ -17,7 +17,7 @@ export interface BandEvent {
   /** length in beats (bass and guitar notes) */
   dur: number
   voice?: Voice
-  kit?: Record<string, string>
+  kit?: KitSel
   midis?: number[]
   sound?: SoundId
 }
@@ -103,7 +103,7 @@ function backingEvents(song: Song, track: SongTrack): BandEvent[] {
   let prev: number | null = null
   for (let b0 = start; b0 < total - 1e-6; b0 += span) {
     const hits = meter === 3 ? waltz : g?.hits ?? []
-    for (const [p, v, l] of hits) if (b0 + p < total) ev.push({ beat: b0 + p, kind: 'drum', voice: v, level: l * 0.62 * (meter === 3 ? 1 : g?.level ?? 1), kit: g?.kit as Record<string, string> | undefined, dur: 0 })
+    for (const [p, v, l] of hits) if (b0 + p < total) ev.push({ beat: b0 + p, kind: 'drum', voice: v, level: l * 0.62 * (meter === 3 ? 1 : g?.level ?? 1), kit: g ? { kit: g.kit, pieces: g.pieces } : undefined, dur: 0 })
     for (const [p, deg, len, lv] of line?.hits ?? []) {
       if (meter === 3 && p >= 3) continue
       const at = b0 + p
@@ -138,7 +138,7 @@ export class BandVoices {
   private all: Handle[] = []
   constructor(public level = 1) {}
   play(e: BandEvent, t: number, spb: number) {
-    if (e.kind === 'drum') { playDrum(e.voice!, t, e.level * this.level, undefined, e.kit as never); return }
+    if (e.kind === 'drum') { playDrum(e.voice!, t, e.level * this.level, undefined, e.kit ?? {}); return }
     const end = t + Math.max(0.08, e.dur * spb * 0.95)
     if (e.kind === 'bass') {
       this.bass?.stop(t)
