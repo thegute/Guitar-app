@@ -1,5 +1,6 @@
 // Plays a tab back with the guitar synth so you can hear how it should sound,
 // reporting which step is sounding so the tab can highlight along.
+import { bendOf, isRelease } from '../licks/notation'
 import { audio } from './engine'
 import { playNote, strum, isPowerChord, activeSound, soundInfo, type SoundId } from './pluck'
 import type { FlatStep } from '../tabs/model'
@@ -79,7 +80,11 @@ export class TabPlayer {
             // a new note on a string stops the one ringing on it, like a real guitar
             this.ringing.get(n.string)?.stop(t)
             const at = t + (ns.length > 2 ? k * 0.012 : 0)
-            const h = playNote(n.midi, at, (ns.length > 2 ? 0.55 : 0.75) * this.level, undefined, { sound: this.sound, pm: n.tech === 'PM' })
+            const b = bendOf(n.tech)
+            const h = playNote(n.midi, at, (ns.length > 2 ? 0.55 : 0.75) * this.level, undefined, {
+              sound: this.sound, pm: n.tech === 'PM',
+              ...(b ? { bend: b, prebent: n.tech?.startsWith('pb'), release: isRelease(n.tech), bendTime: Math.min(0.25, st.dur * spb * 0.5) } : {}),
+            })
             this.ringing.set(n.string, h)
             this.all.push(h)
           })

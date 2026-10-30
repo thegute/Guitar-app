@@ -33,6 +33,7 @@ import { ChordChanges, CircleTool, RhythmTrainer } from './Tools'
 import { ProgressView } from './ProgressView'
 import { Settings } from './Settings'
 import { GuideScreen } from './GuideScreen'
+import { LickLibrary } from './LickLibrary'
 import { LESSONS } from './lessons'
 import { lastBackup } from '../backup'
 import { ago } from '../components/BackupPanel'
@@ -40,7 +41,7 @@ import { ago } from '../components/BackupPanel'
 type Route =
   | { k: 'home' } | { k: 'quiz'; id: string } | { k: 'lesson'; id: string } | { k: 'lessons' } | { k: 'ear' } | { k: 'caged' }
   | { k: 'changes' } | { k: 'rhythm' } | { k: 'circle' } | { k: 'progress' } | { k: 'settings'; n?: number } | { k: 'guide'; sec?: string }
-  | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' }
+  | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' } | { k: 'licks'; sel?: string }
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -157,6 +158,7 @@ export function LearnScreen() {
     else if ('learn' in g) { setPage(g.learn); setStack([{ k: 'home' }]); document.getElementById('main')?.scrollTo({ top: 0 }) }
     else if ('technique' in g) push({ k: 'technique', id: g.technique })
     else if ('guide' in g) push({ k: 'guide', sec: g.guide })
+    else if ('licks' in g) push({ k: 'licks', sel: g.licks })
     else void openExercise(g.exercise)
   }
   // links from other screens (search): start from Learn's home so Back comes here
@@ -187,6 +189,7 @@ export function LearnScreen() {
   if (route.k === 'techniques') return <TechniqueList onExit={back} onOpen={id => push({ k: 'technique', id })} />
   if (route.k === 'technique') return <TechniqueView id={route.id} inst={inst} onExit={back} onDrill={t => runDrill(t)} />
   if (route.k === 'rhythm') return <RhythmTrainer onExit={back} />
+  if (route.k === 'licks') return <LickLibrary key={route.sel ?? ''} initial={route.sel} onExit={back} />
   if (route.k === 'circle') return <CircleTool onExit={back} onQuiz={id => push({ k: 'quiz', id })} />
   if (route.k === 'progress') return <ProgressView inst={inst} onExit={back} />
   if (route.k === 'settings') return <Settings key={route.n ?? 0} inst={inst} onExit={back} />
@@ -232,6 +235,7 @@ export function LearnScreen() {
   const groups: { title: string; tools: { id: Route['k']; title: string; sub: string; needs?: boolean }[] }[] = [
     { title: 'Play better', tools: [
       { id: 'techniques', title: 'Technique', sub: `${techniquesDone().size} of ${TECHNIQUES.length} skills practised` },
+      { id: 'licks', title: 'Must-know licks', sub: '15 styles, explained step by step' },
       { id: 'bends', title: 'Bends & vibrato', sub: 'Bend to pitch with a needle', needs: true },
       { id: 'changes', title: 'Chord changes', sub: changesBest ? `Best: ${changesBest} a minute` : 'One-minute drill', needs: true },
       { id: 'rhythm', title: 'Rhythm trainer', sub: 'Listen, then tap it back' },
@@ -455,7 +459,7 @@ export function LearnScreen() {
 
 // Psychedelic mode: a samurai dog sticker on each Learn tool.
 const BADGES: Record<string, DogId> = {
-  techniques: 'shepherd', bends: 'doberman', changes: 'boxer', rhythm: 'shiba', lessons: 'akita', ear: 'husky',
+  techniques: 'shepherd', licks: 'rottweiler', bends: 'doberman', changes: 'boxer', rhythm: 'shiba', lessons: 'akita', ear: 'husky',
   caged: 'frenchie', circle: 'golden', progress: 'muscle', guide: 'lab', songbook: 'princess',
 }
 function ToolBadge({ id }: { id: string }) {

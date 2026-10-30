@@ -203,11 +203,12 @@ function take(g: Group, k: number, avoid = -1): { s: Sample; i: number } {
   return { s: list[i], i }
 }
 
-function playSample(s: Sample, rate: number, when: number, gain: number, dest?: AudioNode, pan?: number): Handle {
+function playSample(s: Sample, rate: number, when: number, gain: number, dest?: AudioNode, pan?: number, bend?: NoteOpts): Handle {
   const ctx = audio()
   const src = ctx.createBufferSource()
   src.buffer = s.buf
   src.playbackRate.value = rate
+  applyBend(src, Math.max(when || ctx.currentTime, ctx.currentTime), bend)
   const g = ctx.createGain()
   g.gain.value = gain
   if (pan !== undefined && typeof ctx.createStereoPanner === 'function') {
@@ -220,10 +221,20 @@ function playSample(s: Sample, rate: number, when: number, gain: number, dest?: 
   return { stop: (at?: number) => { try { g.gain.setTargetAtTime(0, Math.max(at ?? ctx.currentTime, t), 0.035) } catch { /* noop */ } } }
 }
 
-function synthNote(midi: number, when: number, gain: number, dest?: AudioNode): Handle {
+/** Bends: the sample's pitch moves (detune, in cents). */
+function applyBend(src: AudioBufferSourceNode, t: number, o?: NoteOpts) {
+  if (!o?.bend || !src.detune) return
+  const c = o.bend * 100, dt = o.bendTime ?? 0.14
+  if (o.release) { src.detune.setValueAtTime(c, t); src.detune.linearRampToValueAtTime(0, t + dt) }
+  else if (o.prebent) src.detune.setValueAtTime(c, t)
+  else { src.detune.setValueAtTime(0, t + 0.03); src.detune.linearRampToValueAtTime(c, t + 0.03 + dt) }
+}
+
+function synthNote(midi: number, when: number, gain: number, dest?: AudioNode, bend?: NoteOpts): Handle {
   const ctx = audio()
   const src = ctx.createBufferSource()
   src.buffer = bufferFor(midi)
+  applyBend(src, when || ctx.currentTime, bend)
   const g = ctx.createGain()
   g.gain.value = gain
   src.connect(g).connect(dest ?? out())
@@ -239,6 +250,11 @@ export interface NoteOpts {
   pm?: boolean
   /** double-tracked: two takes panned left and right (rhythm parts on the amp sounds) */
   double?: boolean
+  /** a bend in semitones: up to it over `bendTime` seconds; `prebent` starts there; `release` starts there and comes down */
+  bend?: number
+  bendTime?: number
+  prebent?: boolean
+  release?: boolean
 }
 
 export function playNote(midi: number, when = 0, gain = 0.8, dest?: AudioNode, opts: NoteOpts = {}): Handle {
@@ -261,12 +277,12 @@ export function playNote(midi: number, when = 0, gain = 0.8, dest?: AudioNode, o
       if (opts.pm && !pmGroup) h.stop(t + 0.13)
       return h
     }
-    const h = playSample(take(g, k).s, rate, t, gain * 1.3, dest)
+    const h = playSample(take(g, k).s, rate, t, gain * 1.3, dest, undefined, opts)
     if (opts.pm && !pmGroup) h.stop(t + 0.13)
     return h
   }
   if (id !== 'synth') void loadSound(id)
-  const h = synthNote(midi, t, gain, dest)
+  const h = synthNote(midi, t, gain, dest, opts)
   if (opts.pm) h.stop(t + 0.12)
   return h
 }

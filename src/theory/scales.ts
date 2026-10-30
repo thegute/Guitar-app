@@ -33,6 +33,8 @@ export const SCALES: ScaleDef[] = [
   { id: 'hirajoshi', label: 'Hirajoshi', group: 'Exotic', feel: 'Japanese pentatonic' },
 ]
 
+/** "minor pentatonic", "minor blues", "natural minor (aeolian)" … for running text */
+export const scaleName = (id: string) => scaleById(id).label.toLowerCase().replace(/^blues \((minor|major)\)$/, '$1 blues')
 export function scaleById(id: string) {
   return SCALES.find(s => s.id === id) ?? { id, label: id.replace(/^\w/, c => c.toUpperCase()), group: 'Other', feel: '' }
 }

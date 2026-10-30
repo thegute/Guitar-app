@@ -1572,3 +1572,26 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 .cof-sig.sharp { fill: var(--gold-text, var(--ink-2)); }
 .cof-sig.flat { fill: var(--mint-text, var(--ink-2)); }
 .cof-sig.on { fill: var(--ink); }
+
+/* must-know licks */
+.lick-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+@media (min-width: 760px) { .lick-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.lick-card { width: 100%; text-align: left; display: grid; gap: 4px; padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); font: inherit; cursor: pointer; }
+.lick-card:hover, .lick-card:focus-visible { border-color: var(--accent); }
+.lick-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.lick-top b { font-size: 17px; }
+.lvl { flex: none; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--line); }
+.lvl-1 { color: var(--mint-text, var(--mint)); border-color: var(--mint); }
+.lvl-2 { color: var(--gold-text, var(--gold)); border-color: var(--gold); }
+.lvl-3 { color: var(--coral); border-color: var(--coral); }
+.lick-steps { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+.link-btn { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; font: inherit; cursor: pointer; }
+[data-theme='psy'] .lick-card { background: #1c0641; }
+
+/* Chords tool: hear it, scales that fit, licks that fit */
+.fit-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fit-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); }
+.fit-list li > span:first-child { display: grid; gap: 2px; min-width: 0; }
+.chord-extras .btn.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+[data-theme='psy'] .fit-list li { background: #14002b; }
+@media (max-width: 420px) { .fit-list li { flex-wrap: wrap; } }

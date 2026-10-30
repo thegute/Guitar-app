@@ -8,6 +8,7 @@ import { Chips, KeyPicker, usePersist } from '../components/Controls'
 import { strum } from '../audio/pluck'
 import { pc, friendly, INTERVAL_LABELS } from '../theory/notes'
 import { Zoomable } from '../components/Zoomable'
+import { ChordExtras } from '../components/ChordExtras'
 
 const TONAL_SUFFIX: Record<string, string> = {
   major: '', minor: 'm', '5': '5', aug7: '7#5', mmaj7: 'mMaj7', alt: '7alt', '69': '6/9', m69: 'm6/9', '9#11': '9#11',
@@ -81,6 +82,7 @@ export function ChordsScreen() {
           />
         </div>
       </div>
+      <ChordExtras root={root} suffix={suffix} voicing={v} />
     </div>
   )
 }

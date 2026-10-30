@@ -49,7 +49,7 @@ export function Preview({ doc, minor }: { doc: SongDoc; minor: boolean }) {
     <div className="tab-preview">
       <div className="row" style={{ gap: 6 }}>
         <button className={`btn sm hear${at >= 0 ? ' on' : ''}`} onClick={hear} aria-pressed={at >= 0}>{at >= 0 ? '■ Stop' : '▶ Hear it'}</button>
-        <span className="small muted">{doc.song.tempo} BPM · {track.bars.length} bars</span>
+        <span className="small muted">{doc.song.tempo} BPM · {track.bars.length} bar{track.bars.length === 1 ? '' : 's'}</span>
       </div>
       <TabView track={track} mode="fret" flats={keyPrefersFlats(doc.key?.root ?? 'C', minor)} cursor={at} playing={at >= 0} states={states} version={0} spans={[]}
         onTap={() => {}} />

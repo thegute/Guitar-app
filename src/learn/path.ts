@@ -18,6 +18,8 @@ export type Go =
   | { jam: 'jam' | 'solo' | 'tab' | 'find' }
   | { learn: 'today' | 'course' | 'explore' }
   | { technique: string }
+  /** the must-know licks: a style or one lick */
+  | { licks: string }
   | { guide: string }
 
 export interface Goal { label: string; done: boolean; go: Go; guitar: boolean }
