@@ -1623,3 +1623,20 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 .ex-chord.ex-name { font-size: 22px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .ex-seek { width: 100%; accent-color: var(--accent); }
 .ex-status { margin: 0; min-height: 1.4em; }
+
+/* ── Your video lessons (phone app) */
+.yt-frame video { width: 100%; height: 100%; background: #000; display: block; }
+video.mirrored { transform: scaleX(-1); }
+.course-chapters { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.course-ch { width: 100%; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; text-align: left; padding: 10px 12px; border-radius: var(--r-sm); background: var(--rosewood-2); border: 1px solid var(--hairline); color: inherit; font: inherit; }
+.course-ch[aria-expanded=true] { border-color: var(--accent); }
+.course-video { width: 100%; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 8px; text-align: left; padding: 8px 10px; border-radius: var(--r-sm); background: transparent; border: 1px solid var(--hairline); color: inherit; font: inherit; min-height: 44px; }
+.course-video .cv-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.course-video .cv-mark { text-align: center; color: var(--accent); }
+.cv-bar { width: 54px; height: 6px; border-radius: 3px; background: var(--hairline); overflow: hidden; }
+.cv-bar i { display: block; height: 100%; background: var(--accent); }
+.lesson-video video { width: 100%; max-height: 60vh; background: #000; border-radius: var(--r-md); display: block; }
+.lesson-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lesson-bar .seg { display: inline-flex; gap: 2px; }
+.lesson-bar .seg .btn[aria-pressed=true], .lesson-bar .btn[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.lesson-img { width: 100%; border-radius: var(--r-sm); background: #fff; }

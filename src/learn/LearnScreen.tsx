@@ -9,6 +9,8 @@ import type { DogId } from '../art/samurai'
 import { useInstrument } from '../instrument'
 import { buildExercise, ESSENTIALS } from '../tabs/exercises'
 import { exerciseCatalog } from '../exercises/catalog'
+import { VideoLessons } from '../lessons/VideoLessons'
+import { lessonsAvailable } from '../lessons/folders'
 import { getSong, refreshBuiltIn, type SongDoc } from '../tabs/library'
 import { loadSongbookDoc } from '../tabs/songbookDocs'
 import { profile, profileSkipped, skipProfile } from './profile'
@@ -42,7 +44,7 @@ import { ago } from '../components/BackupPanel'
 type Route =
   | { k: 'home' } | { k: 'quiz'; id: string } | { k: 'lesson'; id: string } | { k: 'lessons' } | { k: 'ear' } | { k: 'caged' }
   | { k: 'changes' } | { k: 'rhythm' } | { k: 'circle' } | { k: 'progress' } | { k: 'settings'; n?: number } | { k: 'guide'; sec?: string }
-  | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' } | { k: 'licks'; sel?: string }
+  | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' } | { k: 'licks'; sel?: string } | { k: 'videos' }
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -191,6 +193,7 @@ export function LearnScreen() {
   if (route.k === 'techniques') return <TechniqueList onExit={back} onOpen={id => push({ k: 'technique', id })} />
   if (route.k === 'technique') return <TechniqueView id={route.id} inst={inst} onExit={back} onDrill={t => runDrill(t)} />
   if (route.k === 'rhythm') return <RhythmTrainer onExit={back} />
+  if (route.k === 'videos') return <VideoLessons onExit={back} />
   if (route.k === 'licks') return <LickLibrary key={route.sel ?? ''} initial={route.sel} onExit={back} />
   if (route.k === 'circle') return <CircleTool onExit={back} onQuiz={id => push({ k: 'quiz', id })} />
   if (route.k === 'progress') return <ProgressView inst={inst} onExit={back} />
@@ -242,6 +245,7 @@ export function LearnScreen() {
       { id: 'changes', title: 'Chord changes', sub: changesBest ? `Best: ${changesBest} a minute` : 'One-minute drill', needs: true },
       { id: 'rhythm', title: 'Rhythm trainer', sub: 'Listen, then tap it back' },
     ] },
+    ...(lessonsAvailable() ? [{ title: 'Your lessons', tools: [{ id: 'videos' as const, title: 'Your video lessons', sub: 'Course videos and tabs from your phone' }] }] : []),
     { title: 'Ears and theory', tools: [
       { id: 'lessons', title: 'Theory lessons', sub: `${read} of ${LESSONS.length} read` },
       { id: 'ear', title: 'Ear training', sub: 'Drone-based, by feel' },
@@ -467,7 +471,7 @@ export function LearnScreen() {
 // Psychedelic mode: a samurai dog sticker on each Learn tool.
 const BADGES: Record<string, DogId> = {
   techniques: 'shepherd', licks: 'rottweiler', bends: 'doberman', changes: 'boxer', rhythm: 'shiba', lessons: 'akita', ear: 'husky',
-  caged: 'frenchie', circle: 'golden', progress: 'muscle', guide: 'lab', songbook: 'princess', exercises: 'husky',
+  caged: 'frenchie', circle: 'golden', progress: 'muscle', guide: 'lab', songbook: 'princess', exercises: 'husky', videos: 'akita',
 }
 function ToolBadge({ id }: { id: string }) {
   const b = BADGES[id]

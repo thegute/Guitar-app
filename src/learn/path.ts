@@ -8,7 +8,7 @@ import { LESSONS } from './lessons'
 export type Go =
   | { quiz: string }
   | { lesson: string }
-  | { tool: 'ear' | 'caged' | 'changes' | 'rhythm' | 'circle' | 'lessons' | 'settings' | 'progress' | 'guide' | 'techniques' | 'bends' }
+  | { tool: 'ear' | 'caged' | 'changes' | 'rhythm' | 'circle' | 'lessons' | 'settings' | 'progress' | 'guide' | 'techniques' | 'bends' | 'videos' }
   | { tab: 'play' | 'progressions' | 'tuner' }
   | { exercise: 'spider' | 'penta1' }
   | { song: string; loop?: { from: number; to: number } }

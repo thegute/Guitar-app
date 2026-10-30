@@ -9,6 +9,7 @@ import { TECHNIQUES } from '../learn/techniques'
 import { course } from '../learn/quiz'
 import { exerciseCatalog, EX_TYPES, LEVELS, TECHS } from '../exercises/catalog'
 import { LICKS } from '../licks/library'
+import { lessonsAvailable } from '../lessons/folders'
 import { lickStyle } from '../licks/styles'
 import type { Entry } from './types'
 
@@ -31,6 +32,10 @@ export function libraryEntries(inst: Instrument, songs: SongDoc[] = []): Entry[]
   }
   for (const e of EXAMPLES.filter(e => e.for === 'any' || e.for === inst.id)) {
     out.push({ id: `ex:${e.id}`, kind: 'practice', title: e.title, where: 'Songs → Exercises → Example songs', text: 'An example tab to try every feature on.', keys: 'example', target: { example: e.id } })
+  }
+  if (lessonsAvailable()) {
+    out.push({ id: 'videos', kind: 'feature', title: 'Your video lessons', where: 'Learn → Explore', text: 'Watch course videos you have on the phone with slow-down, A–B loops and resume; their tabs open in Play beside the video.',
+      keys: 'video lessons course courses my lessons lesson videos downloaded offline mp4 watch lesson roy ziv speed builder modes navigator', target: { go: { tool: 'videos' } } })
   }
   // the exercise library: findable by name, code, type and technique
   for (const e of exerciseCatalog(inst)) {

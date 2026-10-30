@@ -1,6 +1,9 @@
 // Build 19 in the browser: the exercise library (Songs → Exercises).
 //   exercises  700+ exercises; difficulty / type / technique filters; ‹ › and the list; favourites; key, sound, tempo;
 //              Play with a count-in, metronome, loop; the tab and the neck follow; tap a note; Play along opens Play
+//   videos     Your video lessons with a stand-in for the phone: pick a folder, chapters in natural order, a lesson
+//              plays with speed / mirror / next, Done is kept, a tab opens in Play with the video beside it; the web
+//              version (no phone) doesn't show it
 //   looks      the exercise page in psy / day / night at phone, cover, inner and desktop sizes: no sideways overflow
 // Run with the preview server on :4173:  node tests/browser/build19-test.cjs [section ...]
 const { chromium } = require('playwright')
@@ -8,7 +11,7 @@ const path = require('path')
 const fs = require('fs')
 const DIR = path.join(__dirname, 'out')
 fs.mkdirSync(DIR, { recursive: true })
-const ALL = ['exercises', 'looks']
+const ALL = ['exercises', 'looks', 'videos']
 const want = process.argv.slice(2).length ? process.argv.slice(2) : ALL
 const problems = []
 const bad = (m) => { problems.push(m); console.log('  PROBLEM', m) }
@@ -124,6 +127,75 @@ async function exercises(browser) {
   await page.context().close()
 }
 
+async function videos(browser) {
+  // a short test video in the built app (the preview serves dist/)
+  const vid = path.join(__dirname, '..', '..', 'dist', 'test-lesson.webm')
+  if (!fs.existsSync(vid)) require('child_process').spawnSync('ffmpeg', ['-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=duration=12:size=320x180:rate=15', '-f', 'lavfi', '-i', 'sine=frequency=220:duration=12', '-c:v', 'libvpx', '-b:v', '200k', '-c:a', 'libvorbis', '-shortest', vid])
+  // the web version doesn't have it
+  {
+    const page = await newPage(browser, { 'kg:tab2': 'learn', 'kg:sub:learn': 'explore' })
+    await page.waitForSelector('.explore')
+    if (await page.locator('.tool:has-text("Your video lessons")').count()) bad('videos: shown in the web version')
+    await page.context().close()
+  }
+  const tab = Buffer.from('e|-----0-----0---|\nB|---1---1-------|\nG|-0-------0-----|\nD|---------------|\nA|---------------|\nE|---------------|\n').toString('base64')
+  const ctx = await browser.newContext({ viewport: SIZES.cover, deviceScaleFactor: 1.5, hasTouch: true })
+  const page = await ctx.newPage()
+  page.errors = []
+  page.on('pageerror', e => page.errors.push(e.message))
+  await page.addInitScript(tab => {
+    const f = (path, uri) => ({ path, name: path.split('/').pop(), mime: /mp4$/.test(path) ? 'video/mp4' : 'text/plain', size: 1, modified: 0, uri: 'content://test/tree/1/document/' + uri })
+    window.__kgLessonsMock = {
+      pick: async () => ({ tree: 'content://test/tree/1', name: 'Speed course' }),
+      list: async () => ({ files: [f('1. Warm up/01 Intro.mp4', 'a'), f('1. Warm up/02 Spider.mp4', 'b'), f('1. Warm up/Spider tab.txt', 'c'), f('10. Licks/01 Lick.mp4', 'd'), f('2. Picking/01 Alternate.mp4', 'e')] }),
+      read: async () => ({ data: tab }), openExternal: async () => {}, forget: async () => {}, granted: async () => ({ trees: [] }),
+      media: () => '/test-lesson.webm',
+    }
+    if (sessionStorage.getItem('seeded')) return
+    localStorage.clear()
+    localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:getReady', '0')
+    localStorage.setItem('kg:tab2', JSON.stringify('learn')); localStorage.setItem('kg:sub:learn', JSON.stringify('explore'))
+    sessionStorage.setItem('seeded', '1')
+  }, tab)
+  await page.goto('http://localhost:4173/')
+  await page.waitForSelector('.explore')
+  await page.locator('.tool:has-text("Your video lessons")').click()
+  await page.locator('button:has-text("Find my lessons")').click()
+  await page.waitForSelector('.course')
+  const chs = await page.locator('.course-ch b').allTextContents()
+  console.log('  videos: chapters', chs.join(' | '))
+  if (chs.join('|') !== '1. Warm up|2. Picking|10. Licks') bad(`videos: chapter order ${chs.join(' | ')}`)
+  await page.locator('.course .btn.primary').click()
+  await page.waitForSelector('.lesson-player video')
+  const title = await page.locator('.lesson-player h1').textContent()
+  if (title !== '01 Intro') bad(`videos: first lesson is "${title}"`)
+  await page.waitForFunction(() => document.querySelector('.lesson-player video').readyState >= 1, null, { timeout: 5000 }).catch(() => bad('videos: the video did not load'))
+  await page.locator('.lesson-bar button:has-text("½×")').click()
+  const rate = await page.evaluate(() => document.querySelector('.lesson-player video').playbackRate)
+  if (rate !== 0.5) bad(`videos: speed is ${rate}`)
+  await page.locator('.lesson-bar button:has-text("Mirror")').click()
+  if (!(await page.locator('.lesson-player video.mirrored').count())) bad('videos: mirror did not flip the picture')
+  await page.locator('.lesson-player input[type=checkbox]').check()
+  await page.locator('button:has-text("Next ›")').click()
+  const t2 = await page.locator('.lesson-player h1').textContent()
+  if (t2 !== '02 Spider') bad(`videos: next lesson is "${t2}"`)
+  await page.screenshot({ path: path.join(DIR, 'b19-video-lesson.png') })
+  await page.locator('button:has-text("← Lessons")').click()
+  const marks = await page.locator('.course-video .cv-mark').allTextContents()
+  if (marks[0] !== '✓') bad(`videos: Done not kept (${marks.join(' ')})`)
+  // a tab from the lesson opens in Play with the video beside it
+  await page.locator('.course .btn.primary').click()
+  await page.waitForSelector('.lesson-player')
+  await page.locator('.tab-file:has-text("Spider tab")').click()
+  await page.waitForSelector('.tab-tools', { timeout: 6000 })
+  let lv = await page.waitForSelector('.local-video video', { timeout: 3000 }).then(() => true).catch(() => false)
+  if (!lv) { const v = page.locator('[data-find=video]'); if (await v.count()) { await v.first().click(); lv = await page.waitForSelector('.local-video video', { timeout: 3000 }).then(() => true).catch(() => false) } }
+  if (!lv) bad('videos: Play did not show the lesson video beside the tab')
+  await page.screenshot({ path: path.join(DIR, 'b19-video-play.png') })
+  if (page.errors.length) bad('videos: page errors ' + page.errors.join(' | '))
+  await ctx.close()
+}
+
 async function looks(browser) {
   for (const [theme, size] of [['psy', 'phone'], ['psy', 'cover'], ['day', 'inner'], ['night', 'cover'], ['day', 'desktop']]) {
     const page = await newPage(browser, { 'kg:theme': theme, 'kg:tab2': 'songs', 'kg:sub:songs': 'practice' }, SIZES[size])
@@ -144,6 +216,7 @@ async function looks(browser) {
     try {
       if (w === 'exercises') await exercises(browser)
       if (w === 'looks') await looks(browser)
+      if (w === 'videos') await videos(browser)
     } catch (e) { bad(`${w}: ${e.message.split('\n')[0]}`) }
   }
   await browser.close()
