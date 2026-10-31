@@ -70,7 +70,8 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
     setQ('')
     setAsking(true)
     const rs = searchAll(index, t, inst, 12)
-    const a = await plan(t, rs, context, past)
+    // the words show as they arrive (Gemini streams); the buttons come with the finished answer
+    const a = await plan(t, rs, context, past, soFar => answerTurn(id, { reply: soFar, ai: true, note: 'Writing…' }))
     answerTurn(id, a)
     setAsking(false)
     if (voice) say(a)

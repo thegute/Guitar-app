@@ -147,7 +147,15 @@ RESULTS (things in the app matching the request): ${results.slice(0, 12).map(r =
 /** for tests */
 export const systemPrompt = SYSTEM
 
-export async function plan(q: string, results: Result[], ctx: AskContext = 'general', past: { q: string; a: string }[] = []): Promise<Answer> {
+/** The "reply" text from a JSON answer that is still arriving (for showing words as they stream in). */
+export function partialReply(raw: string): string | null {
+  const m = /"reply"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(raw)
+  if (!m) return null
+  const body = m[1].replace(/\\u[0-9a-fA-F]{0,3}$|\\$/, '')
+  try { return JSON.parse(`"${body}"`) as string } catch { return body.replace(/\\n/g, ' ').replace(/\\"/g, '"') }
+}
+
+export async function plan(q: string, results: Result[], ctx: AskContext = 'general', past: { q: string; a: string }[] = [], onReply?: (soFar: string) => void): Promise<Answer> {
   const beat = ctx === 'beat' ? loadBeat() : null
   const screen = screenInfo()
   const local = (): Answer => {
@@ -164,7 +172,7 @@ export async function plan(q: string, results: Result[], ctx: AskContext = 'gene
   if (quick && !/\b(what|why|how|explain|tell|which|show)\b/i.test(q)) return quick
   if (!activeProvider()) return { ...local(), note: 'Built-in helper. Add a free AI key in Settings → You → AI helper for smarter answers.' }
   try {
-    const raw = await ask(SYSTEM(ctx, beat ? beatSummary(beat) : '', results, screen), [...past.flatMap(p => [{ role: 'user' as const, text: p.q }, { role: 'assistant' as const, text: JSON.stringify({ reply: p.a }) }]), { role: 'user', text: q }], { json: true, maxTokens: 1200 })
+    const raw = await ask(SYSTEM(ctx, beat ? beatSummary(beat) : '', results, screen), [...past.flatMap(p => [{ role: 'user' as const, text: p.q }, { role: 'assistant' as const, text: JSON.stringify({ reply: p.a }) }]), { role: 'user', text: q }], { json: true, maxTokens: 1200, ...(onReply ? { onText: (raw: string) => { const r = partialReply(raw); if (r) onReply(r) } } : {}) })
     const j = JSON.parse(raw.replace(/^[^{]*/, '').replace(/[^}]*$/, '')) as { reply?: string; open?: string | null; session?: { title: string; steps: { title: string; minutes: number; use: string; tip?: string }[] } | null; beat?: BeatChange | null; play?: { loop?: number[] | null; speed?: number | null } | null; ideas?: string[] | null }
     const ans: Answer = { reply: j.reply || 'Here you go.', ai: true }
     if (j.open) { const r = results.find(x => x.id === j.open); const t = r ? null : targetOf(j.open, results); ans.open = r ?? (t ? { id: j.open, kind: 'feature', title: PLACES.find(p => p[0] === j.open)?.[1] ?? j.open, where: '', text: '', target: t, score: 100 } : undefined) }

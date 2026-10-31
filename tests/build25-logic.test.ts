@@ -10,7 +10,7 @@ import { noteToMidi } from '../src/theory/notes'
 import { routine, type Z2H } from '../src/learn/zeroHero'
 import { exerciseCatalog } from '../src/exercises/catalog'
 import { suggestExercises } from '../src/exercises/suggest'
-import { plan, spokenNumbers, systemPrompt } from '../src/assistant/plan'
+import { plan, spokenNumbers, systemPrompt, partialReply } from '../src/assistant/plan'
 import { setScreenInfo } from '../src/assistant/screen'
 let checks = 0, failed = 0
 const ok = (c: boolean, m: string) => { checks++; if (!c) { failed++; console.log('  FAIL', m) } }
@@ -113,5 +113,10 @@ await (async () => {
   for (const w of ['Hear it', 'Loop', 'Speed', 'Lick chainer', 'Tuner', 'Theory lessons', 'beginner']) ok(head.includes(w), `manual mentions ${w}`)
   ok(head.length < 20000, `manual is compact (${head.length} characters)`)
 }
+// streaming: the reply text is readable while the JSON is still arriving
+ok(partialReply('{"reply": "An augmented chord') === 'An augmented chord', 'partial reply mid-sentence')
+ok(partialReply('{"reply": "It\\u2019s bright') === 'It’s bright', `escaped characters: ${partialReply('{"reply": "It\\u2019s bright')}`)
+ok(partialReply('{"reply": "Half \\') === 'Half ', 'a cut-off escape is dropped')
+ok(partialReply('{"open": null') === null, 'no reply yet')
 console.log(`build25-logic: ${checks - failed}/${checks} checks passed`)
 if (failed) process.exit(1)

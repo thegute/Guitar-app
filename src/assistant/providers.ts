@@ -61,6 +61,49 @@ async function get(url: string, headers: Record<string, string>): Promise<{ stat
 }
 function safeJson(t: string): unknown { try { return JSON.parse(t) } catch { return t } }
 
+/** Gemini, streamed: the words arrive as they're written (server-sent events), so the answer shows sooner. Uses the
+ *  web view's own fetch (Google allows it from apps and browsers). `onText` gets the whole text so far. */
+async function geminiStream(url: string, body: unknown, timeoutMs: number, onText: (t: string) => void): Promise<{ status: number; data: unknown; text?: string }> {
+  const ac = new AbortController()
+  let t = setTimeout(() => ac.abort(), timeoutMs)
+  try {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ac.signal })
+    if (!r.ok || !r.body) return { status: r.status, data: safeJson(await r.text()) }
+    const reader = r.body.getReader()
+    const dec = new TextDecoder()
+    let buf = '', full = ''
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      // still getting words: keep the line open a while longer
+      clearTimeout(t); t = setTimeout(() => ac.abort(), timeoutMs)
+      buf += dec.decode(value, { stream: true })
+      let k: number
+      while ((k = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, k).trim()
+        buf = buf.slice(k + 1)
+        if (!line.startsWith('data:')) continue
+        const d = safeJson(line.slice(5).trim()) as { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[] }
+        const add = d?.candidates?.[0]?.content?.parts?.filter(x => !x.thought).map(x => x.text ?? '').join('') ?? ''
+        if (add) { full += add; onText(full) }
+      }
+    }
+    return { status: 200, data: null, text: full }
+  } catch (e) {
+    if (ac.signal.aborted) throw new Timeout()
+    throw e
+  } finally { clearTimeout(t) }
+}
+
+/** Gemini's "thinking" before it answers: 2.5 Flash can switch it off (fastest); Gemini 3 and newer take a level,
+ *  and "low" keeps chat quick (their default, "high", is slow). Other models keep their own setting. */
+function geminiThinking(model: string): Record<string, unknown> {
+  if (/gemini-2\.5-flash/.test(model)) return { thinkingConfig: { thinkingBudget: 0 } }
+  const m = /gemini-(\d+)/.exec(model)
+  if (m && Number(m[1]) >= 3) return { thinkingConfig: { thinkingLevel: 'low' } }
+  return {}
+}
+
 export interface Msg { role: 'user' | 'assistant'; text: string; image?: { mime: string; b64: string } }
 /** `retry`: worth trying again or with another model (busy, overloaded, timed out) */
 export class AiError extends Error { constructor(m: string, public retry = false) { super(m) } }
@@ -80,7 +123,7 @@ const wait = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 /** Ask the AI. `system` sets the job; the last message can carry a picture. If the AI is busy (Google's free servers
  *  often are), it tries once more, then a lighter model, then your other free key, before giving up. */
-export async function ask(system: string, msgs: Msg[], o: { pictures?: boolean; json?: boolean; maxTokens?: number } = {}): Promise<string> {
+export async function ask(system: string, msgs: Msg[], o: { pictures?: boolean; json?: boolean; maxTokens?: number; onText?: (soFar: string) => void } = {}): Promise<string> {
   const v = aiSettings()
   const p = activeProvider(v, !!o.pictures)
   if (!p) throw new AiError(o.pictures ? 'Reading pictures needs a free Google Gemini or Groq key: add one in Settings → You → AI helper.' : 'No AI key yet: add a free one in Settings → You → AI helper.')
@@ -105,19 +148,29 @@ export async function ask(system: string, msgs: Msg[], o: { pictures?: boolean; 
   throw last ?? new AiError('The AI helper didn\'t answer.')
 }
 
-async function askOnce(p: ProviderInfo, model: string, key: string, system: string, msgs: Msg[], o: { json?: boolean; maxTokens?: number }, timeoutMs: number): Promise<string> {
+async function askOnce(p: ProviderInfo, model: string, key: string, system: string, msgs: Msg[], o: { json?: boolean; maxTokens?: number; onText?: (soFar: string) => void }, timeoutMs: number): Promise<string> {
   const max = o.maxTokens ?? 2048
   const fail = (r: { status: number; data: unknown }) => new AiError(why(r.status, r.data, p), busy(r.status) || r.status === 404)
   let r: { status: number; data: unknown }
   try {
     if (p.id === 'gemini') {
-      // 2.5 Flash "thinks" before answering by default: slow, and the thinking can eat the whole answer. Off for chat.
-      const think = /2\.5-flash/.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}
-      r = await post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {}, {
+      const body = {
         systemInstruction: { parts: [{ text: system }] },
         contents: msgs.map(m => ({ role: m.role === 'user' ? 'user' : 'model', parts: [...(m.image ? [{ inline_data: { mime_type: m.image.mime, data: m.image.b64 } }] : []), { text: m.text }] })),
-        generationConfig: { maxOutputTokens: max, ...think, ...(o.json ? { responseMimeType: 'application/json' } : {}) },
-      }, timeoutMs)
+        generationConfig: { maxOutputTokens: max, ...geminiThinking(model), ...(o.json ? { responseMimeType: 'application/json' } : {}) },
+      }
+      const base = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}`
+      // stream the words when someone is watching them arrive; if streaming can't connect, ask the normal way
+      if (o.onText && !msgs.some(m => m.image)) {
+        let st: { status: number; data: unknown; text?: string } | null = null
+        try { st = await geminiStream(`${base}:streamGenerateContent?alt=sse&key=${encodeURIComponent(key)}`, body, timeoutMs, o.onText) } catch (e) { if (e instanceof Timeout) throw e }
+        if (st) {
+          if (st.status >= 300) throw fail(st)
+          if (!st.text?.trim()) throw new AiError(`${p.label} sent an empty answer.`, true)
+          return st.text
+        }
+      }
+      r = await post(`${base}:generateContent?key=${encodeURIComponent(key)}`, {}, body, timeoutMs)
       if (r.status >= 300) throw fail(r)
       const d = r.data as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
       const text = d.candidates?.[0]?.content?.parts?.map(x => x.text ?? '').join('') ?? ''

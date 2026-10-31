@@ -148,6 +148,27 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
     if (page.errors.length) bad('sees page errors: ' + page.errors.join(' | '))
     await page.context().close()
   }
+  // ---- Gemini (stand-in): low thinking on Gemini 3, the answer streamed into the chat
+  {
+    const page = await newPage(browser, { 'kg:tab2': 'play', 'kg:askBubble': true, 'kgx:ai': { provider: 'gemini', keys: { gemini: 'TEST' }, models: { gemini: 'gemini-3-flash-preview' } } })
+    let sent = null, url = ''
+    await page.route(/generativelanguage\.googleapis\.com/, async route => {
+      url = route.request().url(); sent = JSON.parse(route.request().postData() || '{}')
+      const chunk = t => `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text: t }] } }] })}\n\n`
+      await route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream', 'access-control-allow-origin': '*' }, body: chunk('{"reply": "An augmented chord ') + chunk('sounds tense and dreamy') + chunk('.", "open": null}') })
+    })
+    await page.waitForSelector('.play-head')
+    await page.locator('.ask-bubble').click()
+    await page.locator('.search-input, input[type=search]').first().fill('what does an augmented chord do')
+    await page.locator('.ask-btn').click()
+    const ans = await page.locator('.ask-a p').first().textContent({ timeout: 6000 }).catch(() => '')
+    console.log(`gemini: ${url.split('?')[0].split('/').pop()} · thinking ${JSON.stringify(sent?.generationConfig?.thinkingConfig)} · "${ans}"`)
+    if (!/streamGenerateContent/.test(url)) bad('Gemini answer not streamed')
+    if (sent?.generationConfig?.thinkingConfig?.thinkingLevel !== 'low') bad('Gemini 3 not set to low thinking')
+    if (ans !== 'An augmented chord sounds tense and dreamy.') bad('streamed answer not shown whole')
+    if (page.errors.length) bad('gemini page errors: ' + page.errors.join(' | '))
+    await page.context().close()
+  }
   // ---- In time count-in
   {
     const page = await newPage(browser, { 'kg:tab2': 'play', 'kg:playMode': 'time' })

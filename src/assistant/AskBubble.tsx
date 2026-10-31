@@ -47,6 +47,7 @@ export function AskBubble({ context }: { context: AskContext }) {
   const [level, setLevel] = useState(0)
   const [card, setCard] = useState<{ q: string; a: Answer; did?: string } | null>(null)
   const [err, setErr] = useState('')
+  const [soFar, setSoFar] = useState('')
   const [again, setAgain] = usePersist('talkAgain', false)
   const [voiceOn, setVoiceOn] = usePersist('talkVoice', true)
   const live = useRef({ again, voiceOn, misses: 0, alive: true, hideT: 0 })
@@ -80,7 +81,8 @@ export function AskBubble({ context }: { context: AskContext }) {
     setPhase('thinking')
     const past = history()
     const id = addQuestion(h.text)
-    const a = await plan(h.text, searchAll(index, h.text, inst, 12), context, past)
+    setSoFar('')
+    const a = await plan(h.text, searchAll(index, h.text, inst, 12), context, past, setSoFar)
     answerTurn(id, a)
     if (!live.current.alive) return
     // you're playing: loop / speed / beat changes happen straight away
@@ -134,7 +136,7 @@ export function AskBubble({ context }: { context: AskContext }) {
       {phase !== 'idle' && (
         <div className={`talk-card ${side === 'left' && x === null ? 'from-left' : 'from-right'}`} style={{ top: `max(8px, min(calc(${Math.round(y * 100)}% - 40px), calc(100% - 260px)))` }} role="status" aria-live="polite" data-testid="talk-card">
           {phase === 'listening' && <p className="talk-line"><b>🎤 Listening…</b> {words ? <span>“{words}”</span> : <span className="muted">say it now</span>}</p>}
-          {phase === 'thinking' && <p className="talk-line"><b>“{words}”</b> <span className="muted">thinking…</span></p>}
+          {phase === 'thinking' && <p className="talk-line"><b>“{words}”</b> {soFar ? <span className="talk-a">{soFar}</span> : <span className="muted">thinking…</span>}</p>}
           {phase === 'error' && <p className="talk-line">{err}</p>}
           {phase === 'answer' && card && (
             <>
