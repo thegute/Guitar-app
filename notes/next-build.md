@@ -6,3 +6,5 @@
    otherwise it keeps its own speed and is trimmed/padded to whole bars. Notes played on the on-screen keys or pads while the looper
    records are saved straight into the beat as notes, in time (the mic only heard the speaker). Mic loops get a "wear headphones" tip.
 4. Volumes: 🎚 Volumes button opens Mix: all drums, each drum sound (kick, snare, hi-hat…), each part (with reverb), loops; layers have sliders too.
+5. Keys were quieter than the drums: the piano/strings/choir samples are now louder overall, and the Keyboard window has its own Volume slider
+   (affects what you play and what it records). Each recorded part still has its own slider in Mix.

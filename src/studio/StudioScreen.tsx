@@ -589,6 +589,7 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
   const [shapeAt, setShapeAt] = useState(0)
   const [neckAll, setNeckAll] = usePersist('studioNeckAll', false)
   const [neck, setNeck] = usePersist('studioKeysNeck', true)
+  const [kv, setKv] = usePersist('studioKeysVol', 1.2)
   const guitar = useInstrument()
   const box = useRef<HTMLDivElement>(null)
   const notes = useRef(new Map<number, { stop: () => void; midis: number[]; start: number | null; at: number }>())
@@ -620,7 +621,7 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
     e.preventDefault()
     const { notes: ns, label } = chordFor(m)
     const track = trackFor(beat, inst).track
-    const hs = ns.map(x => t.press(track.id, inst, x, 0.75))
+    const hs = ns.map(x => t.press(track.id, inst, x, 0.75 * kv))
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
     e.currentTarget.classList.add('down')
     notes.current.set(e.pointerId, { stop: () => hs.forEach(h => h.stop()), midis: ns, start: recStep(), at: audio().currentTime })
@@ -643,7 +644,7 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
     const l = Math.max(q, Math.round(heldSteps / q) * q)
     setBeat(b => {
       const { beat: b2, track } = trackFor(b, inst)
-      const add: PNote[] = n.midis.map(m => ({ s: n.start!, l, m, v: 0.75 }))
+      const add: PNote[] = n.midis.map(m => ({ s: n.start!, l, m, v: Math.min(1.5, 0.75 * kv) }))
       return { ...b2, tracks: b2.tracks.map(x => (x.id === track.id ? { ...x, notes: [...x.notes.filter(o => !(o.s === n.start && n.midis.includes(o.m))), ...add] } : x)) }
     })
   }
@@ -656,6 +657,9 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
           <button onClick={() => setLo(l => Math.max(21, l - 12))} aria-label="Octave down">◀ Oct</button>
           <button onClick={() => setLo(l => Math.min(96, l + 12))} aria-label="Octave up">Oct ▶</button>
         </div>
+        <label className="field st-field st-inline"><span>Volume</span>
+          <input type="range" min={0.3} max={2} step={0.05} value={kv} onChange={e => setKv(Number(e.target.value))} aria-label="Keyboard volume" style={{ width: 110 }} />
+        </label>
         <div className="seg" role="group" aria-label="Key size">
           {(['s', 'm', 'l'] as const).map(s => <button key={s} aria-pressed={size === s} onClick={() => setSize(s)}>{s.toUpperCase()}</button>)}
         </div>

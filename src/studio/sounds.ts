@@ -215,7 +215,8 @@ export function playInstr(id: string, midi: number, when: number, vel = 0.8, o: 
   else if (d.guitar) {
     h = playNote(midi, when, gain, dest, { sound: d.guitar, ...(d.slide ? { bend: -(o.from !== undefined && Math.abs(o.from - midi) <= 5 ? midi - o.from : 1.5), release: true, bendTime: 0.09 } : {}) })
   } else if (d.bank === 'bass') h = playBass(midi, when, gain, dest)
-  else h = playFromBank(d.bank!, midi, when, gain, dest, d.release)
+  // the sampled instruments were levelled quietly (about −20 dB); this brings them up to sit with the drums
+  else h = playFromBank(d.bank!, midi, when, gain * 1.5, dest, d.release)
   if (o.dur !== undefined) h.stop(Math.max(when, audio().currentTime) + o.dur)
   return h
 }
