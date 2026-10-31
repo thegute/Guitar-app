@@ -11,6 +11,8 @@ import { Chips, usePersist } from '../components/Controls'
 import { Preview } from '../components/ProgressionTabs'
 import { openInPlay } from '../nav'
 import { KEYS } from '../theory/notes'
+import { useScreenInfo } from '../assistant/screen'
+import { addToChain } from '../licks/chain'
 
 const LEVEL = ['', 'Easy', 'Medium', 'Hard']
 const clip = (t: string, n: number) => (t.length > n ? t.slice(0, n).replace(/\s+\S*$/, '') + '…' : t)
@@ -70,7 +72,9 @@ function LickDetail({ lick, onBack }: { lick: LickDef; onBack: () => void }) {
   const st = lickStyle(lick.style)
   const minor = lick.minor ?? st.minor
   const [key, setKey] = useState(lick.ref)
+  useScreenInfo('lick', { label: `Lick "${lick.name}" (${st.label}) in ${key}${minor ? ' minor' : ''}`, summary: `In Must-know licks, looking at "${lick.name}", a ${st.label} lick (level ${lick.level}${lick.chord ? `, over ${lick.chord} in the written key` : ''}), shown in ${key}${minor ? ' minor' : ''}.${lick.must ? ` What it is: ${lick.must.about}` : ''}` })
   const [slow, setSlow] = useState(false)
+  const [chained, setChained] = useState(0)
   const keys = KEYS.filter(k => !!placeFor(lick, k))
   const tempo = Math.round((lick.bpm ?? st.bpm) * (slow ? 0.6 : 1))
   const placed = useMemo(() => lickInKey(lick, key, inst.midis, tempo), [lick, key, inst.midis, tempo])
@@ -91,6 +95,8 @@ function LickDetail({ lick, onBack }: { lick: LickDef; onBack: () => void }) {
         {placed && placed.capo > 0 && <p className="notice small" style={{ margin: 0 }}>Capo on the {placed.capo}{['st', 'nd', 'rd'][placed.capo - 1] ?? 'th'} fret. Fret numbers count from the capo.</p>}
         {doc && <Preview doc={doc} minor={minor} />}
         {doc && <button className="btn primary" onClick={() => openInPlay(doc)}>Play along (it listens to you)</button>}
+        {(lick.meter ?? 4) === 4 && <button className="btn sm" onClick={() => { addToChain(lick.id, key); setChained(n => n + 1) }}>{chained ? `✓ Added to your lick chain${chained > 1 ? ` (×${chained})` : ''}` : '＋ Add to my lick chain'}</button>}
+        {chained > 0 && <span className="small muted">Find it in Learn → Explore → Lick chainer, or Songs → Exercises.</span>}
       </div>
       {b && (
         <>

@@ -177,30 +177,31 @@ export function currentFocus(v: Z2H): Focus[] {
 }
 
 /** Today's routine as a session: the same five blocks every day, only "current skill" changes (Saturday: a song day). */
-export function routine(v: Z2H, minutes: 20 | 45 | 60): Session | null {
+export function routine(v: Z2H, minutes: 15 | 20 | 45 | 60): Session | null {
   const day = new Date().getDay()
   const id = `z2h-${minutes}-${Date.now().toString(36)}`
+  const short = minutes === 15
   if (day === 6) return {
     id, title: 'Saturday: song day', steps: [
-      { title: 'Warm up', minutes: 4, target: { exercise: 'type:warmup' } },
-      { title: 'Learn or polish one song', minutes: Math.max(10, minutes - 10), target: { go: { songs: 'mine' } }, tip: 'Pick one song you love and play it all the way through with the recording.' },
-      { title: 'Record yourself playing it', minutes: 6, target: { play: { open: 'options', focus: 'record' } }, tip: 'Record a full take. Listen back once: what would make it better next week?' },
+      { title: 'Warm up', minutes: short ? 2 : 4, target: { exercise: 'type:warmup' } },
+      { title: 'Learn or polish one song', minutes: short ? 9 : Math.max(10, minutes - 10), target: { go: { songs: 'mine' } }, tip: 'Pick one song you love and play it all the way through with the recording.' },
+      { title: 'Record yourself playing it', minutes: short ? 4 : 6, target: { play: { open: 'options', focus: 'record' } }, tip: 'Record a full take. Listen back once: what would make it better next week?' },
     ],
   }
-  const m = minutes === 20 ? [3, 5, 5, 2, 5] : minutes === 45 ? [5, 10, 12, 5, 13] : [8, 12, 15, 8, 17]
+  const m = short ? [2, 3, 5, 0, 5] : minutes === 20 ? [3, 5, 5, 2, 5] : minutes === 45 ? [5, 10, 12, 5, 13] : [8, 12, 15, 8, 17]
   const focus = [...pathSteps(v), ...currentFocus(v)].filter(f => f.target).slice(0, 3)
   const skill: Step[] = focus.length
     ? focus.slice(0, 3).map((f, i, a) => ({ title: f.label, minutes: Math.max(2, Math.round(m[2] / a.length)), target: f.target!, tip: i === 0 ? TEMPO_RULE : undefined }))
     : [{ title: 'Current phase skill', minutes: m[2], target: { go: { learn: 'course' } } }]
   const ear: Target = v.phase <= 1 ? { go: { quiz: 'fb-low-all' } } : v.phase === 2 ? { go: { tool: 'ear' } } : { go: { quiz: 'fb-all' } }
   return {
-    id, title: `Zero to Hero · ${minutes} minutes`, steps: [
+    id, title: `Zero to Hero · ${minutes} minutes`, steps: ([
       { title: 'Warm-up and technique', minutes: m[0], target: { exercise: 'type:warmup' }, tip: 'Chromatic 1-2-3-4 with the metronome, slow and clean.' },
       { title: 'Chords and rhythm', minutes: m[1], target: { go: { tool: 'changes' } }, tip: 'One-minute changes on your 2 worst chord pairs, then a strum pattern to the metronome.' },
       ...skill,
       { title: 'Fretboard, theory, ear', minutes: m[3], target: ear },
       { title: 'Songs', minutes: m[4], target: { go: { songs: 'mine' } }, tip: 'Whole songs along with the recording. Never skip this block.' },
-    ],
+    ] as Step[]).filter(st => st.minutes > 0),
   }
 }
 

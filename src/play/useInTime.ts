@@ -52,6 +52,10 @@ export function useInTime(a: Args) {
   const [stats, setStats] = useState<RunStats | null>(null)
   const [pass, setPass] = useState<{ n: number; last: RunStats | null; speed: number }>({ n: 0, last: null, speed: 1 })
   const [usingVideo, setUsingVideo] = useState(false)
+  /** beats left in the count-in (4 3 2 1), 0 once the music starts */
+  const [countIn, setCountIn] = useState(0)
+  /** goes up each time the loop starts over (for a flash on the tab) */
+  const [wraps, setWraps] = useState(0)
   const args = useRef(a)
   args.current = a
   const run = useRef<{
@@ -68,6 +72,7 @@ export function useInTime(a: Args) {
     run.current = null
     setRunning(false)
     setCursor(-1)
+    setCountIn(0)
     void keepAwake(false)
     if (finished) {
       const s = scoreRun(r.inRange.map(i => r.results[i]), r.errs)
@@ -132,8 +137,12 @@ export function useInTime(a: Args) {
       const ctx = audio()
       const b = r.clock.beatAt(ctx.currentTime)
       if (b !== null) {
+        // the count-in: big 4 3 2 1 over the tab
+        const ci = b < r.fromBeat - 0.02 ? Math.ceil(r.fromBeat - b - 0.02) : 0
+        setCountIn(ci <= 4 ? ci : 0)
         // a new pass started: clear the marks of the old one
         if (r.loop && b < r.lastBeat - 0.5) {
+          setWraps(w => w + 1)
           for (const i of r.inRange) { r.results[i] = undefined; r.taken.delete(i); args.current.states.current[r.steps[i].flat] = 0 }
           r.errs = []
           args.current.onChange()
@@ -206,5 +215,5 @@ export function useInTime(a: Args) {
   }, [])
 
   useEffect(() => () => stop(), [stop])
-  return { running, cursor, feedback, stats, pass, usingVideo, start, stop, played }
+  return { running, cursor, feedback, stats, pass, usingVideo, start, stop, played, countIn, wraps }
 }

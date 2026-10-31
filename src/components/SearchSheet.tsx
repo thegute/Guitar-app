@@ -12,11 +12,13 @@ import { TAB_SITES } from '../tabs/tabSites'
 import { IconSearch } from './Icons'
 import { plan, type Answer } from '../assistant/plan'
 import { addQuestion, answerTurn, chat, clearChat, history, onChat } from '../assistant/chat'
-import { canSpeak, isSpeaking, onSpeaking, speak, stopSpeaking } from '../assistant/speak'
+import { canSpeak, hasGeminiVoice, isSpeaking, onSpeaking, speak, stopSpeaking } from '../assistant/speak'
 import { usePersist } from './Controls'
 import type { AskContext } from '../assistant/bus'
 import { minutesOf, saveSession, startSession } from '../sessions/session'
 import { applyBeatChange } from '../studio/beat'
+import { playAction } from '../nav'
+import { screenInfo } from '../assistant/screen'
 
 const TRY = ['I want to practise triads today', 'Teach me Marco Cirillo style fingerstyle', 'CAGED with little melodies in between', 'Chord tones and soloing in A minor', 'Make me a trap beat at 140', 'slow it down', 'G7 chord', 'drop D', "it doesn't hear me"]
 const EXAMPLES = ['I want to practise triads today…', 'Help me learn Marco Cirillo style…', 'Chord tones and soloing in G…', 'Make a lo-fi beat at 80 BPM…', 'Why doesn\'t it hear my notes?…', 'Show me a G7 chord…', 'A 20 minute blues session in A…']
@@ -41,7 +43,14 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
   const convo = useRef<HTMLDivElement>(null)
   useEffect(() => { convo.current?.scrollTo({ top: convo.current.scrollHeight, behavior: 'smooth' }) }, [turns])
   useEffect(() => () => stopSpeaking(), [])
-  const say = (a: Answer) => speak([a.reply, ...(a.ideas ?? []), ...(a.session ? [`${a.session.title}, about ${minutesOf(a.session)} minutes.`] : [])].join(' '))
+  const [voiceNote, setVoiceNote] = useState('')
+  // AI answers are read in Gemini's voice (Settings → You → AI helper); the built-in helper keeps the phone's voice
+  const say = (a: Answer) => {
+    setVoiceNote(a.ai && hasGeminiVoice() ? 'Getting Gemini\'s voice…' : '')
+    void speak([a.reply, ...(a.ideas ?? []), ...(a.session ? [`${a.session.title}, about ${minutesOf(a.session)} minutes.`] : [])].join(' '), { gemini: a.ai }).then(w => {
+      setVoiceNote(a.ai && hasGeminiVoice() && w === 'phone' ? 'Gemini\'s voice was busy, so the phone\'s voice read it.' : '')
+    })
+  }
   const list = useRef<HTMLUListElement>(null)
   useEffect(() => {
     let alive = true
@@ -76,6 +85,7 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
   }, [onClose])
   useEffect(() => { list.current?.querySelector(`[data-i="${active}"]`)?.scrollIntoView({ block: 'nearest' }) }, [active])
 
+  const seen = useMemo(() => screenInfo(), [])
   const open = (r: Result) => {
     remember(q.trim())
     onClose()
@@ -107,6 +117,7 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
           <button className="btn sm" onClick={onClose}>Close</button>
         </div>
 
+        {seen && <p className="ask-sees small" data-testid="ask-sees">👀 I can see: {seen.label}. Ask about it ("why is this bar hard?", "loop this bar slower").</p>}
         {!q.trim() && !turns.length && (
           <div className="search-start stack">
             <p className="small muted" style={{ margin: 0 }}>Tip: tap the 🎤 on your phone's keyboard to say it instead of typing. Search or ask in your own words. Ask for a practice session ("triads today"), a beat, a chord or scale, or help with a problem: it finds it and sets it up.</p>
@@ -148,6 +159,7 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
                       </>
                     )}
                     {t.answer.beat && <button className="btn primary sm" onClick={() => { applyBeatChange(t.answer!.beat!); onClose() }}>Apply to my beat</button>}
+                    {t.answer.play && <button className="btn primary sm" onClick={() => { const c = t.answer!.play!; playAction({ ...(c.loop !== undefined ? { loop: c.loop } : {}), ...(c.speed ? { speed: c.speed } : {}) }); onClose() }}>▶ {t.answer.play.label}</button>}
                     {t.answer.open && <button className="btn sm" onClick={() => open(t.answer!.open!)}>Open {t.answer.open.title}</button>}
                     <div className="row" style={{ gap: 6, justifyContent: 'space-between' }}>
                       {t.answer.note ? <span className="small muted">{t.answer.note}</span> : <span />}
@@ -159,6 +171,7 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
             ))}
             <div className="row small" style={{ gap: 8, justifyContent: 'space-between' }}>
               <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={voice} onChange={e => { setVoice(e.target.checked); if (!e.target.checked) stopSpeaking() }} /> Read answers aloud</label>
+              {voiceNote && <span className="small muted">{voiceNote}</span>}
               <button className="btn sm ghost" onClick={() => { stopSpeaking(); clearChat() }}>New conversation</button>
             </div>
           </div>

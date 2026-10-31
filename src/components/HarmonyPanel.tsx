@@ -204,6 +204,8 @@ export function HarmonyPanel(p: Props) {
             <button
               key={i}
               role="listitem"
+              data-chord={sp.name}
+              data-flat={sp.start}
               className={`prog-chip${i === spanIdx ? ' on' : ''}${nextSpan && sp === nextSpan && spans.length > 1 ? ' nxt' : ''}${sp.source === 'guess' ? ' guess' : ''}`}
               onClick={() => { setPinned(i === p.curSpan && pinned === null ? null : i); setEditing(false) }}
             >

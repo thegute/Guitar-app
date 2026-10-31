@@ -9,9 +9,40 @@ import { instr } from '../studio/sounds'
 import { beatChords } from '../studio/practice'
 import { activeProvider, ask, AiError } from './providers'
 import type { AskContext } from './bus'
+import { screenInfo, type ScreenInfo } from './screen'
 
 export interface BeatChange { starter?: string; bpm?: number; key?: string; minor?: boolean; patterns?: string[]; swing?: number }
-export interface Answer { reply: string; session?: Session; open?: Result; beat?: BeatChange; ideas?: string[]; ai: boolean; note?: string }
+/** a change to Play: loop (0-based bars, null = stop) and/or speed; `label` is the button text */
+export interface PlayChange { loop?: { from: number; to: number } | null; speed?: number; label: string }
+export interface Answer { reply: string; session?: Session; open?: Result; beat?: BeatChange; play?: PlayChange; ideas?: string[]; ai: boolean; note?: string }
+
+function playLabel(c: Omit<PlayChange, 'label'>): string {
+  const parts: string[] = []
+  if (c.loop === null) parts.push('Stop looping')
+  else if (c.loop) parts.push(c.loop.from === c.loop.to ? `Loop bar ${c.loop.from + 1}` : `Loop bars ${c.loop.from + 1}–${c.loop.to + 1}`)
+  if (c.speed) parts.push(`${parts.length ? 'at' : 'Speed'} ${Math.round(c.speed * 100)}%`)
+  return parts.join(' ')
+}
+
+/** Without an AI key: quick Play commands ("slower", "loop this bar", "70%") and "what key / chord is this". */
+function playCommand(q: string, info: ScreenInfo | null): Answer | null {
+  const p = info?.play
+  if (!p) return null
+  const t = q.toLowerCase()
+  if (t.split(/\s+/).length > 7 && !/loop bars? \d/.test(t)) return null // a real question, not a quick command
+  const c: Omit<PlayChange, 'label'> = {}
+  const pct = /(\d{2,3})\s*(%|percent)/.exec(t)
+  if (pct) c.speed = Math.max(0.25, Math.min(1.5, Number(pct[1]) / 100))
+  else if (/slow(er| (it )?down)|too fast/.test(t)) c.speed = Math.max(0.25, Math.round((p.speed - 0.1) * 20) / 20)
+  else if (/faster|speed (it )?up|too slow/.test(t)) c.speed = Math.min(1.5, Math.round((p.speed + 0.1) * 20) / 20)
+  if (/(stop|no|turn off|clear)( the)? loop/.test(t)) c.loop = null
+  else if (/loop (this|the|my) bar|loop here|loop it/.test(t)) c.loop = { from: p.bar, to: p.bar }
+  else { const m = /loop bars? (\d+)(?:\s*(?:-|–|to|through)\s*(\d+))?/.exec(t); if (m) { const a = Number(m[1]) - 1, b = Number(m[2] ?? m[1]) - 1; c.loop = { from: Math.max(0, Math.min(a, b)), to: Math.min(p.bars - 1, Math.max(a, b)) } } }
+  if (c.speed !== undefined || c.loop !== undefined) return { reply: `Okay: ${playLabel(c).toLowerCase()}. Tap the button to do it.`, play: { ...c, label: playLabel(c) }, ai: false }
+  if (/what key/.test(t)) return { reply: `This song looks like it's in ${p.key}.`, ai: false }
+  if (/what chord/.test(t) && p.chord) return { reply: `The chord where you are is ${p.chord}. Press and hold the chord name on the tab to see its shape.`, ai: false }
+  return null
+}
 
 const PLACES: [string, string, Target][] = [
   ['tool:caged', 'CAGED explorer (chord shapes all over the neck)', { go: { tool: 'caged' } }],
@@ -67,7 +98,7 @@ function beatIdeas(b: Beat): string[] {
   return out.slice(0, 5)
 }
 
-const SYSTEM = (ctx: AskContext, extra: string, results: Result[]) => `You are the helpful guitar coach inside KGuitar, a guitar practice app. The user is a guitarist who wants plain, friendly, short answers (no jargon, 1-4 sentences; your reply may be read aloud, so write it as speech: no symbols or lists in "reply"). Answer music and guitar questions directly from what you know (theory, technique, gear, how a style works). Today's date: ${new Date().toDateString()}.
+const SYSTEM = (ctx: AskContext, extra: string, results: Result[], screen: ScreenInfo | null) => `You are the helpful guitar coach inside KGuitar, a guitar practice app. The user is a guitarist who wants plain, friendly, short answers (no jargon, 1-4 sentences; your reply may be read aloud, so write it as speech: no symbols or lists in "reply"). Answer music and guitar questions directly from what you know (theory, technique, gear, how a style works). Today's date: ${new Date().toDateString()}.
 You can set things up, but ONLY with these building blocks. Reply with JSON only:
 {"reply": "your answer in plain words",
  "open": "<one id from PLACES or RESULTS to open right away, or null>",
@@ -77,11 +108,14 @@ You can set things up, but ONLY with these building blocks. Reply with JSON only
 Use a session when they want to practise something (3-5 steps, about 20-35 minutes, start with a warm-up). Use "beat" only to change the beat maker. Use "open" for "how do I / where is / show me" questions.
 Step ids you can use: ${PLACES.map(p => p[0]).join(', ')}, ex:<type> with type in [${EX_TYPES.join(', ')}], lick:<style> with style in [${LICKS.join(', ')}], technique:<id> with id in [pick, fret, chords, strum, alternate, mute, pm, legato, slide, bend, barre, travis, melodic], or an id from RESULTS.
 RESULTS (things in the app matching the request): ${results.slice(0, 12).map(r => `${r.id} = ${r.title} (${r.where})`).join('; ') || 'none'}.
-Never invent songs' tabs or lyrics; for a real song, tell them to search its tab (Songsterr / Ultimate Guitar) and open it in Play.${ctx === 'beat' ? '\nThey are in the beat maker now. ' + extra : ''}`
+Never invent songs' tabs or lyrics; for a real song, tell them to search its tab (Songsterr / Ultimate Guitar) and open it in Play.${ctx === 'beat' ? '\nThey are in the beat maker now. ' + extra : ''}${screen ? `\nON THEIR SCREEN RIGHT NOW (use it: "here", "this bar", "this song" mean this): ${screen.summary}` : ''}${screen?.can?.length ? `\nYou may also add "play": {"loop": [firstBar, lastBar] as the bar numbers they see, or null to stop looping, "speed": 0.25-1.5 (1 = full speed)} to change their loop or speed in Play; only when it helps.` : ''}`
 
 export async function plan(q: string, results: Result[], ctx: AskContext = 'general', past: { q: string; a: string }[] = []): Promise<Answer> {
   const beat = ctx === 'beat' ? loadBeat() : null
+  const screen = screenInfo()
   const local = (): Answer => {
+    const pc = playCommand(q, screen)
+    if (pc) return pc
     if (beat && /idea|suggest|better|what (should|can)|next/i.test(q)) return { reply: 'A few ideas for this beat:', ideas: beatIdeas(beat), ai: false }
     const p = builtInPlan(q)
     if (p) return { reply: p.reply, session: p.session, ai: false }
@@ -90,8 +124,8 @@ export async function plan(q: string, results: Result[], ctx: AskContext = 'gene
   }
   if (!activeProvider()) return { ...local(), note: 'Built-in helper. Add a free AI key in Settings → You → AI helper for smarter answers.' }
   try {
-    const raw = await ask(SYSTEM(ctx, beat ? beatSummary(beat) : '', results), [...past.flatMap(p => [{ role: 'user' as const, text: p.q }, { role: 'assistant' as const, text: JSON.stringify({ reply: p.a }) }]), { role: 'user', text: q }], { json: true, maxTokens: 1200 })
-    const j = JSON.parse(raw.replace(/^[^{]*/, '').replace(/[^}]*$/, '')) as { reply?: string; open?: string | null; session?: { title: string; steps: { title: string; minutes: number; use: string; tip?: string }[] } | null; beat?: BeatChange | null; ideas?: string[] | null }
+    const raw = await ask(SYSTEM(ctx, beat ? beatSummary(beat) : '', results, screen), [...past.flatMap(p => [{ role: 'user' as const, text: p.q }, { role: 'assistant' as const, text: JSON.stringify({ reply: p.a }) }]), { role: 'user', text: q }], { json: true, maxTokens: 1200 })
+    const j = JSON.parse(raw.replace(/^[^{]*/, '').replace(/[^}]*$/, '')) as { reply?: string; open?: string | null; session?: { title: string; steps: { title: string; minutes: number; use: string; tip?: string }[] } | null; beat?: BeatChange | null; play?: { loop?: number[] | null; speed?: number | null } | null; ideas?: string[] | null }
     const ans: Answer = { reply: j.reply || 'Here you go.', ai: true }
     if (j.open) { const r = results.find(x => x.id === j.open); const t = r ? null : targetOf(j.open, results); ans.open = r ?? (t ? { id: j.open, kind: 'feature', title: PLACES.find(p => p[0] === j.open)?.[1] ?? j.open, where: '', text: '', target: t, score: 100 } : undefined) }
     if (j.session?.steps?.length) {
@@ -104,6 +138,14 @@ export async function plan(q: string, results: Result[], ctx: AskContext = 'gene
     }
     if (j.beat && ctx === 'beat') ans.beat = { ...j.beat, patterns: (j.beat.patterns ?? []).filter(p => PATTERNS.some(x => x.id === p)) }
     if (j.ideas?.length) ans.ideas = j.ideas.slice(0, 6)
+    if (j.play && screen?.can?.length) {
+      const c: Omit<PlayChange, 'label'> = {}
+      const n = screen.play?.bars ?? 999
+      if (j.play.loop === null) c.loop = null
+      else if (Array.isArray(j.play.loop) && j.play.loop.length) { const a = Math.round(j.play.loop[0]) - 1, b = Math.round(j.play.loop[1] ?? j.play.loop[0]) - 1; c.loop = { from: Math.max(0, Math.min(a, b)), to: Math.min(n - 1, Math.max(a, b)) } }
+      if (typeof j.play.speed === 'number' && j.play.speed > 0) c.speed = Math.max(0.25, Math.min(1.5, j.play.speed))
+      if (c.loop !== undefined || c.speed !== undefined) ans.play = { ...c, label: playLabel(c) }
+    }
     return ans
   } catch (e) {
     return { ...local(), note: e instanceof AiError ? `${e.message} (Answered with the built-in helper.)` : 'The AI answer didn\'t come through, so this is the built-in helper.' }

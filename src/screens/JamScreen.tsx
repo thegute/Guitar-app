@@ -40,6 +40,7 @@ import { Zoomable } from '../components/Zoomable'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { PsyPic } from '../components/PsyArt'
 import { pc } from '../theory/notes'
+import { useScreenInfo } from '../assistant/screen'
 
 const StudioScreen = lazy(() => import('../studio/StudioScreen').then(m => ({ default: m.StudioScreen })))
 
@@ -98,6 +99,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [optionsOpen, setOptionsOpen] = usePersist('jamOptionsOpen', false)
   const [page, setPage] = useSubTab('jam', ['jam', 'solo', 'tab', 'find', 'beats'] as const)
   const [prog, setProg] = usePersist<ProgChord[]>('jamProg', [])
+  useScreenInfo('jam', { label: `Jam: ${prog.map(c => c.symbol).join(' ') || 'no chords yet'} in ${tonic} ${mode}`, summary: `In Jam with a ${style === 'any' ? '' : style + ' '}progression in ${tonic} ${mode}: ${prog.map(c => `${c.symbol} (${c.roman})`).join(', ') || 'none yet'}, at ${bpm} BPM.` })
   const [shapeIdx, setShapeIdx] = useState<number[]>([])
   const [locks, setLocks] = useState<boolean[]>([])
   const [selected, setSelected] = useState(0)

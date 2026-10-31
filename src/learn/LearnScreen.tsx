@@ -16,7 +16,7 @@ import { buildExercise, ESSENTIALS } from '../tabs/exercises'
 import { exerciseCatalog } from '../exercises/catalog'
 import { VideoLessons } from '../lessons/VideoLessons'
 import { lessonsAvailable } from '../lessons/folders'
-import { getSong, refreshBuiltIn, type SongDoc } from '../tabs/library'
+import { getSong, refreshBuiltIn, type SongDoc, saveSong } from '../tabs/library'
 import { loadSongbookDoc } from '../tabs/songbookDocs'
 import { profile, profileSkipped, skipProfile } from './profile'
 import { ProfileForm } from '../components/ProfileForm'
@@ -43,6 +43,8 @@ import { ProgressView } from './ProgressView'
 import { Settings } from './Settings'
 import { GuideScreen } from './GuideScreen'
 import { LickLibrary } from './LickLibrary'
+import { LickChainer } from '../components/LickChainer'
+import { JumpBackIn } from '../components/JumpBackIn'
 import { LESSONS } from './lessons'
 import { lastBackup } from '../backup'
 import { ago } from '../components/BackupPanel'
@@ -50,7 +52,7 @@ import { ago } from '../components/BackupPanel'
 type Route =
   | { k: 'home' } | { k: 'quiz'; id: string } | { k: 'lesson'; id: string } | { k: 'lessons' } | { k: 'ear' } | { k: 'caged' }
   | { k: 'changes' } | { k: 'rhythm' } | { k: 'circle' } | { k: 'progress' } | { k: 'settings'; n?: number } | { k: 'guide'; sec?: string }
-  | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' } | { k: 'licks'; sel?: string } | { k: 'videos' } | { k: 'recordings' }
+  | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' } | { k: 'licks'; sel?: string } | { k: 'videos' } | { k: 'recordings' } | { k: 'chainer' }
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -204,6 +206,13 @@ export function LearnScreen() {
   if (route.k === 'rhythm') return <RhythmTrainer onExit={back} />
   if (route.k === 'videos') return <VideoLessons onExit={back} />
   if (route.k === 'recordings') return <MyRecordings onExit={back} onRecord={() => launch({ tab: 'play' })} />
+  if (route.k === 'chainer') return (
+    <div className="stack">
+      <div className="row"><button className="btn sm" onClick={back}>← Back</button></div>
+      <h1 style={{ margin: 0 }}>Lick chainer</h1>
+      <LickChainer onOpen={d => { void saveSong(d).then(() => openInPlay(d)) }} />
+    </div>
+  )
   if (route.k === 'licks') return <LickLibrary key={route.sel ?? ''} initial={route.sel} onExit={back} />
   if (route.k === 'circle') return <CircleTool onExit={back} onQuiz={id => push({ k: 'quiz', id })} />
   if (route.k === 'progress') return <ProgressView inst={inst} onExit={back} />
@@ -251,6 +260,7 @@ export function LearnScreen() {
     { title: 'Play better', tools: [
       { id: 'techniques', title: 'Technique', sub: `${techniquesDone().size} of ${TECHNIQUES.length} skills practised` },
       { id: 'licks', title: 'Must-know licks', sub: `${LICK_STYLES.length} styles, explained step by step` },
+      { id: 'chainer', title: 'Lick chainer', sub: 'Line up licks into a solo' },
       { id: 'bends', title: 'Bends & vibrato', sub: 'Bend to pitch with a needle', needs: true },
       { id: 'changes', title: 'Chord changes', sub: changesBest ? `Best: ${changesBest} a minute` : 'One-minute drill', needs: true },
       { id: 'rhythm', title: 'Rhythm trainer', sub: 'Listen, then tap it back' },
@@ -288,6 +298,7 @@ export function LearnScreen() {
         { id: 'explore', label: 'Explore' },
       ]} />
 
+      {page === 'today' && <JumpBackIn />}
       {page === 'today' && <WinArea area="learnToday" className="win-cols">
       <Win id="today" title="Today" className="today-win" bodyClass={`today-card${counted ? ' counted' : ''}`} resizable={false}>
         <div className="pick-wrap">
@@ -481,7 +492,7 @@ export function LearnScreen() {
 // Psychedelic mode: a samurai dog sticker on each Learn tool.
 const BADGES: Record<string, DogId> = {
   techniques: 'shepherd', licks: 'rottweiler', bends: 'doberman', changes: 'boxer', rhythm: 'shiba', lessons: 'akita', ear: 'husky',
-  caged: 'frenchie', circle: 'golden', progress: 'muscle', guide: 'lab', songbook: 'princess', exercises: 'husky', videos: 'akita',
+  caged: 'frenchie', circle: 'golden', progress: 'muscle', guide: 'lab', songbook: 'princess', exercises: 'husky', videos: 'akita', chainer: 'golden', recordings: 'lab',
 }
 function ToolBadge({ id }: { id: string }) {
   const b = BADGES[id]

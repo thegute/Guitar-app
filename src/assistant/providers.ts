@@ -34,13 +34,22 @@ export function activeProvider(v = aiSettings(), needPictures = false): Provider
   return PROVIDERS.find(ok) ?? null
 }
 
-async function post(url: string, headers: Record<string, string>, body: unknown): Promise<{ status: number; data: unknown }> {
+class Timeout extends Error {}
+export async function post(url: string, headers: Record<string, string>, body: unknown, timeoutMs = 30000): Promise<{ status: number; data: unknown }> {
   if (Capacitor.isNativePlatform()) {
-    const r = await CapacitorHttp.request({ url, method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, data: body, readTimeout: 90000, connectTimeout: 15000 })
+    const call = CapacitorHttp.request({ url, method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, data: body, readTimeout: timeoutMs, connectTimeout: 10000 })
+    const r = await Promise.race([call, new Promise<never>((_, no) => setTimeout(() => no(new Timeout()), timeoutMs + 2000))])
     return { status: r.status, data: typeof r.data === 'string' ? safeJson(r.data) : r.data }
   }
-  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) })
-  return { status: r.status, data: safeJson(await r.text()) }
+  const ac = new AbortController()
+  const t = setTimeout(() => ac.abort(), timeoutMs)
+  try {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body), signal: ac.signal })
+    return { status: r.status, data: safeJson(await r.text()) }
+  } catch (e) {
+    if (ac.signal.aborted) throw new Timeout()
+    throw e
+  } finally { clearTimeout(t) }
 }
 async function get(url: string, headers: Record<string, string>): Promise<{ status: number; data: unknown }> {
   if (Capacitor.isNativePlatform()) {
@@ -53,43 +62,74 @@ async function get(url: string, headers: Record<string, string>): Promise<{ stat
 function safeJson(t: string): unknown { try { return JSON.parse(t) } catch { return t } }
 
 export interface Msg { role: 'user' | 'assistant'; text: string; image?: { mime: string; b64: string } }
-export class AiError extends Error {}
+/** `retry`: worth trying again or with another model (busy, overloaded, timed out) */
+export class AiError extends Error { constructor(m: string, public retry = false) { super(m) } }
 
 function why(status: number, data: unknown, p: ProviderInfo): string {
   const raw = JSON.stringify(data ?? '').slice(0, 300)
   if (status === 401 || status === 403 || /API key not valid|invalid.*key|Incorrect API key/i.test(raw)) return `${p.label} didn't accept the key. Check it in Settings → You → AI helper.`
   if (status === 429 || /quota|rate/i.test(raw)) return `${p.label}'s free limit is used up for now. Try again later, or add another free key (Groq or OpenRouter) as a backup.`
   if (status === 402 || /credit|billing/i.test(raw)) return `${p.label} says the account has no credit.`
+  if (status === 503 || status === 500 || status === 504 || status === 529 || /overloaded|UNAVAILABLE/i.test(raw)) return `${p.label}'s servers are busy right now (error ${status}).`
   return `${p.label} didn't answer (error ${status}).`
 }
+const busy = (status: number) => status === 500 || status === 502 || status === 503 || status === 504 || status === 529
+/** Gemini models to fall back to, fastest first, when the chosen one is busy */
+const GEMINI_BACKUP = ['gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-flash-latest']
+const wait = (ms: number) => new Promise(r => setTimeout(r, ms))
 
-/** Ask the AI. `system` sets the job; the last message can carry a picture. */
+/** Ask the AI. `system` sets the job; the last message can carry a picture. If the AI is busy (Google's free servers
+ *  often are), it tries once more, then a lighter model, then your other free key, before giving up. */
 export async function ask(system: string, msgs: Msg[], o: { pictures?: boolean; json?: boolean; maxTokens?: number } = {}): Promise<string> {
   const v = aiSettings()
   const p = activeProvider(v, !!o.pictures)
   if (!p) throw new AiError(o.pictures ? 'Reading pictures needs a free Google Gemini or Groq key: add one in Settings → You → AI helper.' : 'No AI key yet: add a free one in Settings → You → AI helper.')
-  const key = v.keys[p.id]!
   const hasImage = msgs.some(m => m.image)
-  const model = (hasImage && VISION[p.id]) || v.models[p.id] || p.model
+  const first = (hasImage && VISION[p.id]) || v.models[p.id] || p.model
+  const tries: { p: ProviderInfo; model: string }[] = [{ p, model: first }, { p, model: first }]
+  if (p.id === 'gemini' && !hasImage) for (const m of GEMINI_BACKUP) if (m !== first) tries.push({ p, model: m })
+  for (const q of PROVIDERS) if (q.id !== p.id && v.keys[q.id] && (q.free || q.id === v.provider) && (!o.pictures || q.pictures)) tries.push({ p: q, model: (hasImage && VISION[q.id]) || v.models[q.id] || q.model })
+  const started = Date.now()
+  let last: AiError | null = null
+  for (let i = 0; i < tries.length; i++) {
+    // give up after about 45 seconds in all: the built-in helper answers instead
+    if (i > 0 && Date.now() - started > 45000) break
+    if (i === 1) await wait(1200)
+    try {
+      return await askOnce(tries[i].p, tries[i].model, v.keys[tries[i].p.id]!, system, msgs, o, hasImage ? 60000 : 25000)
+    } catch (e) {
+      last = e instanceof AiError ? e : new AiError(`Couldn't reach ${tries[i].p.label}. Check the internet connection.`)
+      if (!last.retry) break
+    }
+  }
+  throw last ?? new AiError('The AI helper didn\'t answer.')
+}
+
+async function askOnce(p: ProviderInfo, model: string, key: string, system: string, msgs: Msg[], o: { json?: boolean; maxTokens?: number }, timeoutMs: number): Promise<string> {
   const max = o.maxTokens ?? 2048
+  const fail = (r: { status: number; data: unknown }) => new AiError(why(r.status, r.data, p), busy(r.status) || r.status === 404)
   let r: { status: number; data: unknown }
   try {
     if (p.id === 'gemini') {
+      // 2.5 Flash "thinks" before answering by default: slow, and the thinking can eat the whole answer. Off for chat.
+      const think = /2\.5-flash/.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {}
       r = await post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {}, {
         systemInstruction: { parts: [{ text: system }] },
         contents: msgs.map(m => ({ role: m.role === 'user' ? 'user' : 'model', parts: [...(m.image ? [{ inline_data: { mime_type: m.image.mime, data: m.image.b64 } }] : []), { text: m.text }] })),
-        generationConfig: { maxOutputTokens: max, ...(o.json ? { responseMimeType: 'application/json' } : {}) },
-      })
-      if (r.status >= 300) throw new AiError(why(r.status, r.data, p))
+        generationConfig: { maxOutputTokens: max, ...think, ...(o.json ? { responseMimeType: 'application/json' } : {}) },
+      }, timeoutMs)
+      if (r.status >= 300) throw fail(r)
       const d = r.data as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
-      return d.candidates?.[0]?.content?.parts?.map(x => x.text ?? '').join('') ?? ''
+      const text = d.candidates?.[0]?.content?.parts?.map(x => x.text ?? '').join('') ?? ''
+      if (!text.trim()) throw new AiError(`${p.label} sent an empty answer.`, true)
+      return text
     }
     if (p.id === 'claude') {
       r = await post('https://api.anthropic.com/v1/messages', { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }, {
         model, max_tokens: max, system,
         messages: msgs.map(m => ({ role: m.role, content: [...(m.image ? [{ type: 'image', source: { type: 'base64', media_type: m.image.mime, data: m.image.b64 } }] : []), { type: 'text', text: m.text }] })),
-      })
-      if (r.status >= 300) throw new AiError(why(r.status, r.data, p))
+      }, timeoutMs)
+      if (r.status >= 300) throw fail(r)
       const d = r.data as { content?: { type: string; text?: string }[] }
       return d.content?.filter(c => c.type === 'text').map(c => c.text).join('') ?? ''
     }
@@ -97,12 +137,13 @@ export async function ask(system: string, msgs: Msg[], o: { pictures?: boolean; 
     r = await post(url, { Authorization: `Bearer ${key}`, ...(p.id === 'openrouter' ? { 'X-Title': 'KGuitar' } : {}) }, {
       model, max_tokens: max, ...(o.json ? { response_format: { type: 'json_object' } } : {}),
       messages: [{ role: 'system', content: system }, ...msgs.map(m => ({ role: m.role, content: m.image ? [{ type: 'text', text: m.text }, { type: 'image_url', image_url: { url: `data:${m.image.mime};base64,${m.image.b64}` } }] : m.text }))],
-    })
-    if (r.status >= 300) throw new AiError(why(r.status, r.data, p))
+    }, timeoutMs)
+    if (r.status >= 300) throw fail(r)
     const d = r.data as { choices?: { message?: { content?: string } }[] }
     return d.choices?.[0]?.message?.content ?? ''
   } catch (e) {
     if (e instanceof AiError) throw e
+    if (e instanceof Timeout) throw new AiError(`${p.label} took too long to answer.`, true)
     throw new AiError(`Couldn't reach ${p.label}. Check the internet connection.`)
   }
 }

@@ -7,6 +7,8 @@ import { TabFromPicture } from '../assistant/TabFromPicture'
 import { Fold, HintHead } from '../components/Fold'
 import { Songbook } from '../components/Songbook'
 import { ProgressionTabs } from '../components/ProgressionTabs'
+import { LickChainer } from '../components/LickChainer'
+import { JumpBackIn } from '../components/JumpBackIn'
 import { LickMaker } from '../components/LickMaker'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { PsyDog, PsyDogCard, PsyStrip } from '../components/PsyArt'
@@ -55,6 +57,7 @@ export function SongsScreen() {
         { id: 'practice', label: 'Exercises' },
         { id: 'add', label: 'Add a song' },
       ]} />
+      {page === 'mine' && <JumpBackIn compact />}
       {page === 'mine' && <MySongs songs={songs} currentId={currentId} onOpen={open} refresh={refresh} onAdd={() => setPage('add')} onSongbook={() => setPage('songbook')} />}
       {page === 'songbook' && <Songbook currentId={currentId} onOpen={open} />}
       {page === 'practice' && <PracticePage currentId={currentId} onOpen={open} />}
@@ -149,6 +152,7 @@ function PracticePage({ currentId, onOpen }: { currentId: string; onOpen: (d: So
     <WinArea area="exercises">
       <ExerciseBrowser />
       <Win id="ex-picking" title="Fingerpicking patterns" className="panel"><PickingSection onOpen={saveOpen} /></Win>
+      <Win id="ex-chain" title="Lick chainer" className="panel"><LickChainer onOpen={saveOpen} /></Win>
       <Win id="ex-licks" title="Lick maker" className="panel"><LickMaker onOpen={saveOpen} /></Win>
       <Win id="ex-examples" title="Example songs" className="panel">
         <ul className="song-list">

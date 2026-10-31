@@ -117,7 +117,10 @@ const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, f
         <rect key={flashKey} className="tab-hitflash" x={xs[flash] - widths[flash] / 2 + 1} y={yTop - 9} width={widths[flash] - 2} height={yBot - yTop + 18} rx={5} />
       )}
       {chords.map(c => (
-        <text key={c.at} className={`tab-chord${c.guess ? ' guess' : ''}`} x={xs[c.at] - widths[c.at] / 2 + 2} y={24}>{c.name}</text>
+        <g key={c.at} className="tab-chord-hit" data-chord={c.name} data-flat={start + c.at}>
+          <rect x={xs[c.at] - widths[c.at] / 2} y={2} width={Math.max(widths[c.at], c.name.length * 9 + 12)} height={30} fill="transparent" />
+          <text className={`tab-chord${c.guess ? ' guess' : ''}`} x={xs[c.at] - widths[c.at] / 2 + 2} y={24}>{c.name}</text>
+        </g>
       ))}
       {/* a bar with nothing to play gets a whole-bar rest, so it doesn't look like missing tab */}
       {first && final && bar.steps.every(s => !s.notes.length) && nStr > 2 && (

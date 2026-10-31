@@ -1,6 +1,7 @@
 // Settings → You → AI helper: paste a free key (Gemini, Groq or OpenRouter), or a paid one, and pick which to use.
 import { useEffect, useState } from 'react'
 import { PROVIDERS, aiSettings, listModels, onAiChange, saveAiSettings, type ProviderId } from './providers'
+import { GEMINI_VOICES, geminiVoice, setGeminiVoice, tryGeminiVoice } from './speak'
 
 export function AiSetup({ compact = false }: { compact?: boolean }) {
   const [v, setV] = useState(aiSettings)
@@ -53,6 +54,29 @@ export function AiSetup({ compact = false }: { compact?: boolean }) {
           </div>
         )
       })}
+      {!compact && v.keys.gemini && <GeminiVoice />}
+    </div>
+  )
+}
+
+/** Which voice reads Gemini's answers aloud. The built-in helper always uses the phone's own voice. */
+function GeminiVoice() {
+  const [voice, setVoice] = useState(geminiVoice)
+  const [note, setNote] = useState('')
+  const pick = (id: string) => { setVoice(id); setGeminiVoice(id); setNote('') }
+  const test = async () => { setNote('Getting the voice…'); setNote(await tryGeminiVoice(voice) ? '' : 'Gemini\'s voice didn\'t come through just now (busy or offline). Try again in a moment.') }
+  return (
+    <div className="ai-prov stack" style={{ gap: 6 }}>
+      <b>Gemini's voice</b>
+      <span className="small muted">When Gemini answers and "Read answers aloud" is on, it speaks in this voice. The built-in helper keeps the phone's own voice, so you can tell them apart.</span>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+        <select className="select" value={voice} onChange={e => pick(e.target.value)} aria-label="Gemini's voice">
+          {GEMINI_VOICES.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}
+          <option value="phone">The phone's voice</option>
+        </select>
+        {voice !== 'phone' && <button className="btn sm" onClick={() => void test()}>▶ Hear it</button>}
+      </div>
+      {note && <span className="small" role="status">{note}</span>}
     </div>
   )
 }

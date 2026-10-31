@@ -18,6 +18,8 @@ import { keyPrefersFlats, pc } from '../theory/notes'
 import { lickById } from '../licks/library'
 import { EX_TYPES, LEVELS, TECHS, exerciseCatalog, keyName, keysFor, type Exercise, type Level } from './catalog'
 import { spell } from './build'
+import { useScreenInfo } from '../assistant/screen'
+import { suggestExercises } from './suggest'
 
 interface Filters { level: 'all' | Level; type: string; tech: string; fav: boolean }
 const NO_FILTER: Filters = { level: 'all', type: 'all', tech: 'all', fav: false }
@@ -73,6 +75,25 @@ export function ExerciseBrowser() {
   const techsHere = useMemo(() => TECHS.filter(t => all.some(e => e.tech.includes(t.id))), [all])
   const groups = useMemo(() => [...new Set(EX_TYPES.map(t => t.group))].map(g => ({ g, types: EX_TYPES.filter(t => t.group === g && typeCounts.has(t.id)) })), [typeCounts])
 
+  const sugg = useMemo(() => suggestExercises(all, inst.id === 'guitar'), [all, inst.id])
+  const showSugg = (c: string) => {
+    setF(NO_FILTER); setCode(c)
+    setTimeout(() => document.querySelector('[data-win="ex-pick"]')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
+  }
+  const suggWin = (
+    <Win id="ex-sugg" title="Suggested for you" className="panel" resizable={false}>
+      <div className="ex-sugg">
+        {sugg.map(s => (
+          <button key={s.ex.code} className={`ex-sugg-card${s.ex.code === code ? ' on' : ''}`} onClick={() => showSugg(s.ex.code)}>
+            <span className="small muted">{s.why}</span>
+            <b>{s.ex.name}</b>
+            <span className="small muted">{LEVELS[s.ex.level]} · {EX_TYPES.find(t => t.id === s.ex.type)?.label ?? s.ex.type}</span>
+          </button>
+        ))}
+      </div>
+      <span className="small muted">Or find any of the {all.length} exercises below.</span>
+    </Win>
+  )
   if (!ex) {
     return (
       <div className="stack ex-browser">
@@ -113,7 +134,7 @@ export function ExerciseBrowser() {
   )
   return (
     <div className="stack ex-browser" style={{ gap: 10 }}>
-      <ExerciseView key={ex.code + inst.id + inst.tuning.id} ex={ex} controls={controls} filters={filters}
+      <ExerciseView key={ex.code + inst.id + inst.tuning.id} ex={ex} controls={controls} filters={filters} top={suggWin}
         root={keys[ex.code] ?? ex.key ?? 'C'} setRoot={k => setKeys({ ...keys, [ex.code]: k })}
         bpm={tempos[ex.code] ?? ex.bpm} setBpm={b => setTempos({ ...tempos, [ex.code]: b })}
         soundPick={soundPick} setSoundPick={setSoundPick}
@@ -154,16 +175,17 @@ function FilterBar({ f, setF, groups, techs, typeCounts }: { f: Filters; setF: (
 }
 
 interface ViewProps {
-  ex: Exercise; controls: ReactNode; filters: ReactNode; root: string; setRoot: (k: string) => void; bpm: number; setBpm: (b: number) => void
+  ex: Exercise; controls: ReactNode; filters: ReactNode; top?: ReactNode; root: string; setRoot: (k: string) => void; bpm: number; setBpm: (b: number) => void
   soundPick: 'auto' | SoundId; setSoundPick: (s: 'auto' | SoundId) => void
   countIn: boolean; setCountIn: (v: boolean) => void; metro: boolean; setMetro: (v: boolean) => void; loop: boolean; setLoop: (v: boolean) => void
 }
 
-function ExerciseView({ ex, controls, filters, root: rootPref, setRoot, bpm, setBpm, soundPick, setSoundPick, countIn, setCountIn, metro, setMetro, loop, setLoop }: ViewProps) {
+function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm, setBpm, soundPick, setSoundPick, countIn, setCountIn, metro, setMetro, loop, setLoop }: ViewProps) {
   const inst = useInstrument()
   const keyList = useMemo(() => keysFor(ex, inst), [ex, inst])
   const root = ex.key ? (keyList.includes(rootPref) ? rootPref : keyList.includes(ex.key) ? ex.key : keyList[0] ?? ex.key) : 'C'
   const song: Song | null = useMemo(() => { try { return ex.make({ root, inst, bpm }) } catch { return null } }, [ex, root, inst, bpm])
+  useScreenInfo('exercise', { label: `Exercise ${ex.code} "${ex.name}"${ex.key ? ` in ${keyName(root, ex.minor)}` : ''} at ${bpm} BPM`, summary: `In Exercises, looking at ${ex.code} "${ex.name}" (${LEVELS[ex.level]}, ${EX_TYPES.find(t => t.id === ex.type)?.label ?? ex.type}): ${ex.about}${ex.key ? ` Key ${keyName(root, ex.minor)}.` : ''} Tempo ${bpm} BPM (suggested ${ex.bpm}).` })
   const track = song?.tracks[0]
   const flat = useMemo(() => (track ? flatten(track) : []), [track])
   const states = useMemo(() => new Uint8Array(flat.length), [flat])
@@ -271,6 +293,7 @@ function ExerciseView({ ex, controls, filters, root: rootPref, setRoot, bpm, set
   const misfit = <p className="notice">This one doesn't fit your {inst.noun} in this key. Try another key, or the next exercise.</p>
   return (
     <>
+      {top}
       <Win id="ex-find" title="Find an exercise" className="panel ex-controls" bodyClass="stack">
       {filters}
       </Win>

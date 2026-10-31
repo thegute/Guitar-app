@@ -12,6 +12,10 @@ export interface PlayAction {
   /** open the Options sheet, the video, the song check, start picking loop bars, or show Scales & chords */
   open?: 'options' | 'video' | 'check' | 'loop' | 'solo'
   focus?: PlayFocus
+  /** loop these bars (0-based, inclusive), or null to stop looping */
+  loop?: { from: number; to: number } | null
+  /** playback speed, 1 = the song's tempo */
+  speed?: number
 }
 export type JamPage = 'jam' | 'solo' | 'tab' | 'find' | 'beats'
 export interface JamTarget { key?: string; mode?: ModeId; style?: Style; bpm?: number; page?: JamPage }

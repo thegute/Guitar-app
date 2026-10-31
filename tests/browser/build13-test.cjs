@@ -277,7 +277,7 @@ async function play(browser) {
   // a Guitar Pro file whose part comes in late: the empty bars become one rest block
   if (fs.existsSync(`${DIR}/late.gp`)) {
     await songsPage(page, 'Add a song')
-    await page.locator('.songs-screen input[type=file]').setInputFiles(`${DIR}/late.gp`)
+    await page.locator('.songs-screen input[type=file]:not([accept])').setInputFiles(`${DIR}/late.gp`)
     await page.waitForSelector('.play-head', { timeout: 8000 }).catch(() => {})
     await page.waitForSelector('.tab-note', { timeout: 8000 })
     await page.locator('.song-check button:has-text("Got it")').click().catch(() => {})

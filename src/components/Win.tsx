@@ -39,7 +39,13 @@ export function WinArea({ area, children, className = '', defaultHidden = [] }: 
   const register = useCallback((id: string, title: string) => {
     if (!regOrder.current.includes(id)) regOrder.current.push(id)
     setTitles(t => (t[id] === title ? t : { ...t, [id]: title }))
-    set(l => (l.order.includes(id) ? l : { ...l, order: [...l.order, id] }))
+    // a new window: in its place on the page, unless you've rearranged the windows yourself (then at the end)
+    set(l => {
+      if (l.order.includes(id)) return l
+      if (l.moved) return { ...l, order: [...l.order, id] }
+      const at = (x: string) => { const i = regOrder.current.indexOf(x); return i < 0 ? 999 : i }
+      return { ...l, order: [...l.order, id].sort((a, b) => at(a) - at(b)) }
+    })
   }, [set])
   const unregister = useCallback((id: string) => setTitles(t => { const n = { ...t }; delete n[id]; return n }), [])
   // drag a window by its ☰ grip: it swaps places with the window under your finger

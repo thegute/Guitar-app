@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PsyDog } from '../components/PsyArt'
 import { TabView, type LabelMode } from '../components/TabView'
 import { ChordDiagram } from '../components/ChordDiagram'
+import { useChordPeek } from '../components/ChordPeek'
 import { YouTubePlayer } from '../components/YouTubePlayer'
 import { HarmonyPanel, stringLabel } from '../components/HarmonyPanel'
 import { Chips, usePersist } from '../components/Controls'
@@ -29,7 +30,7 @@ import { recordRun } from '../play/songStats'
 import { useFoldPosture } from '../play/fold'
 import type { VideoApi } from '../play/inTime'
 import { exampleDoc } from '../tabs/examples'
-import { playNote, strum, SOUNDS, activeSound, onSoundChange, setSoundChoice, soundChoice, soundForProgram, soundInfo, loadSound, type SoundId } from '../audio/pluck'
+import { playNote, strum, SOUNDS, activeSound, onSoundChange, setSoundChoice, soundChoice, soundForProgram, soundInfo, loadSound, soundLoaded, type SoundId } from '../audio/pluck'
 import { audio, keepAwake } from '../audio/engine'
 import { TabPlayer } from '../audio/tabPlayer'
 import { keyPrefersFlats, pcName } from '../theory/notes'
@@ -50,6 +51,7 @@ import { bandByStep, bandEvents, hasBand } from '../audio/band'
 import { SongCheckCard, RetuneNotice } from '../components/SongCheckCard'
 import { profile } from '../learn/profile'
 import { Zoomable } from '../components/Zoomable'
+import { useScreenInfo } from '../assistant/screen'
 
 
 type View = 'tab' | 'solo' | 'both'
@@ -142,6 +144,7 @@ export function PlayScreen() {
   const [live, setLive] = useState<number | null>(null)
   const [input, setInput] = useState<{ label: string; external: boolean } | null>(null)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
+  const lastMiss = useRef<{ heard: number; want: number[]; bar: number; chordText?: string } | null>(null)
   const [inspect, setInspect] = useState<SongNote | null>(null)
   const [pos, setPos] = useState(0)
   const [version, setVersion] = useState(0)
@@ -149,6 +152,7 @@ export function PlayScreen() {
   const [pulse, setPulse] = useState<{ ok: boolean; key: number } | null>(null)
   const [selecting, setSelecting] = useState<null | { first?: number }>(null)
   const [passes, setPasses] = useState<{ n: number; last: number | null; best: number | null }>({ n: 0, last: null, best: null })
+  const [loopBlink, setLoopBlink] = useState<{ k: number; text: string } | null>(null)
   const states = useRef<Uint8Array>(new Uint8Array(0))
   const [gearOpen, setGearOpen] = useState(false)
   useGear()
@@ -226,6 +230,13 @@ export function PlayScreen() {
   const track = doc?.song.tracks[trackIdx] ?? null
   docRef.current = doc
   const flat = useMemo(() => (track ? flatten(track) : []), [track])
+  // press a chord name (tab or chord strip) to peek at its shape without stopping anything
+  const peek = useChordPeek(playRef, inst, fi => {
+    const st = flat[fi]?.step
+    if (!st || !track) return null
+    const ns = st.notes.filter(n => n.tech !== 'x')
+    return ns.length >= 3 ? track.tuning.map((_, s) => ns.find(n => n.string === s)?.fret ?? -1) : null
+  }, !!doc && !!track)
   const hands = useMemo(() => handGroups(flat), [flat])
   const follow = useMemo(() => {
     const idx: number[] = []
@@ -385,6 +396,8 @@ export function PlayScreen() {
     const { pos, follow } = ref.current
     const fi = follow.idx[pos]
     if (fi !== undefined && states.current[fi] === 0) states.current[fi] = 3
+    const fs = fi !== undefined ? ref.current.flat[fi] : undefined
+    lastMiss.current = { heard, want: fs ? playable(fs.step).map(n => n.midi) : [], bar: fs ? fs.bar : -1, chordText }
     setFeedback({ ok: false, heard, chordText, chordHelp: help })
     setPulse(p => ({ ok: false, key: (p?.key ?? 0) + 1 }))
     setVersion(v => v + 1)
@@ -520,6 +533,9 @@ export function PlayScreen() {
       saveRun(s.score, 'time', speed, !loop && s.total > 0, loop ? [loop.from, loop.to] : undefined)
     },
   })
+  // a quick "again" flash on the tab each time the loop goes round (Wait for me and In time)
+  useEffect(() => { if (passes.n > 0) setLoopBlink(b => ({ k: (b?.k ?? 0) + 1, text: `⟲ Again${passes.last !== null ? ` · last time ${passes.last}%` : ''}` })) }, [passes.n]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (inTime.wraps > 0 && inTime.running) setLoopBlink(b => ({ k: (b?.k ?? 0) + 1, text: `⟲ Again${inTime.pass.last ? ` · last time ${inTime.pass.last.score}%` : ''}` })) }, [inTime.wraps]) // eslint-disable-line react-hooks/exhaustive-deps
   const inTimeRef = useRef(inTime)
   inTimeRef.current = inTime
   const modeRef = useRef(mode)
@@ -558,8 +574,16 @@ export function PlayScreen() {
     hearIt: () => preview(),
     video: () => { const v = video.current; if (v) (v.playing() ? v.pause() : v.play()) },
   })
-  function preview() {
+  const [loadingSnd, setLoadingSnd] = useState(false)
+  function preview(loaded = false) {
     if (playAt >= 0) { stopPreview(); return }
+    if (loadingSnd) return
+    // the guitar's recorded sounds aren't in yet: say so on the button, then start
+    if (!loaded && !soundLoaded(hearSound)) {
+      setLoadingSnd(true)
+      void loadSound(hearSound).catch(() => {}).finally(() => { setLoadingSnd(false); preview(true) })
+      return
+    }
     if (listening) void toggleListen()
     const p = (player.current ??= new TabPlayer())
     p.sound = hearSound
@@ -663,6 +687,11 @@ export function PlayScreen() {
   const applyRef = useRef<(a: PlayAction) => void>(() => {})
   applyRef.current = (a: PlayAction) => {
     if (a.mode && !inTime.running && !listening) setMode(a.mode)
+    if (a.loop !== undefined && track) {
+      if (!a.loop) setLoop(undefined)
+      else { const n = track.bars.length; const f = Math.max(0, Math.min(n - 1, a.loop.from)), t = Math.max(f, Math.min(n - 1, a.loop.to)); setLoop({ from: f, to: t }) }
+    }
+    if (a.speed) setSpeed(Math.max(0.25, Math.min(1.5, Math.round(a.speed * 20) / 20)))
     if (a.open === 'options') setOpts(true)
     else if (a.open === 'video') { if (doc?.youtube) setShowVideo(true); else setVideoAsk(true); setLay({ ...lay, side: true, focus: false }) }
     else if (a.open === 'check') setCheckOpen(true)
@@ -692,6 +721,26 @@ export function PlayScreen() {
     let t = setTimeout(find, 80)
     return () => { clearTimeout(t); el?.classList.remove('find-flash') }
   }, [findAt])
+
+  // what the ✨ helper can see: the song, where you are, your loop and speed, the chord, your last mistake
+  const nowBar = cursorFlat >= 0 && flat[cursorFlat] ? flat[cursorFlat].bar : 0
+  const spanNow = timeline.spans[curSpan], spanNext = timeline.spans[curSpan + 1]
+  const lm = lastMiss.current
+  useScreenInfo('play', doc && track ? {
+    label: `Play: "${doc.title}", bar ${nowBar + 1}${loop ? `, looping ${loop.from === loop.to ? `bar ${loop.from + 1}` : `bars ${loop.from + 1}–${loop.to + 1}`}` : ''} at ${Math.round(speed * 100)}%`,
+    summary: [
+      `In Play with the ${track.bars.every(b => b.steps.every(st => !st.notes.length || !!st.chord)) ? 'chord sheet' : 'tab'} "${doc.title}"${doc.song.artist ? ` by ${doc.song.artist}` : ''} (${track.bars.length} bars, ${track.tuning.length} strings${track.capo ? `, capo ${track.capo}` : ''}).`,
+      `Mode: ${mode === 'time' ? 'In time (the tab moves at tempo)' : 'Wait for me (the tab waits for each right note)'}. They are at bar ${nowBar + 1}.`,
+      loop ? `Looping bars ${loop.from + 1} to ${loop.to + 1}.` : 'No loop set.',
+      `Speed ${Math.round(speed * 100)}% of ${songBpm} BPM (= ${Math.round(songBpm * speed)} BPM).`,
+      `Key: ${key.label}.${spanNow ? ` Chord here: ${spanNow.name}${spanNext ? `, next: ${spanNext.name}` : ''}.` : ''}`,
+      lm && lm.bar >= 0 ? `Last mistake: in bar ${lm.bar + 1} they played ${lm.chordText ? `a chord sounding like ${lm.chordText}` : noteName(lm.heard, flats)} where the tab wants ${lm.want.map(m => noteName(m, flats)).join('+') || 'a rest'}.` : '',
+      passes.n ? `Loop passes so far: ${passes.n}, last ${passes.last}%, best ${passes.best}%.` : '',
+      inTime.pass.last ? `Last In time pass: ${inTime.pass.last.score}%.` : '',
+    ].filter(Boolean).join(' '),
+    can: ['loop', 'speed'],
+    play: { bar: nowBar, bars: track.bars.length, loop, speed, key: key.label, chord: spanNow?.name },
+  } : null)
 
   if (!doc || !track) {
     return <div className="play"><p className="muted">Loading…</p></div>
@@ -820,8 +869,8 @@ export function PlayScreen() {
       ) : (
         <button className="btn sm" data-find="loop" aria-pressed={!!selecting} onClick={() => setSelecting(selecting ? null : {})}>⟲ Loop</button>
       )}
-      <button className={`btn sm hear${playAt >= 0 ? ' on' : ''}`} data-find="hear" onClick={preview} aria-pressed={playAt >= 0}>
-        {playAt >= 0 ? '■ Stop' : '▶ Hear it'}
+      <button className={`btn sm hear${playAt >= 0 ? ' on' : ''}${loadingSnd ? ' loading' : ''}`} data-find="hear" onClick={() => preview()} aria-pressed={playAt >= 0} aria-busy={loadingSnd}>
+        {loadingSnd ? <><span className="spin" aria-hidden />Loading sounds…</> : playAt >= 0 ? '■ Stop' : '▶ Hear it'}
       </button>
       {recording && (
         <button className="btn sm rec on" aria-pressed onClick={() => void toggleRec()} aria-label="Stop recording">⏹ {Math.floor(recSecs / 60)}:{String(recSecs % 60).padStart(2, '0')}</button>
@@ -1022,6 +1071,9 @@ export function PlayScreen() {
         <TabView track={track} mode={labelMode} flats={flats} cursor={inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0 || inTime.running} states={states.current}
           flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} zoom={tabZoom} onZoom={setTabZoom}
           meter={meter} counts={counts} strum={strumPat} />
+        {peek.bubble}
+        {inTime.running && inTime.countIn > 0 && <div className="count-big" key={inTime.countIn} role="status" aria-live="assertive" data-testid="count-big">{inTime.countIn}</div>}
+        {loopBlink && <div className="loop-blink" key={loopBlink.k} role="status">{loopBlink.text}</div>}
         {track.capo > 0 && <p className="small muted cap">Capo on fret {track.capo}: frets are counted from the capo.</p>}
         {track.tuning.length !== inst.strings && (
           <p className="small muted cap">This tab is for a {track.tuning.length}-string instrument; you're in {inst.label.toLowerCase()} mode. Pick a {inst.strings}-string tab from Songs to play along on your {inst.noun}.</p>
