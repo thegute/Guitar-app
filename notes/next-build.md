@@ -13,3 +13,5 @@
 11. ✨ Helper bubble on every screen: drag it anywhere (snaps to a side); a conversation that remembers follow-up questions; 🔊 Hear it / "Read answers aloud" (phone's own voice); keyboard 🎤 tip; hide it in Settings → You.
 12. Windows easier to find: buttons say "☰ Move" and "– Hide", the handle says "⇕ drag to resize", a one-time how-to tip; Play's resize bars are bigger and have their own tip.
 13. Rhythm trainer: a bar of count-in clicks ("Get ready… 1 2 3 4") before every one of your turns.
+14. Bottom of the app no longer hidden behind the phone's buttons / Samsung taskbar on the inner screen (the app keeps clear of them).
+15. Settings → Look → Full screen (phone app): the phone's buttons, status bar and taskbar tuck away; swipe up from the bottom middle and they come back for a few seconds.

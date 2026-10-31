@@ -2,7 +2,7 @@
 // Psychedelic: neon colours on deep cosmic purple, the samurai dog and trippy art all through the app, with slowly
 // drifting colour behind everything (the drifting can be switched off; it also stops if the phone asks for less motion).
 import { useSyncExternalStore } from 'react'
-import { SystemBars, SystemBarsStyle } from '@capacitor/core'
+import { Capacitor, SystemBars, SystemBarsStyle, registerPlugin } from '@capacitor/core'
 import { DOG_IDS, hashStr, type DogId } from './art/samurai'
 
 export type ThemeChoice = 'auto' | 'day' | 'night' | 'psy'
@@ -111,3 +111,13 @@ export function usePsyMotion(): boolean {
   useSyncExternalStore(subscribe, () => version)
   return psyMotion()
 }
+
+/** Full screen: the phone's buttons, status bar and taskbar tuck away; swipe up from the bottom to bring them back for a moment. */
+const Immersive = registerPlugin<{ set(o: { on: boolean }): Promise<void> }>('Immersive')
+export function fullScreen(): boolean { try { return localStorage.getItem('kg:fullScreen') === 'true' } catch { return false } }
+export function setFullScreen(on: boolean) {
+  try { localStorage.setItem('kg:fullScreen', String(on)) } catch { /* noop */ }
+  if (Capacitor.isNativePlatform()) Immersive.set({ on }).catch(() => {})
+}
+// apply it when the app starts
+if (typeof window !== 'undefined' && fullScreen() && Capacitor.isNativePlatform()) setTimeout(() => Immersive.set({ on: true }).catch(() => {}), 300)

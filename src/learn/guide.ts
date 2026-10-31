@@ -123,6 +123,7 @@ export const GUIDE: GuideSection[] = [
   {
     id: 'menu', title: 'The menu and the poster', intro: 'Small things that make the screen yours.',
     items: [
+      { title: 'Full screen', text: 'In the phone app, Settings → Look → Full screen hides the phone\'s own buttons, status bar and the Samsung taskbar, so nothing covers the bottom of the app. Swipe up from the bottom middle and they come back for a few seconds, then tuck away again. Without it, the app keeps its buttons clear of them by itself.', go: { settings: 'look' }, phoneOnly: true },
       { title: 'Tabs across the top, folds and the i buttons', text: 'Songs, Learn, Jam, Tools and Settings split into a few pages with a row of tabs across the top. Inside a page, extra parts fold into one line each (Looper, Famous progressions, Build your own practice tab …): tap the line to open or close it, and the app remembers. A small i next to a heading shows what it does.' },
       { title: 'Pinch to zoom', text: 'Anything small can be made bigger with two fingers: the tab, every fretboard (quizzes, Scales, Scales & chords), chord shapes, the hand shape, the circle of fifths, the practice calendar and the Jam chord cards. Drag with one finger to look around; the 1× button puts it back. Each place remembers its size.' },
       { title: 'Hide the menu', text: 'Tap « Hide at the bottom of the side menu (or ⌄ on the bottom bar), or swipe it away. A small tab stays on the left edge: tap it to slide the menu out, pick a section, and it tucks away again. Keep open puts it back for good.' },

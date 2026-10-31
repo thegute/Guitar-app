@@ -1,4 +1,6 @@
 // Settings: instrument (with a confirm step so you can't switch by accident), tuning, look, daily goal and reminders.
+import { fullScreen, setFullScreen } from '../theme'
+import { Capacitor } from '@capacitor/core'
 import { usePersist } from '../components/Controls'
 import { AiSetup } from '../assistant/AiSetup'
 import { GET_READY_CHOICES, getReadySecs, setGetReadySecs } from '../components/GetReady'
@@ -175,6 +177,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
       </>}
 
       {page === 'look' && <>
+      {Capacitor.isNativePlatform() && <FullScreenSwitch />}
       <section className="panel stack" style={{ gap: 12 }}>
         <HintHead title="Look" hint={'Psychedelic is neon colours with the samurai dogs and the rest of the KGuitar artwork all through the app, with the words kept on dark cards so they stay easy to read. Night is dim and low-glare for practising in bed. "Match my phone" switches between Day and Night with your phone\'s dark mode.'} />
         <div className="theme-cards" role="radiogroup" aria-label="Theme">
@@ -283,4 +286,16 @@ function ArtGallery() {
 function BubbleSwitch() {
   const [on, setOn] = usePersist('askBubble', true)
   return <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={on} onChange={e => { setOn(e.target.checked); try { localStorage.setItem('kg:askBubble', JSON.stringify(e.target.checked)) } catch { /* noop */ } dispatchEvent(new Event('kg-bubble')) }} /> <span>Show the ✨ helper bubble on every screen (drag it anywhere to move it out of the way)</span></label>
+}
+
+function FullScreenSwitch() {
+  const [on, setOn] = useState(fullScreen)
+  return (
+    <section className="panel stack" style={{ gap: 6 }}>
+      <label className="row" style={{ gap: 8 }}>
+        <input type="checkbox" checked={on} onChange={e => { setOn(e.target.checked); setFullScreen(e.target.checked) }} />
+        <span><b>Full screen</b><span className="small muted"> The phone's buttons, status bar and taskbar tuck away so KGuitar gets the whole screen. Swipe up from the bottom middle and they come back for a few seconds, then tuck away again.</span></span>
+      </label>
+    </section>
+  )
 }

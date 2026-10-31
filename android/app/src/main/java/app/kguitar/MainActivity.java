@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
         // your video lessons: read a folder you pick, play its videos with seeking
         registerPlugin(LessonFoldersPlugin.class);
         registerPlugin(SpeakPlugin.class);
+        registerPlugin(ImmersivePlugin.class);
         super.onCreate(savedInstanceState);
         if (getBridge() != null) getBridge().setWebViewClient(new MediaWebViewClient(getBridge()));
     }

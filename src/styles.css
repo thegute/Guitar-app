@@ -1871,3 +1871,14 @@ video.mirrored { transform: scaleX(-1); }
 .splitter.row .grip { width: 74px; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 25%, transparent); }
 .splitter.col .grip { width: 8px; height: 74px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 25%, transparent); }
 .splitter .split-btn { min-width: 34px; min-height: 28px; }
+/* when the menu isn't along the bottom (big screens, or hidden), keep the bottom of every screen clear of the phone's
+   own buttons and the Samsung taskbar */
+@media (min-width: 760px) {
+  .main { padding-bottom: calc(24px + var(--sab)); }
+  .main-play { padding-bottom: calc(10px + var(--sab)); }
+  .win-tray { bottom: calc(8px + var(--sab)); }
+}
+.app.nav-hidden .main { padding-bottom: calc(24px + var(--sab)); }
+.app.nav-hidden .main-play { padding-bottom: calc(10px + var(--sab)); }
+.st-table { padding: var(--sat) var(--sar) var(--sab) var(--sal); }
+.ask-bubble { margin-bottom: var(--sab); }
