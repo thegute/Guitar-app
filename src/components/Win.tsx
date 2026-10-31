@@ -4,7 +4,7 @@
 // "Reset layout" puts everything back. Everything is remembered per screen (kg:win:<area>).
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
-interface Layout { order: string[]; hidden: string[]; height: Record<string, number>; moved?: boolean }
+interface Layout { order: string[]; hidden: string[]; height: Record<string, number>; moved?: boolean; folded?: string[] }
 const EMPTY: Layout = { order: [], hidden: [], height: {} }
 interface Ctx {
   area: string
@@ -49,7 +49,7 @@ export function WinArea({ area, children, className = '', defaultHidden = [] }: 
     const move = (ev: PointerEvent) => {
       const el = box.current
       if (!el) return
-      const wins = [...el.querySelectorAll<HTMLElement>(':scope > .win')].filter(w => w.dataset.win !== id)
+      const wins = [...el.querySelectorAll<HTMLElement>('.win')].filter(w => w.dataset.win !== id && w.closest('.win-area') === el)
       let target: string | null = null, before = true
       for (const w of wins) {
         const r = w.getBoundingClientRect()
@@ -71,7 +71,7 @@ export function WinArea({ area, children, className = '', defaultHidden = [] }: 
   }, [set])
   const ctx = useMemo(() => ({ area, layout, register, unregister, set, dragging, startDrag }), [area, layout, register, unregister, set, dragging, startDrag])
   const hidden = layout.hidden.filter(id => titles[id])
-  const changed = layout.hidden.length > 0 || Object.keys(layout.height).length > 0 || !!layout.moved
+  const changed = layout.hidden.length > 0 || Object.keys(layout.height).length > 0 || !!layout.moved || !!layout.folded?.length
   return (
     <C.Provider value={ctx}>
       <LayoutHint />
@@ -97,6 +97,7 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
   const { layout, set, dragging, startDrag } = ctx
   if (layout.hidden.includes(id)) return null
   const order = layout.order.indexOf(id)
+  const folded = (layout.folded ?? []).includes(id)
   const h = layout.height[id]
   const resize = (e: React.PointerEvent) => {
     e.preventDefault()
@@ -116,12 +117,15 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
     <section className={`win ${className}${dragging === id ? ' dragging' : ''}`} data-win={id} style={{ order: order < 0 ? 99 : order }}>
       <div className="win-bar">
         <button className="win-grip" onPointerDown={e => startDrag(id, e)} aria-label={`Move ${title}: drag up or down`} title="Drag to move">☰ <span className="win-word">Move</span></button>
-        <span className="win-title">{title}</span>
+        <button className="win-title" onClick={() => set(l => { const f = l.folded ?? []; return { ...l, folded: f.includes(id) ? f.filter(x => x !== id) : [...f, id] } })}
+          aria-expanded={!folded} title={folded ? 'Tap to open' : 'Tap to fold it up'}>
+          <span className="win-chev" aria-hidden>{folded ? '▸' : '▾'}</span> {title}{folded && <span className="small muted"> (tap to open)</span>}
+        </button>
         {h !== undefined && <button className="win-btn" onClick={() => set(l => { const height = { ...l.height }; delete height[id]; return { ...l, height } })} title="Full size" aria-label={`${title}: full size`}>⤢</button>}
         <button className="win-btn" onClick={() => set(l => ({ ...l, hidden: [...l.hidden, id] }))} title="Tuck away (it waits in the tray at the bottom)" aria-label={`Tuck away ${title}`}>– <span className="win-word">Hide</span></button>
       </div>
-      <div className={`win-body ${bodyClass}${h !== undefined ? ' sized' : ''}`} ref={body} style={h !== undefined ? { ...bodyStyle, height: h } : bodyStyle}>{children}</div>
-      {resizable && <div className="win-size" onPointerDown={resize} role="separator" aria-label={`Drag to make ${title} taller or shorter`} title="Drag to resize">⇕ drag to resize</div>}
+      {!folded && <div className={`win-body ${bodyClass}${h !== undefined ? ' sized' : ''}`} ref={body} style={h !== undefined ? { ...bodyStyle, height: h } : bodyStyle}>{children}</div>}
+      {resizable && !folded && <div className="win-size" onPointerDown={resize} role="separator" aria-label={`Drag to make ${title} taller or shorter`} title="Drag to resize">⇕ drag to resize</div>}
     </section>
   )
 }
@@ -141,7 +145,7 @@ export function LayoutHint({ text }: { text?: string }) {
   if (seen) return null
   return (
     <div className="layout-hint" role="note">
-      <span>{text ?? 'You can arrange this screen: drag ☰ Move to put a box higher or lower, drag ⇕ under a box to make it taller or shorter, and tap – Hide to tuck it into the tray at the bottom (tap it there to bring it back).'}</span>
+      <span>{text ?? 'You can arrange this screen. Tap a box\'s name to fold it up (tap again to open it). Drag ☰ Move to put a box higher or lower. Drag ⇕ under a box to make it taller or shorter. – Hide tucks it into the tray at the bottom (tap it there to bring it back).'}</span>
       <button className="btn sm" onClick={() => { try { localStorage.setItem('kg:layoutHint', '1') } catch { /* noop */ } setSeen(true) }}>Got it</button>
     </div>
   )

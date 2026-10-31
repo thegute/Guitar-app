@@ -2,6 +2,7 @@
 // pick a key, sound and tempo, and hear it with a count-in, a click and a loop. The neck shows every note in the order
 // you play it (roots in red), the tab follows the playhead, and "Play along" opens it in Play so the app listens.
 import { HandGuide } from '../components/HandGuide'
+import { Win } from '../components/Win'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useInstrument } from '../instrument'
 import { usePersist } from '../components/Controls'
@@ -86,7 +87,7 @@ export function ExerciseBrowser() {
   const go = (d: number) => setCode(list[(idx + d + list.length) % list.length].code)
   const random = () => { if (list.length > 1) { let j = idx; while (j === idx) j = Math.floor(Math.random() * list.length); setCode(list[j].code) } }
   const fav = favs.includes(ex.code)
-  const controls = (
+  const filters = (
     <>
       <FilterBar f={f} setF={setF} groups={groups} techs={techsHere} typeCounts={typeCounts} />
       <div className="ex-count row">
@@ -95,6 +96,10 @@ export function ExerciseBrowser() {
         <button className="btn sm ghost" onClick={() => setF(NO_FILTER)} disabled={JSON.stringify(f) === JSON.stringify(NO_FILTER)} aria-label="Clear the filters">↺ Clear</button>
         <label className="ex-check"><input type="checkbox" checked={f.fav} onChange={e => setF({ ...f, fav: e.target.checked })} /> Favourites only</label>
       </div>
+    </>
+  )
+  const controls = (
+    <>
       <div className="ex-pick">
         <button className="btn" onClick={() => go(-1)} aria-label="Previous exercise">‹</button>
         <select className="select" value={ex.code} onChange={e => setCode(e.target.value)} aria-label="Exercise">
@@ -108,7 +113,7 @@ export function ExerciseBrowser() {
   )
   return (
     <div className="stack ex-browser" style={{ gap: 10 }}>
-      <ExerciseView key={ex.code + inst.id + inst.tuning.id} ex={ex} controls={controls}
+      <ExerciseView key={ex.code + inst.id + inst.tuning.id} ex={ex} controls={controls} filters={filters}
         root={keys[ex.code] ?? ex.key ?? 'C'} setRoot={k => setKeys({ ...keys, [ex.code]: k })}
         bpm={tempos[ex.code] ?? ex.bpm} setBpm={b => setTempos({ ...tempos, [ex.code]: b })}
         soundPick={soundPick} setSoundPick={setSoundPick}
@@ -149,12 +154,12 @@ function FilterBar({ f, setF, groups, techs, typeCounts }: { f: Filters; setF: (
 }
 
 interface ViewProps {
-  ex: Exercise; controls: ReactNode; root: string; setRoot: (k: string) => void; bpm: number; setBpm: (b: number) => void
+  ex: Exercise; controls: ReactNode; filters: ReactNode; root: string; setRoot: (k: string) => void; bpm: number; setBpm: (b: number) => void
   soundPick: 'auto' | SoundId; setSoundPick: (s: 'auto' | SoundId) => void
   countIn: boolean; setCountIn: (v: boolean) => void; metro: boolean; setMetro: (v: boolean) => void; loop: boolean; setLoop: (v: boolean) => void
 }
 
-function ExerciseView({ ex, controls, root: rootPref, setRoot, bpm, setBpm, soundPick, setSoundPick, countIn, setCountIn, metro, setMetro, loop, setLoop }: ViewProps) {
+function ExerciseView({ ex, controls, filters, root: rootPref, setRoot, bpm, setBpm, soundPick, setSoundPick, countIn, setCountIn, metro, setMetro, loop, setLoop }: ViewProps) {
   const inst = useInstrument()
   const keyList = useMemo(() => keysFor(ex, inst), [ex, inst])
   const root = ex.key ? (keyList.includes(rootPref) ? rootPref : keyList.includes(ex.key) ? ex.key : keyList[0] ?? ex.key) : 'C'
@@ -257,9 +262,19 @@ function ExerciseView({ ex, controls, root: rootPref, setRoot, bpm, setBpm, soun
     openInPlay(doc)
   }
 
+  const head = (
+    <div className="ex-card-head">
+      <span className={`ex-chord${!chordNow && !count ? ' ex-name' : ''}`}>{count > 0 ? <span className="ex-count-in">{count}</span> : chordNow || ex.name}</span>
+      <span className="small muted">{ex.kind} <b>{ex.code}</b> · {bpm} BPM{capo ? ` · capo ${capo}` : ''}</span>
+    </div>
+  )
+  const misfit = <p className="notice">This one doesn't fit your {inst.noun} in this key. Try another key, or the next exercise.</p>
   return (
     <>
-      <section className="panel stack ex-controls">
+      <Win id="ex-find" title="Find an exercise" className="panel ex-controls" bodyClass="stack">
+      {filters}
+      </Win>
+      <Win id="ex-pick" title="Play it" className="panel ex-controls" bodyClass="stack" resizable={false}>
       {controls}
       <p className="ex-desc"><b>{LEVELS[ex.level]}</b> · {EX_TYPES.find(t => t.id === ex.type)?.label} · {ex.about}</p>
       <div className="ex-settings">
@@ -290,19 +305,23 @@ function ExerciseView({ ex, controls, root: rootPref, setRoot, bpm, setBpm, soun
         <label className="ex-check"><input type="checkbox" checked={metro} onChange={e => setMetro(e.target.checked)} /> Metronome</label>
         <label className="ex-check"><input type="checkbox" checked={loop} onChange={e => setLoop(e.target.checked)} /> Loop</label>
       </div>
-      </section>
-      <section className="panel ex-card">
-        <div className="ex-card-head">
-          <span className={`ex-chord${!chordNow && !count ? ' ex-name' : ''}`}>{count > 0 ? <span className="ex-count-in">{count}</span> : chordNow || ex.name}</span>
-          <span className="small muted">{ex.kind} <b>{ex.code}</b> · {bpm} BPM{capo ? ` · capo ${capo}` : ''}</span>
-        </div>
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <button className="btn primary" onClick={() => void playAlong()} disabled={!song}>Play along (it listens)</button>
+        {lick?.must && <button className="btn" onClick={() => learnGo({ licks: lick.id })}>📖 How to play it, step by step</button>}
+      </div>
+      </Win>
+      <Win id="ex-neck" title="On the neck" className="panel ex-card">
+        {head}
+        {song && track ? (
+          <Fretboard tuning={track.tuning} fromFret={neck.from} toFret={neck.to} markFor={markFor} zoomId="exercise" compact
+            onTap={m => { const ctx = audio(); void ctx.resume(); playNote(m + capo, ctx.currentTime + 0.01, 0.75, undefined, { sound }) }} />
+        ) : misfit}
+      </Win>
+      <Win id="ex-tab" title="Tab" className="panel ex-card">
         {song && track ? (
           <>
-            <Fretboard tuning={track.tuning} fromFret={neck.from} toFret={neck.to} markFor={markFor} zoomId="exercise" compact
-              onTap={m => { const ctx = audio(); void ctx.resume(); playNote(m + capo, ctx.currentTime + 0.01, 0.75, undefined, { sound }) }} />
             <TabView track={track} mode="fret" flats={flats} cursor={at} playing={playing} states={states} version={0} spans={[]}
               onTap={tapNote} counts meter={meter} />
-            <HandGuide track={track} cursor={at} />
             <input className="ex-seek" type="range" min={0} max={Math.max(0, flat.length - 1)} value={Math.min(at, flat.length - 1)} onChange={e => seek(Number(e.target.value))} aria-label="Where to start" />
             <div className="row small muted" style={{ justifyContent: 'space-between' }}>
               <span>Tap to hear & seek · {meter}/4</span>
@@ -310,12 +329,9 @@ function ExerciseView({ ex, controls, root: rootPref, setRoot, bpm, setBpm, soun
             </div>
             <p className="small ex-status" role="status">{status || (capo ? `Capo on fret ${capo}: fret numbers count from the capo.` : 'Ready')}</p>
           </>
-        ) : <p className="notice">This one doesn't fit your {inst.noun} in this key. Try another key, or the next exercise.</p>}
-      </section>
-      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <button className="btn primary" onClick={() => void playAlong()} disabled={!song}>Play along (it listens)</button>
-        {lick?.must && <button className="btn" onClick={() => learnGo({ licks: lick.id })}>📖 How to play it, step by step</button>}
-      </div>
+        ) : misfit}
+      </Win>
+      {song && track && <Win id="ex-hand" title="Left hand" className="panel"><HandGuide track={track} cursor={at} /></Win>}
     </>
   )
 }

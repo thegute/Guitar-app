@@ -38,6 +38,11 @@ const bad = m => { problems.push(m); console.log('  PROBLEM', m) }
   await page.evaluate(() => { localStorage.setItem('kg:tab2', '"songs"'); localStorage.setItem('kg:sub:songs', '"practice"') })
   await page.reload(); await page.waitForSelector('.ex-browser')
   if (!(await page.locator('.hand-guide .hg-card').count())) bad('hand guide: no hand cards under the exercise')
+  // exercise boxes fold up and open again by tapping their name
+  await page.locator('[data-win="ex-neck"] .win-title').click()
+  if (await page.locator('[data-win="ex-neck"] .fretboard, [data-win="ex-neck"] svg').count()) bad('exercises: the neck box did not fold up')
+  await page.locator('[data-win="ex-neck"] .win-title').click()
+  if (!(await page.locator('[data-win="ex-neck"] svg').count())) bad('exercises: the neck box did not open again')
   // beat maker: a pattern layer, the beat idea assistant, tuck away and back
   await page.evaluate(() => { localStorage.setItem('kg:tab2', '"progressions"'); localStorage.setItem('kg:sub:jam', '"beats"') })
   await page.reload(); await page.waitForSelector('.studio')

@@ -1,6 +1,7 @@
 // Songs: everything you can play, on four short pages: your songs, the songbook, the exercise library (with the
 // picking-tab and lick makers),
 // and adding a song (find one online, upload Guitar Pro or text files, or paste a tab or chord sheet).
+import { Win, WinArea } from '../components/Win'
 import { TabFromPicture } from '../assistant/TabFromPicture'
 import { Fold, HintHead } from '../components/Fold'
 import { Songbook } from '../components/Songbook'
@@ -141,14 +142,11 @@ function PracticePage({ currentId, onOpen }: { currentId: string; onOpen: (d: So
   const inst = useInstrument()
   const saveOpen = async (d: SongDoc) => { await saveSong(d); onOpen(d) }
   return (
-    <div className="stack" style={{ gap: 12 }}>
+    <WinArea area="exercises">
       <ExerciseBrowser />
-      <PickingSection onOpen={saveOpen} />
-      <Fold id="songsLicks" title="Lick maker" summary="a new lick in any style"
-        hint="Builds a phrase from the lick library in the style, key, length and level you pick. Roll until you like one, then open it and play along.">
-        <LickMaker onOpen={saveOpen} />
-      </Fold>
-      <Fold id="songsExamples" title="Example songs" summary="try every feature on these">
+      <Win id="ex-picking" title="Fingerpicking patterns" className="panel"><PickingSection onOpen={saveOpen} /></Win>
+      <Win id="ex-licks" title="Lick maker" className="panel"><LickMaker onOpen={saveOpen} /></Win>
+      <Win id="ex-examples" title="Example songs" className="panel">
         <ul className="song-list">
           {EXAMPLES.filter(e => e.for === inst.id || e.for === 'any').map(e => (
             <li key={e.id} className={exampleId(e.id, inst.id) === currentId ? 'on' : ''}>
@@ -156,8 +154,8 @@ function PracticePage({ currentId, onOpen }: { currentId: string; onOpen: (d: So
             </li>
           ))}
         </ul>
-      </Fold>
-    </div>
+      </Win>
+    </WinArea>
   )
 }
 

@@ -1882,3 +1882,6 @@ video.mirrored { transform: scaleX(-1); }
 .app.nav-hidden .main-play { padding-bottom: calc(10px + var(--sab)); }
 .st-table { padding: var(--sat) var(--sar) var(--sab) var(--sal); }
 .ask-bubble { margin-bottom: var(--sab); }
+.win-title { background: none; border: 0; text-align: left; cursor: pointer; padding: 4px 2px; min-height: 34px; display: flex; align-items: center; gap: 2px; }
+.win-chev { display: inline-block; width: 18px; color: var(--accent); font-size: 16px; }
+.win-area > .ex-browser { display: contents; }

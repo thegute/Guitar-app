@@ -15,3 +15,5 @@
 13. Rhythm trainer: a bar of count-in clicks ("Get ready… 1 2 3 4") before every one of your turns.
 14. Bottom of the app no longer hidden behind the phone's buttons / Samsung taskbar on the inner screen (the app keeps clear of them).
 15. Settings → Look → Full screen (phone app): the phone's buttons, status bar and taskbar tuck away; swipe up from the bottom middle and they come back for a few seconds.
+16. Exercises: every box is a window (fold, move, resize, tuck away). The top box is split: "Find an exercise" (difficulty, type, technique: fold it up once you've chosen) and "Play it" (‹ exercise ›, ★, key, sound, tempo, Play, count-in, metronome, loop, Play along) which stays.
+17. Any box: tap its name to fold it up to a slim bar, tap again to open it.
