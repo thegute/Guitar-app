@@ -264,10 +264,16 @@ function BeatLight({ t, playing, big = false, label }: { t: StudioTransport; pla
 function Tempo({ bpm, onChange }: { bpm: number; onChange: (b: number) => void }) {
   const taps = useRef<number[]>([])
   const set = (b: number) => onChange(Math.max(40, Math.min(220, Math.round(b))))
+  // type freely (the number can be "1" on the way to "120"); it's applied when you tap Done or away
+  const [draft, setDraft] = useState<string | null>(null)
+  const commit = () => { const v = Number(draft); if (draft && v > 0) set(v); setDraft(null) }
   return (
     <div className="st-tempo" role="group" aria-label="Tempo">
       <button className="btn sm" onClick={() => set(bpm - 1)} aria-label="Slower">−</button>
-      <input className="input" inputMode="numeric" value={bpm} onChange={e => { const v = Number(e.target.value); if (v >= 40 && v <= 220) set(v) }} aria-label="Beats per minute" />
+      <input className="input" inputMode="numeric" enterKeyHint="done" value={draft ?? String(bpm)} aria-label="Beats per minute"
+        onFocus={e => { setDraft(String(bpm)); e.currentTarget.select() }}
+        onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+        onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} />
       <button className="btn sm" onClick={() => set(bpm + 1)} aria-label="Faster">+</button>
       <button className="btn sm" onPointerDown={() => {
         const now = performance.now()
