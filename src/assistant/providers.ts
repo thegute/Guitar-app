@@ -164,13 +164,18 @@ async function askOnce(p: ProviderInfo, model: string, key: string, system: stri
       if (o.onText && !msgs.some(m => m.image)) {
         let st: { status: number; data: unknown; text?: string } | null = null
         try { st = await geminiStream(`${base}:streamGenerateContent?alt=sse&key=${encodeURIComponent(key)}`, body, timeoutMs, o.onText) } catch (e) { if (e instanceof Timeout) throw e }
-        if (st) {
+        if (st && !(st.status === 400 && /thinking/i.test(JSON.stringify(st.data ?? '')))) {
           if (st.status >= 300) throw fail(st)
           if (!st.text?.trim()) throw new AiError(`${p.label} sent an empty answer.`, true)
           return st.text
         }
       }
       r = await post(`${base}:generateContent?key=${encodeURIComponent(key)}`, {}, body, timeoutMs)
+      // a model that doesn't take this thinking setting: ask again with its own default
+      if (r.status === 400 && /thinking/i.test(JSON.stringify(r.data ?? ''))) {
+        const { thinkingConfig: _drop, ...gc } = body.generationConfig as Record<string, unknown>
+        r = await post(`${base}:generateContent?key=${encodeURIComponent(key)}`, {}, { ...body, generationConfig: gc }, timeoutMs)
+      }
       if (r.status >= 300) throw fail(r)
       const d = r.data as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
       const text = d.candidates?.[0]?.content?.parts?.map(x => x.text ?? '').join('') ?? ''
