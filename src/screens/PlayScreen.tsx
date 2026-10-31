@@ -35,6 +35,7 @@ import { TabPlayer } from '../audio/tabPlayer'
 import { keyPrefersFlats, pcName } from '../theory/notes'
 import { setTuning, useInstrument } from '../instrument'
 import { Splitter } from '../components/Splitter'
+import { LayoutHint } from '../components/Win'
 import { HandShape } from '../components/HandShape'
 import { groupAt, handGroups } from '../play/handShape'
 import { IconExpand, IconShrink, IconSliders } from '../components/Icons'
@@ -978,6 +979,7 @@ export function PlayScreen() {
         onOpen={o => setLay({ ...lay, side: o, focus: false })} closedLabel="Video & readout" />
 
       <section className="play-tab">
+        <LayoutHint text="Make room on this screen: drag the bars between the boxes (the video, the tab, Scales & chords) to make them bigger or smaller, drag one all the way closed or tap its arrow to hide it, and tap the bar again to bring it back." />
         {!sideOpen && readout(true)}
         {!sideOpen && micError && <p className="notice small">{micError}</p>}
         {tabTools}

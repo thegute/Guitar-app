@@ -74,6 +74,7 @@ export function WinArea({ area, children, className = '', defaultHidden = [] }: 
   const changed = layout.hidden.length > 0 || Object.keys(layout.height).length > 0 || !!layout.moved
   return (
     <C.Provider value={ctx}>
+      <LayoutHint />
       <div className={`win-area ${className}`} ref={box}>{children}</div>
       {(hidden.length > 0 || changed) && (
         <div className="win-tray" role="toolbar" aria-label="Tucked-away windows">
@@ -114,13 +115,13 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
   return (
     <section className={`win ${className}${dragging === id ? ' dragging' : ''}`} data-win={id} style={{ order: order < 0 ? 99 : order }}>
       <div className="win-bar">
-        <button className="win-grip" onPointerDown={e => startDrag(id, e)} aria-label={`Move ${title}: drag up or down`} title="Drag to move">☰</button>
+        <button className="win-grip" onPointerDown={e => startDrag(id, e)} aria-label={`Move ${title}: drag up or down`} title="Drag to move">☰ <span className="win-word">Move</span></button>
         <span className="win-title">{title}</span>
         {h !== undefined && <button className="win-btn" onClick={() => set(l => { const height = { ...l.height }; delete height[id]; return { ...l, height } })} title="Full size" aria-label={`${title}: full size`}>⤢</button>}
-        <button className="win-btn" onClick={() => set(l => ({ ...l, hidden: [...l.hidden, id] }))} title="Tuck away (it waits in the tray at the bottom)" aria-label={`Tuck away ${title}`}>–</button>
+        <button className="win-btn" onClick={() => set(l => ({ ...l, hidden: [...l.hidden, id] }))} title="Tuck away (it waits in the tray at the bottom)" aria-label={`Tuck away ${title}`}>– <span className="win-word">Hide</span></button>
       </div>
       <div className={`win-body ${bodyClass}${h !== undefined ? ' sized' : ''}`} ref={body} style={h !== undefined ? { ...bodyStyle, height: h } : bodyStyle}>{children}</div>
-      {resizable && <div className="win-size" onPointerDown={resize} role="separator" aria-label={`Drag to make ${title} taller or shorter`} title="Drag to resize">⇕</div>}
+      {resizable && <div className="win-size" onPointerDown={resize} role="separator" aria-label={`Drag to make ${title} taller or shorter`} title="Drag to resize">⇕ drag to resize</div>}
     </section>
   )
 }
@@ -132,4 +133,16 @@ export function useWinShow() {
     ctx?.set(l => ({ ...l, hidden: l.hidden.filter(x => x !== id) }))
     setTimeout(() => document.querySelector(`[data-win="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
   }
+}
+
+/** Shown once (until "Got it"): how to move, resize and hide the boxes. */
+export function LayoutHint({ text }: { text?: string }) {
+  const [seen, setSeen] = useState(() => { try { return localStorage.getItem('kg:layoutHint') === '1' } catch { return true } })
+  if (seen) return null
+  return (
+    <div className="layout-hint" role="note">
+      <span>{text ?? 'You can arrange this screen: drag ☰ Move to put a box higher or lower, drag ⇕ under a box to make it taller or shorter, and tap – Hide to tuck it into the tray at the bottom (tap it there to bring it back).'}</span>
+      <button className="btn sm" onClick={() => { try { localStorage.setItem('kg:layoutHint', '1') } catch { /* noop */ } setSeen(true) }}>Got it</button>
+    </div>
+  )
 }

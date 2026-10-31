@@ -1,10 +1,15 @@
 # Changes waiting for the next build (owner is testing; don't ship until he says "ship it")
 
-1. Beat maker: typing a tempo didn't work. Fixed: type any number; it applies on Done / tapping away (40–220).
-2. Beat maker: hold − or + to keep changing the tempo (speeds up after a second).
-3. Looper played back far too fast: a free loop was squeezed to the nearest 1/2/4/8 bars. Now it only stretches by up to 12% (inaudible);
-   otherwise it keeps its own speed and is trimmed/padded to whole bars. Notes played on the on-screen keys or pads while the looper
-   records are saved straight into the beat as notes, in time (the mic only heard the speaker). Mic loops get a "wear headphones" tip.
-4. Volumes: 🎚 Volumes button opens Mix: all drums, each drum sound (kick, snare, hi-hat…), each part (with reverb), loops; layers have sliders too.
-5. Keys were quieter than the drums: the piano/strings/choir samples are now louder overall, and the Keyboard window has its own Volume slider
-   (affects what you play and what it records). Each recorded part still has its own slider in Mix.
+1. Beat maker: typing a tempo works (applies on Done / tapping away).
+2. Beat maker: hold − or + to keep changing the tempo.
+3. Looper: free loops no longer sped up; on-screen keys/pads played while looping go into the beat as notes; mic tip.
+4. 🎚 Volumes: Mix with all drums, each drum sound, each part, loops.
+5. Louder instrument sounds + a Volume slider in the Keyboard window.
+6. Songbook: every song with a tune gets a "Full arrangement" (melody inside the chord shapes with bass and strums, Carter style for folk/bluegrass/country).
+7. Songbook: 5 new styles with original songs (no copyrighted songs): Country & acoustic (incl. Dylan Gossett-style singer-songwriter), Pop & funk, Blues-rock & neo-soul, Reggae rock & dub, Prog/metal/math rock.
+8. Jam: 9 new styles (Billy Strings bluegrass, acoustic singer-songwriter, John Mayer blues-rock, James Arthur pop ballad, Bruno Mars funk-pop, reggae rock, Plini melodic prog, prog metal, math rock). Beat maker: 5 new starter beats.
+9. Must-know licks: every style has 10–25, each with a step-by-step breakdown. New lick styles: Billy Strings flatpicking (20), acoustic singer-songwriter (15), reggae rock & dub (10), pop & soul (10), melodic prog (10); more neo-soul, country, funk, prog metal, math rock, Jawaiian licks.
+10. Phone Back button steps back inside the licks (a lick → the list) instead of closing.
+11. ✨ Helper bubble on every screen: drag it anywhere (snaps to a side); a conversation that remembers follow-up questions; 🔊 Hear it / "Read answers aloud" (phone's own voice); keyboard 🎤 tip; hide it in Settings → You.
+12. Windows easier to find: buttons say "☰ Move" and "– Hide", the handle says "⇕ drag to resize", a one-time how-to tip; Play's resize bars are bigger and have their own tip.
+13. Rhythm trainer: a bar of count-in clicks ("Get ready… 1 2 3 4") before every one of your turns.

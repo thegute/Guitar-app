@@ -266,7 +266,7 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
   const level = RHYTHM_LEVELS.find(l => l.id === levelId) ?? RHYTHM_LEVELS[0]
   const [running, setRunning] = useState(false)
   const [patterns, setPatterns] = useState<number[][]>([])
-  const [bar, setBar] = useState(-1) // -1 count-in, then 0..ROUND*2-1 (even = listen, odd = your turn)
+  const [bar, setBar] = useState(-1) // -1 count-in, then per rhythm: listen, a count-in for you, your turn (3 bars)
   const [beat, setBeat] = useState(0)
   const [results, setResults] = useState<BarResult[]>([])
   const [done, setDone] = useState<null | { pct: number; mean: number }>(null)
@@ -306,11 +306,12 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
     const spb = 60 / bpm
     const t0 = ctx.currentTime + 0.2
     st.current = { t0, spb, taps: [], results: [], scored: -1 }
-    const bars = 1 + ROUND * 2
+    const bars = 1 + ROUND * 3
     for (let b = 0; b < bars; b++) {
-      for (let k = 0; k < 4; k++) playClick(t0 + (b * 4 + k) * spb, 'wood', k === 0 ? 'accent' : 'beat', b === 0 ? 0.8 : 0.5)
-      const isListen = b >= 1 && (b - 1) % 2 === 0
-      if (isListen) for (const o of onsetsOf(pats[(b - 1) >> 1])) playNote(57, t0 + (b * 4 + o) * spb, 0.85)
+      // every rhythm: a bar to listen, a bar counting you in (louder clicks: "1, 2, 3, 4"), then your bar
+      const phase = b === 0 ? -1 : (b - 1) % 3
+      for (let k = 0; k < 4; k++) playClick(t0 + (b * 4 + k) * spb, 'wood', k === 0 || phase === 1 ? 'accent' : 'beat', b === 0 || phase === 1 ? 0.85 : 0.5)
+      if (phase === 0) for (const o of onsetsOf(pats[Math.floor((b - 1) / 3)])) playNote(57, t0 + (b * 4 + o) * spb, 0.85)
     }
     setRunning(true)
     void keepAwake(true)
@@ -322,7 +323,7 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
       setBeat(Math.max(0, pos % 4))
       // score each "your turn" bar a moment after it ends
       for (let r = 0; r < ROUND; r++) {
-        const yourBar = 2 + r * 2
+        const yourBar = 3 + r * 3
         if (s.scored < r && pos > (yourBar + 1) * 4 + 0.35) {
           const startBeat = yourBar * 4
           const taps = s.taps.map(t => (t - s.t0) / s.spb - startBeat).filter(x => x > -0.4 && x < 4.35)
@@ -360,8 +361,10 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
     void keepAwake(false)
   }
 
-  const turn = running && bar >= 0 ? bar % 2 === 1 : false
-  const pi = running && bar >= 0 ? Math.min(ROUND - 1, bar >> 1) : 0
+  const phase = running && bar >= 0 ? bar % 3 : -1
+  const turn = phase === 2
+  const counting = phase === 1
+  const pi = running && bar >= 0 ? Math.min(ROUND - 1, Math.floor(bar / 3)) : 0
   const showPat = patterns[pi] ?? level.patterns[0]
   const lastRes = results[results.length - 1]
 
@@ -373,7 +376,7 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
       </div>
       <h1 style={{ margin: 0 }}>Rhythm trainer</h1>
       <p className="small muted" style={{ margin: 0 }}>
-        Listen to one bar, then tap it back on the next bar while the click keeps going. Four rhythms per round. Score 80% to unlock the next level.
+        Listen to one bar, then a bar counts you in (1, 2, 3, 4), then tap it back while the click keeps going. Four rhythms per round. Score 80% to unlock the next level.
       </p>
       <div className="ear-levels" role="group" aria-label="Level">
         {RHYTHM_LEVELS.map(l => (
@@ -393,7 +396,7 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
 
       <div className={`rhythm-stage${turn ? ' turn' : ''}`}>
         <div className="small rhythm-status">
-          {!running ? 'Ready' : bar < 0 ? `Count-in: ${Math.floor(beat) + 1}` : turn ? `Your turn (${pi + 1}/${ROUND})` : `Listen (${pi + 1}/${ROUND})`}
+          {!running ? 'Ready' : bar < 0 ? `Count-in: ${Math.floor(beat) + 1}` : turn ? `Your turn (${pi + 1}/${ROUND})` : counting ? `Get ready… ${Math.floor(beat) + 1}` : `Listen (${pi + 1}/${ROUND})`}
         </div>
         <div className="rhythm-strip big" aria-hidden>
           {showPat.map((d, i) => <span key={i} className={d < 0 ? 'rest' : ''} style={{ flexGrow: Math.abs(d) }} />)}
@@ -408,7 +411,7 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
           {!useMic && (
             <button className={`tap-pad${turn ? ' live' : ''}`} onPointerDown={e => { e.preventDefault(); addTap(heardTime(e.timeStamp)) }}
               onKeyDown={e => { if (e.key === ' ' && !e.repeat) { e.preventDefault(); addTap(heardTime(e.timeStamp)) } }} autoFocus>
-              <span className="readout">{turn ? 'Tap!' : 'Listen…'}</span>
+              <span className="readout">{turn ? 'Tap!' : counting ? `${Math.floor(beat) + 1}…` : 'Listen…'}</span>
             </button>
           )}
           <button className="btn" onClick={stop}>Stop</button>

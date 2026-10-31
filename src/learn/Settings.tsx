@@ -282,5 +282,5 @@ function ArtGallery() {
 
 function BubbleSwitch() {
   const [on, setOn] = usePersist('askBubble', true)
-  return <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={on} onChange={e => { setOn(e.target.checked); try { localStorage.setItem('kg:askBubble', JSON.stringify(e.target.checked)) } catch { /* noop */ } dispatchEvent(new Event('kg-bubble')) }} /> <span>Show the ✨ helper bubble on every screen (drag it up or down to move it)</span></label>
+  return <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={on} onChange={e => { setOn(e.target.checked); try { localStorage.setItem('kg:askBubble', JSON.stringify(e.target.checked)) } catch { /* noop */ } dispatchEvent(new Event('kg-bubble')) }} /> <span>Show the ✨ helper bubble on every screen (drag it anywhere to move it out of the way)</span></label>
 }

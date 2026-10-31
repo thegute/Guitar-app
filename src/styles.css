@@ -1861,3 +1861,13 @@ video.mirrored { transform: scaleX(-1); }
 .ask-q { align-self: flex-end; max-width: 85%; background: var(--accent); color: var(--accent-ink); padding: 8px 12px; border-radius: 16px 16px 4px 16px; }
 .ask-a { align-self: flex-start; max-width: 95%; display: flex; flex-direction: column; gap: 8px; background: var(--surface-2); border: 1px solid var(--line); padding: 10px 12px; border-radius: 16px 16px 16px 4px; }
 .ask-a.thinking { color: var(--ink-3); font-style: italic; }
+.win-word { font-size: 13px; font-weight: 600; }
+.layout-hint { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 12px; margin-bottom: 8px; border-radius: 12px; border: 1px dashed var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); font-size: 14px; }
+.play-hint { grid-column: 1 / -1; }
+.play-hint:empty { display: none; }
+/* Play's resize bars: easier to see and grab */
+.splitter.row { min-height: 30px; }
+.splitter.col { width: 24px; }
+.splitter.row .grip { width: 74px; height: 8px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 25%, transparent); }
+.splitter.col .grip { width: 8px; height: 74px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 25%, transparent); }
+.splitter .split-btn { min-width: 34px; min-height: 28px; }

@@ -78,7 +78,7 @@ export const GUIDE: GuideSection[] = [
       { title: 'CAGED explorer', text: 'Any chord in five shapes up the whole neck, with the arpeggio, pentatonic, scale and triads inside each shape.', go: { tool: 'caged' } },
       { title: 'Circle of fifths', text: 'Tap a key to see its chords and key signature and hear how they sound. Every key on the circle shows how many sharps or flats it has (2♯, 3♭ …), so you can read key signatures at a glance. The same circle is in Jam → Solo over it.', go: { tool: 'circle' } },
       { title: 'One-minute chord changes', text: 'Switch between two chords as many times as you can in a minute. Tap for each clean change, or let it listen and count for you. Do it daily and watch the number climb.', go: { tool: 'changes' } },
-      { title: 'Rhythm trainer', text: 'Listen to a bar, then tap it back (or strum it) against the click. Nine levels from quarter notes to swing.', go: { tool: 'rhythm' } },
+      { title: 'Rhythm trainer', text: 'Listen to a bar, then a bar of clicks counts you in (1, 2, 3, 4), then tap it back (or strum it) against the click. Nine levels from quarter notes to swing.', go: { tool: 'rhythm' } },
       { title: 'Progress', text: 'Your practice calendar, this week compared with last, badges and how well you know each part of the course. Skill trends show small graphs of your chord changes a minute, how on time you are in In time, your rhythm trainer scores and the speed you play each song cleanly, so you can see yourself getting better.', go: { tool: 'progress' } },
     ],
   },

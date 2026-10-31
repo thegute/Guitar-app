@@ -403,7 +403,7 @@ export function LearnScreen() {
           <div className="learn-col">
             {inst.id === 'guitar' ? (
             <section className="panel path" aria-label="Zero to Hero">
-              <div className="sec-head"><h2>Zero to Hero</h2><span className="small muted">your guitar plan</span></div>
+              <div className="sec-head"><h2>Zero to Hero</h2><span className="small">your guitar plan</span></div>
               <ZeroToHero />
             </section>
             ) : (
