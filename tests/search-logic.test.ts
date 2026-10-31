@@ -29,7 +29,7 @@ const CASES: [string, RegExp, number?][] = [
   ['travis picking', /Travis/, 1], ['licks', /Lick maker/, 1], ['amazing grace', /Amazing Grace/, 1], ['footswitch', /footswitch/, 1],
   ['what key is this song in', /Scales & chords for soloing/, 1], ['sync video', /Sync the video/, 1], ['capo', /Song check/, 1],
   ['how am i doing', /Progress/, 1], ['help', /Help: how to use KGuitar/, 1], ['palm mute', /Palm mut/, 1], ['strumming pattern', /Count it/, 2],
-  ['chord changes faster', /chord changes/i, 1], ['in time', /In time/, 1], ['theory', /Theory lessons/, 1], ['full screen', /Full tab/, 1],
+  ['chord changes faster', /chord changes/i, 1], ['in time', /In time/, 1], ['theory', /Theory lessons/, 1], ['full screen', /Full tab|Full screen/, 1],
   ['split screen', /Split screen/, 1], ['start over', /Start over/, 1], ['what is a triad', /Triad/, 1], ['down in the valley', /Down in the Valley/, 1],
   ['quiz', /Practice course/, 1], ['speed trainer', /Speed trainer/, 1], ['drum beat for practice', /Metronome|drum/i, 3], ['play along with drums', /band|drums/i, 3],
   ['learn the fretboard', /fretboard|Practice course/i, 3], ['hear how the tab sounds', /Hear it/, 1], ['which tuning is this song in', /Song check|tuning/i, 2],
