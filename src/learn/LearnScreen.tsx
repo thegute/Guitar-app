@@ -1,6 +1,8 @@
 // Learn: today's goal and streak, the away-from-guitar switch, today's plan, quests, the practice course,
 // the path to mastery, and the tools (ear training, theory, CAGED, circle of fifths, chord changes, rhythm).
 import { Win, WinArea } from '../components/Win'
+import { ZeroToHero } from './ZeroToHero'
+import { MySessions } from '../sessions/MySessions'
 import { ArtThumb } from '../components/Art'
 import { useEffect, useRef, useState } from 'react'
 import { IconGear } from '../components/Icons'
@@ -334,6 +336,7 @@ export function LearnScreen() {
                 ))}
               </ol>
             </Win>
+            <Win id="sessions" title="My practice sessions" className="panel"><MySessions /></Win>
             <Win id="quests" title="Daily quests" className="panel quests">
               <div className="sec-head">
                 <span className="small muted">{questsDone}/{quests.length} done · new ones tomorrow</span>
@@ -398,6 +401,12 @@ export function LearnScreen() {
             </section>
           </div>
           <div className="learn-col">
+            {inst.id === 'guitar' ? (
+            <section className="panel path" aria-label="Zero to Hero">
+              <div className="sec-head"><h2>Zero to Hero</h2><span className="small muted">your guitar plan</span></div>
+              <ZeroToHero />
+            </section>
+            ) : (
             <section className="panel path" aria-label="Path to mastery">
               <div className="sec-head"><h2>Path to mastery</h2><span className="small muted">stage {si + 1} of {path.length}</span></div>
               <div className="stage-dots" aria-hidden>{path.map((p, i) => <i key={p.id} className={i < si ? 'done' : i === si ? 'on' : ''} />)}</div>
@@ -424,6 +433,7 @@ export function LearnScreen() {
                 </ol>
               )}
             </section>
+            )}
           </div>
         </div>
       )}

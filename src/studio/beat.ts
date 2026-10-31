@@ -196,3 +196,14 @@ export function allRows(b: Beat): { voice: Voice; steps: number[]; gain: number 
   for (const L of b.layers ?? []) if (!L.mute) for (const r of L.rows) if (!r.mute) out.push({ voice: r.voice, steps: r.steps, gain: L.vol ?? 1 })
   return out
 }
+
+/** Apply a change the assistant suggested (a new starter, tempo, key, swing, pattern layers) to the current beat. */
+export function applyBeatChange(c: { starter?: string | null; bpm?: number | null; key?: string | null; minor?: boolean | null; patterns?: string[]; swing?: number | null }) {
+  let b = c.starter ? STARTERS.find(s => s.id === c.starter)?.make() ?? loadBeat() : loadBeat()
+  if (c.bpm) b = { ...b, bpm: Math.max(40, Math.min(220, Math.round(c.bpm))) }
+  if (c.key) b = { ...b, key: c.key }
+  if (c.minor !== undefined && c.minor !== null) b = { ...b, minor: c.minor }
+  if (c.swing !== undefined && c.swing !== null) b = { ...b, swing: Math.max(0, Math.min(0.33, c.swing)) }
+  for (const id of c.patterns ?? []) { const p = PATTERNS.find(x => x.id === id); if (p && !(b.layers ?? []).some(l => l.label === p.label)) b = { ...b, layers: [...(b.layers ?? []), patternLayer(p, b.bars)] } }
+  pushBeat(b)
+}

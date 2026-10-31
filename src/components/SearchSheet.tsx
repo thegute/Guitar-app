@@ -10,20 +10,30 @@ import { launch } from '../search/launch'
 import { KIND_LABEL, type Result } from '../search/types'
 import { TAB_SITES } from '../tabs/tabSites'
 import { IconSearch } from './Icons'
+import { plan, type Answer } from '../assistant/plan'
+import type { AskContext } from '../assistant/bus'
+import { minutesOf, saveSession, startSession } from '../sessions/session'
+import { applyBeatChange } from '../studio/beat'
 
-const TRY = ['slow it down', 'loop a hard part', 'G7 chord', 'A minor pentatonic', 'drop D', 'metronome 90', 'blues jam in A', 'record myself', "it doesn't hear me", 'bigger tab']
+const TRY = ['I want to practise triads today', 'Teach me Marco Cirillo style fingerstyle', 'CAGED with little melodies in between', 'Chord tones and soloing in A minor', 'Make me a trap beat at 140', 'slow it down', 'G7 chord', 'drop D', "it doesn't hear me"]
+const EXAMPLES = ['I want to practise triads today…', 'Help me learn Marco Cirillo style…', 'Chord tones and soloing in G…', 'Make a lo-fi beat at 80 BPM…', 'Why doesn\'t it hear my notes?…', 'Show me a G7 chord…', 'A 20 minute blues session in A…']
 const RECENT = 'kg:searchRecent'
 const recent = (): string[] => { try { return JSON.parse(localStorage.getItem(RECENT) ?? '[]') } catch { return [] } }
 const remember = (q: string) => {
   try { localStorage.setItem(RECENT, JSON.stringify([q, ...recent().filter(r => r.toLowerCase() !== q.toLowerCase())].slice(0, 6))) } catch { /* storage unavailable */ }
 }
 
-export function SearchSheet({ onClose, initial = '' }: { onClose: () => void; initial?: string }) {
+export function SearchSheet({ onClose, initial = '', context = 'general', autoAsk = false }: { onClose: () => void; initial?: string; context?: AskContext; autoAsk?: boolean }) {
   const inst = useInstrument()
   const [q, setQ] = useState(initial)
   const [songs, setSongs] = useState<SongDoc[]>([])
   const [active, setActive] = useState(0)
   const input = useRef<HTMLInputElement>(null)
+  const [ex, setEx] = useState(0)
+  useEffect(() => { const id = setInterval(() => setEx(i => (i + 1) % EXAMPLES.length), 3200); return () => clearInterval(id) }, [])
+  const [answer, setAnswer] = useState<Answer | null>(null)
+  const [asking, setAsking] = useState(false)
+  const asked = useRef('')
   const list = useRef<HTMLUListElement>(null)
   useEffect(() => {
     let alive = true
@@ -32,7 +42,20 @@ export function SearchSheet({ onClose, initial = '' }: { onClose: () => void; in
   }, [inst.id])
   const index = useMemo(() => new SearchIndex([...FEATURES, ...libraryEntries(inst, songs)]), [inst, songs])
   const results = useMemo(() => (q.trim() ? searchAll(index, q, inst, 12) : []), [index, q, inst])
-  useEffect(() => setActive(0), [q])
+  useEffect(() => { setActive(0); if (q.trim() !== asked.current) setAnswer(null) }, [q])
+  const doAsk = async (text = q) => {
+    const t = text.trim()
+    if (!t) return
+    remember(t)
+    asked.current = t
+    setAsking(true)
+    setAnswer(null)
+    const rs = searchAll(index, t, inst, 12)
+    setAnswer(await plan(t, rs, context))
+    setAsking(false)
+  }
+  const auto = useRef(autoAsk)
+  useEffect(() => { if (auto.current && initial) { auto.current = false; void doAsk(initial) } }) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const t = setTimeout(() => input.current?.focus(), 40)
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -49,7 +72,12 @@ export function SearchSheet({ onClose, initial = '' }: { onClose: () => void; in
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(results.length - 1, a + 1)) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => Math.max(0, a - 1)) }
-    else if (e.key === 'Enter' && results[active]) { e.preventDefault(); open(results[active]) }
+    else if (e.key === 'Enter') {
+      e.preventDefault()
+      // a short query that clearly matches opens it; anything else is a question for the assistant
+      const words = q.trim().split(/\s+/).length
+      if (results[active] && results[active].score >= 60 && words <= 3) open(results[active]); else void doAsk()
+    }
   }
   const strong = results.length > 0 && results[0].score >= 60
   const wantsTab = /\b(tab|tabs|chords? (for|to)|song by|by the)\b/i.test(q)
@@ -57,11 +85,11 @@ export function SearchSheet({ onClose, initial = '' }: { onClose: () => void; in
 
   return (
     <div className="sheet-backdrop search-backdrop" onClick={onClose}>
-      <div className="sheet search-sheet" role="dialog" aria-modal="true" aria-label="Search KGuitar" onClick={e => e.stopPropagation()}>
+      <div className="sheet search-sheet" role="dialog" aria-modal="true" aria-label="Search and ask KGuitar" onClick={e => e.stopPropagation()}>
         <div className="search-bar">
           <span className="search-icon" aria-hidden><IconSearch /></span>
           <input ref={input} className="input search-input" type="search" enterKeyHint="go" value={q} autoComplete="off" spellCheck={false}
-            placeholder="What do you want to do?" aria-label="Search KGuitar" aria-controls="search-results" aria-activedescendant={results[active] ? `sr-${active}` : undefined}
+            placeholder={EXAMPLES[ex]} aria-label="Search or ask KGuitar" aria-controls="search-results" aria-activedescendant={results[active] ? `sr-${active}` : undefined}
             onChange={e => setQ(e.target.value)} onKeyDown={onKey} />
           {q && <button className="btn sm ghost search-clear" onClick={() => { setQ(''); input.current?.focus() }} aria-label="Clear">✕</button>}
           <button className="btn sm" onClick={onClose}>Close</button>
@@ -69,7 +97,7 @@ export function SearchSheet({ onClose, initial = '' }: { onClose: () => void; in
 
         {!q.trim() && (
           <div className="search-start stack">
-            <p className="small muted" style={{ margin: 0 }}>Ask in your own words: a feature, a problem, a chord, a scale, a tuning, a tempo, a song or a lesson.</p>
+            <p className="small muted" style={{ margin: 0 }}>Search or ask in your own words. Ask for a practice session ("triads today"), a beat, a chord or scale, or help with a problem: it finds it and sets it up.</p>
             {past.length > 0 && (
               <div className="stack" style={{ gap: 6 }}>
                 <h3 className="search-h">Recent</h3>
@@ -78,11 +106,35 @@ export function SearchSheet({ onClose, initial = '' }: { onClose: () => void; in
             )}
             <div className="stack" style={{ gap: 6 }}>
               <h3 className="search-h">Try</h3>
-              <div className="search-chips">{TRY.map(p => <button key={p} className="chip" onClick={() => setQ(p)}>{p}</button>)}</div>
+              <div className="search-chips">{TRY.map(p => <button key={p} className="chip" onClick={() => { setQ(p); void doAsk(p) }}>{p}</button>)}</div>
             </div>
           </div>
         )}
 
+        {q.trim() && (
+          <div className="ask-row">
+            <button className="btn primary ask-btn" onClick={() => void doAsk()} disabled={asking}>{asking ? 'Thinking…' : `✨ Ask: “${q.trim().length > 40 ? q.trim().slice(0, 40) + '…' : q.trim()}”`}</button>
+          </div>
+        )}
+        {answer && (
+          <div className="ask-card" role="status">
+            <p style={{ margin: 0 }}>{answer.reply}</p>
+            {answer.ideas && <ul className="ask-steps">{answer.ideas.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+            {answer.session && (
+              <>
+                <b>{answer.session.title} · about {minutesOf(answer.session)} min</b>
+                <ol className="ask-steps">{answer.session.steps.map((x, i) => <li key={i}>{x.title} <span className="muted small">({x.minutes} min)</span></li>)}</ol>
+                <div className="row" style={{ gap: 6 }}>
+                  <button className="btn primary" onClick={() => { onClose(); startSession(answer.session!) }}>▶ Start this session</button>
+                  <button className="btn sm" onClick={() => { saveSession(answer.session!); setAnswer({ ...answer, note: 'Saved: find it in Learn → Today → My sessions.' }) }}>Save it</button>
+                </div>
+              </>
+            )}
+            {answer.beat && <button className="btn primary" onClick={() => { applyBeatChange(answer.beat!); onClose() }}>Apply to my beat</button>}
+            {answer.open && <button className="btn" onClick={() => open(answer.open!)}>Open {answer.open.title}</button>}
+            {answer.note && <span className="small muted">{answer.note}</span>}
+          </div>
+        )}
         {q.trim() && results.length > 0 && (
           <ul ref={list} id="search-results" className="search-results" role="listbox" aria-label="Results">
             {results.map((r, i) => (

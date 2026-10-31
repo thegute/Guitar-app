@@ -231,6 +231,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         <span className="muted">Drums: AVL Drumkits by Glen MacArthur (bandshed.net/avldrumkits, CC BY-SA 3.0); the trimmed samples in this app are shared under the same licence.</span>
         <span className="muted">Amp and acoustic sounds: rendered from the owner's own Neural Amp Modeler captures (MirrorProfiles 5150) and impulse responses (York Audio, Tone Factor, Calypso, PastToFutureReverbs).</span>
         <span className="muted">Theory lessons follow the chapters of Offtonic Theory (offtonic.com/theory); the lesson text here is original.</span>
+        <span className="muted">Beat maker instruments: Salamander Grand Piano by Alexander Holm (CC BY 3.0, via Tonejs/audio); VSCO 2 Community Edition by Versilian Studios (CC0); MusyngKite soundfont (CC BY-SA 3.0, via gleitz/midi-js-soundfonts). The trimmed samples in this app are shared under the same licences.</span>
         <span className="muted">Chord shapes: chords-db (github.com/tombatossals/chords-db). Guitar Pro import: alphaTab. Pitch detection: pitchy.</span>
       </section>
       </>}

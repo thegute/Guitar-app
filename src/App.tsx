@@ -13,6 +13,8 @@ import { usePersist } from './components/Controls'
 import { useInstrument } from './instrument'
 import { isToolPage, onGo, onRemount, TAB_IDS, type Tab, type ToolPage } from './nav'
 import { SearchSheet } from './components/SearchSheet'
+import { SessionBar } from './sessions/SessionBar'
+import { onAsk, type AskContext } from './assistant/bus'
 import { backInside, useBack } from './back'
 import { App as CapApp } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
@@ -49,11 +51,12 @@ export default function App() {
     document.getElementById('main')?.scrollTo({ top: 0 })
   }), [setTab, setToolPage])
   // search: the button in the menu, or / or Ctrl+K on a keyboard
-  const [search, setSearch] = useState(false)
+  const [search, setSearch] = useState<false | { text?: string; context?: AskContext; ask?: boolean }>(false)
+  useEffect(() => onAsk(r => setSearch({ text: r.text, context: r.context, ask: r.send })), [])
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       const typing = e.target instanceof HTMLElement && (e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))
-      if ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) { e.preventDefault(); setSearch(true) }
+      if ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) { e.preventDefault(); setSearch({}) }
     }
     addEventListener('keydown', k)
     return () => removeEventListener('keydown', k)
@@ -123,6 +126,7 @@ export default function App() {
     <div className={`app${hidden ? ' nav-hidden' : ''}${drawer ? ' drawer-open' : ''}`}>
       <PsyBackdrop />
       <main className={`main${tab === 'play' ? ' main-play' : ''}`} id="main">
+        <SessionBar />
         {tab === 'play' && <PlayScreen key={inst.id} />}
         {tab === 'songs' && <SongsScreen key={inst.id} />}
         {tab === 'learn' && <LearnScreen key={inst.id} />}
@@ -146,9 +150,9 @@ export default function App() {
             {t.label}
           </button>
         ))}
-        <button className="nav-search" onClick={() => { setSearch(true); setDrawer(false) }} aria-label="Search KGuitar" title="Search (/)">
+        <button className="nav-search" onClick={() => { setSearch({}); setDrawer(false) }} aria-label="Search or ask KGuitar" title="Search or ask (/)">
           <span className="nav-icon"><IconSearch /></span>
-          Search
+          Ask
         </button>
         <div className="nav-extra">
           {(wide || drawer) && <ArtThumb className="nav-art" />}
@@ -165,7 +169,7 @@ export default function App() {
         <button className="nav-pull" onClick={() => setDrawer(true)} aria-label="Show the menu" title="Menu"><IconMenu /></button>
       )}
       {drawer && <div className="nav-scrim" onClick={() => setDrawer(false)} aria-hidden />}
-      {search && <SearchSheet onClose={() => setSearch(false)} />}
+      {search && <SearchSheet onClose={() => setSearch(false)} initial={search.text} context={search.context} autoAsk={search.ask} />}
       {exitHint > 0 && <div className="pedal-toast" role="status">Press Back again to close KGuitar</div>}
       {pedal && <div key={pedal.k} className="pedal-toast" role="status">🦶 {ACTION_LABEL[pedal.a].replace(/ \(.*\)$/, '')}</div>}
       {welcome && <Welcome onDone={then => { setWelcome(false); if (then === 'guide') openGuide(); else setTab('play') }} />}
