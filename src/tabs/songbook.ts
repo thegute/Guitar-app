@@ -16,7 +16,7 @@ import type { Song, SongBar, SongNote, SongStep } from './model'
 import { pickPattern, pickingSong, type PickChord } from './picking'
 import type { SongDoc } from './library'
 
-export type Genre = 'folk' | 'bluegrass' | 'reggae'
+export type Genre = 'folk' | 'bluegrass' | 'reggae' | 'country' | 'pop' | 'bluesrock' | 'reggaerock' | 'prog'
 export type Level = 1 | 2 | 3 | 4
 export const LEVELS: { id: Level; label: string; what: string }[] = [
   { id: 1, label: 'Beginner', what: 'two or three open chords, slow' },
@@ -26,9 +26,11 @@ export const LEVELS: { id: Level; label: string; what: string }[] = [
 ]
 export const GENRES: { id: Genre; label: string }[] = [
   { id: 'folk', label: 'Folk' }, { id: 'bluegrass', label: 'Bluegrass' }, { id: 'reggae', label: 'Reggae' },
+  { id: 'country', label: 'Country & acoustic' }, { id: 'pop', label: 'Pop & funk' }, { id: 'bluesrock', label: 'Blues-rock & neo-soul' },
+  { id: 'reggaerock', label: 'Reggae rock & dub' }, { id: 'prog', label: 'Prog, metal & math rock' },
 ]
 
-export type PartKind = 'words' | 'melody' | 'rhythm' | 'octaves'
+export type PartKind = 'words' | 'melody' | 'rhythm' | 'octaves' | 'arrange'
 export interface SongbookPart {
   id: string
   kind: PartKind
@@ -484,9 +486,132 @@ K:Am
       rhythm('rockers', 2, 76, 'rockers', 'Skank on every "and"', 'The same riddim with simple off-beat chops.'),
     ],
   },
+  // ───────────── newer styles: all original tunes written for KGuitar, in the style named (no real songs copied) ─────────────
+  {
+    id: 'gravel', title: 'Gravel Road Home', genre: 'country', credit: 'Original (KGuitar), country', key: 'G', meter: 4, strum: 'folk',
+    abc: `M:4/4
+L:1/8
+K:G
+"G"B2 d2 d2 B2 | A2 G2 G4 | "C"E2 G2 c2 B2 | "G"A2 G2 D4 | "D"F2 A2 d2 c2 | "C"B2 A2 G2 E2 | "G"D2 G2 B2 A2 | "D"G4 "G"G4 |]`,
+    parts: [melody(1, 92, 'A singable country tune in G, all in first position.'), rhythm('boom', 2, 100, 'boomchick', 'Boom-chick', 'Bass on 1 and 3, strum on 2 and 4: the country engine.')],
+  },
+  {
+    id: 'porch', title: 'Porch Light', genre: 'country', credit: 'Original (KGuitar), acoustic singer-songwriter', key: 'D', meter: 4, strum: 'folk',
+    abc: `M:4/4
+L:1/8
+K:D
+"D"A2 F2 A3 B | "A"c2 B2 A4 | "Bm"B2 d2 c2 B2 | "G"A6 FG | "D"A2 d2 d2 c2 | "A"B2 A2 A4 | "G"G2 B2 A2 G2 | "A"F2 E2 "D"D4 |]`,
+    parts: [melody(2, 84, 'The tune of a story song: long notes you can sing over.'), rhythm('travis', 3, 88, 'travis', 'Travis picking', 'Thumb alternates the bass while the fingers pick the melody strings: the modern acoustic singer-songwriter sound.')],
+  },
+  {
+    id: 'longway', title: 'Long Way From Here', genre: 'country', credit: 'Original (KGuitar), acoustic singer-songwriter', key: 'G', meter: 4, strum: 'folk',
+    abc: `M:4/4
+L:1/8
+K:G
+"Em"G2 B2 B2 A2 | "C"G2 E2 E4 | "G"D2 G2 B2 d2 | "D"c2 B2 A4 | "Em"B2 e2 e2 d2 | "C"c2 B2 G4 | "G"B2 A2 G2 E2 | "D"F4 "G"G4 |]`,
+    parts: [melody(2, 80, 'A story-song melody over Em, C, G and D: the four chords of modern acoustic songwriting.'), rhythm('travis', 3, 84, 'travis', 'Travis picking', 'A steady thumb with the melody strings picked in between; capo up to fit your voice.')],
+  },
+  {
+    id: 'creekbed', title: 'Creek Bed Waltz', genre: 'country', credit: 'Original (KGuitar), acoustic waltz', key: 'D', meter: 3, strum: 'waltz',
+    abc: `M:3/4
+L:1/8
+K:D
+"D"A2 F2 A2 | "G"B4 A2 | "D"F2 E2 D2 | "A"E6 | "D"A2 d2 c2 | "G"B2 A2 G2 | "A"F2 E2 C2 | "D"D6 |]`,
+    parts: [melody(1, 84, 'A slow waltz tune in D: count 1-2-3.'), rhythm('waltz', 2, 88, 'waltz', 'Waltz bass-strum', 'Bass note on 1, strums on 2 and 3.')],
+  },
+  {
+    id: 'lanterns', title: 'Salt and Static', genre: 'pop', credit: 'Original (KGuitar), pop ballad', key: 'C', meter: 4, strum: 'pop',
+    abc: `M:4/4
+L:1/8
+K:C
+"C"E2 G2 G3 A | "G"G2 D2 D4 | "Am"C2 E2 E3 G | "F"F2 E2 C4 | "C"E2 G2 c3 B | "G"A2 G2 G4 | "F"A2 G2 F2 E2 | "G"D4 "C"C4 |]`,
+    parts: [melody(1, 76, 'A big-chorus pop ballad melody: C, G, Am, F.'), rhythm('ballad', 2, 76, 'arp-updown', 'Ballad arpeggio', 'Let each chord ring across the strings, the way piano-pop ballads are played on guitar.')],
+  },
+  {
+    id: 'velvetfunk', title: 'Velvet Strut', genre: 'pop', credit: 'Original (KGuitar), funk-pop', key: 'E', minor: true, meter: 4, strum: 'funk',
+    abc: `M:4/4
+L:1/8
+K:Em
+"Em7"z2 E2 G2 A2 | "A7"B2 z A G2 E2 | "Em7"z2 E2 G2 B2 | "A7"c2 B A G4 | "Em7"z E G A B2 d2 | "A7"c B A G E2 D2 | "Em7"E2 z2 G2 A2 | "A7"B4 z4 |]`,
+    parts: [melody(2, 104, 'A syncopated funk line: the rests are as important as the notes.'), rhythm('synco', 3, 104, 'synco', 'Funk syncopation', 'Tight, choppy rhythm on Em7 and A7: mute between the hits.')],
+  },
+  {
+    id: 'slowburn', title: 'Slow Burn', genre: 'bluesrock', credit: 'Original (KGuitar), blues-rock', key: 'A', meter: 4, strum: 'pop',
+    abc: `M:4/4
+L:1/8
+K:A
+"A"c2 e2 e3 c | "D"d2 f2 e2 c2 | "A"A2 c2 e2 a2 | "E"g2 e2 B4 | "D"d2 f2 a2 f2 | "A"e2 c2 A4 | "E"B2 d2 c2 B2 | "A"A8 |]`,
+    parts: [melody(2, 80, 'A bluesy lead in A: add a bend on the long notes once you know it.'), rhythm('pinch', 3, 80, 'pinch', 'Thumb-and-fingers', 'Thumb on the bass, fingers pinching the chord: the clean blues-rock way to play chords and melody together.')],
+  },
+  {
+    id: 'velvethour', title: 'Velvet Hour', genre: 'bluesrock', credit: 'Original (KGuitar), neo-soul', key: 'D', meter: 4, strum: 'pop',
+    abc: `M:4/4
+L:1/8
+K:D
+"Dmaj7"F2 A2 c2 e2 | "Bm7"d2 B2 F4 | "Em7"G2 B2 d2 f2 | "A7"e2 c2 A4 | "Dmaj7"f2 e2 c2 A2 | "Bm7"B2 d2 F2 D2 | "Em7"E2 G2 B2 d2 | "A7"c4 "Dmaj7"d4 |]`,
+    parts: [melody(3, 76, 'A neo-soul melody over major 7 and minor 7 chords.'), rhythm('soul', 3, 76, 'arp-broken', 'Broken chords', 'Roll through each 7th chord with the thumb leading: smooth neo-soul colour.')],
+  },
+  {
+    id: 'swell', title: 'Sunday Swell', genre: 'reggaerock', credit: 'Original (KGuitar), reggae rock', key: 'G', meter: 4, strum: 'reggae',
+    abc: `M:4/4
+L:1/8
+K:G
+"G"z2 B2 d2 B2 | "C"c2 e2 d4 | "G"B2 A2 G2 E2 | "D"F2 A2 D4 | "G"z2 B2 d2 g2 | "C"e2 d2 c2 B2 | "G"A2 G2 "D"A2 F2 | "G"G8 |]`,
+    parts: [melody(1, 88, 'A laid-back beach melody over G, C and D.'), rhythm('skank', 2, 88, 'onedrop', 'Off-beat skank', 'Short chord chops on 2 and 4 (the "and"s), everything else muted: the reggae rock pulse.')],
+  },
+  {
+    id: 'tidepool', title: 'Tide Pool Dub', genre: 'reggaerock', credit: 'Original (KGuitar), dub', key: 'A', minor: true, meter: 4, strum: 'reggae',
+    abc: `M:4/4
+L:1/8
+K:Am
+"Am"A2 c2 e2 c2 | "Dm"d2 f2 e2 d2 | "Am"c2 B2 A4 | "Em"B2 G2 E4 | "Am"e2 a2 g2 e2 | "Dm"f2 e2 d2 c2 | "Am"B2 c2 A2 G2 | "Em"E4 "Am"A4 |]`,
+    parts: [melody(2, 76, 'A minor dub melody: slow, with lots of space for echo.'), rhythm('double', 3, 76, 'double', 'Double skank', 'Two quick chops on each off-beat, the busier reggae rock feel.')],
+  },
+  {
+    id: 'aurora', title: 'Aurora Steps', genre: 'prog', credit: 'Original (KGuitar), melodic prog instrumental', key: 'E', meter: 4, strum: 'pop',
+    abc: `M:4/4
+L:1/8
+K:E
+"Emaj7"B, E G B d B G E | "C#m7"C E G B G E C E | "Amaj7"A, C E G A G E C | "B"B, D F A F D B, D | "Emaj7"e d B G B G E G | "C#m7"g e c B G E C E | "Amaj7"a g e c e c A c | "B"B4 "Emaj7"e4 |]`,
+    parts: [melody(3, 100, 'Flowing 8th-note lines over lush major 7 chords: the clean, melodic prog sound.'), rhythm('arps', 4, 100, 'arp-16', 'Fast arpeggios', '16th-note arpeggios across the strings: keep every note even and ringing.')],
+  },
+  {
+    id: 'staircase', title: 'Glass Staircase', genre: 'prog', credit: 'Original (KGuitar), math rock', key: 'A', meter: 4, strum: 'pop',
+    abc: `M:4/4
+L:1/8
+K:A
+"Amaj7"A c e A c e A c | "F#m7"F A c F A c F A | "Dmaj7"D F A D F A D F | "E"E G B E G B e d | "Amaj7"c e a c e a c e | "F#m7"A c f A c f A c | "Dmaj7"F A d F A d F A | "E"G B e G "Amaj7"A4 |]`,
+    parts: [melody(3, 108, 'Notes in groups of three across a 4/4 bar: the math rock twist that makes it sound like it\'s tumbling.'), rhythm('mathpick', 4, 108, 'arp-broken', 'Broken arpeggios', 'Ringing open-string arpeggios, the clean math rock texture.')],
+  },
+  {
+    id: 'monsoon', title: 'Iron Monsoon', genre: 'prog', credit: 'Original (KGuitar), prog metal', key: 'E', minor: true, meter: 4, strum: 'pop',
+    abc: `M:4/4
+L:1/8
+K:Em
+"Em"E,2 E, G, E,2 A, G, | "C"E,2 E, B, E,2 A, G, | "Am"E,2 E, C E,2 B, A, | "B"E,2 ^D, B, B,2 ^D,2 | "Em"E,2 E, G, E,2 A, G, | "C"E,2 E, B, E,2 A, G, | "Am"E, E, C B, A, G, F, E, | "B"^D,4 "Em"E,4 |]`,
+    parts: [melody(3, 120, 'A palm-muted riff on the low E with melody notes on top: chug, then sing.'), rhythm('chug', 3, 120, 'strum', 'Power chord strum', 'Down-strokes on power chords, palm-muted, locked to the kick.')],
+  },
 ]
 
 // ───────────── building the songs ─────────────
+
+// every song with a written tune also gets the whole song arranged for one guitar (see arrangeSong)
+const ARRANGE_LEARN: Record<Genre, string> = {
+  folk: 'The whole song like a real player: hold the chord, pick the melody out of it, brush the strings when the tune holds a note, and walk the bass into the next chord.',
+  bluegrass: 'Carter style: the melody picked out of the chord shapes with strums in between and bass runs into the changes, how bluegrass guitarists play a song alone.',
+  country: 'Melody, bass and strums together: thumb on the bass, the tune picked out of the chord, brushes in the gaps.',
+  reggae: 'The melody on top with the bass under it and off-beat chops in between.',
+  reggaerock: 'The melody on top with the bass under it and off-beat chops in between.',
+  pop: 'The melody on top, the bass under it and chord fills in the gaps: the song on one guitar.',
+  bluesrock: 'Chord-melody: the tune on the top strings, bass with the thumb, chord stabs in the gaps.',
+  prog: 'The line with its bass notes and chord tones filled in, as one guitar part.',
+}
+for (const s of SONGBOOK) {
+  if (!s.abc || s.parts.some(p => p.kind === 'arrange')) continue
+  const top = Math.max(...s.parts.map(p => p.level)) as Level
+  const mel = s.parts.find(p => p.kind === 'melody')
+  s.parts.push({ id: 'full', kind: 'arrange', level: Math.min(4, Math.max(3, top)) as Level, label: 'Full arrangement', learn: ARRANGE_LEARN[s.genre], bpm: Math.round((mel?.bpm ?? 90) * 0.85) })
+}
 
 interface ChordBeat { name: string; beats: number; lyric?: string; section?: string }
 
@@ -533,6 +658,12 @@ function abcChords(abc: string): { chords: ChordBeat[]; meter: number } {
   return { chords: out.map(c => ({ ...c, beats: Math.round(c.beats * 1000) / 1000 })), meter: t.meter }
 }
 
+/** The guitar sound each style is played on (General MIDI program). */
+function programFor(s: SongbookSong) {
+  if (s.id === 'monsoon') return 30
+  return ['reggae', 'reggaerock', 'bluesrock', 'pop', 'prog'].includes(s.genre) ? 27 : 25
+}
+
 function voicing(name: string, inst: Instrument): Voicing | undefined {
   const { root, suffix } = parseSymbol(name)
   return chordShapes(root, suffix, inst)[0] ?? generateShapes(root, suffix, inst.midis, 1)[0] ?? generateShapes(root, 'major', inst.midis, 1)[0]
@@ -558,7 +689,7 @@ function sheetSong(s: SongbookSong, inst: Instrument): Song {
     }
   }
   close()
-  return { title: s.title, tempo: 90, meter: s.meter, strum: s.strum, tracks: [{ name: 'Chords', tuning: inst.midis, capo: 0, bars, program: s.genre === 'reggae' ? 27 : 25 }] }
+  return { title: s.title, tempo: 90, meter: s.meter, strum: s.strum, tracks: [{ name: 'Chords', tuning: inst.midis, capo: 0, bars, program: programFor(s) }] }
 }
 
 /** Shift a written melody by octaves so it fits the instrument (guitar: the usual octave below written). */
@@ -597,7 +728,7 @@ function melodySong(s: SongbookSong, inst: Instrument, octaves = false): Song {
       return { notes, dur: Math.round(n.dur * 1000) / 1000, ...(n.chord ? { chord: n.chord } : {}) }
     }),
   }))
-  return { title: s.title, tempo: t.tempo ?? 90, meter: t.meter, tracks: [{ name: octaves ? 'Octave lead' : 'Melody', tuning, capo: 0, bars, program: s.genre === 'reggae' ? 27 : 25 }] }
+  return { title: s.title, tempo: t.tempo ?? 90, meter: t.meter, tracks: [{ name: octaves ? 'Octave lead' : 'Melody', tuning, capo: 0, bars, program: programFor(s) }] }
 }
 
 /** The song's chords with how long each lasts: from the words, the chart, or the tune. */
@@ -630,6 +761,163 @@ function rhythmSong(s: SongbookSong, part: SongbookPart, inst: Instrument): Song
   return song
 }
 
+
+// ── Full arrangement: the tune played like a guitarist would play it alone ──
+// Folk and bluegrass: Carter style. You hold the chord shape; the melody is picked out of it (mostly on the lower
+// strings), and wherever the melody holds a note you brush the higher strings of the chord on the off-beats; when the
+// melody rests on a strong beat the bass note fills it, and a long note at a chord change becomes a bass walk into
+// the next chord. Everything else (reggae and the newer styles): the melody on top, the bass under it on the strong
+// beats, and chord chops in the gaps (on the off-beats for reggae).
+interface ArrEv { at: number; mel?: number; bass?: number; brush?: boolean; under?: boolean; chord: string; name?: string }
+function arrangeSong(s: SongbookSong, inst: Instrument): Song | null {
+  if (!s.abc) return null
+  const t = parseAbc(s.abc)
+  const tuning = inst.midis
+  const n = tuning.length
+  const meter = t.meter
+  const carter = s.genre === 'folk' || s.genre === 'bluegrass' || s.genre === 'country'
+  // flatten with times, carrying the chord
+  const firstChord = t.bars.flat().find(x => x.chord)?.chord ?? s.key
+  const notes: { at: number; dur: number; midi: number | null; chord: string; bar: number }[] = []
+  let time = 0, cur = firstChord
+  t.bars.forEach((bar, bi) => bar.forEach(x => { if (x.chord) cur = x.chord; notes.push({ at: time, dur: x.dur, midi: x.midi, chord: cur, bar: bi }); time += x.dur }))
+  const total = time
+  const pitched = notes.filter(x => x.midi !== null).map(x => x.midi!) 
+  if (!pitched.length) return null
+  let shift = octaveFit(pitched, tuning)
+  if (!carter) {
+    // melody on top: lift it while most of it sits on the bass strings and it still fits under fret 12 of the top string
+    const sorted = [...pitched].sort((a, b) => a - b)
+    while (sorted[Math.floor(sorted.length / 2)] + shift < tuning[Math.min(n - 1, 3)] && sorted[sorted.length - 1] + shift + 12 <= tuning[n - 1] + 12) shift += 12
+  }
+  const shapes = new Map<string, Voicing | undefined>()
+  const shapeOf = (c: string) => { if (!shapes.has(c)) shapes.set(c, voicing(c, inst)); return shapes.get(c) }
+  const pcOf = (c: string) => pc(parseSymbol(c).root)
+  const scale = (s.minor ? MINOR : MAJOR).map(i => (pc(s.key) + i) % 12)
+  // the bar's beat positions where something should happen (whole beats, waltz: 1 2 3)
+  const evs = new Map<number, ArrEv>()
+  const at = (b: number, chord: string) => { const k = Math.round(b * 1000) / 1000; let e = evs.get(k); if (!e) { e = { at: k, chord }; evs.set(k, e) } return e }
+  // pickup: a first bar shorter than the rest starts before beat 0 of bar 1
+  const bar0 = t.bars[0]?.reduce((a, x) => a + x.dur, 0) ?? meter
+  const pickup = bar0 < meter - 1e-6 ? bar0 : 0
+  const beatInBar = (b: number) => (((b - pickup) % meter) + meter) % meter
+  for (const x of notes) if (x.midi !== null) at(x.at, x.chord).mel = x.midi + shift
+  let lastChord = ''
+  for (const x of notes) if (x.chord !== lastChord) { at(x.at, x.chord).name = x.chord; lastChord = x.chord }
+  // what sounds at time b: the melody note holding over it (or a rest)
+  const holding = (b: number) => notes.find(x => x.at < b - 1e-6 && x.at + x.dur > b + 1e-6)
+  const onsetAt = (b: number) => notes.find(x => Math.abs(x.at - b) < 1e-6)
+  const chordAt = (b: number) => (notes.find(x => x.at <= b + 1e-6 && x.at + x.dur > b + 1e-6) ?? notes[notes.length - 1]).chord
+  let alt = false
+  for (let b = pickup; b < total - 1e-6; b += 1) {
+    const ib = Math.round(beatInBar(b))
+    const strong = ib === 0 || (meter === 4 && ib === 2)
+    const on = onsetAt(b)
+    const hold = holding(b)
+    const chord = chordAt(b)
+    const restOrHold = !on || on.midi === null
+    if (carter) {
+      if (restOrHold && strong && (!hold || hold.midi === null)) { at(b, chord).bass = 1; alt = !alt }
+      else if (!strong) at(b, chord).brush = true
+      // a busy tune: the thumb still drops a bass note under the melody on beat 1
+      else if (!restOrHold && ib === 0) { const e = at(b, chord); e.bass = 1; e.under = true }
+    } else {
+      if (strong) at(b, chord).bass = 1
+      const off = s.genre === 'reggae' || s.genre === 'reggaerock' ? !strong : !strong && restOrHold
+      if (off) at(b, chord).brush = true
+    }
+  }
+  // bass walks: a melody note of 2+ beats ending at a chord change becomes a walk on the last beats
+  for (const x of notes) {
+    if (x.midi === null || x.dur < 2) continue
+    const end = x.at + x.dur
+    const next = notes.find(y => Math.abs(y.at - end) < 1e-6)
+    if (!next || next.chord === x.chord) continue
+    const from = pcOf(x.chord), to = pcOf(next.chord)
+    const steps = scale.length ? [...scale] : [0, 2, 4, 5, 7, 9, 11]
+    // two scale notes leading up (or down) to the next root
+    const below = steps.map(p => (to - p + 12) % 12).filter(d => d > 0 && d <= 4).sort((a, b) => a - b)
+    const w1 = (to - (below[0] ?? 2) + 12) % 12, w2 = (to - (below[1] ?? 4) + 12) % 12
+    void from
+    at(end - 2, x.chord).bass = 100 + w2
+    at(end - 1, x.chord).bass = 100 + w1
+    evs.get(Math.round((end - 2) * 1000) / 1000)!.brush = false
+    evs.get(Math.round((end - 1) * 1000) / 1000)!.brush = false
+  }
+  // place every event on strings and frets around the chord shape
+  const low = Math.min(...tuning)
+  const placed: { at: number; notes: SongNote[]; chord?: string }[] = []
+  let lastMelString = n - 1
+  for (const e of [...evs.values()].sort((a, b) => a.at - b.at)) {
+    const v = shapeOf(e.chord)
+    const frets = v?.frets ?? tuning.map(() => -1)
+    const used = new Map<number, number>()
+    const fretted = frets.filter(f => f > 0)
+    const centre = fretted.length ? fretted.reduce((a, b) => a + b, 0) / fretted.length : 2
+    // the bass: the shape's lowest root (or the 5th on the next string, every other time), or a walk note
+    const rootPc = pcOf(e.chord)
+    const shapeStr = frets.map((f, si) => ({ si, f, m: f >= 0 ? tuning[si] + f : -1 })).filter(x => x.f >= 0)
+    let melAt = -1
+    if (e.mel !== undefined) {
+      let best: { si: number; f: number; cost: number } | null = null
+      for (let si = 0; si < n; si++) {
+        const f = e.mel - tuning[si]
+        if (f < 0 || f > 12 || used.has(si)) continue
+        const inShape = frets[si] === f
+        const cost = (inShape ? 0 : 1.2) + Math.abs(f - centre) * 0.45 + (f > 7 ? 0.8 : 0) + (carter ? Math.abs(si - lastMelString) * 0.25 : (n - 1 - si) * 0.35)
+        if (!best || cost < best.cost) best = { si, f, cost }
+      }
+      if (best) { used.set(best.si, best.f); lastMelString = best.si; melAt = best.si }
+    }
+    if (e.bass !== undefined) {
+      if (e.bass >= 100) {
+        const p = e.bass - 100
+        for (let m = low; m < low + 12; m++) if (((m % 12) + 12) % 12 === p) {
+          const si = tuning.findIndex((tt, k) => k <= 2 && !used.has(k) && (melAt < 0 || k < melAt) && m - tt >= 0 && m - tt <= 4)
+          if (si >= 0) used.set(si, m - tuning[si])
+          break
+        }
+      } else {
+        const roots = shapeStr.filter(x => ((x.m % 12) + 12) % 12 === rootPc && x.si <= 2 && (melAt < 0 || x.si < melAt))
+        // no root on the bass strings in this shape: find one near the hand
+        let r: { si: number; f: number; m: number } | undefined = roots[0]
+        if (!r) for (let si = 0; si <= Math.min(2, n - 1) && !r; si++) { if (melAt >= 0 && si >= melAt) break; const f = ((rootPc - tuning[si]) % 12 + 12) % 12; if (Math.abs(f - centre) <= 4 || f <= 4) r = { si, f, m: tuning[si] + f } }
+        if (!r && melAt !== 0) r = shapeStr.find(x => melAt < 0 || x.si < melAt)
+        if (r) {
+          const rr = r; const fifth = shapeStr.find(x => x.si === rr.si + 1 && (melAt < 0 || x.si < melAt) && ((x.m - rr.m) % 12 + 12) % 12 === 7)
+          const pickIt = alt && fifth ? fifth : r
+          alt = !alt
+          if (!used.has(pickIt.si)) used.set(pickIt.si, pickIt.f)
+        }
+      }
+    }
+    if (e.brush) {
+      // Carter: the strings above the melody; on top: the strings between the bass and the melody
+      const melStr = e.mel !== undefined ? lastMelString : holding(e.at)?.midi != null ? lastMelString : 1
+      const cands = shapeStr.filter(x => !used.has(x.si) && (carter ? x.si > melStr : x.si < melStr && x.si >= 2))
+      const pick = carter ? cands.slice(0, 3) : cands.slice(-3)
+      for (const x of pick) used.set(x.si, x.f)
+    }
+    const ns: SongNote[] = [...used.entries()].map(([si, f]) => ({ string: si, fret: f, midi: tuning[si] + f })).sort((a, b) => a.string - b.string)
+    placed.push({ at: e.at, notes: ns, ...(e.name ? { chord: e.name } : {}) })
+  }
+  // into bars (the pickup bar stays short)
+  const bars: SongBar[] = []
+  const edges: number[] = []
+  if (pickup) edges.push(0)
+  for (let b = pickup; b < total - 1e-6; b += meter) edges.push(b)
+  edges.push(total)
+  for (let k = 0; k + 1 < edges.length; k++) {
+    const b0 = edges[k], b1 = edges[k + 1]
+    const inBar = placed.filter(p => p.at >= b0 - 1e-6 && p.at < b1 - 1e-6)
+    const steps: SongStep[] = []
+    if (!inBar.length || inBar[0].at > b0 + 1e-6) steps.push({ notes: [], dur: Math.round(((inBar[0]?.at ?? b1) - b0) * 1000) / 1000 })
+    inBar.forEach((p, i) => steps.push({ notes: p.notes, dur: Math.round(((i + 1 < inBar.length ? inBar[i + 1].at : b1) - p.at) * 1000) / 1000, ...(p.chord ? { chord: p.chord } : {}) }))
+    bars.push({ steps })
+  }
+  return { title: s.title, tempo: t.tempo ?? 90, meter, tracks: [{ name: 'Full arrangement', tuning, capo: 0, bars, program: programFor(s) }] }
+}
+
 /** Build one part of a songbook song for this instrument. */
 export function songbookSong(songId: string, partId: string, inst: Instrument): Song | null {
   const s = SONGBOOK.find(x => x.id === songId)
@@ -638,6 +926,7 @@ export function songbookSong(songId: string, partId: string, inst: Instrument): 
   const song = part.kind === 'words' ? sheetSong(s, inst)
     : part.kind === 'melody' ? melodySong(s, inst)
       : part.kind === 'octaves' ? melodySong(s, inst, inst.midis.length >= 6)
+        : part.kind === 'arrange' ? arrangeSong(s, inst)
         : rhythmSong(s, part, inst)
   if (!song) return null
   song.tempo = part.bpm
@@ -654,7 +943,11 @@ export function backingFor(s: SongbookSong, part: SongbookPart): { groove: strin
     const p = part.pattern ?? s.strum ?? ''
     return { groove: p === 'rockers' || p === 'ska' ? 'rockers' : p === 'double' ? 'steppers' : 'reggae', bass: 'reggae' }
   }
-  if (s.genre === 'bluegrass') return { groove: 'train', bass: 'country' }
+  if (s.genre === 'bluegrass' || s.genre === 'country') return { groove: s.genre === 'country' && s.id === 'porch' ? 'brushfolk' : 'train', bass: 'country' }
+  if (s.genre === 'reggaerock') return { groove: part.pattern === 'double' ? 'steppers' : 'reggae', bass: 'reggae' }
+  if (s.genre === 'pop') return s.strum === 'funk' ? { groove: 'funk', bass: 'funk' } : { groove: 'halftime', bass: 'ballad' }
+  if (s.genre === 'bluesrock') return { groove: s.id === 'velvethour' ? 'purdie' : 'shuffle', bass: s.id === 'velvethour' ? 'funk' : 'boogie' }
+  if (s.genre === 'prog') return s.id === 'monsoon' ? { groove: 'djent', bass: 'metal' } : { groove: s.id === 'staircase' ? 'motorik' : 'halftime', bass: 'pop' }
   return { groove: 'halftime', bass: 'country' }
 }
 

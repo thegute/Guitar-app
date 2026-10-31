@@ -479,7 +479,168 @@ export const LICKS: LickDef[] = [
     { id: 'mc-ripple', ref: 'A', minor: true, name: 'Pull-off ripple in Am', level: 2, kind: 'lick', chord: 'Am', tab: 's 1:3 1:0p 2:1 1:0 2:3 2:1p 3:2 2:1 3:2 3:0p 4:2 3:0 q 5:0+4:2+3:2+2:1' },
     { id: 'mc-ending', name: 'Falling G ending', level: 1, kind: 'ending', chord: 'G', tab: 'e 1:3 2:3 3:0 4:0 5:2 6:3 q 6:3+5:2+4:0+3:0+2:3+1:3' },
   ]),
+  // ───────────────────────── Modern bluegrass flatpicking (Billy Strings style): all original, G position, capo for other keys
+  ...L('billy', 'G', [
+    { id: 'bs-grun', name: 'The big G run', level: 1, kind: 'run', chord: 'G', tab: 'e 5:0 5:1 5:2 4:0 4:2 3:0 q 4:0 | e 5:2 5:0 q 6:3 h r',
+      must: { about: 'The G run, played with the confidence modern flatpickers give it: open A, the blue B-flat, B, D, E, G, back to D, then down to the low G. Every bluegrass guitarist ends phrases with some version of this.',
+        steps: ['Open A string, then 1st and 2nd fret of the A string (Bb, B): first and second fingers.', 'Open D, 2nd fret of the D string (E), open G.', 'Back to the open D for a beat.', 'Bar 2: 2nd fret of the A string (B), open A, then the low G (3rd fret, low E string) and let it ring.'],
+        tip: 'Down-up alternate picking all the way, and hit the low G hard: the run is a punctuation mark.', use: 'The end of any phrase landing on G; capo up for other keys.', goal: 140 } },
+    { id: 'bs-bluenote', name: 'Blue-note climb and fall', level: 1, kind: 'run', chord: 'G', tab: 'e 5:1 5:2h 4:0 4:2 3:0 3:2 2:0 2:3 | e 2:0 3:2 3:0 4:2 q 4:0 6:3',
+      must: { about: 'The flat 3rd hammered to the major 3rd (Bb to B) starts a climb up the G major scale to the high D, then it tumbles back down to the root. That bluesy hammer-on is the sound of modern bluegrass.',
+        steps: ['Pick the 1st fret of the A string (Bb) and hammer the 2nd finger onto the 2nd fret (B).', 'Climb: open D, D string 2nd fret, open G, G string 2nd fret, open B, B string 3rd fret (D).', 'Come back down the same notes: open B, G string 2nd, open G, D string 2nd.', 'Finish on the open D and the low G.'],
+        tip: 'Pick only the first note of the hammer-on; the hammered note should be as loud as the picked one.', use: 'Over G, especially at the start of a break.', goal: 130 } },
+    { id: 'bs-cross-g', name: 'Crosspicking roll on G', level: 2, kind: 'arpeggio', chord: 'G', tab: 'e 4:0 3:0 2:0 4:0 3:0 2:0 4:0 3:0 | e 4:0 3:0 2:3 4:0 3:0 2:3 4:0 3:0',
+      must: { about: 'Crosspicking: three strings in a repeating pattern of three against the beat of four, so the accent keeps moving. It sounds like a banjo roll on guitar, the shimmering texture under slow bluegrass melodies.',
+        steps: ['Hold a G chord. Pick D, G, B strings, then D, G, B again, then D, G: eight notes in a bar.', 'Bar 2: the same, but fret the B string at the 3rd fret (D) for a G with the 5th on top.', 'Pick down, down, up on each group of three, or strictly alternate: try both and keep the one that stays even.', 'Let every note ring into the next.'],
+        tip: 'Feel the groups of three while your foot taps in four: that friction is the whole point.', use: 'Behind a singer, or slow parts of a tune over G; the same pattern works on C and D shapes.', goal: 120 } },
+    { id: 'bs-cross-c', name: 'Crosspicking C to D', level: 2, kind: 'arpeggio', chord: 'C | D', tab: 'e 5:3 3:0 2:1 5:3 3:0 2:1 5:3 3:0 | e 4:0 3:2 2:3 4:0 3:2 2:3 4:0 3:2' },
+    { id: 'bs-chrom-walk', name: 'Chromatic walk-down', level: 3, kind: 'run', chord: 'G', tab: 'e 1:3 1:2 1:1 1:0 2:3 2:2 2:1 2:0 | e 3:2 3:1 3:0 4:4 4:3 4:2 q 3:0',
+      must: { about: 'A long chromatic slide down from the high G, every fret in turn, mixing open strings in: the kind of fast, slippery line that makes modern bluegrass sound jazzy and wild.',
+        steps: ['High E string: 3, 2, 1, open.', 'B string: 3, 2, 1, open.', 'G string: 2, 1, open; D string: 4, 3, 2.', 'Land on the open G string on beat 4.'],
+        tip: 'Use one finger per fret and keep your hand still: the line is fast because nothing moves except the fingertips.', use: 'Leading back to G at the end of a break; start slow with the speed trainer.', goal: 150 } },
+    { id: 'bs-triplet-pull', name: 'Pull-off triplets', level: 2, kind: 'lick', chord: 'G', tab: 't 2:3 2:0p 3:2 2:3 2:0p 3:2 2:3 2:0p 3:2 2:3 2:0p 3:2' },
+    { id: 'bs-double-stops', name: 'Fiddle double stops', level: 2, kind: 'double-stop', chord: 'G | C', tab: 'e 3:0+2:0 3:2+2:3 3:4+2:3 3:2+2:3 q 3:0+2:0 3:2+2:3 | h 3:4+2:5 3:0+2:1' },
+    { id: 'bs-d-run', name: 'Run over the D chord', level: 2, kind: 'run', chord: 'D', tab: 'e 4:0 4:2 4:4 3:0 3:2 2:0 2:3 1:2 | q 2:3 e 2:0 3:2 h 4:0' },
+    { id: 'bs-minor-mode', ref: 'A', minor: true, name: 'Dark A minor line', level: 2, kind: 'lick', chord: 'Am', tab: 'e 5:0 5:3 4:0 4:2 4:3 3:0 3:2 2:1 | e 2:0 3:2 3:0 4:3 4:2 4:0 q 5:0' },
+    { id: 'bs-banjo-roll', name: 'Banjo roll on guitar', level: 3, kind: 'arpeggio', chord: 'G | C', tab: 'e 3:0 2:0 1:3 3:0 2:0 1:3 3:0 2:0 | e 3:0 2:1 1:0 3:0 2:1 1:0 3:2 2:1' },
+    { id: 'bs-fast-scale', name: 'Sixteenth-note scale burst', level: 3, kind: 'run', chord: 'G', tab: 's 6:3 5:0 5:2 5:3 4:0 4:2 4:4 3:0 3:2 2:0 2:1 2:3 1:0 1:2 1:3 1:2 | q 1:0 2:3 h 3:0' },
+    { id: 'bs-slide-third', name: 'Slide into the 3rd', level: 1, kind: 'lick', chord: 'G', tab: 'e 3:2 3:4/ 2:3 3:4 3:2 3:0 4:2 4:0 | q 5:2 6:3 h r' },
+    { id: 'bs-tag', name: 'Tag ending', level: 1, kind: 'ending', chord: 'D | G', tab: 'e 2:3 2:0 3:2 3:0 4:2 4:0 q 5:2 | q 6:3 r 4:0+3:0 r' },
+    { id: 'bs-jam-climb', name: 'Jam climb up the neck', level: 3, kind: 'run', chord: 'G', tab: 'e 3:5 3:7 3:9 2:8 2:10 1:9 1:10 1:12 | e 1:10 1:9 2:10 2:8 3:9 3:7 q 3:5~' },
+    { id: 'bs-kickoff', name: 'Kickoff into a tune', level: 1, kind: 'lick', chord: 'G', tab: 'q 4:0 e 5:2 5:3 4:0 4:2 q 3:0 | e 2:0 3:2 3:0 4:2 4:0 5:2 q 6:3' },
+    { id: 'bs-lonesome-bend', name: 'Lonesome bend', level: 2, kind: 'lick', chord: 'G', tab: 'e 3:0 3:3bq 3:0 4:2 q 4:0 e 5:1 5:2h | h 6:3 3:0+4:0+5:2' },
+    { id: 'bs-cross-am', ref: 'A', minor: true, name: 'Crosspicking in A minor', level: 2, kind: 'arpeggio', chord: 'Am', tab: 'e 5:0 3:2 2:1 5:0 3:2 2:1 5:0 3:2 | e 4:2 3:2 2:1 4:2 3:2 2:1 4:2 3:2' },
+    { id: 'bs-turnaround', name: 'D to G turnaround', level: 2, kind: 'turnaround', chord: 'D | G', tab: 'e 4:0 4:2 4:4 3:0 q 4:4 4:0 | e 5:2 5:0 6:2 6:3 h r' },
+    { id: 'bs-clarence', name: 'Double-stop pull (Clarence White style)', level: 2, kind: 'double-stop', chord: 'G', tab: 'e 2:3+1:3 2:1+1:3 2:0+1:3 r q 2:0+1:0 3:0+2:0 | h 4:0+3:0+2:0 r' },
+    { id: 'bs-em-arp', ref: 'E', minor: true, name: 'E minor sweep up and down', level: 1, kind: 'arpeggio', chord: 'Em', tab: 'e 6:0 5:2 4:2 3:0 2:0 1:0 2:0 3:0 | e 4:2 5:2 6:0 6:3 q 5:2 6:0' },
+  ]),
+  // ───────────────────────── more licks for the styles that had only a few
+  ...L('neosoul', 'E', [
+    { id: 'ns-sixths', name: 'Sliding sixths', level: 2, kind: 'double-stop', chord: 'E', tab: 'e 3:9+1:9 3:11+1:12 3:9+1:9 r q 3:7+1:7 3:9+1:9 | h 3:9+1:9~ h r' },
+    { id: 'ns-hammer-chord', name: 'Chord with a hammer flourish', level: 2, kind: 'lick', chord: 'E', tab: 'e 4:9+3:9 4:9+3:9 3:11h r 2:9 2:12 2:9 3:11 | h 3:9~ q 4:9 r' },
+    { id: 'ns-slide-arp', name: 'Slide into an arpeggio', level: 1, kind: 'arpeggio', chord: 'E', tab: 'e 4:7/ 4:9 3:9 2:9 1:7 2:9 3:9 4:9 | q 4:7~ e 3:9 2:9 h 1:7' },
+    { id: 'ns-flutter', name: 'Pentatonic flutter', level: 3, kind: 'run', chord: 'E', tab: 's 1:7 1:9 2:9 1:9 1:7 2:9 2:7 3:9 3:7 3:9 2:7 3:9 4:9 3:7 4:9 4:7 | h 5:7~ h r' },
+  ]),
+  ...L('country', 'A', [
+    { id: 'cy-chicken', name: 'Chicken-pickin\' snaps', level: 2, kind: 'lick', chord: 'A', tab: 'e 3:2 3:2m 2:2 3:2 4:2 4:2m 3:2 2:2 | q 2:5 e 2:2 3:2 h 4:2' },
+    { id: 'cy-steel-bend', name: 'Pedal-steel bend', level: 2, kind: 'double-stop', chord: 'A', tab: 'q 3:4b+2:5 e 3:4r 2:5 q 1:5 e 2:5 3:2 | h 3:2+2:2 h r' },
+    { id: 'cy-walk-a', name: 'Walk-up in A', level: 1, kind: 'run', chord: 'A', tab: 'e 5:0 5:2 5:4 4:0 4:2 4:4 3:1 3:2 | q 2:2 2:0 h 3:2' },
+    { id: 'cy-acoustic-fill', name: 'Acoustic hammer-on fill', level: 1, kind: 'lick', chord: 'D', tab: 'e 4:0 3:2 2:3 1:0 1:2h 2:3 3:2 4:0 | h 4:0+3:2+2:3+1:2 h r' },
+  ]),
+  ...L('funk', 'E', [
+    { id: 'fk-chop16', name: 'Sixteenth chop', level: 2, kind: 'riff', chord: 'E9', tab: 's 3:9+2:9 3:x+2:x r 3:9+2:9 r 3:x+2:x 3:9+2:9 r 3:9+2:9 3:x+2:x r 3:9+2:9 r 3:x+2:x 3:9+2:9 r' },
+    { id: 'fk-pop-line', name: 'Funk-pop single-note line', level: 2, kind: 'riff', chord: 'E', tab: 'e 5:7 r 5:7 4:9 r 4:7 5:9 5:7 | e 6:7 r 6:9 6:10 q 5:7 r' },
+  ]),
+  ...L('progmetal', 'E', [
+    { id: 'pg-legato-sweep', name: 'Lush legato cascade', level: 3, kind: 'run', chord: 'E', tab: 's 2:12 2:14h 2:16h 1:12 1:14h 1:16h 1:14p 1:12p 2:16 2:14p 2:12p 3:14 3:13p 3:11p 4:14 4:12p | h 4:12~ h r' },
+    { id: 'pg-gallop', name: 'Chug gallop', level: 2, kind: 'riff', chord: 'E5', tab: 'e 6:0m s 6:0m 6:0m e 6:0m s 6:0m 6:0m e 6:3 6:0m 6:5 6:0m | e 6:0m s 6:0m 6:0m e 6:0m 6:6 q 6:5 6:3' },
+    { id: 'pg-tap-arp', name: 'Tapped arpeggio', level: 3, kind: 'arpeggio', chord: 'E', tab: 'x 1:12 1:19t 1:15 1:12 1:19t 1:15 1:12 1:19t 1:15 1:12 1:19t 1:15 1:12 1:17t 1:14 1:12 1:17t 1:14 1:12 1:17t 1:14 1:12 1:17t 1:14 | h 1:12~ h r' },
+  ]),
+  ...L('mathrock', 'E', [
+    { id: 'mr-taps3', name: 'Tapped threes', level: 3, kind: 'lick', chord: 'E', tab: 'e 2:7 2:12t 2:9 1:7 1:12t 1:9 2:7 2:12t | e 2:9 1:7 1:12t 1:9 q 1:7 1:5' },
+    { id: 'mr-open-arp', name: 'Open-string arpeggio climb', level: 2, kind: 'arpeggio', chord: 'E', tab: 'e 4:9 3:0 2:9 1:0 4:7 3:0 2:7 1:0 | e 4:4 3:0 2:5 1:0 q 2:5+1:0 4:4+3:0' },
+  ]),
+  ...L('jawaiian', 'G', [
+    { id: 'jw-skank-fill', name: 'Skank with a fill', level: 2, kind: 'riff', chord: 'G', tab: 'e r 3:4+2:3+1:3 r 3:4+2:3+1:3 r 3:5+2:5+1:5 r 3:4+2:3+1:3 | e 4:5 4:7 3:4 3:5 q 3:7 3:4' },
+    { id: 'jw-dub-melody', name: 'Dub melody', level: 1, kind: 'lick', chord: 'G', tab: 'q 2:8 e 2:10 1:8 q 2:10~ e 2:8 3:7 | h 3:9~ q 3:7 r' },
+    { id: 'jw-rock-run', name: 'Reggae-rock run', level: 2, kind: 'run', chord: 'G', tab: 'e 4:5 4:7 3:4 3:5 3:7 2:5 2:8 1:5 | q 1:7 2:8 h 1:3' },
+  ]),
+  // ───────────────────────── Acoustic singer-songwriter (Dylan Gossett style): open chords ringing, hammer-on fills, walking bass
+  ...L('acoustic', 'G', [
+    { id: 'ac-g-hammer', name: 'G hammer-on fill', level: 1, kind: 'lick', chord: 'G', tab: 'e 6:3 4:0 4:0 4:2h 3:0 2:0 1:3 2:0 | h 6:3+5:2+4:0+3:0+2:3+1:3 h r' },
+    { id: 'ac-walk-g-em', name: 'Walk from G to Em', level: 1, kind: 'run', chord: 'G | Em', tab: 'q 6:3+2:3+1:3 e 4:0 3:0 q 6:2+2:3+1:3 e 4:0 3:0 | q 6:0+2:3+1:3 e 4:2 3:0 h 6:0+5:2+4:2+3:0+2:3+1:3' },
+    { id: 'ac-cadd9-dsus', name: 'Cadd9 to Dsus4 ring', level: 1, kind: 'arpeggio', chord: 'Cadd9 | Dsus4', tab: 'e 5:3 4:2 3:0 2:3 1:3 2:3 3:0 4:2 | e 4:0 3:2 2:3 1:3 1:2 2:3 3:2 4:0' },
+    { id: 'ac-d-flutter', name: 'D chord flutter', level: 2, kind: 'lick', chord: 'D', tab: 'e 4:0 3:2 2:3 1:2 1:3h 1:2p 1:0p 2:3 | q 4:0+3:2+2:3+1:2 e 1:3 1:2 h 1:0' },
+    { id: 'ac-em7-ring', name: 'Em7 open ring', level: 1, kind: 'arpeggio', chord: 'Em7', tab: 'e 6:0 5:2 4:2 3:0 2:3 1:3 2:3 3:0 | e 6:0 4:2 3:0 2:3 h 6:0+5:2+4:2+3:0+2:3+1:3' },
+    { id: 'ac-bass-to-c', name: 'Bass run into C', level: 1, kind: 'run', chord: 'G | C', tab: 'q 6:3+1:3 6:3+1:3 e 6:3 5:0 5:2 r | h 5:3+4:2+3:0+2:1+1:0 h r' },
+    { id: 'ac-strum-hammer', name: 'Strum with a hammer-on (D)', level: 2, kind: 'riff', chord: 'D', tab: 'e 4:0+3:2+2:3+1:2 r 4:0+3:2+2:3+1:2 4:0+3:2+2:3+1:0 1:2h 4:0+3:2+2:3+1:2 r 4:0+3:2+2:3+1:2 | h 4:0+3:2+2:3+1:2 h r' },
+    { id: 'ac-travis-g', name: 'Travis G with a melody', level: 2, kind: 'arpeggio', chord: 'G', tab: 'e 6:3+1:3 3:0 4:0 2:0 6:3 3:0 4:0+1:2 2:0 | e 6:3+1:0 3:0 4:0 2:0 h 6:3+2:0+1:3' },
+    { id: 'ac-am-pick', name: 'Am picking with a pull-off', level: 2, kind: 'arpeggio', chord: 'Am', tab: 'e 5:0 3:2 2:1 1:0 2:1 3:2 2:3 2:1p | e 5:0 3:2 2:1 1:0 h 5:0+4:2+3:2+2:1' },
+    { id: 'ac-g-dfs', name: 'G to D/F# walk-down', level: 2, kind: 'run', chord: 'G D/F# Em', tab: 'q 6:3+3:0+2:0 e 4:0 3:0 q 6:2+3:2+2:3 e 4:0 3:2 | h 6:0+4:2+3:0+2:0 q 5:2 6:3' },
+    { id: 'ac-top-hook', name: 'Hook on the top strings', level: 1, kind: 'lick', chord: 'G', tab: 'e 1:3 2:3 1:3 2:3 1:5 2:3 1:3 2:0 | q 1:3 2:3 h 3:0' },
+    { id: 'ac-c-hammer-pull', name: 'C chord hammer and pull', level: 2, kind: 'lick', chord: 'C', tab: 'e 5:3 4:2 3:0 2:1 2:3h 2:1p 3:0 4:2 | e 5:3 4:0 4:2h 3:0 h 5:3+4:2+3:0+2:1+1:0' },
+    { id: 'ac-ending', name: 'Singer-songwriter ending', level: 1, kind: 'ending', chord: 'G', tab: 'e 2:3 3:0 4:0 5:2 6:3 5:2 4:0 3:0 | w 6:3+5:2+4:0+3:0+2:3+1:3' },
+    { id: 'ac-thumb-slap', name: 'Thumb and slap groove', level: 3, kind: 'riff', chord: 'G | Em', tab: 'e 6:3 4:x+3:x 4:0 3:0 6:3 4:x+3:x 4:0 3:0 | e 6:0 4:x+3:x 4:2 3:0 h 6:3+4:0+3:0' },
+    { id: 'ac-four-chord', name: 'The four-chord pick (Em C G D)', level: 2, kind: 'arpeggio', chord: 'Em C | G D', tab: 'e 6:0 4:2 3:0 4:2 5:3 4:2 3:0 4:2 | e 6:3 4:0 3:0 4:0 4:0 3:2 2:3 3:2' },
+  ]),
+  // ───────────────────────── Reggae rock and dub (Sublime, Stick Figure, The Movement style)
+  ...L('reggaerock', 'G', [
+    { id: 'rr-skank', name: 'Off-beat skank', level: 1, kind: 'riff', chord: 'G | C', tab: 'e r 4:5+3:4+2:3 r 4:5+3:4+2:3 r 4:5+3:4+2:3 r 4:5+3:4+2:3 | e r 4:5+3:5+2:5 r 4:5+3:5+2:5 r 4:7+3:7+2:8 r 4:7+3:7+2:8' },
+    { id: 'rr-dub-line', name: 'Dub line on the low strings', level: 1, kind: 'riff', chord: 'G', tab: 'e 6:3 r 6:3 6:5 q 5:2 e 5:5 5:2 | e 6:5 r 6:3 r h 6:3' },
+    { id: 'rr-beach-pent', name: 'Beach major pentatonic', level: 1, kind: 'lick', chord: 'G', tab: 'e 3:4 3:7 2:5 2:8 1:5 1:7 1:5 2:8 | q 2:5 3:7 h 3:4~' },
+    { id: 'rr-octave-hook', name: 'Octave hook', level: 2, kind: 'double-stop', chord: 'G', tab: 'q 4:5+2:8 e 4:7+2:10 4:5+2:8 q 5:5+3:7 r | h 4:5+2:8 h r' },
+    { id: 'rr-punk-run', name: 'Punk-reggae run', level: 2, kind: 'run', chord: 'G', tab: 'e 5:5 5:7 4:5 4:7 3:4 3:7 2:5 2:8 | e 2:5 3:7 3:4 4:7 q 4:5 5:5' },
+    { id: 'rr-thirds', name: 'Sweet thirds', level: 2, kind: 'double-stop', chord: 'G', tab: 'e 2:8+1:7 2:10+1:8 2:12+1:10 2:10+1:8 q 2:8+1:7 r | e 3:7+2:8 3:9+2:10 q 3:7+2:8 h r' },
+    { id: 'rr-bubble', name: 'Organ bubble on guitar', level: 2, kind: 'riff', chord: 'G | C', tab: 'e r 3:7+2:8 3:7+2:8 r r 3:7+2:8 3:7+2:8 r | e r 3:9+2:10 3:9+2:10 r r 3:7+2:8 3:7+2:8 r' },
+    { id: 'rr-slide-fill', name: 'Slide fill', level: 1, kind: 'lick', chord: 'G', tab: 'e 3:2/ 3:4 2:3 3:4 q 2:5/ e 2:3 3:4 | h 3:4~ h r' },
+    { id: 'rr-minor-dub', ref: 'E', minor: true, name: 'Minor dub phrase', level: 2, kind: 'lick', chord: 'Em', tab: 'q 2:5 e 2:8 1:7 q 2:8~ e 2:5 3:7 | e 3:5 3:7 2:5 3:7 h 4:7~' },
+    { id: 'rr-ending', name: 'Reggae rock ending', level: 1, kind: 'ending', chord: 'G', tab: 'e 1:3 2:3 3:4 4:5 q 5:5 6:3 | h 6:3+5:5+4:5+3:4 h r' },
+  ]),
+  // ───────────────────────── Pop and soul (Bruno Mars, James Arthur style)
+  ...L('popsoul', 'C', [
+    { id: 'ps-funk-chop', name: 'Funk-pop chop', level: 2, kind: 'riff', chord: 'C', tab: 's 3:5+2:5+1:5 3:x+2:x+1:x r 3:5+2:5+1:5 r r 3:5+2:5+1:5 3:x+2:x+1:x 3:5+2:5+1:5 r 3:x+2:x+1:x 3:5+2:5+1:5 r r 3:5+2:5+1:5 r' },
+    { id: 'ps-single-hook', name: 'Single-note funk hook', level: 2, kind: 'riff', chord: 'C', tab: 'e 5:3 r 5:3 4:5 r 4:2 5:5 5:3 | e 6:3 r 6:5 6:6 q 5:3 r' },
+    { id: 'ps-ballad-arp', name: 'Ballad arpeggio', level: 1, kind: 'arpeggio', chord: 'C | G', tab: 'e 5:3 4:2 3:0 2:1 1:0 2:1 3:0 4:2 | e 6:3 5:2 4:0 3:0 h 6:3+5:2+4:0+3:0+2:0+1:3' },
+    { id: 'ps-soul-sixths', name: 'Soul sixths', level: 2, kind: 'double-stop', chord: 'C', tab: 'e 3:5+1:5 3:7+1:8 3:5+1:5 r q 3:4+1:3 3:5+1:5 | h 3:5+1:5~ h r' },
+    { id: 'ps-hammer-riff', name: 'Hammer-on chord riff', level: 1, kind: 'riff', chord: 'C', tab: 'e 4:2+3:0 4:2+3:0 4:2+3:2h r 4:2+3:0 4:2+3:2h 4:2+3:0 r | h 5:3+4:2+3:0+2:1 h r' },
+    { id: 'ps-ninth-slide', name: 'Ninth chord slide', level: 2, kind: 'riff', chord: 'C9', tab: 'e 4:4+3:3+2:3 4:5/+3:5+2:5 r 4:5+3:5+2:5 r 4:5+3:5+2:5 4:4+3:3+2:3 r | h 4:5+3:5+2:5 h r' },
+    { id: 'ps-pent-run', name: 'Pop pentatonic run', level: 2, kind: 'run', chord: 'Am', tab: 'e 1:8 1:5 2:8 2:5 3:7 3:5 4:7 4:5 | q 5:7 e 4:5 4:7 h 3:5~' },
+    { id: 'ps-octave-groove', name: 'Octave groove', level: 2, kind: 'riff', chord: 'C', tab: 'e 5:3+3:5 r 5:3+3:5 5:5+3:7 r 5:3+3:5 r 5:1+3:3 | e 5:3+3:5 r q 5:3+3:5 h r' },
+    { id: 'ps-ballad-walk', name: 'Ballad bass walk-down', level: 1, kind: 'run', chord: 'C G/B Am F', tab: 'q 5:3+2:1 5:2+2:1 5:0+2:1 6:1+2:1 | h 6:1+3:2+2:1+1:1 h r' },
+    { id: 'ps-ending', name: 'Soul ending', level: 1, kind: 'ending', chord: 'C', tab: 'e 2:5 2:8 1:5 1:8 q 1:7~ e 1:5 2:8 | h 3:7+2:8+1:7 h r' },
+  ]),
+  // ───────────────────────── Melodic prog (Plini style): clean, lush, legato and tapped lines over major 7 and add9 colours
+  ...L('progclean', 'E', [
+    { id: 'pc-lydian-arp', name: 'Lydian arpeggio', level: 2, kind: 'arpeggio', chord: 'Emaj7#11', tab: 'e 5:7 4:6 3:8 2:7 1:7 2:7 3:8 4:6 | e 5:7 4:9 3:8 2:9 h 1:7~' },
+    { id: 'pc-legato', name: 'Legato melody', level: 3, kind: 'lick', chord: 'E', tab: 's 2:9 2:11h 2:12h 2:11p 2:9p 3:11 3:9p 3:8p 2:9 2:11h 2:12h 1:9 1:11h 1:12h 1:11p 1:9p | h 2:12~ h r' },
+    { id: 'pc-sweep', name: 'Major 7 sweep', level: 3, kind: 'arpeggio', chord: 'Emaj7', tab: 'x 5:7 4:6 3:8 2:7 1:7 1:11 1:7 2:7 3:8 4:6 5:7 4:6 3:8 2:7 1:7 1:11 1:7 2:7 3:8 4:6 5:7 4:6 3:8 2:7 | h 1:7~ h r' },
+    { id: 'pc-harmonics', name: 'Harmonic chime', level: 1, kind: 'lick', chord: 'E', tab: 'q 3:12n+2:12n e 1:12n 2:12n q 4:7n+3:7n e 2:7n 1:7n | h 3:12n+2:12n+1:12n h r' },
+    { id: 'pc-tap', name: 'Tapped melody', level: 3, kind: 'lick', chord: 'E', tab: 'e 2:9 2:16t 2:12 2:9 2:17t 2:12 2:9 2:16t | e 2:12 2:9 2:14t 2:9 h 2:12~' },
+    { id: 'pc-hybrid', name: 'Hybrid-picked arpeggio', level: 2, kind: 'arpeggio', chord: 'Emaj7 | F#m7', tab: 's 5:7 3:8 2:7 1:7 5:7 3:8 2:7 1:7 5:9 3:9 2:9 1:9 5:9 3:9 2:9 1:9 | h 5:7+3:8+2:7+1:7 h r' },
+    { id: 'pc-add9', name: 'Add9 with open strings', level: 2, kind: 'arpeggio', chord: 'Eadd9', tab: 'e 6:0 4:9 3:8 2:0 1:0 2:0 3:8 4:9 | e 6:0 4:11 3:9 2:0 h 1:0~' },
+    { id: 'pc-sixths', name: 'Gliding sixths', level: 2, kind: 'double-stop', chord: 'E', tab: 'e 3:6+1:7 3:8/+1:9 3:9+1:11 r q 3:8+1:9 3:6+1:7 | h 3:4+1:5~ h r' },
+    { id: 'pc-climb', name: 'Sixteenth climb', level: 3, kind: 'run', chord: 'E', tab: 's 4:6 4:7 4:9 3:6 3:8 3:9 2:7 2:9 2:10 1:7 1:9 1:11 1:12 1:11 1:9 1:7 | q 2:9 2:7 h 3:8~' },
+    { id: 'pc-resolve', name: 'Floating resolution', level: 1, kind: 'ending', chord: 'Emaj7', tab: 'q 2:9+1:11 2:7+1:9 h 2:9+1:7~ | w 5:7+4:6+3:8+2:7+1:7' },
+  ]),
 ]
 
 export const lickById = (id: string) => LICKS.find(l => l.id === id)
+
+// ── every style gets 10–25 must-know licks: the hand-written breakdowns first, then a breakdown made from the tab
+import { parseLick } from './notation'
+const TECH: [string, string][] = [['b1½', 'big bend'], ['b½', 'half-step bend'], ['b¼', 'quarter bend'], ['pb', 'pre-bend'], ['b', 'whole-step bend'], ['h', 'hammer-on'], ['p', 'pull-off'], ['/', 'slide'], ['\\', 'slide down'], ['r', 'release'], ['~', 'vibrato'], ['PM', 'palm mute'], ['harm', 'harmonic'], ['T', 'tap'], ['x', 'dead note']]
+const STRING = ['', 'high E', 'B', 'G', 'D', 'A', 'low E']
+const WHY: Record<string, string> = {
+  lick: 'a short phrase', run: 'a run that moves through the scale', arpeggio: 'the chord picked one note at a time', riff: 'a rhythm riff',
+  ending: 'an ending', 'double-stop': 'two notes played together', turnaround: 'a turnaround back to the top',
+}
+const STYLE_WORD: Record<string, string> = { billy: 'modern bluegrass flatpicking', acoustic: 'acoustic singer-songwriter', reggaerock: 'reggae rock', popsoul: 'pop and soul', progclean: 'melodic prog', altrock: 'alt rock', progmetal: 'prog metal', mathrock: 'math rock', mayer: 'blues-pop', neosoul: 'neo-soul', jawaiian: 'island reggae', fingerstyle: 'melodic fingerstyle' }
+function autoBreakdown(l: LickDef): Breakdown {
+  const st = l.style
+  const { events, bars } = parseLick(l.tab)
+  const notes = events.flatMap(e => e.notes)
+  const fretted = notes.filter(n => n.fret > 0 && n.tech !== 'x').map(n => n.fret)
+  const lo = fretted.length ? Math.min(...fretted) : 0, hi = fretted.length ? Math.max(...fretted) : 0
+  const strings = [...new Set(notes.map(n => 6 - n.string))].sort((a, b) => b - a)
+  const techs = [...new Set(notes.flatMap(n => { const out: string[] = []; let r = n.tech ?? ''; while (r) { const hit = TECH.find(([k]) => r.startsWith(k)); if (!hit) break; out.push(hit[1]); r = r.slice(hit[0].length) } return out }))]
+  const opens = notes.some(n => n.fret === 0 && n.tech !== 'x')
+  const pos = !fretted.length ? 'open strings' : lo <= 3 || (opens && hi <= 5) ? 'first position (open strings and the first few frets)' : `around the ${lo}${['st', 'nd', 'rd'][lo - 1] ?? 'th'} fret (first finger on fret ${lo})`
+  const steps = [
+    `Put your hand in ${pos}.${hi - lo > 4 && fretted.length ? ` It moves up to fret ${hi} on the way: slide your whole hand, don't stretch.` : ''}`,
+    `It uses the ${strings.map(s => STRING[s]).join(', ')} string${strings.length > 1 ? 's' : ''}: play it slowly once and say the fret numbers out loud.`,
+    ...(techs.length ? [`Techniques: ${techs.join(', ')}. Only pick the first note of a hammer-on, pull-off or slide.`] : []),
+    `Tap your foot and count it: ${bars.length + (events.length ? 1 : 0) > 1 ? `${bars.length + 1} bars` : 'one bar'} of 4 beats. Use the slow speed first, then Play along.`,
+  ]
+  return {
+    about: `${l.name}: ${WHY[l.kind] ?? 'a phrase'} in the ${STYLE_WORD[st] ?? st} style, over ${l.chord ?? 'the I chord'}.`,
+    steps,
+    tip: techs.some(t => t.includes('bend')) ? 'Check your bends against the fretted note they should reach. In-tune bends make the lick.' : 'Even notes beat fast notes: play it clean 3 times in a row before adding 5 BPM.',
+    use: `Over ${l.chord ?? 'the chord shown'}; it moves to any key with the Key buttons${opens ? ' (with a capo for open-string licks)' : ''}.`,
+    goal: l.bpm ?? 100,
+  }
+}
+for (const id of [...new Set(LICKS.map(l => l.style))]) {
+  const own = LICKS.filter(l => l.style === id).sort((a, b) => Number(!!b.must) - Number(!!a.must) || a.level - b.level)
+  own.slice(0, 25).forEach(l => { if (!l.must) l.must = autoBreakdown(l) })
+}
 export const mustKnow = () => LICKS.filter(l => l.must)

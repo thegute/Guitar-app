@@ -1,6 +1,7 @@
 // Must-know licks: the licks every player of a style should have under their fingers, each with a breakdown (what it
 // is, how to play it step by step, the secret to making it sound right, where to use it and a tempo to aim for).
 // Pick a key (open-string styles use a capo), hear it, and open it in Play so the app follows you.
+import { useBack } from '../back'
 import { useMemo, useState } from 'react'
 import { useInstrument } from '../instrument'
 import { LICKS, lickById, type LickDef } from '../licks/library'
@@ -24,6 +25,9 @@ export function LickLibrary({ initial, onExit }: { initial?: string; onExit: () 
   const st = lickStyle(style)
   const list = useMemo(() => LICKS.filter(l => l.style === style && (all || l.must)).sort((a, b) => a.level - b.level), [style, all])
   const cur = open ? lickById(open) : null
+  // the phone's Back button steps back inside the licks (a lick → the list → must-know) before leaving
+  useBack(!!open, () => setOpen(null))
+  useBack(all && !open, () => setAll(false))
   if (cur) return <LickDetail lick={cur} onBack={() => (first && open === first.id && initial === first.id ? onExit() : setOpen(null))} />
   const counts = (s: LickStyleId) => LICKS.filter(l => l.style === s && l.must).length
   return (
@@ -42,7 +46,7 @@ export function LickLibrary({ initial, onExit }: { initial?: string; onExit: () 
         </select>
       </label>
       <p className="small muted" style={{ margin: 0 }}>{st.feel} <i>Listen to: {st.listen}.</i></p>
-      <Chips label="Which licks" items={[{ id: 'must', label: 'Must-know' }, { id: 'all', label: `Every ${st.label.replace(/ \(.*\)$/, '').toLowerCase()} lick` }]} value={all ? 'all' : 'must'} onChange={v => setAll(v === 'all')} />
+      {LICKS.some(l => l.style === style && !l.must) && <Chips label="Which licks" items={[{ id: 'must', label: 'Must-know' }, { id: 'all', label: `Every ${st.label.replace(/ \(.*\)$/, '').toLowerCase()} lick` }]} value={all ? 'all' : 'must'} onChange={v => setAll(v === 'all')} />}
       <ul className="lick-list">
         {list.map(l => (
           <li key={l.id}>

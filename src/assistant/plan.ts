@@ -67,7 +67,7 @@ function beatIdeas(b: Beat): string[] {
   return out.slice(0, 5)
 }
 
-const SYSTEM = (ctx: AskContext, extra: string, results: Result[]) => `You are the helpful guitar coach inside KGuitar, a guitar practice app. The user is a guitarist who wants plain, friendly, short answers (no jargon, 1-4 sentences). Today's date: ${new Date().toDateString()}.
+const SYSTEM = (ctx: AskContext, extra: string, results: Result[]) => `You are the helpful guitar coach inside KGuitar, a guitar practice app. The user is a guitarist who wants plain, friendly, short answers (no jargon, 1-4 sentences; your reply may be read aloud, so write it as speech: no symbols or lists in "reply"). Answer music and guitar questions directly from what you know (theory, technique, gear, how a style works). Today's date: ${new Date().toDateString()}.
 You can set things up, but ONLY with these building blocks. Reply with JSON only:
 {"reply": "your answer in plain words",
  "open": "<one id from PLACES or RESULTS to open right away, or null>",
@@ -79,7 +79,7 @@ Step ids you can use: ${PLACES.map(p => p[0]).join(', ')}, ex:<type> with type i
 RESULTS (things in the app matching the request): ${results.slice(0, 12).map(r => `${r.id} = ${r.title} (${r.where})`).join('; ') || 'none'}.
 Never invent songs' tabs or lyrics; for a real song, tell them to search its tab (Songsterr / Ultimate Guitar) and open it in Play.${ctx === 'beat' ? '\nThey are in the beat maker now. ' + extra : ''}`
 
-export async function plan(q: string, results: Result[], ctx: AskContext = 'general'): Promise<Answer> {
+export async function plan(q: string, results: Result[], ctx: AskContext = 'general', past: { q: string; a: string }[] = []): Promise<Answer> {
   const beat = ctx === 'beat' ? loadBeat() : null
   const local = (): Answer => {
     if (beat && /idea|suggest|better|what (should|can)|next/i.test(q)) return { reply: 'A few ideas for this beat:', ideas: beatIdeas(beat), ai: false }
@@ -90,7 +90,7 @@ export async function plan(q: string, results: Result[], ctx: AskContext = 'gene
   }
   if (!activeProvider()) return { ...local(), note: 'Built-in helper. Add a free AI key in Settings → You → AI helper for smarter answers.' }
   try {
-    const raw = await ask(SYSTEM(ctx, beat ? beatSummary(beat) : '', results), [{ role: 'user', text: q }], { json: true, maxTokens: 1200 })
+    const raw = await ask(SYSTEM(ctx, beat ? beatSummary(beat) : '', results), [...past.flatMap(p => [{ role: 'user' as const, text: p.q }, { role: 'assistant' as const, text: JSON.stringify({ reply: p.a }) }]), { role: 'user', text: q }], { json: true, maxTokens: 1200 })
     const j = JSON.parse(raw.replace(/^[^{]*/, '').replace(/[^}]*$/, '')) as { reply?: string; open?: string | null; session?: { title: string; steps: { title: string; minutes: number; use: string; tip?: string }[] } | null; beat?: BeatChange | null; ideas?: string[] | null }
     const ans: Answer = { reply: j.reply || 'Here you go.', ai: true }
     if (j.open) { const r = results.find(x => x.id === j.open); const t = r ? null : targetOf(j.open, results); ans.open = r ?? (t ? { id: j.open, kind: 'feature', title: PLACES.find(p => p[0] === j.open)?.[1] ?? j.open, where: '', text: '', target: t, score: 100 } : undefined) }

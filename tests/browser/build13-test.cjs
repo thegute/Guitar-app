@@ -459,7 +459,7 @@ async function sizes(browser) {
     await page.locator('.lesson-video').scrollIntoViewIfNeeded(); await check('lesson-video')
     await page.locator('.lesson-ex').first().scrollIntoViewIfNeeded(); await check('lesson-play')
     await nav(page, 'Learn'); await nav(page, 'Learn'); await page.waitForSelector('.learn-head')
-    await page.locator('.tool:has-text("Technique")').click(); await page.locator('.plan-list button').nth(7).click(); await page.waitForSelector('article.technique'); await check('technique')
+    await page.locator('.tool:has-text("Technique")').first().click(); await page.locator('.plan-list button').nth(7).click(); await page.waitForSelector('article.technique'); await check('technique')
     await nav(page, 'Learn'); await page.waitForSelector('.learn-head')
     await page.locator('.tool:has-text("Bends")').click(); await page.waitForSelector('.bend-trainer'); await check('bends')
     await nav(page, 'Learn'); await page.waitForSelector('.learn-head')

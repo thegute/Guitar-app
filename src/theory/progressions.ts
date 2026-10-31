@@ -9,6 +9,7 @@ export type Style =
   | 'any' | 'pop' | 'rock' | 'classic' | 'punk' | 'metal' | 'grunge' | 'indie' | 'blues' | 'jazz' | 'bossa'
   | 'neosoul' | 'funk' | 'gospel' | 'folk' | 'country' | 'reggae' | 'latin' | 'lofi' | 'epic' | 'sad' | 'happy' | 'fingerstyle'
   | 'hiphop' | 'trap' | 'dance' | 'motown' | 'afrobeat' | 'reggaeton' | 'salsa' | 'island'
+  | 'bluegrass' | 'acoustic' | 'bluesrock' | 'popballad' | 'funkpop' | 'reggaerock' | 'progmetal' | 'mathrock' | 'progclean'
 export type Fn = 'T' | 'S' | 'D'
 export type Ending = 'loop' | 'cadence' | 'turnaround' | 'open'
 
@@ -45,6 +46,15 @@ export const STYLES: { id: Style; label: string }[] = [
   { id: 'epic', label: 'Cinematic / epic' },
   { id: 'sad', label: 'Sad / emotional' },
   { id: 'happy', label: 'Happy / uplifting' },
+  { id: 'bluegrass', label: 'Bluegrass (Billy Strings style)' },
+  { id: 'acoustic', label: 'Acoustic singer-songwriter (Dylan Gossett style)' },
+  { id: 'bluesrock', label: 'Blues-rock and neo-soul (John Mayer style)' },
+  { id: 'popballad', label: 'Pop ballad (James Arthur style)' },
+  { id: 'funkpop', label: 'Funk-pop (Bruno Mars style)' },
+  { id: 'reggaerock', label: 'Reggae rock (Sublime, Stick Figure, The Movement)' },
+  { id: 'progclean', label: 'Melodic prog (Plini style)' },
+  { id: 'progmetal', label: 'Prog metal' },
+  { id: 'mathrock', label: 'Math rock' },
   { id: 'fingerstyle', label: 'Melodic fingerstyle (Marco Cirillo style)' },
   { id: 'hiphop', label: 'Hip-hop / boom bap' },
   { id: 'trap', label: 'Trap' },
@@ -113,6 +123,15 @@ export const STYLE_DEFAULTS: Record<Style, { flavor: Exclude<Flavor, 'auto'>; st
   reggaeton: { flavor: 'triads', strum: 'reggae', drums: 'reggaeton', bass: 'pop', tone: 'nylon', bpm: 94, mode: 'minor' },
   salsa: { flavor: 'sevenths', strum: 'rumba', drums: 'clave', bass: 'bossa', tone: 'nylon', bpm: 100 },
   island: { flavor: 'triads', strum: 'reggae', drums: 'island', bass: 'reggae', tone: 'acoustic', bpm: 88 },
+  bluegrass: { flavor: 'triads', strum: 'country', drums: 'train', bass: 'country', tone: 'j45', bpm: 132 },
+  acoustic: { flavor: 'sus', strum: 'travis', drums: 'brushfolk', bass: 'country', tone: 'j45', bpm: 84 },
+  bluesrock: { flavor: 'sevenths', strum: 'arpeggio', drums: 'purdie', bass: 'funk', tone: 'clean', bpm: 86 },
+  popballad: { flavor: 'sus', strum: 'arpeggio', drums: 'halftime', bass: 'ballad', tone: 'acoustic', bpm: 72 },
+  funkpop: { flavor: 'extended', strum: 'funk', drums: 'funk', bass: 'funk', tone: 'clean', bpm: 112, mode: 'dorian' },
+  reggaerock: { flavor: 'triads', strum: 'reggae', drums: 'rockers', bass: 'reggae', tone: 'clean', bpm: 90 },
+  progclean: { flavor: 'extended', strum: 'arpeggio', drums: 'halftime', bass: 'pop', tone: 'clean', bpm: 100, mode: 'lydian' },
+  progmetal: { flavor: 'power', strum: 'chug', drums: 'djent', bass: 'metal', tone: 'metal', bpm: 120, mode: 'minor' },
+  mathrock: { flavor: 'extended', strum: 'arpeggio', drums: 'motorik', bass: 'pop', tone: 'clean', bpm: 118 },
 }
 
 /**
@@ -235,53 +254,53 @@ interface Template {
 const T = (name: string, modes: ModeId[], styles: Style[], chords: [number, string][], note?: string): Template => ({ name, modes, styles, chords, note })
 
 export const TEMPLATES: Template[] = [
-  T('Four-chord pop (I–V–vi–IV)', ['major'], ['pop', 'rock', 'punk', 'happy', 'any'], [[0, ''], [7, ''], [9, 'm'], [5, '']], 'Countless hits use this loop.'),
-  T('Sensitive (vi–IV–I–V)', ['major'], ['pop', 'sad', 'epic', 'indie', 'fingerstyle'], [[9, 'm'], [5, ''], [0, ''], [7, '']]),
-  T('Three-chord rock (I–IV–V–IV)', ['major'], ['rock', 'classic', 'folk', 'punk', 'happy'], [[0, ''], [5, ''], [7, ''], [5, '']]),
+  T('Four-chord pop (I–V–vi–IV)', ['major'], ['pop', 'rock', 'punk', 'happy', 'any', 'popballad'], [[0, ''], [7, ''], [9, 'm'], [5, '']], 'Countless hits use this loop.'),
+  T('Sensitive (vi–IV–I–V)', ['major'], ['pop', 'sad', 'epic', 'indie', 'fingerstyle', 'popballad', 'progclean', 'mathrock', 'progmetal'], [[9, 'm'], [5, ''], [0, ''], [7, '']]),
+  T('Three-chord rock (I–IV–V–IV)', ['major'], ['rock', 'classic', 'folk', 'punk', 'happy', 'acoustic'], [[0, ''], [5, ''], [7, ''], [5, '']]),
   T("'50s doo-wop (I–vi–IV–V)", ['major'], ['pop', 'folk', 'happy'], [[0, ''], [9, 'm'], [5, ''], [7, '']]),
-  T('Royal road (IV–V–iii–vi)', ['major'], ['pop', 'epic', 'lofi'], [[5, 'maj7'], [7, '7'], [4, 'm7'], [9, 'm']], 'A staple of J-pop and anime themes.'),
-  T('Canon (I–V–vi–iii–IV–I–IV–V)', ['major'], ['pop', 'folk', 'epic', 'fingerstyle'], [[0, ''], [7, ''], [9, 'm'], [4, 'm'], [5, ''], [0, ''], [5, ''], [7, '']]),
-  T('Hopeful minor (vi–IV–V–I)', ['major'], ['pop', 'epic', 'happy'], [[9, 'm'], [5, ''], [7, ''], [0, '']]),
-  T('Axis with a twist (I–iii–IV–iv)', ['major'], ['sad', 'pop', 'rock', 'indie'], [[0, ''], [4, 'm'], [5, ''], [5, 'm']], 'The borrowed minor iv makes it bittersweet.'),
-  T('Bittersweet (I–IV–iv–I)', ['major'], ['sad', 'pop', 'folk', 'gospel', 'fingerstyle'], [[0, ''], [5, ''], [5, 'm'], [0, '']], 'The minor iv is the bittersweet chord.'),
-  T('Cinematic lift (I–III–IV–iv)', ['major'], ['epic', 'indie', 'sad'], [[0, ''], [4, ''], [5, ''], [5, 'm']], 'The major III is a chromatic mediant: instant film-score feeling.'),
-  T('Dreamy vamp (Imaj7–IVmaj7)', ['major', 'lydian'], ['indie', 'lofi', 'neosoul', 'fingerstyle'], [[0, 'maj7'], [5, 'maj7'], [0, 'maj7'], [5, 'maj7']]),
-  T('Indie climb (I–iii–vi–IV)', ['major'], ['indie', 'pop'], [[0, ''], [4, 'm'], [9, 'm'], [5, '']]),
+  T('Royal road (IV–V–iii–vi)', ['major'], ['pop', 'epic', 'lofi', 'popballad', 'progmetal', 'progclean'], [[5, 'maj7'], [7, '7'], [4, 'm7'], [9, 'm']], 'A staple of J-pop and anime themes.'),
+  T('Canon (I–V–vi–iii–IV–I–IV–V)', ['major'], ['pop', 'folk', 'epic', 'fingerstyle', 'popballad', 'acoustic', 'progmetal', 'progclean'], [[0, ''], [7, ''], [9, 'm'], [4, 'm'], [5, ''], [0, ''], [5, ''], [7, '']]),
+  T('Hopeful minor (vi–IV–V–I)', ['major'], ['pop', 'epic', 'happy', 'popballad', 'progmetal', 'progclean'], [[9, 'm'], [5, ''], [7, ''], [0, '']]),
+  T('Axis with a twist (I–iii–IV–iv)', ['major'], ['sad', 'pop', 'rock', 'indie', 'popballad', 'progclean', 'mathrock'], [[0, ''], [4, 'm'], [5, ''], [5, 'm']], 'The borrowed minor iv makes it bittersweet.'),
+  T('Bittersweet (I–IV–iv–I)', ['major'], ['sad', 'pop', 'folk', 'gospel', 'fingerstyle', 'popballad', 'acoustic'], [[0, ''], [5, ''], [5, 'm'], [0, '']], 'The minor iv is the bittersweet chord.'),
+  T('Cinematic lift (I–III–IV–iv)', ['major'], ['epic', 'indie', 'sad', 'progclean', 'mathrock', 'progmetal'], [[0, ''], [4, ''], [5, ''], [5, 'm']], 'The major III is a chromatic mediant: instant film-score feeling.'),
+  T('Dreamy vamp (Imaj7–IVmaj7)', ['major', 'lydian'], ['indie', 'lofi', 'neosoul', 'fingerstyle', 'bluesrock', 'progclean', 'mathrock'], [[0, 'maj7'], [5, 'maj7'], [0, 'maj7'], [5, 'maj7']]),
+  T('Indie climb (I–iii–vi–IV)', ['major'], ['indie', 'pop', 'popballad', 'progclean', 'mathrock'], [[0, ''], [4, 'm'], [9, 'm'], [5, '']]),
   T('Punk drive (I–IV–vi–V)', ['major'], ['punk', 'rock'], [[0, '5'], [5, '5'], [9, '5'], [7, '5']]),
-  T('Happy bounce (I–V–IV–V)', ['major'], ['happy', 'reggae', 'country'], [[0, ''], [7, ''], [5, ''], [7, '']]),
+  T('Happy bounce (I–V–IV–V)', ['major'], ['happy', 'reggae', 'country', 'bluegrass', 'acoustic', 'reggaerock'], [[0, ''], [7, ''], [5, ''], [7, '']]),
   T('Jazz ii–V–I', ['major'], ['jazz', 'bossa'], [[2, 'm7'], [7, '7'], [0, 'maj7'], [0, 'maj7']]),
-  T('Jazz turnaround (I–vi–ii–V)', ['major'], ['jazz', 'pop', 'gospel'], [[0, 'maj7'], [9, 'm7'], [2, 'm7'], [7, '7']]),
+  T('Jazz turnaround (I–vi–ii–V)', ['major'], ['jazz', 'pop', 'gospel', 'popballad'], [[0, 'maj7'], [9, 'm7'], [2, 'm7'], [7, '7']]),
   T('Rhythm changes A (I–VI7–ii–V)', ['major'], ['jazz'], [[0, 'maj7'], [9, '7'], [2, 'm7'], [7, '7']], 'The VI7 is a secondary dominant pulling to ii.'),
   T('Long turnaround (iii–vi–ii–V)', ['major'], ['jazz', 'bossa', 'gospel'], [[4, 'm7'], [9, '7'], [2, 'm7'], [7, '7']]),
   T('Bossa lift (Imaj7–II7–ii7–bII7)', ['major'], ['bossa', 'jazz'], [[0, 'maj7'], [2, '7'], [2, 'm7'], [1, '7']], 'II7 is a secondary dominant; bII7 is a tritone substitute for V7.'),
-  T('Neo-soul descent (IVmaj7–iii7–ii7–Imaj7)', ['major'], ['neosoul', 'lofi', 'jazz'], [[5, 'maj7'], [4, 'm7'], [2, 'm7'], [0, 'maj7']]),
-  T('Lo-fi loop (ii9–V13–Imaj9–vi9)', ['major'], ['lofi', 'neosoul', 'jazz'], [[2, 'm9'], [7, '13'], [0, 'maj9'], [9, 'm9']]),
-  T('Gospel lift (I–I7–IV–iv)', ['major'], ['gospel', 'sad', 'neosoul'], [[0, ''], [0, '7'], [5, ''], [5, 'm']], 'I7 points to IV; the minor iv sighs back home.'),
+  T('Neo-soul descent (IVmaj7–iii7–ii7–Imaj7)', ['major'], ['neosoul', 'lofi', 'jazz', 'bluesrock'], [[5, 'maj7'], [4, 'm7'], [2, 'm7'], [0, 'maj7']]),
+  T('Lo-fi loop (ii9–V13–Imaj9–vi9)', ['major'], ['lofi', 'neosoul', 'jazz', 'bluesrock'], [[2, 'm9'], [7, '13'], [0, 'maj9'], [9, 'm9']]),
+  T('Gospel lift (I–I7–IV–iv)', ['major'], ['gospel', 'sad', 'neosoul', 'bluesrock'], [[0, ''], [0, '7'], [5, ''], [5, 'm']], 'I7 points to IV; the minor iv sighs back home.'),
   T('Gospel walk-up (I–iii–IV–#iv°7)', ['major'], ['gospel', 'jazz'], [[0, ''], [4, 'm7'], [5, ''], [6, 'dim7']], 'The #iv°7 is a passing chord that climbs into I or V.'),
-  T('Mixolydian rock (I–bVII–IV–I)', ['mixolydian', 'major'], ['rock', 'classic', 'folk'], [[0, ''], [10, ''], [5, ''], [0, '']], 'The bVII gives that classic-rock swagger.'),
+  T('Mixolydian rock (I–bVII–IV–I)', ['mixolydian', 'major'], ['rock', 'classic', 'folk', 'acoustic'], [[0, ''], [10, ''], [5, ''], [0, '']], 'The bVII gives that classic-rock swagger.'),
   T('Plagal rock (I–IV–I–bVII)', ['mixolydian'], ['rock', 'classic'], [[0, ''], [5, ''], [0, ''], [10, '']]),
-  T('Classic rock riff (I–bIII–IV–I)', ['major', 'mixolydian'], ['classic', 'rock', 'grunge', 'blues'], [[0, ''], [3, ''], [5, ''], [0, '']], 'Borrowed bIII: big, bluesy power-chord rock.'),
-  T('Grunge power (I5–bIII5–IV5–bVI5)', ['major', 'minor'], ['grunge', 'punk', 'metal'], [[0, '5'], [3, '5'], [5, '5'], [8, '5']]),
-  T('Aeolian rock (i–bVII–bVI–bVII)', ['minor'], ['rock', 'epic', 'metal'], [[0, 'm'], [10, ''], [8, ''], [10, '']]),
-  T('Epic minor (i–bVI–bIII–bVII)', ['minor'], ['epic', 'sad', 'pop', 'metal'], [[0, 'm'], [8, ''], [3, ''], [10, '']]),
-  T('Metal gallop (i–bVI–bVII–i)', ['minor', 'phrygian'], ['metal', 'epic'], [[0, '5'], [8, '5'], [10, '5'], [0, '5']]),
-  T('Andalusian cadence (i–bVII–bVI–V)', ['minor', 'harmonic', 'phrygian'], ['latin', 'epic', 'rock', 'fingerstyle'], [[0, 'm'], [10, ''], [8, ''], [7, '']], 'Flamenco and surf rock descend this way.'),
+  T('Classic rock riff (I–bIII–IV–I)', ['major', 'mixolydian'], ['classic', 'rock', 'grunge', 'blues', 'bluesrock'], [[0, ''], [3, ''], [5, ''], [0, '']], 'Borrowed bIII: big, bluesy power-chord rock.'),
+  T('Grunge power (I5–bIII5–IV5–bVI5)', ['major', 'minor'], ['grunge', 'punk', 'metal', 'progmetal'], [[0, '5'], [3, '5'], [5, '5'], [8, '5']]),
+  T('Aeolian rock (i–bVII–bVI–bVII)', ['minor'], ['rock', 'epic', 'metal', 'progmetal', 'progclean'], [[0, 'm'], [10, ''], [8, ''], [10, '']]),
+  T('Epic minor (i–bVI–bIII–bVII)', ['minor'], ['epic', 'sad', 'pop', 'metal', 'popballad', 'progmetal', 'progclean'], [[0, 'm'], [8, ''], [3, ''], [10, '']]),
+  T('Metal gallop (i–bVI–bVII–i)', ['minor', 'phrygian'], ['metal', 'epic', 'progmetal', 'progclean'], [[0, '5'], [8, '5'], [10, '5'], [0, '5']]),
+  T('Andalusian cadence (i–bVII–bVI–V)', ['minor', 'harmonic', 'phrygian'], ['latin', 'epic', 'rock', 'fingerstyle', 'progmetal', 'progclean'], [[0, 'm'], [10, ''], [8, ''], [7, '']], 'Flamenco and surf rock descend this way.'),
   T('Minor ii–V–i', ['minor', 'harmonic'], ['jazz', 'sad', 'bossa'], [[2, 'm7b5'], [7, '7'], [0, 'm7'], [0, 'm7']]),
-  T('Minor blues-rock (i–iv–v–i)', ['minor'], ['blues', 'rock', 'sad'], [[0, 'm'], [5, 'm'], [7, 'm'], [0, 'm']]),
-  T('Sad loop (i–VI–III–VII)', ['minor'], ['sad', 'pop', 'epic', 'fingerstyle'], [[0, 'm'], [8, ''], [3, ''], [10, '']]),
-  T('Dorian vamp (i–IV)', ['dorian'], ['funk', 'rock', 'latin'], [[0, 'm7'], [5, '7'], [0, 'm7'], [5, '7']], 'The major IV is the Dorian sound.'),
-  T('Dorian soul (i–ii)', ['dorian'], ['funk', 'jazz', 'neosoul'], [[0, 'm9'], [2, 'm7'], [0, 'm9'], [2, 'm7']]),
-  T('One-chord funk (i9)', ['dorian', 'mixolydian'], ['funk'], [[0, 'm9'], [0, 'm9'], [0, 'm9'], [5, '9']], 'Funk lives on one chord and the groove.'),
-  T('Phrygian riff (i–bII)', ['phrygian'], ['latin', 'epic', 'metal'], [[0, 'm'], [1, ''], [0, 'm'], [1, '']], 'Metal and flamenco love the half-step b2.'),
+  T('Minor blues-rock (i–iv–v–i)', ['minor'], ['blues', 'rock', 'sad', 'bluesrock'], [[0, 'm'], [5, 'm'], [7, 'm'], [0, 'm']]),
+  T('Sad loop (i–VI–III–VII)', ['minor'], ['sad', 'pop', 'epic', 'fingerstyle', 'popballad', 'progmetal', 'progclean'], [[0, 'm'], [8, ''], [3, ''], [10, '']]),
+  T('Dorian vamp (i–IV)', ['dorian'], ['funk', 'rock', 'latin', 'funkpop'], [[0, 'm7'], [5, '7'], [0, 'm7'], [5, '7']], 'The major IV is the Dorian sound.'),
+  T('Dorian soul (i–ii)', ['dorian'], ['funk', 'jazz', 'neosoul', 'funkpop', 'bluesrock'], [[0, 'm9'], [2, 'm7'], [0, 'm9'], [2, 'm7']]),
+  T('One-chord funk (i9)', ['dorian', 'mixolydian'], ['funk', 'funkpop'], [[0, 'm9'], [0, 'm9'], [0, 'm9'], [5, '9']], 'Funk lives on one chord and the groove.'),
+  T('Phrygian riff (i–bII)', ['phrygian'], ['latin', 'epic', 'metal', 'progmetal', 'progclean'], [[0, 'm'], [1, ''], [0, 'm'], [1, '']], 'Metal and flamenco love the half-step b2.'),
   T('Flamenco vamp (I–bII–I–bII)', ['phrygian', 'harmonic'], ['latin'], [[0, ''], [1, ''], [0, ''], [1, '']], 'Phrygian dominant: the major I with a b2 above it.'),
-  T('Lydian float (I–II)', ['lydian'], ['epic', 'indie'], [[0, ''], [2, ''], [0, 'maj7'], [2, '']], 'Film scores use this for wonder.'),
-  T('Folk (I–IV–I–V)', ['major'], ['folk', 'country'], [[0, ''], [5, ''], [0, ''], [7, '']]),
-  T('Country (I–II–IV–I)', ['major'], ['country', 'folk'], [[0, ''], [2, ''], [5, ''], [0, '']], 'The major II is a secondary dominant (V of V).'),
-  T('Country two-step (I–I7–IV–V)', ['major'], ['country'], [[0, ''], [0, '7'], [5, ''], [7, '']]),
-  T('Reggae lift (I–IV–V–IV)', ['major'], ['reggae', 'happy'], [[0, ''], [5, ''], [7, ''], [5, '']]),
-  T('Reggae minor (i–iv)', ['minor', 'dorian'], ['reggae'], [[0, 'm'], [5, 'm'], [0, 'm'], [5, 'm']]),
-  T('Funk vamp (I9–IV9)', ['mixolydian'], ['funk', 'blues'], [[0, '9'], [5, '9'], [0, '9'], [5, '9']]),
-  T('Harmonic minor drama (i–iv–V–i)', ['harmonic', 'minor'], ['epic', 'latin', 'sad', 'metal'], [[0, 'm'], [5, 'm'], [7, '7'], [0, 'm']]),
+  T('Lydian float (I–II)', ['lydian'], ['epic', 'indie', 'progclean', 'mathrock', 'progmetal'], [[0, ''], [2, ''], [0, 'maj7'], [2, '']], 'Film scores use this for wonder.'),
+  T('Folk (I–IV–I–V)', ['major'], ['folk', 'country', 'bluegrass', 'acoustic'], [[0, ''], [5, ''], [0, ''], [7, '']]),
+  T('Country (I–II–IV–I)', ['major'], ['country', 'folk', 'bluegrass', 'acoustic'], [[0, ''], [2, ''], [5, ''], [0, '']], 'The major II is a secondary dominant (V of V).'),
+  T('Country two-step (I–I7–IV–V)', ['major'], ['country', 'bluegrass', 'acoustic'], [[0, ''], [0, '7'], [5, ''], [7, '']]),
+  T('Reggae lift (I–IV–V–IV)', ['major'], ['reggae', 'happy', 'reggaerock'], [[0, ''], [5, ''], [7, ''], [5, '']]),
+  T('Reggae minor (i–iv)', ['minor', 'dorian'], ['reggae', 'reggaerock'], [[0, 'm'], [5, 'm'], [0, 'm'], [5, 'm']]),
+  T('Funk vamp (I9–IV9)', ['mixolydian'], ['funk', 'blues', 'funkpop', 'bluesrock'], [[0, '9'], [5, '9'], [0, '9'], [5, '9']]),
+  T('Harmonic minor drama (i–iv–V–i)', ['harmonic', 'minor'], ['epic', 'latin', 'sad', 'metal', 'progmetal', 'progclean'], [[0, 'm'], [5, 'm'], [7, '7'], [0, 'm']]),
 ]
 
 export const BLUES_12: [number, string][] = [
@@ -463,7 +482,13 @@ function palette(mode: ModeId, style: Style, spice: number): Cand[] {
       case 'epic': if (has(k, 8, 10, 3)) k.weight *= 1.6; break
       case 'sad': if (t === 'm' || (k.borrowed && has(k, 5))) k.weight *= 1.4; break
       case 'fingerstyle': if (has(k, 9, 5, 4, 2, 7)) k.weight *= 1.4; if (k.borrowed) k.weight *= 0.6; break
-      case 'pop': if (k.borrowed) k.weight *= 0.6; break
+      case 'pop': case 'popballad': if (k.borrowed) k.weight *= 0.6; if (style === 'popballad' && has(k, 9, 5, 7)) k.weight *= 1.3; break
+      case 'bluegrass': case 'acoustic': if (has(k, 0, 5, 7, 9)) k.weight *= 1.4; if (k.borrowed && style === 'bluegrass') k.weight *= 0.4; break
+      case 'bluesrock': if (has(k, 0, 5, 7, 9, 2)) k.weight *= 1.3; break
+      case 'funkpop': if (has(k, 0, 5, 10, 2, 7)) k.weight *= 1.3; break
+      case 'reggaerock': if (has(k, 0, 5, 7, 9)) k.weight *= 1.4; if (k.borrowed) k.weight *= 0.6; break
+      case 'progclean': case 'mathrock': if (has(k, 2, 4, 9, 5, 6)) k.weight *= 1.4; break
+      case 'progmetal': if (has(k, 8, 10, 1, 3)) k.weight *= 1.5; if (t === 'dim') k.weight *= 0.3; break
     }
     if (style === 'happy' && t === 'm') k.weight *= 0.8
     if (t === 'dim') k.weight *= 0.5

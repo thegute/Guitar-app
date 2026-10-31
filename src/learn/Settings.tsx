@@ -1,4 +1,5 @@
 // Settings: instrument (with a confirm step so you can't switch by accident), tuning, look, daily goal and reminders.
+import { usePersist } from '../components/Controls'
 import { AiSetup } from '../assistant/AiSetup'
 import { GET_READY_CHOICES, getReadySecs, setGetReadySecs } from '../components/GetReady'
 import { useEffect, useState } from 'react'
@@ -83,6 +84,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
       {page === 'you' && <>
       <section className="panel stack" style={{ gap: 10 }}>
         <h2 style={{ margin: 0 }}>AI helper</h2>
+        <BubbleSwitch />
         <AiSetup />
       </section>
       <section className="panel stack" style={{ gap: 10 }}>
@@ -276,4 +278,9 @@ function ArtGallery() {
         onNext={() => setOpen(i => (i === null ? 0 : (i + 1) % GALLERY.length))} />}
     </div>
   )
+}
+
+function BubbleSwitch() {
+  const [on, setOn] = usePersist('askBubble', true)
+  return <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={on} onChange={e => { setOn(e.target.checked); try { localStorage.setItem('kg:askBubble', JSON.stringify(e.target.checked)) } catch { /* noop */ } dispatchEvent(new Event('kg-bubble')) }} /> <span>Show the ✨ helper bubble on every screen (drag it up or down to move it)</span></label>
 }

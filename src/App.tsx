@@ -14,6 +14,7 @@ import { useInstrument } from './instrument'
 import { isToolPage, onGo, onRemount, TAB_IDS, type Tab, type ToolPage } from './nav'
 import { SearchSheet } from './components/SearchSheet'
 import { SessionBar } from './sessions/SessionBar'
+import { AskBubble } from './assistant/AskBubble'
 import { onAsk, type AskContext } from './assistant/bus'
 import { backInside, useBack } from './back'
 import { App as CapApp } from '@capacitor/app'
@@ -169,6 +170,7 @@ export default function App() {
         <button className="nav-pull" onClick={() => setDrawer(true)} aria-label="Show the menu" title="Menu"><IconMenu /></button>
       )}
       {drawer && <div className="nav-scrim" onClick={() => setDrawer(false)} aria-hidden />}
+      {!search && <AskBubble context={tab === 'learn' ? 'learn' : tab === 'play' ? 'play' : tab === 'progressions' ? (localStorage.getItem('kg:sub:jam') === '"beats"' ? 'beat' : 'jam') : 'general'} />}
       {search && <SearchSheet onClose={() => setSearch(false)} initial={search.text} context={search.context} autoAsk={search.ask} />}
       {exitHint > 0 && <div className="pedal-toast" role="status">Press Back again to close KGuitar</div>}
       {pedal && <div key={pedal.k} className="pedal-toast" role="status">🦶 {ACTION_LABEL[pedal.a].replace(/ \(.*\)$/, '')}</div>}

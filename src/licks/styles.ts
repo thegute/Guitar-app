@@ -4,7 +4,7 @@
 //   'shift' movable styles slide the whole shape up or down the neck, staying near the style's usual frets (`zone`)
 export type LickStyleId =
   | 'blues' | 'rock' | 'altrock' | 'metal' | 'progmetal' | 'mathrock' | 'jazz' | 'mayer' | 'neosoul' | 'funk'
-  | 'hawaiian' | 'jawaiian' | 'bluegrass' | 'country' | 'folk' | 'fingerstyle'
+  | 'hawaiian' | 'jawaiian' | 'bluegrass' | 'billy' | 'country' | 'folk' | 'fingerstyle' | 'acoustic' | 'reggaerock' | 'popsoul' | 'progclean'
 
 export interface LickStyle {
   id: LickStyleId
@@ -32,6 +32,9 @@ export const LICK_STYLES: LickStyle[] = [
   { id: 'altrock', label: 'Alt rock', group: 'Blues & rock', minor: true, move: 'shift', zone: [0, 12], bpm: 104, program: 29,
     feel: 'Octave melodies, open strings droning against moving notes, chromatic power-chord slides, sus and add9 arpeggios, tremolo picking.',
     listen: 'The Edge, Billy Corgan, Jonny Greenwood, John Frusciante' },
+  { id: 'progclean', label: 'Melodic prog (Plini style)', group: 'Heavy', minor: false, move: 'shift', zone: [4, 17], bpm: 100, program: 27,
+    feel: 'Clean and lush: lydian and major 7 colours, legato runs, tapped melodies, harmonics and hybrid-picked arpeggios with open strings.',
+    listen: 'Plini, Intervals, Polyphia (clean side), Tosin Abasi' },
   { id: 'metal', label: 'Heavy metal', group: 'Heavy', minor: true, move: 'shift', zone: [0, 12], bpm: 132, program: 30,
     feel: 'Palm-muted gallops on the low string, pedal-point runs, harmonic minor, tremolo picking and screaming bends.',
     listen: 'Iron Maiden, Metallica, Judas Priest, Dimebag Darrell' },
@@ -47,6 +50,9 @@ export const LICK_STYLES: LickStyle[] = [
   { id: 'mayer', label: 'Blues-pop (John Mayer style)', group: 'Jazz, soul & funk', minor: false, move: 'shift', zone: [0, 15], bpm: 80, program: 27,
     feel: 'Blues licks with pop sweetness: double-stop sixths, Hendrix-style chord embellishments, major and minor pentatonic mixed, slow singing bends, hybrid picking.',
     listen: 'John Mayer, Jimi Hendrix (ballads), Stevie Ray Vaughan (slow tunes)' },
+  { id: 'popsoul', label: 'Pop and soul (Bruno Mars, James Arthur style)', group: 'Jazz, soul & funk', minor: false, move: 'shift', zone: [0, 10], bpm: 100, program: 27,
+    feel: 'Funk-pop chops and single-note hooks for the upbeat songs, sixths and soul double stops, and ringing arpeggios with walking bass for the big ballads.',
+    listen: 'Bruno Mars, James Arthur, Anderson .Paak, John Legend' },
   { id: 'neosoul', label: 'Neo-soul', group: 'Jazz, soul & funk', minor: false, move: 'shift', zone: [4, 12], bpm: 76, program: 27,
     feel: 'Major 7th and 9th chord shapes with hammer-on flourishes, sliding double stops and smooth pentatonic runs.',
     listen: 'Isaiah Sharkey, Mark Lettieri, Curtis Mayfield, Cory Wong (clean side)' },
@@ -56,12 +62,21 @@ export const LICK_STYLES: LickStyle[] = [
   { id: 'hawaiian', label: 'Hawaiian', group: 'Island', minor: false, move: 'capo', zone: [0, 7], bpm: 80, program: 25,
     feel: 'Slack-key sweetness (nahenahe): open strings, hammer-ons and pull-offs, sweet 3rds and 6ths, harmonics, steel-guitar slides and the Hawaiian vamp ending.',
     listen: 'Gabby Pahinui, Keola Beamer, Ledward Kaapana, Makana' },
+  { id: 'reggaerock', label: 'Reggae rock and dub', group: 'Island', minor: false, move: 'capo', zone: [0, 10], bpm: 90, program: 27,
+    feel: 'Off-beat skanks, the organ bubble, dub lines on the low strings and sweet major-pentatonic melodies with slides. Laid back, behind the beat.',
+    listen: 'Sublime, Stick Figure, The Movement, Rebelution, Slightly Stoopid' },
   { id: 'jawaiian', label: 'Jawaiian (island reggae)', group: 'Island', minor: false, move: 'capo', zone: [0, 7], bpm: 78, program: 27,
     feel: 'Reggae chops on the off-beats with sweet melodic fills: major pentatonic, 3rds, octave hooks and the organ "bubble".',
     listen: 'Kolohe Kai, Rebel Souljahz, Common Kings, Fiji' },
   { id: 'bluegrass', label: 'Bluegrass', group: 'Roots', minor: false, move: 'capo', zone: [0, 5], bpm: 120, program: 25,
     feel: 'First-position flatpicking near the headstock: the G run, the flat-3rd-to-3rd hammer-on, crosspicking rolls and fiddle-tune lines. Capo up for other keys.',
     listen: 'Tony Rice, Doc Watson, Clarence White, Billy Strings' },
+  { id: 'billy', label: 'Modern bluegrass flatpicking (Billy Strings style)', group: 'Roots', minor: false, move: 'capo', zone: [0, 7], bpm: 140, program: 25,
+    feel: 'Fast, fearless flatpicking: G runs, blue notes, chromatic walk-downs, crosspicking rolls, fiddle double stops and psychedelic jams up the neck. Alternate picking, open strings ringing. Capo up for other keys.',
+    listen: 'Billy Strings, Tony Rice, Clarence White, Doc Watson' },
+  { id: 'acoustic', label: 'Acoustic singer-songwriter (Dylan Gossett style)', group: 'Roots', minor: false, move: 'capo', zone: [0, 5], bpm: 88, program: 25,
+    feel: 'Open chords left ringing, hammer-on fills inside the chord shapes, walking bass between chords and a steady thumb. Capo up to fit your voice: that is how these players do it.',
+    listen: 'Dylan Gossett, Zach Bryan, Noah Kahan, Tyler Childers' },
   { id: 'country', label: 'Country', group: 'Roots', minor: false, move: 'shift', zone: [0, 10], bpm: 108, program: 27,
     feel: 'Chicken pickin\' snaps, pedal-steel bends, the major 6th, banjo rolls and chromatic runs. Hybrid pick (pick plus middle finger) if you can.',
     listen: 'Brad Paisley, Albert Lee, Brent Mason, Vince Gill' },

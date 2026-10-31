@@ -32,7 +32,7 @@ export const FEATURES: Entry[] = [
   f({ id: 'z2h', title: 'Zero to Hero plan', where: 'Learn → Course', guide: 'Zero to Hero (guitar)', target: { go: { learn: 'course' } },
     text: 'Your guitar plan: five phases with gates, and a daily routine.',
     keys: 'zero to hero plan roadmap phases gate justinguitar justin grade course routine daily what next' }),
-  f({ id: 'beatmaker', title: 'Beat maker', where: 'Jam → Beat maker', guide: ['Beat maker', 'Keys and chords'], target: { jam: { page: 'beats' } },
+  f({ id: 'beatmaker', title: 'Beat maker (drum machine)', where: 'Jam → Beat maker', guide: ['Beat maker', 'Keys and chords'], target: { jam: { page: 'beats' } },
     text: 'Finger-drum pads, keys with chords, a looper, all on one beat.',
     keys: 'beat maker drum machine pads finger drum mpc launchpad keyboard piano organ strings choir synth produce' }),
   f({ id: 'layers', title: 'Build a beat loop by loop', where: 'Jam → Beat maker → Drum layers', guide: 'Build a beat loop by loop', target: { jam: { page: 'beats' } },

@@ -128,6 +128,29 @@ export const STARTERS: Starter[] = [
     T('bass', bassNotesFor([[0, 'maj'], [5, 'maj'], [7, 'maj'], [5, 'maj']], 'G', 31, [0, 6, 8, 12]), 0.85, 0.05),
     T('steel', [[0, 79], [6, 76], [8, 74], [16, 81], [22, 77], [32, 79], [40, 74], [48, 77], [56, 76]].map(([s, m]) => ({ s, l: 6, m, v: 0.55 })), 0.4, 0.35),
   ], 4, 0.12) },
+  { id: 'reggaerock', label: 'Reggae rock / dub', make: () => B('Reggae rock', 90, 'vintage', 'rockers', 'G', false, [
+    T('clean', chordNotesFor([[0, 'maj'], [5, 'maj'], [0, 'maj'], [7, 'maj']], 'G', 55, 'offbeat'), 0.6, 0.25),
+    T('bass', bassNotesFor([[0, 'maj'], [5, 'maj'], [0, 'maj'], [7, 'maj']], 'G', 31, [0, 3, 6, 10]), 0.9, 0.05),
+    T('church', chordNotesFor([[0, 'maj'], [5, 'maj'], [0, 'maj'], [7, 'maj']], 'G', 60, 'offbeat'), 0.25, 0.3),
+  ]) },
+  { id: 'funkpop', label: 'Funk-pop', make: () => B('Funk-pop', 112, 'studio', 'funk', 'E', true, [
+    T('clean', chordNotesFor([[0, 'm7'], [5, '9'], [0, 'm7'], [5, '9']], 'E', 52, 'pulse'), 0.55, 0.1),
+    T('synthbass', bassNotesFor([[0, 'min'], [5, 'maj'], [0, 'min'], [5, 'maj']], 'E', 28, [0, 3, 7, 10, 14]), 0.8, 0.02),
+    T('horns', chordNotesFor([[0, 'm7'], [5, '9'], [0, 'm7'], [5, '9']], 'E', 60, 'stabs'), 0.35, 0.25),
+  ]) },
+  { id: 'popballad', label: 'Pop ballad', make: () => B('Pop ballad', 72, 'studio', 'halftime', 'C', false, [
+    T('grand', chordNotesFor([[0, 'maj'], [7, 'maj'], [9, 'min'], [5, 'maj']], 'C', 48, 'arp'), 0.65, 0.3),
+    T('strings', chordNotesFor([[0, 'maj'], [7, 'maj'], [9, 'min'], [5, 'maj']], 'C', 60, 'hold', 'open'), 0.35, 0.5),
+    T('upbass', bassNotesFor([[0, 'maj'], [7, 'maj'], [9, 'min'], [5, 'maj']], 'C', 36, [0, 8]), 0.7, 0.05),
+  ]) },
+  { id: 'acoustic', label: 'Acoustic singer-songwriter', make: () => B('Acoustic', 84, 'vintage', 'brushfolk', 'G', false, [
+    T('acoustic', chordNotesFor([[4, 'min'], [0, 'maj'], [7, 'maj'], [5, 'maj']].map(([s, t]) => [s, t]) as [number, string][], 'G', 52, 'arp'), 0.7, 0.2),
+    T('upbass', bassNotesFor([[4, 'min'], [0, 'maj'], [7, 'maj'], [5, 'maj']], 'G', 31, [0, 8]), 0.7, 0.05),
+  ]) },
+  { id: 'mathrock', label: 'Math rock / melodic prog', make: () => B('Math rock', 118, 'rock', 'motorik', 'A', false, [
+    T('clean', chordNotesFor([[0, 'maj7'], [9, 'm7'], [5, 'maj7'], [7, 'add9']], 'A', 57, 'arp'), 0.6, 0.25),
+    T('bass', bassNotesFor([[0, 'maj'], [9, 'min'], [5, 'maj'], [7, 'maj']], 'A', 33, [0, 6, 10]), 0.8, 0.03),
+  ]) },
   { id: 'lofi', label: 'Lo-fi chill', make: () => B('Lo-fi', 78, 'lofi', 'hiphop', 'F', false, [
     T('epiano', chordNotesFor([[0, 'maj7'], [9, 'm7'], [2, 'm7'], [7, '9']], 'F', 53, 'hold'), 0.55, 0.3),
     T('upbass', bassNotesFor([[0, 'maj'], [9, 'min'], [2, 'min'], [7, 'maj']], 'F', 29, [0, 10]), 0.8, 0.05),

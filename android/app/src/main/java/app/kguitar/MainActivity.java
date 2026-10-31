@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ShareInPlugin.class);
         // your video lessons: read a folder you pick, play its videos with seeking
         registerPlugin(LessonFoldersPlugin.class);
+        registerPlugin(SpeakPlugin.class);
         super.onCreate(savedInstanceState);
         if (getBridge() != null) getBridge().setWebViewClient(new MediaWebViewClient(getBridge()));
     }

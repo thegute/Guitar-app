@@ -1,6 +1,6 @@
 // Search: type what you want in your own words ("slow it down", "G7", "drop D", "blues jam in A", "it doesn't hear
 // me") and tap a result to go straight there, already set up.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useInstrument } from '../instrument'
 import { listSongs, type SongDoc } from '../tabs/library'
 import { SearchIndex, searchAll } from '../search/engine'
@@ -11,6 +11,9 @@ import { KIND_LABEL, type Result } from '../search/types'
 import { TAB_SITES } from '../tabs/tabSites'
 import { IconSearch } from './Icons'
 import { plan, type Answer } from '../assistant/plan'
+import { addQuestion, answerTurn, chat, clearChat, history, onChat } from '../assistant/chat'
+import { canSpeak, isSpeaking, onSpeaking, speak, stopSpeaking } from '../assistant/speak'
+import { usePersist } from './Controls'
 import type { AskContext } from '../assistant/bus'
 import { minutesOf, saveSession, startSession } from '../sessions/session'
 import { applyBeatChange } from '../studio/beat'
@@ -31,9 +34,14 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
   const input = useRef<HTMLInputElement>(null)
   const [ex, setEx] = useState(0)
   useEffect(() => { const id = setInterval(() => setEx(i => (i + 1) % EXAMPLES.length), 3200); return () => clearInterval(id) }, [])
-  const [answer, setAnswer] = useState<Answer | null>(null)
+  const turns = useSyncExternalStore(onChat, chat)
   const [asking, setAsking] = useState(false)
-  const asked = useRef('')
+  const [voice, setVoice] = usePersist('askVoice', false)
+  const speakingNow = useSyncExternalStore(onSpeaking, isSpeaking)
+  const convo = useRef<HTMLDivElement>(null)
+  useEffect(() => { convo.current?.scrollTo({ top: convo.current.scrollHeight, behavior: 'smooth' }) }, [turns])
+  useEffect(() => () => stopSpeaking(), [])
+  const say = (a: Answer) => speak([a.reply, ...(a.ideas ?? []), ...(a.session ? [`${a.session.title}, about ${minutesOf(a.session)} minutes.`] : [])].join(' '))
   const list = useRef<HTMLUListElement>(null)
   useEffect(() => {
     let alive = true
@@ -42,17 +50,21 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
   }, [inst.id])
   const index = useMemo(() => new SearchIndex([...FEATURES, ...libraryEntries(inst, songs)]), [inst, songs])
   const results = useMemo(() => (q.trim() ? searchAll(index, q, inst, 12) : []), [index, q, inst])
-  useEffect(() => { setActive(0); if (q.trim() !== asked.current) setAnswer(null) }, [q])
+  useEffect(() => { setActive(0) }, [q])
   const doAsk = async (text = q) => {
     const t = text.trim()
     if (!t) return
     remember(t)
-    asked.current = t
+    stopSpeaking()
+    const past = history()
+    const id = addQuestion(t)
+    setQ('')
     setAsking(true)
-    setAnswer(null)
     const rs = searchAll(index, t, inst, 12)
-    setAnswer(await plan(t, rs, context))
+    const a = await plan(t, rs, context, past)
+    answerTurn(id, a)
     setAsking(false)
+    if (voice) say(a)
   }
   const auto = useRef(autoAsk)
   useEffect(() => { if (auto.current && initial) { auto.current = false; void doAsk(initial) } }) // eslint-disable-line react-hooks/exhaustive-deps
@@ -95,9 +107,9 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
           <button className="btn sm" onClick={onClose}>Close</button>
         </div>
 
-        {!q.trim() && (
+        {!q.trim() && !turns.length && (
           <div className="search-start stack">
-            <p className="small muted" style={{ margin: 0 }}>Search or ask in your own words. Ask for a practice session ("triads today"), a beat, a chord or scale, or help with a problem: it finds it and sets it up.</p>
+            <p className="small muted" style={{ margin: 0 }}>Tip: tap the 🎤 on your phone's keyboard to say it instead of typing. Search or ask in your own words. Ask for a practice session ("triads today"), a beat, a chord or scale, or help with a problem: it finds it and sets it up.</p>
             {past.length > 0 && (
               <div className="stack" style={{ gap: 6 }}>
                 <h3 className="search-h">Recent</h3>
@@ -116,23 +128,39 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
             <button className="btn primary ask-btn" onClick={() => void doAsk()} disabled={asking}>{asking ? 'Thinking…' : `✨ Ask: “${q.trim().length > 40 ? q.trim().slice(0, 40) + '…' : q.trim()}”`}</button>
           </div>
         )}
-        {answer && (
-          <div className="ask-card" role="status">
-            <p style={{ margin: 0 }}>{answer.reply}</p>
-            {answer.ideas && <ul className="ask-steps">{answer.ideas.map((x, i) => <li key={i}>{x}</li>)}</ul>}
-            {answer.session && (
-              <>
-                <b>{answer.session.title} · about {minutesOf(answer.session)} min</b>
-                <ol className="ask-steps">{answer.session.steps.map((x, i) => <li key={i}>{x.title} <span className="muted small">({x.minutes} min)</span></li>)}</ol>
-                <div className="row" style={{ gap: 6 }}>
-                  <button className="btn primary" onClick={() => { onClose(); startSession(answer.session!) }}>▶ Start this session</button>
-                  <button className="btn sm" onClick={() => { saveSession(answer.session!); setAnswer({ ...answer, note: 'Saved: find it in Learn → Today → My sessions.' }) }}>Save it</button>
-                </div>
-              </>
-            )}
-            {answer.beat && <button className="btn primary" onClick={() => { applyBeatChange(answer.beat!); onClose() }}>Apply to my beat</button>}
-            {answer.open && <button className="btn" onClick={() => open(answer.open!)}>Open {answer.open.title}</button>}
-            {answer.note && <span className="small muted">{answer.note}</span>}
+        {turns.length > 0 && (
+          <div className="ask-convo" ref={convo} aria-live="polite">
+            {turns.map(t => (
+              <div key={t.id} className="ask-turn">
+                <div className="ask-q">{t.q}</div>
+                {!t.answer ? <div className="ask-a thinking">Thinking…</div> : (
+                  <div className="ask-a">
+                    <p style={{ margin: 0 }}>{t.answer.reply}</p>
+                    {t.answer.ideas && <ul className="ask-steps">{t.answer.ideas.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+                    {t.answer.session && (
+                      <>
+                        <b>{t.answer.session.title} · about {minutesOf(t.answer.session)} min</b>
+                        <ol className="ask-steps">{t.answer.session.steps.map((x, i) => <li key={i}>{x.title} <span className="muted small">({x.minutes} min)</span></li>)}</ol>
+                        <div className="row" style={{ gap: 6 }}>
+                          <button className="btn primary sm" onClick={() => { onClose(); startSession(t.answer!.session!) }}>▶ Start this session</button>
+                          <button className="btn sm" onClick={() => { saveSession(t.answer!.session!); answerTurn(t.id, { ...t.answer!, note: 'Saved: it waits in Learn → Today → My practice sessions.' }) }}>Save it</button>
+                        </div>
+                      </>
+                    )}
+                    {t.answer.beat && <button className="btn primary sm" onClick={() => { applyBeatChange(t.answer!.beat!); onClose() }}>Apply to my beat</button>}
+                    {t.answer.open && <button className="btn sm" onClick={() => open(t.answer!.open!)}>Open {t.answer.open.title}</button>}
+                    <div className="row" style={{ gap: 6, justifyContent: 'space-between' }}>
+                      {t.answer.note ? <span className="small muted">{t.answer.note}</span> : <span />}
+                      {canSpeak() && <button className="btn sm ghost" onClick={() => (speakingNow ? stopSpeaking() : say(t.answer!))} aria-label="Read this answer aloud">{speakingNow ? '■ Stop' : '🔊 Hear it'}</button>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            <div className="row small" style={{ gap: 8, justifyContent: 'space-between' }}>
+              <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={voice} onChange={e => { setVoice(e.target.checked); if (!e.target.checked) stopSpeaking() }} /> Read answers aloud</label>
+              <button className="btn sm ghost" onClick={() => { stopSpeaking(); clearChat() }}>New conversation</button>
+            </div>
           </div>
         )}
         {q.trim() && results.length > 0 && (
