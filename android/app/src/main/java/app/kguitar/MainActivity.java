@@ -13,6 +13,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(LessonFoldersPlugin.class);
         registerPlugin(SpeakPlugin.class);
         registerPlugin(ImmersivePlugin.class);
+        registerPlugin(ListenPlugin.class);
         super.onCreate(savedInstanceState);
         if (getBridge() != null) getBridge().setWebViewClient(new MediaWebViewClient(getBridge()));
     }

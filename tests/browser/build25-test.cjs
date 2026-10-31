@@ -89,6 +89,41 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
     if (page.errors.length) bad('peek page errors: ' + page.errors.join(' | '))
     await page.context().close()
   }
+  // ---- bubble opens on every tap; hands-free talk (a stand-in for the phone's speech recognition)
+  {
+    const page = await newPage(browser, { 'kg:tab2': 'play', 'kg:askBubble': true, 'kg:talkVoice': false })
+    await page.addInitScript(() => {
+      window.SpeechRecognition = window.webkitSpeechRecognition = class {
+        start() { setTimeout(() => { this.onresult?.({ results: [Object.assign([{ transcript: window.__say || 'loop section two to three and slow the tempo' }], { isFinal: true })] }); this.onend?.() }, 300) }
+        stop() { this.onend?.() } abort() { this.onend?.() }
+      }
+    })
+    await page.reload()
+    await page.waitForSelector('.play-head')
+    await page.locator('.song-check button:has-text("Got it")').click({ timeout: 2500 }).catch(() => {})
+    let opened = 0
+    for (let i = 0; i < 6; i++) {
+      const b = await page.locator('.ask-bubble').boundingBox()
+      await page.touchscreen.tap(b.x + b.width / 2 + (i % 3) * 6, b.y + b.height / 2 + (i % 2) * 5)
+      await page.waitForTimeout(700)
+      if (await page.locator('.search-sheet').count()) opened++
+      await page.locator('.search-sheet button:has-text("Close")').click({ timeout: 1500 }).catch(() => {})
+      await page.waitForTimeout(200)
+    }
+    console.log(`bubble opened ${opened} of 6 taps`)
+    if (opened < 6) bad(`bubble opened only ${opened} of 6 taps`)
+    await page.locator('[data-testid=talk-btn]').click()
+    await page.waitForSelector('.talk-did', { timeout: 6000 }).catch(() => bad('talk mode did not do the command'))
+    const did = await page.locator('.talk-did').textContent().catch(() => '')
+    const chipTxt = await page.locator('.loop-chip').textContent().catch(() => '')
+    console.log(`talk: ${did} · loop chip ${chipTxt.trim()}`)
+    if (!/Loop bars 2–3 at \d+%/.test(did)) bad('spoken loop + slower not understood')
+    if (!/Bars 2–3/.test(chipTxt)) bad('spoken loop not applied in Play')
+    if (await page.locator('.search-sheet').count()) bad('talk mode opened the full helper')
+    if (page.errors.length) bad('talk page errors: ' + page.errors.join(' | '))
+    await page.screenshot({ path: path.join(DIR, 'out', 'b25-talk.png') }).catch(() => {})
+    await page.context().close()
+  }
   // ---- In time count-in
   {
     const page = await newPage(browser, { 'kg:tab2': 'play', 'kg:playMode': 'time' })

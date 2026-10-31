@@ -1967,3 +1967,23 @@ video.mirrored { transform: scaleX(-1); }
 .ex-sugg-card b { font-size: 16px; line-height: 1.2; }
 .ex-sugg-card.on { border-color: var(--accent); }
 [data-theme='psy'] .ex-sugg-card { background: #1c0641; color: #f4eaff; }
+/* hands-free helper: the 🎤 under the ✨ bubble and its answer card */
+.talk-btn { position: fixed; right: 16px; z-index: 45; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--accent);
+  background: var(--surface); color: var(--ink); font-size: 18px; display: grid; place-items: center; box-shadow: 0 3px 10px rgba(0,0,0,0.3); cursor: pointer; }
+.talk-btn.on { background: var(--coral); color: #fff; border-color: #fff; }
+.talk-level { position: absolute; inset: -6px; border-radius: 50%; border: 3px solid var(--coral); opacity: 0.6; pointer-events: none; transition: transform 80ms; }
+.talk-card { position: fixed; z-index: 46; width: min(340px, calc(100vw - 90px)); max-height: min(60vh, 340px); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 16px; background: var(--surface);
+  border: 2px solid var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+.talk-card.from-right { right: 72px; }
+.talk-card.from-left { left: 72px; }
+.talk-card p { margin: 0; }
+.talk-line { font-size: 16px; }
+.talk-a { font-size: 16px; line-height: 1.35; }
+.talk-did { font-weight: 700; color: var(--mint-text, var(--mint)); }
+.talk-ideas { margin: 0; padding-left: 18px; }
+.talk-acts { gap: 6px; flex-wrap: wrap; }
+.talk-acts:empty { display: none; }
+.talk-foot { gap: 8px; flex-wrap: wrap; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); padding-top: 6px; }
+.talk-foot label { gap: 4px; }
+[data-theme='psy'] .talk-card, [data-theme='psy'] .talk-btn:not(.on) { background: #1c0641; color: #f4eaff; }

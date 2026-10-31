@@ -25,20 +25,34 @@ function playLabel(c: Omit<PlayChange, 'label'>): string {
 }
 
 /** Without an AI key: quick Play commands ("slower", "loop this bar", "70%") and "what key / chord is this". */
+const NUM_WORDS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90, hundred: 100 }
+/** Spoken words → digits ("five to eight" → "5 to 8", "seventy five percent" → "75 percent"). */
+export function spokenNumbers(q: string): string {
+  return q.toLowerCase()
+    .replace(/\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[\s-](one|two|three|four|five|six|seven|eight|nine)\b/g, (_, a: string, b: string) => String(NUM_WORDS[a] + NUM_WORDS[b]))
+    .replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\b/g, w => String(NUM_WORDS[w]))
+    .replace(/\bfor\b(?=\s*(to|through|-))/g, '4').replace(/\bto\b(?=\s*(to|through))/g, '2')
+}
+
 function playCommand(q: string, info: ScreenInfo | null): Answer | null {
   const p = info?.play
   if (!p) return null
-  const t = q.toLowerCase()
-  if (t.split(/\s+/).length > 7 && !/loop bars? \d/.test(t)) return null // a real question, not a quick command
+  const t = spokenNumbers(q)
+  if (t.split(/\s+/).length > 12 && !/loop\b.*\d/.test(t)) return null // a real question, not a quick command
+  if (/^(how|what|why|explain|tell me|teach|show me|can you (explain|tell|show))\b/.test(t) && !/\b(tempo|speed|loop|bpm|percent)\b/.test(t)) return null
   const c: Omit<PlayChange, 'label'> = {}
   const pct = /(\d{2,3})\s*(%|percent)/.exec(t)
   if (pct) c.speed = Math.max(0.25, Math.min(1.5, Number(pct[1]) / 100))
-  else if (/slow(er| (it )?down)|too fast/.test(t)) c.speed = Math.max(0.25, Math.round((p.speed - 0.1) * 20) / 20)
-  else if (/faster|speed (it )?up|too slow/.test(t)) c.speed = Math.min(1.5, Math.round((p.speed + 0.1) * 20) / 20)
-  if (/(stop|no|turn off|clear)( the)? loop/.test(t)) c.loop = null
-  else if (/loop (this|the|my) bar|loop here|loop it/.test(t)) c.loop = { from: p.bar, to: p.bar }
-  else { const m = /loop bars? (\d+)(?:\s*(?:-|–|to|through)\s*(\d+))?/.exec(t); if (m) { const a = Number(m[1]) - 1, b = Number(m[2] ?? m[1]) - 1; c.loop = { from: Math.max(0, Math.min(a, b)), to: Math.min(p.bars - 1, Math.max(a, b)) } } }
-  if (c.speed !== undefined || c.loop !== undefined) return { reply: `Okay: ${playLabel(c).toLowerCase()}. Tap the button to do it.`, play: { ...c, label: playLabel(c) }, ai: false }
+  else if (/full speed|normal speed|original (speed|tempo)/.test(t)) c.speed = 1
+  else if (/slow(er| (it )?down| (the |it )?(tempo|speed))|too fast|(lower|decrease|reduce|drop|bring down)( the)? (tempo|speed|bpm)|(tempo|speed) down/.test(t)) c.speed = Math.max(0.25, Math.round((p.speed - 0.1) * 20) / 20)
+  else if (/faster|speed (it )?up|too slow|(raise|increase|bring up|bump)( up)?( the)? (tempo|speed|bpm)|(tempo|speed) up/.test(t)) c.speed = Math.min(1.5, Math.round((p.speed + 0.1) * 20) / 20)
+  if (/(stop|no|turn off|clear|cancel)( the)? loop(ing)?/.test(t)) c.loop = null
+  else if (/loop (this|the|my) (bar|measure)|loop here|loop it\b|loop this\b/.test(t)) c.loop = { from: p.bar, to: p.bar }
+  else {
+    const m = /loop(?: (?:bars?|measures?|section|sections|from))*\s*(\d+)(?:\s*(?:-|–|to|through|thru|and|till|until)\s*(?:bars? |measures? )?(\d+))?/.exec(t)
+    if (m) { const a = Number(m[1]) - 1, b = Number(m[2] ?? m[1]) - 1; c.loop = { from: Math.max(0, Math.min(a, b, p.bars - 1)), to: Math.min(p.bars - 1, Math.max(a, b)) } }
+  }
+  if (c.speed !== undefined || c.loop !== undefined) return { reply: `Okay: ${playLabel(c).toLowerCase()}.`, play: { ...c, label: playLabel(c) }, ai: false }
   if (/what key/.test(t)) return { reply: `This song looks like it's in ${p.key}.`, ai: false }
   if (/what chord/.test(t) && p.chord) return { reply: `The chord where you are is ${p.chord}. Press and hold the chord name on the tab to see its shape.`, ai: false }
   return null
@@ -122,6 +136,9 @@ export async function plan(q: string, results: Result[], ctx: AskContext = 'gene
     if (results[0] && results[0].score >= 40) return { reply: `This looks like what you want: ${results[0].title}.`, open: results[0], ai: false }
     return { reply: "I'm not sure what you mean. Try saying what you want to practise (\"triads\", \"blues in A\", \"make a trap beat\") or what's wrong (\"it doesn't hear me\").", ai: false }
   }
+  // a plain command ("slower", "loop 5 to 8 at 70 percent") is done straight away, even with an AI key: no waiting
+  const quick = playCommand(q, screen)
+  if (quick && !/\b(what|why|how|explain|tell|which|show)\b/i.test(q)) return quick
   if (!activeProvider()) return { ...local(), note: 'Built-in helper. Add a free AI key in Settings → You → AI helper for smarter answers.' }
   try {
     const raw = await ask(SYSTEM(ctx, beat ? beatSummary(beat) : '', results, screen), [...past.flatMap(p => [{ role: 'user' as const, text: p.q }, { role: 'assistant' as const, text: JSON.stringify({ reply: p.a }) }]), { role: 'user', text: q }], { json: true, maxTokens: 1200 })

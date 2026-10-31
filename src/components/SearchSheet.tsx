@@ -86,6 +86,8 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
   useEffect(() => { list.current?.querySelector(`[data-i="${active}"]`)?.scrollIntoView({ block: 'nearest' }) }, [active])
 
   const seen = useMemo(() => screenInfo(), [])
+  // a tap that opened the helper must not also close it
+  const openedAt = useRef(Date.now())
   const open = (r: Result) => {
     remember(q.trim())
     onClose()
@@ -106,7 +108,7 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
   const past = recent()
 
   return (
-    <div className="sheet-backdrop search-backdrop" onClick={onClose}>
+    <div className="sheet-backdrop search-backdrop" onClick={() => { if (Date.now() - openedAt.current > 450) onClose() }}>
       <div className="sheet search-sheet" role="dialog" aria-modal="true" aria-label="Search and ask KGuitar" onClick={e => e.stopPropagation()}>
         <div className="search-bar">
           <span className="search-icon" aria-hidden><IconSearch /></span>

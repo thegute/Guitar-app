@@ -10,6 +10,8 @@ import { noteToMidi } from '../src/theory/notes'
 import { routine, type Z2H } from '../src/learn/zeroHero'
 import { exerciseCatalog } from '../src/exercises/catalog'
 import { suggestExercises } from '../src/exercises/suggest'
+import { plan, spokenNumbers } from '../src/assistant/plan'
+import { setScreenInfo } from '../src/assistant/screen'
 let checks = 0, failed = 0
 const ok = (c: boolean, m: string) => { checks++; if (!c) { failed++; console.log('  FAIL', m) } }
 const mk = (id: 'guitar' | 'tenor' | 'baritone') => { const d = INSTRUMENTS[id]; return { ...d, tuning: d.tunings[0], midis: d.tunings[0].notes.map(noteToMidi) } as unknown as Instrument }
@@ -78,5 +80,28 @@ ok(new Set(sug.map(s => s.ex.code)).size === sug.length, 'suggestions are differ
 ok(sug[0].ex.type === 'warmup', 'the first is a warm-up')
 const ukeSug = suggestExercises(exerciseCatalog(mk('tenor')), false)
 ok(ukeSug.length >= 2, `ukulele suggestions (${ukeSug.length})`)
+// spoken commands in Play
+ok(spokenNumbers('loop section five to eight') === 'loop section 5 to 8', spokenNumbers('loop section five to eight'))
+ok(spokenNumbers('seventy five percent') === '75 percent', spokenNumbers('seventy five percent'))
+setScreenInfo('play', { label: 'Play', summary: 'In Play', can: ['loop', 'speed'], play: { bar: 3, bars: 32, loop: null, speed: 0.8, key: 'G major', chord: 'C' } })
+const cmd = async (q: string) => (await plan(q, [], 'play')).play
+await (async () => {
+  const a = await cmd('loop section five to eight and slow the tempo')
+  ok(!!a && a.loop?.from === 4 && a.loop?.to === 7 && a.speed === 0.7, `loop 5-8 slower → ${JSON.stringify(a)}`)
+  const b = await cmd('lower the tempo')
+  ok(!!b && b.speed === 0.7 && b.loop === undefined, `lower the tempo → ${JSON.stringify(b)}`)
+  const c = await cmd('loop this bar at sixty percent')
+  ok(!!c && c.loop?.from === 3 && c.speed === 0.6, `loop this bar at 60% → ${JSON.stringify(c)}`)
+  const d = await cmd('stop looping')
+  ok(!!d && d.loop === null, `stop looping → ${JSON.stringify(d)}`)
+  const e = await cmd('loop measures 30 through 40')
+  ok(!!e && e.loop?.from === 29 && e.loop?.to === 31, `loop past the end is clamped → ${JSON.stringify(e)}`)
+  const f = await cmd('what does an augmented chord do')
+  ok(!f, 'a question is not a command')
+  const g = await cmd('how do I play faster licks')
+  ok(!g, '"how do I play faster" is a question, not a speed change')
+  const h = await cmd('full speed')
+  ok(!!h && h.speed === 1, `full speed → ${JSON.stringify(h)}`)
+})()
 console.log(`build25-logic: ${checks - failed}/${checks} checks passed`)
 if (failed) process.exit(1)

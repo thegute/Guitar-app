@@ -52,6 +52,7 @@ import { SongCheckCard, RetuneNotice } from '../components/SongCheckCard'
 import { profile } from '../learn/profile'
 import { Zoomable } from '../components/Zoomable'
 import { useScreenInfo } from '../assistant/screen'
+import { talkingNow } from '../assistant/listen'
 
 
 type View = 'tab' | 'solo' | 'both'
@@ -457,10 +458,12 @@ export function PlayScreen() {
       l.onFrame = f => { if (f.midi !== last) { last = f.midi; setLive(f.midi) } }
       l.onOnset = t => { lastOnset.current = t }
       l.onNote = e => {
+        if (talkingNow()) return // you're talking to the helper: your voice isn't a wrong note
         if (modeRef.current === 'time') { if (inTimeRef.current.running) inTimeRef.current.played(e.attack ? lastOnset.current : e.time, { midi: e.midi }) }
         else onNote(e.midi)
       }
       l.onChord = (chroma, at) => {
+        if (talkingNow()) return
         if (modeRef.current === 'time') { if (inTimeRef.current.running) inTimeRef.current.played(at, { chroma }) }
         else onChord(chroma)
       }
@@ -735,6 +738,7 @@ export function PlayScreen() {
       `Speed ${Math.round(speed * 100)}% of ${songBpm} BPM (= ${Math.round(songBpm * speed)} BPM).`,
       `Key: ${key.label}.${spanNow ? ` Chord here: ${spanNow.name}${spanNext ? `, next: ${spanNext.name}` : ''}.` : ''}`,
       lm && lm.bar >= 0 ? `Last mistake: in bar ${lm.bar + 1} they played ${lm.chordText ? `a chord sounding like ${lm.chordText}` : noteName(lm.heard, flats)} where the tab wants ${lm.want.map(m => noteName(m, flats)).join('+') || 'a rest'}.` : '',
+      (() => { const g = hands[groupAt(hands, cursorFlat)]; if (!g) return ''; const fs = [...new Set(g.notes.map(n => `${n.fret === 0 ? 'open' : `fret ${n.fret}`} ${stringLabel(track.tuning, n.string, flats)} string = finger ${n.finger || 'none (open)'}`))].slice(0, 6); return `Hand position here: ${g.open ? 'open / first position' : `1st finger on fret ${g.base}`} (one finger per fret). Notes in this hand position: ${fs.join('; ')}.` })(),
       passes.n ? `Loop passes so far: ${passes.n}, last ${passes.last}%, best ${passes.best}%.` : '',
       inTime.pass.last ? `Last In time pass: ${inTime.pass.last.score}%.` : '',
     ].filter(Boolean).join(' '),
