@@ -212,8 +212,17 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   (https://claude.ai/artifact/LQjDVM8yCNx2WmGrkT9Xnm), phases + gates (auto-checked where measurable), start check, daily routine as a session, JustinGuitar links only.
 - Tests: `tests/browser/build20-test.cjs`, build19, build14 tour (Songs tab "Exercises"), search-test.
 
+## Builds 22–24 (shipped as build-24)
+- Beat maker: typed tempo + hold −/+, `fitToBars` stretch ≤12% else trim, on-screen notes recorded as notes while looping, 🎚 Volumes (`voiceVol`), keys volume.
+- Songbook: `arrangeSong` full arrangements (Carter style / chord-melody), genres country, pop, bluesrock, reggaerock, prog with original songs. Jam: 9 new styles.
+- Licks: billy, acoustic, reggaerock (Jawaiian merged in), popsoul, progclean; first 25 per style have breakdowns (`autoBreakdown`). Back steps inside licks.
+- AskBubble (✨, draggable, `kg:askBubble`), chat history (`assistant/chat.ts`), read aloud (`assistant/speak.ts`, SpeakPlugin.java). Full screen (ImmersivePlugin.java, `kg:fullScreen`), `--sab` padding.
+- Win: tap title folds, ☰ Move / – Hide / ⇕ resize, LayoutHint. Exercises and Songs → Practice are WinAreas. `audio/stopAll.ts` stops sound on page change (`kg:keepMetronome`).
+- Rhythm trainer count-in bar. My recordings (`audio/recordings.ts`, `learn/MyRecordings.tsx`, Play "Keep it"). Zero to Hero style PATHS (`pathSteps` in the routine).
+- `notes/next-build.md` = the owner's change list between builds (he tests before "ship it").
+
 ## Next up — pick up here
-1. Owner tries builds 20–21; fix what they find (beat maker layout, windows, Ask, Zero to Hero).
+1. Owner tries build 24 for a week; fix what he finds.
 2. Note follower accuracy (fewer misreads, accept bends; GP test files in the scratchpad testdata) and a better note detector for Notes mode (own guitar only).
 3. Hand position accuracy in Play, Jam looper loud/reliable, ukulele theory, more badges, chord-tone lessons, deep CAGED, a simplicity pass.
 4. Keep the brother's Docs guide (https://claude.ai/artifact/7Cuc18hXrt23FDQ1PniqV5) in step with the in-app guide. The owner should switch on GitHub Pages
