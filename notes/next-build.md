@@ -15,3 +15,5 @@
 11. Helper's "app manual": the AI now gets a compact copy of the whole "How to use KGuitar" guide (every page, button, loop/tempo control, lesson and tool) plus "explain theory simply, like a patient teacher", so it can say exactly where things are.
 12. Helper sees more: the open theory lesson (title, chapter, what it says) and every Tools page (Tuner: tuning, string, what it hears; Tempo: BPM, time signature, groove, trainer; Chords: chord, notes, the shape shown; Scales: scale, notes, position).
 13. Gemini answers stream in word by word in the chat and talk card; Gemini 3 and newer (e.g. 3.8 Flash) run on "low" thinking for speed (retries without it if a model refuses).
+14. 🎼 Music stand (Play, top bar): just the tab, 1.6× bigger (pinch to set), and one row of big buttons: Listen/Start, ⟲ Loop bar, − speed % +, ⏮, ✕.
+15. Tidy up while I play (Play → Options, on): when you Listen or Start, the other panels and the menu fold away; they come back when you stop. A playing video stays.

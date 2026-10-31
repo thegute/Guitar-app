@@ -221,8 +221,15 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
 - Rhythm trainer count-in bar. My recordings (`audio/recordings.ts`, `learn/MyRecordings.tsx`, Play "Keep it"). Zero to Hero style PATHS (`pathSteps` in the routine).
 - `notes/next-build.md` = the owner's change list between builds (he tests before "ship it").
 
+## Build 25 (owner's UX pass)
+- Play: chord peek (`components/ChordPeek.tsx`, hold `[data-chord]` on the tab or chord strip; gone 1.5 s after release), music stand (`stand`, `standZoom`, `.stand-bar`), tidy while playing (`kg:playTidy`), big count-in (`useInTime` countIn) + loop flash (`wraps`), Hear it "Loading sounds…".
+- Jump back in (`components/JumpBackIn.tsx`, Learn → Today, Songs → My songs; `routine(v, 15)`), Suggested for you (`exercises/suggest.ts`), lick chainer (`licks/chain.ts`, `components/LickChainer.tsx`, `kg:lickChain`).
+- Helper: screen awareness (`assistant/screen.ts` `useScreenInfo` in Play, Exercises, licks, Jam, lessons, Tuner/Tempo/Chords/Scales), compact manual from guide.ts at the top of the prompt (screen state last), quick Play commands (`playCommand`, spoken numbers),
+  🎤 hands-free talk (`assistant/listen.ts`, native `ListenPlugin.java`; Play ignores the mic while `talkingNow()`), Gemini retries/fallbacks + streaming (`streamGenerateContent`), thinking off on 2.5 Flash / "low" on 3+, Gemini TTS voice (`speak.ts`, `kg:geminiVoice`); built-in helper keeps the phone voice.
+- Tests: `tests/build25-logic.test.ts`, `tests/browser/build25-test.cjs`.
+
 ## Next up — pick up here
-1. Owner tries build 24 for a week; fix what he finds.
+1. Owner tries the build after 24; fix what he finds. Untested on a real phone: 🎤 talk with the USB amp plugged in / while Play listens, Gemini voice, streaming in the Android web view.
 2. Note follower accuracy (fewer misreads, accept bends; GP test files in the scratchpad testdata) and a better note detector for Notes mode (own guitar only).
 3. Hand position accuracy in Play, Jam looper loud/reliable, ukulele theory, more badges, chord-tone lessons, deep CAGED, a simplicity pass.
 4. Keep the brother's Docs guide (https://claude.ai/artifact/7Cuc18hXrt23FDQ1PniqV5) in step with the in-app guide. The owner should switch on GitHub Pages
