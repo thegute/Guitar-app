@@ -1,6 +1,6 @@
 // Read answers aloud: the phone's own voice in the app (SpeakPlugin.java), the browser's voice on the web.
 import { Capacitor, registerPlugin } from '@capacitor/core'
-import { aiSettings, post } from './providers'
+import { aiSettings, post, ttsModel } from './providers'
 import { audio } from '../audio/engine'
 
 interface SpeakNative { speak(o: { text: string; rate?: number }): Promise<void>; stop(): Promise<void>; addListener(e: 'done', f: () => void): Promise<{ remove: () => void }> }
@@ -35,10 +35,10 @@ async function geminiSay(t: string, voice = geminiVoice()): Promise<boolean> {
   const my = ++job
   set(true)
   try {
-    const r = await post(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${encodeURIComponent(key)}`, {}, {
+    const r = await post(`https://generativelanguage.googleapis.com/v1beta/models/${ttsModel()}:generateContent?key=${encodeURIComponent(key)}`, {}, {
       contents: [{ parts: [{ text: `Say this in a warm, relaxed, friendly way, like a guitar teacher talking to a student: ${t.slice(0, 1500)}` }] }],
       generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } },
-    }, 30000)
+    }, 9000) // slow today: the phone's voice reads it instead of making you wait
     if (my !== job) return true // stopped (or something newer started) while waiting
     const part = (r.data as { candidates?: { content?: { parts?: { inlineData?: { data?: string; mimeType?: string } }[] } }[] })?.candidates?.[0]?.content?.parts?.find(x => x.inlineData?.data)?.inlineData
     if (r.status >= 300 || !part?.data) { set(false); return false }

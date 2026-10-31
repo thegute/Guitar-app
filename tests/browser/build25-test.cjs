@@ -164,7 +164,7 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
     const ans = await page.locator('.ask-a p').first().textContent({ timeout: 6000 }).catch(() => '')
     console.log(`gemini: ${url.split('?')[0].split('/').pop()} · thinking ${JSON.stringify(sent?.generationConfig?.thinkingConfig)} · "${ans}"`)
     if (!/streamGenerateContent/.test(url)) bad('Gemini answer not streamed')
-    if (sent?.generationConfig?.thinkingConfig?.thinkingLevel !== 'low') bad('Gemini 3 not set to low thinking')
+    if (sent?.generationConfig?.thinkingConfig?.thinkingLevel !== 'minimal') bad('Gemini 3 Flash not set to minimal thinking')
     if (ans !== 'An augmented chord sounds tense and dreamy.') bad('streamed answer not shown whole')
     if (page.errors.length) bad('gemini page errors: ' + page.errors.join(' | '))
     await page.context().close()
@@ -201,6 +201,31 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
     if (!t1.tidy || t1.solo !== 'none') bad(`tidy ${vp.width}: panels didn't fold away while listening`)
     if (t2) bad(`tidy ${vp.width}: panels didn't come back after stopping`)
     if (page.errors.length) bad(`stand page errors ${vp.width}: ` + page.errors.join(' | '))
+    await page.context().close()
+  }
+  // ---- Gemini when things go wrong: a model that hangs, one that's busy, streaming that won't connect
+  {
+    const page = await newPage(browser, { 'kg:tab2': 'play', 'kgx:ai': { provider: 'gemini', keys: { gemini: 'TEST' }, models: { gemini: 'gemini-9-flash' } }, 'kgx:aiModels': { gemini: ['gemini-9-flash', 'gemini-8-flash', 'gemini-8-flash-lite', 'gemini-8-flash-image'] } })
+    const hits = []
+    await page.route(/generativelanguage\.googleapis\.com/, async route => {
+      const u = route.request().url(); hits.push(u.split('/models/')[1]?.split('?')[0] ?? u)
+      if (/gemini-9-flash/.test(u)) return // hangs: never answers
+      if (/gemini-8-flash:stream/.test(u)) return route.abort('failed') // streaming can't connect on this phone
+      if (/gemini-8-flash:generateContent/.test(u)) return route.fulfill({ status: 200, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' }, body: JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"reply": "Backup model here.", "open": null}' }] } }] }) })
+      return route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: '{"error":{"status":"UNAVAILABLE"}}' })
+    })
+    await page.waitForSelector('.play-head')
+    await page.locator('nav.nav .nav-search').click()
+    await page.locator('.search-input, input[type=search]').first().fill('what is a power chord')
+    const t0 = Date.now()
+    await page.locator('.ask-btn').click()
+    await page.waitForFunction(() => /Backup model here|built-in/i.test(document.querySelector('.ask-a')?.textContent || ''), null, { timeout: 45000 }).catch(() => {})
+    const secs = (Date.now() - t0) / 1000
+    const ans = await page.locator('.ask-a').first().textContent().catch(() => '')
+    console.log(`gemini fallback: ${secs.toFixed(1)} s · ${ans.slice(0, 60)} · tried ${hits.join(' → ')}`)
+    if (!/Backup model here/.test(ans)) bad('Gemini did not move on to a working model')
+    if (secs > 22) bad(`Gemini fallback too slow: ${secs.toFixed(1)} s`)
+    if (page.errors.length) bad('fallback page errors: ' + page.errors.join(' | '))
     await page.context().close()
   }
   // ---- In time count-in

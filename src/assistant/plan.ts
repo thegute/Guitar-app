@@ -7,7 +7,7 @@ import type { Session, Step } from '../sessions/session'
 import { loadBeat, PATTERNS, STARTERS, voiceLabel, type Beat } from '../studio/beat'
 import { instr } from '../studio/sounds'
 import { beatChords } from '../studio/practice'
-import { activeProvider, ask, AiError } from './providers'
+import { activeProvider, ask, AiError, lastTries } from './providers'
 import type { AskContext } from './bus'
 import { screenInfo, type ScreenInfo } from './screen'
 import { GUIDE } from '../learn/guide'
@@ -196,6 +196,7 @@ export async function plan(q: string, results: Result[], ctx: AskContext = 'gene
     }
     return ans
   } catch (e) {
-    return { ...local(), note: e instanceof AiError ? `${e.message} (Answered with the built-in helper.)` : 'The AI answer didn\'t come through, so this is the built-in helper.' }
+    const tried = lastTries.length ? ` Tried: ${lastTries.join('; ')}.` : ''
+    return { ...local(), note: (e instanceof AiError ? `${e.message} (Answered with the built-in helper.)` : 'The AI answer didn\'t come through, so this is the built-in helper.') + tried }
   }
 }
