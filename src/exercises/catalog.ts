@@ -25,7 +25,7 @@ export const LEVELS = ['', 'Beginner', 'Intermediate', 'Advanced', 'Expert'] as 
 // two letters for each lick style's codes
 const LICK_PREFIX: Record<string, string> = {
   blues: 'BL', rock: 'RK', altrock: 'AL', metal: 'MT', progmetal: 'PG', mathrock: 'MR', jazz: 'JZ', mayer: 'JM', neosoul: 'NS', funk: 'FK',
-  hawaiian: 'HW', jawaiian: 'JW', bluegrass: 'BG', billy: 'BS', acoustic: 'AC', reggaerock: 'RR', popsoul: 'PS', progclean: 'PL', country: 'CW', folk: 'FO', fingerstyle: 'MC',
+  hawaiian: 'HW', bluegrass: 'BG', billy: 'BS', acoustic: 'AC', reggaerock: 'RR', popsoul: 'PS', progclean: 'PL', country: 'CW', folk: 'FO', fingerstyle: 'MC',
 }
 
 export interface ExType { id: string; label: string; group: string; prefix: string }

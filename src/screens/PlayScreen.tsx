@@ -45,6 +45,7 @@ import { checkSong } from '../play/songCheck'
 import { chordHelp } from '../play/chordHelp'
 import { patternsFor, strumPattern } from '../play/strumCoach'
 import { TakeRecorder, saveTake } from '../audio/takeRecorder'
+import { keepRecording } from '../audio/recordings'
 import { bandByStep, bandEvents, hasBand } from '../audio/band'
 import { SongCheckCard, RetuneNotice } from '../components/SongCheckCard'
 import { profile } from '../learn/profile'
@@ -158,7 +159,7 @@ export function PlayScreen() {
   const recorder = useRef<TakeRecorder | null>(null)
   const [recording, setRecording] = useState(false)
   const [recSecs, setRecSecs] = useState(0)
-  const [take, setTake] = useState<{ url: string; blob: Blob; seconds: number; title: string } | null>(null)
+  const [take, setTake] = useState<{ url: string; blob: Blob; seconds: number; title: string; kept?: boolean } | null>(null)
   useEffect(() => {
     if (!recording) return
     const t = setInterval(() => setRecSecs(Math.round((Date.now() - (recorder.current?.startedAt ?? Date.now())) / 1000)), 500)
@@ -999,7 +1000,8 @@ export function PlayScreen() {
           <div className="take-bar" role="group" aria-label="Your recording">
             <span className="small"><b>Your take</b> {Math.floor(take.seconds / 60)}:{String(Math.round(take.seconds % 60)).padStart(2, '0')}</span>
             <audio src={take.url} controls preload="metadata" />
-            <button className="btn sm" onClick={() => void saveTake(take.blob, take.title)}>Save</button>
+            <button className="btn sm primary" disabled={take.kept} onClick={() => void keepRecording(take.blob, take.title, take.seconds).then(() => setTake(t => (t ? { ...t, kept: true } : t)))}>{take.kept ? '✓ In My recordings' : 'Keep it'}</button>
+            <button className="btn sm" onClick={() => void saveTake(take.blob, take.title)}>Save a copy</button>
             <button className="btn sm ghost" aria-label="Delete this recording" onClick={() => { URL.revokeObjectURL(take.url); setTake(null) }}>✕</button>
           </div>
         )}

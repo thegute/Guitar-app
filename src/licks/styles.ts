@@ -4,7 +4,7 @@
 //   'shift' movable styles slide the whole shape up or down the neck, staying near the style's usual frets (`zone`)
 export type LickStyleId =
   | 'blues' | 'rock' | 'altrock' | 'metal' | 'progmetal' | 'mathrock' | 'jazz' | 'mayer' | 'neosoul' | 'funk'
-  | 'hawaiian' | 'jawaiian' | 'bluegrass' | 'billy' | 'country' | 'folk' | 'fingerstyle' | 'acoustic' | 'reggaerock' | 'popsoul' | 'progclean'
+  | 'hawaiian' | 'bluegrass' | 'billy' | 'country' | 'folk' | 'fingerstyle' | 'acoustic' | 'reggaerock' | 'popsoul' | 'progclean'
 
 export interface LickStyle {
   id: LickStyleId
@@ -62,12 +62,9 @@ export const LICK_STYLES: LickStyle[] = [
   { id: 'hawaiian', label: 'Hawaiian', group: 'Island', minor: false, move: 'capo', zone: [0, 7], bpm: 80, program: 25,
     feel: 'Slack-key sweetness (nahenahe): open strings, hammer-ons and pull-offs, sweet 3rds and 6ths, harmonics, steel-guitar slides and the Hawaiian vamp ending.',
     listen: 'Gabby Pahinui, Keola Beamer, Ledward Kaapana, Makana' },
-  { id: 'reggaerock', label: 'Reggae rock and dub', group: 'Island', minor: false, move: 'capo', zone: [0, 10], bpm: 90, program: 27,
-    feel: 'Off-beat skanks, the organ bubble, dub lines on the low strings and sweet major-pentatonic melodies with slides. Laid back, behind the beat.',
-    listen: 'Sublime, Stick Figure, The Movement, Rebelution, Slightly Stoopid' },
-  { id: 'jawaiian', label: 'Jawaiian (island reggae)', group: 'Island', minor: false, move: 'capo', zone: [0, 7], bpm: 78, program: 27,
-    feel: 'Reggae chops on the off-beats with sweet melodic fills: major pentatonic, 3rds, octave hooks and the organ "bubble".',
-    listen: 'Kolohe Kai, Rebel Souljahz, Common Kings, Fiji' },
+  { id: 'reggaerock', label: 'Reggae rock (island reggae and dub)', group: 'Island', minor: false, move: 'capo', zone: [0, 10], bpm: 90, program: 27,
+    feel: 'Off-beat skanks, the organ bubble, dub lines on the low strings, sweet major-pentatonic melodies, 3rds and octave hooks with slides: the island reggae and reggae rock sound. Laid back, behind the beat.',
+    listen: 'Sublime, Stick Figure, The Movement, Rebelution, Kolohe Kai, Common Kings' },
   { id: 'bluegrass', label: 'Bluegrass', group: 'Roots', minor: false, move: 'capo', zone: [0, 5], bpm: 120, program: 25,
     feel: 'First-position flatpicking near the headstock: the G run, the flat-3rd-to-3rd hammer-on, crosspicking rolls and fiddle-tune lines. Capo up for other keys.',
     listen: 'Tony Rice, Doc Watson, Clarence White, Billy Strings' },
@@ -87,4 +84,4 @@ export const LICK_STYLES: LickStyle[] = [
     feel: 'Fingerpicked and melodic: open-string chord colours (add9, maj7, sus), the thumb on the bass and the fingers on top, hammer-ons and harmonics inside the arpeggios, and runs where every note rings into the next. Slow down and let it breathe.',
     listen: 'Marco Cirillo, Tommy Emmanuel (ballads), Andy McKee, Sungha Jung' },
 ]
-export const lickStyle = (id: string) => LICK_STYLES.find(s => s.id === id) ?? LICK_STYLES[0]
+export const lickStyle = (id: string) => LICK_STYLES.find(s => s.id === (id === 'jawaiian' ? 'reggaerock' : id)) ?? LICK_STYLES[0]

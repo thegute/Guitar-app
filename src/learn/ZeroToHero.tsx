@@ -3,9 +3,9 @@
 import { useMemo, useState } from 'react'
 import { launch } from '../search/launch'
 import { startSession } from '../sessions/session'
-import { PHASES, RULES, START_CHECK, TEMPO_RULE, currentFocus, gateDone, routine, saveZ2H, weekOf, z2h, z2hStats, type Z2H } from './zeroHero'
+import { PATHS, PHASES, RULES, START_CHECK, TEMPO_RULE, currentFocus, gateDone, routine, saveZ2H, weekOf, z2h, z2hStats, type Z2H } from './zeroHero'
 
-export function ZeroToHero() {
+export function ZeroToHero({ onRecordings }: { onRecordings: () => void }) {
   const [v, setV] = useState<Z2H>(z2h)
   const set = (n: Z2H) => { saveZ2H(n); setV(n) }
   const stats = useMemo(z2hStats, [])
@@ -97,10 +97,53 @@ export function ZeroToHero() {
           It's been 4 weeks: record yourself on this gate and compare with last month. Passed means next phase; not yet means keep going, which is normal.
           <div className="row" style={{ gap: 6, marginTop: 6 }}>
             <button className="btn sm" onClick={() => launch({ play: { open: 'options', focus: 'record' } })}>Record yourself</button>
+            <button className="btn sm" onClick={onRecordings}>My recordings</button>
             <button className="btn sm ghost" onClick={() => set({ ...v, lastGate: Date.now() })}>Done</button>
           </div>
         </div>
       )}
+
+      <div className="z2h-paths">
+        <b>Style paths</b> <span className="small muted">go deep on a style alongside the phases{v.phase === 5 ? ' (this is Phase 5: pick one)' : ''}. Following one adds its next step to today's routine. Everything in them is also open on its own any time (Must-know licks, Exercises, Songbook, Jam).</span>
+        {PATHS.map(pth => {
+          const on = (v.paths ?? []).includes(pth.id)
+          return (
+            <div key={pth.id} className={`z2h-path${on ? ' on' : ''}`}>
+              <div className="row" style={{ gap: 8, justifyContent: 'space-between' }}>
+                <span><b>{pth.title}</b> <span className="small muted">{pth.who}</span></span>
+                <button className={`btn sm${on ? '' : ' primary'}`} onClick={() => set({ ...v, paths: on ? (v.paths ?? []).filter(x => x !== pth.id) : [...(v.paths ?? []), pth.id] })}>{on ? 'Stop following' : 'Follow'}</button>
+              </div>
+              {on && (
+                <>
+                  <ul className="goal-list">
+                    {pth.steps.map(st => {
+                      const k = `ps:${pth.id}:${st.label}`, done = v.ticks.includes(k)
+                      return (
+                        <li key={st.label}>
+                          <button className={done ? 'done' : ''} onClick={() => st.target && launch(st.target)}><span className="plan-check">{done ? '✓' : '›'}</span><span>{st.label}</span></button>
+                          <button className="btn sm ghost" aria-pressed={done} onClick={() => set({ ...v, ticks: done ? v.ticks.filter(x => x !== k) : [...v.ticks, k] })}>{done ? 'Undo' : '✓'}</button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  <span className="small"><b>You've got it when you can:</b></span>
+                  <ul className="goal-list">
+                    {pth.gate.map(g => {
+                      const done = v.ticks.includes(g.id)
+                      return (
+                        <li key={g.id}>
+                          <button className={done ? 'done' : ''} disabled><span className="plan-check">{done ? '✓' : ''}</span><span>{g.label}</span></button>
+                          <button className="btn sm ghost" aria-pressed={done} onClick={() => set({ ...v, ticks: done ? v.ticks.filter(x => x !== g.id) : [...v.ticks, g.id] })}>{done ? 'Undo' : 'I can do it'}</button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </>
+              )}
+            </div>
+          )
+        })}
+      </div>
 
       <p className="small z2h-rule" style={{ margin: 0 }}><b>{rule[0]}.</b> {rule[1]}</p>
 

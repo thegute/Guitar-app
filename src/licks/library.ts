@@ -277,7 +277,7 @@ export const LICKS: LickDef[] = [
   ]),
 
   // ───────────────────────── Jawaiian / island reggae (G)
-  ...L('jawaiian', 'G', [
+  ...L('reggaerock', 'G', [
     { id: 'jw-chop-fill', name: 'Skank and fill', level: 1, kind: 'riff', chord: 'G', tab: 'q r 3:0+2:0+1:3 e 2:3 2:0 3:2 3:0',
       must: { about: 'Island reggae guitar: a short chord "chop" on the off-beat (the skank), then a little melodic fill. Rhythm and melody trade places.',
         steps: ['Rest on beat 1 (the bass and drums own it).', 'Beat 2: a short, clipped chop on the top three strings of G; release the pressure right after so it stops.', 'Beats 3–4: a fill walking down D, B, A, G.', 'Feel the laid-back pulse; don\'t rush.'],
@@ -425,7 +425,7 @@ export const LICKS: LickDef[] = [
     { id: 'hw-turn', name: 'Island turnaround', level: 2, kind: 'turnaround', chord: 'G E7 | A7 D7', tab: 'e 6:3 4:0 3:0 2:0 6:0 4:2 3:1 2:0 | e 5:0 4:2 3:0 2:2 4:0 3:2 2:1 1:2' },
     { id: 'hw-flurry', name: 'Hammer-pull flurry', level: 3, kind: 'run', chord: 'G', tab: 's 1:0 1:2h 1:3h 1:2p 1:0p 2:3 2:1p 2:0p 3:2 3:0p 4:2 4:0p q 6:3+2:0+1:3' },
   ]),
-  ...L('jawaiian', 'G', [
+  ...L('reggaerock', 'G', [
     { id: 'jw-g-arp', name: 'G major arpeggio', level: 1, kind: 'arpeggio', chord: 'G', tab: 'e 6:3 5:2 4:0 3:0 2:0 1:3 2:0 3:0' },
     { id: 'jw-em-c', name: 'Em–C arpeggio', level: 2, kind: 'arpeggio', chord: 'Em C', tab: 'e 6:0 5:2 4:2 3:0 5:3 4:2 3:0 2:1' },
     { id: 'jw-oct-fill', name: 'Octave fill', level: 1, kind: 'double-stop', chord: 'G', tab: 'q 5:5+3:7 e 5:3+3:5 5:2+3:4 q 5:0+3:2 r' },
@@ -540,7 +540,7 @@ export const LICKS: LickDef[] = [
     { id: 'mr-taps3', name: 'Tapped threes', level: 3, kind: 'lick', chord: 'E', tab: 'e 2:7 2:12t 2:9 1:7 1:12t 1:9 2:7 2:12t | e 2:9 1:7 1:12t 1:9 q 1:7 1:5' },
     { id: 'mr-open-arp', name: 'Open-string arpeggio climb', level: 2, kind: 'arpeggio', chord: 'E', tab: 'e 4:9 3:0 2:9 1:0 4:7 3:0 2:7 1:0 | e 4:4 3:0 2:5 1:0 q 2:5+1:0 4:4+3:0' },
   ]),
-  ...L('jawaiian', 'G', [
+  ...L('reggaerock', 'G', [
     { id: 'jw-skank-fill', name: 'Skank with a fill', level: 2, kind: 'riff', chord: 'G', tab: 'e r 3:4+2:3+1:3 r 3:4+2:3+1:3 r 3:5+2:5+1:5 r 3:4+2:3+1:3 | e 4:5 4:7 3:4 3:5 q 3:7 3:4' },
     { id: 'jw-dub-melody', name: 'Dub melody', level: 1, kind: 'lick', chord: 'G', tab: 'q 2:8 e 2:10 1:8 q 2:10~ e 2:8 3:7 | h 3:9~ q 3:7 r' },
     { id: 'jw-rock-run', name: 'Reggae-rock run', level: 2, kind: 'run', chord: 'G', tab: 'e 4:5 4:7 3:4 3:5 3:7 2:5 2:8 1:5 | q 1:7 2:8 h 1:3' },

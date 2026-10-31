@@ -17,7 +17,8 @@ const clip = (t: string, n: number) => (t.length > n ? t.slice(0, n).replace(/\s
 
 export function LickLibrary({ initial, onExit }: { initial?: string; onExit: () => void }) {
   const first = initial ? lickById(initial) : undefined
-  const [styleRaw, setStyle] = usePersist<string>('mustStyle', 'blues')
+  const [styleSaved, setStyle] = usePersist<string>('mustStyle', 'blues')
+  const styleRaw = styleSaved === 'jawaiian' ? 'reggaerock' : styleSaved
   const [style, setStyleNow] = useState<LickStyleId>(((first?.style ?? (LICK_STYLES.some(s => s.id === initial) ? initial : styleRaw)) as LickStyleId) || 'blues')
   const [all, setAll] = useState(false)
   const [open, setOpen] = useState<string | null>(first?.id ?? null)

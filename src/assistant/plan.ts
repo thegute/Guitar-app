@@ -26,7 +26,7 @@ const PLACES: [string, string, Target][] = [
   ['tuner', 'Tuner', { tool: 'tuner' }],
 ]
 const EX_TYPES = ['warmup', 'picking', 'legato', 'bends', 'rhythm', 'scales', 'sequences', 'arpeggios', 'changes', 'triads', 'intervals', 'neck', 'chords', 'strumming', 'barre', 'power', 'fingerstyle', 'melodic', 'alt', 'sweep', 'skip', 'hybrid']
-const LICKS = ['blues', 'rock', 'metal', 'progmetal', 'jazz', 'mayer', 'neosoul', 'funk', 'hawaiian', 'jawaiian', 'bluegrass', 'country', 'folk', 'fingerstyle']
+const LICKS = ['blues', 'rock', 'metal', 'progmetal', 'jazz', 'mayer', 'neosoul', 'funk', 'hawaiian', 'reggaerock', 'bluegrass', 'billy', 'acoustic', 'popsoul', 'progclean', 'country', 'folk', 'fingerstyle']
 
 function targetOf(code: string, results: Result[], key?: string, minor?: boolean): Target | null {
   const r = results.find(x => x.id === code)

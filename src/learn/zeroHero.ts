@@ -153,7 +153,7 @@ export const RULES = [
 export const TEMPO_RULE = 'When something is shaky, drop the metronome 20%. When you play it clean 3 times in a row, raise it 5 BPM.'
 
 // ── where you are
-export interface Z2H { phase: number; since: number; placed: boolean; ticks: string[]; lastGate?: number }
+export interface Z2H { phase: number; since: number; placed: boolean; ticks: string[]; lastGate?: number; paths?: string[] }
 const KEY = 'kg:z2h'
 export function z2h(): Z2H {
   try { const v = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Z2H | null; if (v) return { ...v, ticks: v.ticks ?? [] } } catch { /* fall through */ }
@@ -188,7 +188,7 @@ export function routine(v: Z2H, minutes: 20 | 45 | 60): Session | null {
     ],
   }
   const m = minutes === 20 ? [3, 5, 5, 2, 5] : minutes === 45 ? [5, 10, 12, 5, 13] : [8, 12, 15, 8, 17]
-  const focus = currentFocus(v).filter(f => f.target)
+  const focus = [...pathSteps(v), ...currentFocus(v)].filter(f => f.target).slice(0, 3)
   const skill: Step[] = focus.length
     ? focus.slice(0, 3).map((f, i, a) => ({ title: f.label, minutes: Math.max(2, Math.round(m[2] / a.length)), target: f.target!, tip: i === 0 ? TEMPO_RULE : undefined }))
     : [{ title: 'Current phase skill', minutes: m[2], target: { go: { learn: 'course' } } }]
@@ -202,4 +202,84 @@ export function routine(v: Z2H, minutes: 20 | 45 | 60): Session | null {
       { title: 'Songs', minutes: m[4], target: { go: { songs: 'mine' } }, tip: 'Whole songs along with the recording. Never skip this block.' },
     ],
   }
+}
+
+// ── Style paths: go deep on a style, alongside the phases (or as Phase 5). Everything in them is also open on its own.
+export interface StylePath { id: string; title: string; who: string; steps: Focus[]; gate: GateItem[] }
+export const PATHS: StylePath[] = [
+  { id: 'flatpick', title: 'Bluegrass flatpicking', who: 'Billy Strings, Tony Rice, Doc Watson', steps: [
+    { label: 'The G run and the blue-note hammer-on', target: { go: { licks: 'bs-grun' } } },
+    { label: 'Crosspicking rolls', target: { go: { licks: 'bs-cross-g' } } },
+    { label: 'Alternate picking for speed', target: { exercise: 'type:alt' } },
+    { label: 'Fiddle tunes from the Songbook (Full arrangement too)', target: { go: { songs: 'songbook' } } },
+    { label: 'All the flatpicking licks', target: { exercise: 'type:lick:billy' } },
+    { label: 'Take breaks over a bluegrass jam', target: { jam: { page: 'solo', style: 'bluegrass', key: 'G' } } },
+  ], gate: [
+    { id: 'p-fp-grun', label: 'Play the G run cleanly at 140 BPM' },
+    { id: 'p-fp-tune', label: 'Play a whole fiddle tune at 100 BPM' },
+    { id: 'p-fp-break', label: 'Take a 16-bar break over a bluegrass jam' },
+  ] },
+  { id: 'songwriter', title: 'Acoustic singer-songwriter', who: 'Dylan Gossett, Zach Bryan, Noah Kahan', steps: [
+    { label: 'Strumming patterns that groove', target: { exercise: 'type:strumming' } },
+    { label: 'Hammer-on fills inside the chords', target: { go: { licks: 'ac-g-hammer' } } },
+    { label: 'Walking bass between chords', target: { go: { licks: 'ac-walk-g-em' } } },
+    { label: 'Travis picking', target: { exercise: 'type:fingerstyle' } },
+    { label: 'Songs from the Songbook: Country & acoustic', target: { go: { songs: 'songbook' } } },
+    { label: 'Write your own: make a progression in Jam (acoustic style), record it', target: { jam: { page: 'jam', style: 'acoustic' } } },
+  ], gate: [
+    { id: 'p-sw-strum', label: 'Strum and sing a whole song without stopping' },
+    { id: 'p-sw-travis', label: 'Travis-pick a song all the way through' },
+    { id: 'p-sw-write', label: 'Write and record one song of your own' },
+  ] },
+  { id: 'reggae', title: 'Reggae rock', who: 'Sublime, Stick Figure, The Movement, Kolohe Kai', steps: [
+    { label: 'The off-beat skank', target: { go: { licks: 'rr-skank' } } },
+    { label: 'Reggae rock licks: thirds, octaves, dub lines', target: { exercise: 'type:lick:reggaerock' } },
+    { label: 'Songs from the Songbook: Reggae and Reggae rock', target: { go: { songs: 'songbook' } } },
+    { label: 'Jam over a reggae rock loop', target: { jam: { page: 'solo', style: 'reggaerock', key: 'G' } } },
+  ], gate: [
+    { id: 'p-rg-skank', label: 'Skank a whole song tight on the off-beat' },
+    { id: 'p-rg-solo', label: 'Play a melodic solo over a reggae rock jam' },
+  ] },
+  { id: 'bluesrock', title: 'Blues-rock and neo-soul', who: 'John Mayer, Stevie Ray Vaughan, Isaiah Sharkey', steps: [
+    { label: 'Blues licks with bends in tune', target: { exercise: 'type:lick:blues' } },
+    { label: 'Blues-pop licks', target: { exercise: 'type:lick:mayer' } },
+    { label: 'Neo-soul chord flourishes', target: { exercise: 'type:lick:neosoul' } },
+    { label: 'Thumb and fingers: chords and melody together', target: { exercise: 'type:fingerstyle' } },
+    { label: 'Jam over blues-rock changes', target: { jam: { page: 'solo', style: 'bluesrock', key: 'E' } } },
+  ], gate: [
+    { id: 'p-br-bends', label: 'Play a slow blues solo with every bend in tune' },
+    { id: 'p-br-chords', label: 'Play chords with hammer-on flourishes over a groove' },
+  ] },
+  { id: 'popsoul', title: 'Pop and soul', who: 'Bruno Mars, James Arthur, John Legend', steps: [
+    { label: 'Funk-pop chops and hooks', target: { exercise: 'type:lick:popsoul' } },
+    { label: 'Funk rhythm', target: { exercise: 'type:lick:funk' } },
+    { label: 'Ballad arpeggios and bass walks', target: { go: { licks: 'ps-ballad-arp' } } },
+    { label: 'Jam over funk-pop and ballads', target: { jam: { page: 'jam', style: 'funkpop' } } },
+  ], gate: [
+    { id: 'p-ps-funk', label: 'Play a tight funk-pop rhythm part for a whole song' },
+    { id: 'p-ps-ballad', label: 'Play a pop ballad with arpeggios and a bass walk' },
+  ] },
+  { id: 'prog', title: 'Prog, math rock and prog metal', who: 'Plini, Intervals, Periphery', steps: [
+    { label: 'Melodic prog licks: legato, tapping, harmonics', target: { exercise: 'type:lick:progclean' } },
+    { label: 'Math rock patterns', target: { exercise: 'type:lick:mathrock' } },
+    { label: 'Prog metal riffs', target: { exercise: 'type:lick:progmetal' } },
+    { label: 'Sweep picking', target: { exercise: 'type:sweep' } },
+    { label: 'Jam over melodic prog', target: { jam: { page: 'solo', style: 'progclean', key: 'E' } } },
+  ], gate: [
+    { id: 'p-pg-legato', label: 'Play a legato run cleanly at 100 BPM' },
+    { id: 'p-pg-tap', label: 'Play a tapped arpeggio in time' },
+  ] },
+  { id: 'fingerstyle', title: 'Melodic fingerstyle', who: 'Marco Cirillo', steps: [
+    { label: 'How the style works', target: { go: { technique: 'melodic' } } },
+    { label: 'Melodic fingerstyle exercises', target: { exercise: 'type:melodic' } },
+    { label: 'Fingerstyle licks', target: { exercise: 'type:lick:fingerstyle' } },
+  ], gate: [
+    { id: 'p-mf-piece', label: 'Play one fingerstyle piece with the melody ringing over the bass' },
+  ] },
+]
+/** The next step of each path you follow (for today's routine). */
+export function pathSteps(v: Z2H): Focus[] {
+  const ticked = new Set(v.ticks)
+  return (v.paths ?? []).map(id => PATHS.find(p => p.id === id)).filter((p): p is StylePath => !!p)
+    .map(p => p.steps.find(s => !ticked.has(`ps:${p.id}:${s.label}`)) ?? p.steps[p.steps.length - 1])
 }

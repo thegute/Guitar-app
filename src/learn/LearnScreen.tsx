@@ -2,6 +2,8 @@
 // the path to mastery, and the tools (ear training, theory, CAGED, circle of fifths, chord changes, rhythm).
 import { Win, WinArea } from '../components/Win'
 import { ZeroToHero } from './ZeroToHero'
+import { MyRecordings } from './MyRecordings'
+import { LICK_STYLES } from '../licks/styles'
 import { MySessions } from '../sessions/MySessions'
 import { ArtThumb } from '../components/Art'
 import { useEffect, useRef, useState } from 'react'
@@ -48,7 +50,7 @@ import { ago } from '../components/BackupPanel'
 type Route =
   | { k: 'home' } | { k: 'quiz'; id: string } | { k: 'lesson'; id: string } | { k: 'lessons' } | { k: 'ear' } | { k: 'caged' }
   | { k: 'changes' } | { k: 'rhythm' } | { k: 'circle' } | { k: 'progress' } | { k: 'settings'; n?: number } | { k: 'guide'; sec?: string }
-  | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' } | { k: 'licks'; sel?: string } | { k: 'videos' }
+  | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' } | { k: 'licks'; sel?: string } | { k: 'videos' } | { k: 'recordings' }
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -201,6 +203,7 @@ export function LearnScreen() {
   if (route.k === 'technique') return <TechniqueView id={route.id} inst={inst} onExit={back} onDrill={t => runDrill(t)} />
   if (route.k === 'rhythm') return <RhythmTrainer onExit={back} />
   if (route.k === 'videos') return <VideoLessons onExit={back} />
+  if (route.k === 'recordings') return <MyRecordings onExit={back} onRecord={() => launch({ tab: 'play' })} />
   if (route.k === 'licks') return <LickLibrary key={route.sel ?? ''} initial={route.sel} onExit={back} />
   if (route.k === 'circle') return <CircleTool onExit={back} onQuiz={id => push({ k: 'quiz', id })} />
   if (route.k === 'progress') return <ProgressView inst={inst} onExit={back} />
@@ -247,10 +250,11 @@ export function LearnScreen() {
   const groups: { title: string; tools: { id: Route['k']; title: string; sub: string; needs?: boolean }[] }[] = [
     { title: 'Play better', tools: [
       { id: 'techniques', title: 'Technique', sub: `${techniquesDone().size} of ${TECHNIQUES.length} skills practised` },
-      { id: 'licks', title: 'Must-know licks', sub: '16 styles, explained step by step' },
+      { id: 'licks', title: 'Must-know licks', sub: `${LICK_STYLES.length} styles, explained step by step` },
       { id: 'bends', title: 'Bends & vibrato', sub: 'Bend to pitch with a needle', needs: true },
       { id: 'changes', title: 'Chord changes', sub: changesBest ? `Best: ${changesBest} a minute` : 'One-minute drill', needs: true },
       { id: 'rhythm', title: 'Rhythm trainer', sub: 'Listen, then tap it back' },
+      { id: 'recordings', title: 'My recordings', sub: 'Hear how far you\'ve come' },
     ] },
     ...(lessonsAvailable() ? [{ title: 'Your lessons', tools: [{ id: 'videos' as const, title: 'Your video lessons', sub: 'Course videos and tabs from your phone' }] }] : []),
     { title: 'Ears and theory', tools: [
@@ -408,7 +412,7 @@ export function LearnScreen() {
             {inst.id === 'guitar' ? (
             <section className="panel path" aria-label="Zero to Hero">
               <div className="sec-head"><h2>Zero to Hero</h2><span className="small">your guitar plan</span></div>
-              <ZeroToHero />
+              <ZeroToHero onRecordings={() => push({ k: 'recordings' })} />
             </section>
             ) : (
             <section className="panel path" aria-label="Path to mastery">
