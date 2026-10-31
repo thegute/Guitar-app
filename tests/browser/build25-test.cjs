@@ -124,6 +124,30 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
     await page.screenshot({ path: path.join(DIR, 'out', 'b25-talk.png') }).catch(() => {})
     await page.context().close()
   }
+  // ---- the helper sees theory lessons and every Tools page
+  {
+    const page = await newPage(browser, { 'kg:tab2': 'play', 'kg:askBubble': true })
+    await page.waitForSelector('.play-head')
+    const sees = async () => { await page.locator('.ask-bubble').click(); const t = await page.locator('[data-testid=ask-sees]').textContent({ timeout: 3000 }).catch(() => ''); await page.locator('.search-sheet button:has-text("Close")').click().catch(() => {}); await page.waitForTimeout(200); return t }
+    await nav(page, 'Tools')
+    for (const [tool, want] of [['Tuner', /Tools → Tuner: /], ['Tempo', /Tools → Tempo: \d+ BPM/], ['Chords', /Tools → Chords: /], ['Scales', /Tools → Scales: /]]) {
+      await page.locator(`.subtabs [role=tab]:has-text("${tool}")`).first().click()
+      await page.waitForTimeout(300)
+      const t = await sees()
+      console.log(`sees on ${tool}: ${t.slice(0, 80)}`)
+      if (!want.test(t)) bad(`helper doesn't see Tools → ${tool}`)
+    }
+    await nav(page, 'Learn')
+    await sub(page, 'Explore')
+    await page.locator('.tool:has-text("Theory lessons")').first().click()
+    await page.locator('.lesson-list button, .lesson-row, li button').first().click()
+    await page.waitForTimeout(400)
+    const t = await sees()
+    console.log(`sees on a lesson: ${t.slice(0, 80)}`)
+    if (!/Theory lesson ".+"/.test(t)) bad("helper doesn't see the open theory lesson")
+    if (page.errors.length) bad('sees page errors: ' + page.errors.join(' | '))
+    await page.context().close()
+  }
   // ---- In time count-in
   {
     const page = await newPage(browser, { 'kg:tab2': 'play', 'kg:playMode': 'time' })

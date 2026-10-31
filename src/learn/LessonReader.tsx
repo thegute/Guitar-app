@@ -11,6 +11,7 @@ import { CHAPTERS, LESSONS, lessonById, type Block, type Lesson } from './lesson
 import { addXp, bump, logDone, usePracticeTimer } from './progress'
 import type { Go } from './path'
 import { LESSON_EXTRAS, videoThumb, videoUrl, type LessonEx, type LessonVideo } from './lessonExtras'
+import { useScreenInfo } from '../assistant/screen'
 
 const READ = 'kg:lessonsRead'
 export function lessonsRead(): string[] {
@@ -172,6 +173,11 @@ export function LessonView({ id, inst, onExit, onOpen, onGo, onExercise }: { id:
   const prev = LESSONS[i - 1]
   const chapter = CHAPTERS.find(c => c.id === lesson.chapter)
   const extra = LESSON_EXTRAS[lesson.id]
+  const lessonText = lesson.blocks.map(b => ('p' in b ? b.p : 'list' in b ? b.list.map(x => `- ${x}`).join(' ') : 'tip' in b ? `Tip: ${b.tip}` : 'play' in b ? `[sound example: ${b.play.label}]` : 'prog' in b ? `[chord example: ${b.prog.label}]` : 'practice' in b ? `[practice: ${b.practice.label}]` : '')).filter(Boolean).join(' ').replace(/\s+/g, ' ')
+  useScreenInfo('lesson', {
+    label: `Theory lesson "${lesson.title}"`,
+    summary: `Reading the theory lesson "${lesson.title}" (chapter: ${chapter?.title ?? lesson.chapter}, lesson ${i + 1} of ${LESSONS.length}, about ${lesson.minutes} min${done ? ', marked as read' : ''}). What the lesson says: ${lessonText.slice(0, 1800)}${lessonText.length > 1800 ? '…' : ''}${next ? ` Next lesson: "${next.title}".` : ''}`,
+  })
   return (
     <article className="lesson stack">
       <div className="row" style={{ justifyContent: 'space-between' }}>

@@ -7,6 +7,7 @@ import { playNote } from '../audio/pluck'
 import { audio } from '../audio/engine'
 import { pc, noteToMidi } from '../theory/notes'
 import { useInstrument } from '../instrument'
+import { useScreenInfo } from '../assistant/screen'
 
 const POSITIONS = [
   { id: 'all', label: 'Whole neck', from: 0, to: 15 },
@@ -35,6 +36,10 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
   const r = pc(root)
   const set = new Set(info.pcs)
   const groups = [...new Set(SCALES.map(s => s.group))]
+  useScreenInfo('scales', {
+    label: `Tools → Scales: ${root} ${def?.label ?? scale}`,
+    summary: `In Tools → Scales looking at ${root} ${def?.label ?? scale} on ${inst.label.toLowerCase()} (${inst.tuning.name}), ${p.id === 'all' ? 'the whole neck' : `${p.label.toLowerCase()}`}. Notes: ${info.notes.join(' ')}. Feel: ${def?.feel ?? ''}. Labels show ${labels}.${playing ? ' It is playing the scale.' : ''}`,
+  })
 
   // chords built from this scale (only for 7-note scales)
   const chords = useMemo(() => {

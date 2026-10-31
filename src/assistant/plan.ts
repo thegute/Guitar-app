@@ -10,6 +10,7 @@ import { beatChords } from '../studio/practice'
 import { activeProvider, ask, AiError } from './providers'
 import type { AskContext } from './bus'
 import { screenInfo, type ScreenInfo } from './screen'
+import { GUIDE } from '../learn/guide'
 
 export interface BeatChange { starter?: string; bpm?: number; key?: string; minor?: boolean; patterns?: string[]; swing?: number }
 /** a change to Play: loop (0-based bars, null = stop) and/or speed; `label` is the button text */
@@ -112,8 +113,22 @@ function beatIdeas(b: Beat): string[] {
   return out.slice(0, 5)
 }
 
-const SYSTEM = (ctx: AskContext, extra: string, results: Result[], screen: ScreenInfo | null) => `You are the helpful guitar coach inside KGuitar, a guitar practice app. The user is a guitarist who wants plain, friendly, short answers (no jargon, 1-4 sentences; your reply may be read aloud, so write it as speech: no symbols or lists in "reply"). Answer music and guitar questions directly from what you know (theory, technique, gear, how a style works). Today's date: ${new Date().toDateString()}.
-You can set things up, but ONLY with these building blocks. Reply with JSON only:
+// ── The app manual: a compact copy of "How to use KGuitar" (learn/guide.ts), so it stays in step with the app.
+// Built once; it never changes while the app runs, so it sits at the top of the prompt (the AI services can reuse
+// it between questions). Everything that changes (date, search results, the beat, the screen) goes at the end.
+const cut = (t: string, n: number) => {
+  if (t.length <= n) return t
+  const s = t.slice(0, n)
+  const k = Math.max(s.lastIndexOf('. '), s.lastIndexOf('; '))
+  return k > n * 0.5 ? s.slice(0, k + 1) : s.replace(/\s+\S*$/, '') + '…'
+}
+const MANUAL = GUIDE.map(sec => `[${sec.title}] ` + sec.items.map(i => `${i.title}: ${cut(i.text, 130)}`).join(' | ')).join('\n')
+
+const STATIC = `You are the friendly guitar coach inside KGuitar, a guitar practice app (guitar, tenor and baritone ukulele). The user is a guitarist, not a developer, often holding the guitar while asking.
+HOW TO ANSWER: plain, warm, short (1-4 sentences unless they ask for more). Your reply may be read aloud, so write it as speech: no symbols, lists or markdown in "reply". Explain music theory like a patient teacher talking to a beginner: everyday words first, then the term ("the 3rd, the note that makes a chord happy or sad"), one idea at a time, tied to the guitar neck (which string, which fret, which finger) and to how it sounds, with a quick thing to try. Never talk down. When they ask how to do something in the app, name the exact place and button from the manual below ("Play, then Options, then Speed") and offer to open it.
+APP MANUAL (how every page, button, loop and tempo control, lesson and tool works; menu: Play, Songs, Learn, Jam, Tools, plus the ✨ helper bubble and 🎤 Talk):
+${MANUAL}
+WHAT YOU CAN DO: only these building blocks. Reply with JSON only:
 {"reply": "your answer in plain words",
  "open": "<one id from PLACES or RESULTS to open right away, or null>",
  "session": null or {"title": "short title", "steps": [{"title": "...", "minutes": 2-20, "use": "<id>", "tip": "one sentence on what to do"}]},
@@ -121,8 +136,16 @@ You can set things up, but ONLY with these building blocks. Reply with JSON only
  "ideas": ["short suggestion", ...] or null}
 Use a session when they want to practise something (3-5 steps, about 20-35 minutes, start with a warm-up). Use "beat" only to change the beat maker. Use "open" for "how do I / where is / show me" questions.
 Step ids you can use: ${PLACES.map(p => p[0]).join(', ')}, ex:<type> with type in [${EX_TYPES.join(', ')}], lick:<style> with style in [${LICKS.join(', ')}], technique:<id> with id in [pick, fret, chords, strum, alternate, mute, pm, legato, slide, bend, barre, travis, melodic], or an id from RESULTS.
-RESULTS (things in the app matching the request): ${results.slice(0, 12).map(r => `${r.id} = ${r.title} (${r.where})`).join('; ') || 'none'}.
-Never invent songs' tabs or lyrics; for a real song, tell them to search its tab (Songsterr / Ultimate Guitar) and open it in Play.${ctx === 'beat' ? '\nThey are in the beat maker now. ' + extra : ''}${screen ? `\nON THEIR SCREEN RIGHT NOW (use it: "here", "this bar", "this song" mean this): ${screen.summary}` : ''}${screen?.can?.length ? `\nYou may also add "play": {"loop": [firstBar, lastBar] as the bar numbers they see, or null to stop looping, "speed": 0.25-1.5 (1 = full speed)} to change their loop or speed in Play; only when it helps.` : ''}`
+Never invent songs' tabs or lyrics; for a real song, tell them to search its tab (Songsterr / Ultimate Guitar) and open it in Play.`
+
+/** The prompt: the fixed part first, then what changes with each question. */
+const SYSTEM = (ctx: AskContext, extra: string, results: Result[], screen: ScreenInfo | null) => `${STATIC}
+--- NOW ---
+Today's date: ${new Date().toDateString()}.
+RESULTS (things in the app matching the request): ${results.slice(0, 12).map(r => `${r.id} = ${r.title} (${r.where})`).join('; ') || 'none'}.${ctx === 'beat' ? '\nThey are in the beat maker now. ' + extra : ''}${screen?.can?.length ? `\nYou may also add "play": {"loop": [firstBar, lastBar] as the bar numbers they see, or null to stop looping, "speed": 0.25-1.5 (1 = full speed)} to change their loop or speed in Play; only when it helps.` : ''}${screen ? `\nON THEIR SCREEN RIGHT NOW (use it: "here", "this bar", "this lesson", "this chord" mean this): ${screen.summary}` : ''}`
+
+/** for tests */
+export const systemPrompt = SYSTEM
 
 export async function plan(q: string, results: Result[], ctx: AskContext = 'general', past: { q: string; a: string }[] = []): Promise<Answer> {
   const beat = ctx === 'beat' ? loadBeat() : null

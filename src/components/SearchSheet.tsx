@@ -119,7 +119,7 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
           <button className="btn sm" onClick={onClose}>Close</button>
         </div>
 
-        {seen && <p className="ask-sees small" data-testid="ask-sees">👀 I can see: {seen.label}. Ask about it ("why is this bar hard?", "loop this bar slower").</p>}
+        {seen && <p className="ask-sees small" data-testid="ask-sees">👀 I can see: {seen.label}. {seen.play ? 'Ask about it ("why is this bar hard?", "loop this bar slower").' : 'Ask about it.'}</p>}
         {!q.trim() && !turns.length && (
           <div className="search-start stack">
             <p className="small muted" style={{ margin: 0 }}>Tip: tap the 🎤 on your phone's keyboard to say it instead of typing. Search or ask in your own words. Ask for a practice session ("triads today"), a beat, a chord or scale, or help with a problem: it finds it and sets it up.</p>

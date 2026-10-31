@@ -12,6 +12,8 @@ import { midiName, midiToFreq } from '../theory/notes'
 import { setTuning, useInstrument } from '../instrument'
 import { Field, usePersist } from '../components/Controls'
 import { InputPicker } from '../components/InputPicker'
+import { useScreenInfo } from '../assistant/screen'
+import { pcName } from '../theory/notes'
 
 const IN_TUNE = 2 // cents
 const CLOSE = 8
@@ -42,6 +44,11 @@ export function TunerScreen() {
   const tuning = inst.tuning
   const targets = inst.midis
   const lockedString = pick === 'auto' || pick >= targets.length ? null : pick
+  const heard = r ? `${pcName(Math.round(r.note) % 12, false)}${Math.floor(Math.round(r.note) / 12) - 1}, ${Math.round(r.cents / 5) * 5 >= 0 ? '+' : ''}${Math.round(r.cents / 5) * 5} cents` : null
+  useScreenInfo('tuner', {
+    label: `Tools → Tuner: ${tuning.name}${heard && running ? ` · hearing ${heard}` : ''}`,
+    summary: `In Tools → Tuner, tuning ${inst.label.toLowerCase()} to ${tuning.name} (strings low to high: ${targets.map(m => `${pcName(m % 12, false)}${Math.floor(m / 12) - 1}`).join(' ')}), A4 = ${a4} Hz, ${lockedString === null ? 'string picked automatically' : `string ${lockedString + 1} from the bottom picked`}. ${running ? (heard ? `It hears ${heard} (minus = flat, plus = sharp).` : 'Listening, nothing heard yet.') : 'Not listening right now.'}${done.some(Boolean) ? ` Strings already in tune: ${done.map((d, k) => (d ? k + 1 : 0)).filter(Boolean).join(', ')}.` : ''}`,
+  })
 
   // the target string: the one picked, or the one nearest to what's heard
   const nearest = (m: number) => targets.reduce((best, t, i) => (Math.abs(t - m) < Math.abs(targets[best] - m) ? i : best), 0)

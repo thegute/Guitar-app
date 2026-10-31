@@ -10,7 +10,7 @@ import { noteToMidi } from '../src/theory/notes'
 import { routine, type Z2H } from '../src/learn/zeroHero'
 import { exerciseCatalog } from '../src/exercises/catalog'
 import { suggestExercises } from '../src/exercises/suggest'
-import { plan, spokenNumbers } from '../src/assistant/plan'
+import { plan, spokenNumbers, systemPrompt } from '../src/assistant/plan'
 import { setScreenInfo } from '../src/assistant/screen'
 let checks = 0, failed = 0
 const ok = (c: boolean, m: string) => { checks++; if (!c) { failed++; console.log('  FAIL', m) } }
@@ -103,5 +103,15 @@ await (async () => {
   const h = await cmd('full speed')
   ok(!!h && h.speed === 1, `full speed → ${JSON.stringify(h)}`)
 })()
+// the helper's prompt: the manual first (the same every time), the screen last
+{
+  const scr = { label: 'Tools → Chords: Am7', summary: 'In Tools → Chords looking at Am7 SCREEN-MARK' }
+  const a = systemPrompt('general', '', [], scr), b = systemPrompt('play', '', [], null)
+  const head = a.slice(0, a.indexOf('--- NOW ---'))
+  ok(head === b.slice(0, b.indexOf('--- NOW ---')), 'the manual part of the prompt never changes')
+  ok(a.trim().endsWith('SCREEN-MARK'), 'the screen goes at the very end')
+  for (const w of ['Hear it', 'Loop', 'Speed', 'Lick chainer', 'Tuner', 'Theory lessons', 'beginner']) ok(head.includes(w), `manual mentions ${w}`)
+  ok(head.length < 20000, `manual is compact (${head.length} characters)`)
+}
 console.log(`build25-logic: ${checks - failed}/${checks} checks passed`)
 if (failed) process.exit(1)

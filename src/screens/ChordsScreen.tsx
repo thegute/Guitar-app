@@ -9,6 +9,7 @@ import { strum } from '../audio/pluck'
 import { pc, friendly, INTERVAL_LABELS } from '../theory/notes'
 import { Zoomable } from '../components/Zoomable'
 import { ChordExtras } from '../components/ChordExtras'
+import { useScreenInfo } from '../assistant/screen'
 
 const TONAL_SUFFIX: Record<string, string> = {
   major: '', minor: 'm', '5': '5', aug7: '7#5', mmaj7: 'mMaj7', alt: '7alt', '69': '6/9', m69: 'm6/9', '9#11': '9#11',
@@ -29,6 +30,10 @@ export function ChordsScreen() {
   const r = pc(root)
   const pcs = new Set(notes.map(pc))
   const tuning = inst.midis
+  useScreenInfo('chords', {
+    label: `Tools → Chords: ${name}${vs.length ? ` (shape ${Math.min(sel, vs.length - 1) + 1} of ${vs.length})` : ''}`,
+    summary: `In Tools → Chords looking at ${name} on ${inst.label.toLowerCase()} (${inst.tuning.name}). Notes: ${notes.join(' ') || '?'}. ${v ? `Shape ${Math.min(sel, vs.length - 1) + 1} of ${vs.length}: frets low to high string ${v.frets.map(f => (f < 0 ? 'x' : f)).join(' ')}${v.barres.length ? `, barre at fret ${v.barres.join(', ')}` : ''}.` : 'No shape for this chord on this instrument.'} Labels show ${labels}.`,
+  })
 
   function play(i: number) {
     setSel(i)

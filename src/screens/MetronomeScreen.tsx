@@ -3,6 +3,7 @@ import { Metronome, type Accent, type ClickSound } from '../audio/metronome'
 import { GROOVES, loadKit } from '../audio/drums'
 import { keepAwake } from '../audio/engine'
 import { Chips, Field, usePersist } from '../components/Controls'
+import { useScreenInfo } from '../assistant/screen'
 
 export const metronome = new Metronome()
 
@@ -38,6 +39,10 @@ export function MetronomeScreen() {
   const [beat, setBeat] = useState(-1)
   const taps = useRef<number[]>([])
   const beats = SIGS.find(s => s.id === sig)?.beats ?? 4
+  useScreenInfo('tempo', {
+    label: `Tools → Tempo: ${bpm} BPM, ${sig}${running ? ', playing' : ''}`,
+    summary: `In Tools → Tempo (the metronome): ${bpm} BPM in ${sig}, ${sub === 1 ? 'one click per beat' : `${sub} clicks per beat`}, click sound ${sound}${groove ? `, playing a drum groove (${groove}) instead of clicks` : ''}${trainer.on ? `, speed trainer on (+${trainer.step} BPM every ${trainer.everyBars} bars up to ${trainer.max})` : ''}. It is ${running ? 'running' : 'stopped'}.`,
+  })
 
   // keep the engine in sync with the controls
   useEffect(() => {
