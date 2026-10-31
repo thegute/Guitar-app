@@ -36,7 +36,8 @@ async function geminiSay(t: string, voice = geminiVoice()): Promise<boolean> {
   set(true)
   try {
     const r = await post(`https://generativelanguage.googleapis.com/v1beta/models/${ttsModel()}:generateContent?key=${encodeURIComponent(key)}`, {}, {
-      contents: [{ parts: [{ text: `Say this in a warm, relaxed, friendly way, like a guitar teacher talking to a student: ${t.slice(0, 1500)}` }] }],
+      // only the words to say: the newer speech models read any instructions out loud too
+      contents: [{ parts: [{ text: t.slice(0, 1500) }] }],
       generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } },
     }, 9000) // slow today: the phone's voice reads it instead of making you wait
     if (my !== job) return true // stopped (or something newer started) while waiting
