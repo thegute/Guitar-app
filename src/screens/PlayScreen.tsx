@@ -36,6 +36,7 @@ import { keyPrefersFlats, pcName } from '../theory/notes'
 import { setTuning, useInstrument } from '../instrument'
 import { Splitter } from '../components/Splitter'
 import { LayoutHint } from '../components/Win'
+import { onLeavePage } from '../audio/stopAll'
 import { HandShape } from '../components/HandShape'
 import { groupAt, handGroups } from '../play/handShape'
 import { IconExpand, IconShrink, IconSliders } from '../components/Icons'
@@ -117,6 +118,8 @@ export function PlayScreen() {
   const [guide, setGuide] = usePersist('timeGuide', false)
   const [trainer, setTrainer] = usePersist<TrainerOpts>('speedTrainer', { on: false, start: 0.6, step: 0.05, target: 1, pass: 90 })
   const video = useRef<VideoApi | null>(null)
+  // leaving Play pauses the video too
+  useEffect(() => onLeavePage(() => { try { video.current?.pause() } catch { /* no video */ } }), [])
   // half-folded Fold (tabletop): video and readout on the top half, tab on the bottom. 'auto' follows the fold.
   const [splitPref, setSplitPref] = usePersist<'auto' | 'on' | 'off'>('playSplit', 'auto')
   const posture = useFoldPosture()

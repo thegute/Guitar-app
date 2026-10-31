@@ -1,4 +1,5 @@
 // A soft, slowly breathing drone on the tonic (root + fifth + octave), the backdrop for ear training.
+import { liveSound, quietSound } from './stopAll'
 import { audio, out } from './engine'
 import { midiToFreq } from '../theory/notes'
 
@@ -11,6 +12,7 @@ export class Drone {
   tonic = 45
 
   start(tonic: number) {
+    liveSound(this)
     const ctx = audio()
     void ctx.resume()
     this.stop()
@@ -65,6 +67,7 @@ export class Drone {
   get playing() { return !!this.master }
 
   stop() {
+    quietSound(this)
     if (!this.master) return
     const ctx = audio()
     const m = this.master

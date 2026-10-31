@@ -1,6 +1,7 @@
 // Songs: everything you can play, on four short pages: your songs, the songbook, the exercise library (with the
 // picking-tab and lick makers),
 // and adding a song (find one online, upload Guitar Pro or text files, or paste a tab or chord sheet).
+import { stopAllSounds } from '../audio/stopAll'
 import { Win, WinArea } from '../components/Win'
 import { TabFromPicture } from '../assistant/TabFromPicture'
 import { Fold, HintHead } from '../components/Fold'
@@ -32,6 +33,9 @@ const mine = (s: SongDoc) => s.source !== 'example' && s.source !== 'lesson' && 
 export function SongsScreen() {
   const inst = useInstrument()
   const [page, setPage] = useSubTab<Page>('songs', PAGES)
+  // switching Songs pages stops an exercise or preview that was playing
+  const lastPage = useRef(page)
+  useEffect(() => { if (lastPage.current !== page) stopAllSounds(); lastPage.current = page }, [page])
   const [currentId] = usePersist(`playSong:${inst.id}`, '')
   const [songs, setSongs] = useState<SongDoc[] | null>(null)
   const refresh = async () => setSongs(await listSongs(inst.id))

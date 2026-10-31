@@ -1,4 +1,5 @@
 // Sample-accurate metronome: a lookahead scheduler on the AudioContext clock.
+import { liveSound, quietSound } from './stopAll'
 import { audio, out } from './engine'
 import { playDrum, playGrooveBar, loadKit } from './drums'
 
@@ -14,6 +15,8 @@ export interface Tick {
 }
 
 export class Metronome {
+  /** kept going on page changes when Settings → Sound says so */
+  readonly kind = 'metronome'
   bpm = 100
   beatsPerBar = 4
   /** sub-clicks per beat: 1 quarter, 2 eighths, 3 triplets, 4 sixteenths */
@@ -38,6 +41,7 @@ export class Metronome {
   ticks: Tick[] = []
 
   start(at?: number) {
+    liveSound(this)
     const ctx = audio()
     this.running = true
     this.beat = 0
@@ -48,6 +52,7 @@ export class Metronome {
     this.schedule()
   }
   stop() {
+    quietSound(this)
     this.running = false
     if (this.timer) clearInterval(this.timer)
     this.timer = null

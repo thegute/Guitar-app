@@ -1,6 +1,7 @@
 // Your video lessons (phone app only): pick a lesson folder on the phone once, then watch its videos chapter by
 // chapter with slow-down, an A–B loop, a mirror view and resume. Its Guitar Pro or text tabs open in Play with the
 // video beside them, so the app listens while you play along. Files stay where they are on the phone.
+import { onLeavePage } from '../audio/stopAll'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useInstrument } from '../instrument'
 import { usePracticeTimer } from '../learn/progress'
@@ -220,6 +221,7 @@ function TabFiles({ tabs, video }: { tabs: LFile[]; video?: LFile }) {
 function LessonPlayer({ item, index, total, onBack, onGo }: { item: { v: LFile; c: Chapter }; index: number; total: number; onBack: () => void; onGo: (d: number) => void }) {
   const { v, c } = item
   const el = useRef<HTMLVideoElement>(null)
+  useEffect(() => onLeavePage(() => el.current?.pause()), [])
   const [rate, setRate] = useState(1)
   const [mirror, setMirror] = useState(false)
   const [a, setA] = useState<number | null>(null)

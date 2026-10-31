@@ -17,3 +17,4 @@
 15. Settings → Look → Full screen (phone app): the phone's buttons, status bar and taskbar tuck away; swipe up from the bottom middle and they come back for a few seconds.
 16. Exercises: every box is a window (fold, move, resize, tuck away). The top box is split: "Find an exercise" (difficulty, type, technique: fold it up once you've chosen) and "Play it" (‹ exercise ›, ★, key, sound, tempo, Play, count-in, metronome, loop, Play along) which stays.
 17. Any box: tap its name to fold it up to a slim bar, tap again to open it.
+18. Leaving a page stops what it was playing (tab previews, exercises, Hear it, Jam loop, beat maker, metronome, drone, videos, the helper's voice). Jam's loop keeps going between Jam and Solo over it. Settings → Sound: "Keep the metronome going when I change pages".

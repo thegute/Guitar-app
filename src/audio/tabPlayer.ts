@@ -1,5 +1,6 @@
 // Plays a tab back with the guitar synth so you can hear how it should sound,
 // reporting which step is sounding so the tab can highlight along.
+import { liveSound, quietSound } from './stopAll'
 import { bendOf, isRelease } from '../licks/notation'
 import { audio } from './engine'
 import { playNote, strum, isPowerChord, activeSound, soundInfo, type SoundId } from './pluck'
@@ -41,6 +42,7 @@ export class TabPlayer {
 
   /** Play steps [from, to) at the given tempo (quarter notes per minute). With `loopFrom`, it jumps back there at `to` and keeps going. */
   play(flat: FlatStep[], from: number, bpm: number, to = flat.length, loopFrom?: number) {
+    liveSound(this)
     this.stop()
     const ctx = audio()
     void ctx.resume()
@@ -144,6 +146,7 @@ export class TabPlayer {
   }
 
   stop() {
+    quietSound(this)
     if (this.timer) clearInterval(this.timer)
     this.timer = null
     cancelAnimationFrame(this.raf)

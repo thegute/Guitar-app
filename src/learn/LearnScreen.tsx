@@ -25,6 +25,7 @@ import { lessonTab, type LessonEx } from './lessonExtras'
 import { exampleDoc } from '../tabs/examples'
 import type { Song } from '../tabs/model'
 import { useBack } from '../back'
+import { stopAllSounds } from '../audio/stopAll'
 import { go as goTab, openInPlay, openSongs, openJam, setSubPage, onLearnGo, takeLearnGo, openExercise as showExercise } from '../nav'
 import { allLogs, dailyGoalMin, dayCounts, dayKey, isAway, setAway, stars, streak, todayLog, useProgress, COUNTS_AFTER_SEC } from './progress'
 import { freezes, levelInfo, questProgress, todaysQuests } from './game'
@@ -105,6 +106,9 @@ export function LearnScreen() {
 
   const route = stack[stack.length - 1]
   useBack(stack.length > 1, () => setStack(s => (s.length > 1 ? s.slice(0, -1) : s)))
+  // moving between Learn pages (a lick, a tool, back) stops what the last page was playing
+  const depth = useRef(stack.length)
+  useEffect(() => { if (depth.current !== stack.length) stopAllSounds(); depth.current = stack.length }, [stack])
   const push = (r: Route) => { setStack(s => [...s, r]); document.getElementById('main')?.scrollTo({ top: 0 }) }
   const back = () => setStack(s => (s.length > 1 ? s.slice(0, -1) : s))
   const replace = (r: Route) => setStack(s => [...s.slice(0, -1), r])

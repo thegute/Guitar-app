@@ -153,6 +153,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
       </>}
 
       {page === 'sound' && <>
+      <KeepMetronome />
       <section className="panel stack" style={{ gap: 10 }}>
         <HintHead title="Your guitar input" hint="Two minutes per input: it measures your room, your strings and the delay of your headphones, so notes are heard reliably and recordings land on the beat." />
         <ul className="act-list small">
@@ -295,6 +296,18 @@ function FullScreenSwitch() {
       <label className="row" style={{ gap: 8 }}>
         <input type="checkbox" checked={on} onChange={e => { setOn(e.target.checked); setFullScreen(e.target.checked) }} />
         <span><b>Full screen</b><span className="small muted"> The phone's buttons, status bar and taskbar tuck away so KGuitar gets the whole screen. Swipe up from the bottom middle and they come back for a few seconds, then tuck away again.</span></span>
+      </label>
+    </section>
+  )
+}
+
+function KeepMetronome() {
+  const [on, setOn] = usePersist('keepMetronome', false)
+  return (
+    <section className="panel stack" style={{ gap: 6 }}>
+      <label className="row" style={{ gap: 8 }}>
+        <input type="checkbox" checked={on} onChange={e => setOn(e.target.checked)} />
+        <span><b>Keep the metronome going when I change pages</b><span className="small muted"> Everything else that plays (tab previews, exercises, Jam, the beat maker, videos) stops when you leave its page.</span></span>
       </label>
     </section>
   )

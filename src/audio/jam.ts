@@ -1,5 +1,6 @@
 // The Jam backing track: chords (strummed or picked) in a chosen guitar sound, bass, drums and click, plus your
 // recorded loop layers, all locked to one clock so recordings line up with the progression.
+import { liveSound, quietSound } from './stopAll'
 import { audio, out } from './engine'
 import { playClick } from './metronome'
 import { playGrooveBar, loadKit, grooveOf, type KitId } from './drums'
@@ -118,6 +119,7 @@ export class JamTransport {
 
   /** Start playing. `countIn` beats of click come first; returns T0 (when the loop's first beat sounds). */
   start(countIn = 0) {
+    liveSound(this)
     this.stop()
     const ctx = audio()
     void ctx.resume()
@@ -132,6 +134,7 @@ export class JamTransport {
   }
 
   stop() {
+    quietSound(this)
     if (this.timer) clearInterval(this.timer)
     this.timer = null
     const now = audio().currentTime

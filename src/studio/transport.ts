@@ -1,5 +1,6 @@
 // Plays a beat: drums, instrument tracks and recorded loops on one clock, looping. Schedules a little ahead on the
 // audio clock (so timing is exact even when the screen is busy) and tells the screen where the playhead is.
+import { liveSound, quietSound } from '../audio/stopAll'
 import { audio, out } from '../audio/engine'
 import { playDrum, prepareKit, type Voice } from '../audio/drums'
 import { playClick } from '../audio/metronome'
@@ -114,6 +115,7 @@ export class StudioTransport {
 
   /** Start playing (after `countIn` beats of click). Returns the audio time of the first beat. */
   start(countIn = 0): number {
+    liveSound(this)
     this.stop()
     const ctx = audio()
     void ctx.resume()
@@ -217,6 +219,7 @@ export class StudioTransport {
   }
 
   stop() {
+    quietSound(this)
     if (this.timer) clearInterval(this.timer)
     this.timer = null
     cancelAnimationFrame(this.raf)

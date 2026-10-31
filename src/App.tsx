@@ -16,6 +16,8 @@ import { SearchSheet } from './components/SearchSheet'
 import { SessionBar } from './sessions/SessionBar'
 import { AskBubble } from './assistant/AskBubble'
 import { onAsk, type AskContext } from './assistant/bus'
+import { stopAllSounds } from './audio/stopAll'
+import { stopSpeaking } from './assistant/speak'
 import { backInside, useBack } from './back'
 import { App as CapApp } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
@@ -35,6 +37,8 @@ const TABS: { id: Tab; label: string; icon: () => JSX.Element }[] = [
 export default function App() {
   const [saved, setTab] = usePersist<string>('tab2', 'play')
   const [toolPage, setToolPage] = usePersist<ToolPage>('toolPage', isToolPage(saved) ? saved : 'tuner')
+  // leaving a page stops what it was playing
+  const firstTab = useRef(true)
   // older versions had Tuner, Tempo, Chords and Scales as their own tabs
   const tab: Tab = isToolPage(saved) ? 'tools' : ((TAB_IDS as string[]).includes(saved) ? saved as Tab : 'play')
   const [scaleJump, setScaleJump] = useState<{ root: string; scale: string } | null>(null)
@@ -43,6 +47,7 @@ export default function App() {
   useProgress()
   // where a link (search, Show me, Open in Play) came from, so Back can return there
   const cameFrom = useRef<Tab | null>(null)
+  useEffect(() => { if (firstTab.current) { firstTab.current = false; return } stopAllSounds(); stopSpeaking() }, [tab, toolPage])
   const tabRef = useRef<Tab>(tab)
   tabRef.current = tab
   useEffect(() => onGo(t => {

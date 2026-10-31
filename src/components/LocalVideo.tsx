@@ -1,5 +1,6 @@
 // One of your own lesson videos in Play's video panel (phone app only): the same speed, A–B loop and sync-with-tab
 // controls as a YouTube video, plus a mirror view, played from the phone's storage.
+import { onLeavePage } from '../audio/stopAll'
 import { useEffect, useRef, useState } from 'react'
 import type { VideoApi, VideoSync } from '../play/inTime'
 import { lessonsAvailable, mediaUrl, niceName, setProgress } from '../lessons/folders'
@@ -20,6 +21,7 @@ interface Props {
 
 export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90 }: Props) {
   const v = useRef<HTMLVideoElement>(null)
+  useEffect(() => onLeavePage(() => v.current?.pause()), [])
   const [ready, setReady] = useState(false)
   const [error, setError] = useState(false)
   const [rate, setRate] = useState(1)
