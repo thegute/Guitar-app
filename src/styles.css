@@ -1987,3 +1987,20 @@ video.mirrored { transform: scaleX(-1); }
 .talk-foot { gap: 8px; flex-wrap: wrap; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); padding-top: 6px; }
 .talk-foot label { gap: 4px; }
 [data-theme='psy'] .talk-card, [data-theme='psy'] .talk-btn:not(.on) { background: #1c0641; color: #f4eaff; }
+/* music stand: just the tab, big, and one row of big buttons you can hit with a knuckle from your seat */
+.play.stand .play-head, .play.stand .tab-tools, .play.stand .readout-box, .play.stand .layout-hint, .play.stand .nudge,
+.play.stand .take-bar, .play.stand .select-hint, .play.stand .song-check { display: none; }
+.play.stand { grid-template-rows: minmax(0, 1fr) !important; grid-template-areas: 'body' !important; grid-template-columns: minmax(0, 1fr) !important; }
+.play.stand .play-tab { grid-area: body; }
+.stand-bar { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; justify-content: center; padding: 8px 4px calc(6px + var(--sab, 0px)); }
+.stand-bar button { min-height: 68px; min-width: 68px; border-radius: 18px; font-size: 24px; font-weight: 700; border: 2px solid var(--line);
+  background: var(--surface); color: var(--ink); cursor: pointer; padding: 0 16px; }
+.stand-bar .stand-go { flex: 1 1 160px; max-width: 280px; background: var(--accent); color: var(--accent-ink); border-color: transparent; font-size: 28px; }
+.stand-bar .stand-go.on { background: var(--coral); color: #fff; }
+.stand-bar .stand-b.on { border-color: var(--gold); color: var(--gold); }
+.stand-speed { display: flex; align-items: center; gap: 6px; }
+.stand-speed b { min-width: 76px; text-align: center; font-size: 26px; }
+.stand-x { margin-left: auto; }
+@media (max-width: 480px) { .stand-bar button { min-height: 58px; min-width: 58px; font-size: 21px; } .stand-bar .stand-go { font-size: 23px; } .stand-speed b { min-width: 58px; font-size: 21px; } .stand-x { margin-left: 0; } }
+[data-theme='psy'] .stand-bar button:not(.stand-go) { background: #1c0641; color: #f4eaff; }
+@media (max-width: 440px) { .stand-label { display: none; } }

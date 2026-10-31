@@ -136,7 +136,10 @@ export function PlayScreen() {
   const playRef = useRef<HTMLDivElement>(null)
   const sideRef = useRef<HTMLElement>(null)
   const focus = lay.focus
-  useEffect(() => { setPlayFocus(focus); return () => setPlayFocus(false) }, [focus])
+  // Music stand: only the tab (much bigger) and one row of big buttons. Tidy: while you play, the other panels fold away.
+  const [stand, setStand] = usePersist('playStand', false)
+  const [standZoom, setStandZoom] = usePersist('standZoom', 1.6)
+  const [tidy, setTidy] = usePersist('playTidy', true)
   const lastOnset = useRef(0)
   const [listening, setListening] = useState(false)
   const [micError, setMicError] = useState('')
@@ -539,6 +542,12 @@ export function PlayScreen() {
   // a quick "again" flash on the tab each time the loop goes round (Wait for me and In time)
   useEffect(() => { if (passes.n > 0) setLoopBlink(b => ({ k: (b?.k ?? 0) + 1, text: `⟲ Again${passes.last !== null ? ` · last time ${passes.last}%` : ''}` })) }, [passes.n]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (inTime.wraps > 0 && inTime.running) setLoopBlink(b => ({ k: (b?.k ?? 0) + 1, text: `⟲ Again${inTime.pass.last ? ` · last time ${inTime.pass.last.score}%` : ''}` })) }, [inTime.wraps]) // eslint-disable-line react-hooks/exhaustive-deps
+  const playingNow = listening || inTime.running || ready.counting
+  const tidyNow = tidy && playingNow && !stand && !focus
+  const videoShown = !!(showVideo && doc?.youtube)
+  // the menu tucks away in Full tab, music stand and while tidied up
+  const hideMenu = focus || stand || tidyNow
+  useEffect(() => { setPlayFocus(hideMenu); return () => setPlayFocus(false) }, [hideMenu])
   const inTimeRef = useRef(inTime)
   inTimeRef.current = inTime
   const modeRef = useRef(mode)
@@ -685,6 +694,7 @@ export function PlayScreen() {
   useBack(!!selecting, () => setSelecting(null))
   useBack(checkOpen, () => closeCheck())
   useBack(focus, () => setLay({ ...lay, focus: false }))
+  useBack(stand, () => setStand(false))
   // ---- search: open what was asked for and point at it (it flashes)
   const [findAt, setFindAt] = useState<{ f: PlayFocus; n: number } | null>(null)
   const applyRef = useRef<(a: PlayAction) => void>(() => {})
@@ -950,6 +960,7 @@ export function PlayScreen() {
             </span>
             <span className="small muted">or pinch the tab</span>
           </div>
+          <label className="opt-row opt-check" data-find="tidy"><input type="checkbox" checked={tidy} onChange={() => setTidy(!tidy)} /><span><b>Tidy up while I play</b><span className="small muted">When you start (Listen or In time), the other panels and the menu fold away so the tab is bigger; they come back when you stop. A playing video stays.</span></span></label>
           <label className="opt-row opt-check" data-find="split"><input type="checkbox" checked={split} onChange={() => setSplitPref(split ? 'off' : 'on')} /><span><b>Split screen</b><span className="small muted">Video and readout on top, the tab below (automatic when the Fold is half-folded).</span></span></label>
         </section>
 
@@ -969,13 +980,14 @@ export function PlayScreen() {
     </div>
   )
 
-  const sideOpen = lay.side && !focus
-  const soloOpen = lay.solo && !focus
+  // tidy keeps a playing video in view; stand hides everything but the tab
+  const sideOpen = lay.side && !focus && !stand && !(tidyNow && !videoShown)
+  const soloOpen = lay.solo && !focus && !stand && !tidyNow
   const manualSplit = split && !posture.tabletop
   const playH = () => playRef.current?.clientHeight ?? 600
   const playW = () => playRef.current?.clientWidth ?? 900
   const cls = `play view-${view}${showVideo && doc.youtube ? ' has-video' : ''}${split ? ' tabletop' : ''}${manualSplit ? ' manual-split' : ''}` +
-    `${sideOpen ? '' : ' side-closed'}${soloOpen ? '' : ' solo-closed'}${focus ? ' focus' : ''}${lay.topH > 0 ? ' sized-top' : ''}`
+    `${sideOpen ? '' : ' side-closed'}${soloOpen ? '' : ' solo-closed'}${focus || stand || (tidyNow && !videoShown) ? ' focus' : ''}${stand ? ' stand' : ''}${tidyNow ? ' tidy' : ''}${lay.topH > 0 ? ' sized-top' : ''}`
   return (
     <div ref={playRef} className={cls}
       style={{
@@ -999,6 +1011,7 @@ export function PlayScreen() {
           aria-label={focus ? 'Show all panels again' : 'Full tab: hide the other panels'} title={focus ? 'Show all panels again' : 'Full tab'}>
           {focus ? <IconShrink /> : <IconExpand />}
         </button>
+        <button className="btn sm stand-btn" data-find="stand" onClick={() => setStand(true)} aria-label="Music stand: just the tab, big, with big buttons" title="Music stand">🎼<span className="stand-label"> Stand</span></button>
         <button className="btn sm" data-find="video" aria-pressed={doc.youtube ? showVideo : videoAsk} onClick={() => (doc.youtube ? setShowVideo(!showVideo) : setVideoAsk(!videoAsk))}>Video</button>
         {mode === 'time' ? (
           <button className={`btn listen${inTime.running ? ' on' : ''}`} data-find="listen" onClick={() => void toggleRun()} aria-pressed={inTime.running}>
@@ -1073,11 +1086,29 @@ export function PlayScreen() {
           </div>
         )}
         <TabView track={track} mode={labelMode} flats={flats} cursor={inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0 || inTime.running} states={states.current}
-          flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} zoom={tabZoom} onZoom={setTabZoom}
+          flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} zoom={stand ? standZoom : tabZoom} onZoom={stand ? setStandZoom : setTabZoom}
           meter={meter} counts={counts} strum={strumPat} />
         {peek.bubble}
         {inTime.running && inTime.countIn > 0 && <div className="count-big" key={inTime.countIn} role="status" aria-live="assertive" data-testid="count-big">{inTime.countIn}</div>}
         {loopBlink && <div className="loop-blink" key={loopBlink.k} role="status">{loopBlink.text}</div>}
+        {stand && (
+          <div className="stand-bar" role="toolbar" aria-label="Music stand controls" data-testid="stand-bar">
+            {mode === 'time' ? (
+              <button className={`stand-go${inTime.running || ready.counting ? ' on' : ''}`} onClick={() => void toggleRun()} aria-pressed={inTime.running}>{inTime.running || ready.counting ? '■ Stop' : '▶ Start'}</button>
+            ) : (
+              <button className={`stand-go${listening ? ' on' : ''}`} onClick={() => void toggleListen()} aria-pressed={listening}>{listening ? '■ Stop' : '▶ Listen'}</button>
+            )}
+            <button className={`stand-b${loop ? ' on' : ''}`} onClick={() => { if (loop) setLoop(undefined); else { const b = cursorFlat >= 0 ? flat[cursorFlat].bar : 0; setLoop({ from: b, to: b }) } }} aria-pressed={!!loop}
+              aria-label={loop ? 'Stop looping' : 'Loop the bar you are on'}>{loop ? `⟲ ${loop.from === loop.to ? `Bar ${loop.from + 1}` : `${loop.from + 1}–${loop.to + 1}`} ✕` : '⟲ Loop bar'}</button>
+            <span className="stand-speed" role="group" aria-label="Speed">
+              <button className="stand-b" onClick={() => { setSpeed(Math.max(0.25, Math.round((speed - 0.05) * 20) / 20)); if (playAt >= 0) stopPreview() }} aria-label="Slower">−</button>
+              <b>{Math.round(speed * 100)}%</b>
+              <button className="stand-b" onClick={() => { setSpeed(Math.min(1.5, Math.round((speed + 0.05) * 20) / 20)); if (playAt >= 0) stopPreview() }} aria-label="Faster">+</button>
+            </span>
+            <button className="stand-b" onClick={() => (inTime.running ? (inTime.stop(), inTime.start()) : restart())} aria-label="Back to the start">⏮</button>
+            <button className="stand-b stand-x" onClick={() => setStand(false)} aria-label="Leave music stand">✕</button>
+          </div>
+        )}
         {track.capo > 0 && <p className="small muted cap">Capo on fret {track.capo}: frets are counted from the capo.</p>}
         {track.tuning.length !== inst.strings && (
           <p className="small muted cap">This tab is for a {track.tuning.length}-string instrument; you're in {inst.label.toLowerCase()} mode. Pick a {inst.strings}-string tab from Songs to play along on your {inst.noun}.</p>

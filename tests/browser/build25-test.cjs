@@ -169,6 +169,40 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
     if (page.errors.length) bad('gemini page errors: ' + page.errors.join(' | '))
     await page.context().close()
   }
+  // ---- music stand and tidy-while-playing, at three sizes
+  for (const vp of [{ width: 840, height: 757 }, { width: 412, height: 915 }, { width: 360, height: 760 }]) {
+    const page = await newPage(browser, { 'kg:tab2': 'play' }, vp)
+    await page.waitForSelector('.play-head')
+    await page.locator('.song-check button:has-text("Got it")').click({ timeout: 2500 }).catch(() => {})
+    const z0 = await page.evaluate(() => getComputedStyle(document.querySelector('.tab-rows')).zoom)
+    await page.locator('[data-find=stand]').click()
+    await page.waitForSelector('[data-testid=stand-bar]')
+    const st = await page.evaluate(() => ({ head: getComputedStyle(document.querySelector('.play-head')).display, nav: document.querySelector('nav.nav') ? getComputedStyle(document.querySelector('nav.nav')).display : 'none', zoom: getComputedStyle(document.querySelector('.tab-rows')).zoom, small: [...document.querySelectorAll('.stand-bar button')].filter(b => b.getBoundingClientRect().height < 56 || b.getBoundingClientRect().width < 56).length, offscreen: [...document.querySelectorAll('.stand-bar button')].filter(b => b.getBoundingClientRect().bottom > innerHeight + 1).length }))
+    console.log(`stand ${vp.width}: head ${st.head}, zoom ${z0} → ${st.zoom}, small buttons ${st.small}, off screen ${st.offscreen}`)
+    if (st.head !== 'none') bad(`stand ${vp.width}: title bar still showing`)
+    if (!(Number(st.zoom) > Number(z0))) bad(`stand ${vp.width}: tab not bigger`)
+    if (st.small) bad(`stand ${vp.width}: ${st.small} buttons too small`)
+    if (st.offscreen) bad(`stand ${vp.width}: buttons off the bottom of the screen`)
+    await page.locator('.stand-bar button[aria-label="Faster"]').click()
+    await page.locator('.stand-bar button:has-text("Loop bar")').click()
+    if (!(await page.locator('.tab-loopband').count())) bad(`stand ${vp.width}: loop button didn't loop`)
+    if (await sideways(page)) bad(`stand ${vp.width}: scrolls sideways`)
+    await page.screenshot({ path: path.join(DIR, 'out', `b25-stand-${vp.width}.png`) }).catch(() => {})
+    await page.locator('.stand-bar .stand-x').click()
+    if (await page.locator('[data-testid=stand-bar]').count()) bad('stand did not close')
+    // tidy: start listening → panels fold away; stop → back
+    await page.locator('button.listen').click()
+    await page.waitForTimeout(1500)
+    const t1 = await page.evaluate(() => ({ tidy: document.querySelector('.play')?.classList.contains('tidy'), solo: getComputedStyle(document.querySelector('.play-solo')).display }))
+    await page.locator('button.listen').click()
+    await page.waitForTimeout(600)
+    const t2 = await page.evaluate(() => document.querySelector('.play')?.classList.contains('tidy'))
+    console.log(`tidy ${vp.width}: while listening ${t1.tidy} (solo ${t1.solo}), after stop ${t2}`)
+    if (!t1.tidy || t1.solo !== 'none') bad(`tidy ${vp.width}: panels didn't fold away while listening`)
+    if (t2) bad(`tidy ${vp.width}: panels didn't come back after stopping`)
+    if (page.errors.length) bad(`stand page errors ${vp.width}: ` + page.errors.join(' | '))
+    await page.context().close()
+  }
   // ---- In time count-in
   {
     const page = await newPage(browser, { 'kg:tab2': 'play', 'kg:playMode': 'time' })
