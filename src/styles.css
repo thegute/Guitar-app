@@ -1852,3 +1852,4 @@ video.mirrored { transform: scaleX(-1); }
 .z2h .goal-list li { display: flex; gap: 6px; align-items: center; }
 .z2h .goal-list li > button:first-child { flex: 1; }
 .z2h-rule { padding: 8px 10px; border-left: 3px solid var(--gold); background: color-mix(in srgb, var(--gold) 8%, transparent); border-radius: 0 8px 8px 0; }
+.st-sub { padding-left: 14px; color: var(--ink-2); }

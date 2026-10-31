@@ -124,3 +124,12 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
     </section>
   )
 }
+
+/** Bring a tucked-away window back and scroll to it (e.g. a "Volumes" button opening the Mix window). */
+export function useWinShow() {
+  const ctx = useContext(C)
+  return (id: string) => {
+    ctx?.set(l => ({ ...l, hidden: l.hidden.filter(x => x !== id) }))
+    setTimeout(() => document.querySelector(`[data-win="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+  }
+}

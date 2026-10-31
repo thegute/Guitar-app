@@ -103,15 +103,23 @@ export function stretch(x: Float32Array, targetLen: number, sr: number): Float32
   return res
 }
 
-/** A free take → whole bars at this tempo: the nearest bar count (1–8), stretched to fit. */
-export function fitToBars(x: Float32Array, sr: number, barDur: number): { samples: Float32Array; bars: number; ratio: number } {
+/**
+ * A free take → whole bars at this tempo (1, 2, 4 or 8). Only a small change is made by stretching (up to 12%, which you
+ * can't hear); anything bigger keeps the take at its own speed and trims or pads it to the bars instead. (Squeezing a
+ * 6-bar take into 4 bars made it play back far too fast.)
+ */
+export function fitToBars(x: Float32Array, sr: number, barDur: number): { samples: Float32Array; bars: number; ratio: number; how: 'stretch' | 'trim' } {
   const secs = x.length / sr
-  let bars = Math.max(1, Math.min(8, Math.round(secs / barDur)))
-  // 1, 2, 4 or 8 bars, whichever is closest
-  bars = [1, 2, 4, 8].reduce((a, b) => (Math.abs(b * barDur - secs) < Math.abs(a * barDur - secs) ? b : a))
-  const target = Math.round(bars * barDur * sr)
+  const closest = [1, 2, 4, 8].reduce((a, b) => (Math.abs(Math.log((b * barDur) / secs)) < Math.abs(Math.log((a * barDur) / secs)) ? b : a))
+  const target = Math.round(closest * barDur * sr)
   const ratio = target / x.length
-  return { samples: stretch(x, target, sr), bars, ratio }
+  if (Math.abs(ratio - 1) <= 0.12) return { samples: stretch(x, target, sr), bars: closest, ratio, how: 'stretch' }
+  // too far: the bar count that fits without speeding up, at most 8 bars; trim or pad
+  const bars = [1, 2, 4, 8].find(b => b * barDur >= secs * 0.97) ?? 8
+  const len = Math.round(bars * barDur * sr)
+  const out = new Float32Array(len)
+  out.set(x.subarray(0, Math.min(len, x.length)))
+  return { samples: out, bars, ratio: len / x.length, how: 'trim' }
 }
 
 /** Level a take: about −18 dBFS loudness over the parts you played, peaks kept under control, tiny edge fades. */

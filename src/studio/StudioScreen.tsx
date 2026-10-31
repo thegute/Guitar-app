@@ -9,7 +9,7 @@ import { InputRecorder } from '../audio/looper'
 import { kindOf, latencyMs } from '../audio/gear'
 import { usePersist } from '../components/Controls'
 import { Fold } from '../components/Fold'
-import { Win, WinArea } from '../components/Win'
+import { Win, WinArea, useWinShow } from '../components/Win'
 import { Fretboard } from '../components/Fretboard'
 import { TabView } from '../components/TabView'
 import { HandGuide } from '../components/HandGuide'
@@ -117,14 +117,20 @@ export function StudioScreen({ active }: { active: boolean }) {
   /** The step a hit made right now belongs to (snapped to the grid), or null when not recording. */
   const recStep = (): number | null => {
     const x = t.current
-    if (!recording || !x?.playing) return null
+    const looping = loopRec.current
+    if (!(recording || looping) || !x?.playing) return null
+    if (looping) loopHits.current++
     const n = totalSteps(beat)
     const pos = x.position(audio().currentTime - outLatency())
     if (!quant) return Math.floor(pos) % n
     return (Math.round(pos / quant) * quant) % n
   }
+  // while the looper records, what you play on the on-screen keys and pads is saved as notes, in time (not the speaker's sound)
+  const loopRec = useRef(false)
+  const loopHits = useRef(0)
 
-  const loops = useLoops(tr(), beat, setBeat, play)
+  const loops = useLoops(tr(), beat, setBeat, play, loopHits)
+  loopRec.current = loops.state === 'rec'
   // foot pedal: press = record the next loop, the other pedal = undo the last loop, hold = stop (or plain start/stop)
   const [pedalMode, setPedalMode] = usePersist<'loop' | 'play'>('studioPedal', 'loop')
   usePedals({
@@ -159,6 +165,7 @@ export function StudioScreen({ active }: { active: boolean }) {
             {KITS.map(k => <option key={k.id} value={k.id}>{k.label}</option>)}
           </select>
         </label>
+        <VolumesButton />
         <button className="btn sm st-more" aria-expanded={settings} onClick={() => setSettings(!settings)}>{settings ? 'Fewer settings' : 'Key, bars, save…'}</button>
       </div>
       {settings && (
@@ -267,14 +274,31 @@ function Tempo({ bpm, onChange }: { bpm: number; onChange: (b: number) => void }
   // type freely (the number can be "1" on the way to "120"); it's applied when you tap Done or away
   const [draft, setDraft] = useState<string | null>(null)
   const commit = () => { const v = Number(draft); if (draft && v > 0) set(v); setDraft(null) }
+  // hold − or + and it keeps going, faster the longer you hold
+  const cur = useRef(bpm)
+  cur.current = bpm
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const stopHold = () => { if (timer.current) clearTimeout(timer.current); timer.current = null }
+  useEffect(() => stopHold, [])
+  const hold = (dir: 1 | -1) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      e.preventDefault()
+      stopHold()
+      let n = 0
+      const step = () => { set(cur.current + dir * (n > 12 ? 5 : 1)); cur.current = Math.max(40, Math.min(220, cur.current + dir * (n > 12 ? 5 : 1))); n++; timer.current = setTimeout(step, n === 1 ? 420 : n > 12 ? 90 : 110) }
+      step()
+    },
+    onPointerUp: stopHold, onPointerLeave: stopHold, onPointerCancel: stopHold,
+    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+  })
   return (
     <div className="st-tempo" role="group" aria-label="Tempo">
-      <button className="btn sm" onClick={() => set(bpm - 1)} aria-label="Slower">−</button>
+      <button className="btn sm st-hold" {...hold(-1)} aria-label="Slower (hold to keep going)">−</button>
       <input className="input" inputMode="numeric" enterKeyHint="done" value={draft ?? String(bpm)} aria-label="Beats per minute"
         onFocus={e => { setDraft(String(bpm)); e.currentTarget.select() }}
         onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
         onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} />
-      <button className="btn sm" onClick={() => set(bpm + 1)} aria-label="Faster">+</button>
+      <button className="btn sm st-hold" {...hold(1)} aria-label="Faster (hold to keep going)">+</button>
       <button className="btn sm" onPointerDown={() => {
         const now = performance.now()
         taps.current = [...taps.current.filter(x => now - x < 2500), now].slice(-6)
@@ -819,7 +843,7 @@ function Roll({ t, beat, setBeat }: { t: StudioTransport; beat: Beat; setBeat: S
 
 // ───────────────────────── loops that lock to the beat (the engine; the view is below)
 type Layer = LoopLayer & { bars: number }
-function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (countIn?: number) => void) {
+function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (countIn?: number) => void, screenHits: { current: number }) {
   const [mode, setMode] = usePersist<'beat' | 'free'>('studioLoopMode', 'beat')
   const [align, setAlign] = usePersist('studioAlign', true)
   const [state, setState] = useState<'idle' | 'waiting' | 'rec' | 'working'>('idle')
@@ -843,6 +867,13 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
   useEffect(() => () => { cancelRef.current.cancelled = true; rec.current?.stop() }, [])
 
   const keep = async (raw: Float32Array, bars: number, extra = '') => {
+    if (screenHits.current > 0) {
+      // you played the on-screen keys or pads: they're already in the beat as notes, in time; the mic only heard the speaker
+      setNote(`Your ${screenHits.current} note${screenHits.current > 1 ? 's' : ''} on the screen went straight into the beat, in time (see Piano roll and Drum layers). The Looper records your guitar through the mic or amp.`)
+      screenHits.current = 0
+      return
+    }
+    if (!rec.current?.input?.external) extra += ' Tip: wear headphones so the mic only hears your guitar, not the beat from the speaker.'
     const ctx = audio()
     const sr = ctx.sampleRate
     const b = live.current.beat
@@ -873,13 +904,14 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
       try {
         const raw = await rec.current!.capture(freeStart.current + input(), dur)
         const fit = fitToBars(raw, ctx.sampleRate, t.barDur)
-        await keep(fit.samples, fit.bars, ` Fitted to ${fit.bars} bar${fit.bars > 1 ? 's' : ''} (${fit.ratio >= 1 ? 'stretched' : 'squeezed'} ${Math.abs(Math.round((fit.ratio - 1) * 100))}%).`)
+        await keep(fit.samples, fit.bars, fit.how === 'stretch' ? ` Fitted to ${fit.bars} bar${fit.bars > 1 ? 's' : ''} (${fit.ratio >= 1 ? 'slowed' : 'sped up'} ${Math.abs(Math.round((fit.ratio - 1) * 100))}%, too small to hear).` : ` Kept at its own speed and made ${fit.bars} bar${fit.bars > 1 ? 's' : ''} long (${fit.ratio > 1 ? 'a little quiet added at the end' : 'the end trimmed'}). For a perfect fit, use "On the beat".`)
       } catch { setNote("Couldn't record. Check the input: Play → Options → Set up input.") }
       setState('idle')
       return
     }
     if (st !== 'idle') return
     cancelRef.current = { cancelled: false }
+    screenHits.current = 0
     try {
       rec.current ??= new InputRecorder()
       await rec.current.start()
@@ -1046,6 +1078,8 @@ function Mix({ t, beat, setBeat }: { t: StudioTransport; beat: Beat; setBeat: Se
     <Win id="mix" title="Mix" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
       <ul className="st-mix">
         {row('drums', <b>Drums</b>, beat.drumVol, v => setBeat(b => ({ ...b, drumVol: v }), false))}
+        {[...new Set([...beat.rows.map(r => r.voice), ...(beat.layers ?? []).flatMap(l => l.rows.map(r => r.voice))])].map(v =>
+          row('v-' + v, <span className="st-sub">{voiceLabel(v)}</span>, beat.voiceVol?.[v] ?? 1, x => setBeat(b => ({ ...b, voiceVol: { ...b.voiceVol, [v]: x } }), false)))}
         {beat.tracks.map((x, i) => row(x.id, <span>{i + 1}. {instr(x.inst).label}</span>, x.vol, v => setBeat(b => ({ ...b, tracks: b.tracks.map(y => (y.id === x.id ? { ...y, vol: v } : y)) }), false),
           <>
             <label className="small st-space">Space<input type="range" min={0} max={1} step={0.05} value={x.space} onChange={e => setBeat(b => ({ ...b, tracks: b.tracks.map(y => (y.id === x.id ? { ...y, space: Number(e.target.value) } : y)) }), false)} aria-label="Reverb" /></label>
@@ -1055,7 +1089,7 @@ function Mix({ t, beat, setBeat }: { t: StudioTransport; beat: Beat; setBeat: Se
         {row('loops', <b>Loops</b>, loopVol, setLoopVol)}
       </ul>
       <label className="ex-check"><input type="checkbox" checked={click} onChange={e => setClick(e.target.checked)} /> Click on every beat</label>
-      <p className="small muted" style={{ margin: 0 }}>Space is the reverb: more for pads, strings and choir, little for bass and drums.</p>
+      <p className="small muted" style={{ margin: 0 }}>Drums sets all the drums; the indented ones set each drum sound (kick, snare, hi-hat…). Each part has its own volume, and Space is its reverb: more for strings and choir, little for bass and drums. Drum layers have their own sliders too.</p>
     </Win>
   )
 }
@@ -1093,4 +1127,9 @@ function Layers({ beat, setBeat }: { beat: Beat; setBeat: SetBeat }) {
       {layers.length > 0 && <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => setBeat(b => ({ ...b, layers: (b.layers ?? []).slice(0, -1) }))}>↶ Remove the last layer</button>}
     </>
   )
+}
+
+function VolumesButton() {
+  const show = useWinShow()
+  return <button className="btn sm" onClick={() => show('mix')}>🎚 Volumes</button>
 }

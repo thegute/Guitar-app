@@ -22,6 +22,8 @@ export interface Beat {
   drumVol: number
   /** drum layers stacked on the grid: one-tap patterns and each pass you record on the pads */
   layers?: DrumLayer[]
+  /** volume of each drum sound (kick, snare…), 1 = normal */
+  voiceVol?: Partial<Record<Voice, number>>
 }
 export interface DrumLayer { id: string; label: string; rows: DrumRow[]; mute?: boolean; vol?: number }
 export const totalSteps = (b: Beat) => b.bars * STEPS_PER_BAR
@@ -192,8 +194,9 @@ export function patternLayer(p: Pattern, bars: number): DrumLayer {
 }
 /** Every drum row that plays: the grid plus the layers that aren't muted (with their volume). */
 export function allRows(b: Beat): { voice: Voice; steps: number[]; gain: number }[] {
-  const out = b.rows.filter(r => !r.mute).map(r => ({ voice: r.voice, steps: r.steps, gain: 1 }))
-  for (const L of b.layers ?? []) if (!L.mute) for (const r of L.rows) if (!r.mute) out.push({ voice: r.voice, steps: r.steps, gain: L.vol ?? 1 })
+  const vv = (v: Voice) => b.voiceVol?.[v] ?? 1
+  const out = b.rows.filter(r => !r.mute).map(r => ({ voice: r.voice, steps: r.steps, gain: vv(r.voice) }))
+  for (const L of b.layers ?? []) if (!L.mute) for (const r of L.rows) if (!r.mute) out.push({ voice: r.voice, steps: r.steps, gain: (L.vol ?? 1) * vv(r.voice) })
   return out
 }
 

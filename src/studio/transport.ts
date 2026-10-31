@@ -148,7 +148,7 @@ export class StudioTransport {
       const b = this.beat
       for (const r of allRows(b)) {
         const v = r.steps[s]
-        if (v > 0) this.drum(r.voice, t, Math.min(1, v * r.gain))
+        if (v > 0) this.drum(r.voice, t, Math.min(1.5, v * r.gain))
       }
       for (const tr of b.tracks) {
         if (tr.mute) continue
@@ -206,7 +206,7 @@ export class StudioTransport {
 
   private drum(voice: Voice, when: number, vel: number) {
     const buf = this.custom.get(voice)
-    if (!buf) { playDrum(voice, when, vel, this.drumBus, { kit: this.beat.kit }); return }
+    if (!buf) { playDrum(voice, when, Math.min(1, vel), this.drumBus, { kit: this.beat.kit }, Math.max(1, vel)); return }
     const ctx = audio()
     const src = ctx.createBufferSource()
     src.buffer = buf
@@ -234,7 +234,7 @@ export class StudioTransport {
 
   /** Hit a pad now (finger drumming): plays at once, on the beat's kit. */
   hit(voice: Voice, vel = 0.9) {
-    this.drum(voice, 0, vel)
+    this.drum(voice, 0, Math.min(1.5, vel * (this.beat.voiceVol?.[voice] ?? 1)))
   }
   /** Press a key now; returns the note so it can be released. */
   press(trackId: string, inst: string, midi: number, vel = 0.8): Handle {
