@@ -229,7 +229,7 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
 - Tests: `tests/build25-logic.test.ts`, `tests/browser/build25-test.cjs`.
 
 ## Next up — pick up here
-1. Owner tries build 28 (Gemini fix: phone uses CapacitorHttp, hedged models, Test Gemini); fix what he finds. Untested on a real phone: 🎤 talk with the USB amp plugged in / while Play listens, Gemini voice, streaming in the Android web view.
+1. Owner tries build 29 (his Gemini choice 3.5 Flash Lite answers in 0.7 s; 3.8/3.7 Flash hang or 503 on the free tier; Groq key added = first backup); fix what he finds. Untested on a real phone: 🎤 talk with the USB amp plugged in / while Play listens, Gemini voice, streaming in the Android web view.
 2. Note follower accuracy (fewer misreads, accept bends; GP test files in the scratchpad testdata) and a better note detector for Notes mode (own guitar only).
 3. Hand position accuracy in Play, Jam looper loud/reliable, ukulele theory, more badges, chord-tone lessons, deep CAGED, a simplicity pass.
 4. Keep the brother's Docs guide (https://claude.ai/artifact/7Cuc18hXrt23FDQ1PniqV5) in step with the in-app guide. The owner should switch on GitHub Pages
