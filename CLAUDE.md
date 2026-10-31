@@ -190,12 +190,35 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   background pauses: Find chords polls the mic on the page's thread, and under load the motion made it miss a re-picked note
   (build13 melody). Loose field labels get a dark chip in psy so they read over the art.
 
+## Builds 19–21 (exercises, video lessons, drums, beat maker, Ask, sessions, Zero to Hero)
+- Exercises: `src/exercises/` (catalog ~800, `build.ts` builders, `fingerstyle.ts` Marco-Cirillo-style melodic fingerstyle, ExerciseBrowser on Songs → Exercises; `openExercise(code | 'type:<id>')`).
+- Video lessons (phone only): `src/lessons/` + native `LessonFoldersPlugin.java`, `MediaWebViewClient.java` (SAF folder, byte-range `/_kg_media_/`). Never copy, convert or index the owner's course files; nothing of them in the repo.
+- Drums: 8 kits incl. 808/909 synth, perc voices, 41 grooves. Instruments: `tools/make-instruments.py` → `public/samples/inst/` (Salamander CC BY, VSCO 2 CE CC0, MusyngKite CC BY-SA; credited in Settings).
+- Beat maker (Jam → Beat maker, `src/studio/`): `StudioScreen.tsx` (all sections are `Win` windows: Controls, Drum pads with big kick/snare/hat, Drum layers,
+  Keyboard with chord helper + lit chord notes + hidable guitar neck, Looper, Step grid, Piano roll, Mix, Practise over it), `beat.ts` (Beat, `layers` = DrumLayer,
+  PATTERNS one-tap layers, STARTERS, `applyBeatChange`), `transport.ts` (one clock; `allRows`; custom pad samples), `loops.ts` (WSOLA, gridOffset, fitToBars, IndexedDB),
+  `practice.ts` (chords per bar, beatFromJam), `mySounds.ts` (phone folder of pad samples). ● recording makes one drum layer per pass. Pedal: right = record next loop,
+  left = undo, hold = stop (`pedals.ts` hold support).
+- Windows: `components/Win.tsx` (`WinArea area=… defaultHidden`, `Win id title`): ☰ drag to reorder, – tuck into the tray, ⇕ resize, Reset layout; `kg:win:<area>`.
+  Used in the beat maker, Jam (jam + solo pages), Learn → Today. Play keeps its own layout (splitters, tuck-away panels).
+- Hand guide: `components/HandGuide.tsx` (handGroups → one card per hand position) under ProgressionTabs Preview, ExerciseBrowser, the studio lick.
+- Ask (menu button "Ask" = search + assistant): `components/SearchSheet.tsx`, `assistant/plan.ts` (AI picks only from building blocks: search results, places,
+  exercise types, licks, techniques, beat changes; falls back to the built-in planner `sessions/recipes.ts`), `assistant/providers.ts` (Gemini, Groq, OpenRouter free;
+  Claude/ChatGPT paid; keys in `kgx:ai`, never in backups), `assistant/AiSetup.tsx` (Settings → You → AI helper), `assistant/bus.ts` (`askAssistant`).
+- Tab from a screenshot: `assistant/TabFromPicture.tsx` (vision AI → ASCII tab → songFromText), in Jam → Find chords and Songs → Add a song. Mic Notes mode is
+  labelled a rough guess (full mixes can't be transcribed reliably).
+- Sessions: `sessions/session.ts` (timed steps, each opens a Target; `kg:session`), `SessionBar.tsx` (top bar), `MySessions.tsx` (Learn → Today).
+- Zero to Hero (guitar): `learn/zeroHero.ts` + `ZeroToHero.tsx` on Learn → Course (ukes keep the path to mastery): the owner's plan doc
+  (https://claude.ai/artifact/LQjDVM8yCNx2WmGrkT9Xnm), phases + gates (auto-checked where measurable), start check, daily routine as a session, JustinGuitar links only.
+- Tests: `tests/browser/build20-test.cjs`, build19, build14 tour (Songs tab "Exercises"), search-test.
+
 ## Next up — pick up here
-1. The owner tries build 17 (their own artwork all through Psychedelic mode); fix what they find.
-   Owner: "don't put corny names in the app", "don't name the art, only Brandy should be named". So the only name on screen is
-   "Brandy" (the chocolate lab: `lab` and `princess` faces); other dogs show just their face (breed only as an aria-label);
-   the gallery has no titles. Never invent names or titles for the art or the dogs.
-2. Keep the brother's Docs guide (https://claude.ai/artifact/7Cuc18hXrt23FDQ1PniqV5) in step with the in-app guide.
+1. Owner tries builds 20–21; fix what they find (beat maker layout, windows, Ask, Zero to Hero).
+2. Note follower accuracy (fewer misreads, accept bends; GP test files in the scratchpad testdata) and a better note detector for Notes mode (own guitar only).
+3. Hand position accuracy in Play, Jam looper loud/reliable, ukulele theory, more badges, chord-tone lessons, deep CAGED, a simplicity pass.
+4. Keep the brother's Docs guide (https://claude.ai/artifact/7Cuc18hXrt23FDQ1PniqV5) in step with the in-app guide. The owner should switch on GitHub Pages
+   (Settings → Pages → Source: GitHub Actions) for the web version.
+   Owner rules still hold: only "Brandy" is named on screen; never invent names or titles for the art or the dogs.
 
 ## Ideas not done yet
 Left-handed mode, automatic tempo detection from the video, per-note polyphonic transcription (chords are judged by chroma only), cloud sync between devices.
