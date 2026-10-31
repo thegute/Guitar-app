@@ -137,7 +137,7 @@ export function PlayScreen() {
   const sideRef = useRef<HTMLElement>(null)
   const focus = lay.focus
   // Music stand: only the tab (much bigger) and one row of big buttons. Tidy: while you play, the other panels fold away.
-  const [stand, setStand] = usePersist('playStand', false)
+  const [stand, setStand] = useState(false)
   const [standZoom, setStandZoom] = usePersist('standZoom', 1.6)
   const [tidy, setTidy] = usePersist('playTidy', true)
   const lastOnset = useRef(0)
@@ -593,7 +593,8 @@ export function PlayScreen() {
     // the guitar's recorded sounds aren't in yet: say so on the button, then start
     if (!loaded && !soundLoaded(hearSound)) {
       setLoadingSnd(true)
-      void loadSound(hearSound).catch(() => {}).finally(() => { setLoadingSnd(false); preview(true) })
+      // (only if you're still on Play: leaving the page while it loaded must not start the sound)
+      void loadSound(hearSound).catch(() => {}).finally(() => { setLoadingSnd(false); if (playRef.current) preview(true) })
       return
     }
     if (listening) void toggleListen()

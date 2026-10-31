@@ -21,6 +21,7 @@ import java.util.Locale;
 @CapacitorPlugin(name = "Listen", permissions = { @Permission(strings = { Manifest.permission.RECORD_AUDIO }, alias = "mic") })
 public class ListenPlugin extends Plugin {
     private SpeechRecognizer sr;
+    private PluginCall pending;
 
     @PluginMethod
     public void available(PluginCall call) {
@@ -42,6 +43,8 @@ public class ListenPlugin extends Plugin {
     }
 
     private void finish(PluginCall call, String text, String error) {
+        if (pending != call) return; // already answered (stopped, or a second callback)
+        pending = null;
         JSObject r = new JSObject();
         r.put("text", text == null ? "" : text);
         if (error != null) r.put("error", error);
@@ -50,6 +53,8 @@ public class ListenPlugin extends Plugin {
     }
 
     private void start(PluginCall call) {
+        if (pending != null) finish(pending, "", "stopped");
+        pending = call;
         getActivity().runOnUiThread(() -> {
             if (sr != null) { sr.destroy(); sr = null; }
             if (!SpeechRecognizer.isRecognitionAvailable(getContext())) { finish(call, "", "unavailable"); return; }
@@ -89,6 +94,7 @@ public class ListenPlugin extends Plugin {
 
     @PluginMethod
     public void stop(PluginCall call) {
+        if (pending != null) finish(pending, "", "stopped");
         getActivity().runOnUiThread(() -> { if (sr != null) { sr.cancel(); sr.destroy(); sr = null; } });
         call.resolve();
     }

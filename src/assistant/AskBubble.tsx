@@ -9,7 +9,7 @@ import { usePersist } from '../components/Controls'
 import { canListen, listenOnce, setTalking, stopListening } from './listen'
 import { plan, type Answer } from './plan'
 import { addQuestion, answerTurn, history } from './chat'
-import { onSpeaking, speak, stopSpeaking } from './speak'
+import { isSpeaking, onSpeaking, speak, stopSpeaking } from './speak'
 import { SearchIndex, searchAll } from '../search/engine'
 import { FEATURES } from '../search/catalog'
 import { libraryEntries } from '../search/sources'
@@ -48,6 +48,7 @@ export function AskBubble({ context }: { context: AskContext }) {
   const [card, setCard] = useState<{ q: string; a: Answer; did?: string } | null>(null)
   const [err, setErr] = useState('')
   const [soFar, setSoFar] = useState('')
+  const stopped = useRef(false)
   const [again, setAgain] = usePersist('talkAgain', false)
   const [voiceOn, setVoiceOn] = usePersist('talkVoice', true)
   const live = useRef({ again, voiceOn, misses: 0, alive: true, hideT: 0 })
@@ -59,7 +60,8 @@ export function AskBubble({ context }: { context: AskContext }) {
   const close = () => { live.current.again = false; setAgain(false); stopListening(); stopSpeaking(); setTalking(false); setCard(null); setErr(''); setPhase('idle'); clearTimeout(live.current.hideT) }
 
   async function talk() {
-    if (phase === 'listening') { stopListening(); return }
+    if (phase === 'listening') { stopped.current = true; stopListening(); return }
+    stopped.current = false
     clearTimeout(live.current.hideT)
     stopSpeaking()
     setErr('')
@@ -68,8 +70,10 @@ export function AskBubble({ context }: { context: AskContext }) {
     setTalking(true)
     const h = await listenOnce(setWords, v => setLevel(v))
     if (!live.current.alive) return
+    if (!h.text && stopped.current) h.error = 'stopped'
     if (!h.text) {
       setTalking(false)
+      if (h.error === 'stopped') { setPhase('idle'); return }
       live.current.misses++
       if (h.error === 'nothing' && live.current.again && live.current.misses < 3) { void talk(); return }
       setErr(SORRY[h.error ?? 'nothing'] ?? SORRY.error)
@@ -95,7 +99,7 @@ export function AskBubble({ context }: { context: AskContext }) {
     if (live.current.voiceOn) {
       await speak(text, { gemini: a.ai })
       // wait for the voice to finish, then (Keep talking) listen again
-      await new Promise<void>(res => { const off = onSpeaking(on => { if (!on) { off(); res() } }); setTimeout(() => { off(); res() }, 60000) })
+      if (isSpeaking()) await new Promise<void>(res => { const off = onSpeaking(on => { if (!on) { off(); res() } }); setTimeout(() => { off(); res() }, 60000) })
     }
     setTalking(false)
     if (!live.current.alive) return

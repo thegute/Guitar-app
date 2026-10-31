@@ -26,7 +26,7 @@ let talking = false
 export const talkingNow = () => talking
 export function setTalking(on: boolean) { talking = on }
 
-export interface Heard { text: string; error?: 'nothing' | 'network' | 'permission' | 'busy' | 'unavailable' | 'error' }
+export interface Heard { text: string; error?: 'nothing' | 'network' | 'permission' | 'busy' | 'unavailable' | 'error' | 'stopped' }
 
 /** Listen for one phrase. `onWords` gets the words so far while you're still talking. */
 export async function listenOnce(onWords?: (t: string) => void, onLevel?: (v: number) => void): Promise<Heard> {
