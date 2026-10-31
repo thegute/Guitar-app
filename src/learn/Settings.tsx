@@ -1,4 +1,5 @@
 // Settings: instrument (with a confirm step so you can't switch by accident), tuning, look, daily goal and reminders.
+import { AiSetup } from '../assistant/AiSetup'
 import { GET_READY_CHOICES, getReadySecs, setGetReadySecs } from '../components/GetReady'
 import { useEffect, useState } from 'react'
 import { Chips } from '../components/Controls'
@@ -80,6 +81,10 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
       ]} />
 
       {page === 'you' && <>
+      <section className="panel stack" style={{ gap: 10 }}>
+        <h2 style={{ margin: 0 }}>AI helper</h2>
+        <AiSetup />
+      </section>
       <section className="panel stack" style={{ gap: 10 }}>
         <h2 style={{ margin: 0 }}>Instrument</h2>
         <div className="inst-cards" role="radiogroup" aria-label="Instrument">

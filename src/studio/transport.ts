@@ -4,7 +4,7 @@ import { audio, out } from '../audio/engine'
 import { playDrum, prepareKit, type Voice } from '../audio/drums'
 import { playClick } from '../audio/metronome'
 import type { Handle } from '../audio/pluck'
-import { STEPS_PER_BAR, totalSteps, type Beat } from './beat'
+import { STEPS_PER_BAR, allRows, totalSteps, type Beat } from './beat'
 import { instr, loadInstr, playInstr } from './sounds'
 
 /** A generated room reverb (a few seconds of decaying noise), shared by every track. */
@@ -146,9 +146,9 @@ export class StudioTransport {
       const s = this.next % n
       const t = this.nextT + this.swingOff(s)
       const b = this.beat
-      for (const r of b.rows) {
+      for (const r of allRows(b)) {
         const v = r.steps[s]
-        if (v > 0 && !r.mute) this.drum(r.voice, t, v)
+        if (v > 0) this.drum(r.voice, t, Math.min(1, v * r.gain))
       }
       for (const tr of b.tracks) {
         if (tr.mute) continue

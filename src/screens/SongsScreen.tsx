@@ -1,6 +1,7 @@
 // Songs: everything you can play, on four short pages: your songs, the songbook, the exercise library (with the
 // picking-tab and lick makers),
 // and adding a song (find one online, upload Guitar Pro or text files, or paste a tab or chord sheet).
+import { TabFromPicture } from '../assistant/TabFromPicture'
 import { Fold, HintHead } from '../components/Fold'
 import { Songbook } from '../components/Songbook'
 import { ProgressionTabs } from '../components/ProgressionTabs'
@@ -251,6 +252,10 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
         {clipNote && <span className="small muted" role="status">{clipNote}</span>}
         {yt.trim() && !link && <span className="small" style={{ color: 'var(--coral)' }}>That YouTube link doesn't look right.</span>}
         {error && <p className="notice small" role="alert">{error}</p>}
+      </section>
+      <section className="panel stack" style={{ gap: 8 }}>
+        <h2 style={{ margin: 0 }}>Tab on screen in a video or photo</h2>
+        <TabFromPicture youtube={link} onOpen={d => void saveSong(d).then(() => onOpen(d))} />
       </section>
     </div>
   )

@@ -20,7 +20,10 @@ export interface Beat {
   key: string
   minor: boolean
   drumVol: number
+  /** drum layers stacked on the grid: one-tap patterns and each pass you record on the pads */
+  layers?: DrumLayer[]
 }
+export interface DrumLayer { id: string; label: string; rows: DrumRow[]; mute?: boolean; vol?: number }
 export const totalSteps = (b: Beat) => b.bars * STEPS_PER_BAR
 export const newId = () => Math.random().toString(36).slice(2, 9)
 
@@ -155,6 +158,7 @@ export function setBars(b: Beat, bars: Beat['bars']): Beat {
   return {
     ...b, bars,
     rows: b.rows.map(r => ({ ...r, steps: Array.from({ length: n }, (_, i) => r.steps[i % old] ?? 0) })),
+    layers: (b.layers ?? []).map(L => ({ ...L, rows: L.rows.map(r => ({ ...r, steps: Array.from({ length: n }, (_, i) => r.steps[i % old] ?? 0) })) })),
     tracks: b.tracks.map(t => ({ ...t, notes: n > old ? Array.from({ length: n / old }, (_, k) => t.notes.map(x => ({ ...x, s: x.s + k * old }))).flat() : t.notes.filter(x => x.s < n) })),
   }
 }
@@ -164,3 +168,31 @@ const listeners = new Set<(b: Beat) => void>()
 export function onBeatChange(f: (b: Beat) => void) { listeners.add(f); return () => { listeners.delete(f) } }
 /** Replace the beat from outside (the assistant); the beat maker picks it up if it's open. */
 export function pushBeat(b: Beat) { saveBeat(b); listeners.forEach(f => f(b)) }
+
+/** One-tap drum patterns, each added as its own layer (so you don't have to tap a hi-hat 64 times). */
+export interface Pattern { id: string; label: string; voice: Voice; hits: [number, number][] }
+const every = (n: number, off: number, v = 0.8, accent = 0): [number, number][] => Array.from({ length: 16 / n }, (_, i) => [off + i * n, accent && (off + i * n) % 4 === 0 ? accent : v] as [number, number])
+export const PATTERNS: Pattern[] = [
+  { id: 'hat8', label: 'Hi-hat 8ths', voice: 'hat', hits: every(2, 0, 0.6, 0.85) },
+  { id: 'hatoff', label: 'Off-beat hi-hat', voice: 'open', hits: every(4, 2, 0.7) },
+  { id: 'hat16', label: 'Hi-hat 16ths', voice: 'hat', hits: every(1, 0, 0.45, 0.8) },
+  { id: 'hat4', label: 'Hi-hat on the beat', voice: 'hat', hits: every(4, 0, 0.75) },
+  { id: 'kick4', label: 'Four-on-the-floor kick', voice: 'kick', hits: every(4, 0, 0.95) },
+  { id: 'kickrock', label: 'Rock kick (1 and 3)', voice: 'kick', hits: [[0, 0.95], [8, 0.9], [10, 0.7]] },
+  { id: 'snare24', label: 'Snare on 2 and 4', voice: 'snare', hits: [[4, 0.9], [12, 0.9]] },
+  { id: 'clap24', label: 'Clap on 2 and 4', voice: 'clap', hits: [[4, 0.9], [12, 0.9]] },
+  { id: 'ride4', label: 'Ride on the beat', voice: 'ride', hits: every(4, 0, 0.7) },
+  { id: 'shaker16', label: 'Shaker 16ths', voice: 'shaker', hits: every(1, 0, 0.4, 0.7) },
+  { id: 'tamb24', label: 'Tambourine on 2 and 4', voice: 'tamb', hits: [[4, 0.8], [12, 0.8]] },
+]
+export function patternLayer(p: Pattern, bars: number): DrumLayer {
+  const one = Array(16).fill(0) as number[]
+  for (const [s, v] of p.hits) one[s] = v
+  return { id: newId(), label: p.label, rows: [{ voice: p.voice, steps: Array.from({ length: bars }, () => one).flat() }] }
+}
+/** Every drum row that plays: the grid plus the layers that aren't muted (with their volume). */
+export function allRows(b: Beat): { voice: Voice; steps: number[]; gain: number }[] {
+  const out = b.rows.filter(r => !r.mute).map(r => ({ voice: r.voice, steps: r.steps, gain: 1 }))
+  for (const L of b.layers ?? []) if (!L.mute) for (const r of L.rows) if (!r.mute) out.push({ voice: r.voice, steps: r.steps, gain: L.vol ?? 1 })
+  return out
+}

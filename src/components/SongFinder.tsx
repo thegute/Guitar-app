@@ -160,7 +160,7 @@ export function SongFinder({ onUseInJam, onOpen }: {
   return (
     <div className="stack song-finder" style={{ gap: 10 }}>
       <p className="small muted" style={{ margin: 0 }}>
-        Play a song out loud and KGuitar listens through the mic: in <b>Chords</b> mode it writes down the chords and the key, in <b>Notes</b> mode a single melody line as a tab. Turn the video up, keep the room quiet, and use the phone speaker (not headphones) so the mic can hear it.
+        Play a song out loud and KGuitar listens through the mic: in <b>Chords</b> mode it writes down the chords and the key, in <b>Notes</b> mode a single melody line as a tab. Chords work well from a song. Notes work best with only one instrument playing (you playing a riff, or a solo guitar lesson): from a full band mix they're a rough guess. For an exact tab use a screenshot of the on-screen tab above, or search for the real tab.
       </p>
       <YouTubePlayer url={url} onUrl={u => { setUrl(u); played.current = false }} onApi={api => { video.current = api }} note="Play it on the phone speaker, turned up, so the mic can hear it." />
       <Chips label="Listen for" items={[{ id: 'chords' as const, label: 'Chords' }, { id: 'notes' as const, label: 'Notes (melody)' }]} value={mode} onChange={v => { if (!on) setMode(v) }} />
@@ -224,7 +224,7 @@ export function SongFinder({ onUseInJam, onOpen }: {
             <button className="btn primary" onClick={openNotes}>Open as a tab</button>
             <button className="btn ghost" onClick={clear}>Clear</button>
           </div>
-          <p className="small muted" style={{ margin: 0 }}>Rhythm is rounded to eighth notes at {bpm} BPM: set the tempo first (tap it along with the song) for a tidier tab.</p>
+          <p className="small muted" style={{ margin: 0 }}>A rough guess: the notes are right only when one instrument was playing, and the frets are where they're easiest, not always where the player put them. Rhythm is rounded to eighth notes at {bpm} BPM.</p>
         </div>
       )}
     </div>

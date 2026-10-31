@@ -17,6 +17,7 @@ import { InputPicker } from '../components/InputPicker'
 import { Chips, Field, KeyPicker, usePersist } from '../components/Controls'
 import { IconDice, IconLock, IconPlay, IconStop, IconPencil } from '../components/Icons'
 import { Fold, useHint } from '../components/Fold'
+import { Win, WinArea } from '../components/Win'
 import { strum as strumNotes, preload, SOUNDS, soundInfo, loadSound, loadBank, bankLoaded, type SoundId } from '../audio/pluck'
 import { BASSLINES } from '../audio/bass'
 import { audio, keepAwake } from '../audio/engine'
@@ -34,6 +35,7 @@ import { patternForStrum } from '../tabs/picking'
 import { saveSong } from '../tabs/library'
 import { openInPlay } from '../nav'
 import { SongFinder } from '../components/SongFinder'
+import { TabFromPicture } from '../assistant/TabFromPicture'
 import { Zoomable } from '../components/Zoomable'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { PsyPic } from '../components/PsyArt'
@@ -639,7 +641,8 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
       {page === 'jam' && (
         <>
           {optionsOpen && options}
-          <div className="panel stack">
+          <WinArea area="jam">
+          <Win id="gen" title="Progression" className="panel" bodyClass="stack">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <span className="row" style={{ gap: 6, minWidth: 0 }}><span className="small muted">{summary}</span>{cardsHint}</span>
               <button className="btn primary big" onClick={roll} disabled={locked} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -650,12 +653,12 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
             {cards}
             {chordInfo}
             {transportRow}
-          </div>
-          <Fold id="jamLooper" title="Looper" summary={rec ? 'recording…' : hasLoop ? `${layers.length} layer${layers.length > 1 ? 's' : ''}` : 'record yourself, then solo over it'}
-            hint={`Tap Record, listen to the count-in, and play the progression once through (${totalBars} bars). Recording starts and stops on the beat by itself and is exactly one loop long, so it repeats perfectly in time with the drums and click. Then solo over yourself.`}>
+          </Win>
+          <Win id="looper" title={`Looper${rec ? ' (recording…)' : hasLoop ? ` (${layers.length} layer${layers.length > 1 ? 's' : ''})` : ''}`} className="panel">
+            <p className="small muted" style={{ marginTop: 0 }}>{`Tap Record, listen to the count-in, and play the progression once through (${totalBars} bars). Recording starts and stops on the beat by itself and is exactly one loop long.`}</p>
             {looper}
-          </Fold>
-          <Fold id="jamFamous" title="Famous progressions" summary={`${sugg.length} in ${tonic}`}>
+          </Win>
+          <Win id="famous" title={`Famous progressions in ${tonic}`} className="panel">
             <div className="stack" style={{ gap: 8 }}>
               {sugg.map((s, i) => (
                 <div key={i} className="row" style={{ justifyContent: 'space-between', borderTop: i ? '1px solid var(--hairline)' : 'none', paddingTop: i ? 8 : 0 }}>
@@ -668,23 +671,25 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
                 </div>
               ))}
             </div>
-          </Fold>
+          </Win>
+          </WinArea>
         </>
       )}
 
       {page === 'solo' && (
         <>
-          <section className="panel stack">
+          <WinArea area="jamSolo">
+          <Win id="scales" title="Loop and scales" className="panel" bodyClass="stack">
             {miniTransport}
             <p className="small muted" style={{ margin: 0 }}>Start the loop, then solo with a scale below. Land on the amber notes when each chord starts: that's how a solo follows the changes.</p>
             {scalesPanel}
-          </section>
-          <section className="panel">{neck}</section>
-          <section className="panel stack">
-            <h2 className="sec-title" style={{ margin: 0 }}>Circle of fifths <span className="small muted">{tonic} {minorKey ? 'minor' : 'major'}</span></h2>
+          </Win>
+          <Win id="neck" title="Neck" className="panel">{neck}</Win>
+          <Win id="circle" title={`Circle of fifths · ${tonic} ${minorKey ? 'minor' : 'major'}`} className="panel" bodyClass="stack">
             <p className="small muted" style={{ margin: 0 }}>The shaded slice is your key: its chords sit next to each other. Teal rings are the chords in this progression; the amber one is playing. Tap a key to switch.</p>
             {circle}
-          </section>
+          </Win>
+          </WinArea>
         </>
       )}
 
@@ -705,9 +710,13 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
 
       {page === 'beats' && <Suspense fallback={<p className="muted">Loading the beat maker…</p>}><StudioScreen active={page === 'beats'} /></Suspense>}
 
-      {page === 'find' && (
+      {page === 'find' && (<>
         <section className="panel stack">
-          <h2 className="sec-title" style={{ margin: 0 }}>Find the chords from a song</h2>
+          <h2 className="sec-title" style={{ margin: 0 }}>Tab on screen in the video?</h2>
+          <TabFromPicture onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
+        </section>
+        <section className="panel stack">
+          <h2 className="sec-title" style={{ margin: 0 }}>Listen for the chords</h2>
           <SongFinder
             onUseInJam={(root, minor, chords) => {
               const m: ModeId = minor ? 'minor' : 'major'
@@ -718,7 +727,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
             }}
             onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
         </section>
-      )}
+      </>)}
     </div>
   )
 }

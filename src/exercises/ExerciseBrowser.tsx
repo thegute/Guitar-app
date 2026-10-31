@@ -1,6 +1,7 @@
 // The exercise library on screen: filter by difficulty, type and technique, step through with ‹ ›, star favourites,
 // pick a key, sound and tempo, and hear it with a count-in, a click and a loop. The neck shows every note in the order
 // you play it (roots in red), the tab follows the playhead, and "Play along" opens it in Play so the app listens.
+import { HandGuide } from '../components/HandGuide'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useInstrument } from '../instrument'
 import { usePersist } from '../components/Controls'
@@ -301,6 +302,7 @@ function ExerciseView({ ex, controls, root: rootPref, setRoot, bpm, setBpm, soun
               onTap={m => { const ctx = audio(); void ctx.resume(); playNote(m + capo, ctx.currentTime + 0.01, 0.75, undefined, { sound }) }} />
             <TabView track={track} mode="fret" flats={flats} cursor={at} playing={playing} states={states} version={0} spans={[]}
               onTap={tapNote} counts meter={meter} />
+            <HandGuide track={track} cursor={at} />
             <input className="ex-seek" type="range" min={0} max={Math.max(0, flat.length - 1)} value={Math.min(at, flat.length - 1)} onChange={e => seek(Number(e.target.value))} aria-label="Where to start" />
             <div className="row small muted" style={{ justifyContent: 'space-between' }}>
               <span>Tap to hear & seek · {meter}/4</span>

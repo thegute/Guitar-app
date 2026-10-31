@@ -1,5 +1,6 @@
 // Learn: today's goal and streak, the away-from-guitar switch, today's plan, quests, the practice course,
 // the path to mastery, and the tools (ear training, theory, CAGED, circle of fifths, chord changes, rhythm).
+import { Win, WinArea } from '../components/Win'
 import { ArtThumb } from '../components/Art'
 import { useEffect, useRef, useState } from 'react'
 import { IconGear } from '../components/Icons'
@@ -277,7 +278,8 @@ export function LearnScreen() {
         { id: 'explore', label: 'Explore' },
       ]} />
 
-      {page === 'today' && <section className={`today-card${counted ? ' counted' : ''}`} aria-label="Today">
+      {page === 'today' && <WinArea area="learnToday" className="win-cols">
+      <Win id="today" title="Today" className="today-win" bodyClass={`today-card${counted ? ' counted' : ''}`} resizable={false}>
         <div className="pick-wrap">
           <PsyArt kind="mandala" className="pick-mandala" />
           <PickRing value={minutes} goal={goal} />
@@ -308,11 +310,7 @@ export function LearnScreen() {
           <button aria-pressed={away} onClick={() => !away && toggleAway(true)}>I'm away from my {inst.noun}</button>
         </div>
         {awayNote && <p className="small away-note" role="status">{awayNote}</p>}
-      </section>}
-
-      {page === 'today' && (
-        <div className="learn-cols">
-          <div className="learn-col">
+      </Win>
             {askAbout && (
               <section className="panel about-card" aria-label="About you">
                 <div className="sec-head"><h2>Make the plan yours</h2><button className="btn sm ghost" onClick={skipProfile}>Not now</button></div>
@@ -320,9 +318,8 @@ export function LearnScreen() {
                 <ProfileForm />
               </section>
             )}
-            <section className="panel plan" aria-label="Today's plan">
+            <Win id="plan" title="Today's plan" className="panel plan">
               <div className="sec-head">
-                <h2>Today's plan</h2>
                 <span className="small muted">{planDone}/{plan.length} done · about {plan.reduce((a, p) => a + p.minutes, 0)} min</span>
               </div>
               <ol className="plan-list">
@@ -336,12 +333,9 @@ export function LearnScreen() {
                   </li>
                 ))}
               </ol>
-            </section>
-          </div>
-          <div className="learn-col">
-            <section className="panel quests" aria-label="Daily quests">
+            </Win>
+            <Win id="quests" title="Daily quests" className="panel quests">
               <div className="sec-head">
-                <h2>Daily quests</h2>
                 <span className="small muted">{questsDone}/{quests.length} done · new ones tomorrow</span>
               </div>
               <ul className="quest-list">
@@ -356,16 +350,14 @@ export function LearnScreen() {
                   )
                 })}
               </ul>
-            </section>
+            </Win>
             {st.total >= 5 && (!lastBackup() || Date.now() - lastBackup()! > 14 * 864e5) && (
               <button className="backup-nudge" onClick={() => push({ k: 'settings' })}>
                 <b>Back up your progress</b>
                 <span className="small muted">Last backup: {ago(lastBackup())}. Save your songs and {st.total} practice days to Google Drive in Settings.</span>
               </button>
             )}
-          </div>
-        </div>
-      )}
+      </WinArea>}
 
       {page === 'course' && (
         <div className="learn-cols">

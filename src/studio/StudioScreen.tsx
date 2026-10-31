@@ -9,8 +9,10 @@ import { InputRecorder } from '../audio/looper'
 import { kindOf, latencyMs } from '../audio/gear'
 import { usePersist } from '../components/Controls'
 import { Fold } from '../components/Fold'
+import { Win, WinArea } from '../components/Win'
 import { Fretboard } from '../components/Fretboard'
 import { TabView } from '../components/TabView'
+import { HandGuide } from '../components/HandGuide'
 import { usePedals, type PedalAction } from '../controls/pedals'
 import { useFoldPosture } from '../play/fold'
 import { useInstrument } from '../instrument'
@@ -20,7 +22,7 @@ import { scaleById, scaleInfo } from '../theory/scales'
 import { askAssistant } from '../assistant/bus'
 import {
   PADS, STARTERS, deleteStored, loadBeat, newId, onBeatChange, padsFor, saveBeat, savedBeats, setBars, storeBeat, totalSteps, voiceLabel,
-  type Beat, type PNote, type Track,
+  PATTERNS, patternLayer, type Beat, type DrumLayer, type PNote, type Pattern, type Track,
 } from './beat'
 import { CHORD_TYPES, INSTRS, INSTR_GROUPS, chordNotes, instr, keyChord, loadInstr, type Voicing } from './sounds'
 import { StudioTransport, type LoopLayer } from './transport'
@@ -28,8 +30,6 @@ import { deleteLoop, fitToBars, gridOffset, levelLoop, loopsFor, rotate, saveLoo
 import { beatChords, scalesFor } from './practice'
 import { guessPads, loadMyPads, loadSample, mySounds, mySoundsAvailable, pickSoundFolder, saveMySounds, type MySounds } from './mySounds'
 
-type PlayView = 'pads' | 'keys' | 'loops' | 'practice'
-type EditView = 'steps' | 'roll' | 'mix'
 type SetBeat = (f: Beat | ((b: Beat) => Beat), remember?: boolean) => void
 const QUANT: { id: number; label: string }[] = [{ id: 1, label: '1/16' }, { id: 2, label: '1/8' }, { id: 4, label: '1/4' }, { id: 0, label: 'Off' }]
 const noteName = (m: number, flats: boolean) => (flats ? FLATS : SHARPS)[m % 12] + (Math.floor(m / 12) - 1)
@@ -44,9 +44,7 @@ const useStep = (t: StudioTransport) => useSyncExternalStore(f => t.onStep(f), (
 
 export function StudioScreen({ active }: { active: boolean }) {
   const [beat, setBeatRaw] = useState<Beat>(() => loadBeat())
-  const [mode, setMode] = usePersist<'play' | 'edit'>('studioMode', 'play')
-  const [view, setView] = usePersist<PlayView>('studioPlayView', 'pads')
-  const [editView, setEditView] = usePersist<EditView>('studioEditView', 'steps')
+  const [view, setView] = usePersist<'pads' | 'keys'>('studioTableView', 'pads')
   const [playing, setPlaying] = useState(false)
   const [recording, setRecording] = useState(false)
   const [quant, setQuant] = usePersist('studioQuant', 1)
@@ -86,10 +84,33 @@ export function StudioScreen({ active }: { active: boolean }) {
   const play = (countIn = 0) => { void audio().resume(); tr().start(countIn); setPlaying(true) }
   const stop = () => { loops.cancel(); t.current?.stop(); setPlaying(false); setRecording(false) }
   const toggleRecord = () => {
+    take.current = null
     if (recording) { setRecording(false); setMsg(''); return }
     setRecording(true)
     if (!tr().playing) play(4)
-    setMsg('Recording: play the pads or the keys. What you play snaps to the grid.')
+    setMsg('Recording: each time round the loop, what you play on the pads becomes a new layer, snapped to the grid. Keys go into the piano roll.')
+  }
+  // pads recorded with ● go into a new drum layer each time round the loop, so you build a beat loop by loop
+  const take = useRef<{ id: string; pass: number; hits: number } | null>(null)
+  const recordHit = (voice: Voice, vel: number) => {
+    const s = recStep()
+    const x = t.current
+    if (s === null || !x) return
+    const pass = Math.floor((audio().currentTime - outLatency() - x.t0 + x.stepDur / 2) / x.loopDur)
+    let tk = take.current
+    const fresh = !tk || (tk.pass !== pass && tk.hits > 0)
+    if (fresh) tk = take.current = { id: newId(), pass, hits: 0 }
+    tk!.pass = pass
+    tk!.hits++
+    const id = tk!.id
+    setBeat(b => {
+      const n = totalSteps(b)
+      const layers = b.layers ?? []
+      const L = layers.find(l => l.id === id) ?? { id, label: `Take ${layers.filter(l => l.label.startsWith('Take')).length + 1}`, rows: [] }
+      const rows = L.rows.some(r => r.voice === voice) ? L.rows : [...L.rows, { voice, steps: Array(n).fill(0) }]
+      const next = { ...L, rows: rows.map(r => (r.voice === voice ? { ...r, steps: r.steps.map((v, i) => (i === s ? Math.max(v, vel) : v)) } : r)) }
+      return { ...b, layers: layers.some(l => l.id === id) ? layers.map(l => (l.id === id ? next : l)) : [...layers, next] }
+    }, fresh)
   }
   const undo = () => { const p = history.current.pop(); if (p) setBeat(p, false) }
   /** The step a hit made right now belongs to (snapped to the grid), or null when not recording. */
@@ -115,7 +136,7 @@ export function StudioScreen({ active }: { active: boolean }) {
   const wide = width >= 720
   const flats = keyPrefersFlats(beat.key, beat.minor)
   const header = (
-    <section className="panel st-top">
+    <Win id="top" title="Controls" className="panel st-top" bodyClass="">
       <div className="st-transport">
         <button className={`btn primary st-play${playing ? ' on' : ''}`} onClick={() => (playing ? stop() : play())} aria-label={playing ? 'Stop' : 'Play'}>{playing ? '■' : '▶'}</button>
         <button className={`btn st-rec${recording ? ' on' : ''}`} onClick={toggleRecord} aria-pressed={recording} aria-label="Record what you play into the beat">●</button>
@@ -165,39 +186,26 @@ export function StudioScreen({ active }: { active: boolean }) {
         </>
       )}
       {msg && <p className="small muted" style={{ margin: 0 }} role="status">{msg}</p>}
-    </section>
+    </Win>
   )
 
-  const views = mode === 'play'
-    ? (wide ? [['pads', 'Pads + keys'], ['loops', 'Looper'], ['practice', 'Practise over it']] : [['pads', 'Pads'], ['keys', 'Keys'], ['loops', 'Looper'], ['practice', 'Practise over it']]) as [PlayView, string][]
-    : ([['steps', 'Steps'], ['roll', 'Piano roll'], ['mix', 'Mix']] as [EditView, string][])
-  const cur = mode === 'play' ? (wide && view === 'keys' ? 'pads' : view) : editView
-  const nav = (
-    <div className="st-nav">
-      <div className="seg st-views" role="tablist" aria-label={mode === 'play' ? 'Play' : 'Edit'}>
-        {views.map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={cur === id} aria-pressed={cur === id} onClick={() => (mode === 'play' ? setView(id as PlayView) : setEditView(id as EditView))}>{label}</button>
-        ))}
-      </div>
-      <button className={`btn sm${mode === 'edit' ? ' primary' : ''}`} onClick={() => setMode(mode === 'play' ? 'edit' : 'play')}>{mode === 'play' ? '✎ Edit the beat' : 'Done editing'}</button>
-    </div>
-  )
-  const pads = <Pads t={tr()} beat={beat} setBeat={setBeat} recStep={recStep} mine={mine} setMine={setMine} />
+  const pads = <Pads t={tr()} beat={beat} setBeat={setBeat} recordHit={recordHit} mine={mine} setMine={setMine} />
   const keys = <Keys t={tr()} beat={beat} setBeat={setBeat} recStep={recStep} quant={quant} />
-  const tabletop = active && posture.tabletop && mode === 'play' && (view === 'pads' || view === 'keys')
+  const tabletop = active && posture.tabletop
 
   return (
     <div className="stack studio" style={{ gap: 10 }} ref={box}>
-      {header}
-      {nav}
-      {mode === 'play' && cur === 'pads' && wide && <div className="st-duo">{pads}{keys}</div>}
-      {mode === 'play' && cur === 'pads' && !wide && pads}
-      {mode === 'play' && cur === 'keys' && keys}
-      {mode === 'play' && cur === 'loops' && <Looper t={tr()} beat={beat} loops={loops} playing={playing} play={play} pedalMode={pedalMode} setPedalMode={setPedalMode} />}
-      {mode === 'play' && cur === 'practice' && <Practice t={tr()} beat={beat} flats={flats} />}
-      {mode === 'edit' && cur === 'steps' && <Steps beat={beat} setBeat={setBeat} t={tr()} />}
-      {mode === 'edit' && cur === 'roll' && <Roll t={tr()} beat={beat} setBeat={setBeat} />}
-      {mode === 'edit' && cur === 'mix' && <Mix t={tr()} beat={beat} setBeat={setBeat} />}
+      <WinArea area="studio" className={`st-wins${wide ? ' wide' : ''}`} defaultHidden={['steps', 'roll', 'mix', 'practice']}>
+        {header}
+        {pads}
+        <Win id="layers" title="Drum layers" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}><Layers beat={beat} setBeat={setBeat} /></Win>
+        {keys}
+        <Looper t={tr()} beat={beat} loops={loops} playing={playing} play={play} pedalMode={pedalMode} setPedalMode={setPedalMode} />
+        <Win id="steps" title="Step grid" className="panel"><Steps beat={beat} setBeat={setBeat} t={tr()} /></Win>
+        <Roll t={tr()} beat={beat} setBeat={setBeat} />
+        <Mix t={tr()} beat={beat} setBeat={setBeat} />
+        <Practice t={tr()} beat={beat} flats={flats} />
+      </WinArea>
       {tabletop && (
         <div className="st-table" style={{ gridTemplateRows: `${posture.top}px ${posture.hinge}px 1fr` }} role="region" aria-label="Beat maker, half-folded">
           <div className="st-table-top">
@@ -295,10 +303,13 @@ function SaveRow({ beat, setBeat }: { beat: Beat; setBeat: (b: Beat) => void }) 
 
 // ───────────────────────── pads (finger drumming)
 const PAD_HUE: Partial<Record<Voice, number>> = { kick: 0, snare: 28, clap: 45, rim: 60, ghost: 28, hat: 180, open: 195, pedal: 170, crash: 210, ride: 225, bell: 240, china: 255, splash: 215, tom1: 300, tom2: 310, tom3: 320, impact: 350, riser: 270, snap: 140 }
-function Pads({ t, beat, setBeat, recStep, mine, setMine }: { t: StudioTransport; beat: Beat; setBeat: SetBeat; recStep: () => number | null; mine: MySounds; setMine: (m: MySounds) => void }) {
+const MAIN: Voice[] = ['kick', 'snare', 'hat']
+function Pads({ t, beat, recordHit, mine, setMine }: { t: StudioTransport; beat: Beat; setBeat: SetBeat; recordHit: (v: Voice, vel: number) => void; mine: MySounds; setMine: (m: MySounds) => void }) {
   const [page, setPage] = usePersist<'kit' | 'perc'>('studioPadPage', 'kit')
   const [repeat, setRepeat] = usePersist<number>('studioRepeat', 0)
-  const voices = page === 'kit' ? padsFor(beat.kit) : PADS.perc
+  const [size, setSize] = usePersist<'s' | 'm' | 'l'>('studioPadSize', 'm')
+  // the three you use most come first, as big pads with room between them
+  const voices = page === 'kit' ? [...MAIN, ...padsFor(beat.kit).filter(v => !MAIN.includes(v))] : PADS.perc
   const grid = useRef<HTMLDivElement>(null)
   const repeats = useRef(new Map<number, ReturnType<typeof setInterval>>())
   const rows = useRef(beat.rows)
@@ -313,15 +324,6 @@ function Pads({ t, beat, setBeat, recStep, mine, setMine }: { t: StudioTransport
       if (pad) flash(pad, 'lit')
     }
   }), [t])
-  const record = (voice: Voice, vel: number) => {
-    const s = recStep()
-    if (s === null) return
-    setBeat(b => {
-      const n = totalSteps(b)
-      const rs = b.rows.some(r => r.voice === voice) ? b.rows : [...b.rows, { voice, steps: Array(n).fill(0) }]
-      return { ...b, rows: rs.map(r => (r.voice === voice ? { ...r, steps: r.steps.map((v, i) => (i === s ? Math.max(v, vel) : v)) } : r)) }
-    })
-  }
   const down = (e: React.PointerEvent<HTMLButtonElement>, voice: Voice) => {
     e.preventDefault()
     // the sound first, before anything else
@@ -330,7 +332,7 @@ function Pads({ t, beat, setBeat, recStep, mine, setMine }: { t: StudioTransport
     t.hit(voice, vel)
     flash(e.currentTarget, 'hit')
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
-    record(voice, vel)
+    recordHit(voice, vel)
     if (repeat > 0) {
       // note repeat: keeps hitting on the grid while you hold the pad (in time with the beat when it's running)
       const every = t.stepDur * repeat
@@ -346,11 +348,14 @@ function Pads({ t, beat, setBeat, recStep, mine, setMine }: { t: StudioTransport
   }
   useEffect(() => () => repeats.current.forEach(clearInterval), [])
   return (
-    <section className="panel stack st-padpanel" style={{ gap: 8 }}>
+    <Win id="pads" title="Drum pads" className="panel st-padpanel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
       <div className="row" style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
         <div className="seg" role="group" aria-label="Pad page">
           <button aria-pressed={page === 'kit'} onClick={() => setPage('kit')}>Drums</button>
           <button aria-pressed={page === 'perc'} onClick={() => setPage('perc')}>Percussion</button>
+        </div>
+        <div className="seg" role="group" aria-label="Pad size">
+          {(['s', 'm', 'l'] as const).map(z => <button key={z} aria-pressed={size === z} onClick={() => setSize(z)}>{z === 's' ? 'Small' : z === 'm' ? 'Medium' : 'Big'}</button>)}
         </div>
         <label className="field st-field st-inline"><span>Hold to repeat</span>
           <select className="select sm" value={repeat} onChange={e => setRepeat(Number(e.target.value))}>
@@ -358,9 +363,9 @@ function Pads({ t, beat, setBeat, recStep, mine, setMine }: { t: StudioTransport
           </select>
         </label>
       </div>
-      <div className="st-pads" ref={grid}>
+      <div className={`st-pads size-${size}`} ref={grid}>
         {voices.map(v => (
-          <button key={v} data-voice={v} className={`st-pad${mine.map[v] ? ' mine' : ''}`} style={{ ['--h' as string]: String(PAD_HUE[v] ?? 120) }}
+          <button key={v} data-voice={v} className={`st-pad${page === 'kit' && MAIN.includes(v) ? ' big' : ''}${mine.map[v] ? ' mine' : ''}`} style={{ ['--h' as string]: String(PAD_HUE[v] ?? 120) }}
             onPointerDown={e => down(e, v)} onPointerUp={up} onPointerCancel={up} onContextMenu={e => e.preventDefault()}>
             <span>{voiceLabel(v)}</span>
           </button>
@@ -368,7 +373,7 @@ function Pads({ t, beat, setBeat, recStep, mine, setMine }: { t: StudioTransport
       </div>
       <LagNote />
       {mySoundsAvailable() && <MySoundsPanel pads={voices} mine={mine} setMine={setMine} />}
-    </section>
+    </Win>
   )
 }
 
@@ -468,7 +473,7 @@ function Steps({ beat, setBeat, t, compact = false }: { beat: Beat; setBeat: Set
   const addable = [...new Set([...padsFor(beat.kit), ...PADS.perc])].filter(v => !beat.rows.some(r => r.voice === v))
   const showTools = !compact && (wide || tools)
   return (
-    <section className={`${compact ? '' : 'panel '}stack`} style={{ gap: 8 }} ref={box}>
+    <section className="stack" style={{ gap: 8 }} ref={box}>
       {!compact && (
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <div className="seg" role="group" aria-label="Tap paints">
@@ -548,6 +553,10 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
   const [lo, setLo] = useState(() => startOctave(inst))
   const [width, setWidth] = useState(360)
   const [shown, setShown] = useState('')
+  const [lit, setLit] = useState<Set<number>>(new Set())
+  const [last, setLast] = useState<{ pcs: number[]; root: number; label: string } | null>(null)
+  const [neck, setNeck] = usePersist('studioKeysNeck', true)
+  const guitar = useInstrument()
   const box = useRef<HTMLDivElement>(null)
   const notes = useRef(new Map<number, { stop: () => void; midis: number[]; start: number | null; at: number }>())
   useEffect(() => { void loadInstr(inst) }, [inst])
@@ -583,6 +592,8 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
     e.currentTarget.classList.add('down')
     notes.current.set(e.pointerId, { stop: () => hs.forEach(h => h.stop()), midis: ns, start: recStep(), at: audio().currentTime })
     setShown(label)
+    setLit(new Set([...notes.current.values()].flatMap(x => x.midis)))
+    setLast({ pcs: [...new Set(ns.map(x => x % 12))], root: m % 12, label })
   }
   const up = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.currentTarget.classList.remove('down')
@@ -590,6 +601,7 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
     if (!n) return
     n.stop()
     notes.current.delete(e.pointerId)
+    setLit(new Set([...notes.current.values()].flatMap(x => x.midis)))
     if (n.start === null) return
     // recorded: as long as the key was held, snapped to the grid
     const heldSteps = (audio().currentTime - n.at) / t.stepDur
@@ -603,7 +615,7 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
   }
   const whiteKeys = midis.filter(m => !isBlack(m))
   return (
-    <section className="panel stack st-keypanel" style={{ gap: 8 }}>
+    <Win id="keys" title="Keyboard" className="panel st-keypanel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
       <div className="st-row">
         <InstrumentSelect value={inst} onChange={id => { setInst(id); setLo(startOctave(id)) }} />
         <div className="seg" role="group" aria-label="Octave">
@@ -636,27 +648,41 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
         </div>
       )}
       <div className="st-shown readout" aria-live="polite">{shown || ' '}</div>
-      <div className="st-keys" ref={box} style={{ ['--kw' as string]: `${100 / whiteKeys.length}%` }}>
+      <div className="st-keys" ref={box} style={{ ['--kw' as string]: `${100 / whiteKeys.length}%`, height: size === 's' ? 150 : size === 'm' ? 200 : 260 }}>
         {whiteKeys.map(m => (
-          <button key={m} className={`st-key white${inKey(m) ? ' inkey' : ''}${m % 12 === keyPc ? ' root' : ''}`}
+          <button key={m} className={`st-key white${inKey(m) ? ' inkey' : ''}${m % 12 === keyPc ? ' root' : ''}${lit.has(m) ? ' chord' : ''}`}
             onPointerDown={e => down(e, m)} onPointerUp={up} onPointerCancel={up} onContextMenu={e => e.preventDefault()} aria-label={noteName(m, flats)}>
+            {lit.has(m) && <span className="st-kname">{noteName(m, flats).replace(/-?\d+$/, '')}</span>}
             <span>{m % 12 === 0 || m % 12 === keyPc ? noteName(m, flats) : ''}</span>
           </button>
         ))}
         {midis.filter(isBlack).map(m => {
           const wi = whiteKeys.filter(x => x < m).length
           return (
-            <button key={m} className={`st-key black${inKey(m) ? ' inkey' : ''}`} style={{ left: `calc(${wi} * var(--kw) - var(--kw) * 0.3)` }}
+            <button key={m} className={`st-key black${inKey(m) ? ' inkey' : ''}${lit.has(m) ? ' chord' : ''}`} style={{ left: `calc(${wi} * var(--kw) - var(--kw) * 0.3)` }}
               onPointerDown={e => down(e, m)} onPointerUp={up} onPointerCancel={up} onContextMenu={e => e.preventDefault()} aria-label={noteName(m, flats)} />
           )
         })}
       </div>
+      <div className="row" style={{ gap: 8, justifyContent: 'space-between' }}>
+        <span className="small muted">{last ? `${last.label} on the guitar neck: gold notes, the root in red` : 'Play a chord to see it on the guitar neck'}</span>
+        <button className="btn sm ghost" aria-pressed={neck} onClick={() => setNeck(!neck)}>{neck ? 'Hide neck' : 'Show on guitar neck'}</button>
+      </div>
+      {neck && last && (
+        <Fretboard tuning={guitar.midis} zoomId="studioKeysNeck" compact
+          markFor={midi => {
+            const q = midi % 12
+            if (!last.pcs.includes(q)) return null
+            return { label: (flats ? FLATS : SHARPS)[q], role: q === last.root ? 'root' : 'chord' }
+          }}
+          onTap={midi => { const h = t.press('neck', 'clean', midi, 0.8); setTimeout(() => h.stop(), 600) }} />
+      )}
       <p className="small muted" style={{ margin: 0 }}>
         {mode === 'type' ? 'Pick a chord type: each key plays that chord on it. Or hold a type with one hand and play keys with the other to switch on the fly.'
           : mode === 'key' ? `One finger plays the right chord of ${beat.key}${beat.minor ? ' minor' : ' major'} on each dotted key.`
             : 'Play several keys at once for chords. Dotted keys are in the key. With ● on, what you play goes into the piano roll.'}
       </p>
-    </section>
+    </Win>
   )
 }
 
@@ -702,7 +728,7 @@ function Roll({ t, beat, setBeat }: { t: StudioTransport; beat: Beat; setBeat: S
     setBeat(b => ({ ...b, tracks: b.tracks.map(x => (x.id === track.id ? { ...x, notes: [...x.notes, ...ms.map(mm => ({ s, l: Math.min(len, n - s), m: mm, v: 0.75 }))] } : x)) }))
   }
   return (
-    <section className="panel stack" style={{ gap: 8 }}>
+    <Win id="roll" title="Piano roll" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
       <div className="st-row">
         {beat.tracks.length > 0 && (
           <label className="field st-field"><span>Part</span>
@@ -750,7 +776,7 @@ function Roll({ t, beat, setBeat }: { t: StudioTransport; beat: Beat; setBeat: S
           <p className="small muted" style={{ margin: 0 }}>Tap an empty square to add a note (or a whole chord), tap a note to remove it. Shaded rows are in the key.</p>
         </>
       ) : <p className="muted" style={{ margin: 0 }}>No parts yet. Add one above (piano, strings, a synth…), or play the keys with ● on.</p>}
-    </section>
+    </Win>
   )
 }
 
@@ -873,7 +899,7 @@ function Looper({ t, beat, loops, playing, play, pedalMode, setPedalMode }: { t:
   const { mode, setMode, align, setAlign, state, note, layers } = loops
   const busy = state !== 'idle'
   return (
-    <section className="panel stack" style={{ gap: 10 }}>
+    <Win id="loops" title="Looper" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }}>
       <div className="st-loophead">
         <BeatLight t={t} playing={playing} big label={state === 'rec' ? 'REC' : undefined} />
         <div className="stack" style={{ gap: 8, flex: 1, minWidth: 0 }}>
@@ -914,7 +940,7 @@ function Looper({ t, beat, loops, playing, play, pedalMode, setPedalMode }: { t:
       <p className="small muted" style={{ margin: 0 }}>
         <b>On the beat</b>: a bar of count-in, then it records exactly {beat.bars} bar{beat.bars > 1 ? 's' : ''} and stops itself. <b>Free</b>: start and stop whenever; it becomes 1, 2, 4 or 8 bars at this tempo without changing pitch. Loops are levelled so they're never too quiet (up to 2× louder with the slider). The input's delay is taken off (measure it in Jam → Looper → timing check).
       </p>
-    </section>
+    </Win>
   )
 }
 
@@ -937,7 +963,7 @@ function Practice({ t, beat, flats }: { t: StudioTransport; beat: Beat; flats: b
   const track = song?.tracks[0]
   const states = useMemo(() => new Uint8Array(track ? track.bars.reduce((a, b) => a + b.steps.length, 0) : 0), [track])
   return (
-    <section className="panel stack" style={{ gap: 10 }}>
+    <Win id="practice" title="Practise over it" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }}>
       <p className="small muted" style={{ margin: 0 }}>Press ▶ and solo along. The neck shows {scaleById(scaleId).label.toLowerCase()} in {beat.key}{beat.minor ? ' minor' : ''}; the gold notes are the chord playing now, so land on them when it changes.</p>
       <div className="st-chords" aria-label="Chords in the beat">
         {chords.map((c, i) => <span key={i} className={`chip${i === bar && step >= 0 ? ' on' : ''}`}>{c?.name ?? '–'}</span>)}
@@ -964,8 +990,9 @@ function Practice({ t, beat, flats }: { t: StudioTransport; beat: Beat; flats: b
         </select>
       </label>
       {track && <TabView track={track} mode="fret" flats={flats} cursor={-1} playing={false} states={states} version={0} spans={[]} counts meter={song?.meter ?? 4} onTap={() => {}} />}
+      {track && <HandGuide track={track} />}
       {!chords.some(Boolean) && <p className="small muted" style={{ margin: 0 }}>This beat has no chord parts yet, so the neck shows the whole key. Add chords with the keys (● on) or the piano roll.</p>}
-    </section>
+    </Win>
   )
 }
 
@@ -979,7 +1006,7 @@ function Mix({ t, beat, setBeat }: { t: StudioTransport; beat: Beat; setBeat: Se
     <li key={key}><span className="st-mlabel">{label}</span><input type="range" min={0} max={1.5} step={0.05} value={vol} onChange={e => onVol(Number(e.target.value))} aria-label="Volume" />{extra}</li>
   )
   return (
-    <section className="panel stack" style={{ gap: 8 }}>
+    <Win id="mix" title="Mix" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
       <ul className="st-mix">
         {row('drums', <b>Drums</b>, beat.drumVol, v => setBeat(b => ({ ...b, drumVol: v }), false))}
         {beat.tracks.map((x, i) => row(x.id, <span>{i + 1}. {instr(x.inst).label}</span>, x.vol, v => setBeat(b => ({ ...b, tracks: b.tracks.map(y => (y.id === x.id ? { ...y, vol: v } : y)) }), false),
@@ -992,6 +1019,41 @@ function Mix({ t, beat, setBeat }: { t: StudioTransport; beat: Beat; setBeat: Se
       </ul>
       <label className="ex-check"><input type="checkbox" checked={click} onChange={e => setClick(e.target.checked)} /> Click on every beat</label>
       <p className="small muted" style={{ margin: 0 }}>Space is the reverb: more for pads, strings and choir, little for bass and drums.</p>
-    </section>
+    </Win>
+  )
+}
+
+// ───────────────────────── drum layers: one-tap patterns + each pass recorded on the pads
+function Layers({ beat, setBeat }: { beat: Beat; setBeat: SetBeat }) {
+  const layers = beat.layers ?? []
+  const setLayer = (id: string, patch: Partial<DrumLayer>) => setBeat(b => ({ ...b, layers: (b.layers ?? []).map(l => (l.id === id ? { ...l, ...patch } : l)) }), false)
+  const toggle = (p: Pattern) => setBeat(b => {
+    const ls = b.layers ?? []
+    const on = ls.find(l => l.label === p.label)
+    return { ...b, layers: on ? ls.filter(l => l !== on) : [...ls, patternLayer(p, b.bars)] }
+  })
+  return (
+    <>
+      <p className="small muted" style={{ margin: 0 }}>Tap a pattern to add it as a layer (tap again to take it off). Or press ● and play the pads: each time round the loop becomes a new layer, snapped to the beat.</p>
+      <div className="st-patterns">
+        {PATTERNS.map(p => {
+          const on = layers.some(l => l.label === p.label)
+          return <button key={p.id} className={`chip${on ? ' on' : ''}`} aria-pressed={on} onClick={() => toggle(p)}>{on ? '✓ ' : '+ '}{p.label}</button>
+        })}
+      </div>
+      {layers.length > 0 && (
+        <ul className="st-layers">
+          {layers.map(l => (
+            <li key={l.id} className={l.mute ? 'muted' : ''}>
+              <b>{l.label}</b><span className="small muted">{[...new Set(l.rows.map(r => voiceLabel(r.voice)))].join(', ')}</span>
+              <input type="range" min={0} max={1.5} step={0.05} value={l.vol ?? 1} onChange={e => setLayer(l.id, { vol: Number(e.target.value) })} aria-label={`${l.label} volume`} />
+              <button className="btn sm ghost" aria-pressed={!!l.mute} onClick={() => setLayer(l.id, { mute: !l.mute })} title="Mute">M</button>
+              <button className="btn sm ghost" onClick={() => setBeat(b => ({ ...b, layers: (b.layers ?? []).filter(x => x.id !== l.id) }))} aria-label={`Remove ${l.label}`}>✕</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {layers.length > 0 && <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => setBeat(b => ({ ...b, layers: (b.layers ?? []).slice(0, -1) }))}>↶ Remove the last layer</button>}
+    </>
   )
 }

@@ -9,6 +9,7 @@ import { PICK_PATTERNS, pickPattern } from '../tabs/picking'
 import { MELODY_LEVELS, MELODY_STYLES, type MelNote, type MelodyLevel, type MelodyStyle } from '../tabs/chordMelody'
 import { chordMelodyDoc, pickingDoc } from '../tabs/fromProgression'
 import { flatten } from '../tabs/model'
+import { HandGuide } from './HandGuide'
 import type { SongDoc } from '../tabs/library'
 import { TabView } from './TabView'
 import { Chips, usePersist } from './Controls'
@@ -53,6 +54,7 @@ export function Preview({ doc, minor }: { doc: SongDoc; minor: boolean }) {
       </div>
       <TabView track={track} mode="fret" flats={keyPrefersFlats(doc.key?.root ?? 'C', minor)} cursor={at} playing={at >= 0} states={states} version={0} spans={[]}
         onTap={() => {}} />
+      <HandGuide track={track} cursor={at} />
     </div>
   )
 }
