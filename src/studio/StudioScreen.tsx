@@ -16,6 +16,7 @@ import { HandGuide } from '../components/HandGuide'
 import { usePedals, type PedalAction } from '../controls/pedals'
 import { useFoldPosture } from '../play/fold'
 import { useInstrument } from '../instrument'
+import { shapesFor as shapesForChord } from '../theory/shapes'
 import { exerciseCatalog } from '../exercises/catalog'
 import { FLATS, KEYS, SHARPS, keyPrefersFlats, pc } from '../theory/notes'
 import { scaleById, scaleInfo } from '../theory/scales'
@@ -554,7 +555,9 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
   const [width, setWidth] = useState(360)
   const [shown, setShown] = useState('')
   const [lit, setLit] = useState<Set<number>>(new Set())
-  const [last, setLast] = useState<{ pcs: number[]; root: number; label: string } | null>(null)
+  const [last, setLast] = useState<{ pcs: number[]; root: number; label: string; type: string } | null>(null)
+  const [shapeAt, setShapeAt] = useState(0)
+  const [neckAll, setNeckAll] = usePersist('studioNeckAll', false)
   const [neck, setNeck] = usePersist('studioKeysNeck', true)
   const guitar = useInstrument()
   const box = useRef<HTMLDivElement>(null)
@@ -593,7 +596,8 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
     notes.current.set(e.pointerId, { stop: () => hs.forEach(h => h.stop()), midis: ns, start: recStep(), at: audio().currentTime })
     setShown(label)
     setLit(new Set([...notes.current.values()].flatMap(x => x.midis)))
-    setLast({ pcs: [...new Set(ns.map(x => x % 12))], root: m % 12, label })
+    setLast({ pcs: [...new Set(ns.map(x => x % 12))], root: m % 12, label, type: mode === 'type' ? curType : mode === 'key' ? keyChord(m, keyPc, beat.minor)?.label ?? '' : 'note' })
+    setShapeAt(0)
   }
   const up = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.currentTarget.classList.remove('down')
@@ -668,15 +672,42 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
         <span className="small muted">{last ? `${last.label} on the guitar neck: gold notes, the root in red` : 'Play a chord to see it on the guitar neck'}</span>
         <button className="btn sm ghost" aria-pressed={neck} onClick={() => setNeck(!neck)}>{neck ? 'Hide neck' : 'Show on guitar neck'}</button>
       </div>
-      {neck && last && (
-        <Fretboard tuning={guitar.midis} zoomId="studioKeysNeck" compact
-          markFor={midi => {
-            const q = midi % 12
-            if (!last.pcs.includes(q)) return null
-            return { label: (flats ? FLATS : SHARPS)[q], role: q === last.root ? 'root' : 'chord' }
-          }}
-          onTap={midi => { const h = t.press('neck', 'clean', midi, 0.8); setTimeout(() => h.stop(), 600) }} />
-      )}
+      {neck && last && (() => {
+        // one playable chord shape lit up (‹ › for others up the neck); every other place those notes live shown faintly
+        const t2 = last.type === 'maj' ? '' : last.type === 'min' ? 'm' : last.type
+        const shapes = last.type === 'note' ? [] : shapesForChord({ root: (flats ? FLATS : SHARPS)[last.root], type: t2 }, guitar)
+        const sh = shapes.length ? shapes[Math.min(shapeAt, shapes.length - 1)] : null
+        const lo = sh ? Math.max(0, Math.min(...sh.frets.filter(f => f > 0)) - 1) : 0
+        return (
+          <>
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+              {sh && !neckAll && <span className="small"><b>{last.label}</b>: shape {Math.min(shapeAt, shapes.length - 1) + 1} of {shapes.length}{sh.baseFret > 1 ? ` (from fret ${sh.baseFret})` : ''}</span>}
+              {sh && !neckAll && shapes.length > 1 && <span className="seg"><button onClick={() => setShapeAt((shapeAt - 1 + shapes.length) % shapes.length)} aria-label="Previous shape">‹</button><button onClick={() => setShapeAt((shapeAt + 1) % shapes.length)} aria-label="Next shape">›</button></span>}
+              {sh && !neckAll && <button className="btn sm" onClick={() => sh.midi.forEach((mm, i) => setTimeout(() => { const h = t.press('neck', 'acoustic', mm, 0.8); setTimeout(() => h.stop(), 1200) }, i * 40))}>▶ Strum it</button>}
+              <div className="seg" role="group" aria-label="What the neck shows">
+                <button aria-pressed={!neckAll} onClick={() => setNeckAll(false)}>One shape</button>
+                <button aria-pressed={neckAll} onClick={() => setNeckAll(true)}>Every place</button>
+              </div>
+            </div>
+            <Fretboard tuning={guitar.midis} zoomId="studioKeysNeck" compact
+              {...(sh && !neckAll ? { fromFret: Math.max(0, lo - 1), toFret: Math.max(6, lo + 6) } : {})}
+              markFor={(midi, str, fret) => {
+                const q = midi % 12
+                if (!last.pcs.includes(q)) return null
+                const name = (flats ? FLATS : SHARPS)[q]
+                const inShape = !!sh && !neckAll && sh.frets[str] === fret
+                if (neckAll || !sh || inShape) return { label: inShape && sh!.fingers[str] > 0 ? `${name}` : name, role: q === last.root ? 'root' : 'chord' }
+                return { label: '', role: 'ghost' }
+              }}
+              onTap={midi => { const h = t.press('neck', 'clean', midi, 0.8); setTimeout(() => h.stop(), 600) }} />
+            <p className="small muted" style={{ margin: 0 }}>
+              {neckAll || !sh
+                ? `Every place on the neck the notes of ${last.label} live (${last.pcs.map(p => (flats ? FLATS : SHARPS)[p]).join(', ')}): red is the root. Any of these together make the chord.`
+                : `Bright dots: one way to play ${last.label} (red = the root, the note the chord is named after). Faint dots are the same notes elsewhere: tap › for the next shape up the neck.`}
+            </p>
+          </>
+        )
+      })()}
       <p className="small muted" style={{ margin: 0 }}>
         {mode === 'type' ? 'Pick a chord type: each key plays that chord on it. Or hold a type with one hand and play keys with the other to switch on the fly.'
           : mode === 'key' ? `One finger plays the right chord of ${beat.key}${beat.minor ? ' minor' : ' major'} on each dotted key.`
