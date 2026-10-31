@@ -54,7 +54,10 @@ export function describe(code: string) {
 }
 
 // ---------- who receives the actions: the screen on top ----------
-type Handlers = Partial<Record<PedalAction, () => void>>
+type Handlers = Partial<Record<PedalAction, () => void>> & {
+  /** a pedal held down for ~0.7 s (after its press already fired): screens that offer "hold to stop" */
+  hold?: (a: PedalAction) => void
+}
 const stack: { h: { current: Handlers } }[] = []
 let learning: ((code: string) => void) | null = null
 let lastFired: { code: string; at: number } | null = null
@@ -72,7 +75,19 @@ function fire(code: string) {
   if (!fn) return false
   fn()
   pressed(action)
+  downAt.set(code, now)
   return true
+}
+// how long each pedal has been down, for "hold"
+const downAt = new Map<string, number>()
+const HOLD_MS = 650
+function release(code: string) {
+  const t = downAt.get(code)
+  downAt.delete(code)
+  if (t === undefined || performance.now() - t < HOLD_MS) return
+  const action = bindings()[code]
+  const top = stack[stack.length - 1]
+  if (action && top?.h.current.hold) top.h.current.hold(action)
 }
 /** Wait for the next pedal press (any key or MIDI message) and return its code. */
 export function learnNext(): Promise<string> {
@@ -104,6 +119,7 @@ if (typeof window !== 'undefined') {
     const code = `key:${e.key}`
     if (fire(code)) e.preventDefault()
   })
+  window.addEventListener('keyup', e => release(`key:${e.key}`))
 }
 
 // ---------- MIDI pedals ----------
@@ -137,6 +153,7 @@ export async function enableMidi(on: boolean) {
             const prev = ccLast.get(d1) ?? 0
             ccLast.set(d1, d2)
             if (d2 >= 64 && prev < 64) fire(`midi:cc:${d1}`)
+            else if (d2 < 64 && prev >= 64) release(`midi:cc:${d1}`)
           } else if (type === 0xc0) fire(`midi:pc:${d1}`)
         }
       })

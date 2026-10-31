@@ -375,6 +375,26 @@ export function playBass(midi: number, when: number, gain: number, dest?: AudioN
   return synthNote(midi, t, gain * 0.9, dest)
 }
 
+/** A note from any bank (the beat maker's instruments: 'gm/piano', 'gm/strings' …). `release` is how long it takes
+ *  to fade when stopped (pads and strings fade slowly). Until the bank loads, the plucked synth stands in. */
+export function playFromBank(id: string, midi: number, when: number, gain: number, dest?: AudioNode, release = 0.08): Handle {
+  const bank = banks.get(id)
+  const ctx = audio()
+  const t = Math.max(when || ctx.currentTime, ctx.currentTime)
+  if (!bank?.groups.notes) { void loadBank(id); return synthNote(midi, t, gain * 0.7, dest) }
+  const g = bank.groups.notes
+  const k = nearest(g, midi)
+  const s = take(g, k).s
+  const src = ctx.createBufferSource()
+  src.buffer = s.buf
+  src.playbackRate.value = Math.pow(2, (midi - k) / 12)
+  const v = ctx.createGain()
+  v.gain.value = gain
+  src.connect(v).connect(dest ?? out())
+  src.start(t, s.off)
+  return { stop: (at?: number) => { const e = Math.max(at ?? ctx.currentTime, t); try { v.gain.setTargetAtTime(0, e, release / 3); src.stop(e + release * 2 + 0.05) } catch { /* noop */ } } }
+}
+
 /** Warm up for a set of notes so the first strum doesn't stutter (and start loading the sound). */
 export function preload(midis: number[], sound?: SoundId) {
   const id = sound ?? activeSound()

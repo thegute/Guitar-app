@@ -1,7 +1,7 @@
 // Jam: generate chord progressions (lots of options), see every chord shape, play them back with strumming and drums,
 // record your own playing as a loop, and see which scales to solo with.
 import { micWhere } from '../audio/input'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MODES, STYLES, FLAVORS, ENDINGS, SPICE, STYLE_DEFAULTS, FN_LABEL,
   randomProgression, swapChord, spell, suggestions, scalesForProgression, scaleForChord, progChordPcs, resolveFlavor, typeTones,
@@ -38,6 +38,8 @@ import { Zoomable } from '../components/Zoomable'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { PsyPic } from '../components/PsyArt'
 import { pc } from '../theory/notes'
+
+const StudioScreen = lazy(() => import('../studio/StudioScreen').then(m => ({ default: m.StudioScreen })))
 
 const COUNTS = [2, 4, 8, 12, 16]
 const RATES = [{ id: 8, label: 'Every 2 bars' }, { id: 4, label: 'Every bar' }, { id: 2, label: 'Twice a bar' }]
@@ -92,7 +94,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [bandOpen, setBandOpen] = useState(false)
   const [tabPart, setTabPart] = usePersist<'pick' | 'melody' | 'licks'>('jamTabPart', 'pick')
   const [optionsOpen, setOptionsOpen] = usePersist('jamOptionsOpen', false)
-  const [page, setPage] = useSubTab('jam', ['jam', 'solo', 'tab', 'find'] as const)
+  const [page, setPage] = useSubTab('jam', ['jam', 'solo', 'tab', 'find', 'beats'] as const)
   const [prog, setProg] = usePersist<ProgChord[]>('jamProg', [])
   const [shapeIdx, setShapeIdx] = useState<number[]>([])
   const [locks, setLocks] = useState<boolean[]>([])
@@ -253,6 +255,8 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     void keepAwake(false)
   }
   useEffect(() => () => { transport.current?.stop(); recorder.current?.stop(); void keepAwake(false) }, [])
+  // the beat maker has its own clock: the jam loop stops when you open it
+  useEffect(() => { if (page === 'beats' && transport.current?.playing) stopAll() }, [page]) // eslint-disable-line react-hooks/exhaustive-deps
   // live changes: restart in time (layers keep their place)
   useEffect(() => {
     if (transport.current?.playing && !rec) startPlay(0)
@@ -629,6 +633,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         { id: 'solo', label: 'Solo over it' },
         { id: 'tab', label: 'Make a tab' },
         { id: 'find', label: 'Find chords' },
+        { id: 'beats', label: 'Beat maker' },
       ]} />
 
       {page === 'jam' && (
@@ -697,6 +702,8 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
               onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />}
         </section>
       )}
+
+      {page === 'beats' && <Suspense fallback={<p className="muted">Loading the beat maker…</p>}><StudioScreen active={page === 'beats'} /></Suspense>}
 
       {page === 'find' && (
         <section className="panel stack">

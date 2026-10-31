@@ -8,6 +8,7 @@ import { audio, out } from './engine'
 export type Voice = 'kick' | 'snare' | 'hat' | 'open' | 'rim' | 'ride' | 'ghost' | 'clap' | 'pedal' | 'bell' | 'crash'
   | 'tom1' | 'tom2' | 'tom3' | 'tamb' | 'cowbell' | 'shaker' | 'roto1' | 'roto2' | 'roto3'
   | 'conga' | 'congalo' | 'bongo' | 'bongolo' | 'cajon' | 'cajonslap' | 'clave' | 'guiro' | 'snap' | 'brush' | 'brushtap' | 'agogo'
+  | 'china' | 'splash' | 'riser' | 'impact'
 /** One bar of 4/4: [beat position, voice, level 0..1] */
 export type Hit = [number, Voice, number]
 /** Which recording plays the kick, snare and ride in a recorded kit. */
@@ -110,7 +111,7 @@ function synthDrum(voice: Voice, when: number, level: number, d: AudioNode) {
 }
 
 // ---------- percussion and drum machines, synthesized ----------
-const PERC = new Set<Voice>(['conga', 'congalo', 'bongo', 'bongolo', 'cajon', 'cajonslap', 'clave', 'guiro', 'snap', 'brush', 'brushtap', 'agogo'])
+const PERC = new Set<Voice>(['conga', 'congalo', 'bongo', 'bongolo', 'cajon', 'cajonslap', 'clave', 'guiro', 'snap', 'brush', 'brushtap', 'agogo', 'china', 'splash', 'riser', 'impact'])
 
 /** Build one drum sound on a (usually offline) audio context. */
 type Ctx = BaseAudioContext
@@ -187,6 +188,25 @@ function percVoice(ctx: Ctx, v: Voice, t: number, lv: number, d: AudioNode) {
     case 'snap': nz(ctx, d, t, [['bandpass', 2600, 2.5]], 0.9 * lv, 0.025); osc(ctx, d, t, 'sine', 1800, 1200, 0.01, 0.2 * lv, 0.015); break
     case 'brush': nz(ctx, d, t, [['bandpass', 3200, 0.6], ['highpass', 900, 0.7]], 0.45 * lv, 0.32, 0.06); break
     case 'brushtap': nz(ctx, d, t, [['bandpass', 2600, 0.8]], 0.7 * lv, 0.08, 0.004); break
+    case 'china': metal(ctx, d, t, 0.5 * lv, 1.3, 3000); nz(ctx, d, t, [['bandpass', 4200, 0.9], ['highpass', 2500, 0.7]], 0.65 * lv, 1.1); nz(ctx, d, t, [['bandpass', 900, 2]], 0.25 * lv, 0.25); break
+    case 'splash': metal(ctx, d, t, 0.4 * lv, 0.55, 6000); nz(ctx, d, t, [['highpass', 7000, 0.7]], 0.55 * lv, 0.6); break
+    case 'riser': {
+      // white noise sweeping up over two seconds, getting louder: the build-up before a drop
+      const src = ctx.createBufferSource()
+      const len = Math.ceil(ctx.sampleRate * 2.2)
+      const b = ctx.createBuffer(1, len, ctx.sampleRate)
+      const x = b.getChannelData(0)
+      for (let i = 0; i < len; i++) x[i] = Math.random() * 2 - 1
+      src.buffer = b
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2.5
+      bp.frequency.setValueAtTime(300, t); bp.frequency.exponentialRampToValueAtTime(9000, t + 2)
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.7 * lv, t + 1.95); g.gain.linearRampToValueAtTime(0, t + 2.1)
+      src.connect(bp).connect(g).connect(d)
+      src.start(t)
+      break
+    }
+    case 'impact': osc(ctx, d, t, 'sine', 90, 32, 0.6, 1.0 * lv, 1.6); nz(ctx, d, t, [['lowpass', 1200, 0.7]], 0.6 * lv, 0.4); metal(ctx, d, t, 0.2 * lv, 1.2, 5000); break
     case 'guiro': {
       // a scrape: quick ticks of filtered noise
       for (let k = 0; k < 9; k++) nz(ctx, d, t + k * 0.018, [['bandpass', 3400, 2]], 0.45 * lv * (0.6 + 0.4 * Math.sin((k / 8) * Math.PI)), 0.012)
@@ -241,7 +261,7 @@ function machineVoice(ctx: Ctx, kit: '808' | '909', v: Voice, t: number, lv: num
 
 const MACHINE_VOICES: Voice[] = ['kick', 'snare', 'ghost', 'clap', 'rim', 'hat', 'pedal', 'open', 'ride', 'bell', 'crash', 'cowbell', 'shaker', 'tamb', 'tom1', 'tom2', 'tom3', 'roto1', 'roto2', 'roto3']
 const PERC_VOICES = [...PERC]
-const LEN: Partial<Record<Voice, number>> = { kick: 0.9, ride: 1.6, crash: 1.8, bell: 1.0, open: 0.5, brush: 0.45 }
+const LEN: Partial<Record<Voice, number>> = { kick: 0.9, ride: 1.6, crash: 1.8, bell: 1.0, open: 0.5, brush: 0.45, china: 1.5, splash: 0.8, riser: 2.3, impact: 1.8 }
 
 /** Render sounds into buffers once (cheap to play, the same as the recordings). */
 async function render(make: (ctx: Ctx, t: number, d: AudioNode) => void, secs: number): Promise<AudioBuffer> {
@@ -364,7 +384,7 @@ export const kitLoaded = (id: KitId = 'studio') => banks.has(id) && !!perc
 const VOICE_GAIN: Partial<Record<Voice, number>> = {
   kick: 1.0, snare: 0.85, ghost: 0.85, hat: 0.7, pedal: 0.6, open: 0.6, rim: 0.75, ride: 0.6, bell: 0.55, crash: 0.55,
   tom1: 0.8, tom2: 0.8, tom3: 0.85, clap: 0.7, tamb: 0.45, cowbell: 0.45, shaker: 0.5, roto1: 0.7, roto2: 0.7, roto3: 0.75,
-  conga: 0.95, congalo: 1.0, bongo: 0.85, bongolo: 0.9, cajon: 1.1, cajonslap: 1.0, clave: 0.7, guiro: 0.7, snap: 0.85, brush: 0.75, brushtap: 0.8, agogo: 0.6,
+  conga: 0.95, congalo: 1.0, bongo: 0.85, bongolo: 0.9, cajon: 1.1, cajonslap: 1.0, clave: 0.7, guiro: 0.7, snap: 0.85, brush: 0.75, brushtap: 0.8, agogo: 0.6, china: 0.6, splash: 0.55, riser: 0.6, impact: 0.9,
 }
 let openHat: { g: GainNode; t: number } | null = null
 

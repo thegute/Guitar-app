@@ -13,7 +13,7 @@ export interface PlayAction {
   open?: 'options' | 'video' | 'check' | 'loop' | 'solo'
   focus?: PlayFocus
 }
-export type JamPage = 'jam' | 'solo' | 'tab' | 'find'
+export type JamPage = 'jam' | 'solo' | 'tab' | 'find' | 'beats'
 export interface JamTarget { key?: string; mode?: ModeId; style?: Style; bpm?: number; page?: JamPage }
 
 export type Target =

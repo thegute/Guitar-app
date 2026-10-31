@@ -70,7 +70,7 @@ export function takePendingExercise(): string | null {
   pendingExercise = null
   return c
 }
-export function openJam(page: 'jam' | 'solo' | 'tab' | 'find' = 'jam') {
+export function openJam(page: 'jam' | 'solo' | 'tab' | 'find' | 'beats' = 'jam') {
   setSubPage('jam', page)
   go('progressions')
 }
