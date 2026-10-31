@@ -161,8 +161,13 @@ export async function ask(system: string, msgs: Msg[], o: { pictures?: boolean; 
   // learn which Gemini models this key has (for the backups), without making this question wait
   if (p.id === 'gemini' && !known.length) void listModels('gemini', v.keys.gemini!)
   const first = (hasImage && VISION[p.id]) || v.models[p.id] || (p.id === 'gemini' && workedModel) || p.model
-  const tries: { p: ProviderInfo; model: string }[] = (p.id === 'gemini' && !hasImage ? geminiOrder(first, known) : [first]).map(model => ({ p, model }))
-  for (const q of PROVIDERS) if (q.id !== p.id && v.keys[q.id] && (q.free || q.id === v.provider) && (!o.pictures || q.pictures)) tries.push({ p: q, model: (hasImage && VISION[q.id]) || v.models[q.id] || q.model })
+  const own = (p.id === 'gemini' && !hasImage ? geminiOrder(first, known) : [first]).map(model => ({ p, model }))
+  const others: { p: ProviderInfo; model: string }[] = []
+  for (const q of PROVIDERS) if (q.id !== p.id && v.keys[q.id] && (q.free || q.id === v.provider) && (!o.pictures || q.pictures)) others.push({ p: q, model: (hasImage && VISION[q.id]) || v.models[q.id] || q.model })
+  // your choice first; the backup asked alongside it is another service if you have one (it isn't busy when Google
+  // is), then the other Gemini models. Ones that just failed wait at the back for 10 minutes.
+  const tries = [own[0], ...others, ...own.slice(1)].filter(Boolean)
+  tries.sort((a, b) => Number(cooling(a.model)) - Number(cooling(b.model)))
   const deadline = Date.now() + (hasImage ? 90000 : 30000)
   const hedgeMs = hasImage ? 20000 : 6000
   lastTries = []
@@ -189,6 +194,7 @@ export async function ask(system: string, msgs: Msg[], o: { pictures?: boolean; 
         running--
         last = e instanceof AiError ? e : new AiError(`Couldn't reach ${t.p.label}. Check the internet connection.`)
         lastTries.push(`${t.model}: ${last.message} (${((Date.now() - t0) / 1000).toFixed(1)} s)`)
+        if (last.retry) coolUntil.set(t.model, Date.now() + 10 * 60000)
         if (leader === i) leader = -1
         if (done) return
         if (!last.retry) { if (!running) giveUp(); return }
@@ -202,6 +208,8 @@ export async function ask(system: string, msgs: Msg[], o: { pictures?: boolean; 
   })
 }
 /** A backup Gemini model that answered when your chosen one didn't: asked first for the rest of the session. */
+const coolUntil = new Map<string, number>()
+const cooling = (m: string) => (coolUntil.get(m) ?? 0) > Date.now()
 export let workedModel: string | null = (() => { try { return localStorage.getItem('kgx:aiWorked') } catch { return null } })()
 /** What happened on the last question: each model tried, how long it took and how it ended (shown under answers
  *  that fell back to the built-in helper). */
@@ -209,6 +217,7 @@ export let lastTries: string[] = []
 
 async function askOnce(p: ProviderInfo, model: string, key: string, system: string, msgs: Msg[], o: { json?: boolean; maxTokens?: number; onText?: (soFar: string) => void }, timeoutMs: number): Promise<string> {
   const max = o.maxTokens ?? 2048
+  const began = Date.now()
   const fail = (r: { status: number; data: unknown }) => new AiError(why(r.status, r.data, p), busy(r.status) || r.status === 404 || (p.id === 'gemini' && r.status === 429))
   let r: { status: number; data: unknown }
   try {
@@ -263,8 +272,8 @@ async function askOnce(p: ProviderInfo, model: string, key: string, system: stri
     return d.choices?.[0]?.message?.content ?? ''
   } catch (e) {
     if (e instanceof AiError) throw e
-    if (e instanceof Timeout) throw new AiError(`${p.label} took too long to answer.`, true)
-    throw new AiError(`Couldn't reach ${p.label}. Check the internet connection.`)
+    if (e instanceof Timeout || Date.now() - began >= timeoutMs - 1000) throw new AiError(`${p.label} took too long to answer.`, true)
+    throw new AiError(`Couldn't reach ${p.label}. Check the internet connection.`, true)
   }
 }
 
