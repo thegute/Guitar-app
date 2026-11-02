@@ -1850,10 +1850,14 @@ video.mirrored { transform: scaleX(-1); }
 .z2h-check label { display: flex; gap: 8px; align-items: flex-start; }
 .z2h-check input { width: 20px; height: 20px; flex: 0 0 auto; accent-color: var(--accent); }
 .z2h .goal-list li { display: flex; gap: 6px; align-items: center; }
-.z2h .goal-list li > button:first-child { flex: 1; }
+.z2h .goal-list li > button:first-child { flex: 1 1 auto; min-width: 0; }
+/* the small ✓ / "I can do it" / Undo buttons beside each line: only as wide as their words (they used to take half
+   the line and squeeze the text into a thin column) */
+.goal-list li > button.btn { flex: none; width: auto; display: inline-flex; grid-template-columns: none; align-items: center; justify-content: center;
+  min-width: 44px; min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); white-space: nowrap; }
 .z2h-rule { padding: 8px 10px; border-left: 3px solid var(--gold); background: color-mix(in srgb, var(--gold) 8%, transparent); border-radius: 0 8px 8px 0; }
 .st-sub { padding-left: 14px; color: var(--ink-2); }
-.ask-bubble { position: fixed; right: 10px; z-index: 45; width: 52px; height: 52px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--accent) 70%, #fff); background: var(--accent); color: var(--accent-ink); font-size: 24px; display: grid; place-items: center; box-shadow: 0 4px 14px rgba(0,0,0,0.3); touch-action: none; cursor: pointer; opacity: 0.92; }
+.ask-bubble { position: fixed; right: 10px; z-index: 45; width: 46px; height: 46px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--accent) 70%, #fff); background: var(--accent); color: var(--accent-ink); font-size: 24px; display: grid; place-items: center; box-shadow: 0 4px 14px rgba(0,0,0,0.3); touch-action: none; cursor: pointer; opacity: 0.92; }
 .ask-bubble:active { transform: scale(0.95); }
 [data-theme='psy'] .ask-bubble { background: linear-gradient(135deg, #ff3df2, #7a3cff); color: #fff; }
 .ask-convo { display: flex; flex-direction: column; gap: 10px; max-height: 55vh; overflow-y: auto; padding: 4px 2px; }
@@ -1968,15 +1972,15 @@ video.mirrored { transform: scaleX(-1); }
 .ex-sugg-card.on { border-color: var(--accent); }
 [data-theme='psy'] .ex-sugg-card { background: #1c0641; color: #f4eaff; }
 /* hands-free helper: the 🎤 under the ✨ bubble and its answer card */
-.talk-btn { position: fixed; right: 16px; z-index: 45; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--accent);
+.talk-btn { position: fixed; right: 60px; z-index: 45; width: 40px; height: 40px; margin-bottom: var(--sab); border-radius: 50%; border: 2px solid var(--accent);
   background: var(--surface); color: var(--ink); font-size: 18px; display: grid; place-items: center; box-shadow: 0 3px 10px rgba(0,0,0,0.3); cursor: pointer; }
 .talk-btn.on { background: var(--coral); color: #fff; border-color: #fff; }
 .talk-level { position: absolute; inset: -6px; border-radius: 50%; border: 3px solid var(--coral); opacity: 0.6; pointer-events: none; transition: transform 80ms; }
 .talk-card { position: fixed; z-index: 46; width: min(340px, calc(100vw - 90px)); max-height: min(60vh, 340px); overflow-y: auto;
   display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 16px; background: var(--surface);
   border: 2px solid var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
-.talk-card.from-right { right: 72px; }
-.talk-card.from-left { left: 72px; }
+.talk-card.from-right { right: 10px; }
+.talk-card.from-left { left: 10px; }
 .talk-card p { margin: 0; }
 .talk-line { font-size: 16px; }
 .talk-a { font-size: 16px; line-height: 1.35; }
@@ -2004,3 +2008,12 @@ video.mirrored { transform: scaleX(-1); }
 @media (max-width: 480px) { .stand-bar button { min-height: 58px; min-width: 58px; font-size: 21px; } .stand-bar .stand-go { font-size: 23px; } .stand-speed b { min-width: 58px; font-size: 21px; } .stand-x { margin-left: 0; } }
 [data-theme='psy'] .stand-bar button:not(.stand-go) { background: #1c0641; color: #f4eaff; }
 @media (max-width: 440px) { .stand-label { display: none; } }
+
+/* Learn → Course: your plan (Zero to Hero / path to mastery) first and full width, the practice course under it */
+.learn-cols.course-cols { grid-template-columns: minmax(0, 1fr); }
+.course-cols > .learn-col:last-child { order: -1; }
+/* beat maker looper: the two mode buttons share the full width, so "On the beat (4 bars)" doesn't stack word by word */
+.st-loophead .seg { display: flex; width: 100%; }
+.st-loophead .seg button { flex: 1 1 auto; line-height: 1.15; }
+.st-loophead .seg button:last-child { flex: 0 0 auto; }
+@media (max-width: 440px) { .st-loophead { flex-wrap: wrap; justify-content: center; } .st-loophead > .stack { flex: 1 1 100% !important; } }

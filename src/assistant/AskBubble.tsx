@@ -33,7 +33,8 @@ export function AskBubble({ context }: { context: AskContext }) {
   const read = () => { try { return JSON.parse(localStorage.getItem('kg:askBubble') ?? 'true') as boolean } catch { return true } }
   const [show, setShow] = useState(read)
   useEffect(() => { const f = () => setShow(read()); addEventListener('kg-bubble', f); return () => removeEventListener('kg-bubble', f) }, [])
-  const [y, setY] = usePersist('askBubbleY', 0.72)
+  // low in the corner by default (above the phone menu), where it covers the least; drag it anywhere
+  const [y, setY] = usePersist('askBubbleY', 0.84)
   const [side, setSide] = usePersist<'left' | 'right'>('askBubbleSide', 'right')
   const [x, setX] = useState<number | null>(null)
   const drag = useRef<{ x0: number; y0px: number; y0: number; moved: boolean } | null>(null)
@@ -131,14 +132,14 @@ export function AskBubble({ context }: { context: AskContext }) {
         <span aria-hidden>✨</span>
       </button>
       {talkOk && (
-        <button className={`talk-btn${busy ? ' on' : ''}`} style={{ top: `calc(${Math.round(y * 100)}% + 30px)`, ...(x !== null ? { left: x - 20, right: 'auto' } : side === 'left' ? { left: 16, right: 'auto' } : {}) }}
+        <button className={`talk-btn${busy ? ' on' : ''}`} style={{ top: `calc(${Math.round(y * 100)}% - 25px)`, ...(x !== null ? { left: x - 70, right: 'auto' } : side === 'left' ? { left: 60, right: 'auto' } : { right: 60 }) }}
           onClick={() => void talk()} aria-label={phase === 'listening' ? 'Stop listening' : 'Talk to the helper'} aria-pressed={busy} data-testid="talk-btn">
           <span aria-hidden>{phase === 'listening' ? '■' : '🎤'}</span>
           {phase === 'listening' && <span className="talk-level" style={{ transform: `scale(${1 + Math.min(1, Math.max(0, level) / 10) * 0.5})` }} aria-hidden />}
         </button>
       )}
       {phase !== 'idle' && (
-        <div className={`talk-card ${side === 'left' && x === null ? 'from-left' : 'from-right'}`} style={{ top: `max(8px, min(calc(${Math.round(y * 100)}% - 40px), calc(100% - 260px)))` }} role="status" aria-live="polite" data-testid="talk-card">
+        <div className={`talk-card ${side === 'left' && x === null ? 'from-left' : 'from-right'}`} style={{ top: y >= 0.45 ? `max(8px, calc(${Math.round(y * 100)}% - 40px - min(60vh, 340px)))` : `calc(${Math.round(y * 100)}% + 30px)` }} role="status" aria-live="polite" data-testid="talk-card">
           {phase === 'listening' && <p className="talk-line"><b>🎤 Listening…</b> {words ? <span>“{words}”</span> : <span className="muted">say it now</span>}</p>}
           {phase === 'thinking' && <p className="talk-line"><b>“{words}”</b> {soFar ? <span className="talk-a">{soFar}</span> : <span className="muted">thinking…</span>}</p>}
           {phase === 'error' && <p className="talk-line">{err}</p>}

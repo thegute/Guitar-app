@@ -382,7 +382,7 @@ export function LearnScreen() {
       </WinArea>}
 
       {page === 'course' && (
-        <div className="learn-cols">
+        <div className="learn-cols course-cols">
           <div className="learn-col">
             <section className="panel course" aria-label="Practice course">
               <div className="sec-head"><h2>Practice course</h2><span className="small muted">tap or play the answers · 3 stars each</span></div>
