@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type JSX, type PointerEvent as RPointerEvent } from 'react'
+import { Ico } from './components/Icon'
 import { JamScreen } from './screens/JamScreen'
 import { PlayScreen } from './screens/PlayScreen'
 import { ToolsScreen } from './screens/ToolsScreen'
@@ -183,7 +184,7 @@ export default function App() {
       {!search && <AskBubble context={tab === 'learn' ? 'learn' : tab === 'play' ? 'play' : tab === 'progressions' ? (localStorage.getItem('kg:sub:jam') === '"beats"' ? 'beat' : 'jam') : 'general'} />}
       {search && <SearchSheet onClose={() => setSearch(false)} initial={search.text} context={search.context} autoAsk={search.ask} />}
       {exitHint > 0 && <div className="pedal-toast" role="status">Press Back again to close KGuitar</div>}
-      {pedal && <div key={pedal.k} className="pedal-toast" role="status">🦶 {ACTION_LABEL[pedal.a].replace(/ \(.*\)$/, '')}</div>}
+      {pedal && <div key={pedal.k} className="pedal-toast" role="status"><Ico n="foot" /> {ACTION_LABEL[pedal.a].replace(/ \(.*\)$/, '')}</div>}
       {welcome && <Welcome onDone={then => { setWelcome(false); if (then === 'guide') openGuide(); else setTab('play') }} />}
       <ShareInbox />
       <CelebrationLayer />

@@ -1,6 +1,7 @@
 // Runs one quiz: questions picked by what you know least, answered by tapping or by playing (mic),
 // with instant feedback, a combo counter and stars at the end.
 import { micWhere } from '../audio/input'
+import { Ico } from '../components/Icon'
 import { PsyDog } from '../components/PsyArt'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Fretboard, type Mark as FMark } from '../components/Fretboard'
@@ -220,7 +221,7 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
         <div className="quiz-progress" aria-label={`Question ${n + 1} of ${quiz.length}`}>
           {Array.from({ length: quiz.length }, (_, i) => <span key={i} className={i < n ? 'done' : i === n ? 'cur' : ''} />)}
         </div>
-        <span className={`combo${combo >= 3 ? ' hot' : ''}`} title="Right answers in a row">🔥 {combo}</span>
+        <span className={`combo${combo >= 3 ? ' hot' : ''}`} title="Right answers in a row"><Ico n="flame" /> {combo}</span>
       </div>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h2 style={{ margin: 0 }}>{quiz.title}</h2>
@@ -228,7 +229,7 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
           <div className="row" style={{ gap: 6 }}>
             <div className="chips" role="group" aria-label="Answer mode">
               <button className="chip" aria-pressed={!playMode} onClick={() => setMode('tap')}>Tap</button>
-              <button className="chip" aria-pressed={playMode} disabled={isAway()} onClick={() => setMode('play')} title={isAway() ? "You're away from your guitar" : ''}>🎸 Play</button>
+              <button className="chip" aria-pressed={playMode} disabled={isAway()} onClick={() => setMode('play')} title={isAway() ? "You're away from your guitar" : ''}><Ico n="guitar" /> Play</button>
             </div>
             {playMode && <InputPicker active={micInput} />}
           </div>
@@ -244,7 +245,7 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
           <Fretboard tuning={inst.midis} fromFret={q.neck?.from ?? 0} toFret={q.neck?.to ?? 13} markFor={markFor} onTap={onNeckTap} compact />
         )}
         {playMode && q.mic && !result && (
-          <p className="mic-ask">🎸 Play {q.mic.want}{micMsg ? <span className="fb bad"> · {micMsg}</span> : ''}</p>
+          <p className="mic-ask"><Ico n="guitar" /> Play {q.mic.want}{micMsg ? <span className="fb bad"> · {micMsg}</span> : ''}</p>
         )}
         {playMode && !q.mic && !result && <p className="small muted">This one is answered by tapping.</p>}
       </div>

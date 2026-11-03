@@ -2,6 +2,7 @@
 // pick a key, sound and tempo, and hear it with a count-in, a click and a loop. The neck shows every note in the order
 // you play it (roots in red), the tab follows the playhead, and "Play along" opens it in Play so the app listens.
 import { HandGuide } from '../components/HandGuide'
+import { Ico } from '../components/Icon'
 import { Win } from '../components/Win'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useInstrument } from '../instrument'
@@ -113,7 +114,7 @@ export function ExerciseBrowser() {
       <FilterBar f={f} setF={setF} groups={groups} techs={techsHere} typeCounts={typeCounts} />
       <div className="ex-count row">
         <span><b>Exercise {idx + 1}</b> of {list.length}</span>
-        <button className="btn sm" onClick={random} disabled={list.length < 2}>🎲 Random</button>
+        <button className="btn sm" onClick={random} disabled={list.length < 2}><Ico n="dice" /> Random</button>
         <button className="btn sm ghost" onClick={() => setF(NO_FILTER)} disabled={JSON.stringify(f) === JSON.stringify(NO_FILTER)} aria-label="Clear the filters">↺ Clear</button>
         <label className="ex-check"><input type="checkbox" checked={f.fav} onChange={e => setF({ ...f, fav: e.target.checked })} /> Favourites only</label>
       </div>
@@ -323,14 +324,14 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
       </div>
       <div className="ex-transport">
         <button className={`btn primary${playing ? ' on' : ''}`} onClick={() => (playing ? stop() : start())} disabled={!song}>{playing ? '■ Stop' : '▶ Play'}</button>
-        <button className="btn" onClick={restart} aria-label="Back to the start">⏮</button>
+        <button className="btn" onClick={restart} aria-label="Back to the start"><Ico n="back" /></button>
         <label className="ex-check"><input type="checkbox" checked={countIn} onChange={e => setCountIn(e.target.checked)} /> Count-in</label>
         <label className="ex-check"><input type="checkbox" checked={metro} onChange={e => setMetro(e.target.checked)} /> Metronome</label>
         <label className="ex-check"><input type="checkbox" checked={loop} onChange={e => setLoop(e.target.checked)} /> Loop</label>
       </div>
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <button className="btn primary" onClick={() => void playAlong()} disabled={!song}>Play along (it listens)</button>
-        {lick?.must && <button className="btn" onClick={() => learnGo({ licks: lick.id })}>📖 How to play it, step by step</button>}
+        {lick?.must && <button className="btn" onClick={() => learnGo({ licks: lick.id })}><Ico n="book" /> How to play it, step by step</button>}
       </div>
       </Win>
       <Win id="ex-neck" title="On the neck" className="panel ex-card">

@@ -1,5 +1,6 @@
 // Learn → Today: practice sessions you saved from Ask (start one again with a tap).
 import { useState } from 'react'
+import { Ico } from '../components/Icon'
 import { deleteSession, minutesOf, savedSessions, startSession } from './session'
 import { askAssistant } from '../assistant/bus'
 
@@ -17,7 +18,7 @@ export function MySessions() {
           </span>
         </div>
       ))}
-      <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => askAssistant('', 'learn', false)}>✨ Make a new session</button>
+      <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => askAssistant('', 'learn', false)}><Ico n="sparkles" /> Make a new session</button>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 // The lick chainer: tap licks to line them up like train cars, drag (or ‹ ›) to reorder, and hear or play the whole
 // chain as one phrase. Every lick is moved to one key and placed near the last one on the neck.
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react'
+import { Ico } from './Icon'
 import { useInstrument } from '../instrument'
 import { LICKS, type LickDef } from '../licks/library'
 import { LICK_STYLES, lickStyle, type LickStyleId } from '../licks/styles'
@@ -161,7 +162,7 @@ export function LickChainer({ onOpen }: { onOpen: (d: SongDoc) => void }) {
                   <span><b>{l.name}</b><span className="small muted"> · {lickBars(l)} bar{lickBars(l) > 1 ? 's' : ''}{fits ? '' : ` · not in ${keyLabel(chain.key, minor)}`}</span></span>
                   <span className="chain-plus" aria-hidden>＋</span>
                 </button>
-                <button className="btn sm ghost" onClick={() => hear(l)} aria-label={`Hear ${l.name}`}>{hearing === l.id ? '■' : '🔊'}</button>
+                <button className="btn sm ghost" onClick={() => hear(l)} aria-label={`Hear ${l.name}`}>{hearing === l.id ? <Ico n="stop" fill /> : <Ico n="sound" />}</button>
               </div>
             )
           })}

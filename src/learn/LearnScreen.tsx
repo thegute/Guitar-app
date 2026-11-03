@@ -1,6 +1,7 @@
 // Learn: today's goal and streak, the away-from-guitar switch, today's plan, quests, the practice course,
 // the path to mastery, and the tools (ear training, theory, CAGED, circle of fifths, chord changes, rhythm).
 import { Win, WinArea } from '../components/Win'
+import { Ico } from '../components/Icon'
 import { ZeroToHero } from './ZeroToHero'
 import { MyRecordings } from './MyRecordings'
 import { LICK_STYLES } from '../licks/styles'
@@ -310,17 +311,17 @@ export function LearnScreen() {
         </div>
         <div className="today-main">
           <div className="streak-line">
-            <span className={`flame${counted ? ' lit' : ''}`} aria-hidden>🔥</span>
+            <span className={`flame${counted ? ' lit' : ''}`} aria-hidden><Ico n="flame" fill={counted} /></span>
             <b className="readout">{st.current}</b>
             <span>day streak</span>
-            {fz > 0 && <span className="freeze" title={`${fz} streak freeze${fz > 1 ? 's' : ''}: a missed day won't break your streak`}>{'🧊'.repeat(fz)}</span>}
+            {fz > 0 && <span className="freeze" title={`${fz} streak freeze${fz > 1 ? 's' : ''}: a missed day won't break your streak`}>{Array.from({ length: fz }, (_, i) => <Ico key={i} n="freeze" />)}</span>}
           </div>
           <p className="today-msg">{headline}</p>
           <div className="week-strip" aria-label="This week">
             {weekDays.map((k, i) => {
               const ld = logs[k]
               const cls = dayCounts(ld) ? 'done' : ld?.frozen ? 'frozen' : k === today ? 'today' : k > today ? 'future' : 'missed'
-              return <span key={k} className={`wd ${cls}`} title={k}><i>{cls === 'done' ? '✓' : cls === 'frozen' ? '🧊' : ''}</i>{DAY_LETTERS[i]}</span>
+              return <span key={k} className={`wd ${cls}`} title={k}><i>{cls === 'done' ? '✓' : cls === 'frozen' ? <Ico n="freeze" /> : ''}</i>{DAY_LETTERS[i]}</span>
             })}
           </div>
           <div className="level-line">

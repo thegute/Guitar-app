@@ -1,5 +1,6 @@
 // Choose what the app listens to: the phone mic (acoustic) or a USB amp / audio interface (electric).
 import { useEffect, useState } from 'react'
+import { Ico } from './Icon'
 import { getChoice, listInputs, onInputChange, onPhone, setChoice, type InputChoice, type InputDevice } from '../audio/input'
 import { GearSetup } from './GearSetup'
 
@@ -34,7 +35,7 @@ export function InputPicker({ active, onChanged, needsSetup = false }: { active?
   return (
     <>
       <button className={`btn sm input-btn${needsSetup ? ' needs-setup' : ''}`} onClick={() => setOpen(true)} aria-label={needsSetup ? 'Choose and set up the sound input (not set up yet)' : 'Choose the sound input'}>
-        {now === 'amp' ? '🎸' : '🎤'} {active ? (active.external ? 'Amp' : 'Mic') : choice === 'auto' ? 'Auto' : choice === 'mic' ? 'Mic' : 'Amp'} ▾
+        <Ico n={now === 'amp' ? 'guitar' : 'mic'} /> {active ? (active.external ? 'Amp' : 'Mic') : choice === 'auto' ? 'Auto' : choice === 'mic' ? 'Mic' : 'Amp'} ▾
         {needsSetup && <i className="setup-dot" aria-hidden="true" />}
       </button>
       {open && (
@@ -60,14 +61,14 @@ export function InputPicker({ active, onChanged, needsSetup = false }: { active?
               </li>
               <li className={choice === 'mic' ? 'on' : ''}>
                 <button className="song-open" onClick={() => pick('mic')}>
-                  <b>🎤 {phone ? 'Phone microphone' : 'Computer microphone'}</b>
+                  <b><Ico n="mic" /> {phone ? 'Phone microphone' : 'Computer microphone'}</b>
                   <span className="small muted">For acoustic guitar. {phone ? 'Hold the phone 30–50 cm from the soundhole.' : 'Sit close to the computer, or use a USB mic.'}</span>
                 </button>
               </li>
               {devs.map(d => (
                 <li key={d.id} className={choice === d.id ? 'on' : ''}>
                   <button className="song-open" onClick={() => pick(d.id)}>
-                    <b>{d.external ? '🎸 ' : ''}{d.label}</b>
+                    <b>{d.external && <><Ico n="guitar" /> </>}{d.label}</b>
                     <span className="small muted">{d.external ? 'USB amp / audio interface' : 'Built-in'}</span>
                   </button>
                 </li>

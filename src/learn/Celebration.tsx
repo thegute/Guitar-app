@@ -1,5 +1,6 @@
 // A short celebration when you hit your goal, finish a quest, earn a badge or level up (shown over any screen).
 import { useEffect, useRef, useState } from 'react'
+import { Glyph } from '../components/Icon'
 import { onCelebrate, type Celebration as C } from './game'
 import { playNote } from '../audio/pluck'
 import { audio } from '../audio/engine'
@@ -43,7 +44,7 @@ export function CelebrationLayer() {
       )}
       <div className="celebrate-card" key={cur.title + queue.length}>
         <PsyDog seed={cur.title} className="celebrate-face" />
-        <span className="celebrate-icon" aria-hidden>{cur.icon}</span>
+        <span className="celebrate-icon" aria-hidden><Glyph e={cur.icon} /></span>
         <div>
           <b>{cur.title}</b>
           <span className="small">{cur.detail}</span>

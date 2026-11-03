@@ -183,9 +183,9 @@ export function SongFinder({ onUseInJam, onOpen }: {
           <span className="finder-chord">{mode === 'chords' ? live.chord || '…' : live.note !== null && (live.heard === 'playing' || (live.heard === 'singing' && singing)) ? noteName(live.note) : '…'}</span>
           <span className="finder-level"><i style={{ width: `${Math.min(100, live.level * 900)}%` }} /></span>
           <span className={`finder-heard ${live.heard}`}>
-            {live.heard === 'playing' ? '🎸 Hearing playing'
-              : live.heard === 'talking' ? '🗣 Talking: left out'
-                : live.heard === 'singing' ? (singing && mode === 'notes' ? '🎤 Singing: writing it down' : mode === 'chords' ? '🎤 Singing: listening for the chords under it' : '🎤 Singing: left out')
+            {live.heard === 'playing' ? 'Hearing playing'
+              : live.heard === 'talking' ? 'Talking: left out'
+                : live.heard === 'singing' ? (singing && mode === 'notes' ? 'Singing: writing it down' : mode === 'chords' ? 'Singing: listening for the chords under it' : 'Singing: left out')
                   : live.level < 0.004 ? 'Too quiet: turn the music up or move the phone closer' : 'Listening…'}
           </span>
           {mode === 'notes' && live.ignored > 0 && <span className="small muted">{live.ignored} sound{live.ignored === 1 ? '' : 's'} left out (talking, singing or not a picked note)</span>}

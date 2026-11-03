@@ -1,6 +1,7 @@
 // Search: type what you want in your own words ("slow it down", "G7", "drop D", "blues jam in A", "it doesn't hear
 // me") and tap a result to go straight there, already set up.
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { Ico } from './Icon'
 import { useInstrument } from '../instrument'
 import { listSongs, type SongDoc } from '../tabs/library'
 import { SearchIndex, searchAll } from '../search/engine'
@@ -120,10 +121,10 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
           <button className="btn sm" onClick={onClose}>Close</button>
         </div>
 
-        {seen && <p className="ask-sees small" data-testid="ask-sees">👀 I can see: {seen.label}. {seen.play ? 'Ask about it ("why is this bar hard?", "loop this bar slower").' : 'Ask about it.'}</p>}
+        {seen && <p className="ask-sees small" data-testid="ask-sees"><Ico n="eye" /> I can see: {seen.label}. {seen.play ? 'Ask about it ("why is this bar hard?", "loop this bar slower").' : 'Ask about it.'}</p>}
         {!q.trim() && !turns.length && (
           <div className="search-start stack">
-            <p className="small muted" style={{ margin: 0 }}>Tip: tap the 🎤 on your phone's keyboard to say it instead of typing. Search or ask in your own words. Ask for a practice session ("triads today"), a beat, a chord or scale, or help with a problem: it finds it and sets it up.</p>
+            <p className="small muted" style={{ margin: 0 }}>Tip: tap the microphone on your phone's keyboard to say it instead of typing. Search or ask in your own words. Ask for a practice session ("triads today"), a beat, a chord or scale, or help with a problem: it finds it and sets it up.</p>
             {past.length > 0 && (
               <div className="stack" style={{ gap: 6 }}>
                 <h3 className="search-h">Recent</h3>
@@ -139,7 +140,7 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
 
         {q.trim() && (
           <div className="ask-row">
-            <button className="btn primary ask-btn" onClick={() => void doAsk()} disabled={asking}>{asking ? 'Thinking…' : `✨ Ask: “${q.trim().length > 40 ? q.trim().slice(0, 40) + '…' : q.trim()}”`}</button>
+            <button className="btn primary ask-btn" onClick={() => void doAsk()} disabled={asking}>{asking ? 'Thinking…' : <><Ico n="sparkles" /> {`Ask: “${q.trim().length > 40 ? q.trim().slice(0, 40) + '…' : q.trim()}”`}</>}</button>
           </div>
         )}
         {turns.length > 0 && (
@@ -156,7 +157,7 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
                         <b>{t.answer.session.title} · about {minutesOf(t.answer.session)} min</b>
                         <ol className="ask-steps">{t.answer.session.steps.map((x, i) => <li key={i}>{x.title} <span className="muted small">({x.minutes} min)</span></li>)}</ol>
                         <div className="row" style={{ gap: 6 }}>
-                          <button className="btn primary sm" onClick={() => { onClose(); startSession(t.answer!.session!) }}>▶ Start this session</button>
+                          <button className="btn primary sm" onClick={() => { onClose(); startSession(t.answer!.session!) }}><Ico n="play" fill /> Start this session</button>
                           <button className="btn sm" onClick={() => { saveSession(t.answer!.session!); answerTurn(t.id, { ...t.answer!, note: 'Saved: it waits in Learn → Today → My practice sessions.' }) }}>Save it</button>
                         </div>
                       </>
@@ -166,7 +167,7 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
                     {t.answer.open && <button className="btn sm" onClick={() => open(t.answer!.open!)}>Open {t.answer.open.title}</button>}
                     <div className="row" style={{ gap: 6, justifyContent: 'space-between' }}>
                       {t.answer.note ? <span className="small muted">{t.answer.note}</span> : <span />}
-                      {canSpeak() && <button className="btn sm ghost" onClick={() => (speakingNow ? stopSpeaking() : say(t.answer!))} aria-label="Read this answer aloud">{speakingNow ? '■ Stop' : '🔊 Hear it'}</button>}
+                      {canSpeak() && <button className="btn sm ghost" onClick={() => (speakingNow ? stopSpeaking() : say(t.answer!))} aria-label="Read this answer aloud">{speakingNow ? <><Ico n="stop" fill /> Stop</> : <><Ico n="sound" /> Hear it</>}</button>}
                     </div>
                   </div>
                 )}

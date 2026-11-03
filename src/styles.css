@@ -2109,3 +2109,12 @@ video.mirrored { transform: scaleX(-1); }
 [data-theme='psy'] .remote.fb-bad .remote-main { background: #4a0b2c; }
 @media (prefers-reduced-motion: reduce) { .remote-main { transition: none; } }
 .remote-row .remote-loop { flex-grow: 1.6; }
+
+/* the icon set (components/Icon.tsx): sits on the text line like a letter */
+.ico { display: inline-block; vertical-align: -0.17em; flex: none; }
+.btn .ico, button .ico { pointer-events: none; }
+.rec-dot { color: var(--coral); }
+.badge-icon .ico, .celebrate-icon .ico, .inst-art .ico { vertical-align: middle; }
+.flame .ico { color: var(--ink-3); }
+.flame.lit .ico { color: #ff7a2f; }
+.freeze .ico { color: var(--frost, #9fd8f2); }

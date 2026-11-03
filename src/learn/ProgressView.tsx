@@ -1,5 +1,6 @@
 // Your progress: practice calendar, this week vs last week, badges and how well you know each course unit.
 import { useMemo } from 'react'
+import { Glyph } from '../components/Icon'
 import type { Instrument } from '../instrument'
 import { allLogs, dayCounts, dayKey, itemStats, mastery, stars, streak, type DayLog, type Activity } from './progress'
 import { ALL_BADGES, earnedBadges, freezes, levelInfo } from './game'
@@ -155,7 +156,7 @@ export function ProgressView({ inst, onExit }: { inst: Instrument; onExit: () =>
         <div className="badge-grid">
           {ALL_BADGES.map(b => (
             <div key={b.id} className={`badge${got[b.id] ? ' got' : ''}`}>
-              <span className="badge-icon" aria-hidden>{b.icon}</span>
+              <span className="badge-icon" aria-hidden><Glyph e={b.icon} /></span>
               <b>{b.name}</b>
               <span className="small muted">{got[b.id] ? new Date(got[b.id]).toLocaleDateString() : b.how}</span>
             </div>

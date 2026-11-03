@@ -2,6 +2,7 @@
 // a note plays, and you name its scale degree by how it feels against home. Then it walks back home so you
 // feel where it wanted to go. Optional guitar mode: find the note on your instrument and the mic checks it.
 import { useEffect, useRef, useState } from 'react'
+import { Ico } from '../components/Icon'
 import { Drone } from '../audio/drone'
 import { playNote } from '../audio/pluck'
 import { audio } from '../audio/engine'
@@ -230,7 +231,7 @@ export function EarTrainer({ inst, onExit }: { inst: Instrument; onExit: () => v
     <div className="stack ear">
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <button className="btn sm" onClick={() => { stopRound(); onExit() }}>← Back</button>
-        <span className={`combo${combo >= 3 ? ' hot' : ''}`}>🔥 {combo}</span>
+        <span className={`combo${combo >= 3 ? ' hot' : ''}`}><Ico n="flame" /> {combo}</span>
       </div>
       <h2 style={{ margin: 0 }}>Ear training</h2>
       {!running && !finished && (
@@ -258,7 +259,7 @@ export function EarTrainer({ inst, onExit }: { inst: Instrument; onExit: () => v
             <label className="row small" style={{ gap: 6 }}>Drone <input type="range" min={0} max={1} step={0.05} value={vol} onChange={e => setVol(+e.target.value)} style={{ accentColor: 'var(--accent)' }} aria-label="Drone volume" /></label>
           </div>
           <div className="row">
-            <button className="chip" aria-pressed={guitar && !away} disabled={away} onClick={() => setGuitar(!guitar)}>🎸 Use my {inst.noun}</button>
+            <button className="chip" aria-pressed={guitar && !away} disabled={away} onClick={() => setGuitar(!guitar)}><Ico n="guitar" /> Use my {inst.noun}</button>
             <button className="chip" aria-pressed={showNeck} onClick={() => setShowNeck(!showNeck)}>Show answers on the neck</button>
             {guitar && !away && <InputPicker active={null} />}
           </div>
@@ -291,7 +292,7 @@ export function EarTrainer({ inst, onExit }: { inst: Instrument; onExit: () => v
             </div>
           )}
           {mode === 'melody' && <p className="small muted" style={{ margin: 0, textAlign: 'center' }}>Tap the three notes in order ({given.length}/3)</p>}
-          {useGuitar && <p className="small" style={{ textAlign: 'center', margin: 0 }}>🎸 Play it on your {inst.noun}{heard ? <span className="muted"> · heard {heard}</span> : ''}</p>}
+          {useGuitar && <p className="small" style={{ textAlign: 'center', margin: 0 }}><Ico n="guitar" /> Play it on your {inst.noun}{heard ? <span className="muted"> · heard {heard}</span> : ''}</p>}
           {result !== null && (
             <div className={`quiz-feedback ${result ? 'ok' : 'bad'}`}>
               <b>{result ? '✓ Right' : `✗ It was ${target.map(lab).join(' ')}`}</b>

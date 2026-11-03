@@ -1,6 +1,7 @@
 // A tab shown on screen in a video (or a photo of a tab book): take a screenshot, and the AI reads it into a real tab
 // you can play along with. Much more accurate than listening to the whole song through the mic.
 import { useState } from 'react'
+import { Ico } from '../components/Icon'
 import { useInstrument } from '../instrument'
 import { songFromText } from '../tabs/importer'
 import type { SongDoc } from '../tabs/library'
@@ -66,7 +67,7 @@ export function TabFromPicture({ youtube, onOpen }: { youtube?: string; onOpen: 
       )}
       {setup && !ready && <AiSetup compact />}
       <div className="row" style={{ gap: 8 }}>
-        <label className="btn">📷 Add screenshots<input type="file" accept="image/*" multiple hidden onChange={e => { void add(e.target.files); e.target.value = '' }} /></label>
+        <label className="btn"><Ico n="camera" /> Add screenshots<input type="file" accept="image/*" multiple hidden onChange={e => { void add(e.target.files); e.target.value = '' }} /></label>
         {pics.length > 0 && <button className="btn primary" disabled={busy || !ready} onClick={() => void read()}>{busy ? 'Reading…' : 'Read the tab'}</button>}
         {pics.length > 0 && <button className="btn ghost sm" onClick={() => { setPics([]); setText(''); setMsg('') }}>Clear</button>}
       </div>

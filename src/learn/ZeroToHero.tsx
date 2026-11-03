@@ -88,7 +88,7 @@ export function ZeroToHero({ onRecordings }: { onRecordings: () => void }) {
               </li>
             ))}
           </ul>
-          {passed && v.phase < PHASES.length && <button className="btn primary" onClick={() => set({ ...v, phase: v.phase + 1, since: Date.now(), lastGate: Date.now() })}>🎉 Gate passed: start Phase {v.phase + 1}</button>}
+          {passed && v.phase < PHASES.length && <button className="btn primary" onClick={() => set({ ...v, phase: v.phase + 1, since: Date.now(), lastGate: Date.now() })}>Gate passed: start Phase {v.phase + 1}</button>}
         </div>
       )}
 

@@ -1,5 +1,6 @@
 // Settings: instrument (with a confirm step so you can't switch by accident), tuning, look, daily goal and reminders.
 import { fullScreen, setFullScreen } from '../theme'
+import { Ico, instIcon } from '../components/Icon'
 import { Capacitor } from '@capacitor/core'
 import { usePersist } from '../components/Controls'
 import { AiSetup } from '../assistant/AiSetup'
@@ -25,7 +26,6 @@ import { audio } from '../audio/engine'
 import { gear, isSetUp, latencyMs, useGear } from '../audio/gear'
 import { enableReminders, reminderSettings, remindersAvailable, updateReminderSettings, type ReminderSettings } from './reminders'
 
-const INST_ART: Record<InstrumentId, string> = { guitar: '🎸', tenor: '🌺', baritone: '🌴' }
 
 export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => void }) {
   useProgress()
@@ -95,7 +95,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         <div className="inst-cards" role="radiogroup" aria-label="Instrument">
           {(Object.keys(INSTRUMENTS) as InstrumentId[]).map(id => (
             <button key={id} role="radio" aria-checked={inst.id === id} className={`inst-card${inst.id === id ? ' on' : ''}`} onClick={() => inst.id !== id && setAsk(id)}>
-              <span className="inst-art" aria-hidden>{INST_ART[id]}</span>
+              <span className="inst-art" aria-hidden><Ico n={instIcon(id)} /></span>
               <b>{INSTRUMENTS[id].label}</b>
               <span className="small muted">{INSTRUMENTS[id].strings} strings</span>
             </button>
@@ -161,7 +161,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         <ul className="act-list small">
           {(['mic', 'usb'] as const).map(k => (
             <li key={k}>
-              <span>{k === 'mic' ? '🎤 Phone mic' : '🎸 USB amp (Amphonix)'}</span>
+              <span>{k === 'mic' ? <><Ico n="mic" /> Phone mic</> : <><Ico n="guitar" /> USB amp (Amphonix)</>}</span>
               <b>{isSetUp(k) ? `set up · sensitivity ${gear(k).gate} · timing ${latencyMs(k)} ms` : 'not set up yet'}</b>
             </li>
           ))}
@@ -247,7 +247,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
       {target && (
         <div className="sheet-backdrop" onClick={() => setAsk(null)}>
           <div className="sheet confirm" role="alertdialog" aria-modal="true" aria-labelledby="switch-title" onClick={e => e.stopPropagation()}>
-            <span className="inst-art big" aria-hidden>{INST_ART[target.id]}</span>
+            <span className="inst-art big" aria-hidden><Ico n={instIcon(target.id)} /></span>
             <h2 id="switch-title" style={{ margin: 0 }}>{toUke ? `Are you sure you want to switch to ${target.label.toLowerCase()}?` : 'Switch back to guitar?'}</h2>
             <p className="small" style={{ margin: 0 }}>
               The whole app will change to {target.label.toLowerCase()}: chord shapes, scales, the tuner, quizzes and practice tabs.
@@ -288,7 +288,7 @@ function ArtGallery() {
 
 function BubbleSwitch() {
   const [on, setOn] = usePersist('askBubble', true)
-  return <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={on} onChange={e => { setOn(e.target.checked); try { localStorage.setItem('kg:askBubble', JSON.stringify(e.target.checked)) } catch { /* noop */ } dispatchEvent(new Event('kg-bubble')) }} /> <span>Show the ✨ helper bubble on every screen (drag it anywhere to move it out of the way)</span></label>
+  return <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={on} onChange={e => { setOn(e.target.checked); try { localStorage.setItem('kg:askBubble', JSON.stringify(e.target.checked)) } catch { /* noop */ } dispatchEvent(new Event('kg-bubble')) }} /> <span>Show the helper bubble on every screen (drag it anywhere to move it out of the way)</span></label>
 }
 
 function FullScreenSwitch() {

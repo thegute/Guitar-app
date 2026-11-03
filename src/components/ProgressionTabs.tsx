@@ -1,6 +1,7 @@
 // "Turn this progression into a tab": fingerpicking (Travis / arpeggio) or strum-along, and the chord melody
 // maker, with a preview you can hear before opening it in Play. Used in Jam and in Songs → Exercises.
 import { activeSound, soundForProgram } from '../audio/pluck'
+import { Ico } from './Icon'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useInstrument } from '../instrument'
 import type { Voicing } from '../theory/chords'
@@ -112,7 +113,7 @@ export function ProgressionTabs({ chords, voicings, tonic, mode, bpm, onOpen, su
         <p className="small muted" style={{ margin: 0 }}>{MELODY_STYLES.find(s => s.id === style)?.feel}</p>
         <Chips label="Level" items={MELODY_LEVELS.map(l => ({ id: l.id, label: l.label }))} value={level} onChange={setLevel} />
         <div className="row">
-          <button className="btn" onClick={() => makeMelody(true)}>{mel ? '🎲 Roll again' : '🎲 Make a melody'}</button>
+          <button className="btn" onClick={() => makeMelody(true)}><Ico n="dice" /> {mel ? 'Roll again' : 'Make a melody'}</button>
           {mel && <button className="btn primary" onClick={() => onOpen(mel.doc)}>Open in Play</button>}
         </div>
         {mel && show === 'melody' && (

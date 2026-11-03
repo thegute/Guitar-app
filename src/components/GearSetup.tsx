@@ -1,6 +1,7 @@
 // Gear setup: a two-minute walk-through that tunes note detection and timing to your input
 // (phone mic for acoustic, or a USB amp such as the Amphonix for electric). Saved per input kind.
 import { micWhere } from '../audio/input'
+import { Ico } from './Icon'
 import { useEffect, useRef, useState } from 'react'
 import { NoteListener } from '../tabs/follow'
 import { InputRecorder, measureLatency } from '../audio/looper'
@@ -155,9 +156,9 @@ export function GearSetup({ onClose }: { onClose: () => void }) {
             <p style={{ margin: 0 }}>Which sound should KGuitar listen to? Plug in your amp first if you're playing electric. Each input gets its own settings, so run this once for the phone mic and once for the amp.</p>
             <ul className="song-list">
               <li className={choice === 'auto' ? 'on' : ''}><button className="song-open" onClick={() => { setChoice('auto'); setC('auto') }}><b>Automatic</b><span className="small muted">The amp when it's plugged in, otherwise the phone mic</span></button></li>
-              <li className={choice === 'mic' ? 'on' : ''}><button className="song-open" onClick={() => { setChoice('mic'); setC('mic') }}><b>🎤 Phone microphone</b><span className="small muted">Acoustic guitar or ukulele</span></button></li>
+              <li className={choice === 'mic' ? 'on' : ''}><button className="song-open" onClick={() => { setChoice('mic'); setC('mic') }}><b><Ico n="mic" /> Phone microphone</b><span className="small muted">Acoustic guitar or ukulele</span></button></li>
               {devs.filter(d => d.external).map(d => (
-                <li key={d.id} className={choice === d.id ? 'on' : ''}><button className="song-open" onClick={() => { setChoice(d.id); setC(d.id) }}><b>🎸 {d.label}</b><span className="small muted">USB amp or interface</span></button></li>
+                <li key={d.id} className={choice === d.id ? 'on' : ''}><button className="song-open" onClick={() => { setChoice(d.id); setC(d.id) }}><b><Ico n="guitar" /> {d.label}</b><span className="small muted">USB amp or interface</span></button></li>
               ))}
             </ul>
             {!devs.some(d => d.external) && <p className="small muted" style={{ margin: 0 }}>No USB amp found. Plug in the Amphonix with its USB-C cable and it will show up here.</p>}

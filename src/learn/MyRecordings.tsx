@@ -1,6 +1,7 @@
 // My recordings: every take you kept, newest first, grouped by month. "Then and now" puts your first and latest
 // recording of the same song side by side: progress you can't hear day to day is obvious month to month.
 import { useEffect, useMemo, useState } from 'react'
+import { Ico } from '../components/Icon'
 import { deleteRecording, recordings, updateRecording, type Recording } from '../audio/recordings'
 import { saveTake } from '../audio/takeRecorder'
 import { deleteThenNow, thenNowPairs, type ThenNowPair } from '../audio/thenNow'
@@ -41,7 +42,7 @@ export function MyRecordings({ onExit, onRecord }: { onExit: () => void; onRecor
     <div className="stack recordings">
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <button className="btn sm" onClick={onExit}>← Back</button>
-        <button className="btn sm primary" onClick={onRecord}>⏺ Record yourself in Play</button>
+        <button className="btn sm primary" onClick={onRecord}><Ico n="record" fill className="rec-dot" /> Record yourself in Play</button>
       </div>
       <h1 style={{ margin: 0 }}>My recordings</h1>
       <p className="small muted" style={{ margin: 0 }}>Record a song in Play (Options → Record yourself), then tap "Keep it". Record the same song again every month or so: "Then and now" plays your first and latest takes side by side.</p>

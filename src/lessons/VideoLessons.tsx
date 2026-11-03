@@ -2,6 +2,7 @@
 // chapter with slow-down, an A–B loop, a mirror view and resume. Its Guitar Pro or text tabs open in Play with the
 // video beside them, so the app listens while you play along. Files stay where they are on the phone.
 import { onLeavePage } from '../audio/stopAll'
+import { Ico } from '../components/Icon'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useInstrument } from '../instrument'
 import { usePracticeTimer } from '../learn/progress'
@@ -206,7 +207,7 @@ function TabFiles({ tabs, video }: { tabs: LFile[]; video?: LFile }) {
         const k = kindOf(t)
         return (
           <button key={t.uri} className="course-video tab-file" onClick={() => void openTab(t)}>
-            <span className="cv-mark" aria-hidden>{k === 'pdf' ? '📄' : k === 'image' ? '🖼' : '🎸'}</span>
+            <span className="cv-mark" aria-hidden><Ico n={k === 'pdf' ? 'file' : k === 'image' ? 'image' : 'guitar'} /></span>
             <span className="cv-name">{niceName(t.name)}</span>
             <span className="small muted">{k === 'pdf' ? 'PDF app' : k === 'image' ? 'Show' : 'Play'}</span>
           </button>

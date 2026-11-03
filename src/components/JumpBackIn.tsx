@@ -2,6 +2,7 @@
 // spot → a song, see sessions/practice.ts), with the plan shown underneath so you know what's coming, a length
 // choice, and a small "Just carry on" for when you only want your last song back.
 import { useEffect, useState } from 'react'
+import { Ico } from './Icon'
 import { useInstrument } from '../instrument'
 import { getSong, type SongDoc } from '../tabs/library'
 import { flatten, playable } from '../tabs/model'
@@ -49,7 +50,7 @@ export function JumpBackIn({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`practice-card${compact ? ' compact' : ''}`} data-testid="jump-in">
       <button className="btn primary practice-go" onClick={start} disabled={!plan} data-use="Practice">
-        <span className="practice-go-big">▶ Practice</span>
+        <span className="practice-go-big"><Ico n="play" fill /> Practice</span>
         <span className="practice-go-sub">{len} minutes, planned for you</span>
       </button>
       {!compact && plan && (

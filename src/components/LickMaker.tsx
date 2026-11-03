@@ -1,6 +1,7 @@
 // Lick maker: pick a style, key, length and level and it builds a phrase from the lick library (a motif, an answer
 // and an ending, kept in one area of the neck). Hear it, open it in Play, or learn the licks it was built from.
 import { useMemo, useState } from 'react'
+import { Ico } from './Icon'
 import { useInstrument } from '../instrument'
 import { LICK_STYLES, lickStyle, type LickStyleId } from '../licks/styles'
 import { makePhrase, type LickFilter } from '../licks/generator'
@@ -52,7 +53,7 @@ export function LickMaker({ onOpen, fixedKey }: { onOpen: (d: SongDoc) => void; 
         <Chips label="Level" items={[{ id: 1, label: 'Easy' }, { id: 2, label: 'Medium' }, { id: 3, label: 'Hard' }]} value={level} onChange={v => { setLevel(v); if (made) roll({ level: v }) }} />
       </div>
       <div className="row">
-        <button className="btn" onClick={() => roll()}>🎲 {made ? 'Another lick' : 'Make a lick'}</button>
+        <button className="btn" onClick={() => roll()}><Ico n="dice" /> {made ? 'Another lick' : 'Make a lick'}</button>
         {made && <button className="btn primary" onClick={() => onOpen(made.doc)}>Open in Play</button>}
       </div>
       {made && (
@@ -66,7 +67,7 @@ export function LickMaker({ onOpen, fixedKey }: { onOpen: (d: SongDoc) => void; 
           </p>
         </>
       )}
-      <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => learnGo({ licks: style })}>📖 Must-know {st.label.replace(/ \(.*\)$/, '').toLowerCase()} licks, explained</button>
+      <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => learnGo({ licks: style })}><Ico n="book" /> Must-know {st.label.replace(/ \(.*\)$/, '').toLowerCase()} licks, explained</button>
     </div>
   )
 }

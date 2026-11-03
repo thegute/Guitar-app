@@ -3,6 +3,7 @@
 // step grid, the piano roll and the mix. One clock runs it all (transport.ts); hits recorded while ● is on snap to
 // the grid. Inner Fold screen: pads and keys side by side. Half-folded: the grid on top, pads on the bottom half.
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { Ico } from '../components/Icon'
 import { audio } from '../audio/engine'
 import { KITS, kitInfo, prepareKit, type KitId, type Voice } from '../audio/drums'
 import { InputRecorder } from '../audio/looper'
@@ -151,7 +152,7 @@ export function StudioScreen({ active }: { active: boolean }) {
         <Tempo bpm={beat.bpm} onChange={bpm => setBeat(b => ({ ...b, bpm }))} />
         <span className="st-spacer" />
         <button className="btn sm" onClick={undo} disabled={!history.current.length} aria-label="Undo">↶</button>
-        <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')}>✨ Ideas</button>
+        <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')}><Ico n="sparkles" /> Ideas</button>
       </div>
       <div className="st-row">
         <label className="field st-field"><span>Start from</span>
@@ -1135,5 +1136,5 @@ function Layers({ beat, setBeat }: { beat: Beat; setBeat: SetBeat }) {
 
 function VolumesButton() {
   const show = useWinShow()
-  return <button className="btn sm" onClick={() => show('mix')}>🎚 Volumes</button>
+  return <button className="btn sm" onClick={() => show('mix')}><Ico n="sliders" /> Volumes</button>
 }

@@ -4,6 +4,7 @@
 // tab. Loop and speed changes happen straight away. "Keep talking" listens again after each answer.
 // Drag the bubble anywhere (it snaps to the nearest side); hide it in Settings → You.
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Ico } from '../components/Icon'
 import { askAssistant, type AskContext } from './bus'
 import { usePersist } from '../components/Controls'
 import { canListen, listenOnce, setTalking, stopListening } from './listen'
@@ -21,7 +22,7 @@ import { startSession } from '../sessions/session'
 
 type Phase = 'idle' | 'listening' | 'thinking' | 'answer' | 'error'
 const SORRY: Record<string, string> = {
-  nothing: "I didn't catch anything. Tap 🎤 and talk after the beep.",
+  nothing: "I didn't catch anything. Tap the microphone and talk after the beep.",
   network: 'Speech needs the internet on this phone. Check the connection.',
   permission: 'KGuitar needs the microphone to hear you. Allow it in the phone\'s settings.',
   busy: 'The phone\'s speech service is busy. Try again in a moment.',
@@ -129,18 +130,18 @@ export function AskBubble({ context }: { context: AskContext }) {
         // open on the click (not on finger-up): opening on finger-up let the same tap land on the helper's dark
         // background a moment later and close it again, which is why it sometimes didn't open
         onClick={() => { if (dragged.current) { dragged.current = false; return } askAssistant('', context, false) }}>
-        <span aria-hidden>✨</span>
+        <Ico n="sparkles" />
       </button>
       {talkOk && (
         <button className={`talk-btn${busy ? ' on' : ''}`} style={{ top: `calc(${Math.round(y * 100)}% - 25px)`, ...(x !== null ? { left: x - 70, right: 'auto' } : side === 'left' ? { left: 60, right: 'auto' } : { right: 60 }) }}
           onClick={() => void talk()} aria-label={phase === 'listening' ? 'Stop listening' : 'Talk to the helper'} aria-pressed={busy} data-testid="talk-btn">
-          <span aria-hidden>{phase === 'listening' ? '■' : '🎤'}</span>
+          {phase === 'listening' ? <Ico n="stop" fill /> : <Ico n="mic" />}
           {phase === 'listening' && <span className="talk-level" style={{ transform: `scale(${1 + Math.min(1, Math.max(0, level) / 10) * 0.5})` }} aria-hidden />}
         </button>
       )}
       {phase !== 'idle' && (
         <div className={`talk-card ${side === 'left' && x === null ? 'from-left' : 'from-right'}`} style={{ top: y >= 0.45 ? `max(8px, calc(${Math.round(y * 100)}% - 40px - min(60vh, 340px)))` : `calc(${Math.round(y * 100)}% + 30px)` }} role="status" aria-live="polite" data-testid="talk-card">
-          {phase === 'listening' && <p className="talk-line"><b>🎤 Listening…</b> {words ? <span>“{words}”</span> : <span className="muted">say it now</span>}</p>}
+          {phase === 'listening' && <p className="talk-line"><b><Ico n="mic" /> Listening…</b> {words ? <span>“{words}”</span> : <span className="muted">say it now</span>}</p>}
           {phase === 'thinking' && <p className="talk-line"><b>“{words}”</b> {soFar ? <span className="talk-a">{soFar}</span> : <span className="muted">thinking…</span>}</p>}
           {phase === 'error' && <p className="talk-line">{err}</p>}
           {phase === 'answer' && card && (
@@ -150,7 +151,7 @@ export function AskBubble({ context }: { context: AskContext }) {
               {!(card.did && card.a.reply.startsWith('Okay:')) && <p className="talk-a">{card.a.reply}</p>}
               {card.a.ideas && <ul className="talk-ideas small">{card.a.ideas.slice(0, 3).map((x, i) => <li key={i}>{x}</li>)}</ul>}
               <div className="row talk-acts">
-                {card.a.session && <button className="btn sm primary" onClick={() => { close(); startSession(card.a.session!) }}>▶ Start “{card.a.session.title}”</button>}
+                {card.a.session && <button className="btn sm primary" onClick={() => { close(); startSession(card.a.session!) }}><Ico n="play" fill /> Start “{card.a.session.title}”</button>}
                 {card.a.open && <button className="btn sm" onClick={() => { close(); launch(card.a.open!.target) }}>Open {card.a.open.title}</button>}
               </div>
             </>

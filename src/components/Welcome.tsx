@@ -1,5 +1,6 @@
 // First launch: a short welcome that sets the app up (instrument, input, daily goal, reminders) and offers the guide.
 import { useState } from 'react'
+import { Ico, instIcon } from './Icon'
 import { INSTRUMENTS, setInstrument, setTuning, useInstrument, type InstrumentId } from '../instrument'
 import { GearSetup } from './GearSetup'
 import { setDailyGoalMin, dailyGoalMin } from '../learn/progress'
@@ -55,7 +56,7 @@ export function Welcome({ onDone }: { onDone: (then?: 'guide' | 'play') => void 
             <div className="inst-cards" role="radiogroup" aria-label="Instrument">
               {(Object.keys(INSTRUMENTS) as InstrumentId[]).map(id => (
                 <button key={id} role="radio" aria-checked={inst.id === id} className={`inst-card${inst.id === id ? ' on' : ''}`} onClick={() => setInstrument(id)}>
-                  <span className="inst-art" aria-hidden>{id === 'guitar' ? '🎸' : id === 'tenor' ? '🌺' : '🌴'}</span>
+                  <span className="inst-art" aria-hidden><Ico n={instIcon(id)} /></span>
                   <b>{INSTRUMENTS[id].label}</b>
                 </button>
               ))}

@@ -1,6 +1,7 @@
 // Play along: the tab, a YouTube mini player, the mic following your playing note by note,
 // and the scales / chords of the song for soloing.
 import { micWhere } from '../audio/input'
+import { Ico } from '../components/Icon'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PsyDog } from '../components/PsyArt'
 import { TabView, type LabelMode } from '../components/TabView'
@@ -954,14 +955,14 @@ export function PlayScreen() {
               <span className="next-notes next-chord">
                 {chordVoicing && <Zoomable id="readoutChord" max={3}><ChordDiagram voicing={chordVoicing} size={0.5} onClick={hearNext} /></Zoomable>}
                 <span className="nn"><b className="amber chord-big">{chordName ?? 'Chord'}</b> strum it and let it ring</span>
-                <button className="btn sm ghost" onClick={hearNext} aria-label="Hear the chord">▶</button>
+                <button className="btn sm ghost" onClick={hearNext} aria-label="Hear the chord"><Ico n="play" fill /></button>
               </span>
             ) : (
               <span className="next-notes">
                 {expected.map((n, i) => (
                   <span key={i} className="nn"><b>{n.fret}</b> on {stringLabel(track.tuning, n.string, flats)} = <b className="amber">{noteName(n.midi, flats)}</b></span>
                 ))}
-                <button className="btn sm ghost" onClick={hearNext} aria-label="Hear the next note">▶</button>
+                <button className="btn sm ghost" onClick={hearNext} aria-label="Hear the next note"><Ico n="play" fill /></button>
               </span>
             )}
             {feedback && (
@@ -990,15 +991,15 @@ export function PlayScreen() {
     <div className="tab-tools" role="toolbar" aria-label="Play controls">
       <Chips label="Follow mode" find="mode" items={[{ id: 'wait', label: 'Wait for me' }, { id: 'time', label: 'In time' }]} value={mode} onChange={v => setMode(v)} />
       {loop ? (
-        <span className="loop-chip" data-find="loop">⟲ {loop.from === loop.to ? `Bar ${loop.from + 1}` : `Bars ${loop.from + 1}–${loop.to + 1}`}<button onClick={() => setLoop(undefined)} aria-label="Stop looping">✕</button></span>
+        <span className="loop-chip" data-find="loop"><Ico n="loop" /> {loop.from === loop.to ? `Bar ${loop.from + 1}` : `Bars ${loop.from + 1}–${loop.to + 1}`}<button onClick={() => setLoop(undefined)} aria-label="Stop looping">✕</button></span>
       ) : (
-        <button className="btn sm" data-find="loop" aria-pressed={!!selecting} onClick={() => setSelecting(selecting ? null : {})}>⟲ Loop</button>
+        <button className="btn sm" data-find="loop" aria-pressed={!!selecting} onClick={() => setSelecting(selecting ? null : {})}><Ico n="loop" /> Loop</button>
       )}
       <button className={`btn sm hear${playAt >= 0 ? ' on' : ''}${loadingSnd ? ' loading' : ''}`} data-find="hear" onClick={() => preview()} aria-pressed={playAt >= 0} aria-busy={loadingSnd}>
-        {loadingSnd ? <><span className="spin" aria-hidden />Loading sounds…</> : playAt >= 0 ? '■ Stop' : '▶ Hear it'}
+        {loadingSnd ? <><span className="spin" aria-hidden />Loading sounds…</> : playAt >= 0 ? <><Ico n="stop" fill /> Stop</> : <><Ico n="play" fill /> Hear it</>}
       </button>
       {recording && (
-        <button className="btn sm rec on" aria-pressed onClick={() => void toggleRec()} aria-label="Stop recording">⏹ {Math.floor(recSecs / 60)}:{String(recSecs % 60).padStart(2, '0')}</button>
+        <button className="btn sm rec on" aria-pressed onClick={() => void toggleRec()} aria-label="Stop recording"><Ico n="stop" fill /> {Math.floor(recSecs / 60)}:{String(recSecs % 60).padStart(2, '0')}</button>
       )}
       <button className="btn sm opts-btn" data-find="opts" aria-expanded={opts} onClick={() => setOpts(true)} aria-label="Options: speed, sound, band, record, how the tab looks">
         <IconSliders /><span className="opts-label">Options</span>
@@ -1032,7 +1033,7 @@ export function PlayScreen() {
           {bandAvail && (
             <label className="opt-row opt-check" data-find="band">
               <input type="checkbox" checked={bandOn} onChange={() => { setBandOn(!bandOn); if (playAt >= 0) stopPreview() }} />
-              <span><b>🥁 Play with the band</b><span className="small muted">{doc.song.backing ? 'Drums and bass from the chords' : 'The drums, bass and other parts of this song'}, with Hear it and In time.</span></span>
+              <span><b><Ico n="drum" /> Play with the band</b><span className="small muted">{doc.song.backing ? 'Drums and bass from the chords' : 'The drums, bass and other parts of this song'}, with Hear it and In time.</span></span>
             </label>
           )}
           {mode === 'time' && (
@@ -1044,7 +1045,7 @@ export function PlayScreen() {
           )}
           <label className="opt-row opt-check" data-find="thennow"><input type="checkbox" checked={thenNow} onChange={() => { setThenNowOn(!thenNow); setThenNow(!thenNow); if (thenNow) autoCancel() }} /><span><b>Then vs now</b><span className="small muted">Quietly keep your first whole run of each song and, later, your best one, so you can hear how far you've come (on this phone only; My recordings lists them).</span></span></label>
           <button className={`btn rec${recording ? ' on' : ''}`} data-find="record" onClick={() => { void toggleRec(); setOpts(false) }}>
-            {recording ? `⏹ Stop recording (${Math.floor(recSecs / 60)}:${String(recSecs % 60).padStart(2, '0')})` : '⏺ Record yourself'}
+            {recording ? <><Ico n="stop" fill /> Stop recording ({Math.floor(recSecs / 60)}:{String(recSecs % 60).padStart(2, '0')})</> : <><Ico n="record" fill className="rec-dot" /> Record yourself</>}
           </button>
         </section>
 
@@ -1063,7 +1064,7 @@ export function PlayScreen() {
           ) : (
             <label className="opt-row opt-check" data-find="count"><input type="checkbox" checked={counts} onChange={() => setCounts(!counts)} /><span><b>Count it: 1 & 2 &</b><span className="small muted">Note stems and the count under the tab.</span></span></label>
           )}
-          <label className="opt-row opt-check" data-find="hand"><input type="checkbox" checked={handOn} onChange={() => setHandOn(!handOn)} /><span><b>✋ Where your fingers go</b><span className="small muted">A small neck with finger numbers for the part you're on.</span></span></label>
+          <label className="opt-row opt-check" data-find="hand"><input type="checkbox" checked={handOn} onChange={() => setHandOn(!handOn)} /><span><b><Ico n="hand" /> Where your fingers go</b><span className="small muted">A small neck with finger numbers for the part you're on.</span></span></label>
           <div className="opt-row" data-find="size"><span className="opt-name">Size</span>
             <span className="zoom-btns" role="group" aria-label="Tab size">
               <button className="btn sm" onClick={() => setTabZoom(z => Math.max(0.7, Math.round((z - 0.1) * 10) / 10))} aria-label="Smaller tab">A−</button>
@@ -1129,7 +1130,7 @@ export function PlayScreen() {
           aria-label={focus ? 'Show all panels again' : 'Full tab: hide the other panels'} title={focus ? 'Show all panels again' : 'Full tab'}>
           {focus ? <IconShrink /> : <IconExpand />}
         </button>
-        <button className="btn sm stand-btn" data-find="stand" onClick={() => setStand(true)} aria-label="Music stand: just the tab, big, with big buttons" title="Music stand">🎼<span className="stand-label"> Stand</span></button>
+        <button className="btn sm stand-btn" data-find="stand" onClick={() => setStand(true)} aria-label="Music stand: just the tab, big, with big buttons" title="Music stand"><Ico n="music" /><span className="stand-label"> Stand</span></button>
         <button className="btn sm" data-find="video" aria-pressed={doc.youtube ? showVideo : videoAsk} onClick={() => (doc.youtube ? setShowVideo(!showVideo) : setVideoAsk(!videoAsk))}>Video</button>
         {mode === 'time' ? (
           <button className={`btn listen${inTime.running ? ' on' : ''}`} data-find="listen" onClick={() => void toggleRun()} aria-pressed={inTime.running}>
@@ -1253,17 +1254,17 @@ export function PlayScreen() {
               {isChord && chordNext && <div className="remote-chords"><span>next <b>{chordNext}</b></span></div>}
               <div className="remote-btns">
                 {mode === 'time' ? (
-                  <button className={`remote-go${inTime.running || ready.counting ? ' on' : ''}`} onClick={() => void toggleRun()} aria-pressed={inTime.running}>{inTime.running || ready.counting ? '■ Stop' : '▶ Start'}</button>
+                  <button className={`remote-go${inTime.running || ready.counting ? ' on' : ''}`} onClick={() => void toggleRun()} aria-pressed={inTime.running}>{inTime.running || ready.counting ? <><Ico n="stop" fill /> Stop</> : <><Ico n="play" fill /> Start</>}</button>
                 ) : (
-                  <button className={`remote-go${listening ? ' on' : ''}`} onClick={() => void toggleListen()} aria-pressed={listening}>{listening ? '■ Stop' : '▶ Listen'}</button>
+                  <button className={`remote-go${listening ? ' on' : ''}`} onClick={() => void toggleListen()} aria-pressed={listening}>{listening ? <><Ico n="stop" fill /> Stop</> : <><Ico n="play" fill /> Listen</>}</button>
                 )}
                 <div className="remote-row">
                   <button className={`remote-b remote-loop${loop ? ' on' : ''}`} onClick={() => { if (loop) setLoop(undefined); else { const b = f?.bar ?? 0; setLoop({ from: b, to: b }) } }} aria-pressed={!!loop}
-                    aria-label={loop ? 'Stop looping' : 'Loop the bar you are on'}>{loop ? '⟲ Off' : '⟲ Loop'}</button>
+                    aria-label={loop ? 'Stop looping' : 'Loop the bar you are on'}><Ico n="loop" /> {loop ? 'Off' : 'Loop'}</button>
                   <button className="remote-b" onClick={() => { setSpeed(Math.max(0.25, Math.round((speed - 0.05) * 20) / 20)); if (playAt >= 0) stopPreview() }} aria-label="Slower">−</button>
                   <b className="remote-speed" aria-label="Speed">{Math.round(speed * 100)}%</b>
                   <button className="remote-b" onClick={() => { setSpeed(Math.min(1.5, Math.round((speed + 0.05) * 20) / 20)); if (playAt >= 0) stopPreview() }} aria-label="Faster">+</button>
-                  <button className="remote-b" onClick={() => (inTime.running ? (inTime.stop(), inTime.start()) : restart())} aria-label="Back to the start">⏮</button>
+                  <button className="remote-b" onClick={() => (inTime.running ? (inTime.stop(), inTime.start()) : restart())} aria-label="Back to the start"><Ico n="back" /></button>
                 </div>
                 <div className="remote-row remote-small">
                   <button className="remote-b" onClick={() => setStandView('tab')}>Show the tab</button>
@@ -1276,18 +1277,18 @@ export function PlayScreen() {
         {stand && !bigView && (
           <div className="stand-bar" role="toolbar" aria-label="Music stand controls" data-testid="stand-bar">
             {mode === 'time' ? (
-              <button className={`stand-go${inTime.running || ready.counting ? ' on' : ''}`} onClick={() => void toggleRun()} aria-pressed={inTime.running}>{inTime.running || ready.counting ? '■ Stop' : '▶ Start'}</button>
+              <button className={`stand-go${inTime.running || ready.counting ? ' on' : ''}`} onClick={() => void toggleRun()} aria-pressed={inTime.running}>{inTime.running || ready.counting ? <><Ico n="stop" fill /> Stop</> : <><Ico n="play" fill /> Start</>}</button>
             ) : (
-              <button className={`stand-go${listening ? ' on' : ''}`} onClick={() => void toggleListen()} aria-pressed={listening}>{listening ? '■ Stop' : '▶ Listen'}</button>
+              <button className={`stand-go${listening ? ' on' : ''}`} onClick={() => void toggleListen()} aria-pressed={listening}>{listening ? <><Ico n="stop" fill /> Stop</> : <><Ico n="play" fill /> Listen</>}</button>
             )}
             <button className={`stand-b${loop ? ' on' : ''}`} onClick={() => { if (loop) setLoop(undefined); else { const b = cursorFlat >= 0 ? flat[cursorFlat].bar : 0; setLoop({ from: b, to: b }) } }} aria-pressed={!!loop}
-              aria-label={loop ? 'Stop looping' : 'Loop the bar you are on'}>{loop ? `⟲ ${loop.from === loop.to ? `Bar ${loop.from + 1}` : `${loop.from + 1}–${loop.to + 1}`} ✕` : '⟲ Loop bar'}</button>
+              aria-label={loop ? 'Stop looping' : 'Loop the bar you are on'}><Ico n="loop" /> {loop ? `${loop.from === loop.to ? `Bar ${loop.from + 1}` : `${loop.from + 1}–${loop.to + 1}`} ✕` : 'Loop bar'}</button>
             <span className="stand-speed" role="group" aria-label="Speed">
               <button className="stand-b" onClick={() => { setSpeed(Math.max(0.25, Math.round((speed - 0.05) * 20) / 20)); if (playAt >= 0) stopPreview() }} aria-label="Slower">−</button>
               <b>{Math.round(speed * 100)}%</b>
               <button className="stand-b" onClick={() => { setSpeed(Math.min(1.5, Math.round((speed + 0.05) * 20) / 20)); if (playAt >= 0) stopPreview() }} aria-label="Faster">+</button>
             </span>
-            <button className="stand-b" onClick={() => (inTime.running ? (inTime.stop(), inTime.start()) : restart())} aria-label="Back to the start">⏮</button>
+            <button className="stand-b" onClick={() => (inTime.running ? (inTime.stop(), inTime.start()) : restart())} aria-label="Back to the start"><Ico n="back" /></button>
             <button className="stand-b" onClick={() => setStandView('big')} aria-label="Big view: the note or chord, huge">Big</button>
             <button className="stand-b stand-x" onClick={() => setStand(false)} aria-label="Leave music stand">✕</button>
           </div>
@@ -1362,7 +1363,7 @@ function ReportCard({ r, onNext, onAgain, onClose, onThenNow }: { r: Report & { 
         {r.take === 'first' && <span className="small muted">Your first try is kept on this phone for Then vs now.</span>}
         <span className="report-btns">
           <button className="btn primary" onClick={onNext}>{r.next.label}</button>
-          {r.take === 'now' && <button className="btn tvn-btn" onClick={onThenNow} data-testid="tvn-open">🎧 Then vs now</button>}
+          {r.take === 'now' && <button className="btn tvn-btn" onClick={onThenNow} data-testid="tvn-open"><Ico n="headphones" /> Then vs now</button>}
           {r.next.kind !== 'again' && r.next.kind !== 'learned' && <button className="btn" onClick={onAgain}>Play again</button>}
         </span>
       </div>

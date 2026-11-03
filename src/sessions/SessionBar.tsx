@@ -1,6 +1,7 @@
 // The bar at the top while a practice session runs: which step, time left, pause, back, next, stop.
 // When a step's time is up it chimes and offers the next one (it never jumps screens by itself mid-phrase).
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { Ico } from '../components/Icon'
 import { addTime, finish, next, onSession, openStep, pause, prev, running, tick } from './session'
 import { playClick } from '../audio/metronome'
 import { audio } from '../audio/engine'
@@ -30,7 +31,7 @@ export function SessionBar() {
         <b>{step.title}</b>
       </button>
       <span className="session-time readout">{done ? 'Time!' : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`}</span>
-      <button className="btn sm" onClick={() => pause(!r.paused)} aria-label={r.paused ? 'Carry on' : 'Pause'}>{r.paused ? '▶' : '⏸'}</button>
+      <button className="btn sm" onClick={() => pause(!r.paused)} aria-label={r.paused ? 'Carry on' : 'Pause'}>{r.paused ? <Ico n="play" fill /> : <Ico n="pause" />}</button>
       <button className={`btn sm${done ? ' primary' : ''}`} onClick={next}>{last ? 'Finish' : 'Next ▸'}</button>
       {open && (
         <div className="session-more">
