@@ -10,6 +10,7 @@ import { instr, loadInstr, playInstr } from './sounds'
 import { isPlain, isUserPad, type PadDef } from './pads'
 import { playPad } from './padPlay'
 import { loadSampleBuf } from './padSamples'
+import { PerformFx } from './fx'
 
 /** A generated room reverb (a few seconds of decaying noise), shared by every track. */
 function makeReverb(ctx: AudioContext) {
@@ -47,6 +48,8 @@ export class StudioTransport {
   layers: LoopLayer[] = []
   private layerSrc: AudioBufferSourceNode[] = []
   readonly master: GainNode
+  /** performance effects over everything (Effects pad) */
+  readonly fx: PerformFx
   readonly drumBus: GainNode
   readonly loopBus: GainNode
   private reverb: ConvolverNode
@@ -57,7 +60,8 @@ export class StudioTransport {
     this.beat = beat
     const ctx = audio()
     this.master = ctx.createGain()
-    this.master.connect(out())
+    this.fx = new PerformFx(out(), () => ({ stepDur: this.stepDur, t0: this.t0, playing: this.playing }))
+    this.master.connect(this.fx.input)
     this.reverb = makeReverb(ctx)
     this.reverbIn = ctx.createGain()
     this.reverbIn.gain.value = 0.8

@@ -2174,3 +2174,13 @@ video.mirrored { transform: scaleX(-1); }
 .chop-wave rect { fill: var(--accent); opacity: 0.8; }
 .chop-mark { position: absolute; top: 0; bottom: 0; width: 24px; margin-left: -1px; border: 0; border-left: 2px solid var(--gold); background: none; color: var(--gold-text); font: 700 13px/1 var(--display); text-align: left; padding: 3px 0 0 3px; cursor: pointer; }
 [data-theme='psy'] .chop-wave { background: #1c0641; }
+/* Effects pad */
+.st-fx-kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+.st-xy { position: relative; height: 220px; border-radius: var(--r-md); border: 1px solid var(--line); touch-action: none; user-select: none; cursor: crosshair; overflow: hidden;
+  background: radial-gradient(circle at 30% 70%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%), linear-gradient(135deg, var(--surface-2), color-mix(in srgb, var(--gold) 14%, var(--surface-2))); }
+.st-xy.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--glow); }
+.st-xy-dot { position: absolute; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: var(--accent); opacity: 0.85; box-shadow: 0 0 24px var(--accent); pointer-events: none; }
+.st-xy-x { position: absolute; bottom: 6px; left: 0; right: 0; text-align: center; color: var(--ink-2); pointer-events: none; }
+.st-xy-y { position: absolute; top: 6px; left: 8px; color: var(--ink-2); pointer-events: none; }
+.st-xy-hint { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 20px; color: var(--ink-2); pointer-events: none; }
+[data-theme='psy'] .st-xy { background: radial-gradient(circle at 30% 70%, rgba(255, 63, 216, 0.3), transparent 60%), linear-gradient(135deg, #1c0641, #3a0a52); }

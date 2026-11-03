@@ -38,3 +38,16 @@ function plucks(times: number[], midis: number[], dur = 3) {
   assert.equal(isPlain(undefined), true); assert.equal(isPlain({ src: 'kit' }), true); assert.equal(isPlain({ src: 'kit', pitch: 2 }), false); assert.equal(isPlain({ src: 'rec' }), false)
   console.log('pads: ok')
 }
+
+// ---- effects pad mapping
+import { fxParams } from '../src/studio/fx'
+{
+  const sd = 0.125
+  const f0 = fxParams('filter', 0, 0, sd) as { type: string; freq: number }, f1 = fxParams('filter', 1, 1, sd) as { type: string; freq: number; q: number }
+  assert.equal(f0.type, 'lowpass'); assert.ok(f0.freq < 150); assert.equal(f1.type, 'highpass'); assert.ok(f1.freq > 5000 && f1.q > 10)
+  assert.equal((fxParams('stutter', 0, 0, sd) as { slice: number }).slice, 0.5)
+  assert.equal((fxParams('stutter', 1, 0, sd) as { slice: number }).slice, 0.0625)
+  assert.equal((fxParams('echo', 0.5, 0, sd) as { time: number }).time, 0.375)
+  assert.ok((fxParams('crush', 1, 1, sd) as { bits: number }).bits <= 2)
+  console.log('effects pad: ok')
+}

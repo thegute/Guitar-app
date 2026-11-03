@@ -148,6 +148,37 @@ async function hold(page, sel, ms) {
     await page.context().close()
   }
 
+  // ---- effects pad: every effect, dragged while the beat plays
+  if (want('fx')) for (const vp of [{ width: 412, height: 915 }, { width: 840, height: 757 }]) {
+    const page = await newPage(browser, vp)
+    await page.locator('.st-play').first().click()
+    const pad = page.locator('[data-testid=fx-pad]')
+    await pad.evaluate(e => e.scrollIntoView({ block: 'center' }))
+    await page.waitForTimeout(300)
+    for (const k of ['Filter', 'Echo', 'Reverb', 'Stutter', 'Crush', 'Gate']) {
+      await page.locator(`.st-fx-kinds button:has-text("${k}")`).click()
+      const b = await pad.boundingBox()
+      await page.mouse.move(b.x + b.width * 0.2, b.y + b.height * 0.7)
+      await page.mouse.down()
+      await page.mouse.move(b.x + b.width * 0.8, b.y + b.height * 0.2, { steps: 6 })
+      if (!(await page.locator('.st-xy.on .st-xy-dot').count())) bad(`${k}: no dot while dragging`)
+      await page.waitForTimeout(400)
+      await page.mouse.up()
+      if (await page.locator('.st-xy.on').count()) bad(`${k}: still on after letting go`)
+    }
+    // latch keeps it on
+    await page.locator('label:has-text("Latch") input').check()
+    const b = await pad.boundingBox()
+    await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2)
+    if (!(await page.locator('.st-xy.on').count())) bad('latch did not keep the effect on')
+    await page.locator('button:has-text("Effect off")').click()
+    await page.screenshot({ path: path.join(OUT, `bm-fx-${vp.width}.png`) })
+    if (await sideways(page)) bad(`effects scroll sideways at ${vp.width}`)
+    await page.locator('.st-play').first().click()
+    errs(page, `fx ${vp.width}`)
+    await page.context().close()
+  }
+
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : '\nbeat maker: all good')
   process.exit(problems.length ? 1 : 0)

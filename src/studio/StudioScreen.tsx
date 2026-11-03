@@ -35,6 +35,7 @@ import { USER_PADS, detectRoot, isUserPad, trimSilence, type PadId } from './pad
 import { saveSample } from './padSamples'
 import { PadEditor } from './PadEditor'
 import { ChopSheet } from './ChopSheet'
+import { FX, type FxKind } from './fx'
 import type { Handle } from '../audio/pluck'
 
 type SetBeat = (f: Beat | ((b: Beat) => Beat), remember?: boolean) => void
@@ -218,6 +219,7 @@ export function StudioScreen({ active }: { active: boolean }) {
         <Win id="layers" title="Drum layers" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}><Layers beat={beat} setBeat={setBeat} /></Win>
         {keys}
         <Looper t={tr()} beat={beat} loops={loops} playing={playing} play={play} pedalMode={pedalMode} setPedalMode={setPedalMode} />
+        <Effects t={tr()} playing={playing} play={play} />
         <Win id="steps" title="Step grid" className="panel"><Steps beat={beat} setBeat={setBeat} t={tr()} /></Win>
         <Roll t={tr()} beat={beat} setBeat={setBeat} />
         <Mix t={tr()} beat={beat} setBeat={setBeat} />
@@ -1274,4 +1276,46 @@ function Layers({ beat, setBeat }: { beat: Beat; setBeat: SetBeat }) {
 function VolumesButton() {
   const show = useWinShow()
   return <button className="btn sm" onClick={() => show('mix')}><Ico n="sliders" /> Volumes</button>
+}
+
+// ───────────────────────── performance effects: pick one, drag a finger round the square
+function Effects({ t, playing, play }: { t: StudioTransport; playing: boolean; play: (c?: number) => void }) {
+  const [kind, setKind] = usePersist<FxKind>('studioFx', 'filter')
+  const [latch, setLatch] = usePersist('studioFxLatch', false)
+  const [on, setOn] = useState(false)
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const box = useRef<HTMLDivElement>(null)
+  const xy = (e: React.PointerEvent) => { const r = box.current!.getBoundingClientRect(); return { x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height)) } }
+  useEffect(() => () => t.fx.release(), [t])
+  const info = FX.find(f => f.id === kind)!
+  return (
+    <Win id="fx" title="Effects" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+      <div className="st-fx-kinds" role="group" aria-label="Effect">
+        {FX.map(f => <button key={f.id} className={`chip${kind === f.id ? ' on' : ''}`} aria-pressed={kind === f.id} onClick={() => { t.fx.release(); setOn(false); setPos(null); setKind(f.id) }}>{f.label}</button>)}
+      </div>
+      <div className={`st-xy${on ? ' on' : ''}`} ref={box} data-testid="fx-pad" role="application" aria-label={`${info.label} effect pad: drag your finger around`}
+        onPointerDown={e => {
+          e.preventDefault()
+          try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
+          void audio().resume()
+          const p = xy(e)
+          if (latch && on) { t.fx.move(p.x, p.y); setPos(p); return }
+          t.fx.engage(kind, p.x, p.y); setOn(true); setPos(p)
+        }}
+        onPointerMove={e => { if (!on || e.buttons === 0) return; const p = xy(e); t.fx.move(p.x, p.y); setPos(p) }}
+        onPointerUp={() => { if (!latch) { t.fx.release(); setOn(false); setPos(null) } }}
+        onPointerCancel={() => { if (!latch) { t.fx.release(); setOn(false); setPos(null) } }}>
+        {pos && <span className="st-xy-dot" style={{ left: `${pos.x * 100}%`, top: `${(1 - pos.y) * 100}%` }} aria-hidden />}
+        <span className="st-xy-x small">{info.x}</span>
+        <span className="st-xy-y small">{info.y} ↑</span>
+        {!on && <span className="st-xy-hint">{playing ? 'Touch and drag' : 'Press ▶, then touch and drag'}</span>}
+      </div>
+      <div className="row" style={{ gap: 8 }}>
+        {!playing && <button className="btn sm" onClick={() => play(0)}><Ico n="play" fill /> Play the beat</button>}
+        <label className="ex-check"><input type="checkbox" checked={latch} onChange={e => { setLatch(e.target.checked); if (!e.target.checked) { t.fx.release(); setOn(false); setPos(null) } }} /> Latch: keep it on when I let go</label>
+        {latch && on && <button className="btn sm" onClick={() => { t.fx.release(); setOn(false); setPos(null) }}>Effect off</button>}
+      </div>
+      <p className="small muted" style={{ margin: 0 }}>The effect goes over the whole beat and your loops while your finger is down, then back to normal (echo and reverb ring out). Stutter repeats the bit you touched, on the beat.</p>
+    </Win>
+  )
 }
