@@ -1,6 +1,8 @@
 // Tabs across the top of a screen (Songs, Learn, Jam, Tools, Settings): one row of big, equal buttons that
 // split a long screen into a few short pages. The choice is remembered per screen.
+import { useEffect } from 'react'
 import { usePersist } from './Controls'
+import { countUse } from '../usage'
 
 export interface SubTab<T extends string> { id: T; label: string; badge?: string | number | null }
 
@@ -28,5 +30,7 @@ export function SubTabs<T extends string>({ tabs, value, onChange, label, classN
 /** The remembered sub-tab of a screen (falls back to the first one if a saved choice no longer exists). */
 export function useSubTab<T extends string>(key: string, ids: readonly T[], initial?: T): [T, (v: T) => void] {
   const [v, set] = usePersist<T>(`sub:${key}`, initial ?? ids[0])
-  return [ids.includes(v) ? v : (initial ?? ids[0]), set]
+  const cur = ids.includes(v) ? v : (initial ?? ids[0])
+  useEffect(() => { countUse(`page:${key}:${cur}`) }, [key, cur])
+  return [cur, set]
 }

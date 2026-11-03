@@ -53,6 +53,7 @@ import { profile } from '../learn/profile'
 import { Zoomable } from '../components/Zoomable'
 import { useScreenInfo } from '../assistant/screen'
 import { talkingNow } from '../assistant/listen'
+import { countUse } from '../usage'
 
 
 type View = 'tab' | 'solo' | 'both'
@@ -690,6 +691,16 @@ export function PlayScreen() {
     return all ? Math.round((ok / all) * 100) : null
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version, follow])
+
+  // what you use (counted on this phone only)
+  useEffect(() => { if (opts) countUse('play:options') }, [opts])
+  useEffect(() => { if (stand) countUse('play:stand') }, [stand])
+  useEffect(() => { if (recording) countUse('play:record') }, [recording])
+  useEffect(() => { if (loop) countUse('play:loop') }, [loop?.from, loop?.to]) // eslint-disable-line react-hooks/exhaustive-deps
+  const hearing = playAt >= 0
+  useEffect(() => { if (hearing) { countUse('play:hear'); if (withBand) countUse('play:band') } }, [hearing]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (inTime.running) { countUse('play:intime'); if (withBand) countUse('play:band') } }, [inTime.running]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (showVideo && doc?.youtube) countUse('play:video') }, [showVideo, doc?.youtube])
 
   // ---- Back: stop picking loop bars, close the song check, leave Full tab
   useBack(!!selecting, () => setSelecting(null))

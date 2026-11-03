@@ -11,6 +11,7 @@ import { PsyBackdrop } from './components/PsyArt'
 import { setNavHidden, useMedia, useUi } from './ui'
 import { usePersist } from './components/Controls'
 import { useInstrument } from './instrument'
+import { countUse, watchButtons } from './usage'
 import { isToolPage, onGo, onRemount, TAB_IDS, type Tab, type ToolPage } from './nav'
 import { SearchSheet } from './components/SearchSheet'
 import { SessionBar } from './sessions/SessionBar'
@@ -50,6 +51,9 @@ export default function App() {
   useEffect(() => { if (firstTab.current) { firstTab.current = false; return } stopAllSounds(); stopSpeaking() }, [tab, toolPage])
   const tabRef = useRef<Tab>(tab)
   tabRef.current = tab
+  // what you use (counted on this phone only; Settings → You → What you use)
+  useEffect(() => { countUse(tab === 'tools' ? `tool:${toolPage}` : `screen:${tab}`) }, [tab, toolPage])
+  useEffect(() => watchButtons(() => tabRef.current), [])
   useEffect(() => onGo(t => {
     const to: Tab = isToolPage(t) ? 'tools' : t
     if (to !== tabRef.current) cameFrom.current = tabRef.current
@@ -59,6 +63,7 @@ export default function App() {
   // search: the button in the menu, or / or Ctrl+K on a keyboard
   const [search, setSearch] = useState<false | { text?: string; context?: AskContext; ask?: boolean }>(false)
   useEffect(() => onAsk(r => setSearch({ text: r.text, context: r.context, ask: r.send })), [])
+  useEffect(() => { if (search) countUse('ask:open') }, [search])
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
       const typing = e.target instanceof HTMLElement && (e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))

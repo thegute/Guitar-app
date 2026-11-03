@@ -9,6 +9,7 @@ import { ArtThumb } from '../components/Art'
 import { useEffect, useRef, useState } from 'react'
 import { IconGear } from '../components/Icons'
 import { SubTabs, useSubTab } from '../components/SubTabs'
+import { countUse } from '../usage'
 import { PsyArt, PsyDog, PsyPic } from '../components/PsyArt'
 import type { DogId } from '../art/samurai'
 import { useInstrument } from '../instrument'
@@ -109,6 +110,7 @@ export function LearnScreen() {
   }, [])
 
   const route = stack[stack.length - 1]
+  useEffect(() => { if (route.k !== 'home' && route.k !== 'lesson' && route.k !== 'technique') countUse(`learn:${route.k}`) }, [route])
   useBack(stack.length > 1, () => setStack(s => (s.length > 1 ? s.slice(0, -1) : s)))
   // moving between Learn pages (a lick, a tool, back) stops what the last page was playing
   const depth = useRef(stack.length)

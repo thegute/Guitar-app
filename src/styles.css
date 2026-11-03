@@ -2017,3 +2017,9 @@ video.mirrored { transform: scaleX(-1); }
 .st-loophead .seg button { flex: 1 1 auto; line-height: 1.15; }
 .st-loophead .seg button:last-child { flex: 0 0 auto; }
 @media (max-width: 440px) { .st-loophead { flex-wrap: wrap; justify-content: center; } .st-loophead > .stack { flex: 1 1 100% !important; } }
+
+/* Settings → You → What you use */
+.usage-list { margin: 0; padding-left: 1.4em; display: grid; gap: 2px; }
+.usage-list li span { display: inline-block; min-width: 0; }
+.usage-list li { font-size: .95rem; }
+.usage-list li b { float: right; font-variant-numeric: tabular-nums; color: var(--ink-2, inherit); }

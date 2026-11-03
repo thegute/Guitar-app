@@ -19,6 +19,7 @@ import { BackupPanel } from '../components/BackupPanel'
 import { useShowArt } from '../components/Art'
 import { HintHead } from '../components/Fold'
 import { ProfileForm } from '../components/ProfileForm'
+import { UsagePanel } from '../components/UsagePanel'
 import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, instrumentSound, activeSound, soundInfo, SOUNDS, type SoundId } from '../audio/pluck'
 import { audio } from '../audio/engine'
 import { gear, isSetUp, latencyMs, useGear } from '../audio/gear'
@@ -149,6 +150,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         {remMsg && <p className="small" role="status" style={{ margin: 0 }}>{remMsg}</p>}
         {!remindersAvailable() && !remMsg && <p className="small muted" style={{ margin: 0 }}>Reminders are sent by the Android app.</p>}
       </section>
+      <UsagePanel />
 
       </>}
 
