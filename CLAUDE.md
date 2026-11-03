@@ -244,7 +244,7 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
 - Tests: `tests/build30-logic.test.ts`, `tests/browser/build30-test.cjs [report,practice,right,tvn,remote,usage]`.
 
 ## Next up — pick up here
-0. Build 30 (not shipped yet; waits for "ship it"): after the owner tries it, ASK HIM ABOUT EACH of the 8 items in notes/next-build.md
+0. Build 30 shipped: after the owner tries it, ASK HIM ABOUT EACH of the 8 items in notes/next-build.md
    (8–15, each with its checkpoint) and revert any he doesn't want (`git revert <checkpoint>`). In a month: go through What you use together.
 1. Owner tries build 29 (his Gemini choice 3.5 Flash Lite answers in 0.7 s; 3.8/3.7 Flash hang or 503 on the free tier; Groq key added = first backup); fix what he finds. Untested on a real phone: 🎤 talk with the USB amp plugged in / while Play listens, Gemini voice, streaming in the Android web view.
 2. Note follower accuracy (fewer misreads, accept bends; GP test files in the scratchpad testdata) and a better note detector for Notes mode (own guitar only).
