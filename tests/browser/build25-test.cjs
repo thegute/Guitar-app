@@ -176,6 +176,8 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
     await page.locator('.song-check button:has-text("Got it")').click({ timeout: 2500 }).catch(() => {})
     const z0 = await page.evaluate(() => getComputedStyle(document.querySelector('.tab-rows')).zoom)
     await page.locator('[data-find=stand]').click()
+    // narrow screens open the big view first (build 30): Show the tab gets the tab stand
+    if (vp.width <= 480) await page.locator('.remote-b:has-text("Show the tab")').click()
     await page.waitForSelector('[data-testid=stand-bar]')
     const st = await page.evaluate(() => ({ head: getComputedStyle(document.querySelector('.play-head')).display, nav: document.querySelector('nav.nav') ? getComputedStyle(document.querySelector('nav.nav')).display : 'none', zoom: getComputedStyle(document.querySelector('.tab-rows')).zoom, small: [...document.querySelectorAll('.stand-bar button')].filter(b => b.getBoundingClientRect().height < 56 || b.getBoundingClientRect().width < 56).length, offscreen: [...document.querySelectorAll('.stand-bar button')].filter(b => b.getBoundingClientRect().bottom > innerHeight + 1).length }))
     console.log(`stand ${vp.width}: head ${st.head}, zoom ${z0} → ${st.zoom}, small buttons ${st.small}, off screen ${st.offscreen}`)
