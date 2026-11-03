@@ -1,31 +1,29 @@
-// "Jump back in": the two things you most likely want when you open the app with a few minutes to play.
-// Continue = back to your last song in Play, same bar, loop and speed. 15-minute session = today's Zero to Hero
-// routine squeezed into 15 minutes (or a short general one on ukulele / before the plan is set up).
+// The Practice card: one big button that decides today's practice for you (warm-up → your plan → your trouble
+// spot → a song, see sessions/practice.ts), with the plan shown underneath so you know what's coming, a length
+// choice, and a small "Just carry on" for when you only want your last song back.
 import { useEffect, useState } from 'react'
 import { useInstrument } from '../instrument'
 import { getSong, type SongDoc } from '../tabs/library'
 import { flatten, playable } from '../tabs/model'
 import { go } from '../nav'
-import { startSession, type Session } from '../sessions/session'
-import { routine, z2h } from '../learn/zeroHero'
+import { startSession } from '../sessions/session'
+import { practicePlan, type PracticeLen, type PracticePlan } from '../sessions/practice'
+import { usePersist } from './Controls'
+import { countUse } from '../usage'
 
 function readJSON<T>(k: string, d: T): T { try { const v = localStorage.getItem(k); return v ? (JSON.parse(v) as T) : d } catch { return d } }
-
-function quickSession(guitar: boolean): Session | null {
-  const v = z2h()
-  if (guitar && v.placed) return routine(v, 15)
-  return {
-    id: `quick-${Date.now().toString(36)}`, title: '15-minute practice', steps: [
-      { title: 'Warm up', minutes: 3, target: { exercise: 'type:warmup' }, tip: 'Slow and clean with the metronome.' },
-      { title: 'Chord changes', minutes: 4, target: { go: { tool: 'changes' } }, tip: 'Your two hardest chords, back and forth for a minute.' },
-      { title: 'Your song', minutes: 8, target: { play: {} }, tip: 'Pick up where you left off. Loop the hard bar if there is one.' },
-    ],
-  }
-}
+const LENS: PracticeLen[] = [10, 20, 30]
 
 export function JumpBackIn({ compact = false }: { compact?: boolean }) {
   const inst = useInstrument()
+  const [len, setLen] = usePersist<PracticeLen>('practiceLen', 20)
+  const [plan, setPlan] = useState<PracticePlan | null>(null)
   const [doc, setDoc] = useState<SongDoc | null>(null)
+  useEffect(() => {
+    let alive = true
+    void practicePlan(inst, len).then(p => { if (alive) setPlan(p) })
+    return () => { alive = false }
+  }, [inst, len])
   useEffect(() => {
     const id = readJSON<string>(`kg:playSong:${inst.id}`, '')
     if (!id) { setDoc(null); return }
@@ -45,20 +43,31 @@ export function JumpBackIn({ compact = false }: { compact?: boolean }) {
   const where = doc ? [
     bar >= 0 ? `bar ${bar + 1}` : '',
     doc.loop ? (doc.loop.from === doc.loop.to ? `looping bar ${doc.loop.from + 1}` : `looping bars ${doc.loop.from + 1}–${doc.loop.to + 1}`) : '',
-    speed !== 1 ? `${Math.round(speed * 100)}% speed` : '',
+    speed !== 1 ? `${Math.round(speed * 100)}%` : '',
   ].filter(Boolean).join(', ') : ''
-  const sess = () => { const s = quickSession(inst.id === 'guitar'); if (s) startSession(s) }
+  const start = () => { if (!plan) return; countUse('practice:start'); startSession(plan.session) }
   return (
-    <div className={`jump-in${compact ? ' compact' : ''}`} data-testid="jump-in">
-      {!compact && <b className="jump-in-h">Jump back in</b>}
-      <div className="jump-in-btns">
-        <button className="btn primary jump-continue" onClick={() => go('play')} disabled={!doc}>
-          <span className="jump-big">▶ Continue</span>
-          <span className="jump-sub">{doc ? `${doc.title}${where ? ` · ${where}` : ''}` : 'Open a song first'}</span>
-        </button>
-        <button className="btn jump-quick" onClick={sess}>
-          <span className="jump-big">⏱ 15-minute session</span>
-          <span className="jump-sub">{inst.id === 'guitar' && z2h().placed ? "Today's Zero to Hero routine, short" : 'Warm-up, chords, your song'}</span>
+    <div className={`practice-card${compact ? ' compact' : ''}`} data-testid="jump-in">
+      <button className="btn primary practice-go" onClick={start} disabled={!plan} data-use="Practice">
+        <span className="practice-go-big">▶ Practice</span>
+        <span className="practice-go-sub">{len} minutes, planned for you</span>
+      </button>
+      {!compact && plan && (
+        <ol className="practice-steps" aria-label="Today's practice">
+          {plan.parts.map((p, i) => (
+            <li key={i} className={`practice-step k-${p.kind}`}>
+              <span className="practice-min">{p.minutes}′</span>
+              <span className="practice-what"><b>{p.title}</b><span className="small muted">{p.why}</span></span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <div className="practice-foot">
+        <span className="seg practice-len" role="group" aria-label="How long">
+          {LENS.map(m => <button key={m} aria-pressed={len === m} onClick={() => setLen(m)}>{m} min</button>)}
+        </span>
+        <button className="btn sm ghost jump-continue" onClick={() => go('play')} disabled={!doc} title={doc ? `${doc.title}${where ? ` · ${where}` : ''}` : undefined}>
+          Just carry on{doc ? `: ${doc.title}` : ''}{where ? ` · ${where}` : ''}
         </button>
       </div>
     </div>

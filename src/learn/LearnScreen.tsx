@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import { IconGear } from '../components/Icons'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { countUse } from '../usage'
+import { playAction } from '../nav'
 import { PsyArt, PsyDog, PsyPic } from '../components/PsyArt'
 import type { DogId } from '../art/samurai'
 import { useInstrument } from '../instrument'
@@ -167,7 +168,7 @@ export function LearnScreen() {
     else if ('lesson' in g) push({ k: 'lesson', id: g.lesson })
     else if ('tool' in g) push({ k: g.tool })
     else if ('tab' in g) goTab(g.tab)
-    else if ('song' in g) void getSong(g.song).then(doc => { if (doc) openInPlay(g.loop ? { ...doc, loop: g.loop } : doc); else goTab('play') })
+    else if ('song' in g) void getSong(g.song).then(doc => { if (doc) { openInPlay(g.loop === null ? { ...doc, loop: undefined } : g.loop ? { ...doc, loop: g.loop } : doc); if (g.speed) playAction({ speed: g.speed }) } else goTab('play') })
     else if ('songbook' in g) void openSongbook(g.songbook.song, g.songbook.part)
     else if ('songs' in g) openSongs(g.songs)
     else if ('settings' in g) { setSubPage('settings', g.settings); push({ k: 'settings', n: Date.now() }) }

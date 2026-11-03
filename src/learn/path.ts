@@ -11,7 +11,8 @@ export type Go =
   | { tool: 'ear' | 'caged' | 'changes' | 'rhythm' | 'circle' | 'lessons' | 'settings' | 'progress' | 'guide' | 'techniques' | 'bends' | 'videos' | 'recordings' | 'chainer' }
   | { tab: 'play' | 'progressions' | 'tuner' }
   | { exercise: 'spider' | 'penta1' }
-  | { song: string; loop?: { from: number; to: number } }
+  /** a saved song; loop null = stop looping; speed = playback speed to start at */
+  | { song: string; loop?: { from: number; to: number } | null; speed?: number }
   | { songbook: { song: string; part: string } }
   | { songs: 'songbook' | 'mine' | 'practice' | 'add' }
   | { settings: 'you' | 'sound' | 'look' | 'backup' }

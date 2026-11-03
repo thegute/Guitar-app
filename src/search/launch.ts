@@ -16,7 +16,11 @@ function launchGo(g: Go) {
   if ('tab' in g) go(g.tab)
   else if ('songs' in g) openSongs(g.songs)
   else if ('jam' in g) openJam(g.jam)
-  else if ('song' in g) void getSong(g.song).then(doc => (doc ? openInPlay(g.loop ? { ...doc, loop: g.loop } : doc) : go('play')))
+  else if ('song' in g) void getSong(g.song).then(doc => {
+    if (!doc) { go('play'); return }
+    openInPlay(g.loop === null ? { ...doc, loop: undefined } : g.loop ? { ...doc, loop: g.loop } : doc)
+    if (g.speed) playAction({ speed: g.speed })
+  })
   else if ('songbook' in g) void loadSongbookDoc(g.songbook.song, g.songbook.part, current()).then(doc => (doc ? openInPlay(doc) : openSongs('songbook')))
   else learnGo(g)
 }
