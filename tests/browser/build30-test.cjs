@@ -233,6 +233,35 @@ async function playThrough(page) {
     await page.context().close()
   }
 
+  // ---- What you use (counts on the phone) and no emoji left on the main screens
+  if (want('usage')) {
+    const page = await newPage(browser, { 'kg:tab2': 'play' }, { width: 412, height: 915 })
+    await page.waitForSelector('.tab-note', { timeout: 8000 })
+    const emoji = /[\u{1F300}-\u{1FAFF}\u{23E9}-\u{23FA}\u2728]/u
+    const seen = []
+    for (const [tab, subs] of [['Play', []], ['Songs', ['My songs', 'Songbook', 'Exercises', 'Add a song']], ['Learn', ['Today', 'Course', 'Explore']], ['Jam', ['Jam', 'Solo over it', 'Make a tab', 'Find chords', 'Beat maker']], ['Tools', []]]) {
+      await nav(page, tab); await page.waitForTimeout(400)
+      for (const s of subs.length ? subs : [null]) {
+        if (s) { await sub(page, s); await page.waitForTimeout(350) }
+        const t = await page.evaluate(() => [...document.querySelectorAll('button, .chip, label, h1, h2, h3, b')].filter(e => e.offsetParent).map(e => e.textContent).join(' '))
+        const m = t.match(new RegExp(emoji.source, 'gu'))
+        if (m) seen.push(`${tab}${s ? ' → ' + s : ''}: ${[...new Set(m)].join(' ')}`)
+      }
+    }
+    if (seen.length) bad('emoji still on screen: ' + seen.join(' | '))
+    await nav(page, 'Learn'); await page.locator('button[aria-label=Settings]').first().click()
+    await sub(page, 'You')
+    await page.locator('.fold-toggle:has-text("What you use")').click()
+    await page.waitForTimeout(1700)
+    const rows = await page.locator('.usage-list li').allTextContents()
+    console.log(`what you use: ${rows.slice(0, 5).join(' | ')}`)
+    if (rows.length < 3) bad('What you use shows too little')
+    const store = await page.evaluate(() => JSON.parse(localStorage.getItem('kg:usage') || '{}'))
+    for (const k of ['screen:progressions', 'page:jam:beats', 'page:songs:songbook', 'learn:settings']) if (!store.c?.[k]) bad(`What you use did not count ${k}`)
+    errs(page, 'usage')
+    await page.context().close()
+  }
+
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : '\nbuild 30: all good')
   process.exit(problems.length ? 1 : 0)

@@ -228,7 +228,24 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   🎤 hands-free talk (`assistant/listen.ts`, native `ListenPlugin.java`; Play ignores the mic while `talkingNow()`), Gemini retries/fallbacks + streaming (`streamGenerateContent`), thinking off on 2.5 Flash / "low" on 3+, Gemini TTS voice (`speak.ts`, `kg:geminiVoice`); built-in helper keeps the phone voice.
 - Tests: `tests/build25-logic.test.ts`, `tests/browser/build25-test.cjs`.
 
+## Build 30 (owner: "think of high quality UX, a million dollar app"; all 8 ideas, each its own checkpoint so any can be undone)
+- Practice button (`sessions/practice.ts` `practicePlan(inst, 10|20|30)`, UI in `components/JumpBackIn.tsx`): warm-up → Zero to Hero focus →
+  trouble bars (`troubleBars`, Go `{ song, loop, speed: 0.7 }`; `loop: null` clears a loop) → a song (due review / current / songbook). Runs as a session.
+- Report card (`play/report.ts` `barMistakes`, `makeReport`; `ReportCard` in PlayScreen): after a whole run (wait: `showReport` from hitAt; In time:
+  onFinish, no loop). TabView `marks` = dashed coral trouble bars (`.tab-markband`).
+- "I played it right" (`play/taught.ts`, `kg:taught` per input kind): `taughtAlias` before `matchNote`, `chordMatch(chroma, tones, ease)`; pedal action `accept`.
+- Then vs now (`audio/thenNow.ts`, IndexedDB `kg-thennow`, `decide()`; `components/ThenVsNow.tsx`): a quiet TakeRecorder on the listener's stream for
+  whole runs from the top (`kg:thenNow`, default on); first kept, "now" when ≥10 points better. Report card button + My recordings.
+- Music stand big view (`.remote` in PlayScreen): auto on ≤480 px (Fold cover), "Big" in the stand bar, "Show the tab" back (per stand session).
+- Icons: `components/Icon.tsx` (`Ico n=…`, `Glyph e=emoji` for badge/celebration data, `instIcon`), lucide-react 0.468.0. No colour emoji in screens.
+- Tidy-up: tokens `--r-sm/md/lg/pill`, `--h-xs/sm/md/lg`, `--sp-1..5` in styles.css; use them for new styles.
+- What you use (`src/usage.ts`, `kg:usage`, `components/UsagePanel.tsx` in Settings → You): counts screens, sub-pages, Learn routes, Play features,
+  and every button press by label (one capture listener). Use it with the owner after a month to trim.
+- Tests: `tests/build30-logic.test.ts`, `tests/browser/build30-test.cjs [report,practice,right,tvn,remote,usage]`.
+
 ## Next up — pick up here
+0. Build 30 (not shipped yet; waits for "ship it"): after the owner tries it, ASK HIM ABOUT EACH of the 8 items in notes/next-build.md
+   (8–15, each with its checkpoint) and revert any he doesn't want (`git revert <checkpoint>`). In a month: go through What you use together.
 1. Owner tries build 29 (his Gemini choice 3.5 Flash Lite answers in 0.7 s; 3.8/3.7 Flash hang or 503 on the free tier; Groq key added = first backup); fix what he finds. Untested on a real phone: 🎤 talk with the USB amp plugged in / while Play listens, Gemini voice, streaming in the Android web view.
 2. Note follower accuracy (fewer misreads, accept bends; GP test files in the scratchpad testdata) and a better note detector for Notes mode (own guitar only).
 3. Hand position accuracy in Play, Jam looper loud/reliable, ukulele theory, more badges, chord-tone lessons, deep CAGED, a simplicity pass.
