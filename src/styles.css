@@ -2131,3 +2131,37 @@ video.mirrored { transform: scaleX(-1); }
 .flame .ico { color: var(--ink-3); }
 .flame.lit .ico { color: #ff7a2f; }
 .freeze .ico { color: var(--frost, #9fd8f2); }
+
+/* Beat maker: Sample mode, your pads, the pad editor */
+.st-sample.on { background: var(--coral); border-color: var(--coral); color: #fff; }
+.st-sample-bar { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-sm); border: 1px dashed var(--coral); background: color-mix(in srgb, var(--coral) 8%, var(--surface)); }
+.st-sample-bar .small { flex: 1; min-width: 0; }
+.st-meter, .pad-meter { --lv: 0; flex: none; width: 10px; height: 28px; border-radius: 5px; background: linear-gradient(to top, var(--mint) calc(var(--lv) * 100%), var(--line) 0); }
+.pad-meter { display: inline-block; height: 20px; vertical-align: middle; margin-left: 10px; }
+.st-pads.sampling .st-pad { border: 2px solid var(--coral); background: color-mix(in srgb, var(--coral) 18%, var(--surface)); color: var(--ink); }
+.st-pads.sampling .st-pad.recording { background: var(--coral); color: #fff; animation: st-recpulse 0.8s ease-in-out infinite; }
+@keyframes st-recpulse { 50% { filter: brightness(1.25); } }
+.st-pad-mic { position: absolute; top: 6px; right: 6px; opacity: 0.8; }
+.st-pad-src { position: absolute; bottom: 4px; right: 6px; font-size: 11px; opacity: 0.75; pointer-events: none; }
+.st-pad.empty { opacity: 0.55; border-style: dashed; }
+.st-pad.empty span { font-size: 26px; }
+.pad-editor { gap: var(--sp-3); }
+.pad-src { flex-wrap: wrap; border-radius: var(--r-sm); }
+.pad-src button { flex: 1 1 auto; }
+.pad-rec { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.pad-rec.on { background: var(--coral); border-color: var(--coral); color: #fff; }
+.pad-wave { position: relative; height: 110px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface-2); touch-action: none; cursor: ew-resize; overflow: hidden; }
+.pad-wave svg { width: 100%; height: 100%; display: block; }
+.pad-wave rect.in { fill: var(--accent); }
+.pad-wave rect.out { fill: var(--ink-3); opacity: 0.35; }
+.pad-handle { position: absolute; top: 0; bottom: 0; width: 4px; margin-left: -2px; background: var(--gold); pointer-events: none; }
+.pad-handle::after { content: ''; position: absolute; top: 50%; left: -8px; width: 20px; height: 28px; margin-top: -14px; border-radius: 6px; background: var(--gold); }
+.pad-wave-wrap { display: grid; gap: 6px; }
+.pad-hear-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.pad-note { min-width: 52px; text-align: center; font-family: var(--display); font-size: 20px; align-self: center; }
+.pad-val { min-width: 54px; text-align: right; font-variant-numeric: tabular-nums; }
+.pad-editor .opt-row input[type=range] { flex: 1; min-width: 0; }
+.pad-keychords .chip { min-height: var(--h-xs); }
+[data-theme='psy'] .st-pads.sampling .st-pad:not(.recording) { background: #3a0a3a; color: #fff; }
+[data-theme='psy'] .pad-wave { background: #1c0641; }
+[data-theme] .st-sample.on, [data-theme='psy'] .btn.st-sample[aria-pressed='true'] { background: var(--coral); border-color: var(--coral); color: #fff; }

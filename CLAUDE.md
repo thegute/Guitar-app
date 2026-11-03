@@ -209,7 +209,7 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   labelled a rough guess (full mixes can't be transcribed reliably).
 - Sessions: `sessions/session.ts` (timed steps, each opens a Target; `kg:session`), `SessionBar.tsx` (top bar), `MySessions.tsx` (Learn → Today).
 - Zero to Hero (guitar): `learn/zeroHero.ts` + `ZeroToHero.tsx` on Learn → Course (ukes keep the path to mastery): the owner's plan doc
-  (https://claude.ai/artifact/LQjDVM8yCNx2WmGrkT9Xnm), phases + gates (auto-checked where measurable), start check, daily routine as a session, JustinGuitar links only.
+  (https://claude.ai/artifact/LQjDVM8yCNx2WmGrkT9Xnm), phases + gates (auto-checked where measurable), start check, daily routine as a session. Videos: the best teacher for each spot (owner 2026-11-02: not JustinGuitar-only; style paths use teachers who play that style).
 - Tests: `tests/browser/build20-test.cjs`, build19, build14 tour (Songs tab "Exercises"), search-test.
 
 ## Builds 22–24 (shipped as build-24)
