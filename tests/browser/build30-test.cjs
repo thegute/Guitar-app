@@ -128,6 +128,33 @@ async function playThrough(page) {
     await page.context().close()
   }
 
+  // ---- I played it right: a misheard note, one tap moves on and remembers the mix-up
+  if (want('right')) {
+    const page = await newPage(browser, { 'kg:tab2': 'play', 'kg:playTidy': false }, { width: 412, height: 915 })
+    await page.waitForSelector('.tab-note', { timeout: 8000 })
+    await page.locator('.song-check button:has-text("Got it")').click({ timeout: 2500 }).catch(() => {})
+    // start somewhere the song's opening notes don't fit, so the first note heard is "wrong"
+    await page.locator('.tab-note').nth(9).click()
+    await page.locator('button.listen').click()
+    const btn = page.locator('[data-testid=played-right]')
+    await btn.waitFor({ timeout: 15000 }).catch(() => bad('no "I played it right" on a miss'))
+    if (await btn.count()) {
+      const before = await page.locator('.next .small').first().textContent()
+      await btn.click()
+      await page.waitForTimeout(300)
+      const taught = await page.locator('.fb.taught').textContent().catch(() => '')
+      const after = await page.locator('.next .small').first().textContent()
+      const store = await page.evaluate(() => localStorage.getItem('kg:taught'))
+      console.log(`played it right: "${taught}" | ${before.trim().slice(0, 30)} → ${after.trim().slice(0, 30)}`)
+      if (!/count as|kindly/.test(taught)) bad('no message after "I played it right"')
+      if (!store || store === '{}') bad('mix-up not remembered')
+      await page.screenshot({ path: path.join(OUT, 'b30-right.png') })
+    }
+    await page.locator('button.listen').click().catch(() => {})
+    errs(page, 'played it right')
+    await page.context().close()
+  }
+
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : '\nbuild 30: all good')
   process.exit(problems.length ? 1 : 0)

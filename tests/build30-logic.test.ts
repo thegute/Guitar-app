@@ -72,3 +72,24 @@ import { barMistakes, makeReport } from '../src/play/report'
   assert.equal(r.next.kind, 'learned')
   console.log('report card: ok')
 }
+
+// ---- I played it right
+import { teachNote, teachChord, taughtAlias, chordEase, taughtCount, forgetTaught, meantNote } from '../src/play/taught'
+import { chordMatch } from '../src/audio/chroma'
+{
+  assert.equal(meantNote([64, 67], 68), 67)
+  assert.equal(taughtAlias('mic', [64], 65), null)
+  teachNote('mic', 64, 65)
+  assert.equal(taughtAlias('mic', [64], 65), 64)
+  assert.equal(taughtAlias('usb', [64], 65), null, 'the amp has its own')
+  assert.equal(taughtAlias('mic', [60], 65), null, 'only where that note is wanted')
+  // a weak 3rd: normally rejected, accepted once corrected a few times
+  const chroma = new Array(12).fill(0); chroma[0] = 0.5; chroma[4] = 0.06; chroma[7] = 0.4; chroma[2] = 0.15
+  assert.equal(chordMatch(chroma, [0, 4, 7]).ok, false)
+  for (let i = 0; i < 3; i++) teachChord('mic', [60, 64, 67])
+  assert.equal(chordEase('mic', [48, 52, 55]), 1)
+  assert.equal(chordMatch(chroma, [0, 4, 7], 1).ok, true)
+  assert.equal(taughtCount('mic'), 2)
+  forgetTaught('mic'); assert.equal(taughtCount('mic'), 0)
+  console.log('played it right: ok')
+}

@@ -2055,3 +2055,6 @@ video.mirrored { transform: scaleX(-1); }
 @keyframes report-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .report-card { animation: none; } }
 @media (max-width: 400px) { .report-card .report-score { width: 58px; height: 58px; } .report-score b { font-size: 22px; } }
+/* "I played it right" */
+.fb-right { margin-left: 8px; vertical-align: middle; min-height: 30px; padding: 2px 10px; font-size: 14px; }
+.fb.taught { color: var(--mint-text); }

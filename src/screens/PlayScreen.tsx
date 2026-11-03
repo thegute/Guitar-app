@@ -28,6 +28,7 @@ import { useInTime, type TrainerOpts } from '../play/useInTime'
 import { usePedals } from '../controls/pedals'
 import { recordRun, songStats } from '../play/songStats'
 import { barMistakes, makeReport, type Report } from '../play/report'
+import { chordEase, forgetTaught, meantNote, taughtAlias, taughtCount, teachChord, teachNote } from '../play/taught'
 import { useFoldPosture } from '../play/fold'
 import type { VideoApi } from '../play/inTime'
 import { exampleDoc } from '../tabs/examples'
@@ -333,8 +334,8 @@ export function PlayScreen() {
   }, [flat, cursorFlat])
 
   // ---------- following the mic ----------
-  const ref = useRef({ pos, follow, strict, flat, loopRange, lesson: false, flats: false, doc: null as SongDoc | null, loop: null as { from: number; to: number } | null })
-  ref.current = { pos, follow, strict, flat, loopRange, lesson: doc?.source === 'lesson', flats, doc, loop: doc?.loop ?? null }
+  const ref = useRef({ pos, follow, strict, flat, loopRange, lesson: false, flats: false, doc: null as SongDoc | null, loop: null as { from: number; to: number } | null, kind: 'mic' as ReturnType<typeof kindOf> })
+  ref.current = { pos, follow, strict, flat, loopRange, lesson: doc?.source === 'lesson', flats, doc, loop: doc?.loop ?? null, kind: gearKind }
   // keep the listener checking for the step you're on (wait-for-me mode) and the right octave setting
   useEffect(() => {
     const l = listener.current
@@ -424,10 +425,12 @@ export function PlayScreen() {
   }, [])
 
   /** Wait-for-me mode: a single note was heard. */
-  const onNote = useCallback((midi: number) => {
+  const onNote = useCallback((heardMidi: number) => {
     const { pos, follow, strict, loopRange } = ref.current
     // strummed chords are checked by onChord (the whole chord), not by one note
     if (follow.steps[pos]?.chord) return
+    // a mix-up you've corrected before ("I played it right") counts as the note you meant
+    const midi = (follow.steps[pos] && taughtAlias(ref.current.kind, follow.steps[pos].midis, heardMidi)) ?? heardMidi
     // inside a loop, only look as far as the loop's last note
     const steps = loopRange ? follow.steps.slice(0, loopRange.b + 1) : follow.steps
     const r = matchNote(steps, pos, midi, strict)
@@ -442,7 +445,7 @@ export function PlayScreen() {
     if (!want?.chord) return
     const pcs = [...new Set(want.midis.map(m => m % 12))]
     const top = chroma.map((v, i) => ({ v, i })).sort((x, y) => y.v - x.v).slice(0, 3).map(x => noteName(x.i, ref.current.flats))
-    if (chordMatch(chroma, pcs).ok) hitAt(pos, 0, want.midis[0], top.join(' '))
+    if (chordMatch(chroma, pcs, chordEase(ref.current.kind, pcs)).ok) hitAt(pos, 0, want.midis[0], top.join(' '))
     else {
       // say which string or chord note didn't come out
       const fi = follow.idx[pos]
@@ -452,6 +455,30 @@ export function PlayScreen() {
       missAt(want.midis[0], top.join(', '), help)
     }
   }, [hitAt, missAt])
+
+  /** "I played it right": the app misheard you. Move on as if it heard the right note, and remember the mix-up. */
+  const [taughtNote, setTaughtNote] = useState('')
+  const acceptMiss = useCallback(() => {
+    const { pos, follow, flats } = ref.current
+    const lm = lastMiss.current
+    const step = follow.steps[pos]
+    if (!lm || !step) return
+    const fi = follow.idx[pos]
+    if (step.chord) {
+      teachChord(ref.current.kind, step.midis)
+      setTaughtNote('Got it. That chord will be judged a little more kindly from now on.')
+    } else {
+      const want = meantNote(step.midis, lm.heard)
+      teachNote(ref.current.kind, want, lm.heard)
+      const hn = noteName(lm.heard, flats)
+      setTaughtNote(`Got it. ${/^[AEF]/.test(hn) ? 'An' : 'A'} ${hn}${octave(lm.heard)} heard here will count as ${noteName(want, flats)} from now on.`)
+    }
+    countUse('play:taught')
+    lastMiss.current = null
+    if (fi !== undefined) states.current[fi] = 0
+    hitAt(pos, 0, step.midis[0])
+  }, [hitAt])
+  useEffect(() => { if (!taughtNote) return; const t = setTimeout(() => setTaughtNote(''), 5000); return () => clearTimeout(t) }, [taughtNote])
 
   async function toggleListen() {
     if (listening) {
@@ -603,6 +630,7 @@ export function PlayScreen() {
     prevBar: () => jumpBar(-1),
     nextBar: () => jumpBar(1),
     hearIt: () => preview(),
+    accept: () => { if (feedback && !feedback.ok && mode === 'wait') acceptMiss() },
     video: () => { const v = video.current; if (v) (v.playing() ? v.pause() : v.play()) },
   })
   const [loadingSnd, setLoadingSnd] = useState(false)
@@ -892,11 +920,14 @@ export function PlayScreen() {
               feedback.ok ? (
                 <span className="fb ok">✓ Got it: {feedback.chordText ? `the chord (${feedback.chordText})` : noteName(feedback.heard, flats)}{feedback.note ? ` · ${where(feedback.note)}` : ''}{feedback.skipped ? ` (skipped ${feedback.skipped})` : ''}</span>
               ) : feedback.chordText ? (
-                <span className="fb bad">✗ {feedback.chordHelp ?? <>Heard mostly {feedback.chordText}: the chord needs {[...new Set(expected.map(n => noteName(n.midi, flats)))].join(' ')}. Strum all the strings and let them ring.</>}</span>
+                <span className="fb bad">✗ {feedback.chordHelp ?? <>Heard mostly {feedback.chordText}: the chord needs {[...new Set(expected.map(n => noteName(n.midi, flats)))].join(' ')}. Strum all the strings and let them ring.</>}
+                  {mode === 'wait' && <button className="btn sm fb-right" onClick={acceptMiss} data-testid="played-right">I played it right</button>}</span>
               ) : (
-                <span className="fb bad">✗ You played {noteName(feedback.heard, flats)}{octave(feedback.heard)}: the tab wants {expected.map(n => noteName(n.midi, flats)).join(' or ')}</span>
+                <span className="fb bad">✗ You played {noteName(feedback.heard, flats)}{octave(feedback.heard)}: the tab wants {expected.map(n => noteName(n.midi, flats)).join(' or ')}
+                  {mode === 'wait' && <button className="btn sm fb-right" onClick={acceptMiss} data-testid="played-right">I played it right</button>}</span>
               )
             )}
+            {taughtNote && <span className="fb taught" role="status">{taughtNote}</span>}
             {!feedback && inspect && (
               <span className="fb">{inspect.tech === 'x' ? 'Muted note (x): no pitch.' : `That ${inspect.fret} is ${noteName(inspect.midi, flats)}${octave(inspect.midi)} · ${where(inspect)}`}</span>
             )}
@@ -1003,6 +1034,12 @@ export function PlayScreen() {
             <input type="range" min={0.4} max={3} step={0.05} value={3.4 - gate} aria-label="Note sensitivity"
               onChange={e => { const g = Math.round((3.4 - Number(e.target.value)) * 100) / 100; setGear(gearKind, { gate: g }); if (listener.current) listener.current.gate = g }} />
           </label>
+          {taughtCount(gearKind) > 0 && (
+            <div className="opt-row" data-find="taught"><span className="opt-name">Learned</span>
+              <span className="small">{taughtCount(gearKind)} mix-up{taughtCount(gearKind) === 1 ? '' : 's'} you corrected on the {gearKind === 'usb' ? 'USB amp' : 'phone mic'}</span>
+              <button className="btn sm" onClick={() => { forgetTaught(gearKind); setVersion(v => v + 1) }}>Forget them</button>
+            </div>
+          )}
           <div className="row">
             <button className="btn sm" data-find="setup" onClick={() => { setOpts(false); setGearOpen(true) }}>{isSetUp() ? 'Set up input again' : 'Set up your input (2 min)'}</button>
             <button className="btn sm" data-find="restart" onClick={() => { restart(); setOpts(false) }}>Start over</button>

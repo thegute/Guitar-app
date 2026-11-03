@@ -2,7 +2,7 @@
 // triggers actions on the screen you're on (start/stop, restart, loop this bar ...). Pedals can be re-assigned.
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 
-export type PedalAction = 'startStop' | 'restart' | 'loopBar' | 'prevBar' | 'nextBar' | 'hearIt' | 'video' | 'record'
+export type PedalAction = 'startStop' | 'restart' | 'loopBar' | 'prevBar' | 'nextBar' | 'hearIt' | 'video' | 'record' | 'accept'
 export const ACTION_LABEL: Record<PedalAction, string> = {
   startStop: 'Start / stop',
   restart: 'Back to the start (of the loop)',
@@ -12,6 +12,7 @@ export const ACTION_LABEL: Record<PedalAction, string> = {
   hearIt: 'Hear it',
   video: 'Video play / pause',
   record: 'Record a loop (Jam)',
+  accept: 'I played it right (Play: it misheard you)',
 }
 const DEFAULTS: Record<string, PedalAction> = {
   'key:ArrowRight': 'startStop', 'key:PageDown': 'startStop', 'key:ArrowDown': 'startStop', 'key:MediaPlayPause': 'startStop',

@@ -92,11 +92,12 @@ export class ChromaListener {
 }
 
 /** How well a heard chroma matches a set of chord tones (0..1), compared with similar chords. */
-export function chordMatch(chroma: number[], tones: number[]): { ok: boolean; score: number } {
+/** `ease` (0–1) loosens the check for a chord you've told Play it misjudged ("I played it right"). */
+export function chordMatch(chroma: number[], tones: number[], ease = 0): { ok: boolean; score: number } {
   const score = tones.reduce((a, t) => a + chroma[t % 12], 0)
   // every chord tone should be clearly present
   const weakest = Math.min(...tones.map(t => chroma[t % 12]))
   const outside = chroma.map((v, i) => (tones.includes(i) ? 0 : v)).sort((a, b) => b - a)[0]
-  const ok = score > 0.5 && weakest > 0.04 && weakest > outside * 0.45
+  const ok = score > 0.5 - 0.1 * ease && weakest > 0.04 - 0.015 * ease && weakest > outside * (0.45 - 0.15 * ease)
   return { ok, score }
 }
