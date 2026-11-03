@@ -613,7 +613,8 @@ export function PlayScreen() {
   // a quick "again" flash on the tab each time the loop goes round (Wait for me and In time)
   useEffect(() => { if (passes.n > 0) setLoopBlink(b => ({ k: (b?.k ?? 0) + 1, text: `⟲ Again${passes.last !== null ? ` · last time ${passes.last}%` : ''}` })) }, [passes.n]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (inTime.wraps > 0 && inTime.running) setLoopBlink(b => ({ k: (b?.k ?? 0) + 1, text: `⟲ Again${inTime.pass.last ? ` · last time ${inTime.pass.last.score}%` : ''}` })) }, [inTime.wraps]) // eslint-disable-line react-hooks/exhaustive-deps
-  const playingNow = listening || inTime.running || ready.counting
+  // In time: playing = the run (the mic can stay open after Stop); Wait for me: listening
+  const playingNow = mode === 'time' ? inTime.running || ready.counting : listening
   const tidyNow = tidy && playingNow && !stand && !focus
   const videoShown = !!(showVideo && doc?.youtube)
   // the menu tucks away in Full tab, music stand and while tidied up

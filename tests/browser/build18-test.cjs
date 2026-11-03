@@ -189,7 +189,7 @@ async function web(browser) {
 ;(async () => {
   const browser = await launch()
   const fns = { ready: () => ready(browser), tuner, web: () => web(browser) }
-  for (const w of want) await fns[w]().catch(e => bad(`${w}: crashed: ${e.message.split('\n')[0]}`))
+  for (const w of want) await fns[w]().catch(e => bad(`${w}: crashed: ${process.env.FULL ? e.message : e.message.split("\n")[0]}`))
   await browser.close()
   console.log(problems.length ? `${problems.length} problems` : 'build 18: all good')
   process.exit(problems.length ? 1 : 0)
