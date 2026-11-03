@@ -17,9 +17,9 @@ Write out exactly what the picture shows as plain ASCII tab, one system after an
 - if several pictures or systems follow on from each other, continue in order
 Never invent notes you can't see. If a part is unreadable, leave it as dashes. If there is no tab in the picture, answer only: NO TAB`
 
-export function TabFromPicture({ youtube, onOpen }: { youtube?: string; onOpen: (doc: SongDoc) => void }) {
+export function TabFromPicture({ youtube, onOpen, initial }: { youtube?: string; onOpen: (doc: SongDoc) => void; initial?: { name: string; mime: string; b64: string; url: string }[] }) {
   const inst = useInstrument()
-  const [pics, setPics] = useState<{ name: string; mime: string; b64: string; url: string }[]>([])
+  const [pics, setPics] = useState<{ name: string; mime: string; b64: string; url: string }[]>(initial ?? [])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [text, setText] = useState('')

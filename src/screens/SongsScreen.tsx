@@ -174,6 +174,8 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
   const [yt, setYt] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [scanned, setScanned] = useState<{ name: string; pics: { name: string; mime: string; b64: string; url: string }[] } | null>(null)
+  const pictures = useRef<HTMLElement | null>(null)
   const [query, setQuery] = useState('')
   const [clipNote, setClipNote] = useState('')
   const file = useRef<HTMLInputElement>(null)
@@ -202,12 +204,21 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
     for (const f of files) {
       try {
         ok.push(await songFromFile(f.name, new Uint8Array(await f.arrayBuffer()), inst, link))
-      } catch {
+      } catch (e) {
+        // a scanned PDF (pages are pictures): hand the pages to the picture reader below
+        if (e instanceof Error && e.name === 'Error' && /scanned/.test(e.message) && 'bytes' in e) {
+          const { pdfPictures } = await import('../tabs/pdfTab')
+          try {
+            setScanned({ name: f.name, pics: await pdfPictures((e as Error & { bytes: Uint8Array }).bytes) })
+            setTimeout(() => pictures.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+            continue
+          } catch { /* fall through */ }
+        }
         failed.push(f.name)
       }
     }
     setBusy(false)
-    if (failed.length) setError(`Couldn't read ${failed.length === 1 ? `"${failed[0]}"` : `${failed.length} files (${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''})`}. KGuitar opens Guitar Pro files (.gp, .gp5, .gpx, .gp4, .gp3) and text tabs.`)
+    if (failed.length) setError(`Couldn't read ${failed.length === 1 ? `"${failed[0]}"` : `${failed.length} files (${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''})`}. KGuitar opens Guitar Pro files (.gp, .gp5, .gpx, .gp4, .gp3), PDFs and text tabs.`)
     if (files.length === 1 && ok.length === 1) { onOpen(ok[0]); return }
     if (ok.length && !failed.length) await onAdded()
   }
@@ -240,7 +251,7 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
       </section>
 
       <section className="panel stack" style={{ gap: 10 }}>
-        <HintHead level={2} title="2. Bring it in" hint={<>Guitar Pro (.gp .gp5 .gpx .gp4 .gp3) or text tabs (.txt). <b>From Google Drive:</b> in the picker, tap ☰ and choose Drive (or your Google account), then open your tabs folder. Long-press a file to select several and import them all at once.</>} />
+        <HintHead level={2} title="2. Bring it in" hint={<>Guitar Pro (.gp .gp5 .gpx .gp4 .gp3), PDF tabs and chord sheets, or text tabs (.txt). A PDF that's only scanned pictures goes to the picture reader below. <b>From Google Drive:</b> in the picker, tap ☰ and choose Drive (or your Google account), then open your tabs folder. Long-press a file to select several and import them all at once.</>} />
         <div className="row">
           <button className="btn primary" disabled={busy} onClick={() => file.current?.click()}>{busy ? 'Importing…' : 'Upload tab files'}</button>
           <button className="btn" onClick={() => void pasteClipboard()}>Paste from clipboard</button>
@@ -259,9 +270,10 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
         {yt.trim() && !link && <span className="small" style={{ color: 'var(--coral)' }}>That YouTube link doesn't look right.</span>}
         {error && <p className="notice small" role="alert">{error}</p>}
       </section>
-      <section className="panel stack" style={{ gap: 8 }}>
-        <h2 style={{ margin: 0 }}>Tab on screen in a video or photo</h2>
-        <TabFromPicture youtube={link} onOpen={d => void saveSong(d).then(() => onOpen(d))} />
+      <section className="panel stack" style={{ gap: 8 }} ref={pictures}>
+        <h2 style={{ margin: 0 }}>Tab on screen in a video, a photo or a scanned PDF</h2>
+        {scanned && <p className="notice small" style={{ margin: 0 }}>"{scanned.name}" is scanned pages (pictures, no text), so the AI reads them: its pages are below. Tap <b>Read the tab</b>.</p>}
+        <TabFromPicture key={scanned?.name ?? ''} youtube={link} initial={scanned?.pics} onOpen={d => void saveSong(d).then(() => onOpen(d))} />
       </section>
     </div>
   )
