@@ -133,7 +133,8 @@ const ok = (c: boolean, m: string) => { checks++; if (!c) { fails++; if (fails <
         if (!song) continue
         const tr = song.tracks[0]
         let bad = 0
-        for (const st of flatten(tr)) for (const n of st.step.notes) if (n.string < 0 || n.string >= tr.tuning.length || n.fret < 0 || n.fret > 15 || tr.tuning[n.string] + n.fret !== n.midi) bad++
+        const top = p.kind === 'piece' && tr.tuning.length === 6 ? 22 : 15 // prog and shred pieces use the whole neck
+        for (const st of flatten(tr)) for (const n of st.step.notes) if (n.string < 0 || n.string >= tr.tuning.length || n.fret < 0 || n.fret > top || tr.tuning[n.string] + tr.capo + n.fret !== n.midi) bad++
         ok(bad === 0, `${s.id}/${p.id} on ${instId}: ${bad} notes off the neck`)
         const playable = flatten(tr).filter(f => f.step.notes.length).length
         ok(playable >= 8, `${s.id}/${p.id} on ${instId}: ${playable} steps to play`)

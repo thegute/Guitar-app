@@ -15,8 +15,12 @@ import { fingerMelody } from './fingering'
 import type { Song, SongBar, SongNote, SongStep } from './model'
 import { pickPattern, pickingSong, type PickChord } from './picking'
 import type { SongDoc } from './library'
+import { compose } from '../compose'
+import type { StyleId } from '../compose/styles'
+import type { ArrLevel } from '../compose/arrange'
+import type { ModeId, ProgChord } from '../theory/progressions'
 
-export type Genre = 'folk' | 'bluegrass' | 'reggae' | 'country' | 'pop' | 'bluesrock' | 'reggaerock' | 'prog'
+export type Genre = 'folk' | 'bluegrass' | 'reggae' | 'country' | 'pop' | 'bluesrock' | 'reggaerock' | 'prog' | 'hawaiian' | 'fingerstyle' | 'classical'
 export type Level = 1 | 2 | 3 | 4
 export const LEVELS: { id: Level; label: string; what: string }[] = [
   { id: 1, label: 'Beginner', what: 'two or three open chords, slow' },
@@ -27,10 +31,11 @@ export const LEVELS: { id: Level; label: string; what: string }[] = [
 export const GENRES: { id: Genre; label: string }[] = [
   { id: 'folk', label: 'Folk' }, { id: 'bluegrass', label: 'Bluegrass' }, { id: 'reggae', label: 'Reggae' },
   { id: 'country', label: 'Country & acoustic' }, { id: 'pop', label: 'Pop & funk' }, { id: 'bluesrock', label: 'Blues-rock & neo-soul' },
-  { id: 'reggaerock', label: 'Reggae rock & dub' }, { id: 'prog', label: 'Prog, metal & math rock' },
+  { id: 'reggaerock', label: 'Reggae rock & dub' }, { id: 'prog', label: 'Prog, metal & shred' },
+  { id: 'hawaiian', label: 'Hawaiian & slack key' }, { id: 'fingerstyle', label: 'Fingerstyle' }, { id: 'classical', label: 'Classical' },
 ]
 
-export type PartKind = 'words' | 'melody' | 'rhythm' | 'octaves' | 'arrange'
+export type PartKind = 'words' | 'melody' | 'rhythm' | 'octaves' | 'arrange' | 'piece'
 export interface SongbookPart {
   id: string
   kind: PartKind
@@ -59,12 +64,33 @@ export interface SongbookSong {
   abc?: string
   /** chords bar by bar when there are no words: "D | G | A D" (two chords in a bar share it) */
   chart?: string
+  /** a whole instrumental written section by section by the composer (src/compose) in one style */
+  piece?: Piece
+  /** how the full arrangement is played: 'triplets' = each beat a triplet, melody (with the bass on 1) then two
+   *  chord notes on the next strings down (Romanza) */
+  texture?: 'triplets'
   parts: SongbookPart[]
 }
+/** One section of a piece: its chords (one bar each, as in `chart`), what the guitar plays, and the take (seed). */
+export interface PieceSection {
+  name: string
+  chart: string
+  part: 'lead' | 'melody' | 'riff' | 'pick'
+  /** pick: the fingerpicking / strum pattern */
+  pattern?: string
+  /** another style just for this section (a heavy riff in a clean prog piece …) */
+  style?: StyleId
+  level?: 1 | 2 | 3
+  arrange?: ArrLevel
+  seed?: number
+  times?: number
+}
+export interface Piece { style: StyleId; mode?: ModeId; sections: PieceSection[] }
 
 const words = (level: Level, bpm: number, learn: string): SongbookPart => ({ id: 'words', kind: 'words', level, label: 'Words & chords', learn, bpm })
 const melody = (level: Level, bpm: number, learn: string): SongbookPart => ({ id: 'melody', kind: 'melody', level, label: 'Melody', learn, bpm })
 const rhythm = (id: string, level: Level, bpm: number, pattern: string, label: string, learn: string): SongbookPart => ({ id, kind: 'rhythm', level, label, learn, bpm, pattern })
+const whole = (level: Level, bpm: number, learn: string): SongbookPart => ({ id: 'piece', kind: 'piece', level, label: 'The whole piece', learn, bpm })
 
 export const SONGBOOK: SongbookSong[] = [
   // ───────────── folk ─────────────
@@ -364,6 +390,50 @@ K:D
     ],
   },
 
+  // ───────────── classical: public-domain pieces (composers long dead, melodies as published), arranged for KGuitar ─────────────
+  {
+    id: 'romanza', title: 'Romanza (Spanish Romance)', genre: 'classical', credit: 'Anonymous, 19th century (first section)', key: 'E', minor: true, meter: 3, texture: 'triplets',
+    abc: `M:3/4
+L:1/4
+K:Em
+"Em"B B B | B A G | G ^F E | E G B | "Em"e e e | e d c | "Am"c B A | A B c | "B7"B c B | ^d c B | "Em"B A G | G ^F E | "Am6"^F ^F ^F | "B7"^F G ^F | "Em"E E E | E3 |]`,
+    parts: [melody(2, 72, 'The tune alone: one note per beat, on the top strings.'), rhythm('pima', 3, 66, 'pima', 'Triplet arpeggio', 'The chords as triplets (p-a-m-i): bass and top note together, then the 2nd and 3rd strings.')],
+  },
+  {
+    id: 'greensleeves', title: 'Greensleeves', genre: 'classical', credit: 'Traditional English (16th century)', key: 'A', minor: true, meter: 3,
+    abc: `M:3/4
+L:1/8
+K:Am
+A2 | "Am"c4 d2 | e3 f e2 | "G"d4 B2 | G3 A B2 | "Am"c4 A2 | "E"A3 ^G A2 | B4 ^G2 | E4 A2 | "Am"c4 d2 | e3 f e2 | "G"d4 B2 | G3 A B2 | "Am"c3 B A2 | "E"^G3 ^F ^G2 | "Am"A6 | A4 z2 |
+"C"g6 | g3 ^f e2 | "G"d4 B2 | G3 A B2 | "Am"c4 A2 | "E"A3 ^G A2 | B4 ^G2 | E6 | "C"g6 | g3 ^f e2 | "G"d4 B2 | G3 A B2 | "Am"c3 B A2 | "E"^G3 ^F ^G2 | "Am"A6 | A6 |]`,
+    parts: [melody(2, 84, 'The famous tune in A minor, in 3/4.'), rhythm('giuliani', 3, 76, 'pima', 'Classical triplets', 'Each chord as triplets with the bass on beat 1.')],
+  },
+  {
+    id: 'furelise', title: 'Für Elise (opening)', genre: 'classical', credit: 'Ludwig van Beethoven, 1810', key: 'A', minor: true, meter: 3,
+    abc: `M:3/4
+L:1/8
+K:Am
+e^d | "E"e^de B=dc | "Am"A2 z CEA | "E"B2 z E^GB | "Am"c2 z Ee^d | "E"e^de B=dc | "Am"A2 z CEA | "E"B2 z EcB | "Am"A4 |]`,
+    parts: [melody(3, 66, 'The opening theme: E and D sharp rocking back and forth, then the A minor and E arpeggios.'), rhythm('arp', 2, 66, 'arp-updown', 'Arpeggios', 'The left-hand part as rippling guitar arpeggios.')],
+  },
+  {
+    id: 'minuet', title: 'Minuet in G', genre: 'classical', credit: 'Christian Petzold, about 1725 (long credited to J. S. Bach)', key: 'G', meter: 3,
+    abc: `M:3/4
+L:1/8
+K:G
+"G"d2 GABc | d2 G2 G2 | "C"e2 cdef | "G"g2 G2 G2 | "C"c2 dcBA | "G"B2 cBAG | "D"F2 GABG | "D"A6 |
+"G"d2 GABc | d2 G2 G2 | "C"e2 cdef | "G"g2 G2 G2 | "C"c2 dcBA | "G"B2 cBAG | "D7"A2 BAGF | "G"G6 |]`,
+    parts: [melody(2, 88, 'A dance in 3: count 1-2-3 and keep the eighths even.'), rhythm('waltz', 1, 92, 'waltz', 'Bass and chords', 'Bass on 1, chords on 2 and 3.')],
+  },
+  {
+    id: 'canon', title: 'Canon in D (theme)', genre: 'classical', credit: 'Johann Pachelbel, about 1690', key: 'D', meter: 4,
+    abc: `M:4/4
+L:1/8
+K:D
+"D"f4 "A"e4 | "Bm"d4 "F#m"c4 | "G"B4 "D"A4 | "G"B4 "A"c4 | "D"d4 "A"c4 | "Bm"B4 "F#m"A4 | "G"G4 "D"F4 | "G"G4 "A"E4 |
+"D"d2 F2 "A"A2 G2 | "Bm"F2 D2 "F#m"F2 E2 | "G"D2 B,2 "D"D2 A2 | "G"G2 B2 "A"A2 G2 | "D"F8 |]`,
+    parts: [melody(2, 72, 'The violin line over the famous eight chords, in long notes, then in quarters.'), rhythm('arp', 2, 72, 'giuliani', 'Arpeggios', 'The eight chords as a flowing arpeggio (p-i-m-a-m-i).')],
+  },
   // ───────────── reggae ─────────────
   {
     id: 'firstskank', title: 'First Skank', genre: 'reggae', credit: 'Original for KGuitar', key: 'A', minor: true, meter: 4,
@@ -486,110 +556,211 @@ K:Am
       rhythm('rockers', 2, 76, 'rockers', 'Skank on every "and"', 'The same riddim with simple off-beat chops.'),
     ],
   },
-  // ───────────── newer styles: all original tunes written for KGuitar, in the style named (no real songs copied) ─────────────
+  // ───────────── KGuitar originals: whole instrumentals written section by section by the composer, each in one of the
+  // owner's styles (the players named are references for the sound; every note is new). Seeds pick the take. ─────────────
+  // prog & shred
   {
-    id: 'gravel', title: 'Gravel Road Home', genre: 'country', credit: 'Original (KGuitar), country', key: 'G', meter: 4, strum: 'folk',
-    abc: `M:4/4
-L:1/8
-K:G
-"G"B2 d2 d2 B2 | A2 G2 G4 | "C"E2 G2 c2 B2 | "G"A2 G2 D4 | "D"F2 A2 d2 c2 | "C"B2 A2 G2 E2 | "G"D2 G2 B2 A2 | "D"G4 "G"G4 |]`,
-    parts: [melody(1, 92, 'A singable country tune in G, all in first position.'), rhythm('boom', 2, 100, 'boomchick', 'Boom-chick', 'Bass on 1 and 3, strum on 2 and 4: the country engine.')],
+    id: 'aurora', title: 'Aurora Steps', genre: 'prog', credit: 'Original (KGuitar): melodic prog in the style of Plini and Syncatto', key: 'E', meter: 4,
+    piece: { style: 'progclean', sections: [
+      { name: 'Intro', chart: 'Emaj7 | C#m7 | Amaj7 | B', part: 'pick', pattern: 'arp-maj7' },
+      { name: 'Theme', chart: 'Emaj7 | C#m7 | Amaj7 | B', part: 'lead', level: 2, seed: 11, times: 2 },
+      { name: 'Lift', chart: 'C#m9 | Amaj7 | Emaj7 | B', part: 'lead', level: 3, seed: 23 },
+      { name: 'Heavy', chart: 'C#m | A | E | B', part: 'riff', style: 'progmetal', level: 2, seed: 5 },
+      { name: 'Solo', chart: 'Emaj7 | C#m7 | Amaj7 | B', part: 'lead', level: 3, seed: 41, times: 2 },
+      { name: 'Outro', chart: 'Amaj7 | B | Emaj7 | Emaj7', part: 'lead', level: 2, seed: 7 },
+    ] },
+    parts: [whole(4, 100, 'A full melodic-prog instrumental: ringing maj7 arpeggios, a legato theme that climbs the neck, a heavy djent break, then the solo.'), rhythm('arps', 3, 100, 'arp-maj7', 'Hybrid-picked arpeggios', 'The chords as shimmering pick-and-fingers arpeggios, open strings ringing.')],
   },
   {
-    id: 'porch', title: 'Porch Light', genre: 'country', credit: 'Original (KGuitar), acoustic singer-songwriter', key: 'D', meter: 4, strum: 'folk',
-    abc: `M:4/4
-L:1/8
-K:D
-"D"A2 F2 A3 B | "A"c2 B2 A4 | "Bm"B2 d2 c2 B2 | "G"A6 FG | "D"A2 d2 d2 c2 | "A"B2 A2 A4 | "G"G2 B2 A2 G2 | "A"F2 E2 "D"D4 |]`,
-    parts: [melody(2, 84, 'The tune of a story song: long notes you can sing over.'), rhythm('travis', 3, 88, 'travis', 'Travis picking', 'Thumb alternates the bass while the fingers pick the melody strings: the modern acoustic singer-songwriter sound.')],
+    id: 'staircase', title: 'Glass Staircase', genre: 'prog', credit: 'Original (KGuitar): in the style of Polyphia and Ichika Nito', key: 'A', meter: 4,
+    piece: { style: 'polyphia', sections: [
+      { name: 'Intro', chart: 'Amaj7 | F#m7 | Dmaj7 | E6', part: 'pick', pattern: 'arp-maj7' },
+      { name: 'Hook', chart: 'Amaj7 | F#m7 | Dmaj7 | E6', part: 'lead', level: 2, seed: 3, times: 2 },
+      { name: 'Bridge', chart: 'Dmaj7 | C#m7 | Bm7 | E', part: 'lead', level: 3, seed: 17 },
+      { name: 'Hook', chart: 'Amaj7 | F#m7 | Dmaj7 | E6', part: 'lead', level: 3, seed: 29 },
+      { name: 'Outro', chart: 'Dmaj7 | Amaj7', part: 'lead', level: 2, seed: 2 },
+    ] },
+    parts: [whole(4, 92, 'Hybrid-picked arpeggios over lush maj7 chords, harmonics, quick legato flicks and taps, with a laid-back swing.'), rhythm('arps', 3, 92, 'arp-maj7', 'Hybrid-picked arpeggios', 'Pick plus two fingers, syncopated 16ths, open strings ringing.')],
   },
   {
-    id: 'longway', title: 'Long Way From Here', genre: 'country', credit: 'Original (KGuitar), acoustic singer-songwriter', key: 'G', meter: 4, strum: 'folk',
-    abc: `M:4/4
-L:1/8
-K:G
-"Em"G2 B2 B2 A2 | "C"G2 E2 E4 | "G"D2 G2 B2 d2 | "D"c2 B2 A4 | "Em"B2 e2 e2 d2 | "C"c2 B2 G4 | "G"B2 A2 G2 E2 | "D"F4 "G"G4 |]`,
-    parts: [melody(2, 80, 'A story-song melody over Em, C, G and D: the four chords of modern acoustic songwriting.'), rhythm('travis', 3, 84, 'travis', 'Travis picking', 'A steady thumb with the melody strings picked in between; capo up to fit your voice.')],
+    id: 'monsoon', title: 'Iron Monsoon', genre: 'prog', credit: 'Original (KGuitar): prog metal in the style of John Petrucci and Lee McKinney', key: 'E', minor: true, meter: 4,
+    piece: { style: 'progmetal', sections: [
+      { name: 'Intro riff', chart: 'Em | C | Am | B', part: 'riff', level: 2, seed: 4 },
+      { name: 'Verse riff', chart: 'Em | F | Em | B', part: 'riff', level: 3, seed: 9, times: 2 },
+      { name: 'Lead', chart: 'Em | C | D | B', part: 'lead', level: 3, seed: 31, times: 2 },
+      { name: 'Breakdown', chart: 'Em | Em | C | B', part: 'riff', level: 3, seed: 13 },
+      { name: 'Outro lead', chart: 'Am | B | Em | Em', part: 'lead', level: 2, seed: 8 },
+    ] },
+    parts: [whole(4, 112, 'Palm-muted riffs in odd groupings, a phrygian twist, harmonic-minor runs and a lead that lands on the low root.'), rhythm('chug', 3, 112, 'strum', 'Power chord strum', 'Down-strokes on the chords, palm-muted, locked to the kick.')],
   },
   {
-    id: 'creekbed', title: 'Creek Bed Waltz', genre: 'country', credit: 'Original (KGuitar), acoustic waltz', key: 'D', meter: 3, strum: 'waltz',
-    abc: `M:3/4
-L:1/8
-K:D
-"D"A2 F2 A2 | "G"B4 A2 | "D"F2 E2 D2 | "A"E6 | "D"A2 d2 c2 | "G"B2 A2 G2 | "A"F2 E2 C2 | "D"D6 |]`,
-    parts: [melody(1, 84, 'A slow waltz tune in D: count 1-2-3.'), rhythm('waltz', 2, 88, 'waltz', 'Waltz bass-strum', 'Bass note on 1, strums on 2 and 3.')],
+    id: 'skyline', title: 'Skyline Run', genre: 'prog', credit: 'Original (KGuitar): melodic shred in the style of Steve Vai and Roy Ziv', key: 'D', meter: 4,
+    piece: { style: 'shred', sections: [
+      { name: 'Riff', chart: 'D | E | Bm | A', part: 'riff', style: 'rock', level: 2, seed: 6 },
+      { name: 'Melody', chart: 'D | E | Bm | A', part: 'lead', level: 1, seed: 12, times: 2 },
+      { name: 'Climb', chart: 'G | A | Bm | E', part: 'lead', level: 3, seed: 27 },
+      { name: 'Melody', chart: 'D | E | Bm | A', part: 'lead', level: 2, seed: 33 },
+      { name: 'Ending', chart: 'G | A | D | D', part: 'lead', level: 3, seed: 19 },
+    ] },
+    parts: [whole(4, 108, 'A singing lydian melody with wide vibrato and bends, then fast sequences and legato bursts up the neck.'), rhythm('power', 2, 108, 'strum', 'Chords', 'The chord changes, strummed: D and E are the lydian lift.')],
+  },
+  // blues, rock and pop
+  {
+    id: 'slowburn', title: 'Slow Burn', genre: 'bluesrock', credit: 'Original (KGuitar): blues in the style of John Mayer and Stevie Ray Vaughan', key: 'A', meter: 4,
+    piece: { style: 'blues', sections: [
+      { name: 'Head', chart: 'A7 | D7 | A7 | A7 | D7 | D7 | A7 | A7 | E7 | D7 | A7 | E7', part: 'lead', level: 1, seed: 14 },
+      { name: 'Solo 1', chart: 'A7 | D7 | A7 | A7 | D7 | D7 | A7 | A7 | E7 | D7 | A7 | E7', part: 'lead', style: 'mayer', level: 2, seed: 22 },
+      { name: 'Solo 2', chart: 'A7 | D7 | A7 | A7 | D7 | D7 | A7 | A7 | E7 | D7 | A7 | A7', part: 'lead', level: 3, seed: 35 },
+    ] },
+    parts: [whole(3, 80, 'Three times round a 12-bar blues: a simple head, a Mayer-style chorus with double stops, then a hotter one. Bend and let it breathe.'), rhythm('pinch', 2, 80, 'pinch', 'Thumb-and-fingers', 'Thumb on the bass, fingers pinching the chord: the clean blues way.')],
   },
   {
-    id: 'lanterns', title: 'Salt and Static', genre: 'pop', credit: 'Original (KGuitar), pop ballad', key: 'C', meter: 4, strum: 'pop',
-    abc: `M:4/4
-L:1/8
-K:C
-"C"E2 G2 G3 A | "G"G2 D2 D4 | "Am"C2 E2 E3 G | "F"F2 E2 C4 | "C"E2 G2 c3 B | "G"A2 G2 G4 | "F"A2 G2 F2 E2 | "G"D4 "C"C4 |]`,
-    parts: [melody(1, 76, 'A big-chorus pop ballad melody: C, G, Am, F.'), rhythm('ballad', 2, 76, 'arp-updown', 'Ballad arpeggio', 'Let each chord ring across the strings, the way piano-pop ballads are played on guitar.')],
+    id: 'velvethour', title: 'Velvet Hour', genre: 'bluesrock', credit: 'Original (KGuitar): neo-soul in the style of Mateus Asato', key: 'D', meter: 4,
+    piece: { style: 'neosoul', sections: [
+      { name: 'Intro', chart: 'Gmaj7 | F#m7 | Em9 | Dmaj9', part: 'pick', pattern: 'arp-maj7' },
+      { name: 'Melody', chart: 'Gmaj7 | F#m7 | Em9 | Dmaj9', part: 'melody', arrange: 'full', seed: 5, times: 2 },
+      { name: 'Fills', chart: 'Bm7 | Em7 | A7 | Dmaj7', part: 'lead', level: 2, seed: 18 },
+      { name: 'Melody', chart: 'Gmaj7 | F#m7 | Em9 | Dmaj9', part: 'melody', arrange: 'full', seed: 9 },
+    ] },
+    parts: [whole(3, 76, 'Maj7 and 9th colours, the melody with chord shells under it, and hammer-on flourishes in the fills.'), rhythm('soul', 2, 76, 'arp-maj7', 'Hybrid arpeggios', 'Roll through each chord, smooth and even.')],
   },
   {
-    id: 'velvetfunk', title: 'Velvet Strut', genre: 'pop', credit: 'Original (KGuitar), funk-pop', key: 'E', minor: true, meter: 4, strum: 'funk',
-    abc: `M:4/4
-L:1/8
-K:Em
-"Em7"z2 E2 G2 A2 | "A7"B2 z A G2 E2 | "Em7"z2 E2 G2 B2 | "A7"c2 B A G4 | "Em7"z E G A B2 d2 | "A7"c B A G E2 D2 | "Em7"E2 z2 G2 A2 | "A7"B4 z4 |]`,
-    parts: [melody(2, 104, 'A syncopated funk line: the rests are as important as the notes.'), rhythm('synco', 3, 104, 'synco', 'Funk syncopation', 'Tight, choppy rhythm on Em7 and A7: mute between the hits.')],
+    id: 'desert', title: 'Desert Echo', genre: 'bluesrock', credit: 'Original (KGuitar): classic rock in the style of the Eagles and Fleetwood Mac', key: 'A', minor: true, meter: 4,
+    piece: { style: 'rock', sections: [
+      { name: 'Riff', chart: 'Am | G | F | E', part: 'riff', level: 2, seed: 3 },
+      { name: 'Lead', chart: 'Am | G | F | E', part: 'lead', level: 2, seed: 16, times: 2 },
+      { name: 'Bridge', chart: 'F | C | Dm | E', part: 'lead', level: 2, seed: 21 },
+      { name: 'Solo', chart: 'Am | G | F | E', part: 'lead', level: 3, seed: 38, times: 2 },
+    ] },
+    parts: [whole(3, 96, 'A minor rock ballad: pentatonic hooks, triplet licks and bends that sing over a descending progression.'), rhythm('arp', 2, 96, 'arp-updown', 'Arpeggiated chords', 'Let each chord ring across the strings.')],
   },
   {
-    id: 'slowburn', title: 'Slow Burn', genre: 'bluesrock', credit: 'Original (KGuitar), blues-rock', key: 'A', meter: 4, strum: 'pop',
-    abc: `M:4/4
-L:1/8
-K:A
-"A"c2 e2 e3 c | "D"d2 f2 e2 c2 | "A"A2 c2 e2 a2 | "E"g2 e2 B4 | "D"d2 f2 a2 f2 | "A"e2 c2 A4 | "E"B2 d2 c2 B2 | "A"A8 |]`,
-    parts: [melody(2, 80, 'A bluesy lead in A: add a bend on the long notes once you know it.'), rhythm('pinch', 3, 80, 'pinch', 'Thumb-and-fingers', 'Thumb on the bass, fingers pinching the chord: the clean blues-rock way to play chords and melody together.')],
+    id: 'lanterns', title: 'Salt and Static', genre: 'pop', credit: 'Original (KGuitar): a pop ballad in the style of James Arthur and The Fray', key: 'C', meter: 4,
+    piece: { style: 'pop', sections: [
+      { name: 'Intro', chart: 'C | G | Am | F', part: 'pick', pattern: 'arp-updown' },
+      { name: 'Verse', chart: 'C | G | Am | F', part: 'melody', arrange: 'full', seed: 4, times: 2 },
+      { name: 'Chorus', chart: 'F | G | Am | F | C | G | F | C', part: 'melody', arrange: 'full', seed: 12 },
+      { name: 'Outro', chart: 'Am | F | C | C', part: 'pick', pattern: 'arp-updown' },
+    ] },
+    parts: [whole(2, 72, 'The song on one guitar: ringing intro, the verse tune with its bass, a chorus that lifts, and out.'), rhythm('ballad', 1, 72, 'arp-updown', 'Ballad arpeggio', 'Let each chord ring across the strings.')],
   },
   {
-    id: 'velvethour', title: 'Velvet Hour', genre: 'bluesrock', credit: 'Original (KGuitar), neo-soul', key: 'D', meter: 4, strum: 'pop',
-    abc: `M:4/4
-L:1/8
-K:D
-"Dmaj7"F2 A2 c2 e2 | "Bm7"d2 B2 F4 | "Em7"G2 B2 d2 f2 | "A7"e2 c2 A4 | "Dmaj7"f2 e2 c2 A2 | "Bm7"B2 d2 F2 D2 | "Em7"E2 G2 B2 d2 | "A7"c4 "Dmaj7"d4 |]`,
-    parts: [melody(3, 76, 'A neo-soul melody over major 7 and minor 7 chords.'), rhythm('soul', 3, 76, 'arp-broken', 'Broken chords', 'Roll through each 7th chord with the thumb leading: smooth neo-soul colour.')],
+    id: 'velvetfunk', title: 'Velvet Strut', genre: 'pop', credit: 'Original (KGuitar): funk in the style of Cory Wong and Vulfpeck', key: 'E', minor: true, meter: 4,
+    piece: { style: 'funk', mode: 'dorian', sections: [
+      { name: 'Groove', chart: 'Em7 | A9 | Em7 | A9', part: 'riff', level: 2, seed: 2, times: 2 },
+      { name: 'Hook', chart: 'Em7 | A9 | Em7 | A9', part: 'lead', level: 2, seed: 15 },
+      { name: 'Groove', chart: 'Em7 | A9 | Em7 | A9', part: 'riff', level: 3, seed: 7 },
+      { name: 'Solo', chart: 'Cmaj7 | B7 | Em7 | A9', part: 'lead', level: 3, seed: 30 },
+    ] },
+    parts: [whole(3, 104, '16th-note funk: chord stabs with muted scratches, a hook with ghost notes, and a dorian solo.'), rhythm('synco', 2, 104, 'synco', 'Funk syncopation', 'Tight, choppy rhythm on Em7 and A9: mute between the hits.')],
+  },
+  // country & acoustic
+  {
+    id: 'gravel', title: 'Gravel Road Home', genre: 'country', credit: 'Original (KGuitar): modern country in the style of the Zac Brown Band and Luke Combs', key: 'G', meter: 4,
+    piece: { style: 'country', sections: [
+      { name: 'Intro lick', chart: 'G | C | G | D', part: 'lead', level: 2, seed: 10 },
+      { name: 'Verse', chart: 'G | C | Em | D', part: 'pick', pattern: 'boomchick', times: 2 },
+      { name: 'Solo', chart: 'C | G | D | Em | C | G | D | G', part: 'lead', level: 3, seed: 26 },
+    ] },
+    parts: [whole(3, 104, 'An intro lick, a boom-chick verse, then a solo with chicken-pickin\' snaps, 6ths and steel-guitar bends.'), rhythm('boom', 1, 100, 'boomchick', 'Boom-chick', 'Bass on 1 and 3, strum on 2 and 4: the country engine.')],
   },
   {
-    id: 'swell', title: 'Sunday Swell', genre: 'reggaerock', credit: 'Original (KGuitar), reggae rock', key: 'G', meter: 4, strum: 'reggae',
-    abc: `M:4/4
-L:1/8
-K:G
-"G"z2 B2 d2 B2 | "C"c2 e2 d4 | "G"B2 A2 G2 E2 | "D"F2 A2 D4 | "G"z2 B2 d2 g2 | "C"e2 d2 c2 B2 | "G"A2 G2 "D"A2 F2 | "G"G8 |]`,
-    parts: [melody(1, 88, 'A laid-back beach melody over G, C and D.'), rhythm('skank', 2, 88, 'onedrop', 'Off-beat skank', 'Short chord chops on 2 and 4 (the "and"s), everything else muted: the reggae rock pulse.')],
+    id: 'porch', title: 'Porch Light', genre: 'country', credit: 'Original (KGuitar): acoustic singer-songwriter in the style of Dylan Gossett', key: 'D', meter: 4,
+    piece: { style: 'acoustic', sections: [
+      { name: 'Intro', chart: 'D | A | Bm | G', part: 'pick', pattern: 'travis' },
+      { name: 'Verse', chart: 'D | A | Bm | G | D | A | G | D', part: 'melody', arrange: 'bass', seed: 6 },
+      { name: 'Fill', chart: 'Bm | G | D | A', part: 'lead', level: 1, seed: 3 },
+      { name: 'Verse', chart: 'D | A | Bm | G | D | A | G | D', part: 'melody', arrange: 'full', seed: 13 },
+    ] },
+    parts: [whole(2, 84, 'Travis-picked intro, the story-song melody with the thumb on the bass, a little fill, and the verse again fuller.'), rhythm('travis', 2, 88, 'travis', 'Travis picking', 'Thumb alternates the bass while the fingers pick the top strings.')],
   },
   {
-    id: 'tidepool', title: 'Tide Pool Dub', genre: 'reggaerock', credit: 'Original (KGuitar), dub', key: 'A', minor: true, meter: 4, strum: 'reggae',
-    abc: `M:4/4
-L:1/8
-K:Am
-"Am"A2 c2 e2 c2 | "Dm"d2 f2 e2 d2 | "Am"c2 B2 A4 | "Em"B2 G2 E4 | "Am"e2 a2 g2 e2 | "Dm"f2 e2 d2 c2 | "Am"B2 c2 A2 G2 | "Em"E4 "Am"A4 |]`,
-    parts: [melody(2, 76, 'A minor dub melody: slow, with lots of space for echo.'), rhythm('double', 3, 76, 'double', 'Double skank', 'Two quick chops on each off-beat, the busier reggae rock feel.')],
+    id: 'longway', title: 'Long Way From Here', genre: 'country', credit: 'Original (KGuitar): acoustic in the style of Ed Sheeran and Zach Bryan', key: 'G', meter: 4,
+    piece: { style: 'acoustic', sections: [
+      { name: 'Groove', chart: 'Em | C | G | D', part: 'pick', pattern: 'percussive', times: 2 },
+      { name: 'Melody', chart: 'Em | C | G | D | Em | C | G | D', part: 'melody', arrange: 'full', seed: 8 },
+      { name: 'Groove', chart: 'Em | C | G | D', part: 'pick', pattern: 'percussive' },
+    ] },
+    parts: [whole(3, 80, 'Percussive fingerstyle (thumb on the bass, a slap on 2 and 4) and the tune over Em, C, G and D.'), rhythm('perc', 2, 80, 'percussive', 'Percussive fingerstyle', 'Thumb bass, the side of the hand slapping the strings on 2 and 4.')],
   },
   {
-    id: 'aurora', title: 'Aurora Steps', genre: 'prog', credit: 'Original (KGuitar), melodic prog instrumental', key: 'E', meter: 4, strum: 'pop',
-    abc: `M:4/4
-L:1/8
-K:E
-"Emaj7"B, E G B d B G E | "C#m7"C E G B G E C E | "Amaj7"A, C E G A G E C | "B"B, D F A F D B, D | "Emaj7"e d B G B G E G | "C#m7"g e c B G E C E | "Amaj7"a g e c e c A c | "B"B4 "Emaj7"e4 |]`,
-    parts: [melody(3, 100, 'Flowing 8th-note lines over lush major 7 chords: the clean, melodic prog sound.'), rhythm('arps', 4, 100, 'arp-16', 'Fast arpeggios', '16th-note arpeggios across the strings: keep every note even and ringing.')],
+    id: 'creekbed', title: 'Creek Bed Waltz', genre: 'country', credit: 'Original (KGuitar): an acoustic country waltz', key: 'D', meter: 3,
+    piece: { style: 'acoustic', sections: [
+      { name: 'Waltz', chart: 'D | G | D | A | D | G | A | D', part: 'melody', arrange: 'bass', seed: 5 },
+      { name: 'Waltz', chart: 'D | G | D | A | D | G | A | D', part: 'melody', arrange: 'full', seed: 14 },
+    ] },
+    parts: [whole(2, 84, 'A slow waltz tune in D with the bass on 1: count 1-2-3.'), rhythm('waltz', 1, 88, 'waltz', 'Waltz bass-strum', 'Bass note on 1, strums on 2 and 3.')],
+  },
+  // island
+  {
+    id: 'swell', title: 'Sunday Swell', genre: 'reggaerock', credit: 'Original (KGuitar): reggae rock in the style of Stick Figure and Iration', key: 'G', meter: 4,
+    piece: { style: 'reggaerock', sections: [
+      { name: 'Skank', chart: 'G | C | D | C', part: 'riff', level: 2, seed: 4 },
+      { name: 'Hook', chart: 'G | C | D | C', part: 'lead', level: 1, seed: 9, times: 2 },
+      { name: 'Dub', chart: 'Em | C | G | D', part: 'riff', level: 2, seed: 11 },
+      { name: 'Hook', chart: 'G | C | D | G', part: 'lead', level: 2, seed: 20 },
+    ] },
+    parts: [whole(2, 88, 'Off-beat skanks, a laid-back hook in octaves and 3rds, a dub break on the low strings, and the hook again.'), rhythm('skank', 1, 88, 'onedrop', 'Off-beat skank', 'Short chops on 2 and 4, everything else muted.')],
   },
   {
-    id: 'staircase', title: 'Glass Staircase', genre: 'prog', credit: 'Original (KGuitar), math rock', key: 'A', meter: 4, strum: 'pop',
-    abc: `M:4/4
-L:1/8
-K:A
-"Amaj7"A c e A c e A c | "F#m7"F A c F A c F A | "Dmaj7"D F A D F A D F | "E"E G B E G B e d | "Amaj7"c e a c e a c e | "F#m7"A c f A c f A c | "Dmaj7"F A d F A d F A | "E"G B e G "Amaj7"A4 |]`,
-    parts: [melody(3, 108, 'Notes in groups of three across a 4/4 bar: the math rock twist that makes it sound like it\'s tumbling.'), rhythm('mathpick', 4, 108, 'arp-broken', 'Broken arpeggios', 'Ringing open-string arpeggios, the clean math rock texture.')],
+    id: 'tidepool', title: 'Tide Pool Dub', genre: 'reggaerock', credit: 'Original (KGuitar): dub in the style of Pacific Dub and The Movement', key: 'A', minor: true, meter: 4,
+    piece: { style: 'reggaerock', mode: 'minor', sections: [
+      { name: 'Dub', chart: 'Am | Dm | Am | Em', part: 'riff', level: 2, seed: 3, times: 2 },
+      { name: 'Melody', chart: 'Am | Dm | Am | Em', part: 'lead', level: 1, seed: 12 },
+      { name: 'Skank', chart: 'F | G | Am | Am', part: 'riff', level: 2, seed: 6 },
+      { name: 'Melody', chart: 'Am | Dm | Em | Am', part: 'lead', level: 2, seed: 24 },
+    ] },
+    parts: [whole(2, 76, 'A minor dub: the bass-line riff, a melody with space for echo, skanks, and the melody home.'), rhythm('double', 3, 76, 'double', 'Double skank', 'Two quick chops on each off-beat.')],
   },
   {
-    id: 'monsoon', title: 'Iron Monsoon', genre: 'prog', credit: 'Original (KGuitar), prog metal', key: 'E', minor: true, meter: 4, strum: 'pop',
-    abc: `M:4/4
-L:1/8
-K:Em
-"Em"E,2 E, G, E,2 A, G, | "C"E,2 E, B, E,2 A, G, | "Am"E,2 E, C E,2 B, A, | "B"E,2 ^D, B, B,2 ^D,2 | "Em"E,2 E, G, E,2 A, G, | "C"E,2 E, B, E,2 A, G, | "Am"E, E, C B, A, G, F, E, | "B"^D,4 "Em"E,4 |]`,
-    parts: [melody(3, 120, 'A palm-muted riff on the low E with melody notes on top: chug, then sing.'), rhythm('chug', 3, 120, 'strum', 'Power chord strum', 'Down-strokes on power chords, palm-muted, locked to the kick.')],
+    id: 'kona', title: 'Kona Morning', genre: 'hawaiian', credit: 'Original (KGuitar): slack key in open G, in the style of Gabby Pahinui and Ledward Kaʻapana', key: 'G', meter: 4,
+    piece: { style: 'slackkey', sections: [
+      { name: 'Melody', chart: 'G | C | G | D7 | G | C | D7 | G', part: 'melody', arrange: 'bass', seed: 7 },
+      { name: 'Variation', chart: 'C | G | D7 | G', part: 'lead', level: 2, seed: 15 },
+      { name: 'Melody', chart: 'G | C | G | D7 | G | C | D7 | G', part: 'melody', arrange: 'full', seed: 21 },
+      { name: 'Vamp', chart: 'A7 | D7 | G | G', part: 'lead', level: 2, seed: 4 },
+    ] },
+    parts: [whole(3, 84, 'Slack key in open G (D G D G B D): the thumb alternates on the open bass strings, the melody sings on top, and the vamp takes it home.')],
+  },
+  {
+    id: 'tradewind', title: 'Trade Wind Vamp', genre: 'hawaiian', credit: 'Original (KGuitar): slack key in open G', key: 'C', meter: 4,
+    piece: { style: 'slackkey', sections: [
+      { name: 'Melody', chart: 'C | F | C | G7', part: 'melody', arrange: 'bass', seed: 3, times: 2 },
+      { name: 'Turnaround', chart: 'D7 | G7 | C | C', part: 'lead', level: 2, seed: 8 },
+      { name: 'Melody', chart: 'C | F | C | G7 | C | F | G7 | C', part: 'melody', arrange: 'full', seed: 16 },
+    ] },
+    parts: [whole(3, 80, 'An easy-going slack key tune in C in open G tuning, with the Hawaiian II7–V7–I turnaround.')],
+  },
+  {
+    id: 'islandsway', title: 'Island Sway', genre: 'hawaiian', credit: 'Original (KGuitar): Hawaiian style in standard tuning (Kaʻau Crater Boys, Hawaiian Style Band)', key: 'D', meter: 4,
+    piece: { style: 'hawaiian', sections: [
+      { name: 'Strum', chart: 'D | G | E7 | A7', part: 'pick', pattern: 'pinch2' },
+      { name: 'Melody', chart: 'D | G | E7 | A7 | D | G | A7 | D', part: 'melody', arrange: 'full', seed: 9 },
+      { name: 'Lead', chart: 'G | D | E7 | A7', part: 'lead', level: 2, seed: 18 },
+      { name: 'Vamp', chart: 'E7 | A7 | D | D', part: 'lead', level: 1, seed: 5 },
+    ] },
+    parts: [whole(2, 88, 'Sweet 6ths, steel-guitar slides and the Hawaiian vamp, in standard tuning.'), rhythm('pinch', 1, 88, 'pinch2', 'Pinch picking', 'Thumb and finger together on 1 and 3.')],
+  },
+  // fingerstyle
+  {
+    id: 'lanterns2', title: 'Paper Lanterns', genre: 'fingerstyle', credit: 'Original (KGuitar): melodic fingerstyle in the style of Marco Cirillo', key: 'E', meter: 4,
+    piece: { style: 'fingerstyle', sections: [
+      { name: 'Intro', chart: 'Eadd9 | B | C#m7 | Amaj7', part: 'pick', pattern: 'cirillo' },
+      { name: 'Theme', chart: 'Eadd9 | B | C#m7 | Amaj7 | Eadd9 | B | Amaj7 | Amaj7', part: 'melody', arrange: 'full', seed: 6 },
+      { name: 'Bridge', chart: 'C#m7 | Amaj7 | Eadd9 | B', part: 'lead', level: 2, seed: 19 },
+      { name: 'Theme', chart: 'Eadd9 | B | C#m7 | Amaj7 | Eadd9 | B | Eadd9 | Eadd9', part: 'melody', arrange: 'full', seed: 25 },
+    ] },
+    parts: [whole(3, 76, 'Open strings ringing like a harp under a singing melody, hammer-ons inside the shapes and harmonics to finish.'), rhythm('cirillo', 2, 76, 'cirillo', 'Melodic fingerstyle roll', 'Bass and melody together on 1, then a ripple through the chord.')],
+  },
+  {
+    id: 'harbor', title: 'Harbor Lights', genre: 'fingerstyle', credit: 'Original (KGuitar): fingerstyle in the style of Sungha Jung and Tommy Emmanuel', key: 'C', meter: 4,
+    piece: { style: 'fingerstyle', sections: [
+      { name: 'Groove', chart: 'Cadd9 | G | Am7 | Fmaj7', part: 'pick', pattern: 'percussive' },
+      { name: 'Melody', chart: 'Cadd9 | G | Am7 | Fmaj7 | Cadd9 | G | Fmaj7 | Cadd9', part: 'melody', arrange: 'full', seed: 4 },
+      { name: 'Travis', chart: 'Am7 | Fmaj7 | Cadd9 | G', part: 'pick', pattern: 'travis' },
+      { name: 'Melody', chart: 'Cadd9 | G | Am7 | Fmaj7 | Cadd9 | G | Cadd9 | Cadd9', part: 'melody', arrange: 'full', seed: 11 },
+    ] },
+    parts: [whole(3, 80, 'Percussive fingerstyle with the melody on top, a Travis-picked bridge, and the melody again.'), rhythm('perc', 2, 80, 'percussive', 'Percussive fingerstyle', 'Thumb bass, slaps on 2 and 4.')],
   },
 ]
 
@@ -605,6 +776,14 @@ const ARRANGE_LEARN: Record<Genre, string> = {
   pop: 'The melody on top, the bass under it and chord fills in the gaps: the song on one guitar.',
   bluesrock: 'Chord-melody: the tune on the top strings, bass with the thumb, chord stabs in the gaps.',
   prog: 'The line with its bass notes and chord tones filled in, as one guitar part.',
+  hawaiian: 'The melody on top with the thumb keeping the bass going: slack key style.',
+  fingerstyle: 'Melody on top, bass with the thumb, chord notes ringing in between.',
+  classical: 'Melody on top, the bass with the thumb (p), inner notes with i and m, as written for classical guitar.',
+}
+// pieces: the chords of every section, in order, as the song's chart (rhythm parts and the band follow it)
+for (const s of SONGBOOK) {
+  if (!s.piece || s.chart) continue
+  s.chart = s.piece.sections.flatMap(sec => Array.from({ length: sec.times ?? 1 }, () => sec.chart)).join(' | ')
 }
 for (const s of SONGBOOK) {
   if (!s.abc || s.parts.some(p => p.kind === 'arrange')) continue
@@ -659,7 +838,10 @@ function abcChords(abc: string): { chords: ChordBeat[]; meter: number } {
 }
 
 /** The guitar sound each style is played on (General MIDI program). */
+const PROGRAMS: Partial<Record<StyleId, number>> = { progclean: 27, polyphia: 27, shred: 29, progmetal: 30, metal: 30, mayer: 27, rock: 29, blues: 29, pop: 25, neosoul: 27, funk: 27, jazz: 26, country: 27, bluegrass: 25, billy: 25, acoustic: 25, reggaerock: 27, slackkey: 25, hawaiian: 25, fingerstyle: 25, classical: 24 }
 function programFor(s: SongbookSong) {
+  if (s.piece) return PROGRAMS[s.piece.style] ?? 25
+  if (s.genre === 'classical') return 24
   if (s.id === 'monsoon') return 30
   return ['reggae', 'reggaerock', 'bluesrock', 'pop', 'prog'].includes(s.genre) ? 27 : 25
 }
@@ -918,6 +1100,109 @@ function arrangeSong(s: SongbookSong, inst: Instrument): Song | null {
   return { title: s.title, tempo: t.tempo ?? 90, meter, tracks: [{ name: 'Full arrangement', tuning, capo: 0, bars, program: programFor(s) }] }
 }
 
+/** A chord name as the composer's chord (relative to the key). */
+function progChord(name: string, key: string, beats: number): ProgChord {
+  const m = /^([A-G][#b]?)(.*)$/.exec(name.trim())
+  const root = m?.[1] ?? key, raw = (m?.[2] ?? '').replace(/\/.*$/, '')
+  const type = raw === 'maj' ? '' : raw === 'min' ? 'm' : raw
+  return { semi: ((pc(root) - pc(key)) % 12 + 12) % 12, type, root, symbol: name, roman: '', beats }
+}
+
+/** A piece: every section written by the composer (or picked, for 'pick' sections) and joined into one part. */
+function pieceSong(s: SongbookSong, inst: Instrument): Song | null {
+  const pz = s.piece
+  if (!pz) return null
+  const mode: ModeId = pz.mode ?? (s.minor ? 'minor' : 'major')
+  const bars: SongBar[] = []
+  let tuning: number[] | null = null, capo = 0
+  for (const sec of pz.sections) {
+    const cb = Array.from({ length: sec.times ?? 1 }, () => parseChart(sec.chart, s.meter)).flat()
+    const n = Math.round(cb.reduce((a, c) => a + c.beats, 0) / s.meter)
+    let got: Song | null = null
+    if (sec.part === 'pick') {
+      // fingerpicking needs the instrument's own chord shapes: in a retuned piece (open G) the composer plays it instead
+      if (tuning && tuning.join() !== inst.midis.join()) {
+        got = compose({ style: sec.style ?? pz.style, part: 'melody', tonic: s.key, mode, chords: cb.map(c => progChord(c.name, s.key, c.beats)), bars: n, level: 1, seed: sec.seed ?? 1, tuning: inst.midis, arrange: 'full', meter: s.meter, capo: 0 }).song
+      } else {
+        const chords: PickChord[] = cb.map(c => ({ name: c.name, root: parseSymbol(c.name).root, voicing: voicing(c.name, inst)!, beats: c.beats })).filter(c => !!c.voicing)
+        const tonic = pc(s.key)
+        const scale = (s.minor ? MINOR : MAJOR).map(i => (tonic + i) % 12)
+        if (chords.length) got = pickingSong(chords, sec.pattern ?? 'travis', inst.midis, { times: 1, meter: s.meter, scale })
+      }
+    } else {
+      got = compose({ style: sec.style ?? pz.style, part: sec.part, tonic: s.key, mode, chords: cb.map(c => progChord(c.name, s.key, c.beats)), bars: n, level: sec.level ?? 2, seed: sec.seed ?? 1, tuning: inst.midis, arrange: sec.arrange, meter: s.meter, capo: 0 }).song
+    }
+    if (!got) continue
+    const tr = got.tracks[0]
+    if (!tuning) { tuning = tr.tuning; capo = tr.capo }
+    // a section in another tuning or capo than the piece's first: keep the pitches, move the frets
+    const shift = tr.tuning.join() === tuning.join() ? tr.capo - capo : null
+    const secBars = tr.bars.map(b => ({ steps: b.steps.map(st => ({ ...st, notes: shift === null ? [] : st.notes.map(x => ({ ...x, fret: x.fret + shift })).filter(x => x.fret >= 0) })) }))
+    if (secBars[0]?.steps[0]) secBars[0].steps[0] = { ...secBars[0].steps[0], section: sec.name }
+    bars.push(...secBars)
+  }
+  if (!tuning || !bars.length) return null
+  return { title: s.title, tempo: 90, meter: s.meter, tracks: [{ name: 'Guitar', tuning, capo, bars, program: programFor(s) }] }
+}
+
+/** Romanza texture: each beat the melody note (with the bass on beat 1), then two chord notes on the next two strings. */
+function tripletSong(s: SongbookSong, inst: Instrument): Song | null {
+  if (!s.abc) return null
+  const t = parseAbc(s.abc)
+  const tuning = inst.midis
+  const n = tuning.length
+  const all = t.bars.flat().map(x => x.midi).filter((m): m is number => m !== null)
+  let shift = octaveFit(all, tuning)
+  // the tune sits on the top string
+  while (Math.min(...all) + shift < tuning[n - 1] - 2 && Math.max(...all) + shift + 12 <= tuning[n - 1] + 15) shift += 12
+  while (Math.max(...all) + shift > tuning[n - 1] + 15) shift -= 12
+  const bars: SongBar[] = []
+  let cur = s.key + (s.minor ? 'm' : '')
+  for (const bar of t.bars) {
+    const steps: SongStep[] = []
+    let beatInBar = 0
+    let barMf = -1
+    for (const x of bar) {
+      if (x.chord) cur = x.chord
+      const pcs = (() => { const v = voicing(cur, inst); return v ? [...new Set(v.frets.map((f, si) => (f >= 0 ? (tuning[si] + f) % 12 : -1)).filter(p => p >= 0))] : [] })()
+      const root = pc(parseSymbol(cur).root)
+      for (let k = 0; k < Math.round(x.dur); k++) {
+        const notes: SongNote[] = []
+        let mf = 0, ms = n - 1
+        if (x.midi !== null) {
+          const m = x.midi + shift
+          ms = [n - 1, n - 2].find(si => m - tuning[si] >= 0 && m - tuning[si] <= 15) ?? n - 1
+          mf = m - tuning[ms]
+          if (k === 0) notes.push({ string: ms, fret: mf, midi: m })
+        }
+        // the hand holds one shape for the bar: the inner notes follow where the bar's first melody note is
+        if (barMf < 0) barMf = mf
+        const hand = barMf
+        if (beatInBar === 0) {
+          for (const si of [0, 1, 2]) {
+            if (si >= ms) break
+            const f = [0, 1, 2, 3, 4, 5, 6, 7].find(ff => (tuning[si] + ff) % 12 === root && (ff === 0 || Math.abs(ff - mf) <= 5))
+            if (f !== undefined) { notes.push({ string: si, fret: f, midi: tuning[si] + f }); break }
+          }
+        }
+        steps.push({ notes: notes.sort((a, b) => a.string - b.string), dur: 1 / 3, ...(k === 0 && beatInBar === 0 && x.chord ? { chord: x.chord } : {}) })
+        // two chord notes on the next strings down, near the melody's fret
+        for (const si of [ms - 1, ms - 2]) {
+          if (si < 0) { steps.push({ notes: [], dur: 1 / 3 }); continue }
+          const opts = [0, ...Array.from({ length: 9 }, (_, i) => hand - 4 + i)].filter(f => f >= 0 && f <= 15 && pcs.includes((tuning[si] + f) % 12) && (f === 0 || Math.abs(f - mf) <= 3))
+          // near the hand; open strings when it's low (up the neck, the barre shape)
+          const cost = (f: number) => (f === 0 ? (hand >= 10 ? 3 : 0.5) : Math.abs(f - hand))
+          const f = opts.sort((a, b) => cost(a) - cost(b) || a - b)[0]
+          steps.push({ notes: f === undefined ? [] : [{ string: si, fret: f, midi: tuning[si] + f }], dur: 1 / 3 })
+        }
+        beatInBar++
+      }
+    }
+    bars.push({ steps })
+  }
+  return { title: s.title, tempo: t.tempo ?? 72, meter: t.meter, tracks: [{ name: 'Arrangement', tuning, capo: 0, bars, program: programFor(s) }] }
+}
+
 /** Build one part of a songbook song for this instrument. */
 export function songbookSong(songId: string, partId: string, inst: Instrument): Song | null {
   const s = SONGBOOK.find(x => x.id === songId)
@@ -926,19 +1211,21 @@ export function songbookSong(songId: string, partId: string, inst: Instrument): 
   const song = part.kind === 'words' ? sheetSong(s, inst)
     : part.kind === 'melody' ? melodySong(s, inst)
       : part.kind === 'octaves' ? melodySong(s, inst, inst.midis.length >= 6)
-        : part.kind === 'arrange' ? arrangeSong(s, inst)
-        : rhythmSong(s, part, inst)
+        : part.kind === 'arrange' ? (s.texture === 'triplets' ? tripletSong(s, inst) : arrangeSong(s, inst))
+          : part.kind === 'piece' ? pieceSong(s, inst)
+            : rhythmSong(s, part, inst)
   if (!song) return null
   song.tempo = part.bpm
   song.title = `${s.title} (${part.label.toLowerCase()})`
   song.artist = s.credit
   if (part.kind === 'words' && s.strum) song.strum = s.strum
-  song.backing = backingFor(s, part)
+  const band = backingFor(s, part)
+  if (band) song.backing = band
   return song
 }
 
 /** Drums and bass for "play with the band", in the song's style. */
-export function backingFor(s: SongbookSong, part: SongbookPart): { groove: string; bass: string } {
+export function backingFor(s: SongbookSong, part: SongbookPart): { groove: string; bass: string } | undefined {
   if (s.genre === 'reggae') {
     const p = part.pattern ?? s.strum ?? ''
     return { groove: p === 'rockers' || p === 'ska' ? 'rockers' : p === 'double' ? 'steppers' : 'reggae', bass: 'reggae' }
@@ -947,7 +1234,10 @@ export function backingFor(s: SongbookSong, part: SongbookPart): { groove: strin
   if (s.genre === 'reggaerock') return { groove: part.pattern === 'double' ? 'steppers' : 'reggae', bass: 'reggae' }
   if (s.genre === 'pop') return s.strum === 'funk' ? { groove: 'funk', bass: 'funk' } : { groove: 'halftime', bass: 'ballad' }
   if (s.genre === 'bluesrock') return { groove: s.id === 'velvethour' ? 'purdie' : 'shuffle', bass: s.id === 'velvethour' ? 'funk' : 'boogie' }
-  if (s.genre === 'prog') return s.id === 'monsoon' ? { groove: 'djent', bass: 'metal' } : { groove: s.id === 'staircase' ? 'motorik' : 'halftime', bass: 'pop' }
+  if (s.genre === 'prog') return s.id === 'monsoon' ? { groove: 'djent', bass: 'metal' } : s.id === 'skyline' ? { groove: 'rock', bass: 'root8' } : { groove: s.id === 'staircase' ? 'trap' : 'halftime', bass: 'pop' }
+  // solo guitar styles: no band
+  if (s.genre === 'hawaiian') return s.id === 'islandsway' ? { groove: 'island', bass: 'reggae' } : undefined
+  if (s.genre === 'fingerstyle' || s.genre === 'classical') return undefined
   return { groove: 'halftime', bass: 'country' }
 }
 

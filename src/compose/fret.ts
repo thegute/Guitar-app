@@ -50,7 +50,7 @@ function anchors(notes: LNote[], tuning: number[], st: StyleDef, meter: number, 
 }
 
 export function placeLine(notes: LNote[], tuning: number[], st: StyleDef, r: Rng, meter = 4, capo = 0): Placed {
-  const maxFret = Math.min(MAX_FRET, tuning.length === 4 ? 17 : MAX_FRET) - capo
+  const maxFret = Math.min(MAX_FRET, tuning.length === 4 ? 15 : MAX_FRET) - capo
   const eff = tuning.map(t => t + capo)
   const anc = anchors(notes, eff, st, meter, r)
   const [zlo, zhi] = st.zone

@@ -20,7 +20,7 @@ for (const id of ['guitar', 'tenor', 'baritone'] as const) {
       ok(len <= s.meter + 0.01 && (i === 0 || i === bars.length - 1 || Math.abs(len - s.meter) < 0.01), `${id} ${s.id}/${p.id} bar ${i + 1} is ${len} beats`)
       for (const st of b.steps) {
         ok(new Set(st.notes.map(n => n.string)).size === st.notes.length, `${id} ${s.id}/${p.id} bar ${i + 1}: two notes on one string`)
-        for (const n of st.notes) ok(n.fret >= 0 && n.fret <= 15 && n.string >= 0 && n.string < inst.midis.length, `${id} ${s.id}/${p.id}: fret ${n.fret} string ${n.string}`)
+        for (const n of st.notes) ok(n.fret >= 0 && n.fret <= (p.kind === "piece" && inst.midis.length === 6 ? 22 : 15) && n.string >= 0 && n.string < inst.midis.length, `${id} ${s.id}/${p.id}: fret ${n.fret} string ${n.string}`)
       }
     })
     if (p.kind === 'arrange') {

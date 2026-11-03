@@ -138,7 +138,7 @@ export function makeRiff(kind: RiffKind, tl: CChord[], bars: number, meter: numb
     if (h.at > t + 1e-6) ev.push({ notes: [], dur: Math.round((h.at - t) * 1e4) / 1e4 })
     const next = hits[i + 1]?.at ?? bars * meter
     const dur = Math.max(.125, Math.min(h.dur, next - h.at))
-    ev.push({ notes: h.notes.filter(x => x.fret >= 0), dur: Math.round(dur * 1e4) / 1e4 })
+    ev.push({ notes: h.notes.filter(x => x.fret >= 0 && x.fret <= (n === 4 ? 15 : 22)), dur: Math.round(dur * 1e4) / 1e4 })
     t = h.at + dur
   }
   if (t < bars * meter - 1e-6) ev.push({ notes: [], dur: Math.round((bars * meter - t) * 1e4) / 1e4 })

@@ -28,6 +28,10 @@ export interface ComposeOptions {
   bpm?: number
   /** chord melody: melody only, melody + bass, or the full arrangement */
   arrange?: ArrLevel
+  /** beats in a bar (3 for a waltz); the style's own otherwise */
+  meter?: number
+  /** force the capo (songbook pieces keep one capo for every section) */
+  capo?: number
 }
 export interface Composed { song: Song; capo: number; key: string; minor: boolean; tuning: number[]; style: StyleDef; chords: string[] }
 
@@ -87,11 +91,11 @@ export function compose(o: ComposeOptions): Composed {
   const mode: ModeId = o.mode ?? (st.minor ? 'minor' : 'major')
   const minor = MINORISH.includes(mode)
   const chords = o.chords?.length ? o.chords : styleProgression(st, o.tonic, mode)
-  const meter = st.meter ?? 4
+  const meter = o.meter ?? st.meter ?? 4
   const bars = Math.max(1, Math.min(32, o.bars))
   const tl = timeline(chords, o.tonic, mode, bars, meter)
   const tuning = tuningFor(st, o.tuning)
-  const capo = capoFor(st, tuning, pc(o.tonic), minor)
+  const capo = o.capo ?? capoFor(st, tuning, pc(o.tonic), minor)
   const eff = tuning.map(t => t + capo)
   const key = keyLabel(o.tonic, minor)
   let events: LickEvent[] = []
