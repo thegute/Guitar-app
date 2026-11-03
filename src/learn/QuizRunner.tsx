@@ -1,6 +1,7 @@
 // Runs one quiz: questions picked by what you know least, answered by tapping or by playing (mic),
 // with instant feedback, a combo counter and stars at the end.
 import { micWhere } from '../audio/input'
+import { haptic } from '../audio/tapFeel'
 import { Ico } from '../components/Icon'
 import { PsyDog } from '../components/PsyArt'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -96,6 +97,7 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
     const cur = qRef.current
     if (!cur || live.current.answered) return
     live.current.answered = true
+    haptic(ok ? 'success' : 'warning')
     const combo = live.current.combo
     const n = live.current.n
     const ms = performance.now() - shownAt.current

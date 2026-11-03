@@ -2199,3 +2199,4 @@ video.mirrored { transform: scaleX(-1); }
 .btn.sm.on { border-color: var(--gold); color: var(--gold-text); }
 [data-theme='psy'] .st-part:not(.cur) { background: #1c0641; color: #f4eaff; }
 .st-layer-x { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.talk-prep { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; color: var(--ink-2); }

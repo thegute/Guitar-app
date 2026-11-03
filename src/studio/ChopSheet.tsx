@@ -2,6 +2,7 @@
 // slices on Your pads, one note per pad. Then play the riff back from the pads in any order, or play one slice up and
 // down the keyboard (Keyboard → Sound → Your pads).
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { haptic, quietForMic } from '../audio/tapFeel'
 import { audio } from '../audio/engine'
 import { InputRecorder } from '../audio/looper'
 import { kindOf, latencyMs } from '../audio/gear'
@@ -33,13 +34,15 @@ export function ChopSheet({ setBeat, onClose, onDone }: { setBeat: (f: (b: Beat)
       setLevel(rec.current?.level ?? 0)
       if (t0.current) { const s = audio().currentTime - t0.current; setSecs(s); if (s >= MAX_SECS) void stop() }
     }, 100)
-    return () => { alive = false; clearInterval(id); rec.current?.stop() }
+    return () => { alive = false; clearInterval(id); rec.current?.stop(); if (t0.current) { t0.current = 0; quietForMic(false) } }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  const start = () => { if (state === 'rec') return; t0.current = audio().currentTime; setSecs(0); setTake(null); setState('rec'); setMsg('') }
+  const start = () => { if (state === 'rec') return; haptic('medium'); quietForMic(true); t0.current = audio().currentTime; setSecs(0); setTake(null); setState('rec'); setMsg('') }
   const stop = async () => {
     if (!t0.current) return
     const from = t0.current
     t0.current = 0
+    quietForMic(false)
+    haptic('medium')
     setState('cut')
     const ctx = audio()
     const lat = latencyMs(kindOf(rec.current?.input?.external)) / 1000

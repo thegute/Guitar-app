@@ -1,5 +1,6 @@
 // Practice tools: one-minute chord changes, the rhythm trainer and the circle of fifths explorer.
 import { micWhere } from '../audio/input'
+import { haptic } from '../audio/tapFeel'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChordDiagram } from '../components/ChordDiagram'
 import { CircleOfFifths, CIRCLE_MAJOR, keySignature } from '../components/CircleOfFifths'
@@ -9,6 +10,7 @@ import { playNote, strum } from '../audio/pluck'
 import { playClick } from '../audio/metronome'
 import { audio, keepAwake } from '../audio/engine'
 import { ChromaListener, chordMatch } from '../audio/chroma'
+import { buzz, tick } from '../audio/tapFeel'
 import { NoteListener } from '../tabs/follow'
 import { kindOf, latencyMs } from '../audio/gear'
 import { parseSymbol } from '../theory/chords'
@@ -65,6 +67,7 @@ export function ChordChanges({ inst, onExit }: { inst: Instrument; onExit: () =>
   useEffect(() => () => { clearInterval(timer.current); listener.current?.stop(); void keepAwake(false) }, [])
 
   function change() {
+    haptic('light')
     live.current.count++
     live.current.cur ^= 1
     setCount(live.current.count)
@@ -263,6 +266,10 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
   const [bpm, setBpm] = usePersist('rhythmBpm', 72)
   const [useMic, setUseMic] = usePersist('rhythmMic', false)
   const [offset, setOffset] = usePersist('tapOffsetMs', 0)
+  // feel and hear each tap on your turn (a short buzz, a tiny tick)
+  const [feelBuzz, setFeelBuzz] = usePersist('rhythmBuzz', true)
+  const [feelTick, setFeelTick] = usePersist('rhythmTick', true)
+  const feel = () => { if (feelBuzz) buzz(); if (feelTick) tick() }
   const level = RHYTHM_LEVELS.find(l => l.id === levelId) ?? RHYTHM_LEVELS[0]
   const [running, setRunning] = useState(false)
   const [patterns, setPatterns] = useState<number[][]>([])
@@ -393,6 +400,12 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
         <input type="checkbox" checked={useMic} onChange={e => setUseMic(e.target.checked)} disabled={running} />
         Strum it instead of tapping (the mic hears each strum)
       </label>
+      {!useMic && (
+        <div className="row small" style={{ gap: 14 }}>
+          <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={feelBuzz} onChange={e => setFeelBuzz(e.target.checked)} /> Buzz when I tap</label>
+          <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={feelTick} onChange={e => { setFeelTick(e.target.checked); if (e.target.checked) tick() }} /> Tap sound</label>
+        </div>
+      )}
 
       <div className={`rhythm-stage${turn ? ' turn' : ''}`}>
         <div className="small rhythm-status">
@@ -409,8 +422,8 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
       {running ? (
         <div className="stack" style={{ gap: 8 }}>
           {!useMic && (
-            <button className={`tap-pad${turn ? ' live' : ''}`} onPointerDown={e => { e.preventDefault(); addTap(heardTime(e.timeStamp)) }}
-              onKeyDown={e => { if (e.key === ' ' && !e.repeat) { e.preventDefault(); addTap(heardTime(e.timeStamp)) } }} autoFocus>
+            <button className={`tap-pad${turn ? ' live' : ''}`} onPointerDown={e => { e.preventDefault(); addTap(heardTime(e.timeStamp)); feel() }}
+              onKeyDown={e => { if (e.key === ' ' && !e.repeat) { e.preventDefault(); addTap(heardTime(e.timeStamp)); feel() } }} autoFocus>
               <span className="readout">{turn ? 'Tap!' : counting ? `${Math.floor(beat) + 1}…` : 'Listen…'}</span>
             </button>
           )}

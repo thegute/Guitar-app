@@ -3,6 +3,7 @@
 // string is in tune, and a trace of the last few seconds (it shows a wobbly or drifting string). Pick a string or let
 // it find the nearest one; each string gets a tick once it has held in tune for a second.
 import { micWhere } from '../audio/input'
+import { haptic } from '../audio/tapFeel'
 import { useEffect, useRef, useState } from 'react'
 import { usePracticeTimer } from '../learn/progress'
 import { PitchTracker } from '../audio/pitch'
@@ -119,7 +120,7 @@ export function TunerScreen() {
           if (Math.abs(targets[si] - s.note) < 0.5) {
             const h = holdSince.current
             if (!h || h.s !== si) holdSince.current = { s: si, t: now }
-            else if (now - h.t > 1000) setDone(d => (d[si] ? d : d.map((v, i) => (i === si ? true : v))))
+            else if (now - h.t > 1000) setDone(d => { if (d[si]) return d; haptic('success'); return d.map((v, i) => (i === si ? true : v)) })
           }
         } else holdSince.current = null
       }

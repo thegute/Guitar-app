@@ -94,3 +94,30 @@ import { encodeWav } from '../src/audio/tap'
   assert.equal(v.getInt16(44 + 4 * 5, true), 32767) // clipped
   console.log('wav: ok')
 }
+
+// ---- the helper: voice audio tidied, first sentence first, short spoken / fuller typed answers
+import { tidySpeech, firstSentence } from '../src/assistant/speak'
+import { systemPrompt } from '../src/assistant/plan'
+{
+  const rate = 24000
+  // 0.3 s silence, 1 s "voice" (a low hum), 0.5 s of hiss
+  const x = new Float32Array(Math.round(rate * 1.8))
+  for (let i = 0; i < x.length; i++) {
+    const t = i / rate
+    if (t >= 0.3 && t < 1.3) x[i] = 0.3 * Math.sin(2 * Math.PI * 180 * t)
+    else if (t >= 1.3) x[i] = (Math.random() * 2 - 1) * 0.2
+  }
+  const y = tidySpeech(x, rate)
+  const secs = y.length / rate
+  assert.ok(secs > 1.2 && secs < 1.55, `tidied length ${secs}`)   // lead 0.25 + voice ~1.0 + small tails, no hiss
+  assert.equal(y[0], 0); assert.ok(Math.abs(y[y.length - 1]) < 0.01, 'fades out')
+  // first sentence split
+  assert.deepEqual(firstSentence('Short answer.'), ['Short answer.', ''])
+  const long = 'An augmented chord sounds tense and dreamy. It has a raised fifth, so the top note wants to move up. Try C, E and G sharp on the top strings.'
+  const [a, b] = firstSentence(long)
+  assert.equal(a, 'An augmented chord sounds tense and dreamy.'); assert.ok(b.startsWith('It has'))
+  const v = systemPrompt('general', '', [], null, 'voice'), t = systemPrompt('general', '', [], null, 'typed')
+  assert.ok(/1-3 short sentences/.test(v) && /3 or 4 short paragraphs/.test(t))
+  assert.equal(v.slice(0, v.indexOf('--- NOW ---')), t.slice(0, t.indexOf('--- NOW ---')), 'the cached part is the same')
+  console.log('helper voice and length: ok')
+}

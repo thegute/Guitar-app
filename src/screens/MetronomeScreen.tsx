@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { haptic } from '../audio/tapFeel'
 import { Metronome, type Accent, type ClickSound } from '../audio/metronome'
 import { GROOVES, loadKit } from '../audio/drums'
 import { keepAwake } from '../audio/engine'
@@ -85,6 +86,7 @@ export function MetronomeScreen() {
     }
   }
   function tap() {
+    haptic('light')
     const now = performance.now()
     taps.current = [...taps.current.filter(t => now - t < 2500), now]
     if (taps.current.length >= 2) {

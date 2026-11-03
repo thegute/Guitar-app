@@ -20,6 +20,8 @@ import { BackupPanel } from '../components/BackupPanel'
 import { useShowArt } from '../components/Art'
 import { HintHead } from '../components/Fold'
 import { ProfileForm } from '../components/ProfileForm'
+import { haptic, hapticsOn, setHapticsOn } from '../audio/tapFeel'
+import { TALK_CARD_CHOICES, setTalkCardSecs, talkCardSecs } from '../assistant/talkCard'
 import { UsagePanel } from '../components/UsagePanel'
 import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, instrumentSound, activeSound, soundInfo, SOUNDS, type SoundId } from '../audio/pluck'
 import { audio } from '../audio/engine'
@@ -155,6 +157,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
       </>}
 
       {page === 'sound' && <>
+      <HapticsSwitch />
       <KeepMetronome />
       <section className="panel stack" style={{ gap: 10 }}>
         <HintHead title="Your guitar input" hint="Two minutes per input: it measures your room, your strings and the delay of your headphones, so notes are heard reliably and recordings land on the beat." />
@@ -288,7 +291,17 @@ function ArtGallery() {
 
 function BubbleSwitch() {
   const [on, setOn] = usePersist('askBubble', true)
-  return <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={on} onChange={e => { setOn(e.target.checked); try { localStorage.setItem('kg:askBubble', JSON.stringify(e.target.checked)) } catch { /* noop */ } dispatchEvent(new Event('kg-bubble')) }} /> <span>Show the helper bubble on every screen (drag it anywhere to move it out of the way)</span></label>
+  const [secs, setSecs] = useState(talkCardSecs)
+  return (
+    <>
+      <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={on} onChange={e => { setOn(e.target.checked); try { localStorage.setItem('kg:askBubble', JSON.stringify(e.target.checked)) } catch { /* noop */ } dispatchEvent(new Event('kg-bubble')) }} /> <span>Show the helper bubble on every screen (drag it anywhere to move it out of the way)</span></label>
+      <div className="stack" style={{ gap: 4 }}>
+        <span className="small">Spoken answers stay on screen after the voice finishes:</span>
+        <Chips label="How long spoken answers stay up" items={TALK_CARD_CHOICES.map(v => ({ id: v, label: v === 0 ? 'Until I close it' : v < 60 ? `${v} s` : '1 min' }))} value={secs} onChange={v => { setTalkCardSecs(v); setSecs(v) }} />
+        <span className="small muted">Talking gets short answers; typing your question gets a fuller explanation that stays until you close it.</span>
+      </div>
+    </>
+  )
 }
 
 function FullScreenSwitch() {
@@ -310,6 +323,18 @@ function KeepMetronome() {
       <label className="row" style={{ gap: 8 }}>
         <input type="checkbox" checked={on} onChange={e => setOn(e.target.checked)} />
         <span><b>Keep the metronome going when I change pages</b><span className="small muted"> Everything else that plays (tab previews, exercises, Jam, the beat maker, videos) stops when you leave its page.</span></span>
+      </label>
+    </section>
+  )
+}
+
+function HapticsSwitch() {
+  const [on, setOn] = useState(hapticsOn)
+  return (
+    <section className="panel stack" style={{ gap: 6 }}>
+      <label className="row" style={{ gap: 8 }}>
+        <input type="checkbox" checked={on} onChange={e => { setOn(e.target.checked); setHapticsOn(e.target.checked); if (e.target.checked) haptic('medium') }} />
+        <span><b>Vibrate on taps</b><span className="small muted"> A light buzz when you tap pads, keys and the rhythm trainer, and a "got it" buzz when a loop or recording is saved, a string is in tune or a quiz answer is right. It never buzzes while the mic is recording.</span></span>
       </label>
     </section>
   )

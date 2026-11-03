@@ -3,6 +3,7 @@
 // step grid, the piano roll and the mix. One clock runs it all (transport.ts); hits recorded while ● is on snap to
 // the grid. Inner Fold screen: pads and keys side by side. Half-folded: the grid on top, pads on the bottom half.
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { haptic, quietForMic } from '../audio/tapFeel'
 import { Ico } from '../components/Icon'
 import { audio } from '../audio/engine'
 import { KITS, kitInfo, prepareKit, type KitId, type Voice } from '../audio/drums'
@@ -413,6 +414,7 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
     const r = e.currentTarget.getBoundingClientRect()
     const vel = e.pressure > 0 && e.pressure !== 0.5 ? Math.max(0.35, Math.min(1, e.pressure * 1.4)) : 0.55 + 0.45 * Math.min(1, Math.max(0, (r.bottom - e.clientY) / r.height))
     const h = t.hit(voice, vel)
+    haptic('light')
     if (h && (beat.pads?.[voice]?.mode ?? 'oneshot') !== 'oneshot') held.current.set(e.pointerId, h)
     flash(e.currentTarget, 'hit')
     recordHit(voice, vel)
@@ -526,6 +528,8 @@ function useSampler(t: StudioTransport, beat: Beat, setBeat: SetBeat) {
   const down = async (pad: string) => {
     if (startAt.current) return
     if (!(await open())) return
+    haptic('medium')
+    quietForMic(true)
     startAt.current = { pad, t: audio().currentTime }
     setRecPad(pad)
   }
@@ -534,6 +538,7 @@ function useSampler(t: StudioTransport, beat: Beat, setBeat: SetBeat) {
     const s = startAt.current
     startAt.current = null
     setRecPad(null)
+    if (s) quietForMic(false)
     if (!s || s.pad !== pad) return 'none'
     const ctx = audio()
     const held = ctx.currentTime - s.t
@@ -556,6 +561,7 @@ function useSampler(t: StudioTransport, beat: Beat, setBeat: SetBeat) {
       const root = detectRoot(piece, sr) ?? undefined
       const prev = beatRef.current.pads?.[pad]
       setBeat(b => ({ ...b, pads: { ...b.pads, [pad]: { src: 'rec', sample: id, start: cut.start, end: cut.end, root, name: prev?.name, choke: prev?.choke, mode: prev?.mode, vol: prev?.vol } } }))
+      haptic('success')
       setMsg(`Recorded onto ${padLabel(beatRef.current, pad)} (${(cut.end - cut.start).toFixed(1)} s). Hold another pad, or tap this one to trim it and change its pitch.`)
       // hear it once
       setTimeout(() => { t.hit(pad, 0.9) }, 60)
@@ -684,7 +690,7 @@ function Steps({ beat, setBeat, t, compact = false }: { beat: Beat; setBeat: Set
               {cells.map(i => (
                 <button key={i} className={`st-cell${r.steps[i] > 0 ? ' on' : ''}${i === step ? ' now' : ''}${i % 4 === 0 ? ' beat' : ''}`}
                   style={r.steps[i] > 0 ? { opacity: 0.45 + r.steps[i] * 0.55 } : undefined}
-                  onPointerDown={e => { e.preventDefault(); toggle(r.voice, i); if (!(r.steps[i] > 0)) t.hit(r.voice, paint) }} aria-label={`${voiceLabel(r.voice)} step ${i + 1}`} aria-pressed={r.steps[i] > 0} />
+                  onPointerDown={e => { e.preventDefault(); haptic('light'); toggle(r.voice, i); if (!(r.steps[i] > 0)) t.hit(r.voice, paint) }} aria-label={`${voiceLabel(r.voice)} step ${i + 1}`} aria-pressed={r.steps[i] > 0} />
               ))}
             </div>
             {showTools && (
@@ -784,6 +790,7 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
   const down = (e: React.PointerEvent<HTMLButtonElement>, m: number) => {
     e.preventDefault()
     const { notes: ns, label } = chordFor(m)
+    haptic('light')
     const track = trackFor(beat, inst).track
     const hs = ns.map(x => t.press(track.id, inst, x, 0.75 * kv))
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
@@ -1033,6 +1040,8 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
     return () => { alive = false }
   }, [beat.name]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { cancelRef.current.cancelled = true; rec.current?.stop() }, [])
+  // no buzzing while the looper records (the mic would hear it)
+  useEffect(() => { if (state === 'waiting' || state === 'rec') { quietForMic(true); return () => quietForMic(false) } }, [state])
 
   const keep = async (raw: Float32Array, bars: number, extra = '') => {
     if (screenHits.current > 0) {
@@ -1058,6 +1067,7 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
     buf.getChannelData(0).set(x)
     const count = live.current.layers.length + 1
     setLayers([...live.current.layers, { id, buf, vol: 1, bars: len }])
+    haptic('success')
     setNote(`Loop ${count} added${moved ? `, moved ${Math.round(Math.abs(moved) * 1000)} ms ${moved > 0 ? 'earlier' : 'later'} onto the beat` : ''}.${extra}`)
   }
   const input = () => latencyMs(kindOf(rec.current?.input?.external)) / 1000
@@ -1065,6 +1075,7 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
   /** Record: on the beat it starts at the next bar 1 and stops by itself; free, a second call stops it. */
   const record = async () => {
     const { state: st, mode: md } = live.current
+    if (st === 'idle') haptic('medium')
     if (st === 'rec' && md === 'free') {
       setState('working')
       const ctx = audio()
@@ -1347,6 +1358,7 @@ function Effects({ t, playing, play }: { t: StudioTransport; playing: boolean; p
           void audio().resume()
           const p = xy(e)
           if (latch && on) { t.fx.move(p.x, p.y); setPos(p); return }
+          haptic('medium')
           t.fx.engage(kind, p.x, p.y); setOn(true); setPos(p)
         }}
         onPointerMove={e => { if (!on || e.buttons === 0) return; const p = xy(e); t.fx.move(p.x, p.y); setPos(p) }}

@@ -5,6 +5,7 @@
 //   * save as audio: a WAV of the mix, and optionally each part on its own (stems), to share or use elsewhere
 // It plays through once while it records (that's how it hears exactly what you hear).
 import { useRef, useState } from 'react'
+import { haptic } from '../audio/tapFeel'
 import { audio } from '../audio/engine'
 import { TapRecorder, encodeWav } from '../audio/tap'
 import { shareFiles } from '../audio/shareFiles'
@@ -74,6 +75,7 @@ export function BounceSave({ t, beat, setBeat, loops, play, stop }: { t: StudioT
           loops.setMutes(Object.fromEntries(loops.layers.map(l => [l.id, true])))
           setBeat(b => ({ ...b, rows: b.rows.map(r => ({ ...r, mute: true })), layers: (b.layers ?? []).map(l => ({ ...l, mute: true })), tracks: b.tracks.map(x => ({ ...x, mute: true })) }))
           setUndoB({ loop: id, beat: before, mutes })
+          haptic('success')
           setMsg('Bounced: everything you heard is now one loop in the Looper, and what it came from is muted. Keep stacking, or undo the bounce.')
         } else {
           const pad = USER_PADS.find(p => !beat.pads?.[p]) ?? USER_PADS[USER_PADS.length - 1]
