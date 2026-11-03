@@ -10,6 +10,7 @@ export type Style =
   | 'neosoul' | 'funk' | 'gospel' | 'folk' | 'country' | 'reggae' | 'latin' | 'lofi' | 'epic' | 'sad' | 'happy' | 'fingerstyle'
   | 'hiphop' | 'trap' | 'dance' | 'motown' | 'afrobeat' | 'reggaeton' | 'salsa' | 'island'
   | 'bluegrass' | 'acoustic' | 'bluesrock' | 'popballad' | 'funkpop' | 'reggaerock' | 'progmetal' | 'mathrock' | 'progclean'
+  | 'classical' | 'slackkey'
 export type Fn = 'T' | 'S' | 'D'
 export type Ending = 'loop' | 'cadence' | 'turnaround' | 'open'
 
@@ -34,7 +35,8 @@ export const STYLES: { id: Style; label: string }[] = [
   { id: 'indie', label: 'Indie / dream pop' },
   { id: 'blues', label: 'Blues' },
   { id: 'jazz', label: 'Jazz' },
-  { id: 'bossa', label: 'Bossa nova' },
+  { id: 'classical', label: 'Classical guitar' },
+  { id: 'slackkey', label: 'Hawaiian slack key' },
   { id: 'neosoul', label: 'Neo-soul / R&B' },
   { id: 'funk', label: 'Funk' },
   { id: 'gospel', label: 'Gospel' },
@@ -132,6 +134,8 @@ export const STYLE_DEFAULTS: Record<Style, { flavor: Exclude<Flavor, 'auto'>; st
   progclean: { flavor: 'extended', strum: 'arpeggio', drums: 'halftime', bass: 'pop', tone: 'clean', bpm: 100, mode: 'lydian' },
   progmetal: { flavor: 'power', strum: 'chug', drums: 'djent', bass: 'metal', tone: 'metal', bpm: 120, mode: 'minor' },
   mathrock: { flavor: 'extended', strum: 'arpeggio', drums: 'motorik', bass: 'pop', tone: 'clean', bpm: 118 },
+  classical: { flavor: 'triads', strum: 'arpeggio', drums: 'off', bass: 'off', tone: 'nylon', bpm: 80, mode: 'harmonic' },
+  slackkey: { flavor: 'triads', strum: 'travis', drums: 'off', bass: 'off', tone: 'j45', bpm: 84 },
 }
 
 /**
@@ -294,6 +298,14 @@ export const TEMPLATES: Template[] = [
   T('Phrygian riff (i–bII)', ['phrygian'], ['latin', 'epic', 'metal', 'progmetal', 'progclean'], [[0, 'm'], [1, ''], [0, 'm'], [1, '']], 'Metal and flamenco love the half-step b2.'),
   T('Flamenco vamp (I–bII–I–bII)', ['phrygian', 'harmonic'], ['latin'], [[0, ''], [1, ''], [0, ''], [1, '']], 'Phrygian dominant: the major I with a b2 above it.'),
   T('Lydian float (I–II)', ['lydian'], ['epic', 'indie', 'progclean', 'mathrock', 'progmetal'], [[0, ''], [2, ''], [0, 'maj7'], [2, '']], 'Film scores use this for wonder.'),
+  T('Classical cadence (i–iv–V7–i)', ['harmonic', 'minor'], ['classical', 'latin'], [[0, 'm'], [5, 'm'], [7, '7'], [0, 'm']], 'The raised 7th in the V7 chord pulls home: the sound of Romanza and countless studies.'),
+  T('Baroque circle (i–iv–VII–III–VI–ii°–V–i)', ['minor', 'harmonic'], ['classical', 'epic'], [[0, 'm'], [5, 'm'], [10, ''], [3, ''], [8, ''], [2, 'dim'], [7, '7'], [0, 'm']], 'Down the circle of fifths, one step at a time: the engine of Bach and Vivaldi.'),
+  T('La Folia (i–V–i–VII–III–VII–i–V)', ['minor', 'harmonic'], ['classical'], [[0, 'm'], [7, ''], [0, 'm'], [10, ''], [3, ''], [10, ''], [0, 'm'], [7, '']], 'A 400-year-old theme that Corelli, Vivaldi and Sor all wrote variations on.'),
+  T('Classical major (I–IV–V7–I)', ['major'], ['classical', 'slackkey'], [[0, ''], [5, ''], [7, '7'], [0, '']]),
+  T('Sor study (I–V7–V7–I)', ['major'], ['classical'], [[0, ''], [7, '7'], [7, '7'], [0, '']]),
+  T('Slack key vamp (I–IV–I–V7)', ['major'], ['slackkey', 'island'], [[0, ''], [5, ''], [0, ''], [7, '7']], 'Most slack key tunes live on these three chords, with the thumb going all the way through.'),
+  T('Hawaiian vamp (II7–V7–I)', ['major'], ['slackkey', 'island'], [[2, '7'], [7, '7'], [0, ''], [0, '']], 'The vamp that ends (and links) Hawaiian songs: II7 to V7 to home, often played twice.'),
+  T('Hula (I–IV–II7–V7)', ['major'], ['slackkey', 'island'], [[0, ''], [5, ''], [2, '7'], [7, '7']]),
   T('Folk (I–IV–I–V)', ['major'], ['folk', 'country', 'bluegrass', 'acoustic'], [[0, ''], [5, ''], [0, ''], [7, '']]),
   T('Country (I–II–IV–I)', ['major'], ['country', 'folk', 'bluegrass', 'acoustic'], [[0, ''], [2, ''], [5, ''], [0, '']], 'The major II is a secondary dominant (V of V).'),
   T('Country two-step (I–I7–IV–V)', ['major'], ['country', 'bluegrass', 'acoustic'], [[0, ''], [0, '7'], [5, ''], [7, '']]),

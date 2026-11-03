@@ -1,19 +1,17 @@
 // "Turn this progression into a tab": fingerpicking (Travis / arpeggio) or strum-along, and the chord melody
 // maker, with a preview you can hear before opening it in Play. Used in Jam and in Songs → Exercises.
 import { activeSound, soundForProgram } from '../audio/pluck'
-import { Ico } from './Icon'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useInstrument } from '../instrument'
 import type { Voicing } from '../theory/chords'
 import type { ModeId, ProgChord } from '../theory/progressions'
 import { PICK_PATTERNS, pickPattern } from '../tabs/picking'
-import { MELODY_LEVELS, MELODY_STYLES, type MelNote, type MelodyLevel, type MelodyStyle } from '../tabs/chordMelody'
-import { chordMelodyDoc, pickingDoc } from '../tabs/fromProgression'
+import { pickingDoc } from '../tabs/fromProgression'
 import { flatten } from '../tabs/model'
 import { HandGuide } from './HandGuide'
 import type { SongDoc } from '../tabs/library'
 import { TabView } from './TabView'
-import { Chips, usePersist } from './Controls'
+import { usePersist } from './Controls'
 import { TabPlayer } from '../audio/tabPlayer'
 import { keyPrefersFlats } from '../theory/notes'
 
@@ -60,75 +58,32 @@ export function Preview({ doc, minor }: { doc: SongDoc; minor: boolean }) {
   )
 }
 
-export function ProgressionTabs({ chords, voicings, tonic, mode, bpm, onOpen, suggest, part }: Props) {
+export function ProgressionTabs({ chords, voicings, tonic, mode, bpm, onOpen, suggest }: Props) {
   const inst = useInstrument()
   const [patId, setPatId] = usePersist('pickPattern', suggest ?? 'travis')
-  const [style, setStyle] = usePersist<MelodyStyle>('cmStyle', 'ballad')
-  const [level, setLevel] = usePersist<MelodyLevel>('cmLevel', 'full')
-  const [seed, setSeed] = useState(() => Math.floor(Math.random() * 1e9))
-  const [mel, setMel] = useState<{ melody: MelNote[][]; doc: SongDoc } | null>(null)
-  const [keep, setKeep] = useState<boolean[]>([])
-  const [show, setShow] = useState<'pick' | 'melody' | null>(null)
-  const sig = chords.map(c => c.symbol + (c.beats ?? 4)).join(',') + tonic + mode + inst.id + inst.tuning.id
-  useEffect(() => { setMel(null); setKeep([]) }, [sig])
+  const [show, setShow] = useState(false)
   const minor = ['minor', 'dorian', 'phrygian', 'harmonic'].includes(mode)
   const pat = pickPattern(patId)
   const pickDoc = useMemo(() => pickingDoc(chords, patId, inst, bpm, tonic, mode, voicings), [chords, patId, inst, bpm, tonic, mode, voicings])
-
-  const makeMelody = (fresh: boolean) => {
-    const s = fresh ? Math.floor(Math.random() * 1e9) : seed
-    setSeed(s)
-    const k = mel && fresh ? mel.melody.map((m, i) => (keep[i] ? m : null)) : undefined
-    setMel(chordMelodyDoc(chords, tonic, mode, inst, bpm, { style, level, seed: s, keep: k }))
-    setShow('melody')
-  }
-  // changing the style or level rewrites the tune (locked chords are kept)
-  useEffect(() => { if (mel) makeMelody(true) /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [style, level])
-
   if (!chords.length) return null
+  const groups: [string, string][] = [['travis', 'Travis picking'], ['arpeggio', 'Arpeggios'], ['fingerstyle', 'Fingerstyle, slack key and classical'], ['bluegrass', 'Bluegrass and folk rhythm'], ['reggae', 'Reggae'], ['strum', 'Strumming']]
   return (
-    <div className="stack prog-tabs" style={{ gap: 10 }}>
-      {part !== 'melody' && <div className="stack" style={{ gap: 6 }}>
-        {!part && <h3 style={{ margin: 0 }}>Fingerpicking tab</h3>}
-        <label className="field">
-          <span>Pattern</span>
-          <select className="select" value={patId} onChange={e => { setPatId(e.target.value); setShow('pick') }}>
-            <optgroup label="Travis picking">{PICK_PATTERNS.filter(p => p.group === 'travis').map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</optgroup>
-            <optgroup label="Arpeggios">{PICK_PATTERNS.filter(p => p.group === 'arpeggio').map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</optgroup>
-            <optgroup label="Strumming">{PICK_PATTERNS.filter(p => p.group === 'strum').map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</optgroup>
-          </select>
-        </label>
-        <p className="small muted" style={{ margin: 0 }}>{pat.how}</p>
-        <div className="row">
-          <button className="btn" onClick={() => setShow(show === 'pick' ? null : 'pick')} aria-expanded={show === 'pick'}>{show === 'pick' ? 'Hide preview' : 'Preview'}</button>
-          <button className="btn primary" disabled={!pickDoc} onClick={() => pickDoc && onOpen(pickDoc)}>Open in Play</button>
-        </div>
-        {show === 'pick' && pickDoc && <Preview doc={pickDoc} minor={minor} />}
-      </div>}
-
-      {part !== 'pick' && <div className="stack" style={{ gap: 6 }}>
-        {!part && <h3 style={{ margin: 0 }}>Chord melody</h3>}
-        <p className="small muted" style={{ margin: 0 }}>A tune over these chords, melody on top and chords under it. Roll again until you like it.</p>
-        <Chips label="Style" wrap items={MELODY_STYLES.map(s => ({ id: s.id, label: s.label }))} value={style} onChange={setStyle} />
-        <p className="small muted" style={{ margin: 0 }}>{MELODY_STYLES.find(s => s.id === style)?.feel}</p>
-        <Chips label="Level" items={MELODY_LEVELS.map(l => ({ id: l.id, label: l.label }))} value={level} onChange={setLevel} />
-        <div className="row">
-          <button className="btn" onClick={() => makeMelody(true)}><Ico n="dice" /> {mel ? 'Roll again' : 'Make a melody'}</button>
-          {mel && <button className="btn primary" onClick={() => onOpen(mel.doc)}>Open in Play</button>}
-        </div>
-        {mel && show === 'melody' && (
-          <>
-            <div className="row keep-row" style={{ gap: 6 }} role="group" aria-label="Keep these chords' melody when rolling again">
-              <span className="small muted">Keep:</span>
-              {chords.map((c, i) => (
-                <button key={i} className="chip" aria-pressed={!!keep[i]} onClick={() => { const k = [...keep]; k[i] = !k[i]; setKeep(k) }}>{i + 1}. {c.symbol}</button>
-              ))}
-            </div>
-            <Preview doc={mel.doc} minor={minor} />
-          </>
-        )}
-        {mel && show !== 'melody' && <button className="btn sm ghost" onClick={() => setShow('melody')}>Show the melody</button>}
-      </div>}
+    <div className="stack prog-tabs" style={{ gap: 6 }}>
+      <label className="field">
+        <span>Pattern</span>
+        <select className="select" value={patId} onChange={e => { setPatId(e.target.value); setShow(true) }}>
+          {groups.map(([g, label]) => {
+            const ps = PICK_PATTERNS.filter(p => p.group === g)
+            return ps.length ? <optgroup key={g} label={label}>{ps.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</optgroup> : null
+          })}
+        </select>
+      </label>
+      <p className="small muted" style={{ margin: 0 }}>{pat.how}</p>
+      <div className="row">
+        <button className="btn" onClick={() => setShow(!show)} aria-expanded={show}>{show ? 'Hide preview' : 'Preview'}</button>
+        <button className="btn primary" disabled={!pickDoc} onClick={() => pickDoc && onOpen(pickDoc)}>Open in Play</button>
+      </div>
+      {show && pickDoc && <Preview doc={pickDoc} minor={minor} />}
     </div>
   )
 }

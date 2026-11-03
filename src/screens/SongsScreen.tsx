@@ -9,7 +9,7 @@ import { Songbook } from '../components/Songbook'
 import { ProgressionTabs } from '../components/ProgressionTabs'
 import { LickChainer } from '../components/LickChainer'
 import { JumpBackIn } from '../components/JumpBackIn'
-import { LickMaker } from '../components/LickMaker'
+import { TabMakerPanel } from '../components/TabMaker'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { PsyDog, PsyDogCard, PsyStrip } from '../components/PsyArt'
 import { breedOf } from '../theme'
@@ -153,7 +153,7 @@ function PracticePage({ currentId, onOpen }: { currentId: string; onOpen: (d: So
       <ExerciseBrowser />
       <Win id="ex-picking" title="Fingerpicking patterns" className="panel"><PickingSection onOpen={saveOpen} /></Win>
       <Win id="ex-chain" title="Lick chainer" className="panel"><LickChainer onOpen={saveOpen} /></Win>
-      <Win id="ex-licks" title="Lick maker" className="panel"><LickMaker onOpen={saveOpen} /></Win>
+      <Win id="ex-licks" title="Tab maker: licks, chord melodies, riffs" className="panel"><TabMakerPanel onOpen={saveOpen} jam={jamProgression()} /></Win>
       <Win id="ex-examples" title="Example songs" className="panel">
         <ul className="song-list">
           {EXAMPLES.filter(e => e.for === inst.id || e.for === 'any').map(e => (
@@ -287,8 +287,8 @@ function PickingSection({ onOpen }: { onOpen: (d: SongDoc) => void }) {
   const useJam = src === 'jam' && !!jam
   const prog = useMemo(() => (useJam ? { mode: jam!.mode, chords: jam!.chords } : starterProgression(src === 'jam' ? 'pop' : src, key)), [useJam, jam, src, key])
   return (
-    <Fold id="songsPicking" title="Fingerpicking & chord melody" summary="over a progression"
-      hint="Travis picking, arpeggios or a chord melody over a progression: the one you made in Jam, or a classic one.">
+    <Fold id="songsPicking" title="Fingerpicking" summary="over a progression"
+      hint="Travis picking, arpeggios, slack key, classical and more over a progression: the one you made in Jam, or a classic one.">
       <label className="field">
         <span>Progression</span>
         <select className="select" value={useJam ? 'jam' : src === 'jam' ? 'pop' : src} onChange={e => setSrc(e.target.value)}>
@@ -297,7 +297,7 @@ function PickingSection({ onOpen }: { onOpen: (d: SongDoc) => void }) {
         </select>
       </label>
       {!useJam && <KeyPicker value={key} onChange={setKey} />}
-      <ProgressionTabs chords={prog.chords} tonic={useJam ? jam!.tonic : key} mode={prog.mode} bpm={useJam ? jam!.bpm : 80} onOpen={onOpen} />
+      <ProgressionTabs part="pick" chords={prog.chords} tonic={useJam ? jam!.tonic : key} mode={prog.mode} bpm={useJam ? jam!.bpm : 80} onOpen={onOpen} />
     </Fold>
   )
 }

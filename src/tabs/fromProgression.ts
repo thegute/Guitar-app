@@ -1,13 +1,10 @@
 // Progression → tab: the glue between the chord engine (Jam, starter progressions) and the tab generators
-// (Travis / arpeggio picking, chord melody). Songs made here are saved with the instrument's other songs.
-import { Scale } from 'tonal'
+// (Travis / arpeggio / slack key / classical picking; licks and chord melodies are in src/compose). Songs made here are saved with the instrument's other songs.
 import type { Instrument } from '../instrument'
-import { pc } from '../theory/notes'
 import type { Voicing } from '../theory/chords'
-import { MODES, progChordPcs, scaleForChord, spell, type ModeId, type ProgChord } from '../theory/progressions'
+import { spell, type ModeId, type ProgChord } from '../theory/progressions'
 import { shapesFor } from '../theory/shapes'
 import { pickPattern, pickingSong, type PickChord } from './picking'
-import { MELODY_LEVELS, MELODY_STYLES, chordMelodySong, makeMelody, type CMChord, type MelNote, type MelodyLevel, type MelodyStyle } from './chordMelody'
 import type { SongDoc } from './library'
 
 /** Progressions to start from when you haven't made one in Jam (semitones above the key note + chord type). */
@@ -43,16 +40,6 @@ export function pickChords(chords: ProgChord[], inst: Instrument, voicings?: (Vo
     .filter((c): c is PickChord => !!c.voicing)
 }
 
-const scalePcs = (root: string, scale: string) => Scale.get(`${root} ${scale}`).notes.map(n => pc(n))
-export function melodyChords(chords: ProgChord[], tonic: string, mode: ModeId): CMChord[] {
-  return chords.map(c => {
-    const tip = scaleForChord(tonic, mode, c)
-    const sc = scalePcs(tip.root, tip.scale)
-    const key = scalePcs(tonic, MODES.find(m => m.id === mode)?.scale ?? 'major')
-    return { name: c.symbol, root: pc(c.root), pcs: progChordPcs(tonic, c), scale: sc.length >= 5 ? sc : key, beats: c.beats ?? 4 }
-  })
-}
-
 const keyOf = (tonic: string, mode: ModeId) => ({ root: tonic, minor: ['minor', 'dorian', 'phrygian', 'harmonic'].includes(mode) })
 const idOf = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) }
 
@@ -63,18 +50,4 @@ export function pickingDoc(chords: ProgChord[], patternId: string, inst: Instrum
   const song = pickingSong(pc, pat.id, inst.midis, { bpm, times: chords.length <= 4 ? 2 : 1, title: `${pat.label}: ${chords.map(c => c.symbol).join(' – ')}` })
   const sig = `${inst.id}:${inst.tuning.id}:${pat.id}:${pc.map(c => c.name + c.voicing.frets.join('.') + c.beats).join(',')}`
   return { id: `jam:pick:${idOf(sig)}`, title: song.title, source: 'jam', inst: inst.id, key: keyOf(tonic, mode), song, updated: Date.now() }
-}
-
-export interface MelodyResult { melody: MelNote[][]; doc: SongDoc }
-export function chordMelodyDoc(chords: ProgChord[], tonic: string, mode: ModeId, inst: Instrument, bpm: number,
-  o: { style: MelodyStyle; level: MelodyLevel; seed: number; keep?: (MelNote[] | null)[] }): MelodyResult {
-  const cm = melodyChords(chords, tonic, mode)
-  const opts = { style: o.style, level: o.level, tonic: pc(tonic), tuning: inst.midis, seed: o.seed, keep: o.keep }
-  const melody = makeMelody(cm, opts)
-  const styleLabel = MELODY_STYLES.find(s => s.id === o.style)?.label ?? o.style
-  const title = `Chord melody (${styleLabel}) in ${tonic}: ${chords.map(c => c.symbol).join(' – ')}`
-  const song = chordMelodySong(cm, melody, { ...opts, title, bpm: o.style === 'ballad' ? Math.min(bpm, 76) : bpm })
-  const sig = `${inst.id}:${inst.tuning.id}:${o.style}:${o.level}:${o.seed}:${chords.map(c => c.symbol).join(',')}`
-  const levelLabel = MELODY_LEVELS.find(l => l.id === o.level)?.label ?? ''
-  return { melody, doc: { id: `jam:cm:${idOf(sig)}`, title: o.level === 'full' ? title : `${title} (${levelLabel.toLowerCase()})`, source: 'jam', inst: inst.id, key: keyOf(tonic, mode), song, updated: Date.now() } }
 }

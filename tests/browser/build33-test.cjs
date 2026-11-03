@@ -54,6 +54,34 @@ const errs = (page, where) => { if (page.errors.length) bad(`${where} page error
       await page.context().close()
     }
   }
+  if (want('maketab')) {
+    for (const vp of [{ width: 840, height: 757 }, { width: 412, height: 915 }]) {
+      const page = await newPage(browser, { 'kg:tab2': 'jam', 'kg:sub:jam': 'tab' }, vp)
+      await nav(page, 'Jam')
+      await sub(page, 'Make a tab').catch(() => {})
+      for (const [label, part] of [['Licks & solos', 'lead'], ['Chord melody', 'melody'], ['Riffs', 'riff']]) {
+        await page.locator(`.seg button:has-text("${label}")`).click()
+        const box = page.locator(`[data-testid=tm-${part}]`)
+        await box.waitFor({ timeout: 5000 }).catch(() => bad(`${vp.width} ${part}: tab maker not shown`))
+        for (const st of ['slackkey', 'progclean', 'classical']) {
+          await box.locator('select[aria-label=Style]').selectOption(st)
+          await box.locator('[data-testid=tm-make]').click()
+          await page.waitForTimeout(150)
+          const marks = await box.locator('.tab-view text, .tab-note').count()
+          const title = await box.locator('.tab-preview').innerText().catch(() => '')
+          if (!marks) bad(`${vp.width} ${part} ${st}: empty preview`)
+          if (st === 'slackkey' && part !== 'riff' && !(await box.locator('.notice:has-text("Tune to")').count())) bad(`${vp.width} ${part}: no open G tuning note`)
+          console.log(`${vp.width} ${part} ${st}: ${marks} marks`)
+          void title
+        }
+        if (vp.width === 412) await page.screenshot({ path: `tests/browser/out/maketab-${part}.png`, fullPage: false })
+      }
+      const sideways = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
+      if (sideways) bad(`${vp.width}: sideways scroll on Make a tab`)
+      errs(page, `make a tab ${vp.width}`)
+      await page.context().close()
+    }
+  }
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : '\nall good')
   process.exit(problems.length ? 1 : 0)

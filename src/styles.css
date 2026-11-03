@@ -2202,3 +2202,7 @@ video.mirrored { transform: scaleX(-1); }
 [data-theme='psy'] .st-part:not(.cur) { background: #1c0641; color: #f4eaff; }
 .st-layer-x { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .talk-prep { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; color: var(--ink-2); }
+/* Make a tab (composer) */
+.tab-maker { min-width: 0; }
+.tab-maker .field { min-width: 0; max-width: 100%; }
+.tab-maker .select { width: 100%; max-width: 100%; min-width: 0; text-overflow: ellipsis; }

@@ -7,11 +7,11 @@ const pcOf = (name: string) => pc(name)
 import type { Song, SongBar, SongNote, SongStep } from './model'
 
 /** R root bass · A alternate bass · f1/f2/f3 the three highest strings of the shape (f3 = top) · C the whole chord ·
- *  T the treble strings only (the "chick" of boom-chick) */
-export type Role = 'R' | 'A' | 'f1' | 'f2' | 'f3' | 'C' | 'T'
+ *  T the treble strings only (the "chick" of boom-chick) · X a percussive slap (the strings muted by the palm) */
+export type Role = 'R' | 'A' | 'f1' | 'f2' | 'f3' | 'C' | 'T' | 'X'
 type PHit = [number, Role[]]
 export interface PickPattern {
-  id: string; group: 'travis' | 'arpeggio' | 'strum' | 'bluegrass' | 'reggae'; label: string; how: string; hits: PHit[]
+  id: string; group: 'travis' | 'arpeggio' | 'fingerstyle' | 'strum' | 'bluegrass' | 'reggae'; label: string; how: string; hits: PHit[]
   /** length of one pass of the pattern in beats (3 for waltzes; default 4) */
   beats?: number
   /** bluegrass: walk the bass up or down into the next chord */
@@ -50,6 +50,19 @@ export const PICK_PATTERNS: PickPattern[] = [
     hits: [h(0, 'R'), h(0.5, 'f3'), h(1, 'f2'), h(1.5, 'f1'), h(2, 'A'), h(2.5, 'f3'), h(3, 'f2'), h(3.5, 'f1')] },
   { id: 'arp-pinch', group: 'arpeggio', label: 'Pinch and ripple', how: 'Bass and top string together, then the middle strings ripple: a pretty pattern for slow songs.',
     hits: [h(0, 'R', 'f3'), h(0.5, 'f1'), h(1, 'f2'), h(1.5, 'f1'), h(2, 'A', 'f3'), h(2.5, 'f1'), h(3, 'f2'), h(3.5, 'f1')] },
+  // fingerstyle, slack key and classical
+  { id: 'slack', group: 'fingerstyle', label: 'Slack key (alternating thumb, melody pinches)', how: 'The Hawaiian way: the thumb never stops, root and fifth on every beat (open strings in open G), while the fingers pinch a melody note on top and fill in between. Sweet and gentle (nahenahe).',
+    hits: [h(0, 'R', 'f3'), h(0.5, 'f2'), h(1, 'A'), h(1.5, 'f3'), h(2, 'R', 'f2'), h(2.5, 'f3'), h(3, 'A'), h(3.5, 'f1')] },
+  { id: 'cirillo', group: 'fingerstyle', label: 'Melodic fingerstyle roll (Marco Cirillo style)', how: 'Bass and melody together on beat 1, then a quick ripple through the chord so every string keeps ringing under the top note. Let the notes overlap like a harp.',
+    hits: [h(0, 'R', 'f3'), h(0.5, 'f1'), h(0.75, 'f2'), h(1, 'f3'), h(1.5, 'A'), h(2, 'R', 'f2'), h(2.5, 'f3'), h(3, 'f1'), h(3.5, 'f2')] },
+  { id: 'percussive', group: 'fingerstyle', label: 'Percussive fingerstyle (slap on 2 and 4)', how: 'Ed Sheeran and Sungha Jung style: the thumb plays the bass, and on beats 2 and 4 the side of the hand slaps the strings (x) like a snare drum. Fingers pick the chord in between.',
+    hits: [h(0, 'R', 'f3'), h(0.5, 'f2'), h(1, 'X'), h(1.5, 'f1'), h(2, 'A', 'f3'), h(2.5, 'f2'), h(3, 'X'), h(3.5, 'f1')] },
+  { id: 'pima', group: 'fingerstyle', label: 'Classical triplets in 3/4 (Romanza style)', how: 'Classical guitar: thumb (p) on the bass with the top note on beat 1, then a-m-i in triplets, the melody always on the top string. Rest-stroke the melody if you can.',
+    hits: [0, 1, 2].flatMap(b => [h(b, ...(b === 0 ? ['R', 'f3'] as Role[] : ['f3'] as Role[])), h(b + 1 / 3, 'f2'), h(b + 2 / 3, 'f1')]), beats: 3 },
+  { id: 'giuliani', group: 'fingerstyle', label: 'Classical arpeggio (p-i-m-a-m-i)', how: 'A Giuliani study pattern: thumb, then index, middle, ring up the strings and back down. Keep the hand still and let the fingers do the work.',
+    hits: [h(0, 'R'), h(0.5, 'f1'), h(1, 'f2'), h(1.5, 'f3'), h(2, 'A'), h(2.5, 'f3'), h(3, 'f2'), h(3.5, 'f1')] },
+  { id: 'arp-maj7', group: 'fingerstyle', label: 'Hybrid-picked arpeggio (Polyphia, Plini)', how: 'Pick plus middle and ring fingers: the bass with the pick, the top strings plucked in a syncopated 16th pattern so the chord shimmers. Let open strings ring.',
+    hits: [h(0, 'R'), h(0.25, 'f2'), h(0.5, 'f3'), h(0.75, 'f1'), h(1, 'f3'), h(1.5, 'A', 'f2'), h(1.75, 'f3'), h(2.25, 'f1'), h(2.5, 'f3'), h(3, 'f2'), h(3.25, 'f3'), h(3.5, 'f1')] },
   // bluegrass / folk rhythm guitar
   { id: 'boomchick', group: 'bluegrass', label: 'Boom-chick (bass and strum)', how: 'Bass note on 1, a short strum of the top strings on 2, the other bass note on 3, strum on 4. Walks the bass into the next chord.',
     hits: [h(0, 'R'), h(1, 'T'), h(2, 'A'), h(3, 'T')], walk: true },
@@ -81,7 +94,7 @@ export function patternForStrum(strumId: string) {
 export interface PickChord { name: string; root: string; voicing: Voicing; beats: number }
 
 /** Which string plays each role for one chord shape. */
-export function roleStrings(v: Voicing, tuning: number[], root: string): Record<Exclude<Role, 'C' | 'T'>, { string: number; fret: number }> {
+export function roleStrings(v: Voicing, tuning: number[], root: string): Record<Exclude<Role, 'C' | 'T' | 'X'>, { string: number; fret: number }> {
   const frets = v.frets
   const played = frets.map((f, s) => (f >= 0 ? s : -1)).filter(s => s >= 0)
   const nFing = tuning.length >= 6 ? 3 : 2
@@ -161,7 +174,8 @@ export function pickingSong(chords: PickChord[], patternId: string, tuning: numb
   opts: { title?: string; bpm?: number; times?: number; meter?: number; scale?: number[]; program?: number } = {}): Song {
   const pat = pickPattern(patternId)
   const times = Math.max(1, opts.times ?? 2)
-  const meter = opts.meter ?? (pat.beats === 6 ? 3 : 4)
+  const three = pat.beats === 6 || pat.beats === 3
+  const meter = opts.meter ?? (three ? 3 : 4)
   const span = pat.beats ?? 4
   // every note on one timeline (beats from the start)
   const events: { at: number; notes: SongNote[]; chord?: string }[] = []
@@ -180,7 +194,8 @@ export function pickingSong(chords: PickChord[], patternId: string, tuning: numb
     const roles = roleStrings(v, tuning, c.root)
     const all = v.frets.map((f, s) => (f >= 0 ? { string: s, fret: f, midi: tuning[s] + f } : null)).filter((n): n is SongNote => !!n)
     const treble = all.filter(n => n.string >= Math.max(0, tuning.length - 4))
-    const beats = c.beats || 4
+    // patterns in 3: a bar of 4 becomes a bar of 3
+    const beats = three ? Math.max(3, Math.round((c.beats || 4) * 3 / 4)) : c.beats || 4
     // bass walk into the next chord over the last two beats (bluegrass), when this chord lasts a bar or more
     const next = seq[ci + 1]
     let walk: number[] = []
@@ -204,6 +219,7 @@ export function pickingSong(chords: PickChord[], patternId: string, tuning: numb
         for (const r of rs) {
           if (r === 'C') { notes.push(...all.filter(n => !notes.some(x => x.string === n.string))); continue }
           if (r === 'T') { notes.push(...(treble.length >= 2 ? treble : all).filter(n => !notes.some(x => x.string === n.string))); continue }
+          if (r === 'X') { for (const s of [roles.f1.string, roles.f2.string, roles.f3.string]) if (!notes.some(n => n.string === s)) notes.push({ string: s, fret: 0, midi: tuning[s], tech: 'x' }); continue }
           const p = roles[r]
           if (!notes.some(n => n.string === p.string)) notes.push({ string: p.string, fret: p.fret, midi: tuning[p.string] + p.fret })
         }

@@ -30,7 +30,7 @@ import { STRUMS } from '../audio/strums'
 import { GROOVES, GROOVE_GROUPS, KITS, grooveOf, kitInfo, loadKit, kitLoaded, type KitId } from '../audio/drums'
 import { shapesFor as shapesForChord } from '../theory/shapes'
 import { ProgressionTabs } from '../components/ProgressionTabs'
-import { LickMaker } from '../components/LickMaker'
+import { TabMaker } from '../components/TabMaker'
 import { patternForStrum } from '../tabs/picking'
 import { saveSong } from '../tabs/library'
 import { openInPlay } from '../nav'
@@ -77,6 +77,8 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [tonic, setTonic] = usePersist('progKey', 'G')
   const [mode, setMode] = usePersist<ModeId>('progMode', 'major')
   const [style, setStyleRaw] = usePersist<Style>('progStyle', 'any')
+  // bossa nova was swapped for classical (owner's choice): an old saved choice moves over
+  useEffect(() => { if (style === 'bossa') setStyleRaw('classical') }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [flavor, setFlavor] = usePersist<Flavor>('jamFlavor', 'auto')
   const [count, setCount] = usePersist('jamCount', 4)
   const [rate, setRate] = usePersist('jamRate', 4)
@@ -95,7 +97,8 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [bassId, setBassId] = usePersist('jamBass', 'auto')
   const [bassOn, setBassOn] = usePersist('jamBassOn', true)
   const [bandOpen, setBandOpen] = useState(false)
-  const [tabPart, setTabPart] = usePersist<'pick' | 'melody' | 'licks'>('jamTabPart', 'pick')
+  const [tabPartRaw, setTabPart] = usePersist<'pick' | 'melody' | 'licks' | 'lead' | 'riff'>('jamTabPart', 'pick')
+  const tabPart = tabPartRaw === 'licks' ? 'lead' : tabPartRaw
   const [optionsOpen, setOptionsOpen] = usePersist('jamOptionsOpen', false)
   const [page, setPage] = useSubTab('jam', ['jam', 'solo', 'tab', 'find', 'beats'] as const)
   const [prog, setProg] = usePersist<ProgChord[]>('jamProg', [])
@@ -699,13 +702,14 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         <section className="panel stack">
           <p className="small muted" style={{ margin: 0 }}>Turn <b>{prog.map(c => c.symbol).join(' – ')}</b> into a tab to play along with in Play: the mic follows you note by note.</p>
           <div className="seg" role="group" aria-label="What to make">
-            {([['pick', 'Fingerpicking'], ['melody', 'Chord melody'], ['licks', `Licks in ${tonic}`]] as const).map(([id, label]) => (
+            {([['pick', 'Fingerpicking'], ['lead', 'Licks & solos'], ['melody', 'Chord melody'], ['riff', 'Riffs']] as const).map(([id, label]) => (
               <button key={id} aria-pressed={tabPart === id} onClick={() => setTabPart(id)}>{label}</button>
             ))}
           </div>
-          {tabPart === 'licks'
-            ? <LickMaker fixedKey={tonic} onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
-            : <ProgressionTabs part={tabPart} chords={prog} voicings={chosen} tonic={tonic} mode={mode} bpm={bpm} suggest={patternForStrum(strumKind)}
+          {tabPart === 'pick'
+            ? <ProgressionTabs part="pick" chords={prog} voicings={chosen} tonic={tonic} mode={mode} bpm={bpm} suggest={patternForStrum(strumKind)}
+              onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
+            : <TabMaker key={tabPart} part={tabPart} chords={prog} tonic={tonic} mode={mode} bpm={bpm} jamStyle={style}
               onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />}
         </section>
       )}
