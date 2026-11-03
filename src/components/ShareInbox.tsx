@@ -38,7 +38,7 @@ export function ShareInbox() {
           <>
             <h2 style={{ margin: 0 }}>That's a link, not the tab</h2>
             <p className="small" style={{ margin: 0 }}>
-              {r.site} only shares the page's address, and KGuitar can't read tabs from websites. On the page, press and hold on the tab text,
+              KGuitar couldn't read the tab from that {r.site} page (it may be a Pro or Official tab, or the site changed). On the page, press and hold on the tab text,
               choose <b>Select all</b> (or drag over the tab), then <b>Share → KGuitar</b>. Or tap <b>Copy</b> and use <b>Paste from clipboard</b> in Songs.
               Guitar Pro files you download can be shared to KGuitar too.
             </p>

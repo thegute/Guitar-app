@@ -2206,3 +2206,7 @@ video.mirrored { transform: scaleX(-1); }
 .tab-maker { min-width: 0; }
 .tab-maker .field { min-width: 0; max-width: 100%; }
 .tab-maker .select { width: 100%; max-width: 100%; min-width: 0; text-overflow: ellipsis; }
+.site-hits { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.site-hits li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); }
+.site-hits .hit-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.site-hits .select { max-width: 40%; }

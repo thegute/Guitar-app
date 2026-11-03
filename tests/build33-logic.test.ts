@@ -76,3 +76,33 @@ const steps = (s: ReturnType<typeof compose>['song']) => s.tracks[0].bars.flatMa
   }
   console.log('fingerpicking: slack key, Cirillo roll, percussive, classical triplets, Giuliani, hybrid: ok')
 }
+{
+  // Songsterr and Ultimate Guitar page data → songs (the shapes those sites use)
+  const { songsterrToSong, parseSongsterrSearch, guitarTrack, parseUgTab, parseUgSearch, songsterrIds } = await import('../src/tabs/siteImport')
+  const hits = parseSongsterrSearch([{ songId: 77, title: 'Test Song', artist: 'Band', tracks: [{ instrument: 'Drums', name: 'Drums' }, { instrument: 'Electric Bass', name: 'Bass', tuning: [43, 38, 33, 28] }, { instrument: 'Distortion Guitar', name: 'Lead', tuning: [64, 59, 55, 50, 45, 40] }] }])
+  assert.equal(hits[0].songId, 77); assert.equal(guitarTrack(hits[0], 6), 2)
+  const song = songsterrToSong({ tuning: [64, 59, 55, 50, 45, 40], automations: { tempo: [{ bpm: 96 }] }, measures: [
+    { signature: [4, 4], voices: [{ beats: [
+      { duration: [1, 4], notes: [{ string: 5, fret: 3 }] },
+      { duration: [1, 8], dots: 1, notes: [{ string: 0, fret: 0 }, { string: 1, fret: 1 }] },
+      { duration: [1, 16], notes: [{ string: 2, fret: 2, hp: true }] },
+      { duration: [1, 4], rest: true, notes: [{ rest: true }] },
+      { duration: [1, 8], tuplet: 3, notes: [{ string: 3, fret: 5, dead: true }] }, { duration: [1, 8], tuplet: 3, notes: [{ string: 3, fret: 7 }] }, { duration: [1, 8], tuplet: 3, notes: [{ string: 3, fret: 5, tie: true }] },
+    ] }] },
+  ] }, 'Test Song (Band)')
+  const st = song.tracks[0].bars[0].steps
+  assert.equal(song.tempo, 96)
+  assert.deepEqual(st[0].notes.map(n => [n.string, n.fret, n.midi]), [[0, 3, 43]], 'low E 3rd fret = G2')
+  assert.equal(st[1].dur, 0.75); assert.equal(st[1].notes.length, 2); assert.equal(st[2].notes[0].tech, 'h')
+  assert.ok(Math.abs(st[4].dur - 1 / 3) < 1e-3); assert.equal(st[4].notes[0].tech, 'x'); assert.equal(st[6].notes.length, 0, 'a tied note is held, not picked again')
+  assert.ok(Math.abs(st.reduce((a, s) => a + s.dur, 0) - 4) < 1e-3, 'the bar adds up to 4 beats')
+  const data = { store: { page: { data: { tab: { song_name: 'Test', artist_name: 'Band' }, tab_view: { wiki_tab: { content: '[Verse]\r\n[ch]G[/ch]      [ch]D[/ch]\r\nHello there\r\n[tab]e|---0---|\r\nB|---1---|[/tab]' } } } } } }
+  const html = `<html><div class="js-store" data-content="${JSON.stringify(data).replace(/"/g, '&quot;')}"></div></html>`
+  const t = parseUgTab(html)
+  assert.equal(t.title, 'Test (Band)'); assert.ok(t.text.includes('G      D') && t.text.includes('e|---0---|') && !t.text.includes('[ch]'))
+  const sdata = { store: { page: { data: { results: [{ song_name: 'A', artist_name: 'X', type: 'Chords', tab_url: 'https://tabs.ultimate-guitar.com/tab/x/a-chords-1', rating: 4.8, votes: 100 }, { song_name: 'A', artist_name: 'X', type: 'Pro', tab_url: 'https://x', rating: 5, votes: 999 }] } } } }
+  const sr = parseUgSearch(`<div class="js-store" data-content="${JSON.stringify(sdata).replace(/"/g, '&quot;')}">`)
+  assert.equal(sr.length, 1); assert.equal(sr[0].type, 'Chords')
+  assert.deepEqual(songsterrIds('https://www.songsterr.com/a/wsa/band-test-song-tab-s77t2'), { songId: 77, track: 2 })
+  console.log('Songsterr and Ultimate Guitar import: ok')
+}

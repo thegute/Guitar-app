@@ -1,7 +1,7 @@
 // Share → KGuitar: handles what other apps send (copied tabs, chord sheets, YouTube links, tab files).
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { current } from './instrument'
-import { getSong, saveSong, youtubeId, type SongDoc } from './tabs/library'
+import { getSong, newId, saveSong, youtubeId, type SongDoc } from './tabs/library'
 import { songFromFile, songFromText } from './tabs/importer'
 
 interface SharedFile { name: string; mime: string; data: string }
@@ -63,6 +63,17 @@ export async function handleShared(item: SharedItem): Promise<ShareResult> {
   if (doc) { await saveSong(doc); return { kind: 'songs', docs: [doc], failed: [] } }
   if (urlOnly) {
     const site = /ultimate-guitar/i.test(urlOnly) ? 'Ultimate Guitar' : /songsterr/i.test(urlOnly) ? 'Songsterr' : 'that site'
+    // a Songsterr or Ultimate Guitar page: read the tab straight in
+    if (site !== 'that site') {
+      try {
+        const { importFromUrl } = await import('./tabs/siteImport')
+        const got = await importFromUrl(urlOnly)
+        const d = !got ? null : 'song' in got
+          ? { id: newId(), title: got.song.title, source: 'gp' as const, inst: inst.id, song: got.song, updated: Date.now() }
+          : songFromText(got.text, titleFromSubject(item.subject) || got.title, inst)
+        if (d) { await saveSong(d); return { kind: 'songs', docs: [d], failed: [] } }
+      } catch { /* fall back to the instructions */ }
+    }
     return { kind: 'link', url: urlOnly, site }
   }
   return { kind: 'nothing', text: text.slice(0, 120) }

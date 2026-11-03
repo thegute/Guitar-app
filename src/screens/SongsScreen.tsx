@@ -10,6 +10,8 @@ import { ProgressionTabs } from '../components/ProgressionTabs'
 import { LickChainer } from '../components/LickChainer'
 import { JumpBackIn } from '../components/JumpBackIn'
 import { TabMakerPanel } from '../components/TabMaker'
+import { SiteSearch } from '../components/SiteSearch'
+import { canImportFromSites } from '../tabs/siteImport'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { PsyDog, PsyDogCard, PsyStrip } from '../components/PsyArt'
 import { breedOf } from '../theme'
@@ -237,10 +239,11 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
   return (
     <div className="stack" style={{ gap: 12 }}>
       <section className="panel stack" style={{ gap: 8 }}>
-        <HintHead level={2} title="1. Find a tab" hint={<>Opens the site in your browser. Then either download the Guitar Pro file and come back to <b>Upload tab files</b>, or copy the tab text and tap <b>Paste from clipboard</b>.</>} />
+        <HintHead level={2} title="1. Find a tab" hint={<>In the phone app, <b>Search … here</b> brings a Songsterr or Ultimate Guitar tab straight in. The site buttons open the site in your browser: download the Guitar Pro file and come back to <b>Upload tab files</b>, or copy the tab text and tap <b>Paste from clipboard</b>.</>} />
         <form className="row" style={{ flexWrap: 'nowrap' }} onSubmit={e => { e.preventDefault(); if (query.trim()) window.open(SITES[0].url(query.trim()), '_blank') }}>
           <input className="input" type="search" placeholder="Song or artist" value={query} onChange={e => setQuery(e.target.value)} aria-label="Search for a tab" />
         </form>
+        {canImportFromSites() && <SiteSearch query={query} youtube={link} onOpen={d => onOpen(d)} />}
         <div className="row">
           {SITES.map(site => (
             <a key={site.id} className={`btn sm${query.trim() ? '' : ' disabled'}`} href={query.trim() ? site.url(query.trim()) : undefined} target="_blank" rel="noreferrer" aria-disabled={!query.trim()}>
