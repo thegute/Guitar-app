@@ -37,6 +37,7 @@ import { saveSample } from './padSamples'
 import { PadEditor } from './PadEditor'
 import { ChopSheet } from './ChopSheet'
 import { FX, type FxKind } from './fx'
+import { BounceSave } from './BounceSave'
 import type { Handle } from '../audio/pluck'
 
 type SetBeat = (f: Beat | ((b: Beat) => Beat), remember?: boolean) => void
@@ -222,6 +223,7 @@ export function StudioScreen({ active }: { active: boolean }) {
         {keys}
         <Looper t={tr()} beat={beat} loops={loops} playing={playing} play={play} pedalMode={pedalMode} setPedalMode={setPedalMode} />
         <Effects t={tr()} playing={playing} play={play} />
+        <BounceSave t={tr()} beat={beat} setBeat={setBeat} loops={loops} play={play} stop={stop} />
         <Win id="steps" title="Step grid" className="panel"><Steps beat={beat} setBeat={setBeat} t={tr()} /></Win>
         <Roll t={tr()} beat={beat} setBeat={setBeat} />
         <Mix t={tr()} beat={beat} setBeat={setBeat} />
@@ -1106,7 +1108,22 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
     void loopsFor(live.current.beat.name).then(list => { const s = list.find(x => x.id === id); if (s) void saveLoop({ ...s, vol: patch.vol ?? s.vol, mute: patch.mute ?? s.mute }) })
   }
   const remove = (id: string) => { void deleteLoop(id); setLayers(live.current.layers.filter(x => x.id !== id)) }
-  return { mode, setMode, align, setAlign, state, note, layers, record: () => void record(), cancel, undo, setLayer, remove }
+  /** Add a ready-made loop (a bounce): exactly the beat's length, kept as it is. */
+  const addRaw = async (x: Float32Array, bars: number) => {
+    const ctx = audio()
+    const id = newId()
+    await saveLoop({ id, beat: live.current.beat.name, sr: ctx.sampleRate, data: x, vol: 1, bars, at: Date.now() })
+    const buf = ctx.createBuffer(1, x.length, ctx.sampleRate)
+    buf.getChannelData(0).set(x)
+    setLayers([...live.current.layers, { id, buf, vol: 1, bars }])
+    return id
+  }
+  /** Mute or unmute several loops at once (a bounce mutes what it replaced). */
+  const setMutes = (m: Record<string, boolean>) => {
+    setLayers(live.current.layers.map(l => (l.id in m ? { ...l, mute: m[l.id] } : l)))
+    void loopsFor(live.current.beat.name).then(list => list.forEach(sv => { if (sv.id in m) void saveLoop({ ...sv, mute: m[sv.id] }) }))
+  }
+  return { mode, setMode, align, setAlign, state, note, layers, record: () => void record(), cancel, undo, setLayer, remove, addRaw, setMutes }
 }
 type Loops = ReturnType<typeof useLoops>
 

@@ -47,6 +47,8 @@ export function fxParams(kind: FxKind, x: number, y: number, stepDur: number) {
 
 export class PerformFx {
   readonly input: GainNode
+  /** everything after the effects: what you hear (bounce and export record this) */
+  readonly output: GainNode
   private dry: GainNode
   private filt: BiquadFilterNode
   private crush: WaveShaperNode
@@ -65,6 +67,9 @@ export class PerformFx {
   kind: FxKind | null = null
   constructor(dest: AudioNode, private clock: () => { stepDur: number; t0: number; playing: boolean }) {
     const ctx = audio()
+    this.output = ctx.createGain()
+    this.output.connect(dest)
+    dest = this.output
     this.input = ctx.createGain()
     this.filt = ctx.createBiquadFilter(); this.filt.type = 'allpass'
     this.crush = ctx.createWaveShaper(); this.crush.curve = crushCurve(10)

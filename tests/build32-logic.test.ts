@@ -80,3 +80,17 @@ import { STARTERS, switchPart, partsMade, playOrder, beatInPart, setBars, delete
   assert.ok(e.rows.every(r => r.steps.every(v => v === 0)) && e.tracks.every(t => t.notes.length === 0))
   console.log('parts and song: ok')
 }
+
+// ---- WAV files for Save as audio
+import { encodeWav } from '../src/audio/tap'
+{
+  const l = new Float32Array([0, 0.5, -0.5, 1, -1, 2]), r = new Float32Array(6)
+  const blob = encodeWav([l, r], 44100)
+  const b = new Uint8Array(await blob.arrayBuffer())
+  const v = new DataView(b.buffer)
+  assert.equal(String.fromCharCode(...b.slice(0, 4)), 'RIFF'); assert.equal(String.fromCharCode(...b.slice(8, 12)), 'WAVE')
+  assert.equal(v.getUint16(22, true), 2); assert.equal(v.getUint32(24, true), 44100); assert.equal(v.getUint32(40, true), 6 * 2 * 2)
+  assert.equal(v.getInt16(44 + 4, true), 16383)   // 0.5 on the left, frame 1
+  assert.equal(v.getInt16(44 + 4 * 5, true), 32767) // clipped
+  console.log('wav: ok')
+}

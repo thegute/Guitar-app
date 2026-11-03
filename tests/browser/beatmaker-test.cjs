@@ -209,6 +209,44 @@ async function hold(page, sel, ms) {
     await page.context().close()
   }
 
+  // ---- bounce into a loop / onto a pad, save as WAV
+  if (want('bounce')) {
+    const page = await newPage(browser, { width: 840, height: 757 })
+    await page.locator('button:has-text("Key, bars, save")').click()
+    await page.locator('.st-bars button:has-text("1")').click()
+    const btn = page.locator('[data-testid=bounce-loop]')
+    await btn.evaluate(e => e.scrollIntoView({ block: 'center' }))
+    await btn.click()
+    await page.waitForSelector('[data-testid=bounce-msg]', { timeout: 15000 }).catch(() => bad('bounce into a loop never finished'))
+    const loops = await page.locator('.st-layers li').count()
+    let b = await beat(page)
+    console.log(`bounce: ${loops} loop(s), rows muted ${b.rows.every(r => r.mute)}, parts muted ${b.tracks.every(x => x.mute)}`)
+    if (loops < 1) bad('bounce made no loop')
+    const peak = await page.evaluate(() => new Promise(res => { const r = indexedDB.open('kg-loops', 1); r.onsuccess = () => { const g = r.result.transaction('loops').objectStore('loops').getAll(); g.onsuccess = () => { let m = 0; for (const l of g.result) for (let i = 0; i < l.data.length; i += 7) m = Math.max(m, Math.abs(l.data[i])); res(m) } } }))
+    console.log(`bounced loop peak ${peak.toFixed(3)}`)
+    if (!(peak > 0.02)) bad('the bounced loop is silent')
+    if (!b.rows.every(r => r.mute) || !b.tracks.every(x => x.mute)) bad('bounce did not mute what it came from')
+    await page.locator('button:has-text("Undo the bounce")').click()
+    await page.waitForTimeout(400)
+    b = await beat(page)
+    if (b.rows.some(r => r.mute) || (await page.locator('.st-layers li').count()) !== 0) bad('undo the bounce did not bring it back')
+    await page.locator('[data-testid=bounce-pad]').click()
+    await page.waitForFunction(() => /Pad 1/.test(document.querySelector('[data-testid=bounce-msg]')?.textContent || ''), null, { timeout: 15000 }).catch(() => bad('bounce onto a pad never finished'))
+    b = await beat(page)
+    if (b.pads?.u1?.src !== 'rec') bad('bounce onto a pad did not fill Pad 1')
+    // save as audio, with stems
+    await page.locator('label:has-text("stems") input').check()
+    const dls = []
+    page.on('download', d => dls.push(d.suggestedFilename()))
+    await page.locator('[data-testid=export]').click()
+    await page.waitForFunction(() => /Saved \d+ file/.test(document.querySelector('[data-testid=bounce-msg]')?.textContent || ''), null, { timeout: 20000 }).catch(() => bad('save as audio never finished'))
+    await page.waitForTimeout(1500)
+    console.log(`save: ${dls.join(' | ')}`)
+    if (!dls.some(n => /mix\.wav$/.test(n)) || !dls.some(n => /drums\.wav$/.test(n))) bad(`save as audio files: ${dls.join(', ')}`)
+    errs(page, 'bounce')
+    await page.context().close()
+  }
+
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : '\nbeat maker: all good')
   process.exit(problems.length ? 1 : 0)
