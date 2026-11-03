@@ -8,7 +8,7 @@ import { GET_READY_CHOICES, getReadySecs, setGetReadySecs } from '../components/
 import { useEffect, useState } from 'react'
 import { Chips } from '../components/Controls'
 import { INSTRUMENTS, setInstrument, setTuning, type Instrument, type InstrumentId } from '../instrument'
-import { setPsyMotion, setTheme, usePsyMotion, useTheme, usePsyDog, setPsyDog, type ThemeChoice } from '../theme'
+import { motionAllowed, setPsyMotion, setTheme, usePsyMotion, useTheme, usePsyDog, setPsyDog, type ThemeChoice } from '../theme'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { PsyDog, PsyPic } from '../components/PsyArt'
 import { DOGS, GALLERY, cardSrc, picSrc, thumbSrc } from '../art/samurai'
@@ -200,7 +200,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
             </button>
           ))}
         </div>
-        {theme === 'psy' && (
+        {theme === 'psy' && motionAllowed() && (
           <label className="opt-row opt-check">
             <input type="checkbox" checked={motion} onChange={e => setPsyMotion(e.target.checked)} />
             <span><b>Moving colours</b><span className="small muted">The background slowly drifts and the art floats. It holds still while KGuitar listens to you. Switch off to save battery.</span></span>

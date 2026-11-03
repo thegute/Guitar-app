@@ -27,8 +27,11 @@ const dark = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-col
 export function activeTheme(c = themeChoice()): ActiveTheme {
   return c === 'auto' ? (dark() ? 'night' : 'day') : c
 }
-/** Psychedelic mode's drifting colours (on unless switched off). */
+/** The moving background is a web-only extra: the Android app always keeps the art still (owner's choice). */
+export const motionAllowed = () => !Capacitor.isNativePlatform()
+/** Psychedelic mode's drifting colours (web: on unless switched off; Android: always still). */
 export function psyMotion(): boolean {
+  if (!motionAllowed()) return false
   try { return localStorage.getItem(MOTION) !== '0' } catch { return true }
 }
 
@@ -121,3 +124,10 @@ export function setFullScreen(on: boolean) {
 }
 // apply it when the app starts
 if (typeof window !== 'undefined' && fullScreen() && Capacitor.isNativePlatform()) setTimeout(() => Immersive.set({ on: true }).catch(() => {}), 300)
+/** Full screen for a while (the music stand): the phone's bars hide, a swipe up from the bottom brings them back for
+ *  a moment; afterwards it goes back to the Full screen setting. */
+let holds = 0
+export function holdFullScreen(on: boolean) {
+  holds = Math.max(0, holds + (on ? 1 : -1))
+  if (Capacitor.isNativePlatform()) Immersive.set({ on: holds > 0 || fullScreen() }).catch(() => {})
+}

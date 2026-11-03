@@ -1,5 +1,6 @@
 // Play along: the tab, a YouTube mini player, the mic following your playing note by note,
 // and the scales / chords of the song for soloing.
+import { holdFullScreen } from '../theme'
 import { micWhere } from '../audio/input'
 import { Ico } from '../components/Icon'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -792,6 +793,8 @@ export function PlayScreen() {
   // what you use (counted on this phone only)
   useEffect(() => { if (opts) countUse('play:options') }, [opts])
   useEffect(() => { if (stand) countUse('play:stand') }, [stand])
+  // the music stand hides the phone's bars (swipe up from the bottom to bring them back for a moment)
+  useEffect(() => { if (!stand) return; holdFullScreen(true); return () => holdFullScreen(false) }, [stand])
   useEffect(() => { if (bigView) countUse('play:remote') }, [bigView])
   useEffect(() => { if (recording) countUse('play:record') }, [recording])
   useEffect(() => { if (loop) countUse('play:loop') }, [loop?.from, loop?.to]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1283,7 +1286,7 @@ export function PlayScreen() {
               <button className={`stand-go${listening ? ' on' : ''}`} onClick={() => void toggleListen()} aria-pressed={listening}>{listening ? <><Ico n="stop" fill /> Stop</> : <><Ico n="play" fill /> Listen</>}</button>
             )}
             <button className={`stand-b${loop ? ' on' : ''}`} onClick={() => { if (loop) setLoop(undefined); else { const b = cursorFlat >= 0 ? flat[cursorFlat].bar : 0; setLoop({ from: b, to: b }) } }} aria-pressed={!!loop}
-              aria-label={loop ? 'Stop looping' : 'Loop the bar you are on'}><Ico n="loop" /> {loop ? `${loop.from === loop.to ? `Bar ${loop.from + 1}` : `${loop.from + 1}–${loop.to + 1}`} ✕` : 'Loop bar'}</button>
+              aria-label={loop ? 'Stop looping' : 'Loop the bar you are on'}><Ico n="loop" /> <span className="stand-lbl">{loop ? `${loop.from === loop.to ? `Bar ${loop.from + 1}` : `${loop.from + 1}–${loop.to + 1}`} ✕` : 'Loop bar'}</span></button>
             <span className="stand-speed" role="group" aria-label="Speed">
               <button className="stand-b" onClick={() => { setSpeed(Math.max(0.25, Math.round((speed - 0.05) * 20) / 20)); if (playAt >= 0) stopPreview() }} aria-label="Slower">−</button>
               <b>{Math.round(speed * 100)}%</b>
