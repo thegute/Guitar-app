@@ -2198,3 +2198,4 @@ video.mirrored { transform: scaleX(-1); }
 .st-chain-chip button { border: 0; background: none; color: inherit; min-width: 26px; min-height: 26px; cursor: pointer; }
 .btn.sm.on { border-color: var(--gold); color: var(--gold-text); }
 [data-theme='psy'] .st-part:not(.cur) { background: #1c0641; color: #f4eaff; }
+.st-layer-x { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

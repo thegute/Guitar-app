@@ -25,7 +25,19 @@ function makeReverb(ctx: AudioContext) {
   return c
 }
 
-export interface LoopLayer { id: string; buf: AudioBuffer; vol: number; mute?: boolean }
+export type LoopFx = 'none' | 'echo' | 'far' | 'space'
+/** A recorded loop: volume, mute, and the looper extras: backwards, half speed, one effect. */
+export interface LoopLayer { id: string; buf: AudioBuffer; vol: number; mute?: boolean; rev?: boolean; half?: boolean; fx?: LoopFx }
+const revBufs = new WeakMap<AudioBuffer, AudioBuffer>()
+function backwards(b: AudioBuffer) {
+  let r = revBufs.get(b)
+  if (!r) {
+    r = audio().createBuffer(b.numberOfChannels, b.length, b.sampleRate)
+    for (let c = 0; c < b.numberOfChannels; c++) { const s = b.getChannelData(c), d = r.getChannelData(c); for (let i = 0; i < s.length; i++) d[i] = s[s.length - 1 - i] }
+    revBufs.set(b, r)
+  }
+  return r
+}
 
 export class StudioTransport {
   beat: Beat
@@ -202,16 +214,43 @@ export class StudioTransport {
     for (const L of this.layers) {
       if (L.mute) continue
       const src = ctx.createBufferSource()
-      src.buffer = L.buf
+      src.buffer = L.rev ? backwards(L.buf) : L.buf
       const g = ctx.createGain()
       g.gain.value = L.vol
-      src.connect(g).connect(this.loopBus)
+      src.connect(g)
+      this.layerFx(g, L.fx ?? 'none')
       // started late (tempo change, or added while playing): join in at the right point
-      const offset = Math.max(0, ctx.currentTime - when)
-      if (offset < L.buf.duration) src.start(Math.max(when, ctx.currentTime), offset)
+      const late = Math.max(0, ctx.currentTime - when)
+      if (L.half) {
+        // half speed: the loop lasts two times round; this pass plays the first or second half of it
+        src.playbackRate.value = 0.5
+        const pass = Math.round((when - this.t0) / this.loopDur)
+        const from = (((pass % 2) + 2) % 2) * (L.buf.duration / 2) + late * 0.5
+        if (from < L.buf.duration) { src.start(Math.max(when, ctx.currentTime), from); src.stop(when + this.loopDur + 0.01) }
+      } else if (late < L.buf.duration) src.start(Math.max(when, ctx.currentTime), late)
       this.layerSrc.push(src)
     }
     if (this.layerSrc.length > 64) this.layerSrc.splice(0, 32)
+  }
+  /** A loop's one effect: echo (in time), far away (thin, like an old radio), or space (big reverb). */
+  private layerFx(g: GainNode, fx: LoopFx) {
+    const ctx = audio()
+    if (fx === 'far') {
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 350
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600
+      g.connect(hp).connect(lp).connect(this.loopBus)
+      return
+    }
+    g.connect(this.loopBus)
+    if (fx === 'echo') {
+      const d = ctx.createDelay(2); d.delayTime.value = this.stepDur * 3
+      const fb = ctx.createGain(); fb.gain.value = 0.38
+      const wet = ctx.createGain(); wet.gain.value = 0.5
+      g.connect(wet).connect(d); d.connect(fb).connect(d); d.connect(this.loopBus)
+    } else if (fx === 'space') {
+      const send = ctx.createGain(); send.gain.value = 0.9
+      g.connect(send).connect(this.reverbIn)
+    }
   }
   /** Loops changed (added, muted, volume): rejoin them where the playhead is. */
   refreshLayers() {

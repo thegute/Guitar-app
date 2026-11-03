@@ -264,6 +264,30 @@ async function hold(page, sel, ms) {
     await page.context().close()
   }
 
+  // ---- looper extras: backwards, half speed, an effect per loop
+  if (want('loopx')) for (const vp of [{ width: 360, height: 760 }, { width: 840, height: 757 }]) {
+    const page = await newPage(browser, vp)
+    await page.locator('button:has-text("Key, bars, save")').click()
+    await page.locator('.st-bars button:has-text("1")').click()
+    await page.locator('[data-testid=bounce-loop]').evaluate(e => e.scrollIntoView({ block: 'center' }))
+    await page.locator('[data-testid=bounce-loop]').click()
+    await page.waitForSelector('[data-testid=bounce-msg]', { timeout: 15000 })
+    const li = page.locator('.st-layers li').first()
+    await li.evaluate(e => e.scrollIntoView({ block: 'center' }))
+    await li.locator('button:has-text("Back")').click()
+    await li.locator('button:has-text("½ speed")').click()
+    await li.locator('select').selectOption('echo')
+    await page.waitForTimeout(800)
+    const st = await page.evaluate(() => new Promise(res => { const r = indexedDB.open('kg-loops', 1); r.onsuccess = () => { const g = r.result.transaction('loops').objectStore('loops').getAll(); g.onsuccess = () => res(g.result.map(l => ({ rev: l.rev, half: l.half, fx: l.fx }))) } }))
+    console.log(`${vp.width}px loop extras saved: ${JSON.stringify(st)}`)
+    if (!st.some(l => l.rev && l.half && l.fx === 'echo')) bad('loop extras not saved')
+    await page.waitForTimeout(2500)
+    if (await sideways(page)) bad(`looper scrolls sideways at ${vp.width}`)
+    await page.screenshot({ path: path.join(OUT, `bm-loopx-${vp.width}.png`) })
+    errs(page, `loopx ${vp.width}`)
+    await page.context().close()
+  }
+
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : '\nbeat maker: all good')
   process.exit(problems.length ? 1 : 0)

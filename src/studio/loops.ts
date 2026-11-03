@@ -148,7 +148,7 @@ export function levelLoop(x: Float32Array, sr: number): Float32Array {
 }
 
 // ---- storage (IndexedDB): each take with its beat's name
-export interface StoredLoop { id: string; beat: string; sr: number; data: Float32Array; vol: number; mute?: boolean; bars: number; at: number }
+export interface StoredLoop { id: string; beat: string; sr: number; data: Float32Array; vol: number; mute?: boolean; bars: number; at: number; rev?: boolean; half?: boolean; fx?: 'none' | 'echo' | 'far' | 'space' }
 const DB = 'kg-loops', STORE = 'loops'
 function db(): Promise<IDBDatabase> {
   return new Promise((res, rej) => {

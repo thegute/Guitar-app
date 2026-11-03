@@ -28,7 +28,7 @@ import {
   PART_IDS, beatInPart, curPart, deletePart, partsMade, switchPart, type PartId,
 } from './beat'
 import { CHORD_TYPES, INSTRS, INSTR_GROUPS, chordNotes, instr, keyChord, loadInstr, type Voicing } from './sounds'
-import { StudioTransport, type LoopLayer } from './transport'
+import { StudioTransport, type LoopFx, type LoopLayer } from './transport'
 import { deleteLoop, fitToBars, gridOffset, levelLoop, loopsFor, rotate, saveLoop } from './loops'
 import { beatChords, scalesFor } from './practice'
 import { guessPads, loadMyPads, loadSample, mySounds, mySoundsAvailable, pickSoundFolder, saveMySounds, type MySounds } from './mySounds'
@@ -1028,7 +1028,7 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
     void loopsFor(beat.name).then(list => {
       if (!alive) return
       const ctx = audio()
-      setLayers(list.map(l => { const buf = ctx.createBuffer(1, l.data.length, l.sr); buf.getChannelData(0).set(l.data); return { id: l.id, buf, vol: l.vol, mute: l.mute, bars: l.bars } }))
+      setLayers(list.map(l => { const buf = ctx.createBuffer(1, l.data.length, l.sr); buf.getChannelData(0).set(l.data); return { id: l.id, buf, vol: l.vol, mute: l.mute, bars: l.bars, rev: l.rev, half: l.half, fx: l.fx } }))
     })
     return () => { alive = false }
   }, [beat.name]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1125,7 +1125,7 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
   }
   const setLayer = (id: string, patch: Partial<LoopLayer>) => {
     setLayers(live.current.layers.map(l => (l.id === id ? { ...l, ...patch } : l)))
-    void loopsFor(live.current.beat.name).then(list => { const s = list.find(x => x.id === id); if (s) void saveLoop({ ...s, vol: patch.vol ?? s.vol, mute: patch.mute ?? s.mute }) })
+    void loopsFor(live.current.beat.name).then(list => { const s = list.find(x => x.id === id); if (s) void saveLoop({ ...s, vol: patch.vol ?? s.vol, mute: patch.mute ?? s.mute, rev: patch.rev ?? s.rev, half: patch.half ?? s.half, fx: patch.fx ?? s.fx }) })
   }
   const remove = (id: string) => { void deleteLoop(id); setLayers(live.current.layers.filter(x => x.id !== id)) }
   /** Add a ready-made loop (a bounce): exactly the beat's length, kept as it is. */
@@ -1178,6 +1178,13 @@ function Looper({ t, beat, loops, playing, play, pedalMode, setPedalMode }: { t:
               <input type="range" min={0} max={2} step={0.05} value={l.vol} onChange={e => loops.setLayer(l.id, { vol: Number(e.target.value) })} aria-label={`Loop ${i + 1} volume`} />
               <button className="btn sm ghost" aria-pressed={!!l.mute} onClick={() => loops.setLayer(l.id, { mute: !l.mute })}>M</button>
               <button className="btn sm ghost" onClick={() => loops.remove(l.id)} aria-label={`Delete loop ${i + 1}`}>✕</button>
+              <span className="st-layer-x">
+                <button className="btn sm ghost" aria-pressed={!!l.rev} onClick={() => loops.setLayer(l.id, { rev: !l.rev })} title="Play it backwards">⇆ Back</button>
+                <button className="btn sm ghost" aria-pressed={!!l.half} onClick={() => loops.setLayer(l.id, { half: !l.half })} title="Half speed: an octave lower, twice as long">½ speed</button>
+                <select className="select sm" value={l.fx ?? 'none'} aria-label={`Loop ${i + 1} effect`} onChange={e => loops.setLayer(l.id, { fx: e.target.value as LoopFx })}>
+                  <option value="none">No effect</option><option value="echo">Echo</option><option value="far">Far away (radio)</option><option value="space">Big space</option>
+                </select>
+              </span>
             </li>
           ))}
         </ul>
