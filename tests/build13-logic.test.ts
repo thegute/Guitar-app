@@ -257,7 +257,7 @@ const guitar = { ...INSTRUMENTS.guitar, tuning: INSTRUMENTS.guitar.tunings[0], m
     ok(/^https:\/\//.test(t.video.url) && t.steps.length >= 3, `${t.id}: video and steps`)
     if ('tab' in t.drill) for (const tun of [G6, [67, 60, 64, 69], [50, 55, 59, 64]]) {
       const d = drillSong(t.drill.tab, tun)
-      ok(!!d && flatten(d.tracks[0]).every(f => f.step.notes.every(n => n.string < tun.length && tun[n.string] + n.fret === n.midi)), `${t.id} drill on ${tun.length} strings`)
+      ok(!!d && flatten(d.tracks[0]).every(f => f.step.notes.every(n => n.string < tun.length && d.tracks[0].tuning[n.string] + n.fret === n.midi)), `${t.id} drill on ${tun.length} strings`)
     }
   }
   setProfile({ level: 1, goals: ['strum'], genres: ['reggae'] })

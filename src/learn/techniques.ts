@@ -157,6 +157,51 @@ export const TECHNIQUES: Technique[] = [
     video: { site: 'Marco Cirillo on YouTube', title: 'Fingerstyle Technique for Beginners', url: 'https://www.youtube.com/watch?v=qzreNu9FWec' },
     drill: { label: 'Peaceful progression, picked p-i-m-a', exName: 'Peaceful: rising arpeggio' },
   },
+  // ───────────── Hawaiian slack key (kī hōʻalu) ─────────────
+  {
+    id: 'slack-tuning', title: 'Slack key 1: open G (taro patch)', why: 'Slack key means "loosened keys": the strings are slackened to an open chord, so the open strings ring a G chord and the thumb can keep a bass going without fretting.',
+    steps: [
+      'Tune the low E down a whole step to D, the A down to G, and the high E down to D: D G D G B D, low to high. The Tuner has Open G in its list.',
+      'Strum the open strings: that is a G chord. A barre at the 5th fret is C, at the 7th fret D.',
+      'The thumb (p) owns the three bass strings; index and middle (i, m) play the top three. Most slack key is played with just those.',
+      'Play gently and let it ring: the Hawaiian word for the sound is nahenahe, sweet and soft.',
+    ],
+    video: { site: 'YouTube', title: 'How to Tune Your Guitar to Open G Tuning (Taro Patch)', url: 'https://www.youtube.com/watch?v=G9_L7VEB1I4' },
+    drill: { label: 'The slack key thumb in open G', tab: 'slackthumb' },
+  },
+  {
+    id: 'slack-thumb', title: 'Slack key 2: the thumb and the melody', why: 'The heart of slack key: the thumb never stops (root and fifth on the open bass strings) while the fingers play the tune on top.',
+    steps: [
+      'Start with the thumb alone: 5th string, 4th string, 5th, 4th, one per beat. Keep it soft and even, like a heartbeat.',
+      'Add a finger note on top together with beat 1 (a pinch), then one between the beats.',
+      'Change chords by barring: C at the 5th fret, D7 at the 7th with a finger added. The thumb just moves with the barre.',
+      'Learn tunes by ear the old way: Gabby Pahinui, Ray Kāne and Ledward Kaʻapana all learned from family and friends.',
+    ],
+    video: { site: 'YouTube', title: 'Learn to Play "Kealoha" (Slack Key, Taro Patch)', url: 'https://www.youtube.com/watch?v=vp4rGdhDbgQ' },
+    drill: { label: 'Kona Morning (slack key piece)', songbook: { song: 'kona', part: 'piece' } },
+  },
+  {
+    id: 'slack-hammer', title: 'Slack key 3: hammer-ons, pull-offs and sweet 6ths', why: 'The ornaments that make slack key sing: notes hammered on and pulled off to the open strings, and the melody doubled a 6th or a 3rd below.',
+    steps: [
+      'Hammer from an open string to the 2nd fret and pull back off to the open string, on the 3rd and 2nd strings, while the thumb keeps going.',
+      'Sweet 6ths: play two notes a string apart (3rd and 1st strings) and slide the pair up and down the neck together.',
+      'Raymond Kāne\'s licks are full of these: copy one slowly, then put it into a tune.',
+      'Keep the hammered note as loud as the picked one: hammer with the fingertip, close to the fret.',
+    ],
+    video: { site: 'YouTube', title: 'How to Play Slack Key Lick #5 by Raymond Kane', url: 'https://www.youtube.com/watch?v=n0NrVSk-IX0' },
+    drill: { label: 'Trade Wind Vamp (slack key piece)', songbook: { song: 'tradewind', part: 'piece' } },
+  },
+  {
+    id: 'slack-vamp', title: 'Slack key 4: harmonics and the Hawaiian vamp', why: 'Every Hawaiian song ends (and links its verses) with the vamp, II7 to V7 to I, often with bell-like harmonics at the very end.',
+    steps: [
+      'The vamp in G: A7, D7, G, played twice. In open G, A7 is at the 2nd fret area and D7 at the 7th.',
+      'Finish with harmonics: touch the strings lightly right over the 12th fret wire and pick, then let them ring.',
+      'Slide into the last chord from a fret below: it sounds like a steel guitar.',
+      'Make a tab → Licks & solos → Hawaiian slack key writes new phrases that end with the vamp.',
+    ],
+    video: { site: 'YouTube', title: 'Slack Key: Hawaiian Vamp (Taro Patch or Open G)', url: 'https://www.youtube.com/watch?v=2JvF3oFIlEw' },
+    drill: { label: 'Island Sway (Hawaiian piece)', songbook: { song: 'islandsway', part: 'piece' } },
+  },
 ]
 
 // ---- drill tabs (guitar; on ukulele they use the instrument's own strings) ----
@@ -195,6 +240,16 @@ export function drillSong(id: string, tuning: number[]): Song | null {
     // the mark sits on the note you pick (0h2 = pick 0, hammer on to 2)
     const b = (s: number): N[][] => [[[s, 0, 'h']], [[s, 2]], [[s, 2, 'p']], [[s, 0]], [[s, 0, 'h']], [[s, 3]], [[s, 3, 'p']], [[s, 0]]]
     return song('Hammer-ons and pull-offs', tuning, 66, [b(top - 2), b(top - 1), b(top), b(top - 1)])
+  }
+  if (id === 'slackthumb') {
+    // open G (D G D G B D) on a guitar; the thumb alternates the 5th and 4th strings, the fingers play on top
+    const t = n === 6 ? [38, 43, 50, 55, 59, 62] : tuning
+    if (n !== 6) return drillSong('alternate', tuning)
+    const g: N[][] = [[[1, 0], [5, 0]], [[4, 0]], [[2, 0], [3, 0, 'h']], [[3, 2]], [[1, 0], [4, 0]], [[3, 0]], [[2, 0], [5, 0]], [[4, 0]]]
+    const c: N[][] = [[[1, 5], [5, 5]], [[4, 5]], [[2, 5], [3, 5]], [[4, 5]], [[1, 5], [5, 7]], [[4, 5]], [[2, 5], [5, 5]], [[3, 5]]]
+    const d7: N[][] = [[[1, 7], [5, 7]], [[4, 7]], [[2, 7], [3, 7]], [[4, 8]], [[1, 7], [5, 10]], [[4, 7]], [[2, 7], [5, 7]], [[3, 7]]]
+    const end: N[][] = [[[1, 0], [5, 0]], [[4, 0]], [[2, 0], [3, 0]], [[4, 0]], [[1, 0], [3, 12, 'harm'], [4, 12, 'harm'], [5, 12, 'harm']], [], [], []]
+    return song('Slack key thumb in open G (D G D G B D)', t, 76, [g, g, c, g, d7, d7, g, end])
   }
   if (id === 'slides') {
     const b = (s: number): N[][] => [[[s, 2, '/']], [[s, 4]], [[s, 4, '\\']], [[s, 2]], [[s, 5, '/']], [[s, 7]], [[s, 7, '\\']], [[s, 5]]]

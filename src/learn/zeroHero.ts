@@ -270,6 +270,28 @@ export const PATHS: StylePath[] = [
     { id: 'p-pg-legato', label: 'Play a legato run cleanly at 100 BPM' },
     { id: 'p-pg-tap', label: 'Play a tapped arpeggio in time' },
   ] },
+  { id: 'slackkey', title: 'Hawaiian slack key (kī hōʻalu)', who: 'Gabby Pahinui, Ledward Kaʻapana, Keola Beamer, Kaʻau Crater Boys', steps: [
+    { label: 'Open G (taro patch) and how slack key works', target: { go: { technique: 'slack-tuning' } } },
+    { label: 'The thumb and the melody', target: { go: { technique: 'slack-thumb' } } },
+    { label: 'Hammer-ons, pull-offs and sweet 6ths', target: { go: { technique: 'slack-hammer' } } },
+    { label: 'Harmonics and the Hawaiian vamp', target: { go: { technique: 'slack-vamp' } } },
+    { label: 'Songs from the Songbook: Hawaiian & slack key', target: { go: { songs: 'songbook' } } },
+    { label: 'New slack key phrases: Jam → Make a tab (Hawaiian slack key)', target: { jam: { page: 'tab', style: 'slackkey', key: 'G' } } },
+    { label: 'Fingerpick a slack key progression (Slack key pattern)', target: { jam: { page: 'jam', style: 'slackkey', key: 'G' } } },
+  ], gate: [
+    { id: 'p-sk-thumb', label: 'Keep the alternating thumb steady through a whole piece in open G' },
+    { id: 'p-sk-piece', label: 'Play Kona Morning or Trade Wind Vamp all the way through' },
+    { id: 'p-sk-vamp', label: 'End a tune with the Hawaiian vamp and harmonics' },
+  ] },
+  { id: 'classical', title: 'Classical guitar', who: 'Tárrega, Sor, Carcassi, Bach', steps: [
+    { label: 'p-i-m-a arpeggios (Giuliani pattern)', target: { jam: { page: 'tab', style: 'classical' } } },
+    { label: 'Romanza: triplets with the melody on top', target: { go: { songs: 'songbook' } } },
+    { label: 'Greensleeves, Minuet in G, Für Elise, Canon in D', target: { go: { songs: 'songbook' } } },
+    { label: 'New classical studies: Jam → Make a tab (Classical guitar)', target: { jam: { page: 'tab', style: 'classical', key: 'E', mode: 'harmonic' } } },
+  ], gate: [
+    { id: 'p-cl-romanza', label: 'Play the first section of Romanza in time' },
+    { id: 'p-cl-piece', label: 'Play two classical pieces from the Songbook' },
+  ] },
   { id: 'fingerstyle', title: 'Melodic fingerstyle', who: 'Marco Cirillo', steps: [
     { label: 'How the style works', target: { go: { technique: 'melodic' } } },
     { label: 'Melodic fingerstyle exercises', target: { exercise: 'type:melodic' } },

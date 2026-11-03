@@ -56,7 +56,8 @@ export const TUNINGS: Tuning[] = [
   { id: 'halfdown', name: 'Half step down', notes: ['D#2', 'G#2', 'C#3', 'F#3', 'A#3', 'D#4'] },
   { id: 'dropd', name: 'Drop D', notes: ['D2', 'A2', 'D3', 'G3', 'B3', 'E4'] },
   { id: 'dadgad', name: 'DADGAD', notes: ['D2', 'A2', 'D3', 'G3', 'A3', 'D4'] },
-  { id: 'openg', name: 'Open G', notes: ['D2', 'G2', 'D3', 'G3', 'B3', 'D4'] },
+  { id: 'openg', name: 'Open G (slack key taro patch)', notes: ['D2', 'G2', 'D3', 'G3', 'B3', 'D4'] },
+  { id: 'cwahine', name: 'C wahine (slack key)', notes: ['C2', 'G2', 'D3', 'G3', 'B3', 'E4'] },
   { id: 'opend', name: 'Open D', notes: ['D2', 'A2', 'D3', 'F#3', 'A3', 'D4'] },
   { id: 'dropc', name: 'Drop C', notes: ['C2', 'G2', 'C3', 'F3', 'A3', 'D4'] },
 ]
