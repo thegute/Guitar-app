@@ -66,11 +66,14 @@ export function StudioScreen({ active }: { active: boolean }) {
   const t = useRef<StudioTransport | null>(null)
   const tr = () => (t.current ??= new StudioTransport(beat))
   const history = useRef<Beat[]>([])
+  const future = useRef<Beat[]>([])
+  const cur = useRef(beat)
+  cur.current = beat
 
   const setBeat: SetBeat = useCallback((next, remember = true) => {
     setBeatRaw(prev => {
       const b = typeof next === 'function' ? next(prev) : next
-      if (remember && b !== prev) { history.current.push(prev); if (history.current.length > 40) history.current.shift() }
+      if (remember && b !== prev) { history.current.push(prev); if (history.current.length > 60) history.current.shift(); future.current = [] }
       return b
     })
   }, [])
@@ -125,7 +128,23 @@ export function StudioScreen({ active }: { active: boolean }) {
       return { ...b, layers: layers.some(l => l.id === id) ? layers.map(l => (l.id === id ? next : l)) : [...layers, next] }
     }, fresh)
   }
-  const undo = () => { const p = history.current.pop(); if (p) setBeat(p, false) }
+  const undo = () => { const p = history.current.pop(); if (p) { future.current.push(cur.current); setBeat(p, false) } }
+  const redo = () => { const n = future.current.pop(); if (n) { history.current.push(cur.current); setBeatRaw(n) } }
+  // Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y) on a keyboard
+  const ur = useRef({ undo, redo })
+  ur.current = { undo, redo }
+  useEffect(() => {
+    if (!active) return
+    const k = (e: KeyboardEvent) => {
+      const typing = e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)
+      if (typing || !(e.ctrlKey || e.metaKey)) return
+      const key = e.key.toLowerCase()
+      if (key === 'z' && !e.shiftKey) { e.preventDefault(); ur.current.undo() }
+      else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); ur.current.redo() }
+    }
+    addEventListener('keydown', k)
+    return () => removeEventListener('keydown', k)
+  }, [active])
   /** The step a hit made right now belongs to (snapped to the grid), or null when not recording. */
   const recStep = (): number | null => {
     const x = t.current
@@ -162,7 +181,8 @@ export function StudioScreen({ active }: { active: boolean }) {
         <BeatLight t={tr()} playing={playing} />
         <Tempo bpm={beat.bpm} onChange={bpm => setBeat(b => ({ ...b, bpm }))} />
         <span className="st-spacer" />
-        <button className="btn sm" onClick={undo} disabled={!history.current.length} aria-label="Undo">↶</button>
+        <button className="btn sm" onClick={undo} disabled={!history.current.length} aria-label="Undo" title="Undo">↶</button>
+        <button className="btn sm" onClick={redo} disabled={!future.current.length} aria-label="Redo" title="Redo">↷</button>
         <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')}><Ico n="sparkles" /> Ideas</button>
       </div>
       <PartsBar t={tr()} beat={beat} setBeat={setBeat} />

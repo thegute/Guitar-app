@@ -247,6 +247,23 @@ async function hold(page, sel, ms) {
     await page.context().close()
   }
 
+  // ---- undo and redo
+  if (want('redo')) {
+    const page = await newPage(browser, { width: 412, height: 915 })
+    const before = (await beat(page)).bpm
+    await page.locator('button[aria-label^="Faster"]').click()
+    await page.locator('button[aria-label^="Faster"]').click()
+    const up = (await beat(page)).bpm
+    await page.locator('button[aria-label="Undo"]').click()
+    const u1 = (await beat(page)).bpm
+    await page.locator('button[aria-label="Redo"]').click()
+    const r1 = (await beat(page)).bpm
+    console.log(`redo: ${before} → ${up}, undo ${u1}, redo ${r1}`)
+    if (!(u1 < up) || r1 !== up) bad(`undo/redo of the tempo: ${before} ${up} ${u1} ${r1}`)
+    errs(page, 'redo')
+    await page.context().close()
+  }
+
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : '\nbeat maker: all good')
   process.exit(problems.length ? 1 : 0)
