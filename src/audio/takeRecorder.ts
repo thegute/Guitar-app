@@ -1,5 +1,6 @@
 // "Record yourself" in Play: records what the mic (or USB amp) hears while you play, so you can listen back.
-// Only on a tap of Record, only on the phone; nothing is processed, monitored or sent anywhere.
+// Only on a tap of Record (or Then vs now, which keeps your first and best whole run; switchable in Options),
+// only on the phone; nothing is processed, monitored or sent anywhere.
 import { Capacitor } from '@capacitor/core'
 import { Directory, Filesystem } from '@capacitor/filesystem'
 import { Share } from '@capacitor/share'

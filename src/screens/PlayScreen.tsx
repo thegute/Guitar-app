@@ -49,6 +49,8 @@ import { chordHelp } from '../play/chordHelp'
 import { patternsFor, strumPattern } from '../play/strumCoach'
 import { TakeRecorder, saveTake } from '../audio/takeRecorder'
 import { keepRecording } from '../audio/recordings'
+import { offerTake, setThenNowOn, thenNowFor, thenNowOn, type ThenNowPair } from '../audio/thenNow'
+import { ThenVsNow } from '../components/ThenVsNow'
 import { bandByStep, bandEvents, hasBand } from '../audio/band'
 import { SongCheckCard, RetuneNotice } from '../components/SongCheckCard'
 import { profile } from '../learn/profile'
@@ -149,7 +151,24 @@ export function PlayScreen() {
   /** after a clean Wait-for-me run: suggest In time */
   const [nudge, setNudge] = useState(false)
   /** the report card after a whole run-through */
-  const [report, setReport] = useState<Report | null>(null)
+  const [report, setReport] = useState<(Report & { take?: 'first' | 'now' }) | null>(null)
+  // Then vs now: a quiet recording of each whole run from the top (kept only if it's your first or clearly your best)
+  const auto = useRef<{ rec: TakeRecorder; docId: string; title: string } | null>(null)
+  const [autoTick, setAutoTick] = useState(0)
+  const [thenNow, setThenNow] = useState(thenNowOn)
+  const [tvn, setTvn] = useState<ThenNowPair | null>(null)
+  const autoCancel = () => { const a = auto.current; auto.current = null; void a?.rec.stop() }
+  const autoFinishRef = useRef<(score: number, speed: number) => void>(() => {})
+  autoFinishRef.current = (score: number, speed: number) => {
+    const a = auto.current
+    auto.current = null
+    if (!a) return
+    void a.rec.stop().then(async r => {
+      if (!r || r.seconds < 5) return
+      const kept = await offerTake(a.docId, a.title, r.blob, r.seconds, score, speed)
+      if (kept) setReport(rep => (rep ? { ...rep, take: kept } : rep))
+    })
+  }
   const [live, setLive] = useState<number | null>(null)
   const [input, setInput] = useState<{ label: string; external: boolean } | null>(null)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
@@ -365,6 +384,7 @@ export function PlayScreen() {
     const mistakes = barMistakes(states.current, i => flat[i]?.bar, runMode)
     setReport(makeReport({ score, mode: runMode, speed: speedNow, mistakes, before: was?.runs ?? [], best: was?.best ?? 0, stats }))
     setNudge(false)
+    autoFinishRef.current(score, speedNow)
   }, [])
 
   const hitAt = useCallback((step: number, skipped: number, heard: number, chordText?: string) => {
@@ -611,6 +631,26 @@ export function PlayScreen() {
   }
   useEffect(() => { if (mode === 'wait') inTime.stop() }, [mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Then vs now: start recording a whole run from the top (Wait for me: listening at the first note, no loop;
+  // In time: a run from the start); anything else (a loop, stopping half way) throws it away
+  const fromTop = pos === 0 && !loopRange
+  const runOn = mode === 'wait' ? listening : inTime.running
+  useEffect(() => {
+    const a = auto.current
+    if (a) {
+      // keep going while the same run carries on; a loop, a new song or stopping throws it away
+      if (!thenNow || !runOn || !!loopRange || a.docId !== doc?.id) autoCancel()
+      return
+    }
+    if (!thenNow || !doc || doc.source === 'lesson' || !fromTop || !runOn || done) return
+    const stream = listener.current?.mediaStream
+    if (!stream) return
+    const rec = new TakeRecorder()
+    auto.current = { rec, docId: doc.id, title: doc.title }
+    rec.start(stream).catch(() => { if (auto.current?.rec === rec) auto.current = null })
+  }, [thenNow, doc?.id, fromTop, runOn, loopRange, autoTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => autoCancel(), [])
+
   // ---------- footswitch / pedal ----------
   function jumpBar(delta: number) {
     const bar = Math.max(0, (cursorFlat >= 0 ? flat[cursorFlat].bar : 0) + delta)
@@ -669,6 +709,8 @@ export function PlayScreen() {
 
   function restart(from = loopRange ? loopRange.a : 0) {
     setReport(null)
+    autoCancel()
+    setAutoTick(t => t + 1)
     states.current = new Uint8Array(flat.length)
     setPos(from)
     setFeedback(null)
@@ -994,6 +1036,7 @@ export function PlayScreen() {
               {loop && <label className="opt-row opt-check" data-find="trainer"><input type="checkbox" checked={trainer.on} onChange={() => setTrainer({ ...trainer, on: !trainer.on })} /><span><b>Speed trainer</b><span className="small muted">Starts at {Math.round(trainer.start * 100)}% and speeds up {Math.round(trainer.step * 100)}% after each pass of {trainer.pass}% or better.</span></span></label>}
             </>
           )}
+          <label className="opt-row opt-check" data-find="thennow"><input type="checkbox" checked={thenNow} onChange={() => { setThenNowOn(!thenNow); setThenNow(!thenNow); if (thenNow) autoCancel() }} /><span><b>Then vs now</b><span className="small muted">Quietly keep your first whole run of each song and, later, your best one, so you can hear how far you've come (on this phone only; My recordings lists them).</span></span></label>
           <button className={`btn rec${recording ? ' on' : ''}`} data-find="record" onClick={() => { void toggleRec(); setOpts(false) }}>
             {recording ? `⏹ Stop recording (${Math.floor(recSecs / 60)}:${String(recSecs % 60).padStart(2, '0')})` : '⏺ Record yourself'}
           </button>
@@ -1139,7 +1182,7 @@ export function PlayScreen() {
             else if (r.next.kind === 'faster') { setSpeed(r.next.speed ?? 1); restart(); countUse('play:report') }
             else restart()
             setReport(null)
-          }} onAgain={() => restart()} />
+          }} onAgain={() => restart()} onThenNow={() => { if (doc) void thenNowFor(doc.id).then(p => { if (p) setTvn(p) }) }} />
         )}
         {take && !recording && (
           <div className="take-bar" role="group" aria-label="Your recording">
@@ -1226,12 +1269,20 @@ export function PlayScreen() {
 
       {gearOpen && <GearSetup onClose={() => setGearOpen(false)} />}
       {optionsPanel}
+      {tvn && (
+        <div className="sheet-backdrop" onClick={() => setTvn(null)}>
+          <div className="sheet" role="dialog" aria-modal="true" aria-label="Then vs now" onClick={e => e.stopPropagation()}>
+            <div className="sheet-head"><h2>Then vs now: {tvn.title}</h2><button className="btn sm" onClick={() => setTvn(null)}>Done</button></div>
+            <ThenVsNow pair={tvn} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 /** After a whole run: the score, how it compares, the bars that went wrong (lit up on the tab) and one next step. */
-function ReportCard({ r, onNext, onAgain, onClose }: { r: Report; onNext: () => void; onAgain: () => void; onClose: () => void }) {
+function ReportCard({ r, onNext, onAgain, onClose, onThenNow }: { r: Report & { take?: 'first' | 'now' }; onNext: () => void; onAgain: () => void; onClose: () => void; onThenNow: () => void }) {
   const diff = r.prev !== undefined ? r.score - r.prev : null
   const t = r.timing
   const tone = r.score >= 90 ? 'great' : r.score >= 75 ? 'good' : r.score >= 50 ? 'ok' : 'low'
@@ -1247,8 +1298,10 @@ function ReportCard({ r, onNext, onAgain, onClose }: { r: Report; onNext: () => 
         </span>
         {t && <span className="small muted">{t.onTime} on time, {t.early} early, {t.late} late, {t.missed} missed.{Math.abs(t.meanErr) >= 25 ? (t.meanErr < 0 ? ' You rush a little.' : ' You drag a little.') : ''}</span>}
         {r.bars.length > 0 && <span className="small"><span className="report-swatch" aria-hidden /> Trouble: {r.bars.length === 1 ? `bar ${r.bars[0] + 1}` : `bars ${r.bars[0] + 1} and ${r.bars[1] + 1}`} (marked on the tab).</span>}
+        {r.take === 'first' && <span className="small muted">Your first try is kept on this phone for Then vs now.</span>}
         <span className="report-btns">
           <button className="btn primary" onClick={onNext}>{r.next.label}</button>
+          {r.take === 'now' && <button className="btn tvn-btn" onClick={onThenNow} data-testid="tvn-open">🎧 Then vs now</button>}
           {r.next.kind !== 'again' && r.next.kind !== 'learned' && <button className="btn" onClick={onAgain}>Play again</button>}
         </span>
       </div>

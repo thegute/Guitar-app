@@ -155,6 +155,45 @@ async function playThrough(page) {
     await page.context().close()
   }
 
+  // ---- Then vs now: a whole run is kept as your first try; a much better one later becomes "now"
+  if (want('tvn')) {
+    const page = await newPage(browser, { 'kg:tab2': 'play', 'kg:playTidy': false }, { width: 412, height: 915 })
+    await page.waitForSelector('.tab-note', { timeout: 8000 })
+    await page.locator('.song-check button:has-text("Got it")').click({ timeout: 2500 }).catch(() => {})
+    if (!(await playThrough(page))) bad('tvn: no report after the first run')
+    await page.waitForTimeout(1500)
+    const t1 = await page.locator('[data-testid=report-card]').innerText().catch(() => '')
+    if (!/first try is kept/i.test(t1)) bad(`first run not kept: ${t1}`)
+    await page.locator('button.listen').click().catch(() => {})
+    // make the kept first try a weak one (score 40), then play again: the new run is "now"
+    await page.evaluate(() => new Promise(res => {
+      const r = indexedDB.open('kg-thennow', 1)
+      r.onsuccess = () => { const s = r.result.transaction('takes', 'readwrite').objectStore('takes'); const g = s.getAll(); g.onsuccess = () => { for (const t of g.result) { t.score = 40; s.put(t) } res() } }
+    }))
+    await page.locator('.report-x').click().catch(() => {})
+    await page.locator('.opts-btn').click(); await page.locator('.play-opts button:has-text("Start over")').click()
+    if (!(await playThrough(page))) bad('tvn: no report after the second run')
+    await page.locator('[data-testid=tvn-open]').waitFor({ timeout: 4000 }).catch(() => bad('no Then vs now button after a much better run'))
+    await page.locator('button.listen').click().catch(() => {})
+    if (await page.locator('[data-testid=tvn-open]').count()) {
+      await page.locator('[data-testid=tvn-open]').click()
+      await page.waitForSelector('[data-testid=then-vs-now]')
+      const n = await page.locator('[data-testid=then-vs-now] audio').count()
+      if (n !== 2) bad(`then vs now has ${n} players`)
+      console.log('then vs now:', (await page.locator('.tvn-sum').textContent()).trim())
+      await page.screenshot({ path: path.join(OUT, 'b30-tvn.png') })
+      await page.locator('.sheet button:has-text("Done")').click()
+    }
+    // and in My recordings
+    await nav(page, 'Learn'); await sub(page, 'Explore')
+    await page.locator('.tool:has-text("My recordings")').first().click()
+    await page.locator('.recordings .chip').first().click()
+    if (!(await page.locator('.recordings [data-testid=then-vs-now]').count())) bad('My recordings has no Then vs now')
+    if (await sideways(page)) bad('My recordings scrolls sideways')
+    errs(page, 'then vs now')
+    await page.context().close()
+  }
+
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : '\nbuild 30: all good')
   process.exit(problems.length ? 1 : 0)

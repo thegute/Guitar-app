@@ -93,3 +93,14 @@ import { chordMatch } from '../src/audio/chroma'
   forgetTaught('mic'); assert.equal(taughtCount('mic'), 0)
   console.log('played it right: ok')
 }
+
+// ---- Then vs now: which runs are kept
+import { decide, BETTER_BY } from '../src/audio/thenNow'
+{
+  assert.equal(decide(undefined, undefined, 40), 'first')
+  assert.equal(decide({ score: 60 }, undefined, 60 + BETTER_BY - 1), null)
+  assert.equal(decide({ score: 60 }, undefined, 60 + BETTER_BY), 'now')
+  assert.equal(decide({ score: 60 }, { score: 90 }, 85), null, 'a worse run keeps the better "now"')
+  assert.equal(decide({ score: 60 }, { score: 90 }, 95), 'now')
+  console.log('then vs now: ok')
+}

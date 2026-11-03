@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { deleteRecording, recordings, updateRecording, type Recording } from '../audio/recordings'
 import { saveTake } from '../audio/takeRecorder'
+import { deleteThenNow, thenNowPairs, type ThenNowPair } from '../audio/thenNow'
+import { ThenVsNow } from '../components/ThenVsNow'
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`
 const month = (t: number) => new Date(t).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
@@ -18,14 +20,17 @@ export function MyRecordings({ onExit, onRecord }: { onExit: () => void; onRecor
   const [list, setList] = useState<Recording[] | null>(null)
   const [confirm, setConfirm] = useState<string | null>(null)
   const [compare, setCompare] = useState<string | null>(null)
-  const load = () => void recordings().then(setList)
+  const [auto, setAuto] = useState<ThenNowPair[]>([])
+  const load = () => { void recordings().then(setList); void thenNowPairs().then(setAuto) }
   useEffect(load, [])
   const byTitle = useMemo(() => {
     const m = new Map<string, Recording[]>()
     for (const r of list ?? []) m.set(r.title, [...(m.get(r.title) ?? []), r])
     return m
   }, [list])
-  const pairs = [...byTitle.entries()].filter(([, rs]) => rs.length >= 2).map(([t, rs]) => ({ title: t, then: rs[rs.length - 1], now: rs[0] }))
+  const autoTitles = new Set(auto.map(p => p.title))
+  const pairs = [...byTitle.entries()].filter(([t, rs]) => rs.length >= 2 && !autoTitles.has(t)).map(([t, rs]) => ({ title: t, then: rs[rs.length - 1], now: rs[0] }))
+  const autoPair = auto.find(p => p.title === compare)
   const groups = useMemo(() => {
     const g: { month: string; items: Recording[] }[] = []
     for (const r of list ?? []) { const m = month(r.at); const last = g[g.length - 1]; if (last && last.month === m) last.items.push(r); else g.push({ month: m, items: [r] }) }
@@ -40,11 +45,21 @@ export function MyRecordings({ onExit, onRecord }: { onExit: () => void; onRecor
       </div>
       <h1 style={{ margin: 0 }}>My recordings</h1>
       <p className="small muted" style={{ margin: 0 }}>Record a song in Play (Options → Record yourself), then tap "Keep it". Record the same song again every month or so: "Then and now" plays your first and latest takes side by side.</p>
-      {list === null ? <p className="muted">Loading…</p> : list.length === 0 ? <p className="notice">No recordings yet. Open a song in Play, tap Options → Record yourself, play it through, then "Keep it".</p> : null}
-      {pairs.length > 0 && (
+      {list === null ? <p className="muted">Loading…</p> : list.length === 0 && !auto.length ? <p className="notice">No recordings yet. Open a song in Play, tap Options → Record yourself, play it through, then "Keep it".</p> : null}
+      {(pairs.length > 0 || auto.length > 0) && (
         <section className="panel stack" style={{ gap: 8 }}>
-          <h2 style={{ margin: 0 }}>Then and now</h2>
-          <div className="row" style={{ gap: 6 }}>{pairs.map(p => <button key={p.title} className={`chip${compare === p.title ? ' on' : ''}`} aria-pressed={compare === p.title} onClick={() => setCompare(compare === p.title ? null : p.title)}>{p.title}</button>)}</div>
+          <h2 style={{ margin: 0 }}>Then vs now</h2>
+          <p className="small muted" style={{ margin: 0 }}>Play keeps your first whole run of each song, and later your best one once it's 10 points better (switch it off in Play → Options).</p>
+          <div className="row" style={{ gap: 6 }}>
+            {auto.map(p => <button key={p.songId} className={`chip${compare === p.title ? ' on' : ''}`} aria-pressed={compare === p.title} onClick={() => setCompare(compare === p.title ? null : p.title)}>{p.title}{p.now ? ' ✓' : ''}</button>)}
+            {pairs.map(p => <button key={p.title} className={`chip${compare === p.title ? ' on' : ''}`} aria-pressed={compare === p.title} onClick={() => setCompare(compare === p.title ? null : p.title)}>{p.title}</button>)}
+          </div>
+          {autoPair && <>
+            <ThenVsNow pair={autoPair} />
+            <div className="row">{confirm === `tvn:${autoPair.songId}`
+              ? <><button className="btn sm" onClick={() => void deleteThenNow(autoPair.songId).then(() => { setConfirm(null); setCompare(null); load() })}>Delete both</button><button className="btn sm ghost" onClick={() => setConfirm(null)}>Keep</button></>
+              : <button className="btn sm ghost" onClick={() => setConfirm(`tvn:${autoPair.songId}`)}>Delete these</button>}</div>
+          </>}
           {pair && (
             <div className="rec-compare">
               <div><b>Then</b> <span className="small muted">{day(pair.then.at)}</span><Player r={pair.then} /></div>
