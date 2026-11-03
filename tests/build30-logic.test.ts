@@ -49,3 +49,26 @@ import { current } from '../src/instrument'
   assert.equal((p.session.steps.at(-1)!.target as { go: { loop: null } }).go.loop, null)
   console.log('practice plan: ok')
 }
+
+// ---- report card
+import { barMistakes, makeReport } from '../src/play/report'
+{
+  // bars 0..3, 4 notes each; bar 2 has 3 mistakes, bar 3 one
+  const states = [1,1,1,1, 1,1,1,1, 2,3,2,1, 2,1,1,1]
+  const m = barMistakes(states, i => Math.floor(i / 4), 'wait')
+  assert.equal(m.get(2), 3); assert.equal(m.get(3), 1)
+  let r = makeReport({ score: 75, mode: 'wait', speed: 1, mistakes: m, before: [{ at: 0, score: 60, mode: 'wait', speed: 1, full: true }], best: 80 })
+  assert.deepEqual(r.bars, [2, 3]); assert.deepEqual(r.loop, { from: 2, to: 3 }); assert.equal(r.next.kind, 'loop'); assert.equal(r.prev, 60)
+  assert.equal(r.next.label, 'Loop bars 3–4')
+  r = makeReport({ score: 70, mode: 'time', speed: 1, mistakes: barMistakes(states, i => Math.floor(i / 4), 'time'), before: [], best: 0 })
+  assert.equal(r.next.speed, 0.7); assert.ok(/at 70%/.test(r.next.label)); assert.equal(r.prev, undefined)
+  // early/late count half in time mode: bar 3's single early note isn't a trouble bar
+  assert.deepEqual(r.bars, [2])
+  r = makeReport({ score: 92, mode: 'wait', speed: 1, mistakes: new Map([[1, 1]]), before: [], best: 0 })
+  assert.equal(r.next.kind, 'intime')
+  r = makeReport({ score: 95, mode: 'time', speed: 0.75, mistakes: new Map(), before: [], best: 0 })
+  assert.equal(r.next.kind, 'faster'); assert.equal(r.next.speed, 0.85)
+  r = makeReport({ score: 95, mode: 'time', speed: 1, mistakes: new Map(), before: [], best: 0 })
+  assert.equal(r.next.kind, 'learned')
+  console.log('report card: ok')
+}

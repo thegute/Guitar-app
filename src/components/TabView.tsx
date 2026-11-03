@@ -82,10 +82,12 @@ interface BarProps {
   offs: number[]
   /** the strum pattern to draw over chord steps, or null */
   strum: StrumPattern | null
+  /** a trouble bar from the last run (the report card lights it up) */
+  mark?: boolean
 }
 
 const RHYTHM_H = 30
-const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, flats, cursor, states, chords, widths, first, final, last, flash, flashKey, loop, selecting, onTap, onBar, lyricRow, rhythmRow, offs, strum }: BarProps) {
+const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, flats, cursor, states, chords, widths, first, final, last, flash, flashKey, loop, selecting, onTap, onBar, lyricRow, rhythmRow, offs, strum, mark }: BarProps) {
   const xs: number[] = []
   let x = PAD_L
   for (const w of widths) { xs.push(x + w / 2); x += w }
@@ -97,6 +99,7 @@ const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, f
   return (
     <svg className={`tab-bar${selecting ? ' selecting' : ''}`} data-bar={index} width={width} height={height} viewBox={`0 0 ${width} ${height}`}
       onClick={selecting ? () => onBar(index) : undefined}>
+      {mark && <rect className="tab-markband" x={1} y={yTop - 14} width={width - 2} height={yBot - yTop + 28} rx={6} />}
       {loop && <rect className="tab-loopband" x={0} y={yTop - 12} width={width} height={yBot - yTop + 24} />}
       {(loop === 'start' || loop === 'both') && <path className="tab-loopmark" d={`M2,${yTop - 12} h10 M2,${yTop - 12} v${yBot - yTop + 24} M2,${yBot + 12} h10`} />}
       {(loop === 'end' || loop === 'both') && <path className="tab-loopmark" d={`M${width - 2},${yTop - 12} h-10 M${width - 2},${yTop - 12} v${yBot - yTop + 24} M${width - 2},${yBot + 12} h-10`} />}
@@ -306,9 +309,11 @@ interface Props {
   counts?: boolean
   /** chord sheets: the strum pattern to draw */
   strum?: StrumPattern | null
+  /** bars to light up as trouble spots (from the report card) */
+  marks?: number[]
 }
 
-export function TabView({ track, mode, flats, cursor, playing, states, version, spans, flash, loop, selecting = false, onTap, onBar = () => {}, zoom: zoomProp, onZoom, meter = 4, counts = false, strum = null }: Props) {
+export function TabView({ track, mode, flats, cursor, playing, states, version, spans, flash, loop, selecting = false, onTap, onBar = () => {}, zoom: zoomProp, onZoom, meter = 4, counts = false, strum = null, marks }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   // pinch to zoom: Play owns the size (A−/A+); previews keep their own
   const [ownZoom, setOwnZoom] = useState(1)
@@ -442,6 +447,7 @@ export function TabView({ track, mode, flats, cursor, playing, states, version, 
                 flash={fl}
                 flashKey={fl >= 0 ? flash!.key : 0}
                 loop={plp}
+                mark={!!marks?.includes(i)}
                 selecting={selecting}
                 onTap={onTap}
                 onBar={onBar}

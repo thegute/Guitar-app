@@ -26,7 +26,8 @@ import { latencyMs } from '../audio/gear'
 import { chordMatch } from '../audio/chroma'
 import { useInTime, type TrainerOpts } from '../play/useInTime'
 import { usePedals } from '../controls/pedals'
-import { recordRun } from '../play/songStats'
+import { recordRun, songStats } from '../play/songStats'
+import { barMistakes, makeReport, type Report } from '../play/report'
 import { useFoldPosture } from '../play/fold'
 import type { VideoApi } from '../play/inTime'
 import { exampleDoc } from '../tabs/examples'
@@ -146,6 +147,8 @@ export function PlayScreen() {
   const [micError, setMicError] = useState('')
   /** after a clean Wait-for-me run: suggest In time */
   const [nudge, setNudge] = useState(false)
+  /** the report card after a whole run-through */
+  const [report, setReport] = useState<Report | null>(null)
   const [live, setLive] = useState<number | null>(null)
   const [input, setInput] = useState<{ label: string; external: boolean } | null>(null)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
@@ -269,6 +272,7 @@ export function PlayScreen() {
     states.current = new Uint8Array(flat.length)
     setPos(Math.min(doc?.cursor ?? 0, Math.max(0, follow.idx.length - 1)))
     setFeedback(null)
+    setReport(null)
     setInspect(null)
     setVersion(v => v + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -342,7 +346,8 @@ export function PlayScreen() {
   /** Save a run to this song's progress: score plus which bars went wrong. */
   const saveRun = useCallback((score: number, runMode: 'wait' | 'time', speedNow: number, full: boolean, bars?: [number, number]) => {
     const { flat, doc: d } = ref.current
-    if (!d) return
+    if (!d) return null
+    const before = songStats(d.id)
     const miss: Record<number, number> = {}, hit: Record<number, number> = {}
     states.current.forEach((st, i) => {
       const b = flat[i]?.bar
@@ -351,6 +356,14 @@ export function PlayScreen() {
       else if (st === 2 || st === 3) miss[b] = (miss[b] ?? 0) + 1
     })
     recordRun(d.id, { title: d.title, inst: docInstrument(d) }, { score, mode: runMode, speed: speedNow, full, bars }, { miss, hit })
+    return { runs: before?.runs ?? [], best: before?.best ?? 0 }
+  }, [])
+  /** Show the report card for a whole run that just finished. */
+  const showReport = useCallback((score: number, runMode: 'wait' | 'time', speedNow: number, was: { runs: import('../play/songStats').SongRun[]; best: number } | null, stats?: import('../play/inTime').RunStats) => {
+    const { flat } = ref.current
+    const mistakes = barMistakes(states.current, i => flat[i]?.bar, runMode)
+    setReport(makeReport({ score, mode: runMode, speed: speedNow, mistakes, before: was?.runs ?? [], best: was?.best ?? 0, stats }))
+    setNudge(false)
   }, [])
 
   const hitAt = useCallback((step: number, skipped: number, heard: number, chordText?: string) => {
@@ -389,9 +402,11 @@ export function PlayScreen() {
         let ok = 0, n = 0
         for (const i of follow.idx) { const v = st[i]; if (v) { n++; if (v === 1) ok++ } }
         const sc = Math.round((ok / Math.max(1, follow.idx.length)) * 100)
-        if (n) saveRun(sc, 'wait', 1, follow.idx.length > 0 && n >= follow.idx.length * 0.8)
-        // a clean run while waiting for you: time to try it in time
-        if (n && sc >= 85) setNudge(true)
+        const full = follow.idx.length > 0 && n >= follow.idx.length * 0.8
+        const was = n ? saveRun(sc, 'wait', 1, full) : null
+        // the report card: score, trouble bars, what to do next (a clean run suggests In time)
+        if (n && full) showReport(sc, 'wait', 1, was)
+        else if (n && sc >= 85) setNudge(true)
       }
       setPos(next)
     }
@@ -450,6 +465,7 @@ export function PlayScreen() {
     }
     setMicError('')
     stopPreview()
+    setReport(null)
     try {
       await audio().resume()
       const l = new NoteListener()
@@ -537,7 +553,8 @@ export function PlayScreen() {
     onPass: (s, sp) => { if (s.score >= 90) bump('loop90'); if (loop) saveRun(s.score, 'time', sp, false, [loop.from, loop.to]) },
     onFinish: s => {
       if (s.score >= 60) bump(doc?.source === 'lesson' ? 'exercisesFinished' : 'songsFinished')
-      saveRun(s.score, 'time', speed, !loop && s.total > 0, loop ? [loop.from, loop.to] : undefined)
+      const was = saveRun(s.score, 'time', speed, !loop && s.total > 0, loop ? [loop.from, loop.to] : undefined)
+      if (!loop && s.total > 0) showReport(s.score, 'time', speed, was, s)
     },
   })
   // a quick "again" flash on the tab each time the loop goes round (Wait for me and In time)
@@ -560,6 +577,7 @@ export function PlayScreen() {
     if (inTime.running) { inTime.stop(); return }
     if (ready.counting) { ready.cancel(); return }
     stopPreview()
+    setReport(null)
     if (!listening) await toggleListen()
     // a few seconds to get your hands on the guitar, then the count-in bar
     ready.start(() => inTime.start())
@@ -622,6 +640,7 @@ export function PlayScreen() {
   useEffect(() => { stopPreview() }, [flat]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function restart(from = loopRange ? loopRange.a : 0) {
+    setReport(null)
     states.current = new Uint8Array(flat.length)
     setPos(from)
     setFeedback(null)
@@ -630,6 +649,7 @@ export function PlayScreen() {
 
   // ---------- practice loop ----------
   function setLoop(l: { from: number; to: number } | undefined) {
+    setReport(null)
     update({ loop: l })
     setPasses({ n: 0, last: null, best: null })
     stopPreview()
@@ -846,7 +866,7 @@ export function PlayScreen() {
             <PsyDog seed="finished" className="finish-face" />
             <b>Finished!</b>
             <span className="small muted">{firstTry !== null ? `${firstTry}% of notes right first time.` : ''}</span>
-            <button className="btn sm" onClick={() => restart()}>Play again</button>
+            {!report && <button className="btn sm" onClick={() => restart()}>Play again</button>}
           </>
         ) : (
           <>
@@ -1074,6 +1094,16 @@ export function PlayScreen() {
             </span>
           </div>
         )}
+        {report && (
+          <ReportCard r={report} onClose={() => setReport(null)} onNext={() => {
+            const r = report
+            if (r.next.kind === 'loop' && r.loop) { setLoop(r.loop); if (r.next.speed) setSpeed(r.next.speed); countUse('play:report') }
+            else if (r.next.kind === 'intime') { setMode('time'); setSpeed(r.next.speed ?? 0.75); restart(); countUse('play:report') }
+            else if (r.next.kind === 'faster') { setSpeed(r.next.speed ?? 1); restart(); countUse('play:report') }
+            else restart()
+            setReport(null)
+          }} onAgain={() => restart()} />
+        )}
         {take && !recording && (
           <div className="take-bar" role="group" aria-label="Your recording">
             <span className="small"><b>Your take</b> {Math.floor(take.seconds / 60)}:{String(Math.round(take.seconds % 60)).padStart(2, '0')}</span>
@@ -1099,7 +1129,7 @@ export function PlayScreen() {
         )}
         <TabView track={track} mode={labelMode} flats={flats} cursor={inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0 || inTime.running} states={states.current}
           flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} zoom={stand ? standZoom : tabZoom} onZoom={stand ? setStandZoom : setTabZoom}
-          meter={meter} counts={counts} strum={strumPat} />
+          meter={meter} counts={counts} strum={strumPat} marks={report?.bars} />
         {peek.bubble}
         {inTime.running && inTime.countIn > 0 && <div className="count-big" key={inTime.countIn} role="status" aria-live="assertive" data-testid="count-big">{inTime.countIn}</div>}
         {loopBlink && <div className="loop-blink" key={loopBlink.k} role="status">{loopBlink.text}</div>}
@@ -1159,6 +1189,33 @@ export function PlayScreen() {
 
       {gearOpen && <GearSetup onClose={() => setGearOpen(false)} />}
       {optionsPanel}
+    </div>
+  )
+}
+
+/** After a whole run: the score, how it compares, the bars that went wrong (lit up on the tab) and one next step. */
+function ReportCard({ r, onNext, onAgain, onClose }: { r: Report; onNext: () => void; onAgain: () => void; onClose: () => void }) {
+  const diff = r.prev !== undefined ? r.score - r.prev : null
+  const t = r.timing
+  const tone = r.score >= 90 ? 'great' : r.score >= 75 ? 'good' : r.score >= 50 ? 'ok' : 'low'
+  return (
+    <div className={`report-card ${tone}`} role="status" aria-label="How that run went" data-testid="report-card">
+      <div className="report-score" style={{ ['--p' as string]: r.score }}><b>{r.score}</b><small>%</small></div>
+      <div className="report-body">
+        <b className="report-head">{r.headline}</b>
+        <span className="small">
+          {diff === null ? 'Your first full run of this one.' : diff > 0 ? `${diff} better than last time.` : diff < 0 ? `${-diff} under last time: that happens.` : 'Same as last time.'}
+          {r.best > r.score ? ` Best ${r.best}%.` : diff !== null && diff > 0 ? ' Your best yet.' : ''}
+          {r.mode === 'time' && r.speed !== 1 ? ` At ${Math.round(r.speed * 100)}% speed.` : ''}
+        </span>
+        {t && <span className="small muted">{t.onTime} on time, {t.early} early, {t.late} late, {t.missed} missed.{Math.abs(t.meanErr) >= 25 ? (t.meanErr < 0 ? ' You rush a little.' : ' You drag a little.') : ''}</span>}
+        {r.bars.length > 0 && <span className="small"><span className="report-swatch" aria-hidden /> Trouble: {r.bars.length === 1 ? `bar ${r.bars[0] + 1}` : `bars ${r.bars[0] + 1} and ${r.bars[1] + 1}`} (marked on the tab).</span>}
+        <span className="report-btns">
+          <button className="btn primary" onClick={onNext}>{r.next.label}</button>
+          {r.next.kind !== 'again' && r.next.kind !== 'learned' && <button className="btn" onClick={onAgain}>Play again</button>}
+        </span>
+      </div>
+      <button className="btn sm ghost report-x" onClick={onClose} aria-label="Close">✕</button>
     </div>
   )
 }

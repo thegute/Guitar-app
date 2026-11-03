@@ -2033,3 +2033,25 @@ video.mirrored { transform: scaleX(-1); }
 .usage-list li span { display: inline-block; min-width: 0; }
 .usage-list li { font-size: .95rem; }
 .usage-list li b { float: right; font-variant-numeric: tabular-nums; color: var(--ink-2, inherit); }
+.tab-markband { fill: color-mix(in srgb, var(--coral) 14%, transparent); stroke: var(--coral); stroke-width: 2; stroke-dasharray: 6 4; }
+
+/* Play: the report card after a whole run */
+.report-card { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px 40px 12px 12px; margin: 4px 0 8px;
+  border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); animation: report-in .25s ease-out; }
+.report-card .report-score { --c: var(--accent); width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; gap: 1px;
+  background: radial-gradient(closest-side, var(--surface) 78%, transparent 80% 100%), conic-gradient(var(--c) calc(var(--p) * 1%), var(--line) 0); }
+.report-card.great .report-score { --c: var(--mint); }
+.report-card.ok .report-score { --c: var(--gold); }
+.report-card.low .report-score { --c: var(--coral); }
+.report-score b { font-family: var(--display); font-size: 28px; line-height: 1; }
+.report-score small { font-size: 13px; margin-top: 8px; }
+.report-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.report-head { font-family: var(--display); font-size: 22px; line-height: 1.1; }
+.report-swatch { display: inline-block; width: 14px; height: 10px; border-radius: 3px; border: 2px dashed var(--coral); background: color-mix(in srgb, var(--coral) 14%, transparent); vertical-align: -1px; }
+.report-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.report-x { position: absolute; top: 6px; right: 6px; }
+[data-theme='psy'] .report-card { background: #1c0641; }
+[data-theme='psy'] .report-card .report-score { background: radial-gradient(closest-side, #1c0641 78%, transparent 80% 100%), conic-gradient(var(--c) calc(var(--p) * 1%), rgba(255,255,255,.15) 0); }
+@keyframes report-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .report-card { animation: none; } }
+@media (max-width: 400px) { .report-card .report-score { width: 58px; height: 58px; } .report-score b { font-size: 22px; } }
