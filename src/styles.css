@@ -2210,3 +2210,5 @@ video.mirrored { transform: scaleX(-1); }
 .site-hits li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); }
 .site-hits .hit-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .site-hits .select { max-width: 40%; }
+.tx-progress { height: 8px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
+.tx-progress i { display: block; height: 100%; background: var(--accent); transition: width .2s; }

@@ -82,6 +82,21 @@ const errs = (page, where) => { if (page.errors.length) bad(`${where} page error
       await page.context().close()
     }
   }
+  if (want('transcribe')) {
+    const page = await newPage(browser, {}, { width: 840, height: 757 })
+    await nav(page, 'Jam'); await sub(page, 'Find chords')
+    const box = page.locator('[data-testid=transcriber]')
+    await box.locator('[data-testid=tx-file]').setInputFiles(path.join(DIR, 'out', 'ode.wav'))
+    await box.locator('[data-testid=tx-open]').waitFor({ timeout: 90000 }).catch(() => bad('transcribe: no tab after 90 s'))
+    const heard = await box.innerText()
+    const n = /(\d+) notes heard/.exec(heard)?.[1]
+    console.log(`transcribe ode.wav: ${n} notes heard (31 played)`)
+    if (!n || Math.abs(Number(n) - 31) > 4) bad(`transcribe: ${n} notes heard, expected about 31`)
+    await box.locator('[data-testid=tx-open]').click()
+    await page.waitForSelector('.play-head', { timeout: 8000 }).catch(() => bad('transcribe: tab did not open in Play'))
+    errs(page, 'transcribe')
+    await page.context().close()
+  }
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : '\nall good')
   process.exit(problems.length ? 1 : 0)

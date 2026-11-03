@@ -31,6 +31,7 @@ import { GROOVES, GROOVE_GROUPS, KITS, grooveOf, kitInfo, loadKit, kitLoaded, ty
 import { shapesFor as shapesForChord } from '../theory/shapes'
 import { ProgressionTabs } from '../components/ProgressionTabs'
 import { TabMaker } from '../components/TabMaker'
+import { Transcriber } from '../components/Transcriber'
 import { patternForStrum } from '../tabs/picking'
 import { saveSong } from '../tabs/library'
 import { openInPlay } from '../nav'
@@ -732,6 +733,10 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
               setPage('jam')
             }}
             onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
+        </section>
+        <section className="panel stack">
+          <h2 className="sec-title" style={{ margin: 0 }}>Notes from a recording (accurate)</h2>
+          <Transcriber onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
         </section>
       </>)}
     </div>
