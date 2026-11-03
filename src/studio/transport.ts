@@ -5,7 +5,7 @@ import { audio, out } from '../audio/engine'
 import { playDrum, prepareKit, type Voice } from '../audio/drums'
 import { playClick } from '../audio/metronome'
 import type { Handle } from '../audio/pluck'
-import { STEPS_PER_BAR, allRows, totalSteps, type Beat } from './beat'
+import { STEPS_PER_BAR, allRows, beatInPart, curPart, partsMade, playOrder, totalSteps, type Beat, type PartId } from './beat'
 import { instr, loadInstr, playInstr } from './sounds'
 import { isPlain, isUserPad, type PadDef } from './pads'
 import { playPad } from './padPlay'
@@ -42,7 +42,9 @@ export class StudioTransport {
   private raf = 0
   private next = 0
   private nextT = 0
-  private queue: { t: number; s: number }[] = []
+  private queue: { t: number; s: number; part: PartId }[] = []
+  /** the part playing now (patterns A–D) */
+  playPart: PartId = 'A'
   private held: Handle[] = []
   private lastNote = new Map<string, number>()
   layers: LoopLayer[] = []
@@ -103,12 +105,14 @@ export class StudioTransport {
     }
     const now = audio().currentTime
     this.drumBus.gain.setTargetAtTime(beat.drumVol, now, 0.02)
-    for (const t of beat.tracks) {
+    // every part's instruments (the song plays them all)
+    for (const p of partsMade(beat)) for (const t of beatInPart(beat, p).tracks) {
       if (!t.inst.startsWith('pad:')) void loadInstr(t.inst)
       const b = this.bus(t.id)
       b.g.gain.setTargetAtTime(t.mute ? 0 : t.vol, now, 0.02)
       b.send.gain.setTargetAtTime(t.space, now, 0.02)
     }
+    if (!this.playing) this.playPart = curPart(beat)
     // a new tempo keeps the playhead where it is
     if (tempoChanged) {
       const ctx = audio()
@@ -146,7 +150,7 @@ export class StudioTransport {
     const frame = () => {
       const now = ctx.currentTime
       let last = -1
-      while (this.queue.length && this.queue[0].t <= now) last = this.queue.shift()!.s
+      while (this.queue.length && this.queue[0].t <= now) { const q = this.queue.shift()!; last = q.s; this.playPart = q.part }
       if (last >= 0) { this.step = last; this.stepFns.forEach(f => f(last)) }
       this.raf = requestAnimationFrame(frame)
     }
@@ -160,7 +164,10 @@ export class StudioTransport {
     while (this.nextT < ctx.currentTime + 0.12) {
       const s = this.next % n
       const t = this.nextT + this.swingOff(s)
-      const b = this.beat
+      // which part plays this time round (the song chain), else the one you're editing
+      const order = playOrder(this.beat)
+      const part = order[Math.floor(this.next / n) % order.length]
+      const b = beatInPart(this.beat, part)
       for (const r of allRows(b)) {
         const v = r.steps[s]
         if (v > 0) this.drum(r.voice, t, Math.min(1.5, v * r.gain))
@@ -179,7 +186,7 @@ export class StudioTransport {
       if (this.click && s % 4 === 0) playClick(t, 'wood', s % 16 === 0 ? 'accent' : 'beat', 0.6)
       // the loop layers restart at the top of each pass
       if (s === 0 && this.next > 0) this.restartLayers(this.nextT)
-      this.queue.push({ t, s })
+      this.queue.push({ t, s, part })
       this.next++
       this.nextT = this.t0 + this.next * this.stepDur
       if (this.held.length > 300) this.held.splice(0, 150)

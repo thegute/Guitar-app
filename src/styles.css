@@ -2184,3 +2184,17 @@ video.mirrored { transform: scaleX(-1); }
 .st-xy-y { position: absolute; top: 6px; left: 8px; color: var(--ink-2); pointer-events: none; }
 .st-xy-hint { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 20px; color: var(--ink-2); pointer-events: none; }
 [data-theme='psy'] .st-xy { background: radial-gradient(circle at 30% 70%, rgba(255, 63, 216, 0.3), transparent 60%), linear-gradient(135deg, #1c0641, #3a0a52); }
+/* Beat maker: parts A–D and the song */
+.st-parts-wrap { display: grid; gap: 8px; margin: 6px 0; }
+.st-parts { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.st-parts-l { color: var(--ink-2); }
+.st-part { min-width: var(--h-md); min-height: var(--h-sm); border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: 700 18px/1 var(--display); cursor: pointer; }
+.st-part.cur { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.st-part.new { opacity: 0.6; border-style: dashed; font-size: 15px; }
+.st-part.playing { box-shadow: 0 0 0 3px var(--gold); }
+.st-song { display: grid; gap: 8px; padding: 10px; border-radius: var(--r-sm); border: 1px dashed var(--line); }
+.st-chain { display: flex; flex-wrap: wrap; gap: 6px; }
+.st-chain-chip { display: inline-flex; align-items: center; gap: 4px; font: 700 18px/1 var(--display); }
+.st-chain-chip button { border: 0; background: none; color: inherit; min-width: 26px; min-height: 26px; cursor: pointer; }
+.btn.sm.on { border-color: var(--gold); color: var(--gold-text); }
+[data-theme='psy'] .st-part:not(.cur) { background: #1c0641; color: #f4eaff; }

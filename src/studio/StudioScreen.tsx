@@ -25,6 +25,7 @@ import { askAssistant } from '../assistant/bus'
 import {
   PADS, STARTERS, deleteStored, loadBeat, newId, onBeatChange, padLabel, padsFor, saveBeat, savedBeats, setBars, storeBeat, totalSteps, voiceLabel,
   PATTERNS, patternLayer, type Beat, type DrumLayer, type PNote, type Pattern, type Track,
+  PART_IDS, beatInPart, curPart, deletePart, partsMade, switchPart, type PartId,
 } from './beat'
 import { CHORD_TYPES, INSTRS, INSTR_GROUPS, chordNotes, instr, keyChord, loadInstr, type Voicing } from './sounds'
 import { StudioTransport, type LoopLayer } from './transport'
@@ -163,6 +164,7 @@ export function StudioScreen({ active }: { active: boolean }) {
         <button className="btn sm" onClick={undo} disabled={!history.current.length} aria-label="Undo">↶</button>
         <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')}><Ico n="sparkles" /> Ideas</button>
       </div>
+      <PartsBar t={tr()} beat={beat} setBeat={setBeat} />
       <div className="st-row">
         <label className="field st-field"><span>Start from</span>
           <select className="select" value="" onChange={e => { const s = STARTERS.find(x => x.id === e.target.value); if (s) { setBeat(s.make()); setMsg(`${s.label}: press ▶, then change anything.`) } }}>
@@ -1161,7 +1163,8 @@ function Looper({ t, beat, loops, playing, play, pedalMode, setPedalMode }: { t:
 function Practice({ t, beat, flats }: { t: StudioTransport; beat: Beat; flats: boolean }) {
   const inst = useInstrument()
   const step = useStep(t)
-  const chords = useMemo(() => beatChords(beat), [beat])
+  const part = step >= 0 ? t.playPart : curPart(beat)
+  const chords = useMemo(() => beatChords(beatInPart(beat, part)), [beat, part])
   const options = scalesFor(beat.minor)
   const [scalePick, setScaleId] = usePersist(beat.minor ? 'studioScaleMinor' : 'studioScaleMajor', options[0])
   const scaleId = options.includes(scalePick) ? scalePick : options[0]
@@ -1317,5 +1320,51 @@ function Effects({ t, playing, play }: { t: StudioTransport; playing: boolean; p
       </div>
       <p className="small muted" style={{ margin: 0 }}>The effect goes over the whole beat and your loops while your finger is down, then back to normal (echo and reverb ring out). Stutter repeats the bit you touched, on the beat.</p>
     </Win>
+  )
+}
+
+// ───────────────────────── patterns A–D and the song chain
+function PartsBar({ t, beat, setBeat }: { t: StudioTransport; beat: Beat; setBeat: SetBeat }) {
+  const step = useStep(t)
+  const [song, setSong] = usePersist('studioSongOpen', false)
+  const made = partsMade(beat)
+  const cur = curPart(beat)
+  const chain = beat.chain ?? []
+  const playingPart = step >= 0 ? t.playPart : null
+  return (
+    <div className="st-parts-wrap">
+      <div className="st-parts" role="group" aria-label="Parts">
+        <span className="small st-parts-l">Part</span>
+        {PART_IDS.map(p => {
+          const has = made.includes(p)
+          return (
+            <button key={p} className={`st-part${p === cur ? ' cur' : ''}${has ? '' : ' new'}${playingPart === p ? ' playing' : ''}`} aria-pressed={p === cur}
+              onClick={() => setBeat(b => switchPart(b, p, 'copy'))} title={has ? `Edit part ${p}` : `Make part ${p} (starts as a copy of ${cur})`} data-testid={`part-${p}`}>
+              {has ? p : `+${p}`}
+            </button>
+          )
+        })}
+        <button className={`btn sm${beat.chainOn ? ' on' : ''}`} aria-expanded={song} onClick={() => setSong(!song)} data-testid="song-open">Song{beat.chainOn && chain.length ? ` (${chain.join(' ')})` : ''}</button>
+      </div>
+      {song && (
+        <div className="st-song" data-testid="song">
+          <p className="small muted" style={{ margin: 0 }}>Make a verse in A and a chorus in B (a new part starts as a copy, then change it), then line them up. Each part plays once round, in this order, then the song starts again.</p>
+          <div className="st-chain" aria-label="Song order">
+            {chain.length === 0 && <span className="small muted">Empty: tap a part below to add it.</span>}
+            {chain.map((p, i) => (
+              <span key={i} className={`chip st-chain-chip${playingPart === p && beat.chainOn ? ' on' : ''}`}>{p}
+                <button onClick={() => setBeat(b => ({ ...b, chain: (b.chain ?? []).filter((_, k) => k !== i) }))} aria-label={`Remove ${p} from the song`}>✕</button>
+              </span>
+            ))}
+          </div>
+          <div className="row" style={{ gap: 6 }}>
+            {made.map(p => <button key={p} className="btn sm" onClick={() => setBeat(b => ({ ...b, chain: [...(b.chain ?? []), p] }))} data-testid={`chain-add-${p}`}>+ {p}</button>)}
+            {chain.length > 0 && <button className="btn sm ghost" onClick={() => setBeat(b => ({ ...b, chain: [] }))}>Clear</button>}
+          </div>
+          <label className="ex-check"><input type="checkbox" checked={!!beat.chainOn} onChange={e => setBeat(b => ({ ...b, chainOn: e.target.checked }))} data-testid="chain-on" /> Play the song (off: ▶ loops the part you're editing)</label>
+          {made.length > 1 && cur !== 'A' && <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setBeat(b => switchPart(deletePart(switchPart(b, 'A'), cur), 'A'))}>Delete part {cur}</button>}
+        </div>
+      )}
+    </div>
   )
 }

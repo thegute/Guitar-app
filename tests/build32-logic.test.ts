@@ -51,3 +51,32 @@ import { fxParams } from '../src/studio/fx'
   assert.ok((fxParams('crush', 1, 1, sd) as { bits: number }).bits <= 2)
   console.log('effects pad: ok')
 }
+
+// ---- parts A–D and the song chain
+import { STARTERS, switchPart, partsMade, playOrder, beatInPart, setBars, deletePart, curPart } from '../src/studio/beat'
+{
+  let b = STARTERS.find(s => s.id === 'pop')!.make()
+  assert.deepEqual(partsMade(b), ['A'])
+  const kicksA = b.rows.find(r => r.voice === 'kick')!.steps.join()
+  b = switchPart(b, 'B')           // B starts as a copy of A
+  assert.equal(curPart(b), 'B'); assert.deepEqual(partsMade(b), ['A', 'B'])
+  b = { ...b, rows: b.rows.map(r => (r.voice === 'kick' ? { ...r, steps: r.steps.map(() => 0) } : r)) }   // change B
+  assert.equal(beatInPart(b, 'A').rows.find(r => r.voice === 'kick')!.steps.join(), kicksA, 'A kept')
+  b = switchPart(b, 'A')
+  assert.equal(b.rows.find(r => r.voice === 'kick')!.steps.join(), kicksA)
+  assert.ok(beatInPart(b, 'B').rows.find(r => r.voice === 'kick')!.steps.every(v => v === 0), 'B kept its change')
+  // the song plays only when on, and only parts that exist
+  b = { ...b, chain: ['A', 'A', 'B', 'C', 'A'] }
+  assert.deepEqual(playOrder(b), ['A'])
+  b = { ...b, chainOn: true }
+  assert.deepEqual(playOrder(b), ['A', 'A', 'B', 'A'])
+  // bars change every part
+  b = setBars(b, 8)
+  assert.equal(beatInPart(b, 'B').rows[0].steps.length, 128)
+  b = deletePart(b, 'B')
+  assert.deepEqual(partsMade(b), ['A']); assert.deepEqual(b.chain, ['A', 'A', 'C', 'A'])
+  // an empty new part
+  const e = switchPart(b, 'C', 'empty')
+  assert.ok(e.rows.every(r => r.steps.every(v => v === 0)) && e.tracks.every(t => t.notes.length === 0))
+  console.log('parts and song: ok')
+}

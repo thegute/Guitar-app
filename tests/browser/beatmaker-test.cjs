@@ -179,6 +179,36 @@ async function hold(page, sel, ms) {
     await page.context().close()
   }
 
+  // ---- parts A–D and the song chain
+  if (want('song')) for (const vp of [{ width: 412, height: 915 }, { width: 840, height: 757 }]) {
+    const page = await newPage(browser, vp)
+    await page.locator('button:has-text("Key, bars, save")').click()
+    await page.locator('.st-bars button:has-text("1")').click()
+    await page.locator('[data-testid=part-B]').click()
+    let b = await beat(page)
+    if (b.part !== 'B' || !b.parts?.A) bad('making part B failed')
+    await page.locator('[data-testid=song-open]').click()
+    await page.locator('[data-testid=chain-add-A]').click()
+    await page.locator('[data-testid=chain-add-B]').click()
+    await page.locator('[data-testid=chain-on]').check()
+    b = await beat(page)
+    if (JSON.stringify(b.chain) !== '["A","B"]' || !b.chainOn) bad(`song not saved: ${JSON.stringify(b.chain)} ${b.chainOn}`)
+    await page.locator('.st-play').first().click()
+    const seen = new Set()
+    for (let i = 0; i < 30; i++) {
+      await page.waitForTimeout(250)
+      const p = await page.locator('.st-part.playing').textContent().catch(() => '')
+      if (p) seen.add(p.trim())
+    }
+    await page.locator('.st-play').first().click()
+    console.log(`${vp.width}px song: parts heard ${[...seen].join(' ')}`)
+    if (!(seen.has('A') && seen.has('B'))) bad(`song did not play both parts (${[...seen].join(',')})`)
+    await page.screenshot({ path: path.join(OUT, `bm-song-${vp.width}.png`) })
+    if (await sideways(page)) bad(`song bar scrolls sideways at ${vp.width}`)
+    errs(page, `song ${vp.width}`)
+    await page.context().close()
+  }
+
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : '\nbeat maker: all good')
   process.exit(problems.length ? 1 : 0)

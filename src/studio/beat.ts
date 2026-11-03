@@ -27,7 +27,16 @@ export interface Beat {
   voiceVol?: Partial<Record<string, number>>
   /** what each pad plays when it isn't the kit's own drum (your recordings, instrument notes and chords, settings) */
   pads?: Partial<Record<string, PadDef>>
+  /** patterns A–D: the one you're editing lives in rows / layers / tracks, the others are kept here */
+  part?: PartId
+  parts?: Partial<Record<PartId, PartContent>>
+  /** the song: parts in order (A A B A …), played when chainOn */
+  chain?: PartId[]
+  chainOn?: boolean
 }
+export type PartId = 'A' | 'B' | 'C' | 'D'
+export const PART_IDS: PartId[] = ['A', 'B', 'C', 'D']
+export interface PartContent { rows: DrumRow[]; layers?: DrumLayer[]; tracks: Track[] }
 export interface DrumLayer { id: string; label: string; rows: DrumRow[]; mute?: boolean; vol?: number }
 export const totalSteps = (b: Beat) => b.bars * STEPS_PER_BAR
 export const newId = () => Math.random().toString(36).slice(2, 9)
@@ -182,15 +191,56 @@ export function storeBeat(b: Beat) {
 }
 export function deleteStored(name: string) { try { localStorage.setItem(SAVED, JSON.stringify(savedBeats().filter(x => x.name !== name))) } catch { /* noop */ } }
 
-/** Change the number of bars, repeating what's there (or cutting it). */
+/** Change the number of bars, repeating what's there (or cutting it), in every part. */
 export function setBars(b: Beat, bars: Beat['bars']): Beat {
   const n = bars * 16, old = totalSteps(b)
-  return {
-    ...b, bars,
-    rows: b.rows.map(r => ({ ...r, steps: Array.from({ length: n }, (_, i) => r.steps[i % old] ?? 0) })),
-    layers: (b.layers ?? []).map(L => ({ ...L, rows: L.rows.map(r => ({ ...r, steps: Array.from({ length: n }, (_, i) => r.steps[i % old] ?? 0) })) })),
-    tracks: b.tracks.map(t => ({ ...t, notes: n > old ? Array.from({ length: n / old }, (_, k) => t.notes.map(x => ({ ...x, s: x.s + k * old }))).flat() : t.notes.filter(x => x.s < n) })),
-  }
+  const fit = (c: PartContent): PartContent => ({
+    rows: c.rows.map(r => ({ ...r, steps: Array.from({ length: n }, (_, i) => r.steps[i % old] ?? 0) })),
+    layers: (c.layers ?? []).map(L => ({ ...L, rows: L.rows.map(r => ({ ...r, steps: Array.from({ length: n }, (_, i) => r.steps[i % old] ?? 0) })) })),
+    tracks: c.tracks.map(t => ({ ...t, notes: n > old ? Array.from({ length: n / old }, (_, k) => t.notes.map(x => ({ ...x, s: x.s + k * old }))).flat() : t.notes.filter(x => x.s < n) })),
+  })
+  const parts = b.parts ? Object.fromEntries(Object.entries(b.parts).map(([k, c]) => [k, c ? fit(c) : c])) as Beat['parts'] : undefined
+  return { ...b, bars, ...fit({ rows: b.rows, layers: b.layers, tracks: b.tracks }), ...(parts ? { parts } : {}) }
+}
+
+// ---- patterns A–D and the song chain
+export const curPart = (b: Beat): PartId => b.part ?? 'A'
+/** A part's content (the one being edited is the beat's own rows, layers and tracks). */
+export function partOf(b: Beat, id: PartId): PartContent | null {
+  if (id === curPart(b)) return { rows: b.rows, layers: b.layers, tracks: b.tracks }
+  return b.parts?.[id] ?? null
+}
+/** The parts that exist, in order. */
+export const partsMade = (b: Beat): PartId[] => PART_IDS.filter(p => !!partOf(b, p))
+/** Edit another part. A new part starts as a copy of this one (or empty), so a chorus can grow out of the verse. */
+export function switchPart(b: Beat, id: PartId, start: 'copy' | 'empty' = 'copy'): Beat {
+  const cur = curPart(b)
+  if (id === cur) return b
+  const parts = { ...b.parts, [cur]: { rows: b.rows, layers: b.layers, tracks: b.tracks } }
+  const n = totalSteps(b)
+  const next = b.parts?.[id] ?? (start === 'copy'
+    ? { rows: b.rows.map(r => ({ ...r, steps: [...r.steps] })), layers: (b.layers ?? []).map(l => ({ ...l, id: newId(), rows: l.rows.map(r => ({ ...r, steps: [...r.steps] })) })), tracks: b.tracks.map(t => ({ ...t, notes: [...t.notes] })) }
+    : { rows: b.rows.map(r => ({ ...r, steps: Array(n).fill(0) })), layers: [], tracks: b.tracks.map(t => ({ ...t, notes: [] })) })
+  delete parts[id]
+  return { ...b, part: id, parts, rows: next.rows, layers: next.layers ?? [], tracks: next.tracks }
+}
+/** Remove a part (not the one you're editing); it leaves the song too. */
+export function deletePart(b: Beat, id: PartId): Beat {
+  if (id === curPart(b)) return b
+  const parts = { ...b.parts }
+  delete parts[id]
+  return { ...b, parts, chain: (b.chain ?? []).filter(p => p !== id) }
+}
+/** The order the beat plays in: the song when it's on, else just the part you're editing. */
+export function playOrder(b: Beat): PartId[] {
+  const made = new Set(partsMade(b))
+  const c = (b.chain ?? []).filter(p => made.has(p))
+  return b.chainOn && c.length ? c : [curPart(b)]
+}
+/** A beat as it sounds in one part (for the player and Practise over it). */
+export function beatInPart(b: Beat, id: PartId): Beat {
+  const c = partOf(b, id)
+  return c ? { ...b, rows: c.rows, layers: c.layers, tracks: c.tracks } : b
 }
 
 // listeners: the assistant (and other screens) can change the beat while the beat maker is open
