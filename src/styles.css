@@ -2073,3 +2073,39 @@ video.mirrored { transform: scaleX(-1); }
 .tvn-wait { display: flex; flex-direction: column; gap: 4px; border-style: dashed; }
 .tvn-wait b { font-family: var(--display); font-size: 22px; }
 [data-theme='psy'] .tvn-side { background: #24094f; }
+
+/* Music stand, big view (the Fold's cover screen): the note or chord huge, big buttons, readable from 3 feet */
+.play.stand.big .tab-view, .play.stand.big .loop-blink, .play.stand.big .count-big, .play.stand.big .report-card, .play.stand.big .cap { display: none !important; }
+.remote { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; padding: 8px 4px calc(6px + var(--sab, 0px)); }
+.remote-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.remote-title { font-family: var(--display); font-size: 20px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.remote-bar { font-family: var(--display); font-weight: 700; font-size: 30px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.remote-main { flex: 1 1 auto; min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 4px;
+  border-radius: 24px; border: 3px solid var(--line); background: var(--surface); padding: 10px; transition: border-color .15s, background-color .15s; }
+.remote.fb-ok .remote-main { border-color: var(--mint); background: color-mix(in srgb, var(--mint) 14%, var(--surface)); }
+.remote.fb-bad .remote-main { border-color: var(--coral); background: color-mix(in srgb, var(--coral) 12%, var(--surface)); }
+.remote-chord, .remote-fret, .remote-count { font-family: var(--display); font-weight: 700; line-height: .95; letter-spacing: -.01em; }
+.remote-chord { font-size: clamp(84px, 30vw, 170px); color: var(--gold-text); }
+.remote-fret { font-size: clamp(96px, 34vw, 190px); }
+.remote-count { font-size: clamp(110px, 40vw, 220px); color: var(--accent); }
+.remote-sub { font-size: 24px; font-weight: 600; color: var(--ink-2); }
+.remote-fb { font-family: var(--display); font-size: 34px; font-weight: 700; }
+.remote-fb.ok { color: var(--mint-text); }
+.remote-fb.bad { color: var(--coral); }
+.remote-chords { display: flex; justify-content: center; gap: 22px; font-size: 24px; color: var(--ink-2); }
+.remote-chords b { font-family: var(--display); font-size: 36px; color: var(--ink); margin-left: 6px; }
+.remote-btns { display: flex; flex-direction: column; gap: 10px; }
+.remote-go { min-height: 84px; border-radius: 22px; border: 0; background: var(--accent); color: var(--accent-ink); font: 700 34px/1 var(--display); cursor: pointer; }
+.remote-go.on { background: var(--coral); color: #fff; }
+.remote-row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.remote-b { flex: 1 1 0; min-width: 0; min-height: 68px; border-radius: 18px; border: 2px solid var(--line); background: var(--surface); color: var(--ink); font: 700 26px/1 var(--display); cursor: pointer; padding: 0 6px; white-space: nowrap; }
+.remote-row .remote-b[aria-label='Slower'], .remote-row .remote-b[aria-label='Faster'], .remote-row .remote-b[aria-label='Back to the start'] { font-size: 36px; }
+@media (max-width: 440px) { .remote-row .remote-b { font-size: 21px; } .remote-speed { min-width: 60px; font-size: 26px; } }
+.remote-b.on { border-color: var(--gold); color: var(--gold-text); }
+.remote-speed { flex: 0 0 auto; min-width: 72px; text-align: center; font: 700 30px/1 var(--display); font-variant-numeric: tabular-nums; }
+.remote-small .remote-b { min-height: 52px; font-size: 20px; }
+[data-theme='psy'] .remote-main, [data-theme='psy'] .remote-b { background: #1c0641; color: #f4eaff; }
+[data-theme='psy'] .remote.fb-ok .remote-main { background: #0b3a3a; }
+[data-theme='psy'] .remote.fb-bad .remote-main { background: #4a0b2c; }
+@media (prefers-reduced-motion: reduce) { .remote-main { transition: none; } }
+.remote-row .remote-loop { flex-grow: 1.6; }

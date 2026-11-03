@@ -144,6 +144,11 @@ export function PlayScreen() {
   // Music stand: only the tab (much bigger) and one row of big buttons. Tidy: while you play, the other panels fold away.
   const [stand, setStand] = useState(false)
   const [standZoom, setStandZoom] = usePersist('standZoom', 1.6)
+  // the music stand's big view (remote): on narrow screens (the Fold's cover screen) unless you pick the tab
+  const [standView, setStandView] = useState<'auto' | 'tab' | 'big'>('auto')
+  useEffect(() => { if (!stand) setStandView('auto') }, [stand])
+  const narrow = useMedia('(max-width: 480px)')
+  const bigView = stand && (standView === 'big' || (standView === 'auto' && narrow))
   const [tidy, setTidy] = usePersist('playTidy', true)
   const lastOnset = useRef(0)
   const [listening, setListening] = useState(false)
@@ -785,6 +790,7 @@ export function PlayScreen() {
   // what you use (counted on this phone only)
   useEffect(() => { if (opts) countUse('play:options') }, [opts])
   useEffect(() => { if (stand) countUse('play:stand') }, [stand])
+  useEffect(() => { if (bigView) countUse('play:remote') }, [bigView])
   useEffect(() => { if (recording) countUse('play:record') }, [recording])
   useEffect(() => { if (loop) countUse('play:loop') }, [loop?.from, loop?.to]) // eslint-disable-line react-hooks/exhaustive-deps
   const hearing = playAt >= 0
@@ -1099,7 +1105,7 @@ export function PlayScreen() {
   const playH = () => playRef.current?.clientHeight ?? 600
   const playW = () => playRef.current?.clientWidth ?? 900
   const cls = `play view-${view}${showVideo && doc.youtube ? ' has-video' : ''}${split ? ' tabletop' : ''}${manualSplit ? ' manual-split' : ''}` +
-    `${sideOpen ? '' : ' side-closed'}${soloOpen ? '' : ' solo-closed'}${focus || stand || (tidyNow && !videoShown) ? ' focus' : ''}${stand ? ' stand' : ''}${tidyNow ? ' tidy' : ''}${lay.topH > 0 ? ' sized-top' : ''}`
+    `${sideOpen ? '' : ' side-closed'}${soloOpen ? '' : ' solo-closed'}${focus || stand || (tidyNow && !videoShown) ? ' focus' : ''}${stand ? ' stand' : ''}${bigView ? ' big' : ''}${tidyNow ? ' tidy' : ''}${lay.topH > 0 ? ' sized-top' : ''}`
   return (
     <div ref={playRef} className={cls}
       style={{
@@ -1213,7 +1219,61 @@ export function PlayScreen() {
         {peek.bubble}
         {inTime.running && inTime.countIn > 0 && <div className="count-big" key={inTime.countIn} role="status" aria-live="assertive" data-testid="count-big">{inTime.countIn}</div>}
         {loopBlink && <div className="loop-blink" key={loopBlink.k} role="status">{loopBlink.text}</div>}
-        {stand && (
+        {bigView && (() => {
+          const at = inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat
+          const f = at >= 0 ? flat[at] : undefined
+          const notes = f ? playable(f.step) : []
+          const si = at >= 0 ? timeline.at[at] : -1
+          const chordNow = (f?.step.chord ?? timeline.spans[si]?.name) || ''
+          const chordNext = si >= 0 ? timeline.spans[si + 1]?.name ?? '' : ''
+          const isChord = new Set(notes.map(n => n.midi % 12)).size >= 3
+          const fbWait = mode === 'wait' && feedback ? (feedback.ok ? { ok: true, text: '✓ Got it' } : { ok: false, text: `✗ That was ${noteName(feedback.heard, flats)}` }) : null
+          const fbTime = mode === 'time' && inTime.running && inTime.feedback
+            ? { ok: inTime.feedback.j === 'perfect' || inTime.feedback.j === 'good', text: inTime.feedback.j === 'perfect' ? 'On time!' : inTime.feedback.j === 'good' ? 'Good' : inTime.feedback.j === 'miss' ? 'Missed one' : inTime.feedback.j === 'early' ? 'Early' : 'Late' }
+            : null
+          const fb = fbTime ?? fbWait
+          return (
+            <div className={`remote${fb ? (fb.ok ? ' fb-ok' : ' fb-bad') : ''}`} data-testid="remote" role="region" aria-label="Big view for the music stand">
+              <div className="remote-top">
+                <span className="remote-title">{doc.title}</span>
+                <span className="remote-bar">{done && mode === 'wait' ? 'Finished!' : `Bar ${(f?.bar ?? 0) + 1} / ${track.bars.length}`}{loop ? ` · ⟲ ${loop.from === loop.to ? loop.from + 1 : `${loop.from + 1}–${loop.to + 1}`}` : ''}</span>
+              </div>
+              <div className="remote-main" key={fb ? `${fb.text}${feedback?.heard ?? ''}${inTime.feedback?.key ?? ''}` : 'x'}>
+                {inTime.running && inTime.countIn > 0 ? <b className="remote-count">{inTime.countIn}</b>
+                  : isChord || (chordNow && !notes.length) ? <>
+                    <b className="remote-chord">{chordNow || 'Chord'}</b>
+                    {isChord && <span className="remote-sub">strum it</span>}
+                  </> : notes.length ? <>
+                    <b className="remote-fret">{notes.map(n => n.fret).join(' · ')}</b>
+                    <span className="remote-sub">{notes.map(n => `${stringLabel(track.tuning, n.string, flats)} string = ${noteName(n.midi, flats)}`).join(', ')}</span>
+                  </> : <b className="remote-chord">{done ? '✓' : '–'}</b>}
+                {fb && <span className={`remote-fb ${fb.ok ? 'ok' : 'bad'}`}>{fb.text}</span>}
+              </div>
+              {(chordNow || chordNext) && !isChord && <div className="remote-chords">{chordNow && <span>Chord <b>{chordNow}</b></span>}{chordNext && <span>next <b>{chordNext}</b></span>}</div>}
+              {isChord && chordNext && <div className="remote-chords"><span>next <b>{chordNext}</b></span></div>}
+              <div className="remote-btns">
+                {mode === 'time' ? (
+                  <button className={`remote-go${inTime.running || ready.counting ? ' on' : ''}`} onClick={() => void toggleRun()} aria-pressed={inTime.running}>{inTime.running || ready.counting ? '■ Stop' : '▶ Start'}</button>
+                ) : (
+                  <button className={`remote-go${listening ? ' on' : ''}`} onClick={() => void toggleListen()} aria-pressed={listening}>{listening ? '■ Stop' : '▶ Listen'}</button>
+                )}
+                <div className="remote-row">
+                  <button className={`remote-b remote-loop${loop ? ' on' : ''}`} onClick={() => { if (loop) setLoop(undefined); else { const b = f?.bar ?? 0; setLoop({ from: b, to: b }) } }} aria-pressed={!!loop}
+                    aria-label={loop ? 'Stop looping' : 'Loop the bar you are on'}>{loop ? '⟲ Off' : '⟲ Loop'}</button>
+                  <button className="remote-b" onClick={() => { setSpeed(Math.max(0.25, Math.round((speed - 0.05) * 20) / 20)); if (playAt >= 0) stopPreview() }} aria-label="Slower">−</button>
+                  <b className="remote-speed" aria-label="Speed">{Math.round(speed * 100)}%</b>
+                  <button className="remote-b" onClick={() => { setSpeed(Math.min(1.5, Math.round((speed + 0.05) * 20) / 20)); if (playAt >= 0) stopPreview() }} aria-label="Faster">+</button>
+                  <button className="remote-b" onClick={() => (inTime.running ? (inTime.stop(), inTime.start()) : restart())} aria-label="Back to the start">⏮</button>
+                </div>
+                <div className="remote-row remote-small">
+                  <button className="remote-b" onClick={() => setStandView('tab')}>Show the tab</button>
+                  <button className="remote-b" onClick={() => setStand(false)} aria-label="Leave music stand">✕ Done</button>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+        {stand && !bigView && (
           <div className="stand-bar" role="toolbar" aria-label="Music stand controls" data-testid="stand-bar">
             {mode === 'time' ? (
               <button className={`stand-go${inTime.running || ready.counting ? ' on' : ''}`} onClick={() => void toggleRun()} aria-pressed={inTime.running}>{inTime.running || ready.counting ? '■ Stop' : '▶ Start'}</button>
@@ -1228,6 +1288,7 @@ export function PlayScreen() {
               <button className="stand-b" onClick={() => { setSpeed(Math.min(1.5, Math.round((speed + 0.05) * 20) / 20)); if (playAt >= 0) stopPreview() }} aria-label="Faster">+</button>
             </span>
             <button className="stand-b" onClick={() => (inTime.running ? (inTime.stop(), inTime.start()) : restart())} aria-label="Back to the start">⏮</button>
+            <button className="stand-b" onClick={() => setStandView('big')} aria-label="Big view: the note or chord, huge">Big</button>
             <button className="stand-b stand-x" onClick={() => setStand(false)} aria-label="Leave music stand">✕</button>
           </div>
         )}

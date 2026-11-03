@@ -194,6 +194,45 @@ async function playThrough(page) {
     await page.context().close()
   }
 
+  // ---- the cover-screen remote: the music stand on a narrow screen shows the note huge with big buttons
+  if (want('remote')) for (const vp of [{ width: 412, height: 915 }, { width: 360, height: 760 }, { width: 840, height: 757 }]) {
+    const page = await newPage(browser, { 'kg:tab2': 'play' }, vp)
+    await page.waitForSelector('.tab-note', { timeout: 8000 })
+    await page.locator('.song-check button:has-text("Got it")').click({ timeout: 2500 }).catch(() => {})
+    await page.locator('.stand-btn').click()
+    await page.waitForTimeout(300)
+    const big = await page.locator('[data-testid=remote]').count()
+    if (vp.width <= 480 && !big) bad(`${vp.width}: music stand did not open the big view`)
+    if (vp.width > 480) {
+      if (big) bad('inner screen should open the tab stand first')
+      await page.locator('.stand-bar button:has-text("Big")').click()
+    }
+    await page.waitForSelector('[data-testid=remote]')
+    const fs = await page.locator('.remote-fret, .remote-chord').first().evaluate(e => parseFloat(getComputedStyle(e).fontSize))
+    if (fs < 80) bad(`${vp.width}: the big note is only ${fs}px`)
+    const btnH = await page.locator('.remote-go').evaluate(e => e.getBoundingClientRect().height)
+    if (btnH < 70) bad(`${vp.width}: start button only ${btnH}px tall`)
+    // fits on one screen, nothing sideways
+    const bottom = await page.locator('.remote-small').evaluate(e => e.getBoundingClientRect().bottom)
+    if (bottom > vp.height + 1) bad(`${vp.width}: remote buttons below the screen (${bottom})`)
+    if (await sideways(page)) bad(`${vp.width}: remote scrolls sideways`)
+    // listen: the big view follows the notes
+    await page.locator('.remote-go').click()
+    await page.waitForTimeout(4000)
+    const bar = await page.locator('.remote-bar').textContent()
+    const fb = await page.locator('.remote-fb').count()
+    console.log(`${vp.width}px remote: ${fs}px note, ${bar}, feedback shown: ${!!fb}`)
+    if (!fb) bad(`${vp.width}: remote shows no right/wrong while listening`)
+    await page.screenshot({ path: path.join(OUT, `b30-remote-${vp.width}.png`) })
+    await page.locator('.remote-go').click()
+    await page.locator('.remote-b:has-text("Show the tab")').click()
+    if (!(await page.locator('.stand-bar').count())) bad('Show the tab did not go back to the tab stand')
+    await page.locator('.stand-x').click()
+    if (await page.locator('.stand-bar, [data-testid=remote]').count()) bad('leaving the stand left it on screen')
+    errs(page, `remote ${vp.width}`)
+    await page.context().close()
+  }
+
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : '\nbuild 30: all good')
   process.exit(problems.length ? 1 : 0)
