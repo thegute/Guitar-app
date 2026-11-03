@@ -121,3 +121,15 @@ import { systemPrompt } from '../src/assistant/plan'
   assert.equal(v.slice(0, v.indexOf('--- NOW ---')), t.slice(0, t.indexOf('--- NOW ---')), 'the cached part is the same')
   console.log('helper voice and length: ok')
 }
+{
+  const { LESSON_EXTRAS, lessonVideo } = await import('../src/learn/lessonExtras')
+  const ids = Object.values(LESSON_EXTRAS).flatMap(x => [x.video, x.uke, x.bari]).filter(Boolean).map(v => v!.id)
+  for (const id of ids) assert.match(id, /^[\w-]{11}$/, `youtube id ${id}`)
+  assert.equal(lessonVideo('reading', 'tenor')?.id, 'tk7N8pfhtnA')
+  assert.equal(lessonVideo('reading', 'baritone')?.id, 'gADlway3GVA')
+  assert.equal(lessonVideo('reading', 'guitar')?.id, LESSON_EXTRAS.reading.video!.id)
+  assert.equal(lessonVideo('slash', 'baritone')?.id, LESSON_EXTRAS.slash.video!.id, 'falls back to the guitar video')
+  const uke = Object.values(LESSON_EXTRAS).filter(x => x.uke).length, bari = Object.values(LESSON_EXTRAS).filter(x => x.bari).length
+  assert.ok(uke >= 20 && bari >= 10, `uke ${uke} bari ${bari}`)
+  console.log(`lesson videos per instrument (${uke} uke, ${bari} baritone): ok`)
+}

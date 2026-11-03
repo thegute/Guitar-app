@@ -10,7 +10,7 @@ import type { Instrument } from '../instrument'
 import { CHAPTERS, LESSONS, lessonById, type Block, type Lesson } from './lessons'
 import { addXp, bump, logDone, usePracticeTimer } from './progress'
 import type { Go } from './path'
-import { LESSON_EXTRAS, videoThumb, videoUrl, type LessonEx, type LessonVideo } from './lessonExtras'
+import { LESSON_EXTRAS, lessonVideo, videoThumb, videoUrl, type LessonEx, type LessonVideo } from './lessonExtras'
 import { useScreenInfo } from '../assistant/screen'
 
 const READ = 'kg:lessonsRead'
@@ -173,6 +173,8 @@ export function LessonView({ id, inst, onExit, onOpen, onGo, onExercise }: { id:
   const prev = LESSONS[i - 1]
   const chapter = CHAPTERS.find(c => c.id === lesson.chapter)
   const extra = LESSON_EXTRAS[lesson.id]
+  const video = lessonVideo(lesson.id, inst.id)
+  const ownVideo = (inst.id === 'tenor' && extra?.uke) || (inst.id === 'baritone' && extra?.bari)
   const lessonText = lesson.blocks.map(b => ('p' in b ? b.p : 'list' in b ? b.list.map(x => `- ${x}`).join(' ') : 'tip' in b ? `Tip: ${b.tip}` : 'play' in b ? `[sound example: ${b.play.label}]` : 'prog' in b ? `[chord example: ${b.prog.label}]` : 'practice' in b ? `[practice: ${b.practice.label}]` : '')).filter(Boolean).join(' ').replace(/\s+/g, ' ')
   useScreenInfo('lesson', {
     label: `Theory lesson "${lesson.title}"`,
@@ -192,16 +194,16 @@ export function LessonView({ id, inst, onExit, onOpen, onGo, onExercise }: { id:
       <div className="lesson-body">
         {lesson.blocks.map((b, k) => <BlockView key={k} b={b} inst={inst} onGo={onGo} />)}
       </div>
-      {extra?.video && (
+      {video && (
         <section className="stack" style={{ gap: 8 }}>
           <h2 className="lesson-step"><span aria-hidden="true">2</span> Watch</h2>
-          <p className="small muted" style={{ margin: 0 }}>The same idea, explained on video by a YouTube teacher.</p>
-          <LessonVideoCard video={extra.video} />
+          <p className="small muted" style={{ margin: 0 }}>{inst.id === 'guitar' || ownVideo ? `The same idea, explained on the ${inst.id === 'guitar' ? 'guitar' : inst.id === 'tenor' ? 'ukulele' : 'baritone ukulele'} by a YouTube teacher.` : inst.id === 'baritone' ? 'Explained on the guitar: a baritone is tuned like the guitar\'s top four strings, so the shapes carry over.' : 'Explained on the guitar; the idea is the same on the ukulele.'}</p>
+          <LessonVideoCard video={video} />
         </section>
       )}
       {extra && extra.exercises.length > 0 && onExercise && (
         <section className="stack" style={{ gap: 8 }}>
-          <h2 className="lesson-step"><span aria-hidden="true">{extra.video ? 3 : 2}</span> Play</h2>
+          <h2 className="lesson-step"><span aria-hidden="true">{video ? 3 : 2}</span> Play</h2>
           <p className="small muted" style={{ margin: 0 }}>Opens in Play: tap Listen and the notes light up as you get them. Take it slow.</p>
           <div className="lesson-exercises">
             {extra.exercises.map((ex, k) => (
