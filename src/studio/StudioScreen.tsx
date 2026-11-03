@@ -23,7 +23,7 @@ import { FLATS, KEYS, SHARPS, keyPrefersFlats, pc } from '../theory/notes'
 import { scaleById, scaleInfo } from '../theory/scales'
 import { askAssistant } from '../assistant/bus'
 import {
-  PADS, STARTERS, deleteStored, loadBeat, newId, onBeatChange, padsFor, saveBeat, savedBeats, setBars, storeBeat, totalSteps, voiceLabel,
+  PADS, STARTERS, deleteStored, loadBeat, newId, onBeatChange, padLabel, padsFor, saveBeat, savedBeats, setBars, storeBeat, totalSteps, voiceLabel,
   PATTERNS, patternLayer, type Beat, type DrumLayer, type PNote, type Pattern, type Track,
 } from './beat'
 import { CHORD_TYPES, INSTRS, INSTR_GROUPS, chordNotes, instr, keyChord, loadInstr, type Voicing } from './sounds'
@@ -31,6 +31,10 @@ import { StudioTransport, type LoopLayer } from './transport'
 import { deleteLoop, fitToBars, gridOffset, levelLoop, loopsFor, rotate, saveLoop } from './loops'
 import { beatChords, scalesFor } from './practice'
 import { guessPads, loadMyPads, loadSample, mySounds, mySoundsAvailable, pickSoundFolder, saveMySounds, type MySounds } from './mySounds'
+import { USER_PADS, detectRoot, isUserPad, trimSilence, type PadId } from './pads'
+import { saveSample } from './padSamples'
+import { PadEditor } from './PadEditor'
+import type { Handle } from '../audio/pluck'
 
 type SetBeat = (f: Beat | ((b: Beat) => Beat), remember?: boolean) => void
 const QUANT: { id: number; label: string }[] = [{ id: 1, label: '1/16' }, { id: 2, label: '1/8' }, { id: 4, label: '1/4' }, { id: 0, label: 'Off' }]
@@ -82,6 +86,9 @@ export function StudioScreen({ active }: { active: boolean }) {
   // your own pad sounds (phone)
   const [mine, setMine] = useState<MySounds>(mySounds)
   useEffect(() => { void loadMyPads(mine).then(m => { tr().custom = m }) }, [mine]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    for (const d of Object.values(beat.pads ?? {})) if (d?.src === 'file' && d.file && !tr().files.has(d.file.uri)) void loadSample(d.file).then(b => { if (b) tr().files.set(d.file!.uri, b) })
+  }, [beat.pads]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const play = (countIn = 0) => { void audio().resume(); tr().start(countIn); setPlaying(true) }
   const stop = () => { loops.cancel(); t.current?.stop(); setPlaying(false); setRecording(false) }
@@ -94,7 +101,7 @@ export function StudioScreen({ active }: { active: boolean }) {
   }
   // pads recorded with ● go into a new drum layer each time round the loop, so you build a beat loop by loop
   const take = useRef<{ id: string; pass: number; hits: number } | null>(null)
-  const recordHit = (voice: Voice, vel: number) => {
+  const recordHit = (voice: PadId, vel: number) => {
     const s = recStep()
     const x = t.current
     if (s === null || !x) return
@@ -198,7 +205,7 @@ export function StudioScreen({ active }: { active: boolean }) {
     </Win>
   )
 
-  const pads = <Pads t={tr()} beat={beat} setBeat={setBeat} recordHit={recordHit} mine={mine} setMine={setMine} />
+  const pads = <Pads t={tr()} beat={beat} setBeat={setBeat} recordHit={recordHit} mine={mine} setMine={setMine} undo={undo} canUndo={history.current.length > 0} />
   const keys = <Keys t={tr()} beat={beat} setBeat={setBeat} recStep={recStep} quant={quant} />
   const tabletop = active && posture.tabletop
 
@@ -336,16 +343,22 @@ function SaveRow({ beat, setBeat }: { beat: Beat; setBeat: (b: Beat) => void }) 
 // ───────────────────────── pads (finger drumming)
 const PAD_HUE: Partial<Record<Voice, number>> = { kick: 0, snare: 28, clap: 45, rim: 60, ghost: 28, hat: 180, open: 195, pedal: 170, crash: 210, ride: 225, bell: 240, china: 255, splash: 215, tom1: 300, tom2: 310, tom3: 320, impact: 350, riser: 270, snap: 140 }
 const MAIN: Voice[] = ['kick', 'snare', 'hat']
-function Pads({ t, beat, recordHit, mine, setMine }: { t: StudioTransport; beat: Beat; setBeat: SetBeat; recordHit: (v: Voice, vel: number) => void; mine: MySounds; setMine: (m: MySounds) => void }) {
-  const [page, setPage] = usePersist<'kit' | 'perc'>('studioPadPage', 'kit')
+type PadPage = 'kit' | 'perc' | 'mine'
+function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t: StudioTransport; beat: Beat; setBeat: SetBeat; recordHit: (v: PadId, vel: number) => void; mine: MySounds; setMine: (m: MySounds) => void; undo: () => void; canUndo: boolean }) {
+  const [page, setPage] = usePersist<PadPage>('studioPadPage', 'kit')
   const [repeat, setRepeat] = usePersist<number>('studioRepeat', 0)
   const [size, setSize] = usePersist<'s' | 'm' | 'l'>('studioPadSize', 'm')
   // the three you use most come first, as big pads with room between them
-  const voices = page === 'kit' ? [...MAIN, ...padsFor(beat.kit).filter(v => !MAIN.includes(v))] : PADS.perc
+  const voices: PadId[] = page === 'kit' ? [...MAIN, ...padsFor(beat.kit).filter(v => !MAIN.includes(v))] : page === 'perc' ? PADS.perc : USER_PADS
   const grid = useRef<HTMLDivElement>(null)
   const repeats = useRef(new Map<number, ReturnType<typeof setInterval>>())
+  const held = useRef(new Map<number, Handle>())
   const rows = useRef(beat.rows)
   rows.current = beat.rows
+  // Sample mode: hold a pad to record onto it; a quick tap opens its settings
+  const sampler = useSampler(t, beat, setBeat)
+  const [editing, setEditing] = useState<string | null>(null)
+  const lastPad = useRef<string>('kick')
   // light up the pads the beat plays, straight on the page (no redraw of the screen on every step)
   useEffect(() => t.onStep(step => {
     const el = grid.current
@@ -356,14 +369,23 @@ function Pads({ t, beat, recordHit, mine, setMine }: { t: StudioTransport; beat:
       if (pad) flash(pad, 'lit')
     }
   }), [t])
-  const down = (e: React.PointerEvent<HTMLButtonElement>, voice: Voice) => {
+  // a pedal records onto the last pad you touched while Sample mode is on: press to start, let go to stop
+  usePedals(sampler.on ? {
+    startStop: () => { void sampler.down(lastPad.current) },
+    record: () => { void sampler.down(lastPad.current) },
+    up: () => { void sampler.up(lastPad.current, true) },
+  } : {})
+  const down = (e: React.PointerEvent<HTMLButtonElement>, voice: PadId) => {
     e.preventDefault()
+    lastPad.current = voice
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
+    if (sampler.on) { flash(e.currentTarget, 'hit'); void sampler.down(voice); return }
     // the sound first, before anything else
     const r = e.currentTarget.getBoundingClientRect()
     const vel = e.pressure > 0 && e.pressure !== 0.5 ? Math.max(0.35, Math.min(1, e.pressure * 1.4)) : 0.55 + 0.45 * Math.min(1, Math.max(0, (r.bottom - e.clientY) / r.height))
-    t.hit(voice, vel)
+    const h = t.hit(voice, vel)
+    if (h && (beat.pads?.[voice]?.mode ?? 'oneshot') !== 'oneshot') held.current.set(e.pointerId, h)
     flash(e.currentTarget, 'hit')
-    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
     recordHit(voice, vel)
     if (repeat > 0) {
       // note repeat: keeps hitting on the grid while you hold the pad (in time with the beat when it's running)
@@ -374,9 +396,12 @@ function Pads({ t, beat, recordHit, mine, setMine }: { t: StudioTransport; beat:
       repeats.current.set(e.pointerId, id)
     }
   }
-  const up = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const up = (e: React.PointerEvent<HTMLButtonElement>, voice: string) => {
+    if (sampler.on) { void sampler.up(voice).then(r => { if (r === 'tap') setEditing(voice) }); return }
     const id = repeats.current.get(e.pointerId)
     if (id) { clearInterval(id); repeats.current.delete(e.pointerId) }
+    const h = held.current.get(e.pointerId)
+    if (h) { h.stop(); held.current.delete(e.pointerId) }
   }
   useEffect(() => () => repeats.current.forEach(clearInterval), [])
   return (
@@ -385,28 +410,123 @@ function Pads({ t, beat, recordHit, mine, setMine }: { t: StudioTransport; beat:
         <div className="seg" role="group" aria-label="Pad page">
           <button aria-pressed={page === 'kit'} onClick={() => setPage('kit')}>Drums</button>
           <button aria-pressed={page === 'perc'} onClick={() => setPage('perc')}>Percussion</button>
+          <button aria-pressed={page === 'mine'} onClick={() => setPage('mine')}>Your pads</button>
         </div>
-        <div className="seg" role="group" aria-label="Pad size">
-          {(['s', 'm', 'l'] as const).map(z => <button key={z} aria-pressed={size === z} onClick={() => setSize(z)}>{z === 's' ? 'Small' : z === 'm' ? 'Medium' : 'Big'}</button>)}
+        <button className={`btn sm st-sample${sampler.on ? ' on' : ''}`} aria-pressed={sampler.on} onClick={() => void sampler.toggle()} data-testid="sample-mode">
+          <Ico n="mic" /> {sampler.on ? 'Sampling: done' : 'Sample'}
+        </button>
+      </div>
+      {sampler.on ? (
+        <div className="st-sample-bar" role="status">
+          <span className="st-meter" style={{ ['--lv' as string]: String(Math.min(1, sampler.level * 3)) }} aria-hidden />
+          <span className="small">{sampler.msg || <><b>Hold a pad</b> and make a sound, let go to stop. <b>Tap</b> a pad for its settings.</>}</span>
+          {canUndo && <button className="btn sm" onClick={undo}>↶ Undo</button>}
         </div>
-        <label className="field st-field st-inline"><span>Hold to repeat</span>
-          <select className="select sm" value={repeat} onChange={e => setRepeat(Number(e.target.value))}>
-            <option value={0}>Off</option><option value={4}>1/4</option><option value={2}>1/8</option><option value={1}>1/16</option><option value={0.5}>1/32</option>
-          </select>
-        </label>
+      ) : (
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <div className="seg" role="group" aria-label="Pad size">
+            {(['s', 'm', 'l'] as const).map(z => <button key={z} aria-pressed={size === z} onClick={() => setSize(z)}>{z === 's' ? 'Small' : z === 'm' ? 'Medium' : 'Big'}</button>)}
+          </div>
+          <label className="field st-field st-inline"><span>Hold to repeat</span>
+            <select className="select sm" value={repeat} onChange={e => setRepeat(Number(e.target.value))}>
+              <option value={0}>Off</option><option value={4}>1/4</option><option value={2}>1/8</option><option value={1}>1/16</option><option value={0.5}>1/32</option>
+            </select>
+          </label>
+        </div>
+      )}
+      <div className={`st-pads size-${size}${sampler.on ? ' sampling' : ''}`} ref={grid}>
+        {voices.map(v => {
+          const d = beat.pads?.[v]
+          const empty = isUserPad(v) && !d
+          return (
+            <button key={v} data-voice={v} className={`st-pad${page === 'kit' && MAIN.includes(v as Voice) ? ' big' : ''}${mine.map[v as Voice] || (d && d.src !== 'kit') ? ' mine' : ''}${empty ? ' empty' : ''}${sampler.recPad === v ? ' recording' : ''}`}
+              style={{ ['--h' as string]: String(PAD_HUE[v as Voice] ?? (isUserPad(v) ? (Number(v.slice(1)) * 37) % 360 : 120)) }}
+              onPointerDown={e => down(e, v)} onPointerUp={e => up(e, v)} onPointerCancel={e => up(e, v)} onContextMenu={e => e.preventDefault()}
+              aria-label={`${padLabel(beat, v)}${sampler.on ? ': hold to record, tap for settings' : ''}`}>
+              {sampler.on && <Ico n={sampler.recPad === v ? 'record' : 'mic'} fill={sampler.recPad === v} className="st-pad-mic" />}
+              <span>{empty && !sampler.on ? '+' : padLabel(beat, v)}</span>
+              {d && d.src !== 'kit' && <small className="st-pad-src">{d.src === 'rec' ? 'yours' : d.src === 'file' ? 'file' : d.src === 'chord' ? 'chord' : 'note'}</small>}
+            </button>
+          )
+        })}
       </div>
-      <div className={`st-pads size-${size}`} ref={grid}>
-        {voices.map(v => (
-          <button key={v} data-voice={v} className={`st-pad${page === 'kit' && MAIN.includes(v) ? ' big' : ''}${mine.map[v] ? ' mine' : ''}`} style={{ ['--h' as string]: String(PAD_HUE[v] ?? 120) }}
-            onPointerDown={e => down(e, v)} onPointerUp={up} onPointerCancel={up} onContextMenu={e => e.preventDefault()}>
-            <span>{voiceLabel(v)}</span>
-          </button>
-        ))}
-      </div>
+      {page === 'mine' && !sampler.on && !voices.some(v => beat.pads?.[v]) && <p className="small muted" style={{ margin: 0 }}>Your own 16 pads. Tap <b>Sample</b>, then hold a pad and make a sound, or tap a pad to put an instrument note or chord on it.</p>}
       <LagNote />
-      {mySoundsAvailable() && <MySoundsPanel pads={voices} mine={mine} setMine={setMine} />}
+      {mySoundsAvailable() && <MySoundsPanel pads={voices.filter(v => !isUserPad(v)) as Voice[]} mine={mine} setMine={setMine} />}
+      {editing && (
+        <PadEditor pad={editing} beat={beat} setBeat={(f, r) => setBeat(f, r)} t={t} mine={mine} onClose={() => setEditing(null)}
+          onRecord={d => { if (d) void sampler.down(editing); else void sampler.up(editing, true) }} recording={sampler.recPad === editing} level={sampler.level} />
+      )}
     </Win>
   )
+}
+
+/** Sample mode: the input stays open (nothing cut off at the start); hold = record, quick tap = settings. */
+function useSampler(t: StudioTransport, beat: Beat, setBeat: SetBeat) {
+  const [on, setOn] = useState(false)
+  const [recPad, setRecPad] = useState<string | null>(null)
+  const [level, setLevel] = useState(0)
+  const [msg, setMsg] = useState('')
+  const rec = useRef<InputRecorder | null>(null)
+  const startAt = useRef<{ pad: string; t: number } | null>(null)
+  const beatRef = useRef(beat)
+  beatRef.current = beat
+  useEffect(() => {
+    if (!on) return
+    const id = setInterval(() => setLevel(rec.current?.level ?? 0), 80)
+    return () => clearInterval(id)
+  }, [on])
+  useEffect(() => () => rec.current?.stop(), [])
+  const open = async () => {
+    if (rec.current?.open) return true
+    try { rec.current ??= new InputRecorder(); await rec.current.start(); return true } catch { setMsg('The microphone couldn\'t be opened. Allow microphone access for KGuitar, then try again.'); return false }
+  }
+  const toggle = async () => {
+    if (on) { setOn(false); setMsg(''); rec.current?.stop(); return }
+    setOn(true)
+    setMsg('')
+    await open()
+  }
+  const down = async (pad: string) => {
+    if (startAt.current) return
+    if (!(await open())) return
+    startAt.current = { pad, t: audio().currentTime }
+    setRecPad(pad)
+  }
+  /** Stop: returns 'tap' for a quick tap (no recording), 'rec' when a sound went onto the pad. */
+  const up = async (pad: string, force = false): Promise<'tap' | 'rec' | 'none'> => {
+    const s = startAt.current
+    startAt.current = null
+    setRecPad(null)
+    if (!s || s.pad !== pad) return 'none'
+    const ctx = audio()
+    const held = ctx.currentTime - s.t
+    if (held < 0.32 && !force) return 'tap'
+    const lat = latencyMs(kindOf(rec.current?.input?.external)) / 1000
+    try {
+      const pre = 0.06
+      const raw = await rec.current!.capture(Math.max(0, s.t - pre - lat), held + pre + 0.12)
+      const sr = ctx.sampleRate
+      const cut = trimSilence(raw, sr)
+      let peak = 0
+      for (let i = 0; i < raw.length; i++) peak = Math.max(peak, Math.abs(raw[i]))
+      if (peak < 0.004) { setMsg('That was too quiet to use: get closer to the mic and try again.'); return 'rec' }
+      // level it so a quiet "tss" is as loud as the kit
+      const gain = Math.min(8, 0.85 / peak)
+      const data = raw.map(v => v * gain)
+      const id = newId()
+      await saveSample(id, data, sr)
+      const piece = data.subarray(Math.round(cut.start * sr), Math.round(cut.end * sr))
+      const root = detectRoot(piece, sr) ?? undefined
+      const prev = beatRef.current.pads?.[pad]
+      setBeat(b => ({ ...b, pads: { ...b.pads, [pad]: { src: 'rec', sample: id, start: cut.start, end: cut.end, root, name: prev?.name, choke: prev?.choke, mode: prev?.mode, vol: prev?.vol } } }))
+      setMsg(`Recorded onto ${padLabel(beatRef.current, pad)} (${(cut.end - cut.start).toFixed(1)} s). Hold another pad, or tap this one to trim it and change its pitch.`)
+      // hear it once
+      setTimeout(() => { t.hit(pad, 0.9) }, 60)
+      return 'rec'
+    } catch { setMsg("Couldn't record that. Check the microphone and try again."); return 'none' }
+  }
+  return { on, toggle, down, up, recPad, level, msg }
 }
 
 /** Only when the phone's sound output is slow (usually Bluetooth headphones): says so, with the measured delay. */
@@ -500,8 +620,8 @@ function Steps({ beat, setBeat, t, compact = false }: { beat: Beat; setBeat: Set
   const shown = compact && step >= 0 ? Math.floor(step / perPage) : Math.min(page, pages - 1)
   const from = shown * perPage
   const cells = Array.from({ length: perPage }, (_, i) => from + i).filter(i => i < n)
-  const toggle = (voice: Voice, i: number) => setBeat(b => ({ ...b, rows: b.rows.map(r => (r.voice === voice ? { ...r, steps: r.steps.map((v, k) => (k === i ? (Math.abs(v - paint) < 0.01 ? 0 : paint) : v)) } : r)) }))
-  const fill = (voice: Voice, every: number, offset = 0) => setBeat(b => ({ ...b, rows: b.rows.map(r => (r.voice === voice ? { ...r, steps: r.steps.map((_, k) => (k % every === offset ? paint : 0)) } : r)) }))
+  const toggle = (voice: string, i: number) => setBeat(b => ({ ...b, rows: b.rows.map(r => (r.voice === voice ? { ...r, steps: r.steps.map((v, k) => (k === i ? (Math.abs(v - paint) < 0.01 ? 0 : paint) : v)) } : r)) }))
+  const fill = (voice: string, every: number, offset = 0) => setBeat(b => ({ ...b, rows: b.rows.map(r => (r.voice === voice ? { ...r, steps: r.steps.map((_, k) => (k % every === offset ? paint : 0)) } : r)) }))
   const addable = [...new Set([...padsFor(beat.kit), ...PADS.perc])].filter(v => !beat.rows.some(r => r.voice === v))
   const showTools = !compact && (wide || tools)
   return (

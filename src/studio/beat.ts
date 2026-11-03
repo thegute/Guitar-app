@@ -3,9 +3,10 @@
 import { GROOVES, type KitId, type Voice } from '../audio/drums'
 import { pc } from '../theory/notes'
 import { CHORD_TYPES, chordNotes } from './sounds'
+import { isUserPad, type PadDef, type PadId } from './pads'
 
 export const STEPS_PER_BAR = 16
-export interface DrumRow { voice: Voice; steps: number[]; mute?: boolean }
+export interface DrumRow { voice: PadId; steps: number[]; mute?: boolean }
 export interface PNote { s: number; l: number; m: number; v: number }
 export interface Track { id: string; inst: string; notes: PNote[]; vol: number; mute?: boolean; space: number }
 export interface Beat {
@@ -23,7 +24,9 @@ export interface Beat {
   /** drum layers stacked on the grid: one-tap patterns and each pass you record on the pads */
   layers?: DrumLayer[]
   /** volume of each drum sound (kick, snare…), 1 = normal */
-  voiceVol?: Partial<Record<Voice, number>>
+  voiceVol?: Partial<Record<string, number>>
+  /** what each pad plays when it isn't the kit's own drum (your recordings, instrument notes and chords, settings) */
+  pads?: Partial<Record<string, PadDef>>
 }
 export interface DrumLayer { id: string; label: string; rows: DrumRow[]; mute?: boolean; vol?: number }
 export const totalSteps = (b: Beat) => b.bars * STEPS_PER_BAR
@@ -44,7 +47,9 @@ export const VOICE_LABEL: Partial<Record<Voice, string>> = {
   bongolo: 'Low bongo', cajon: 'Cajón', cajonslap: 'Cajón slap', clave: 'Clave', guiro: 'Guiro', agogo: 'Agogo', brush: 'Brush swish',
   brushtap: 'Brush tap', roto1: 'Roto high', roto2: 'Roto mid', roto3: 'Roto low',
 }
-export const voiceLabel = (v: Voice) => VOICE_LABEL[v] ?? v
+export const voiceLabel = (v: string) => VOICE_LABEL[v as Voice] ?? (isUserPad(v) ? `Pad ${v.slice(1)}` : v)
+/** A pad's name in this beat: your name for it, else the drum's. */
+export const padLabel = (b: Pick<Beat, 'pads'>, v: string) => b.pads?.[v]?.name || voiceLabel(v)
 
 /** One bar of a groove as drum rows (positions rounded to the 16th grid). */
 export function rowsFromGroove(id: string, bars: number): DrumRow[] {
@@ -216,8 +221,8 @@ export function patternLayer(p: Pattern, bars: number): DrumLayer {
   return { id: newId(), label: p.label, rows: [{ voice: p.voice, steps: Array.from({ length: bars }, () => one).flat() }] }
 }
 /** Every drum row that plays: the grid plus the layers that aren't muted (with their volume). */
-export function allRows(b: Beat): { voice: Voice; steps: number[]; gain: number }[] {
-  const vv = (v: Voice) => b.voiceVol?.[v] ?? 1
+export function allRows(b: Beat): { voice: PadId; steps: number[]; gain: number }[] {
+  const vv = (v: string) => b.voiceVol?.[v] ?? 1
   const out = b.rows.filter(r => !r.mute).map(r => ({ voice: r.voice, steps: r.steps, gain: vv(r.voice) }))
   for (const L of b.layers ?? []) if (!L.mute) for (const r of L.rows) if (!r.mute) out.push({ voice: r.voice, steps: r.steps, gain: (L.vol ?? 1) * vv(r.voice) })
   return out

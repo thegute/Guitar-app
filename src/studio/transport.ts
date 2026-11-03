@@ -7,6 +7,9 @@ import { playClick } from '../audio/metronome'
 import type { Handle } from '../audio/pluck'
 import { STEPS_PER_BAR, allRows, totalSteps, type Beat } from './beat'
 import { instr, loadInstr, playInstr } from './sounds'
+import { isPlain, isUserPad, type PadDef } from './pads'
+import { playPad } from './padPlay'
+import { loadSampleBuf } from './padSamples'
 
 /** A generated room reverb (a few seconds of decaying noise), shared by every track. */
 function makeReverb(ctx: AudioContext) {
@@ -32,6 +35,8 @@ export class StudioTransport {
   private stepFns = new Set<(step: number) => void>()
   /** your own samples for some pads (phone only): played instead of the kit's sound */
   custom = new Map<Voice, AudioBuffer>()
+  /** files from your phone chosen in a pad's settings, by uri (loaded by the screen) */
+  files = new Map<string, AudioBuffer>()
   private timer: ReturnType<typeof setInterval> | null = null
   private raf = 0
   private next = 0
@@ -88,6 +93,10 @@ export class StudioTransport {
     const pos = this.playing ? this.position() : 0
     this.beat = beat
     void prepareKit(beat.kit)
+    for (const d of Object.values(beat.pads ?? {})) {
+      if (d?.sample) void loadSampleBuf(d.sample)
+      if (d?.inst) void loadInstr(d.inst)
+    }
     const now = audio().currentTime
     this.drumBus.gain.setTargetAtTime(beat.drumVol, now, 0.02)
     for (const t of beat.tracks) {
@@ -206,9 +215,13 @@ export class StudioTransport {
   step = -1
   onStep(f: (step: number) => void) { this.stepFns.add(f); return () => { this.stepFns.delete(f) } }
 
-  private drum(voice: Voice, when: number, vel: number) {
-    const buf = this.custom.get(voice)
-    if (!buf) { playDrum(voice, when, Math.min(1, vel), this.drumBus, { kit: this.beat.kit }, Math.max(1, vel)); return }
+  private drum(voice: string, when: number, vel: number, seq = true): Handle | null {
+    // a pad with its own sound or settings
+    const def: PadDef | undefined = this.beat.pads?.[voice]
+    if (!isPlain(def)) return playPad(def!, voice, when, vel, { kit: this.beat.kit, files: this.files, stepDur: this.stepDur, dest: this.drumBus }, seq)
+    if (isUserPad(voice)) return null
+    const buf = this.custom.get(voice as Voice)
+    if (!buf) { playDrum(voice as Voice, when, Math.min(1, vel), this.drumBus, { kit: this.beat.kit }, Math.max(1, vel)); return null }
     const ctx = audio()
     const src = ctx.createBufferSource()
     src.buffer = buf
@@ -216,6 +229,7 @@ export class StudioTransport {
     g.gain.value = 0.9 * vel * vel
     src.connect(g).connect(this.drumBus)
     src.start(Math.max(when, ctx.currentTime))
+    return null
   }
 
   stop() {
@@ -236,8 +250,8 @@ export class StudioTransport {
   }
 
   /** Hit a pad now (finger drumming): plays at once, on the beat's kit. */
-  hit(voice: Voice, vel = 0.9) {
-    this.drum(voice, 0, Math.min(1.5, vel * (this.beat.voiceVol?.[voice] ?? 1)))
+  hit(voice: string, vel = 0.9): Handle | null {
+    return this.drum(voice, 0, Math.min(1.5, vel * (this.beat.voiceVol?.[voice] ?? 1)), false)
   }
   /** Press a key now; returns the note so it can be released. */
   press(trackId: string, inst: string, midi: number, vel = 0.8): Handle {

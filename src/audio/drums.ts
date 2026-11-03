@@ -389,6 +389,22 @@ const VOICE_GAIN: Partial<Record<Voice, number>> = {
 let openHat: { g: GainNode; t: number } | null = null
 
 /** Play one drum. `sel` picks the kit (a kit id, or a kit with recorded pieces swapped). */
+/** The kit's recording of one drum (its loud layer), for pads you pitch or reverse. Null until the kit is loaded. */
+export function kitBuffer(voice: Voice, sel: KitSel | KitId = {}): { buf: AudioBuffer; off: number } | null {
+  const s: KitSel = typeof sel === 'string' ? { kit: sel } : sel
+  const id = s.kit ?? 'studio'
+  const isPerc = PERC.has(voice)
+  const bank = isPerc ? perc : banks.get(id)
+  if (!bank) { void (isPerc ? loadPerc() : prepareKit(id)); return null }
+  const info = kitInfo(id)
+  const k = { ...PIECES, ...info.pieces, ...s.pieces }
+  const piece = isPerc || info.synth ? voice : voice === 'kick' ? k.kick : voice === 'snare' || voice === 'ghost' ? k.snare : voice === 'ride' ? k.ride : voice
+  const layers = bank.get(piece)
+  if (!layers?.length) return null
+  const L = layers[Math.max(0, layers.length - 2)]
+  return { buf: L.buf, off: L.off }
+}
+
 export function playDrum(voice: Voice, when: number, level = 1, dest?: AudioNode, sel: KitSel | KitId = {}, mix = 1) {
   const d = dest ?? out()
   const s: KitSel = typeof sel === 'string' ? { kit: sel } : sel

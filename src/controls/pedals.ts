@@ -58,6 +58,8 @@ export function describe(code: string) {
 type Handlers = Partial<Record<PedalAction, () => void>> & {
   /** a pedal held down for ~0.7 s (after its press already fired): screens that offer "hold to stop" */
   hold?: (a: PedalAction) => void
+  /** a pedal let go (any press, held or not): screens where holding a pedal does something (Sample mode) */
+  up?: (a: PedalAction) => void
 }
 const stack: { h: { current: Handlers } }[] = []
 let learning: ((code: string) => void) | null = null
@@ -85,6 +87,9 @@ const HOLD_MS = 650
 function release(code: string) {
   const t = downAt.get(code)
   downAt.delete(code)
+  const act = bindings()[code]
+  const top0 = stack[stack.length - 1]
+  if (act && t !== undefined && top0?.h.current.up) top0.h.current.up(act)
   if (t === undefined || performance.now() - t < HOLD_MS) return
   const action = bindings()[code]
   const top = stack[stack.length - 1]
