@@ -125,7 +125,7 @@ const cut = (t: string, n: number) => {
 const MANUAL = GUIDE.map(sec => `[${sec.title}] ` + sec.items.map(i => `${i.title}: ${cut(i.text, 130)}`).join(' | ')).join('\n')
 
 const STATIC = `You are the friendly guitar coach inside KGuitar, a guitar practice app (guitar, tenor and baritone ukulele). The user is a guitarist, not a developer, often holding the guitar while asking.
-HOW TO ANSWER: plain, warm, short (1-4 sentences unless they ask for more). Your reply may be read aloud, so write it as speech: no symbols, lists or markdown in "reply". Explain music theory like a patient teacher talking to a beginner: everyday words first, then the term ("the 3rd, the note that makes a chord happy or sad"), one idea at a time, tied to the guitar neck (which string, which fret, which finger) and to how it sounds, with a quick thing to try. Never talk down. When they ask how to do something in the app, name the exact place and button from the manual below ("Play, then Options, then Speed") and offer to open it.
+HOW TO ANSWER: plain and warm; LENGTH (at the end) says how long. Write "reply" as speech (it may be read aloud): no symbols, lists or markdown; separate paragraphs with a blank line. Explain music theory like a patient teacher talking to a beginner: everyday words first, then the term ("the 3rd, the note that makes a chord happy or sad"), one idea at a time, tied to the guitar neck (which string, which fret, which finger) and to how it sounds, with a quick thing to try. Never talk down. When they ask how to do something in the app, name the exact place and button from the manual below ("Play, then Options, then Speed") and offer to open it.
 APP MANUAL (how every page, button, loop and tempo control, lesson and tool works; menu: Play, Songs, Learn, Jam, Tools, plus the ✨ helper bubble and 🎤 Talk):
 ${MANUAL}
 WHAT YOU CAN DO: only these building blocks. Reply with JSON only:
@@ -139,8 +139,15 @@ Step ids you can use: ${PLACES.map(p => p[0]).join(', ')}, ex:<type> with type i
 Never invent songs' tabs or lyrics; for a real song, tell them to search its tab (Songsterr / Ultimate Guitar) and open it in Play.`
 
 /** The prompt: the fixed part first, then what changes with each question. */
-const SYSTEM = (ctx: AskContext, extra: string, results: Result[], screen: ScreenInfo | null) => `${STATIC}
+/** Talking: short and spoken. Typed: they want to understand it properly, so a fuller explanation. */
+export type AskHow = 'voice' | 'typed'
+const LENGTH: Record<AskHow, string> = {
+  voice: 'LENGTH: they asked out loud, probably holding the guitar, and will hear the answer: 1-3 short sentences, short and sweet.',
+  typed: 'LENGTH: they typed this to understand it properly. For a "why", "what is", "how does" or theory question, give a full explanation of up to 3 or 4 short paragraphs: start with the simple idea in everyday words, then the details and the term, then a concrete example on the guitar neck (string, fret, finger) and how it sounds, then one thing to try now. A quick "where is" or "open" request still gets one or two sentences.',
+}
+const SYSTEM = (ctx: AskContext, extra: string, results: Result[], screen: ScreenInfo | null, how: AskHow = 'typed') => `${STATIC}
 --- NOW ---
+${LENGTH[how]}
 Today's date: ${new Date().toDateString()}.
 RESULTS (things in the app matching the request): ${results.slice(0, 12).map(r => `${r.id} = ${r.title} (${r.where})`).join('; ') || 'none'}.${ctx === 'beat' ? '\nThey are in the beat maker now. ' + extra : ''}${screen?.can?.length ? `\nYou may also add "play": {"loop": [firstBar, lastBar] as the bar numbers they see, or null to stop looping, "speed": 0.25-1.5 (1 = full speed)} to change their loop or speed in Play; only when it helps.` : ''}${screen ? `\nON THEIR SCREEN RIGHT NOW (use it: "here", "this bar", "this lesson", "this chord" mean this): ${screen.summary}` : ''}`
 
@@ -155,7 +162,7 @@ export function partialReply(raw: string): string | null {
   try { return JSON.parse(`"${body}"`) as string } catch { return body.replace(/\\n/g, ' ').replace(/\\"/g, '"') }
 }
 
-export async function plan(q: string, results: Result[], ctx: AskContext = 'general', past: { q: string; a: string }[] = [], onReply?: (soFar: string) => void): Promise<Answer> {
+export async function plan(q: string, results: Result[], ctx: AskContext = 'general', past: { q: string; a: string }[] = [], onReply?: (soFar: string) => void, how: AskHow = 'typed'): Promise<Answer> {
   const beat = ctx === 'beat' ? loadBeat() : null
   const screen = screenInfo()
   const local = (): Answer => {
@@ -172,7 +179,7 @@ export async function plan(q: string, results: Result[], ctx: AskContext = 'gene
   if (quick && !/\b(what|why|how|explain|tell|which|show)\b/i.test(q)) return quick
   if (!activeProvider()) return { ...local(), note: 'Built-in helper. Add a free AI key in Settings → You → AI helper for smarter answers.' }
   try {
-    const raw = await ask(SYSTEM(ctx, beat ? beatSummary(beat) : '', results, screen), [...past.flatMap(p => [{ role: 'user' as const, text: p.q }, { role: 'assistant' as const, text: JSON.stringify({ reply: p.a }) }]), { role: 'user', text: q }], { json: true, maxTokens: 1200, ...(onReply ? { onText: (raw: string) => { const r = partialReply(raw); if (r) onReply(r) } } : {}) })
+    const raw = await ask(SYSTEM(ctx, beat ? beatSummary(beat) : '', results, screen, how), [...past.flatMap(p => [{ role: 'user' as const, text: p.q }, { role: 'assistant' as const, text: JSON.stringify({ reply: p.a }) }]), { role: 'user', text: q }], { json: true, maxTokens: how === 'voice' ? 900 : 2400, ...(onReply ? { onText: (raw: string) => { const r = partialReply(raw); if (r) onReply(r) } } : {}) })
     const j = JSON.parse(raw.replace(/^[^{]*/, '').replace(/[^}]*$/, '')) as { reply?: string; open?: string | null; session?: { title: string; steps: { title: string; minutes: number; use: string; tip?: string }[] } | null; beat?: BeatChange | null; play?: { loop?: number[] | null; speed?: number | null } | null; ideas?: string[] | null }
     const ans: Answer = { reply: j.reply || 'Here you go.', ai: true }
     if (j.open) { const r = results.find(x => x.id === j.open); const t = r ? null : targetOf(j.open, results); ans.open = r ?? (t ? { id: j.open, kind: 'feature', title: PLACES.find(p => p[0] === j.open)?.[1] ?? j.open, where: '', text: '', target: t, score: 100 } : undefined) }

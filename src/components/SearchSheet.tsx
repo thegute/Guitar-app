@@ -150,7 +150,7 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
                 <div className="ask-q">{t.q}</div>
                 {!t.answer ? <div className="ask-a thinking">Thinking…</div> : (
                   <div className="ask-a">
-                    <p style={{ margin: 0 }}>{t.answer.reply}</p>
+                    <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{t.answer.reply}</p>
                     {t.answer.ideas && <ul className="ask-steps">{t.answer.ideas.map((x, i) => <li key={i}>{x}</li>)}</ul>}
                     {t.answer.session && (
                       <>

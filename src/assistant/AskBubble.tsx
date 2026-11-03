@@ -10,7 +10,8 @@ import { usePersist } from '../components/Controls'
 import { canListen, listenOnce, setTalking, stopListening } from './listen'
 import { plan, type Answer } from './plan'
 import { addQuestion, answerTurn, history } from './chat'
-import { isSpeaking, onSpeaking, speak, stopSpeaking } from './speak'
+import { talkCardSecs } from './talkCard'
+import { isPreparingVoice, isSpeaking, onSpeaking, onVoicePrep, speak, stopSpeaking } from './speak'
 import { SearchIndex, searchAll } from '../search/engine'
 import { FEATURES } from '../search/catalog'
 import { libraryEntries } from '../search/sources'
@@ -53,6 +54,8 @@ export function AskBubble({ context }: { context: AskContext }) {
   const stopped = useRef(false)
   const [again, setAgain] = usePersist('talkAgain', false)
   const [voiceOn, setVoiceOn] = usePersist('talkVoice', true)
+  const [prep, setPrep] = useState(isPreparingVoice())
+  useEffect(() => onVoicePrep(setPrep), [])
   const live = useRef({ again, voiceOn, misses: 0, alive: true, hideT: 0 })
   live.current.again = again
   live.current.voiceOn = voiceOn
@@ -88,7 +91,7 @@ export function AskBubble({ context }: { context: AskContext }) {
     const past = history()
     const id = addQuestion(h.text)
     setSoFar('')
-    const a = await plan(h.text, searchAll(index, h.text, inst, 12), context, past, setSoFar)
+    const a = await plan(h.text, searchAll(index, h.text, inst, 12), context, past, setSoFar, 'voice')
     answerTurn(id, a)
     if (!live.current.alive) return
     // you're playing: loop / speed / beat changes happen straight away
@@ -106,7 +109,8 @@ export function AskBubble({ context }: { context: AskContext }) {
     setTalking(false)
     if (!live.current.alive) return
     if (live.current.again) { void talk(); return }
-    hideLater(12000)
+    const secs = talkCardSecs()
+    if (secs > 0) hideLater(secs * 1000)
   }
 
   if (!show) return null
@@ -149,6 +153,7 @@ export function AskBubble({ context }: { context: AskContext }) {
               <p className="talk-q small muted">“{card.q}”</p>
               {card.did && <p className="talk-did">✓ {card.did}</p>}
               {!(card.did && card.a.reply.startsWith('Okay:')) && <p className="talk-a">{card.a.reply}</p>}
+              {prep && voiceOn && <p className="talk-prep small" role="status"><span className="spin" aria-hidden /> Getting the voice ready…</p>}
               {card.a.ideas && <ul className="talk-ideas small">{card.a.ideas.slice(0, 3).map((x, i) => <li key={i}>{x}</li>)}</ul>}
               <div className="row talk-acts">
                 {card.a.session && <button className="btn sm primary" onClick={() => { close(); startSession(card.a.session!) }}><Ico n="play" fill /> Start “{card.a.session.title}”</button>}
