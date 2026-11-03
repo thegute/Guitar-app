@@ -100,7 +100,7 @@ export class StudioTransport {
     const now = audio().currentTime
     this.drumBus.gain.setTargetAtTime(beat.drumVol, now, 0.02)
     for (const t of beat.tracks) {
-      void loadInstr(t.inst)
+      if (!t.inst.startsWith('pad:')) void loadInstr(t.inst)
       const b = this.bus(t.id)
       b.g.gain.setTargetAtTime(t.mute ? 0 : t.vol, now, 0.02)
       b.send.gain.setTargetAtTime(t.space, now, 0.02)
@@ -167,7 +167,8 @@ export class StudioTransport {
           if (note.s !== s) continue
           const from = this.lastNote.get(tr.id)
           const dur = note.l * this.stepDur * 0.98
-          this.held.push(playInstr(tr.inst, note.m, t, note.v, { dest: this.bus(tr.id).g, dur, from }))
+          if (tr.inst.startsWith('pad:')) { const h = this.padNote(tr.inst.slice(4), note.m, t, note.v, this.bus(tr.id).g, note.l); if (h) this.held.push(h) }
+          else this.held.push(playInstr(tr.inst, note.m, t, note.v, { dest: this.bus(tr.id).g, dur, from }))
           this.lastNote.set(tr.id, note.m)
         }
       }
@@ -249,12 +250,21 @@ export class StudioTransport {
     this.stepFns.forEach(f => f(-1))
   }
 
+  /** Keys mode: one of your pads played as an instrument, pitched from its own note (C4 if it has none). */
+  padNote(pad: string, midi: number, when: number, vel: number, dest: AudioNode, steps?: number): Handle | null {
+    const def = this.beat.pads?.[pad]
+    if (!def) return null
+    const root = def.src === 'note' || def.src === 'chord' ? def.midi ?? 60 : def.root ?? 60
+    const d: PadDef = { ...def, pitch: (def.pitch ?? 0) + midi - root, mode: def.mode === 'loop' ? 'loop' : 'hold', choke: 0, ...(steps ? { len: steps } : {}) }
+    return playPad(d, pad, when, vel, { kit: this.beat.kit, files: this.files, stepDur: this.stepDur, dest }, !!steps)
+  }
   /** Hit a pad now (finger drumming): plays at once, on the beat's kit. */
   hit(voice: string, vel = 0.9): Handle | null {
     return this.drum(voice, 0, Math.min(1.5, vel * (this.beat.voiceVol?.[voice] ?? 1)), false)
   }
   /** Press a key now; returns the note so it can be released. */
   press(trackId: string, inst: string, midi: number, vel = 0.8): Handle {
+    if (inst.startsWith('pad:')) return this.padNote(inst.slice(4), midi, 0, vel, this.bus(trackId).g) ?? { stop: () => {} }
     const from = this.lastNote.get(trackId)
     this.lastNote.set(trackId, midi)
     return playInstr(inst, midi, 0, vel, { dest: this.bus(trackId).g, from: instr(inst).slide || instr(inst).synth === 'sub808' ? from : undefined })

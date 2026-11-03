@@ -113,6 +113,41 @@ async function hold(page, sel, ms) {
     await page.context().close()
   }
 
+  // ---- chop a riff onto Your pads, then play one up and down the keyboard
+  if (want('chop')) {
+    const page = await newPage(browser, { width: 412, height: 915 })
+    await page.locator('.st-padpanel .seg button:has-text("Your pads")').click()
+    await page.locator('[data-testid=chop-open]').click()
+    await page.waitForTimeout(1200)
+    await page.locator('[data-testid=chop-rec]').click()
+    await page.waitForTimeout(4500)
+    await page.locator('[data-testid=chop-rec]').click()
+    await page.waitForSelector('[data-testid=chop-put]', { timeout: 5000 }).catch(() => bad('chop: no slices step'))
+    const found = await page.locator('.chop-mark').count()
+    console.log(`chop: ${found} notes found in 4.5 s of the fake guitar`)
+    if (found < 3) bad(`chop found only ${found} notes`)
+    await page.screenshot({ path: path.join(OUT, 'bm-chop.png') })
+    await page.locator('[data-testid=chop-put]').click()
+    await page.waitForSelector('[data-testid=chop]', { state: 'detached', timeout: 5000 }).catch(() => bad('chop sheet did not close'))
+    const b = await beat(page)
+    const n = Object.keys(b.pads || {}).filter(k => /^u\d+$/.test(k)).length
+    if (n !== found) bad(`chop put ${n} pads, found ${found}`)
+    // the keyboard plays Riff 1 up and down
+    await page.evaluate(() => document.querySelector('.st-keypanel')?.scrollIntoView({ block: 'center' }))
+    const sel = page.locator('.st-keypanel select').first()
+    const opts = await sel.locator('option').allTextContents()
+    if (!opts.some(o => /Riff 1/.test(o))) bad('Keyboard sound list has no Your pads')
+    else {
+      await sel.selectOption({ label: 'Riff 1' })
+      const key = page.locator('.st-key.white').nth(3)
+      await key.click()
+      await page.waitForTimeout(300)
+    }
+    if (await sideways(page)) bad('chop scrolls sideways')
+    errs(page, 'chop')
+    await page.context().close()
+  }
+
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : '\nbeat maker: all good')
   process.exit(problems.length ? 1 : 0)

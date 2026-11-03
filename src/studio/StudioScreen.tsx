@@ -34,6 +34,7 @@ import { guessPads, loadMyPads, loadSample, mySounds, mySoundsAvailable, pickSou
 import { USER_PADS, detectRoot, isUserPad, trimSilence, type PadId } from './pads'
 import { saveSample } from './padSamples'
 import { PadEditor } from './PadEditor'
+import { ChopSheet } from './ChopSheet'
 import type { Handle } from '../audio/pluck'
 
 type SetBeat = (f: Beat | ((b: Beat) => Beat), remember?: boolean) => void
@@ -358,6 +359,8 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
   // Sample mode: hold a pad to record onto it; a quick tap opens its settings
   const sampler = useSampler(t, beat, setBeat)
   const [editing, setEditing] = useState<string | null>(null)
+  const [chop, setChop] = useState(false)
+  const [chopMsg, setChopMsg] = useState('')
   const lastPad = useRef<string>('kick')
   // light up the pads the beat plays, straight on the page (no redraw of the screen on every step)
   useEffect(() => t.onStep(step => {
@@ -450,6 +453,13 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
           )
         })}
       </div>
+      {page === 'mine' && !sampler.on && (
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn sm" onClick={() => setChop(true)} data-testid="chop-open"><Ico n="guitar" /> Chop a riff onto pads</button>
+          {chopMsg && <span className="small" role="status">{chopMsg}</span>}
+        </div>
+      )}
+      {chop && <ChopSheet setBeat={(f, r) => setBeat(f, r)} onClose={() => setChop(false)} onDone={n => { setChop(false); setChopMsg(`${n} notes are on Your pads. Play them, or pick "Your pads" as the Keyboard's sound to play one up and down.`) }} />}
       {page === 'mine' && !sampler.on && !voices.some(v => beat.pads?.[v]) && <p className="small muted" style={{ margin: 0 }}>Your own 16 pads. Tap <b>Sample</b>, then hold a pad and make a sound, or tap a pad to put an instrument note or chord on it.</p>}
       <LagNote />
       {mySoundsAvailable() && <MySoundsPanel pads={voices.filter(v => !isUserPad(v)) as Voice[]} mine={mine} setMine={setMine} />}
@@ -681,20 +691,27 @@ const isBlack = (m: number) => [1, 3, 6, 8, 10].includes(m % 12)
 function trackFor(b: Beat, inst: string): { beat: Beat; track: Track } {
   const found = b.tracks.find(x => x.inst === inst)
   if (found) return { beat: b, track: found }
-  const track: Track = { id: newId(), inst, notes: [], vol: 0.8, space: instr(inst).space }
+  const track: Track = { id: newId(), inst, notes: [], vol: 0.8, space: inst.startsWith('pad:') ? 0.15 : instr(inst).space }
   return { beat: { ...b, tracks: [...b.tracks, track] }, track }
 }
-function InstrumentSelect({ value, onChange, label = 'Sound', placeholder }: { value: string; onChange: (id: string) => void; label?: string; placeholder?: string }) {
+/** Your recorded pads, playable up and down the keyboard (Keys mode). */
+const keysPads = (b: Beat) => Object.entries(b.pads ?? {}).filter(([, d]) => d && (d.src === 'rec' || d.src === 'file')).map(([id]) => id)
+/** A sound's name: an instrument, or "Pad: <name>" for one of your pads. */
+const instLabel = (b: Beat, id: string) => (id.startsWith('pad:') ? `Pad: ${padLabel(b, id.slice(4))}` : instr(id).label)
+function InstrumentSelect({ value, onChange, label = 'Sound', placeholder, beat }: { value: string; onChange: (id: string) => void; label?: string; placeholder?: string; beat?: Beat }) {
+  const mine = beat ? keysPads(beat) : []
   return (
     <label className="field st-field"><span>{label}</span>
       <select className="select" value={value} onChange={e => onChange(e.target.value)}>
         {placeholder && <option value="">{placeholder}</option>}
+        {mine.length > 0 && <optgroup label="Your pads (played up and down)">{mine.map(p => <option key={p} value={`pad:${p}`}>{padLabel(beat!, p)}</option>)}</optgroup>}
+        {value.startsWith('pad:') && !mine.includes(value.slice(4)) && <option value={value}>{instLabel(beat ?? { pads: {} } as unknown as Beat, value)}</option>}
         {INSTR_GROUPS.map(g => <optgroup key={g} label={g}>{INSTRS.filter(i => i.group === g).map(i => <option key={i.id} value={i.id}>{i.label}</option>)}</optgroup>)}
       </select>
     </label>
   )
 }
-const startOctave = (id: string) => { const d = instr(id); return Math.max(24, Math.min(72, d.lo + 12 - (d.lo % 12))) }
+const startOctave = (id: string) => { if (id.startsWith('pad:')) return 48; const d = instr(id); return Math.max(24, Math.min(72, d.lo + 12 - (d.lo % 12))) }
 function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: Beat; setBeat: SetBeat; recStep: () => number | null; quant: number }) {
   const [inst, setInst] = usePersist('studioKeysInst', 'grand')
   const [size, setSize] = usePersist<'s' | 'm' | 'l'>('studioKeySize', 'm')
@@ -714,7 +731,7 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
   const guitar = useInstrument()
   const box = useRef<HTMLDivElement>(null)
   const notes = useRef(new Map<number, { stop: () => void; midis: number[]; start: number | null; at: number }>())
-  useEffect(() => { void loadInstr(inst) }, [inst])
+  useEffect(() => { if (!inst.startsWith('pad:')) void loadInstr(inst) }, [inst])
   useEffect(() => {
     const el = box.current
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -773,7 +790,7 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
   return (
     <Win id="keys" title="Keyboard" className="panel st-keypanel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
       <div className="st-row">
-        <InstrumentSelect value={inst} onChange={id => { setInst(id); setLo(startOctave(id)) }} />
+        <InstrumentSelect beat={beat} value={inst} onChange={id => { setInst(id); setLo(id.startsWith('pad:') ? 48 : startOctave(id)) }} />
         <div className="seg" role="group" aria-label="Octave">
           <button onClick={() => setLo(l => Math.max(21, l - 12))} aria-label="Octave down">◀ Oct</button>
           <button onClick={() => setLo(l => Math.min(96, l + 12))} aria-label="Octave up">Oct ▶</button>
@@ -895,7 +912,7 @@ function Roll({ t, beat, setBeat }: { t: StudioTransport; beat: Beat; setBeat: S
   const scale = beat.minor ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11]
   const inKey = (m: number) => scale.includes(((m - keyPc) % 12 + 12) % 12)
   const add = (inst: string) => {
-    const tk: Track = { id: newId(), inst, notes: [], vol: 0.8, space: instr(inst).space }
+    const tk: Track = { id: newId(), inst, notes: [], vol: 0.8, space: inst.startsWith('pad:') ? 0.15 : instr(inst).space }
     setBeat(b => ({ ...b, tracks: [...b.tracks, tk] }))
     setSel(tk.id)
   }
@@ -919,11 +936,11 @@ function Roll({ t, beat, setBeat }: { t: StudioTransport; beat: Beat; setBeat: S
         {beat.tracks.length > 0 && (
           <label className="field st-field"><span>Part</span>
             <select className="select" value={track?.id ?? ''} onChange={e => setSel(e.target.value)}>
-              {beat.tracks.map((x, i) => <option key={x.id} value={x.id}>{i + 1}. {instr(x.inst).label} ({x.notes.length} notes)</option>)}
+              {beat.tracks.map((x, i) => <option key={x.id} value={x.id}>{i + 1}. {instLabel(beat, x.inst)} ({x.notes.length} notes)</option>)}
             </select>
           </label>
         )}
-        <InstrumentSelect label="Add a part" value="" placeholder="Choose a sound…" onChange={id => id && add(id)} />
+        <InstrumentSelect beat={beat} label="Add a part" value="" placeholder="Choose a sound…" onChange={id => id && add(id)} />
       </div>
       {track ? (
         <>
@@ -1205,7 +1222,7 @@ function Mix({ t, beat, setBeat }: { t: StudioTransport; beat: Beat; setBeat: Se
         {row('drums', <b>Drums</b>, beat.drumVol, v => setBeat(b => ({ ...b, drumVol: v }), false))}
         {[...new Set([...beat.rows.map(r => r.voice), ...(beat.layers ?? []).flatMap(l => l.rows.map(r => r.voice))])].map(v =>
           row('v-' + v, <span className="st-sub">{voiceLabel(v)}</span>, beat.voiceVol?.[v] ?? 1, x => setBeat(b => ({ ...b, voiceVol: { ...b.voiceVol, [v]: x } }), false)))}
-        {beat.tracks.map((x, i) => row(x.id, <span>{i + 1}. {instr(x.inst).label}</span>, x.vol, v => setBeat(b => ({ ...b, tracks: b.tracks.map(y => (y.id === x.id ? { ...y, vol: v } : y)) }), false),
+        {beat.tracks.map((x, i) => row(x.id, <span>{i + 1}. {instLabel(beat, x.inst)}</span>, x.vol, v => setBeat(b => ({ ...b, tracks: b.tracks.map(y => (y.id === x.id ? { ...y, vol: v } : y)) }), false),
           <>
             <label className="small st-space">Space<input type="range" min={0} max={1} step={0.05} value={x.space} onChange={e => setBeat(b => ({ ...b, tracks: b.tracks.map(y => (y.id === x.id ? { ...y, space: Number(e.target.value) } : y)) }), false)} aria-label="Reverb" /></label>
             <button className="btn sm ghost" aria-pressed={!!x.mute} onClick={() => setBeat(b => ({ ...b, tracks: b.tracks.map(y => (y.id === x.id ? { ...y, mute: !y.mute } : y)) }))}>M</button>

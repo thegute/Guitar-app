@@ -78,9 +78,14 @@ export function sliceAtOnsets(x: Float32Array, sr: number, max = 16, minGap = 0.
   if (top <= 0) return []
   const th = top * 0.18
   const gap = Math.round(minGap / hop)
+  // a pick stands out from what's around it (two notes ringing together make small ripples that aren't picks)
+  const w = Math.round(0.15 / hop)
+  const pre = new Float64Array(env.length + 1)
+  for (let i = 0; i < env.length; i++) pre[i + 1] = pre[i] + env[i]
+  const local = (i: number) => { const a = Math.max(0, i - w), b = Math.min(env.length, i + w + 1); return (pre[b] - pre[a]) / (b - a) }
   const picks: number[] = []
   for (let i = 1; i < env.length - 1; i++) {
-    if (env[i] < th || env[i] < env[i - 1] || env[i] < env[i + 1]) continue
+    if (env[i] < th || env[i] < env[i - 1] || env[i] < env[i + 1] || env[i] < local(i) * 4) continue
     if (picks.length && i - picks[picks.length - 1] < gap) {
       // two peaks close together: keep the stronger
       if (env[i] > env[picks[picks.length - 1]]) picks[picks.length - 1] = i
