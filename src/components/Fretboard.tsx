@@ -8,7 +8,7 @@ import { current } from '../instrument'
  * pass: small pearl (connecting notes, usually numbered) · target: amber ring (the tab's next note)
  * triad: amber with a coral ring (a triad inside the shape) · embel: violet halo (a free finger's embellishment)
  */
-export type MarkRole = 'root' | 'chord' | 'scale' | 'ghost' | 'live' | 'next' | 'common' | 'pass' | 'target' | 'triad' | 'embel'
+export type MarkRole = 'root' | 'chord' | 'scale' | 'ghost' | 'live' | 'next' | 'common' | 'pass' | 'target' | 'triad' | 'embel' | 'look'
 export interface Mark {
   label: string
   role: MarkRole
@@ -26,6 +26,8 @@ interface Props {
   minFretPx?: number
   /** tighter string spacing for small screens */
   compact?: boolean
+  /** curved arrows from one spot to another (voice leading: where each finger moves next) */
+  arrows?: { s1: number; f1: number; s2: number; f2: number; kind?: 'guide' | 'move' | 'look' }[]
 }
 
 const INLAYS = [3, 5, 7, 9, 15, 17, 19, 21]
@@ -34,18 +36,18 @@ const OPEN_W = 34
 
 const FILL: Record<MarkRole, string> = {
   root: 'var(--fb-coral)', chord: 'var(--fb-gold)', scale: 'var(--fb-pearl)', ghost: 'var(--board)', live: 'var(--fb-mint)',
-  next: 'var(--board)', common: 'var(--fb-gold)', pass: '#bcb3c7', target: 'var(--board)', triad: 'var(--fb-gold)', embel: 'var(--board)',
+  next: 'var(--board)', common: 'var(--fb-gold)', pass: '#bcb3c7', target: 'var(--board)', triad: 'var(--fb-gold)', embel: 'var(--board)', look: 'var(--board)',
 }
 const INK: Record<MarkRole, string> = {
   root: '#fff', chord: '#2a1d05', scale: 'var(--fb-ink)', ghost: '#cfc6bb', live: 'var(--fb-ink)',
-  next: 'var(--fb-ring)', common: '#2a1d05', pass: 'var(--fb-ink)', target: 'var(--fb-gold)', triad: '#2a1d05', embel: 'var(--fb-embel, #d8b4fe)',
+  next: 'var(--fb-ring)', common: '#2a1d05', pass: 'var(--fb-ink)', target: 'var(--fb-gold)', triad: '#2a1d05', embel: 'var(--fb-embel, #d8b4fe)', look: '#67e8f9',
 }
 const RING: Partial<Record<MarkRole, [string, number]>> = {
   ghost: ['var(--nickel)', 1.2], next: ['var(--fb-ring)', 2.5], common: ['var(--fb-ring)', 3], target: ['var(--fb-gold)', 3],
-  triad: ['var(--fb-coral)', 3], embel: ['var(--fb-embel, #d8b4fe)', 3],
+  triad: ['var(--fb-coral)', 3], embel: ['var(--fb-embel, #d8b4fe)', 3], look: ['#22d3ee', 3.5],
 }
 
-function FretboardImpl({ tuning = current().midis, fromFret = 0, toFret = 15, markFor, onTap, minFretPx, compact, zoomId = 'fretboard' }: Props) {
+function FretboardImpl({ tuning = current().midis, fromFret = 0, toFret = 15, markFor, onTap, minFretPx, compact, zoomId = 'fretboard', arrows }: Props) {
   const zoom = useZoomBox(zoomId)
   const STR_GAP = compact ? 25 : 30
   const nStr = tuning.length
@@ -167,6 +169,27 @@ function FretboardImpl({ tuning = current().midis, fromFret = 0, toFret = 15, ma
           return out
         })}
         {marks}
+        {arrows && arrows.length > 0 && (
+          <g className="fb-arrows" aria-hidden>
+            <defs>
+              <marker id="fb-ah-guide" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" className="fb-ah guide" /></marker>
+              <marker id="fb-ah-move" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" className="fb-ah move" /></marker>
+              <marker id="fb-ah-look" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" className="fb-ah look" /></marker>
+            </defs>
+            {arrows.map((a, i) => {
+              const inView = (f: number) => f >= fromFret && f <= toFret
+              if (!inView(a.f1) || !inView(a.f2)) return null
+              const x1 = noteX(a.f1), y1 = y(a.s1), x2 = noteX(a.f2), y2 = y(a.s2)
+              // start and end at the dots' edges, bowed so it doesn't run over other dots
+              const dx = x2 - x1, dy = y2 - y1, d = Math.hypot(dx, dy) || 1
+              const sx = x1 + (dx / d) * 13, sy = y1 + (dy / d) * 13, ex = x2 - (dx / d) * 15, ey = y2 - (dy / d) * 15
+              const bow = Math.min(18, d * 0.3)
+              const mx = (sx + ex) / 2 - (dy / d) * bow, my = (sy + ey) / 2 + (dx / d) * bow
+              const k = a.kind ?? 'move'
+              return <path key={i} className={`fb-arrow ${k}`} d={`M ${sx} ${sy} Q ${mx} ${my} ${ex} ${ey}`} markerEnd={`url(#fb-ah-${k})`} />
+            })}
+          </g>
+        )}
       </svg>
     </div>
     {edge.left && <button type="button" className="fb-more left" onClick={() => slide(-1)} aria-label="Show the lower frets">‹</button>}

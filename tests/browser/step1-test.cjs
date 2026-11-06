@@ -274,6 +274,60 @@ More words go here too`, 'Eb song')
     await page.context().close()
   }
 
+  if (want('voice')) for (const vp of [{ width: 412, height: 915, n: 'cover' }, { width: 840, height: 757, n: 'inner' }]) {
+    const page = await newPage(browser, vp)
+    // Tools → Chords: voice leading to the usual next chords, with arrows and a description
+    await nav(page, 'Tools'); await sub(page, 'Chords'); await page.waitForTimeout(400)
+    const vl = page.locator('.win[data-win="voice"] [data-testid=voice-lead]')
+    if (!(await vl.count())) bad(`${vp.n}: no voice leading in Tools → Chords`)
+    else {
+      await vl.scrollIntoViewIfNeeded()
+      const arrows = await vl.locator('.fb-arrow').count()
+      const text = await vl.locator('[role=status]').textContent()
+      console.log(`${vp.n}: chords voice leading: ${arrows} arrows · ${text}`)
+      if (!/Hold|up|down/.test(text)) bad(`${vp.n}: no description of the change (${text})`)
+      await page.locator('.win[data-win="voice"] .chip').nth(2).click(); await page.waitForTimeout(200)
+      await page.screenshot({ path: `${DIR}/step1-voice-chords-${vp.n}.png` })
+      // practise the changes opens a tab in Play
+      await vl.locator('[data-testid=vl-drill]').click()
+      await page.waitForSelector('.tab-note', { timeout: 8000 }).catch(() => {})
+      const title = await page.locator('.song-title b, .play-title').first().textContent().catch(() => '')
+      console.log(`${vp.n}: drill opened "${title}"`)
+      if (!/Chord changes/.test(title)) bad(`${vp.n}: Practise the changes didn't open the drill (${title})`)
+    }
+    // Jam → Solo over it: play the changes + voice leading
+    await nav(page, 'Jam'); await sub(page, 'Jam'); await page.waitForTimeout(300)
+    if (!(await page.locator('.prog-card').count())) { const roll = page.locator('button:has-text("New progression"), button:has-text("Roll")').first(); if (await roll.count()) await roll.click() }
+    await sub(page, 'Solo over it'); await page.waitForTimeout(400)
+    if (!(await page.locator('[data-testid=targets-toggle]').count())) bad(`${vp.n}: no Play the changes on the Jam neck`)
+    if (!(await page.locator('.win[data-win="voice"] [data-testid=voice-lead]').count())) bad(`${vp.n}: no voice leading in Jam → Solo over it`)
+    // start the loop and catch the cyan look-ahead
+    const playBtn = page.locator('.win[data-win="scales"] button:has-text("Play"), .win[data-win="scales"] button:has-text("Start")').first()
+    if (await playBtn.count()) {
+      await playBtn.click()
+      let sawLook = false
+      for (let i = 0; i < 40 && !sawLook; i++) { await page.waitForTimeout(250); sawLook = (await page.locator('.win[data-win="neck"] .note-dot.role-look').count()) > 0 }
+      console.log(`${vp.n}: Jam look-ahead ${sawLook ? 'seen' : 'not seen'}`)
+      if (!sawLook) bad(`${vp.n}: no cyan look-ahead notes while the Jam loop plays`)
+      await page.screenshot({ path: `${DIR}/step1-changes-jam-${vp.n}.png` })
+      await playBtn.click().catch(() => {})
+    } else bad(`${vp.n}: couldn't find the Jam play button on Solo over it`)
+    // Play → Scales & chords: Connect → Voice leading shapes
+    await nav(page, 'Play'); await page.waitForSelector('.tab-note')
+    if (vp.width < 760) await page.click('.view-switch >> text=Both').catch(() => {})
+    await page.screenshot({ path: `${DIR}/step1-voice-play-${vp.n}.png` })
+    if (await page.locator('[data-testid=finger-box] button[aria-label^="Tuck"]').count()) await page.locator('[data-testid=finger-box] button[aria-label^="Tuck"]').click()
+    await page.locator('.harmony .h-modes button:has-text("Connect")').click({ timeout: 8000 }); await page.waitForTimeout(200)
+    const shapesChip = page.locator('.harmony button:has-text("Voice leading shapes")')
+    if (await shapesChip.count()) { await shapesChip.click(); await page.waitForTimeout(250); if (!(await page.locator('.harmony [data-testid=voice-lead]').count())) bad(`${vp.n}: Connect → Voice leading shapes is empty`) }
+    else bad(`${vp.n}: no Voice leading shapes in Connect`)
+    await page.locator('.harmony .h-modes button:has-text("Scale")').click(); await page.waitForTimeout(200)
+    if (!(await page.locator('[data-testid=h-targets]').count())) bad(`${vp.n}: no Play the changes in Scales & chords → Scale`)
+    await page.locator('.harmony .h-modes button:has-text("Hand shape")').click()
+    if (page.errors.length) bad(`${vp.n} voice errors: ${page.errors.join(' | ')}`)
+    await page.context().close()
+  }
+
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : 'step 1: all good')
   process.exit(problems.length ? 1 : 0)

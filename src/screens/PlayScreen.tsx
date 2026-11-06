@@ -934,6 +934,10 @@ export function PlayScreen() {
   // what the ✨ helper can see: the song, where you are, your loop and speed, the chord, your last mistake
   const nowBar = cursorFlat >= 0 && flat[cursorFlat] ? flat[cursorFlat].bar : 0
   const spanNow = timeline.spans[curSpan], spanNext = timeline.spans[curSpan + 1]
+  // beats until the chord changes, from wherever the tab is now (following you, In time or Hear it)
+  const liveAt = inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat
+  const liveSpan = liveAt >= 0 ? timeline.at[liveAt] : -1
+  const beatsToNextChord = liveSpan >= 0 && timeline.spans[liveSpan] ? flat.slice(liveAt, timeline.spans[liveSpan].end).reduce((t, f) => t + f.step.dur, 0) : 99
   const lm = lastMiss.current
   useScreenInfo('play', doc && track ? {
     label: `Play: "${doc.title}", bar ${nowBar + 1}${loop ? `, looping ${loop.from === loop.to ? `bar ${loop.from + 1}` : `bars ${loop.from + 1}–${loop.to + 1}`}` : ''} at ${Math.round(speed * 100)}%`,
@@ -1446,6 +1450,7 @@ export function PlayScreen() {
 
       <section className="play-solo">
         <HarmonyPanel
+          beatsToNext={beatsToNextChord}
           tuning={tuning}
           keyGuess={key}
           keyIsAuto={!doc.key}
@@ -1453,7 +1458,7 @@ export function PlayScreen() {
           tips={tips}
           flats={flats}
           spans={timeline.spans}
-          curSpan={curSpan}
+          curSpan={(inTime.running || playAt >= 0) && liveSpan >= 0 ? liveSpan : curSpan}
           expected={expected.map(n => ({ ...n }))}
           nearFrets={nearFrets}
           hand={hand ? { notes: hand.notes, base: hand.base, open: hand.open } : null}

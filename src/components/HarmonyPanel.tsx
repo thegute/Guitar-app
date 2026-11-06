@@ -1,6 +1,8 @@
 // The "solo" side of the play-along screen: the song's key and scales, the chord progression,
 // and the fretboard showing scales, arpeggios, triads, or the notes that connect one chord to the next.
 import { LayerNeck } from './LayerNeck'
+import { VoiceLeadNeck } from './VoiceLeadNeck'
+import { targetView } from '../theory/targets'
 import { cagedShapes } from '../learn/caged'
 import { useInstrument, type Instrument } from '../instrument'
 import { useMemo, useState, type ReactNode } from 'react'
@@ -19,6 +21,8 @@ import type { SongNote } from '../tabs/model'
 export type HarmonyMode = 'hand' | 'layers' | 'scale' | 'arp' | 'triads' | 'connect'
 
 interface Props {
+  /** beats until the next chord (for Play the changes' look-ahead) */
+  beatsToNext?: number
   tuning: number[]
   keyGuess: KeyGuess
   keyIsAuto: boolean
@@ -78,6 +82,8 @@ export function HarmonyPanel(p: Props) {
   const [labels, setLabels] = usePersist<'int' | 'note'>('hLabels', 'int')
   const [range, setRange] = usePersist<'hand' | 'neck'>('hRange', 'neck')
   const [triadLow, setTriadLow] = usePersist('hTriad', 3)
+  const [connectView, setConnectView] = usePersist<'walk' | 'shapes'>('hConnect', 'walk')
+  const [targetsOn, setTargetsOn] = usePersist('hTargets', true)
   const [pinned, setPinned] = useState<number | null>(null)
   const [editing, setEditing] = useState(false)
   const [keyOpen, setKeyOpen] = useState(false)
@@ -104,6 +110,8 @@ export function HarmonyPanel(p: Props) {
   let markFor: (midi: number, s: number, f: number) => Mark | null = () => null
   let caption = ''
   let extra: ReactNode = null
+  let targetArrows: { s1: number; f1: number; s2: number; f2: number; kind: 'look' }[] | undefined
+  let targetNote = ''
   const noteN = (q: number) => pcName(q, flats)
 
   if (mode === 'hand') {
@@ -130,11 +138,18 @@ export function HarmonyPanel(p: Props) {
       if (!set.has(q) || !inWindow(f)) return null
       return { label: lab(q), role: q === root ? 'root' : cur?.pcs.includes(q) ? 'chord' : 'scale' }
     }
-    caption = sc
+    if (targetsOn && cur) {
+      // Play the changes: gold chord tones, faint scale, next chord's 3rd and root in cyan two beats early
+      const tv = targetView({ cur, next, scalePcs: [...set], beatsLeft: p.beatsToNext ?? 99, tuning, window: useWindow ? [Math.max(0, handLo - 1), handHi + 1] : undefined })
+      markFor = (midi, s, f) => (expectedAt.has(`${s}-${f}`) ? { label: noteN(midi % 12), role: 'target' } : tv.markFor(midi, s, f))
+      targetArrows = tv.arrows
+      targetNote = tv.lookAhead && next ? `Coming up: ${next.name}. Aim for the cyan notes (its 3rd and root) as it changes.` : ''
+    }
+    caption = targetNote || (sc
       ? `${sc.name.replace(/^\w/, c => c.toUpperCase())}: the key's notes, fitted to ${span?.name}. Amber notes are the chord: land on them.`
       : tip
-        ? `${tip.root} ${scaleById(tip.scale).label}. ${tip.why} Amber = notes of ${span?.name ?? 'the chord'}.`
-        : ''
+        ? `${tip.root} ${scaleById(tip.scale).label}. ${tip.why} ${targetsOn ? 'Gold' : 'Amber'} = notes of ${span?.name ?? 'the chord'}.`
+        : '')
   } else if (!cur) {
     caption = spans.length ? 'No chord at this spot. Tap a chord above, or add one.' : 'This tab has no chords yet. Tap ✎ to add them.'
   } else if (mode === 'arp') {
@@ -163,6 +178,8 @@ export function HarmonyPanel(p: Props) {
     caption = next
       ? `${cur.name} triads (amber) and ${next.name} triads (teal rings) on these strings. Gold = notes both share: keep that finger down and move the others the shortest way.`
       : `${cur.name} triad shapes on these strings, every inversion up the neck.`
+  } else if (mode === 'connect' && connectView === 'shapes') {
+    caption = ''
   } else if (mode === 'connect') {
     if (!next || !nextSpan) {
       caption = 'This song has only one chord, so there is nothing to connect.'
@@ -278,20 +295,26 @@ export function HarmonyPanel(p: Props) {
             </button>
           ))}
           <button className="chip" aria-pressed={fitChord} onClick={() => setFitChord(!fitChord)} disabled={!cur}>Fit each chord</button>
+          <button className="chip" aria-pressed={targetsOn} onClick={() => setTargetsOn(!targetsOn)} disabled={!cur} title="Gold chord tones; the next chord's 3rd and root in cyan two beats before it changes" data-testid="h-targets">Play the changes</button>
         </div>
       )}
       {extra}
       {(mode === 'scale' || mode === 'arp') && (
         <Chips label="Range" items={[{ id: 'neck', label: 'Whole neck' }, { id: 'hand', label: 'Where the tab is' }]} value={range} onChange={setRange} />
       )}
-      {mode === 'layers' ? (
+      {mode === 'connect' && spans.length > 1 && (
+        <Chips label="Connect" items={[{ id: 'walk', label: 'Walk into the next chord' }, { id: 'shapes', label: 'Voice leading shapes' }]} value={connectView} onChange={setConnectView} />
+      )}
+      {mode === 'connect' && connectView === 'shapes' && spans.length > 1 ? (
+        <VoiceLeadNeck chords={spans.map(sp => sp.name)} at={Math.max(0, spanIdx)} tuning={tuning} where="play" flats={flats} compact={compact} steppable={false} />
+      ) : mode === 'layers' ? (
         cur ? (
           // the 5-layer stack for the chord you're on, in the shape nearest your hand
           <LayerNeck rootPc={cur.root} minor={cur.third !== null && ((cur.third - cur.root + 12) % 12) === 3} inst={{ ...inst, midis: tuning }} where="play"
             preferShape={nearestShape(cur.root, cur.third !== null && ((cur.third - cur.root + 12) % 12) === 3, { ...inst, midis: tuning }, p.hand?.base ?? 1)} compact={compact} />
         ) : <p className="small muted">No chord here yet: the layers follow the chord of the bar you're on.</p>
       ) : (
-        <Fretboard tuning={tuning} fromFret={from} toFret={to} markFor={markFor} onTap={m => playNote(m)} compact={compact} />
+        <Fretboard tuning={tuning} fromFret={from} toFret={to} markFor={markFor} onTap={m => playNote(m)} compact={compact} arrows={mode === 'scale' ? targetArrows : undefined} />
       )}
       {caption && mode !== 'layers' && <p className="h-caption small">{caption}</p>}
     </div>

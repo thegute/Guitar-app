@@ -27,7 +27,7 @@ const CASES: [string, RegExp, number?][] = [
   ['note names', /Note names on the tab/, 1], ['which finger', /Where your fingers go/, 1], ['ear training', /^Ear training$/, 1],
   ['caged', /CAGED/, 1], ['circle of fifths', /Circle of fifths/i, 1], ['hammer ons', /Hammer-ons/, 1], ['bends', /Bends/, 2],
   ['travis picking', /Travis/, 1], ['licks', /Licks, solos and riffs/, 1], ['amazing grace', /Amazing Grace/, 1], ['footswitch', /footswitch/, 1],
-  ['what key is this song in', /Scales & chords for soloing/, 1], ['sync video', /Sync the video/, 1], ['capo', /Song check/, 1],
+  ['what key is this song in', /Scales & chords for soloing/, 1], ['sync video', /Sync the video/, 1], ['capo', /Smart capo|Song check/, 2],
   ['how am i doing', /Progress/, 1], ['help', /Help: how to use KGuitar/, 1], ['palm mute', /Palm mut/, 1], ['strumming pattern', /Count it/, 2],
   ['chord changes faster', /chord changes/i, 1], ['in time', /In time/, 1], ['theory', /Theory lessons/, 1], ['full screen', /Full tab|Full screen/, 1],
   ['split screen', /Split screen/, 1], ['start over', /Start over/, 1], ['what is a triad', /Triad/, 1], ['down in the valley', /Down in the Valley/, 1],

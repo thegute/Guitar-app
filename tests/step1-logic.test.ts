@@ -8,6 +8,9 @@ import { flatten, type SongTrack } from '../src/tabs/model'
 import { INSTRUMENTS, type Instrument } from '../src/instrument'
 import { TUNINGS, noteToMidi } from '../src/theory/notes'
 import { layerSpots } from '../src/theory/layers'
+import { voiceLead, describeChange } from '../src/theory/voicelead'
+import { targetView } from '../src/theory/targets'
+import { chordInfo } from '../src/tabs/harmony'
 
 let checks = 0
 const ok = (c: boolean, m: string) => { checks++; assert.ok(c, m) }
@@ -86,5 +89,33 @@ const tr = (tuning: number[], capo: number, notes: [number, number][]): SongTrac
   const spans = [0, 1, 2, 3, 4, 5].map(s => { const fs = np.path.filter(p => p.s === s).map(p => p.f); return Math.max(...fs) - Math.min(...fs) })
   ok(spans.every(d => d <= 5), `each string's three notes fit the hand (${spans.join(',')})`)
   console.log(`layers: E shape C, bridge ${by('bridge').map(x => x.label).join(' ')}, free ${by('free').map(x => x.label).join(' ')}, 3nps A dorian ${np.path.map(p => p.f).join(' ')}`)
+}
+{
+  // voice leading: ii7 – V7 – Imaj7 in C on four strings: F is held (3rd of Dm7 = 7th of G7), C falls to B
+  const ch = ['Dm7', 'G7', 'Cmaj7'].map(n => chordInfo(n)!)
+  const steps = voiceLead(ch, STD, [4, 9], 4)
+  ok(steps.length === 3, 'three voicings')
+  const pcsOf = (i: number) => new Set(steps[i].voicing.notes.map(n => n.midi % 12))
+  ok([0, 2, 5].every(p => pcsOf(0).has(p)) && [7, 11, 5].every(p => pcsOf(1).has(p)), 'each shape has its chord\'s root, 3rd and 7th')
+  ok(steps[0].hold.some(h => h.midi % 12 === 5), `F held from Dm7 to G7 (${describeChange(steps[0], m => String(m % 12))})`)
+  const travel = steps.map(st => st.moves.reduce((t, m) => t + Math.abs(m.to.f - m.from.f), 0))
+  ok(travel.every(t => t <= 6), `small moves (${travel.join(',')})`)
+  ok(steps[0].moves.some(m => m.guide), 'guide-tone moves marked')
+  console.log(`voice leading ii-V-I: ${steps.map(st => st.voicing.notes.map(n => n.f).join('')).join(' → ')} · ${describeChange(steps[0], m => ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'][m % 12])}`)
+  // a pop progression on 3 strings stays in its zone
+  const pop = voiceLead(['C', 'G', 'Am', 'F'].map(n => chordInfo(n)!), STD, [0, 5], 3)
+  ok(pop.length === 4 && pop.every(st => st.voicing.hi <= 8), 'I–V–vi–IV triads stay low')
+}
+
+{
+  // play the changes: gold chord tones; two beats before the change the next chord's 3rd and root go cyan
+  const C = chordInfo('C')!, F = chordInfo('F')!
+  const scale = [0, 2, 4, 5, 7, 9, 11]
+  const far = targetView({ cur: C, next: F, scalePcs: scale, beatsLeft: 3, tuning: STD })
+  const near = targetView({ cur: C, next: F, scalePcs: scale, beatsLeft: 2, tuning: STD })
+  ok(!far.lookAhead && near.lookAhead, 'look-ahead from two beats out')
+  ok(far.markFor(52, 0, 12)?.role === 'chord' && far.markFor(53, 0, 13)?.role === 'ghost', 'E gold, F faint before the look-ahead')
+  ok(near.markFor(57, 1, 12)?.role === 'look' && near.markFor(53, 0, 13)?.role === 'look', 'A (3rd of F) and F (root) cyan near the change')
+  ok(near.arrows.length > 0 && near.arrows.every(a => Math.abs(STD[a.s1] + a.f1 - (STD[a.s2] + a.f2)) <= 2), `arrows are a half or whole step (${near.arrows.length})`)
 }
 console.log(`step 1 logic: ${checks} checks, 0 failed`)

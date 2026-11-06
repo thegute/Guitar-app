@@ -6,12 +6,13 @@ import { ChordDiagram } from '../components/ChordDiagram'
 import { Fretboard } from '../components/Fretboard'
 import { Chips, KeyPicker, usePersist } from '../components/Controls'
 import { strum } from '../audio/pluck'
-import { pc, friendly, INTERVAL_LABELS } from '../theory/notes'
+import { pc, pcName, friendly, INTERVAL_LABELS } from '../theory/notes'
 import { Zoomable } from '../components/Zoomable'
 import { ChordExtras } from '../components/ChordExtras'
 import { useScreenInfo } from '../assistant/screen'
 import { Win, WinArea } from '../components/Win'
 import { LayerNeck } from '../components/LayerNeck'
+import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
 
 const TONAL_SUFFIX: Record<string, string> = {
   major: '', minor: 'm', '5': '5', aug7: '7#5', mmaj7: 'mMaj7', alt: '7alt', '69': '6/9', m69: 'm6/9', '9#11': '9#11',
@@ -92,8 +93,28 @@ export function ChordsScreen() {
         <Win id="layers" title={`${name}: the 5-layer neck`} className="panel" hint="Pick a shape, then switch the layers on and off: the shape, the triads inside it, the pentatonic box around it, the two notes that make it a full mode, and the notes a free finger can add (the violet ones: tap one to hear the chord with that hammer-on).">
           <LayerNeck rootPc={r} minor={/^m(?!aj)|^minor|dim|m7b5/.test(suffix)} inst={inst} where="chords" noLinks={['chord']} />
         </Win>
+        <Win id="voice" title={`Voice leading from ${name}`} className="panel" hint="Pick a chord to move to: the shapes are chosen so your hand barely moves. Gold rings = notes both chords share (keep that finger down); gold arrows = the 3rds and 7ths moving.">
+          <VoiceFrom name={name} root={root} minor={/^m(?!aj)|^minor/.test(suffix)} tuning={inst.midis} flats={/b/.test(root)} />
+        </Win>
       <ChordExtras root={root} suffix={suffix} voicing={v} />
       </WinArea>
+    </div>
+  )
+}
+
+/** The usual next chords from this one (IV, V, vi, ii in its key; for minor: iv, v, bVI, bVII), as voice-led moves. */
+function VoiceFrom({ name, root, minor, tuning, flats }: { name: string; root: string; minor: boolean; tuning: number[]; flats: boolean }) {
+  const r = pc(root)
+  const nm = (iv: number, q: string) => pcName((r + iv) % 12, flats) + q
+  const nexts = minor ? [nm(5, 'm'), nm(7, ''), nm(8, ''), nm(10, ''), nm(7, '7')] : [nm(5, ''), nm(7, ''), nm(9, 'm'), nm(2, 'm'), nm(7, '7')]
+  const [to, setTo] = useState(nexts[0])
+  const target = nexts.includes(to) ? to : nexts[0]
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      <div className="chips" role="group" aria-label="Move to">
+        {nexts.map(n => <button key={n} className="chip" aria-pressed={n === target} onClick={() => setTo(n)}>{name} → {n}</button>)}
+      </div>
+      <VoiceLeadNeck chords={[name, target]} tuning={tuning} where="chords" steppable={false} flats={flats} />
     </div>
   )
 }

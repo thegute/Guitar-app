@@ -23,7 +23,9 @@ interface Props {
 }
 
 interface Place { x: number; y: number; w: number; min: boolean }
-const KEY = (w: string) => `kg:fingerBox:${w}`
+// remembered separately for narrow screens (the Fold's cover) and wide ones (inner screen, tablet): the layouts differ
+const sizeClass = () => (typeof innerWidth === 'number' && innerWidth < 600 ? 'narrow' : 'wide')
+const KEY = (w: string) => `kg:fingerBox:${w}:${sizeClass()}`
 const load = (w: string): Place => {
   try { const v = JSON.parse(localStorage.getItem(KEY(w)) ?? 'null') as Place | null; if (v && typeof v.x === 'number') return v } catch { /* default */ }
   // bottom right, out of the tab's way
@@ -39,6 +41,13 @@ export function FingerBox(p: Props) {
 
 function FingerBoxIn({ group, next, beatsToShift, expected, nStr, stringNames, onLoopShift, where = 'play' }: Props) {
   const [place, setPlace] = useState<Place>(() => load(where))
+  // folding or unfolding the phone switches to that screen's remembered place
+  const cls = useRef(sizeClass())
+  useEffect(() => {
+    const f = () => { if (sizeClass() !== cls.current) { cls.current = sizeClass(); setPlace(load(where)) } }
+    addEventListener('resize', f)
+    return () => removeEventListener('resize', f)
+  }, [where])
   const box = useRef<HTMLDivElement>(null)
   const save = (p: Place) => { setPlace(p); try { localStorage.setItem(KEY(where), JSON.stringify(p)) } catch { /* full */ } }
   // keep it on screen when the phone turns or the Fold opens

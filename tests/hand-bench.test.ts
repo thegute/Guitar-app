@@ -46,6 +46,7 @@ const CASES: Case[] = [
   { name: 'Three notes per string (G major, fret 3)', tab: '6:3 6:5 6:7 5:3 5:5 5:7', want: '1 2 4 1 2 4|1 3 4 1 3 4' },
   { name: 'Blues shuffle riff', tab: '5:0+4:2 5:0+4:2 5:0+4:4 5:0+4:2', want: '0 1 0 1 0 3 0 1|0 1 0 1 0 4 0 1' },
   { name: 'Trill (hammer, pull)', tab: '2:5 2:7h 2:5p 2:7h', want: '1 3 1 3' },
+  { name: 'C triad at fret 5 (D G B strings)', tab: '4:5+3:5+2:5', want: '1 2 3|3 3 3' },
   { name: 'Power chords moving', tab: '6:3+5:5 6:5+5:7 6:7+5:9', want: '1 3 1 3 1 3' },
 ]
 

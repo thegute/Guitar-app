@@ -107,7 +107,8 @@ function assign(notes: HNote[], a: number, L: number, reach: number, fixed?: Map
     for (const [f, fs] of byFret) {
       const home = f - a + 1
       const uniq = [...new Set(fs)]
-      c += Math.min(...uniq.map(x => Math.abs(x - Math.max(1, Math.min(4, home))))) * 0.6 + (uniq.length - 1) * 0.15
+      // the lowest finger on a fret says where the hand is (fingers squeezed onto one fret sit above it)
+      c += Math.abs(Math.min(...uniq) - Math.max(1, Math.min(4, home))) * 0.6 + (uniq.length - 1) * 0.15
       // reaching out of the box: how far past a comfortable spread for this hand, here on the neck
       if (home < 1) c += 0.5 + 0.04 * Math.max(0, Math.abs(spotMM(a + 3, L) - spotMM(f, L)) - reach)
       if (home > 4) c += 0.5 + 0.04 * Math.max(0, Math.abs(spotMM(f, L) - spotMM(a, L)) - reach)

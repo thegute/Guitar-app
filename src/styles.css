@@ -2300,3 +2300,9 @@ video.mirrored { transform: scaleX(-1); }
 .layer-legend .lg-pass { background: #bcb3c7; width: 9px; height: 9px; } .layer-legend .lg-embel { background: transparent; box-shadow: inset 0 0 0 2px var(--fb-embel, #d8b4fe); }
 :root { --fb-embel: #c084fc; }
 .layer-neck.compact .layer-legend { display: none; }
+/* voice-leading arrows on the neck */
+.fb-arrow { fill: none; stroke-width: 2.4; stroke-linecap: round; pointer-events: none; }
+.fb-arrow.guide { stroke: var(--fb-gold); }
+.fb-arrow.move { stroke: var(--fb-ring); stroke-dasharray: 5 4; }
+.fb-arrow.look { stroke: #22d3ee; }
+.fb-ah.guide { fill: var(--fb-gold); } .fb-ah.move { fill: var(--fb-ring); } .fb-ah.look { fill: #22d3ee; }

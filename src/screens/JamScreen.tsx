@@ -18,6 +18,9 @@ import { Chips, Field, KeyPicker, usePersist } from '../components/Controls'
 import { IconDice, IconLock, IconPlay, IconStop, IconPencil } from '../components/Icons'
 import { Fold, useHint } from '../components/Fold'
 import { Win, WinArea } from '../components/Win'
+import { chordInfo as readChord } from '../tabs/harmony'
+import { targetView } from '../theory/targets'
+import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
 import { strum as strumNotes, preload, SOUNDS, soundInfo, loadSound, loadBank, bankLoaded, type SoundId } from '../audio/pluck'
 import { BASSLINES } from '../audio/bass'
 import { audio, keepAwake } from '../audio/engine'
@@ -109,6 +112,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [selected, setSelected] = useState(0)
   const [tipIdx, setTipIdx] = useState(0)
   const [playing, setPlaying] = useState(false)
+  const [targetsOn, setTargetsOn] = usePersist('jamTargets', true)
   const [pos, setPos] = useState({ chord: -1, countIn: 0, beat: -1 })
 
   const setStyle = (s: Style) => { setStyleRaw(s); setBpm(STYLE_DEFAULTS[s].bpm) }
@@ -581,12 +585,25 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     </div>
   )
 
+  // Play the changes: gold chord tones, faint scale, and the next chord's 3rd and root in cyan two beats early
+  const curInfo = cur ? readChord(cur.symbol) : null
+  const nextIdx = prog.length ? (active + 1) % prog.length : -1
+  const nextInfo = nextIdx >= 0 ? readChord(prog[nextIdx].symbol) : null
+  const loopBeats = prog.reduce((t, c) => t + (c.beats ?? 4), 0)
+  const startOf = (i: number) => prog.slice(0, i).reduce((t, c) => t + (c.beats ?? 4), 0)
+  const beatsLeft = playing && pos.chord >= 0 && loopBeats ? ((startOf(active) + (cur?.beats ?? 4) - (pos.beat % loopBeats)) + loopBeats) % loopBeats : 99
+  const tv = targetsOn && curInfo && info ? targetView({ cur: curInfo, next: nextInfo, scalePcs: info.pcs, beatsLeft, tuning: inst.midis }) : null
   const neck = info && tip && (
     <div>
-      <h3 style={{ marginTop: 0 }}>{tip.root} {scaleById(tip.scale).label}{cur ? <span className="muted"> · {cur.symbol} notes in amber</span> : null}</h3>
+      <div className="row" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+        <h3 style={{ margin: 0 }}>{tip.root} {scaleById(tip.scale).label}{cur ? <span className="muted"> · {cur.symbol} notes in {tv ? 'gold' : 'amber'}</span> : null}</h3>
+        <button className="chip" aria-pressed={targetsOn} onClick={() => setTargetsOn(!targetsOn)} data-testid="targets-toggle" title="Gold chord tones, and the next chord's 3rd and root in cyan two beats before it comes">Play the changes</button>
+      </div>
+      {tv && <p className="small muted" style={{ margin: '4px 0' }} role="status">{tv.lookAhead && nextInfo ? `Coming up: ${nextInfo.name}. Aim for the cyan notes (its 3rd and root) as it changes.` : `Gold = ${curInfo!.name}'s chord tones: land on them on the strong beats. Faint = the rest of the scale.`}</p>}
       <Fretboard
         tuning={inst.midis}
-        markFor={midi => {
+        arrows={tv?.arrows}
+        markFor={tv ? tv.markFor : midi => {
           const q = midi % 12
           const inScale = info.pcs.includes(q)
           const inChord = chordSet.has(q)
@@ -691,6 +708,11 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
             {scalesPanel}
           </Win>
           <Win id="neck" title="Neck" className="panel">{neck}</Win>
+          {prog.length >= 2 && (
+            <Win id="voice" title="Voice leading: chord shapes that barely move" className="panel" hint="Each chord in a shape close to the last one: gold rings are notes both chords share (keep that finger down), gold arrows are the 3rds and 7ths moving a fret or two. It follows the loop while it plays. Practise the changes opens it as a tab in Play.">
+              <VoiceLeadNeck chords={prog.map(c => c.symbol)} at={playing && pos.chord >= 0 ? active : undefined} tuning={inst.midis} where="jam" bpm={bpm} />
+            </Win>
+          )}
           <Win id="circle" title={`Circle of fifths · ${tonic} ${minorKey ? 'minor' : 'major'}`} className="panel" bodyClass="stack">
             <p className="small muted" style={{ margin: 0 }}>The shaded slice is your key: its chords sit next to each other. Teal rings are the chords in this progression; the amber one is playing. Tap a key to switch.</p>
             {circle}

@@ -14,6 +14,7 @@ import { usePracticeTimer } from './progress'
 import { Zoomable } from '../components/Zoomable'
 import { Win, WinArea } from '../components/Win'
 import { LayerNeck } from '../components/LayerNeck'
+import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
 
 type Overlay = 'chord' | 'arp' | 'penta' | 'scale' | 'triads'
 const IV = ['R', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7']
@@ -125,6 +126,9 @@ export function CagedExplorer({ inst, onExit, onQuiz }: { inst: Instrument; onEx
           </div>
         )}
       </Win>
+      <Win id="voice" title="Voice leading: move between chords" bodyClass="stack" hint="A progression in this key with shapes that barely move: gold rings are shared notes (hold them), gold arrows are 3rds and 7ths moving. Practise the changes opens it in Play.">
+        <CagedVoice root={r} minor={minor} inst={inst} />
+      </Win>
       <Win id="practise-it" title="Practise it" bodyClass="stack">
         <div className="row">
           <button className="btn" onClick={() => onQuiz('caged-name')}>Which shape is this?</button>
@@ -135,5 +139,31 @@ export function CagedExplorer({ inst, onExit, onQuiz }: { inst: Instrument; onEx
       </Win>
       </WinArea>
     </div>
+  )
+}
+
+const PRESETS: Record<'maj' | 'min', { id: string; label: string; ivs: [number, string][] }[]> = {
+  maj: [
+    { id: 'I-IV-V', label: 'I – IV – V', ivs: [[0, ''], [5, ''], [7, '']] },
+    { id: 'I-vi-IV-V', label: 'I – vi – IV – V', ivs: [[0, ''], [9, 'm'], [5, ''], [7, '']] },
+    { id: 'ii-V-I', label: 'ii7 – V7 – Imaj7', ivs: [[2, 'm7'], [7, '7'], [0, 'maj7']] },
+    { id: 'I-V-vi-IV', label: 'I – V – vi – IV', ivs: [[0, ''], [7, ''], [9, 'm'], [5, '']] },
+  ],
+  min: [
+    { id: 'i-iv-v', label: 'i – iv – V', ivs: [[0, 'm'], [5, 'm'], [7, '']] },
+    { id: 'i-VI-III-VII', label: 'i – VI – III – VII', ivs: [[0, 'm'], [8, ''], [3, ''], [10, '']] },
+    { id: 'ii-V-i', label: 'iiø – V7 – i', ivs: [[2, 'm7b5'], [7, '7'], [0, 'm7']] },
+  ],
+}
+function CagedVoice({ root, minor, inst }: { root: number; minor: boolean; inst: Instrument }) {
+  const list = PRESETS[minor ? 'min' : 'maj']
+  const [id, setId] = usePersist('cagedVoice', list[0].id)
+  const pre = list.find(p => p.id === id) ?? list[0]
+  const chords = pre.ivs.map(([iv, q]) => SHARPS[(root + iv) % 12] + q)
+  return (
+    <>
+      <Chips label="Progression" items={list.map(p => ({ id: p.id, label: p.label }))} value={pre.id} onChange={setId} wrap />
+      <VoiceLeadNeck chords={chords} tuning={inst.midis} where="caged" />
+    </>
   )
 }
