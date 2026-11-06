@@ -243,9 +243,43 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   and every button press by label (one capture listener). Use it with the owner after a month to trim.
 - Tests: `tests/build30-logic.test.ts`, `tests/browser/build30-test.cjs [report,practice,right,tvn,remote,usage]`.
 
+## Builds 32–33 (on `big-update`, not shipped; change list with checkpoints in notes/next-build.md items 16–35)
+- Beat maker (Koala-style): `studio/pads.ts` (PadDef: kit / rec / file / note / chord, pitch, vol, reverse, mode, fades, choke; `u1..u16` Your pads),
+  `padSamples.ts` (IndexedDB kg-pad-samples), `padPlay.ts`, `PadEditor.tsx` (hold a pad to record = Sample mode), `ChopSheet.tsx` (riff → pads),
+  `fx.ts` (PerformFx XY: filter/echo/reverb/stutter/crush/gate), parts A–D + song chain (beat.ts), `BounceSave.tsx` + `audio/tap.ts`
+  (TapRecorder, encodeWav), redo, looper layers rev/half/fx. Tests `tests/build32-logic.test.ts`, `tests/browser/beatmaker-test.cjs`.
+- Helper: `speak.ts` tidySpeech/firstSentence (no pause, no hiss), `plan.ts` AskHow voice (short) / typed (up to 4 paragraphs, stays open),
+  `assistant/talkCard.ts` (`kg:talkCardSecs`). Haptics: `audio/tapFeel.ts` (`kg:haptics`, never while the mic records; @capacitor/haptics 8.0.2).
+- Android: Psychedelic background never moves on the phone (`motionAllowed()` in theme.ts; web keeps Moving colours). Music stand:
+  slim one-row `.stand-bar`, `holdFullScreen()` hides the phone's bars while the stand is open (swipe up brings them back).
+- THE COMPOSER (`src/compose/`): `styles.ts` (21 StyleDefs built from the owner's artists: palette, colours, rhythm cells per level, space,
+  arpeggio/sequence, doubles, techniques, zone + moves box/roam/open, ending, riff kind, melody backing, pick patterns, program, tuning
+  for slack key = open G), `harmony.ts` (timeline, pools), `line.ts` (motif → repeat over the next chord → development → style ending,
+  chord tones on strong beats, approach notes, taps, ghost notes, swing; `scoreLine`), `fret.ts` (Viterbi placement + techniques),
+  `arrange.ts` (chord melody / fingerstyle: melody + thumb bass + inner notes per backing kind, placed together), `riff.ts` (djent,
+  gallop, power, funk16, skank, dub), `voicing.ts` (chord shapes in any tuning), `index.ts` `compose({style, part: lead|riff|melody, …})`:
+  best of 24 tries, never empty, capo for open styles. UI `components/TabMaker.tsx` (Jam → Make a tab: Fingerpicking | Licks & solos |
+  Chord melody | Riffs; Songs → Exercises → Tab maker). Old LickMaker / chordMelody.ts removed (Must-know licks library stays).
+  Fingerpicking: slack, cirillo, percussive (X = slap), pima (3/4), giuliani, arp-maj7. Jam styles: bossa → classical, + slackkey.
+- Songbook: originals are `piece`s (sections composed with fixed seeds, `pieceSong`, part kind 'piece', capo 0), genres hawaiian /
+  fingerstyle / classical; Romanza uses `texture: 'triplets'` (`tripletSong`). Classical PD: Romanza, Greensleeves, Für Elise, Minuet in G, Canon.
+- Slack key: `techniques.ts` slack-tuning/-thumb/-hammer/-vamp + `slackthumb` drill (open G); TUNINGS openg (taro patch) + cwahine;
+  Z2H PATHS slackkey + classical. Z2H `Focus.watch` (66 YouTube lessons, `w:<id>` ticks, a watch step every other day).
+- Theory videos per instrument: `lessonExtras.ts` `uke` / `bari` + `lessonVideo(id, inst)`.
+- Tabs in: `tabs/pdfTab.ts` (pdf.js legacy 4.10.38: text layout, drawn staves → numbers on strings, scanned → `pdfPictures` for the AI
+  reader), `tabs/siteImport.ts` (Android only, CapacitorHttp: Songsterr search/meta/CDN track JSON → Song; UG js-store → text; shared
+  links import too; untested against the live sites), `components/SiteSearch.tsx`. `audio/transcribe.ts` + `components/Transcriber.tsx`
+  (Basic Pitch 1.0.1, model in public/models/basic-pitch, tfjs lazy chunk): Jam → Find chords → Notes from a recording.
+- Tests: `tests/build33-logic.test.ts`, `tests/pdf-tab.test.ts` (+ fixtures), `tests/browser/build33-test.cjs [pdf, maketab, transcribe, z2h]`.
+
 ## Next up — pick up here
 0. Build 30 shipped as build-31: after the owner tries it, ASK HIM ABOUT EACH of the 8 items in notes/next-build.md
    (8–15, each with its checkpoint) and revert any he doesn't want (`git revert <checkpoint>`). In a month: go through What you use together.
+   Builds 32–33 wait on `big-update` for "ship it" (items 16–35, ask about each after he tries them).
+0b. The owner sent a MASTER BLUEPRINT (3 steps: fretboard brain + hand box + 5-layer geometry + voice leading; auto-BPM + Riff Scanner +
+   Shorts feed + Yousician game mode; 4-track looper workstation, Progressive Melodic Metal + Dylan Gossett courses, export doc). Rule:
+   discuss it first (5-point concept check), and code nothing of it until he says "Approved — Start Step 1". His attachment was cut off
+   in the Game Mode part, so ask for the rest.
 1. Owner tries build 29 (his Gemini choice 3.5 Flash Lite answers in 0.7 s; 3.8/3.7 Flash hang or 503 on the free tier; Groq key added = first backup); fix what he finds. Untested on a real phone: 🎤 talk with the USB amp plugged in / while Play listens, Gemini voice, streaming in the Android web view.
 2. Note follower accuracy (fewer misreads, accept bends; GP test files in the scratchpad testdata) and a better note detector for Notes mode (own guitar only).
 3. Hand position accuracy in Play, Jam looper loud/reliable, ukulele theory, more badges, chord-tone lessons, deep CAGED, a simplicity pass.
@@ -258,4 +292,4 @@ Left-handed mode, automatic tempo detection from the video, per-note polyphonic 
 
 ## Working with the owner
 Explain things plainly: a guitarist, not a developer. Ask before deleting anything on their computer.
-Tab search opens Songsterr / Ultimate Guitar / Google in the browser (their APIs are private), then the GP file is uploaded or the text pasted.
+Tab search: in the phone app, Songsterr and Ultimate Guitar results open straight in KGuitar (siteImport.ts); on the web they open in the browser, then the GP file is uploaded or the text pasted.
