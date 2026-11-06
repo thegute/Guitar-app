@@ -85,6 +85,7 @@ const only = process.argv[2]
     out.afterStop = await page.$eval('.tab-view', e => e.className)
 
     // harmony modes
+    await page.screenshot({ path: `${DIR}/play-${vp.name}-4c-before-harmony.png` })
     if (vp.width < 760) await page.click('.view-switch >> text=Both')
     for (const m of ['Scale', 'Arpeggio', 'Triads', 'Connect']) {
       await page.click(`.harmony .h-modes >> text=${m}`)
@@ -96,6 +97,9 @@ const only = process.argv[2]
 
     // tap a note: hear it and see its name
     await page.click('.view-switch >> text=Tab').catch(() => {})
+    // the report card from the run above floats over the tab on phones: close it first
+    if (await page.locator('.report-card button[aria-label="Close"], .report-card button:has-text("✕")').count()) await page.locator('.report-card button[aria-label="Close"], .report-card button:has-text("✕")').first().click()
+    else if (await page.locator('.report-card').count()) await page.locator('.report-card button').first().click()
     const notes = await page.$$('.tab-note')
     await notes[5].click()
     await page.waitForTimeout(200)

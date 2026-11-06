@@ -1027,6 +1027,7 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
   const rec = useRef<InputRecorder | null>(null)
   const freeStart = useRef(0)
   const cancelRef = useRef({ cancelled: false })
+  const saveChain = useRef<Promise<unknown>>(Promise.resolve())
   const live = useRef({ state, mode, layers, beat })
   live.current = { state, mode, layers, beat }
   const setLayers = (ls: Layer[]) => { live.current.layers = ls; setLayersRaw(ls); t.layers = ls; t.refreshLayers() }
@@ -1135,8 +1136,14 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
     setNote(`Loop ${ls.length} removed.`)
   }
   const setLayer = (id: string, patch: Partial<LoopLayer>) => {
-    setLayers(live.current.layers.map(l => (l.id === id ? { ...l, ...patch } : l)))
-    void loopsFor(live.current.beat.name).then(list => { const s = list.find(x => x.id === id); if (s) void saveLoop({ ...s, vol: patch.vol ?? s.vol, mute: patch.mute ?? s.mute, rev: patch.rev ?? s.rev, half: patch.half ?? s.half, fx: patch.fx ?? s.fx }) })
+    const next = live.current.layers.map(l => (l.id === id ? { ...l, ...patch } : l))
+    setLayers(next)
+    // saves one after another, each from the newest settings (quick taps used to overwrite each other)
+    const name = live.current.beat.name
+    saveChain.current = saveChain.current.then(() => loopsFor(name)).then(list => {
+      const s = list.find(x => x.id === id), l = live.current.layers.find(x => x.id === id)
+      if (s && l) return saveLoop({ ...s, vol: l.vol, mute: l.mute, rev: l.rev, half: l.half, fx: l.fx })
+    }).catch(() => undefined)
   }
   const remove = (id: string) => { void deleteLoop(id); setLayers(live.current.layers.filter(x => x.id !== id)) }
   /** Add a ready-made loop (a bounce): exactly the beat's length, kept as it is. */

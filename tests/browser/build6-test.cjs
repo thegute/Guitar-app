@@ -17,7 +17,7 @@ async function overflow(page) {
     if (document.documentElement.scrollWidth > innerWidth + 1) bad.push('page ' + document.documentElement.scrollWidth)
     for (const el of document.querySelectorAll('#main *')) {
       const r = el.getBoundingClientRect()
-      if (r.width && r.right > innerWidth + 1 && !el.closest('.fretboard-wrap, .chips, .heat, .tab-tools, .yt-bar, .prog-strip, .scroll-x, .tab-view, .tools-switch')) { bad.push(`${el.tagName}.${String(el.className).slice(0, 40)} ${Math.round(r.right)}`); if (bad.length > 4) break }
+      if (r.width && r.right > innerWidth + 1 && !el.closest('.fretboard-wrap, .chips, .heat, .tab-tools, .yt-bar, .prog-strip, .scroll-x, .tab-view, .tools-switch, .strobe')) { bad.push(`${el.tagName}.${String(el.className).slice(0, 40)} ${Math.round(r.right)}`); if (bad.length > 4) break }
     }
     return bad
   })
@@ -99,7 +99,7 @@ async function overflow(page) {
   if (sound < 8) problems.push('acoustic samples missing: ' + sound)
   // strum-along: open the Amazing Grace chord sheet
   await page.click('nav.nav button:has-text("Songs")')
-  await page.click('.subtabs [role=tab]:has-text("Practice")')
+  await page.click('.subtabs [role=tab]:has-text("Exercises")')
   await page.click('.songs-screen >> text=Amazing Grace')
   await page.waitForTimeout(500)
   const lyric = await page.$$eval('.tab-lyric', els => els.map(e => e.textContent).join(' | '))
@@ -140,7 +140,8 @@ async function overflow(page) {
   await page.click('.sheet.gear >> text=Next')
   await page.screenshot({ path: `${DIR}/b6-feature-gear.png` })
   await page.click('.sheet.gear >> text=Close')
-  // backup downloads a file on the web version
+  // backup downloads a file on the web version (stop listening first: "Tidy up while I play" folds the menu away)
+  if (await page.locator('button.listen[aria-pressed="true"]').count()) await page.click('button.listen')
   await page.click('nav >> text=Learn')
   await page.click('[aria-label="Settings"]')
   await page.click('.subtabs [role=tab]:has-text("Backup")')

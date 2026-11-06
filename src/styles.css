@@ -267,7 +267,8 @@ select.select {
   min-height: var(--h-md); border-radius: var(--r-sm); background: var(--rosewood-2); border: 1px solid var(--hairline);
   padding: 0 10px; max-width: 100%;
 }
-.field { display: grid; gap: 4px; }
+.field { display: grid; gap: 4px; grid-template-columns: minmax(0, 1fr); }
+.field > .select { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
 .field > span { font-size: 13px; color: var(--pearl-3); }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-4); box-shadow: var(--shadow); }
 .stack { display: grid; gap: var(--sp-4); }
@@ -2217,3 +2218,10 @@ video.mirrored { transform: scaleX(-1); }
 .z2h .goal-list .z2h-watch > button.link-btn { display: inline-block; justify-self: start; width: auto; white-space: nowrap; }
 .z2h .goal-list li { flex-wrap: wrap; }
 .z2h .goal-list li > button:first-child { flex: 1 1 0; }
+/* phones: the report card floats over the bottom of the tab instead of pushing the tab (and spilling over Scales & chords) */
+@media (max-width: 759px) {
+  .play-tab > .report-card { position: absolute; left: 0; right: 0; bottom: 0; z-index: 18; margin: 0; max-height: calc(100% - 4px); overflow-y: auto; box-shadow: 0 -6px 24px rgb(0 0 0 / .35); }
+}
+/* cards above the tab (song check, hints, report) never spill over the panel below: the tab box scrolls, and the tab keeps a usable height */
+.play-tab { overflow-y: auto; }
+.play-tab > .tab-view { min-height: 140px; }

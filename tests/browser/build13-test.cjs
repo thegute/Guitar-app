@@ -176,7 +176,12 @@ async function songbook(browser) {
         opened++
       } catch (e) { bad(`songbook ${inst.id} ${song} / ${label}: ${e.message.split('\n')[0]}`); await shot(page, `fail-sb-${inst.id}-${i}`); await page.keyboard.press('Escape').catch(() => {}) }
     }
-    // Hear it with the band on the last song opened
+    // Hear it with the band: on the first song (solo pieces like the classical ones have no band on purpose)
+    await openSheet()
+    await page.locator('.sb-part').first().scrollIntoViewIfNeeded()
+    await page.locator('.sb-part').first().click()
+    await playHasTab(page)
+    if (await page.locator('.song-check button:has-text("Got it")').count()) await page.locator('.song-check button:has-text("Got it")').click()
     await options(page)
     const bandBox = page.locator('.play-opts label:has-text("band") input')
     const hasBand = await bandBox.count()
@@ -219,7 +224,8 @@ async function plan(browser) {
         if (await page.locator('.play-head').count()) { const t = await playHasTab(page); if (!t.notes && !t.chords) bad(`plan step "${title}": empty tab`) }
       } catch { bad(`plan${away ? ' (away)' : ''} step "${title}": nothing happened`) }
     }
-    const toPath = async () => { await nav(page, 'Learn'); await page.waitForSelector('.learn-head'); await sub(page, 'Course'); await page.waitForSelector('.goal-list') }
+    const toPath = async () => { await nav(page, 'Learn'); await page.waitForSelector('.learn-head'); await sub(page, 'Course'); await page.waitForSelector('.course').catch(async e => { await shot(page, 'fail-path'); throw e }) }
+    // (guitar shows Zero to Hero here: its start check comes before any goal list)
     await toPath()
     const goals = await page.locator('.goal-list button').count()
     for (let i = 0; i < goals; i++) {
