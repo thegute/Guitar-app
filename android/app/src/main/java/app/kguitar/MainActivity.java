@@ -14,6 +14,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SpeakPlugin.class);
         registerPlugin(ImmersivePlugin.class);
         registerPlugin(ListenPlugin.class);
+        // MIDI footswitches: USB and Bluetooth LE MIDI (the web view has no Web MIDI)
+        registerPlugin(MidiPlugin.class);
         super.onCreate(savedInstanceState);
         if (getBridge() != null) getBridge().setWebViewClient(new MediaWebViewClient(getBridge()));
     }

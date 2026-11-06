@@ -1,6 +1,7 @@
 // Hands-free control: a Bluetooth footswitch / page turner (they type keys like → ← PageDown) or a USB MIDI pedal
 // triggers actions on the screen you're on (start/stop, restart, loop this bar ...). Pedals can be re-assigned.
 import { useEffect, useRef, useSyncExternalStore } from 'react'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 
 export type PedalAction = 'startStop' | 'restart' | 'loopBar' | 'prevBar' | 'nextBar' | 'hearIt' | 'video' | 'record' | 'accept'
 export const ACTION_LABEL: Record<PedalAction, string> = {
@@ -129,42 +130,95 @@ if (typeof window !== 'undefined') {
 }
 
 // ---------- MIDI pedals ----------
-let midiStatus: { on: boolean; devices: string[]; error?: string } = { on: false, devices: [] }
-const ccLast = new Map<number, number>()
+// On the phone: our own MidiPlugin.java (USB MIDI, and Bluetooth LE MIDI pedals like the Chocolate Plus: the Android
+// web view has no Web MIDI). On the web: Web MIDI where the browser has it.
+export interface MidiStatus {
+  on: boolean
+  devices: string[]
+  error?: string
+  /** the remembered Bluetooth pedal */
+  ble?: { address: string; name: string; state: 'connecting' | 'connected' | 'notfound' | 'idle' }
+  /** the last message, so you can see what a button sends */
+  last?: string
+}
+let midiStatus: MidiStatus = { on: false, devices: [] }
+const ccLast = new Map<string, number>()
+const ccPressAt = new Map<string, number>()
+const BLE_KEY = 'kg:midiBle'
+const IGNORE_KEY = 'kg:midiIgnore'
 export function midiEnabled() {
   try { return JSON.parse(localStorage.getItem(MIDI_KEY) ?? 'false') as boolean } catch { return false }
 }
 export function getMidiStatus() { return midiStatus }
+const setStatus = (p: Partial<MidiStatus>) => { midiStatus = { ...midiStatus, ...p }; changed() }
+function readJson<T>(k: string, d: T): T { try { const v = localStorage.getItem(k); return v ? (JSON.parse(v) as T) : d } catch { return d } }
+function writeJson(k: string, v: unknown) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)) } catch { /* storage unavailable */ } }
+
+/** Devices you've told KGuitar not to listen to (the Pocket Master's own USB MIDI, a keyboard...). */
+export function ignoredDevices(): string[] { return readJson<string[]>(IGNORE_KEY, []) }
+export function setDeviceIgnored(name: string, ignore: boolean) {
+  const list = ignoredDevices().filter(n => n !== name)
+  if (ignore) list.push(name)
+  writeJson(IGNORE_KEY, list)
+  changed()
+}
+
+/** One MIDI message from any device: notes and program changes press; a CC (footswitch) presses at 64+ and lets go below. */
+export function midiMessage(data: ArrayLike<number>, device = 'MIDI device') {
+  const [st, d1, d2 = 0] = [data[0], data[1], data[2]]
+  if (ignoredDevices().includes(device)) return
+  const type = st & 0xf0
+  const now = performance.now()
+  if (type === 0x90 && d2 > 0) { setStatus({ last: `Note ${d1} from ${device}` }); fire(`midi:note:${d1}`) }
+  else if (type === 0x80 || (type === 0x90 && d2 === 0)) release(`midi:note:${d1}`)
+  else if (type === 0xb0) {
+    const k = `${d1}`
+    const prev = ccLast.get(k) ?? 0
+    ccLast.set(k, d2)
+    // footswitches send 127 down / 0 up; some send only 127 on every press, so a second 127 later is a new press
+    if (d2 >= 64 && (prev < 64 || now - (ccPressAt.get(k) ?? 0) > 400)) {
+      ccPressAt.set(k, now)
+      setStatus({ last: `CC ${d1} = ${d2} from ${device}` })
+      fire(`midi:cc:${d1}`)
+    } else if (d2 < 64 && prev >= 64) release(`midi:cc:${d1}`)
+  } else if (type === 0xc0) { setStatus({ last: `Program ${d1} from ${device}` }); fire(`midi:pc:${d1}`) }
+}
+
+interface MidiDev { id: number; name: string; kind: 'usb' | 'ble' | 'other' }
+interface MidiNative {
+  available(): Promise<{ ok: boolean; ble: boolean }>
+  start(o: { ble?: string }): Promise<{ devices: MidiDev[]; error?: string }>
+  stop(): Promise<void>
+  scanBle(o: { ms?: number }): Promise<{ found: { address: string; name: string }[]; error?: string }>
+  connectBle(o: { address: string }): Promise<{ error?: string } | void>
+  forgetBle(): Promise<void>
+  addListener(e: 'midi', f: (d: { data: number[]; device: string }) => void): Promise<{ remove: () => void }>
+  addListener(e: 'devices', f: (d: { devices: MidiDev[] }) => void): Promise<{ remove: () => void }>
+  addListener(e: 'status', f: (d: { ble: 'connecting' | 'connected' | 'notfound' }) => void): Promise<{ remove: () => void }>
+}
+const nativeMidi = registerPlugin<MidiNative>('Midi')
+export const nativeMidiOn = () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
+let nativeSubs: { remove: () => void }[] = []
 
 interface MidiInputLike { name?: string | null; onmidimessage: ((e: { data: Uint8Array }) => void) | null }
 interface MidiAccessLike { inputs: Map<string, MidiInputLike>; onstatechange: (() => void) | null }
 
 export async function enableMidi(on: boolean) {
-  try { localStorage.setItem(MIDI_KEY, JSON.stringify(on)) } catch { /* storage unavailable */ }
+  writeJson(MIDI_KEY, on)
+  if (nativeMidiOn()) return enableNative(on)
   if (!on) { midiStatus = { on: false, devices: [] }; changed(); return }
   const req = (navigator as Navigator & { requestMIDIAccess?: () => Promise<MidiAccessLike> }).requestMIDIAccess
-  if (!req) { midiStatus = { on: false, devices: [], error: "This phone's web view doesn't offer MIDI to apps. Use the pedal's keyboard (page-turner) mode instead." }; changed(); return }
+  if (!req) { midiStatus = { on: false, devices: [], error: "This browser doesn't offer MIDI. Use the pedal's keyboard (page-turner) mode instead." }; changed(); return }
   try {
     const access = await req.call(navigator)
     const hook = () => {
       const names: string[] = []
       access.inputs.forEach(inp => {
-        names.push(inp.name ?? 'MIDI device')
-        inp.onmidimessage = ev => {
-          const [st, d1, d2] = ev.data
-          const type = st & 0xf0
-          if (type === 0x90 && d2 > 0) fire(`midi:note:${d1}`)
-          else if (type === 0xb0) {
-            // footswitches send 127 down / 0 up: act on the press only
-            const prev = ccLast.get(d1) ?? 0
-            ccLast.set(d1, d2)
-            if (d2 >= 64 && prev < 64) fire(`midi:cc:${d1}`)
-            else if (d2 < 64 && prev >= 64) release(`midi:cc:${d1}`)
-          } else if (type === 0xc0) fire(`midi:pc:${d1}`)
-        }
+        const name = inp.name ?? 'MIDI device'
+        names.push(name)
+        inp.onmidimessage = ev => midiMessage(ev.data, name)
       })
-      midiStatus = { on: true, devices: names }
-      changed()
+      setStatus({ on: true, devices: names, error: undefined })
     }
     access.onstatechange = hook
     hook()
@@ -173,6 +227,48 @@ export async function enableMidi(on: boolean) {
     changed()
   }
 }
+
+async function enableNative(on: boolean) {
+  nativeSubs.forEach(s => s.remove()); nativeSubs = []
+  if (!on) { try { await nativeMidi.stop() } catch { /* not there */ } midiStatus = { on: false, devices: [] }; changed(); return }
+  const saved = readJson<{ address: string; name: string } | null>(BLE_KEY, null)
+  try {
+    nativeSubs.push(await nativeMidi.addListener('midi', d => midiMessage(d.data, d.device)))
+    nativeSubs.push(await nativeMidi.addListener('devices', d => setStatus({ devices: d.devices.map(x => x.name) })))
+    nativeSubs.push(await nativeMidi.addListener('status', d => { if (midiStatus.ble) setStatus({ ble: { ...midiStatus.ble, state: d.ble } }) }))
+    const r = await nativeMidi.start({ ble: saved?.address })
+    if (r.error) { midiStatus = { on: false, devices: [], error: "This phone doesn't offer MIDI to apps." }; changed(); return }
+    midiStatus = { on: true, devices: r.devices.map(x => x.name), ble: saved ? { ...saved, state: 'connecting' } : undefined }
+    changed()
+  } catch {
+    midiStatus = { on: false, devices: [], error: 'MIDI needs the newest KGuitar app.' }
+    changed()
+  }
+}
+
+export const BLE_ERRORS: Record<string, string> = {
+  permission: 'KGuitar needs the Nearby devices permission to find Bluetooth pedals. Allow it and try again.',
+  off: 'Bluetooth is off. Switch it on and try again.',
+  nobluetooth: "This device doesn't have Bluetooth LE.",
+}
+/** Look for Bluetooth MIDI pedals nearby (phone app only). */
+export async function scanBlePedals(): Promise<{ found: { address: string; name: string }[]; error?: string }> {
+  if (!nativeMidiOn()) return { found: [], error: 'web' }
+  if (!midiStatus.on) await enableMidi(true)
+  try { return await nativeMidi.scanBle({ ms: 6000 }) } catch { return { found: [], error: 'error' } }
+}
+/** Connect to a Bluetooth pedal and remember it (it reconnects whenever it's switched on). */
+export async function connectBlePedal(p: { address: string; name: string }) {
+  writeJson(BLE_KEY, p)
+  setStatus({ ble: { ...p, state: 'connecting' } })
+  try { const r = await nativeMidi.connectBle({ address: p.address }); if (r && r.error) setStatus({ error: BLE_ERRORS[r.error] ?? r.error }) } catch { /* not there */ }
+}
+export async function forgetBlePedal() {
+  writeJson(BLE_KEY, null)
+  setStatus({ ble: undefined })
+  try { await nativeMidi.forgetBle() } catch { /* not there */ }
+}
+
 if (typeof window !== 'undefined' && midiEnabled()) setTimeout(() => void enableMidi(true), 1500)
 
 export function usePedalSettings() {

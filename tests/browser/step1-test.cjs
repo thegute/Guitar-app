@@ -1,7 +1,7 @@
 // Blueprint Step 1 in the browser: the floating finger box (drag, resize, tuck, remembered), the upcoming shift badge
 // and Loop this shift, choosing a finger / another string for a tapped note, Make it easier, hand size in Settings;
 // later parts: tunings, layers, voice leading, play the changes.
-// Needs `vite preview` on :4173 and CHROME_PATH.  node tests/browser/step1-test.cjs [box,tunings,layers,voice,changes]
+// Needs `vite preview` on :4173 and CHROME_PATH.  node tests/browser/step1-test.cjs [box,tunings,layers,voice,pedals]
 const { chromium } = require('playwright')
 const path = require('path')
 const DIR = path.join(__dirname, 'out')
@@ -325,6 +325,41 @@ More words go here too`, 'Eb song')
     if (!(await page.locator('[data-testid=h-targets]').count())) bad(`${vp.n}: no Play the changes in Scales & chords → Scale`)
     await page.locator('.harmony .h-modes button:has-text("Hand shape")').click()
     if (page.errors.length) bad(`${vp.n} voice errors: ${page.errors.join(' | ')}`)
+    await page.context().close()
+  }
+
+  if (want('pedals')) for (const vp of [{ width: 412, height: 915, n: 'cover' }, { width: 1400, height: 876, n: 'tab-s10' }]) {
+    // Settings → Sound → Hands-free: teach the 4 buttons (keyboard mode here), MIDI switch on the web
+    const page = await newPage(browser, vp)
+    await nav(page, 'Learn'); await page.locator('[aria-label="Settings"]').click(); await sub(page, 'Sound')
+    const ps = page.locator('[data-testid=pedal-settings]')
+    await ps.scrollIntoViewIfNeeded().catch(() => {})
+    if (!(await ps.count())) { bad(`${vp.n}: no pedal settings`); await page.context().close(); continue }
+    await ps.locator('[data-testid=teach-buttons]').click()
+    for (const [k, btn] of [['a', 'A'], ['b', 'B'], ['c', 'C'], ['d', 'D']]) {
+      const step = await ps.locator('[data-testid=teach-step]').innerText().catch(() => '')
+      if (!step.includes(`button ${btn}`)) bad(`${vp.n}: teach step shows "${step}" (wanted button ${btn})`)
+      await page.locator('body').click({ position: { x: 2, y: 2 } }).catch(() => {})
+      await page.keyboard.press(k); await page.waitForTimeout(150)
+    }
+    if (await ps.locator('[data-testid=teach-step]').count()) bad(`${vp.n}: teach steps did not finish`)
+    const b = JSON.parse(await page.evaluate(() => localStorage.getItem('kg:pedals')) || '{}')
+    const want4 = { 'key:a': 'startStop', 'key:b': 'restart', 'key:c': 'loopBar', 'key:d': 'hearIt' }
+    for (const [k, v] of Object.entries(want4)) if (b[k] !== v) bad(`${vp.n}: ${k} → ${b[k]} (wanted ${v})`)
+    console.log(`${vp.n}: taught ${Object.keys(want4).filter(k => b[k] === want4[k]).length}/4 buttons`)
+    // skip leaves a button alone
+    await ps.locator('[data-testid=teach-buttons]').click()
+    await ps.locator('[data-testid=teach-step] button:has-text("Skip")').click()
+    const st = await ps.locator('[data-testid=teach-step]').innerText()
+    if (!st.includes('button B')) bad(`${vp.n}: Skip did not move to B (${st})`)
+    await ps.locator('[data-testid=teach-step] button:has-text("Done")').click()
+    await page.locator('[data-testid=midi-on]').check()
+    await page.waitForTimeout(400)
+    const txt = await ps.innerText()
+    console.log(`${vp.n}: midi on (web): ${/doesn't offer MIDI|No MIDI pedal|Listen/.test(txt) ? 'message shown' : 'nothing shown'}`)
+    if (await sideways(page)) bad(`${vp.n}: sideways overflow in pedal settings`)
+    await page.screenshot({ path: `${DIR}/step1-pedals-${vp.n}.png` })
+    if (page.errors.length) bad(`${vp.n} pedal errors: ${page.errors.join(' | ')}`)
     await page.context().close()
   }
 

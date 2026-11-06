@@ -11,6 +11,7 @@ import { layerSpots } from '../src/theory/layers'
 import { voiceLead, describeChange } from '../src/theory/voicelead'
 import { targetView } from '../src/theory/targets'
 import { chordInfo } from '../src/tabs/harmony'
+import { learnNext, midiMessage, setDeviceIgnored, getMidiStatus, cancelLearn } from '../src/controls/pedals'
 
 let checks = 0
 const ok = (c: boolean, m: string) => { checks++; assert.ok(c, m) }
@@ -118,4 +119,29 @@ const tr = (tuning: number[], capo: number, notes: [number, number][]): SongTrac
   ok(near.markFor(57, 1, 12)?.role === 'look' && near.markFor(53, 0, 13)?.role === 'look', 'A (3rd of F) and F (root) cyan near the change')
   ok(near.arrows.length > 0 && near.arrows.every(a => Math.abs(STD[a.s1] + a.f1 - (STD[a.s2] + a.f2)) <= 2), `arrows are a half or whole step (${near.arrows.length})`)
 }
-console.log(`step 1 logic: ${checks} checks, 0 failed`)
+// MIDI pedals (Chocolate Plus): what each message turns into
+void (async () => {
+  const next = async (msgs: number[][], device = 'Chocolate Plus') => {
+    const p = learnNext()
+    let got = ''
+    void p.then(c => { got = c })
+    for (const m of msgs) midiMessage(m, device)
+    await new Promise(r => setTimeout(r, 0))
+    cancelLearn()
+    return got
+  }
+  ok(await next([[0xb0, 20, 127]]) === 'midi:cc:20', 'footswitch CC press')
+  ok(await next([[0xb0, 20, 0]]) === '', 'CC let go is not a press')
+  ok(await next([[0xc0, 3]]) === 'midi:pc:3', 'program change')
+  ok(await next([[0x90, 60, 100]]) === 'midi:note:60', 'note on')
+  ok(await next([[0x90, 60, 0]]) === '', 'note on with velocity 0 = let go')
+  setDeviceIgnored('Pocket Master', true)
+  ok(await next([[0xb0, 21, 127]], 'Pocket Master') === '', 'an ignored device does nothing')
+  setDeviceIgnored('Pocket Master', false)
+  ok(await next([[0xb0, 21, 127]], 'Pocket Master') === 'midi:cc:21', 'listening again')
+  ok(/CC 21/.test(getMidiStatus().last ?? ''), `last button shown (${getMidiStatus().last})`)
+  // a pedal that only ever sends 127: a later 127 is a new press
+  await new Promise(r => setTimeout(r, 450))
+  ok(await next([[0xb0, 21, 127]], 'Pocket Master') === 'midi:cc:21', 'repeated 127 after a pause = new press')
+  console.log(`step 1 logic: ${checks} checks, 0 failed`)
+})()
