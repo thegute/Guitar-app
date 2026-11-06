@@ -63,7 +63,7 @@ Each item is its own checkpoint, so any one can be undone with `git revert <chec
     and holds work, and whether A–D should do other things.
 
 ## Master blueprint, Step 2 (eyes, ears and game)
-45. **Tempo + time signature everywhere (2a)** (CHECKPOINT_2A). Play's top bar has a tempo badge (♩ 92 · 4/4; "~" = a guess). Tap it:
+45. **Tempo + time signature everywhere (2a)** (cf2a495). Play's top bar has a tempo badge (♩ 92 · 4/4; "~" = a guess). Tap it:
     − / +, ½× / 2× (the usual mix-ups), tap along, time signature (2/4 … 12/8), Ask the AI (known songs; asked by itself once for a
     pasted tab when a key is set up), Back to the file's tempo. Guitar Pro files bring their exact tempo, time signature AND tempo
     changes (In time, click, band, Hear it and the synced video follow them). Pasted tabs get a guess from their rhythm.
