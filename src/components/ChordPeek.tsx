@@ -7,6 +7,8 @@ import { ChordDiagram } from './ChordDiagram'
 import { shapesFor } from '../theory/shapes'
 import type { Voicing } from '../theory/chords'
 import type { Instrument } from '../instrument'
+import { LayerNeck } from './LayerNeck'
+import { pc } from '../theory/notes'
 
 const TYPES: [RegExp, string][] = [
   [/^(maj7|M7|Maj7|Δ7?)$/, 'maj7'], [/^(m7b5|ø7?|-7b5|min7b5)$/, 'm7b5'], [/^(dim7|°7|o7)$/, 'dim7'], [/^(dim|°|o)$/, 'dim'],
@@ -43,6 +45,10 @@ interface Shown { name: string; voicing: Voicing; fromTab: boolean; x: number; y
 export function useChordPeek(root: RefObject<HTMLElement | null>, inst: Instrument, frets: (flat: number) => number[] | null, on = true) {
   const [shown, setShown] = useState<Shown | null>(null)
   const [fading, setFading] = useState(false)
+  // Pin open: the peek stays (with the 5-layer neck for that chord) until you close it
+  const [pinned, setPinned] = useState(false)
+  const pinnedRef = useRef(false)
+  pinnedRef.current = pinned
   const timer = useRef(0)
   const holding = useRef(false)
   const args = useRef({ inst, frets })
@@ -52,7 +58,7 @@ export function useChordPeek(root: RefObject<HTMLElement | null>, inst: Instrume
     const el = root.current
     if (!el) return
     const release = () => {
-      if (!holding.current) return
+      if (!holding.current || pinnedRef.current) { holding.current = false; return }
       holding.current = false
       clearTimeout(timer.current)
       timer.current = window.setTimeout(() => { setFading(true); timer.current = window.setTimeout(() => { setShown(null); setFading(false) }, 250) }, 1500)
@@ -74,6 +80,7 @@ export function useChordPeek(root: RefObject<HTMLElement | null>, inst: Instrume
       clearTimeout(timer.current)
       holding.current = true
       setFading(false)
+      setPinned(false)
       setShown({ name, ...pv, x, y, below })
     }
     const noMenu = (e: Event) => { if ((e.target as Element | null)?.closest?.('[data-chord]')) e.preventDefault() }
@@ -91,11 +98,24 @@ export function useChordPeek(root: RefObject<HTMLElement | null>, inst: Instrume
   }, [root, on])
 
   const big = typeof window !== 'undefined' && window.innerWidth >= 700
+  const c = shown ? readChordName(shown.name) : null
+  const minor = !!c && /^m(?!aj)|^dim|m7b5/.test(c.type)
   const bubble = shown ? (
-    <div className={`chord-peek${fading ? ' fading' : ''}${shown.below ? ' below' : ''}`} style={{ left: shown.x, top: shown.y }} role="status" aria-live="polite" data-testid="chord-peek">
-      <ChordDiagram name={shown.name} voicing={shown.voicing} size={big ? 1.75 : 1.28} />
-      <span className="chord-peek-note">{shown.fromTab ? 'as in the tab' : 'a common shape'}</span>
-    </div>
+    pinned && c ? (
+      <div className="chord-peek pinned" role="dialog" aria-label={`${shown.name}, pinned`} data-testid="chord-peek">
+        <div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
+          <ChordDiagram name={shown.name} voicing={shown.voicing} size={big ? 1.2 : 0.95} />
+          <button className="btn sm" onClick={() => { setPinned(false); setShown(null) }} aria-label="Close the pinned chord">✕ Close</button>
+        </div>
+        <LayerNeck rootPc={pc(c.root)} minor={minor} inst={args.current.inst} where="peek" compact />
+      </div>
+    ) : (
+      <div className={`chord-peek${fading ? ' fading' : ''}${shown.below ? ' below' : ''}`} style={{ left: shown.x, top: shown.y }} role="status" aria-live="polite" data-testid="chord-peek">
+        <ChordDiagram name={shown.name} voicing={shown.voicing} size={big ? 1.75 : 1.28} />
+        <span className="chord-peek-note">{shown.fromTab ? 'as in the tab' : 'a common shape'}</span>
+        <button className="btn sm peek-pin" onPointerDown={e => e.stopPropagation()} onClick={() => { clearTimeout(timer.current); setFading(false); setPinned(true) }} data-testid="peek-pin">Pin open</button>
+      </div>
+    )
   ) : null
   return { bubble, shown: !!shown }
 }

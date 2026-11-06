@@ -6,8 +6,9 @@ import { current } from '../instrument'
  * root: red · chord: amber (chord tones) · scale: pearl · ghost: outline only · live: teal (what the mic hears)
  * next: teal ring (tones of the next chord) · common: amber with a teal ring (in both chords)
  * pass: small pearl (connecting notes, usually numbered) · target: amber ring (the tab's next note)
+ * triad: amber with a coral ring (a triad inside the shape) · embel: violet halo (a free finger's embellishment)
  */
-export type MarkRole = 'root' | 'chord' | 'scale' | 'ghost' | 'live' | 'next' | 'common' | 'pass' | 'target'
+export type MarkRole = 'root' | 'chord' | 'scale' | 'ghost' | 'live' | 'next' | 'common' | 'pass' | 'target' | 'triad' | 'embel'
 export interface Mark {
   label: string
   role: MarkRole
@@ -33,14 +34,15 @@ const OPEN_W = 34
 
 const FILL: Record<MarkRole, string> = {
   root: 'var(--fb-coral)', chord: 'var(--fb-gold)', scale: 'var(--fb-pearl)', ghost: 'var(--board)', live: 'var(--fb-mint)',
-  next: 'var(--board)', common: 'var(--fb-gold)', pass: '#bcb3c7', target: 'var(--board)',
+  next: 'var(--board)', common: 'var(--fb-gold)', pass: '#bcb3c7', target: 'var(--board)', triad: 'var(--fb-gold)', embel: 'var(--board)',
 }
 const INK: Record<MarkRole, string> = {
   root: '#fff', chord: '#2a1d05', scale: 'var(--fb-ink)', ghost: '#cfc6bb', live: 'var(--fb-ink)',
-  next: 'var(--fb-ring)', common: '#2a1d05', pass: 'var(--fb-ink)', target: 'var(--fb-gold)',
+  next: 'var(--fb-ring)', common: '#2a1d05', pass: 'var(--fb-ink)', target: 'var(--fb-gold)', triad: '#2a1d05', embel: 'var(--fb-embel, #d8b4fe)',
 }
 const RING: Partial<Record<MarkRole, [string, number]>> = {
   ghost: ['var(--nickel)', 1.2], next: ['var(--fb-ring)', 2.5], common: ['var(--fb-ring)', 3], target: ['var(--fb-gold)', 3],
+  triad: ['var(--fb-coral)', 3], embel: ['var(--fb-embel, #d8b4fe)', 3],
 }
 
 function FretboardImpl({ tuning = current().midis, fromFret = 0, toFret = 15, markFor, onTap, minFretPx, compact, zoomId = 'fretboard' }: Props) {

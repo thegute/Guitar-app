@@ -11,6 +11,7 @@ import { Zoomable } from '../components/Zoomable'
 import { ChordExtras } from '../components/ChordExtras'
 import { useScreenInfo } from '../assistant/screen'
 import { Win, WinArea } from '../components/Win'
+import { LayerNeck } from '../components/LayerNeck'
 
 const TONAL_SUFFIX: Record<string, string> = {
   major: '', minor: 'm', '5': '5', aug7: '7#5', mmaj7: 'mMaj7', alt: '7alt', '69': '6/9', m69: 'm6/9', '9#11': '9#11',
@@ -87,6 +88,9 @@ export function ChordsScreen() {
             }}
             onTap={midi => strum([midi])}
           />
+        </Win>
+        <Win id="layers" title={`${name}: the 5-layer neck`} className="panel" hint="Pick a shape, then switch the layers on and off: the shape, the triads inside it, the pentatonic box around it, the two notes that make it a full mode, and the notes a free finger can add (the violet ones: tap one to hear the chord with that hammer-on).">
+          <LayerNeck rootPc={r} minor={/^m(?!aj)|^minor|dim|m7b5/.test(suffix)} inst={inst} where="chords" noLinks={['chord']} />
         </Win>
       <ChordExtras root={root} suffix={suffix} voicing={v} />
       </WinArea>

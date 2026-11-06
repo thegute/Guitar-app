@@ -2286,3 +2286,17 @@ video.mirrored { transform: scaleX(-1); }
 .finger-box.dodge { opacity: .35; pointer-events: none; transition: opacity .2s; }
 /* while it's faded over your note, its title bar, buttons and corner still work */
 .finger-box.dodge .fbx-bar, .finger-box.dodge .fbx-size, .finger-box.dodge button { pointer-events: auto; }
+/* chord peek: Pin open keeps it, with the 5-layer neck */
+.chord-peek .peek-pin { pointer-events: auto; margin-top: 2px; }
+.chord-peek.pinned { pointer-events: auto; left: 50% !important; top: auto !important; bottom: 12px; transform: translateX(-50%); width: min(640px, calc(100vw - 16px));
+  max-height: 78vh; overflow-y: auto; align-items: stretch; padding: 10px; gap: 8px; }
+/* the 5-layer neck */
+.layer-toggles { display: flex; flex-wrap: wrap; gap: 6px; }
+.layer-chip[aria-pressed='true'] { border-color: var(--accent); }
+.layer-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--ink-2); }
+.layer-legend i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; margin-right: -6px; vertical-align: -1px; }
+.layer-legend .lg-root { background: var(--fb-coral); } .layer-legend .lg-chord { background: var(--fb-gold); }
+.layer-legend .lg-triad { background: var(--fb-gold); box-shadow: 0 0 0 2px var(--fb-coral); } .layer-legend .lg-scale { background: var(--fb-pearl); }
+.layer-legend .lg-pass { background: #bcb3c7; width: 9px; height: 9px; } .layer-legend .lg-embel { background: transparent; box-shadow: inset 0 0 0 2px var(--fb-embel, #d8b4fe); }
+:root { --fb-embel: #c084fc; }
+.layer-neck.compact .layer-legend { display: none; }

@@ -11,7 +11,11 @@ export class Drone {
   private volume = 0.5
   tonic = 45
 
-  start(tonic: number) {
+  /** extra chord tones (semitones above the tonic) for a chord drone, e.g. [4] for a major chord's 3rd */
+  chord: number[] = []
+
+  start(tonic: number, chord: number[] = this.chord) {
+    this.chord = chord
     liveSound(this)
     const ctx = audio()
     void ctx.resume()
@@ -33,6 +37,7 @@ export class Drone {
     const voices: [number, OscillatorType, number, number][] = [
       // semitones above tonic, wave, level, detune (cents)
       [0, 'sawtooth', 0.32, -6], [0, 'sawtooth', 0.32, 6], [12, 'triangle', 0.22, 0], [7, 'triangle', 0.12, 2], [-12, 'sine', 0.35, 0],
+      ...chord.map(st => [st + 12, 'triangle', 0.14, 3] as [number, OscillatorType, number, number]),
     ]
     for (const [st, type, lvl, det] of voices) {
       const o = ctx.createOscillator()

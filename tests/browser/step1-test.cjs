@@ -203,6 +203,77 @@ More words go here too`, 'Eb song')
     await page.context().close()
   }
 
+  if (want('layers')) for (const vp of [{ width: 412, height: 915, n: 'cover' }, { width: 840, height: 757, n: 'inner' }]) {
+    const page = await newPage(browser, vp)
+    const dots = loc => loc.locator('.note-dot').count()
+    // Tools → Chords: the 5-layer window
+    await nav(page, 'Tools'); await sub(page, 'Chords'); await page.waitForTimeout(400)
+    const ln = page.locator('.win[data-win="layers"] [data-testid=layer-neck]')
+    if (!(await ln.count())) bad(`${vp.n}: no 5-layer neck in Tools → Chords`)
+    else {
+      await ln.scrollIntoViewIfNeeded()
+      const d0 = await dots(ln)
+      await ln.locator('.layer-chip:has-text("Pentatonic")').click(); await page.waitForTimeout(150)
+      const d1 = await dots(ln)
+      await ln.locator('.layer-chip:has-text("Mode notes")').click(); await page.waitForTimeout(150)
+      const d2 = await dots(ln)
+      const modes = await ln.locator('button:has-text("Lydian")').count()
+      console.log(`${vp.n}: chords layers dots ${d0} → +penta ${d1} → +mode ${d2}; mode chips ${modes ? 'yes' : 'no'}`)
+      if (!(d1 > d0 && d2 > d1)) bad(`${vp.n}: switching layers on didn't add notes (${d0}, ${d1}, ${d2})`)
+      if (!modes) bad(`${vp.n}: no mode choice with Mode notes on`)
+      await ln.locator('.layer-chip:has-text("3 per string")').click(); await page.waitForTimeout(150)
+      const d3 = await dots(ln)
+      if (!(d3 > d2)) bad(`${vp.n}: 3 per string added nothing (${d2} → ${d3})`)
+      await ln.locator('.layer-chip:has-text("3 per string")').click()
+      // a violet free-finger note plays the chord + hammer-on and explains itself
+      const emb = ln.locator('.note-dot.role-embel').first()
+      if (await emb.count()) { await emb.click(); await page.waitForTimeout(200); const t = await ln.locator('[role=status]').textContent(); if (!/hammer|pull/.test(t)) bad(`${vp.n}: free-finger note didn't explain itself (${t})`) }
+      else bad(`${vp.n}: no free-finger notes`)
+      await ln.locator('[data-testid=drone]').click(); await page.waitForTimeout(200)
+      if (!/Stop/.test(await ln.locator('[data-testid=drone]').textContent())) bad(`${vp.n}: drone didn't start`)
+      await ln.locator('[data-testid=drone]').click()
+      await page.screenshot({ path: `${DIR}/step1-layers-chords-${vp.n}.png` })
+    }
+    if (await sideways(page)) bad(`${vp.n}: Chords scrolls sideways`)
+    // Play → Scales & chords → Layers
+    await nav(page, 'Play'); await page.waitForSelector('.tab-note')
+    if (vp.width < 760) await page.click('.view-switch >> text=Both').catch(() => {})
+    const lay = page.locator('.harmony .h-modes button:has-text("Layers")')
+    if (!(await lay.count())) bad(`${vp.n}: no Layers in Scales & chords`)
+    else {
+      await lay.click(); await page.waitForTimeout(300)
+      if (!(await page.locator('.harmony [data-testid=layer-neck]').count())) bad(`${vp.n}: Layers view empty`)
+      await page.screenshot({ path: `${DIR}/step1-layers-play-${vp.n}.png` })
+      await page.locator('.harmony .h-modes button:has-text("Hand shape")').click()
+    }
+    // chord peek: hold a chord name, Pin open
+    const chord = page.locator('[data-chord]').first()
+    if (await chord.count()) {
+      const b = await chord.boundingBox()
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(200); await page.mouse.up()
+      const pin = page.locator('[data-testid=peek-pin]')
+      if (await pin.count()) {
+        await pin.click(); await page.waitForTimeout(1900)
+        const stays = await page.locator('.chord-peek.pinned [data-testid=layer-neck]').count()
+        if (!stays) bad(`${vp.n}: pinned peek didn't stay with its layers`)
+        await page.screenshot({ path: `${DIR}/step1-peek-pinned-${vp.n}.png` })
+        await page.locator('.chord-peek.pinned button:has-text("Close")').click()
+      } else bad(`${vp.n}: no Pin open on the chord peek`)
+    }
+    // CAGED explorer: one shape shows the layers
+    await nav(page, 'Learn'); await sub(page, 'Explore'); await page.waitForTimeout(300)
+    const caged = page.locator('.tool:has-text("explorer")').first()
+    if (await caged.count()) {
+      await caged.click(); await page.waitForTimeout(400)
+      await page.locator('.chip:has-text("E shape ·")').first().click(); await page.waitForTimeout(300)
+      if (!(await page.locator('[data-testid=layer-neck]').count())) bad(`${vp.n}: CAGED explorer shape has no layers`)
+      await page.screenshot({ path: `${DIR}/step1-layers-caged-${vp.n}.png` })
+    } else bad(`${vp.n}: CAGED explorer not found`)
+    if (await sideways(page)) bad(`${vp.n}: CAGED explorer scrolls sideways`)
+    if (page.errors.length) bad(`${vp.n} layers errors: ${page.errors.join(' | ')}`)
+    await page.context().close()
+  }
+
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : 'step 1: all good')
   process.exit(problems.length ? 1 : 0)

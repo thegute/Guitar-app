@@ -9,6 +9,7 @@ import { pc, noteToMidi } from '../theory/notes'
 import { useInstrument } from '../instrument'
 import { useScreenInfo } from '../assistant/screen'
 import { Win, WinArea } from '../components/Win'
+import { LayerNeck } from '../components/LayerNeck'
 
 const POSITIONS = [
   { id: 'all', label: 'Whole neck', from: 0, to: 15 },
@@ -108,6 +109,9 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
           onTap={midi => playNote(midi)}
         />
         <p className="small muted" style={{ marginTop: 8 }}>Tap any dot to hear that note. Red dots are the root.</p>
+      </Win>
+      <Win id="layers" title={`${root}${set.has((r + 3) % 12) && !set.has((r + 4) % 12) ? 'm' : ''} chord: the 5-layer neck`} className="panel" hint="The scale's home chord as a stack of layers under one hand: the chord shape, its triads, the pentatonic box, the two notes that make the full mode, and what a free finger can add.">
+        <LayerNeck rootPc={r} minor={set.has((r + 3) % 12) && !set.has((r + 4) % 12)} inst={inst} where="scales" noLinks={['scale']} />
       </Win>
       {chords.length > 0 && (
         <Win id="chords" title="Chords that come from this scale" className="panel">

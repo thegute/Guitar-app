@@ -13,6 +13,7 @@ import { cagedShapes, shapeWindow } from './caged'
 import { usePracticeTimer } from './progress'
 import { Zoomable } from '../components/Zoomable'
 import { Win, WinArea } from '../components/Win'
+import { LayerNeck } from '../components/LayerNeck'
 
 type Overlay = 'chord' | 'arp' | 'penta' | 'scale' | 'triads'
 const IV = ['R', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7']
@@ -100,10 +101,12 @@ export function CagedExplorer({ inst, onExit, onQuiz }: { inst: Instrument; onEx
         <KeyPicker value={root} onChange={setRoot} label="Chord root" />
         <Chips label="Quality" items={[{ id: 'maj', label: 'Major' }, { id: 'min', label: 'Minor' }]} value={minor ? 'min' : 'maj'} onChange={v => setMinor(v === 'min')} />
         <Chips label="Shape" items={[{ id: 'all', label: 'All five' }, ...shapes.map(s => ({ id: s.letter, label: `${s.letter} shape · fret ${s.lo}` }))]} value={sel} onChange={setSel} />
-        {sel !== 'all' && (
-          <Chips label="Show" items={[{ id: 'chord', label: 'Chord' }, { id: 'arp', label: 'Arpeggio' }, { id: 'penta', label: minor ? 'Minor pentatonic' : 'Major pentatonic' }, { id: 'scale', label: minor ? 'Natural minor' : 'Major scale' }, { id: 'triads', label: 'Triads' }]} value={overlay} onChange={setOverlay} />
+        {sel === 'all' ? (
+          <Fretboard tuning={inst.midis} fromFret={0} toFret={16} markFor={markFor} onTap={m => { const ctx = audio(); strum([m], ctx.currentTime + 0.01) }} />
+        ) : shape && (
+          // one shape: the 5-layer stack (shape, triads, pentatonic, mode notes, free fingers)
+          <LayerNeck rootPc={r} minor={minor} inst={inst} where="caged" shape={shape.letter} noLinks={['caged']} />
         )}
-        <Fretboard tuning={inst.midis} fromFret={0} toFret={16} markFor={markFor} onTap={m => { const ctx = audio(); strum([m], ctx.currentTime + 0.01) }} />
         {sel === 'all' ? (
           <p className="small muted" style={{ margin: 0 }}>
             Each dot is labelled with its shape. Red dots are the root ({name}). Notice how each shape shares notes with the next one: that's how they link up.
@@ -113,13 +116,7 @@ export function CagedExplorer({ inst, onExit, onQuiz }: { inst: Instrument; onEx
             {voicing && <Zoomable id="cagedChord" max={2.2}><ChordDiagram name={`${name} · ${shape.letter} shape`} voicing={voicing} onClick={() => hear()} size={0.95} /></Zoomable>}
             <div className="stack" style={{ gap: 6 }}>
               <p className="small" style={{ margin: 0 }}><b>{shape.letter} shape, frets {shape.lo}–{shape.hi}.</b> {SHAPE_TIPS[shape.letter]}</p>
-              <p className="small muted" style={{ margin: 0 }}>
-                {overlay === 'arp' && 'The arpeggio is the chord played one note at a time, in this position. Use it to target chord tones in a solo.'}
-                {overlay === 'penta' && `The ${minor ? 'minor' : 'major'} pentatonic box that sits inside this shape. Amber notes are the chord tones: land on them.`}
-                {overlay === 'scale' && `The full ${minor ? 'natural minor' : 'major'} scale around this shape: every melody in the key fits here.`}
-                {overlay === 'triads' && 'The three-note triads hidden inside the shape, on each set of three strings. Great for rhythm parts and fills.'}
-                {overlay === 'chord' && 'Faded dots are other chord tones nearby you can add or swap in.'}
-              </p>
+              <p className="small muted" style={{ margin: 0 }}>Switch the layers on one at a time: the shape, the triads inside it, the pentatonic box around it, the two notes that make it a full mode, and the notes a free finger can add. They all live under the same hand.</p>
               <div className="row">
                 <button className="btn sm" onClick={() => hear()}>▶ Hear it</button>
                 <button className="btn sm" onClick={() => setSel(shapes[(shapes.indexOf(shape) + 1) % shapes.length].letter)}>Next shape up →</button>

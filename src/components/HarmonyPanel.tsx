@@ -1,5 +1,8 @@
 // The "solo" side of the play-along screen: the song's key and scales, the chord progression,
 // and the fretboard showing scales, arpeggios, triads, or the notes that connect one chord to the next.
+import { LayerNeck } from './LayerNeck'
+import { cagedShapes } from '../learn/caged'
+import { useInstrument, type Instrument } from '../instrument'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Fretboard, type Mark } from './Fretboard'
 import { Chips, KeyPicker, usePersist } from './Controls'
@@ -13,7 +16,7 @@ import {
 } from '../tabs/harmony'
 import type { SongNote } from '../tabs/model'
 
-export type HarmonyMode = 'hand' | 'scale' | 'arp' | 'triads' | 'connect'
+export type HarmonyMode = 'hand' | 'layers' | 'scale' | 'arp' | 'triads' | 'connect'
 
 interface Props {
   tuning: number[]
@@ -38,6 +41,7 @@ interface Props {
 
 const MODES: { id: HarmonyMode; label: string }[] = [
   { id: 'hand', label: 'Hand shape' },
+  { id: 'layers', label: 'Layers' },
   { id: 'scale', label: 'Scale' },
   { id: 'arp', label: 'Arpeggio' },
   { id: 'triads', label: 'Triads' },
@@ -68,6 +72,7 @@ try { if (!localStorage.getItem('kg:handModeShown')) { localStorage.setItem('kg:
 export function HarmonyPanel(p: Props) {
   const { tuning, keyGuess, flats, spans, expected, compact } = p
   const [mode, setMode] = usePersist<HarmonyMode>('hMode', 'hand')
+  const inst = useInstrument()
   const [tipIdx, setTipIdx] = usePersist('hTip', 0)
   const [fitChord, setFitChord] = usePersist('hFit', false)
   const [labels, setLabels] = usePersist<'int' | 'note'>('hLabels', 'int')
@@ -279,10 +284,24 @@ export function HarmonyPanel(p: Props) {
       {(mode === 'scale' || mode === 'arp') && (
         <Chips label="Range" items={[{ id: 'neck', label: 'Whole neck' }, { id: 'hand', label: 'Where the tab is' }]} value={range} onChange={setRange} />
       )}
-      <Fretboard tuning={tuning} fromFret={from} toFret={to} markFor={markFor} onTap={m => playNote(m)} compact={compact} />
-      {caption && <p className="h-caption small">{caption}</p>}
+      {mode === 'layers' ? (
+        cur ? (
+          // the 5-layer stack for the chord you're on, in the shape nearest your hand
+          <LayerNeck rootPc={cur.root} minor={cur.third !== null && ((cur.third - cur.root + 12) % 12) === 3} inst={{ ...inst, midis: tuning }} where="play"
+            preferShape={nearestShape(cur.root, cur.third !== null && ((cur.third - cur.root + 12) % 12) === 3, { ...inst, midis: tuning }, p.hand?.base ?? 1)} compact={compact} />
+        ) : <p className="small muted">No chord here yet: the layers follow the chord of the bar you're on.</p>
+      ) : (
+        <Fretboard tuning={tuning} fromFret={from} toFret={to} markFor={markFor} onTap={m => playNote(m)} compact={compact} />
+      )}
+      {caption && mode !== 'layers' && <p className="h-caption small">{caption}</p>}
     </div>
   )
+}
+
+/** The CAGED shape closest to where the hand is. */
+function nearestShape(rootPc: number, minor: boolean, inst: Instrument, base: number): string | undefined {
+  const shapes = cagedShapes(rootPc, minor, inst)
+  return shapes.reduce<{ l?: string; d: number }>((b, sh) => { const d = Math.abs(sh.lo - base); return d < b.d ? { l: sh.letter, d } : b }, { d: 99 }).l
 }
 
 function intervalFrom(root: number, q: number) {
