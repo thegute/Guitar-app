@@ -3,6 +3,7 @@
 // Tucked-away windows wait as buttons in a tray at the bottom of the screen: tap one to bring it back.
 // "Reset layout" puts everything back. Everything is remembered per screen (kg:win:<area>).
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useHint } from './Fold'
 
 interface Layout { order: string[]; hidden: string[]; height: Record<string, number>; moved?: boolean; folded?: string[] }
 const EMPTY: Layout = { order: [], hidden: [], height: {} }
@@ -29,7 +30,10 @@ export function WinArea({ area, children, className = '', defaultHidden = [] }: 
   const [titles, setTitles] = useState<Record<string, string>>({})
   const [dragging, setDragging] = useState<string | null>(null)
   const box = useRef<HTMLDivElement>(null)
-  useEffect(() => { setLayout(first()) }, [area]) // eslint-disable-line react-hooks/exhaustive-deps
+  // another screen using the same WinArea: load its layout (not on the first mount: the windows inside have just
+  // registered themselves, and reloading here would forget them)
+  const shownArea = useRef(area)
+  useEffect(() => { if (shownArea.current === area) return; shownArea.current = area; setLayout(first()) }, [area]) // eslint-disable-line react-hooks/exhaustive-deps
   const set = useCallback((f: (l: Layout) => Layout) => setLayout(l => {
     const n = f(l)
     try { localStorage.setItem(`kg:win:${area}`, JSON.stringify(n)) } catch { /* storage full */ }
@@ -95,11 +99,18 @@ export function WinArea({ area, children, className = '', defaultHidden = [] }: 
 }
 
 /** One movable, resizable window. Outside a WinArea it's just its content in a panel. */
-export function Win({ id, title, children, className = 'panel', bodyClass = '', bodyStyle, resizable = true, minHeight = 90 }: { id: string; title: string; children: ReactNode; className?: string; bodyClass?: string; bodyStyle?: React.CSSProperties; resizable?: boolean; minHeight?: number }) {
+export function Win({ id, title, children, className = 'panel', bodyClass = '', bodyStyle, resizable = true, minHeight = 90, hint, extra }: {
+  id: string; title: string; children: ReactNode; className?: string; bodyClass?: string; bodyStyle?: React.CSSProperties; resizable?: boolean; minHeight?: number
+  /** an ⓘ on the title bar that opens a short explanation */
+  hint?: ReactNode
+  /** small controls on the title bar (right side, before Hide) */
+  extra?: ReactNode
+}) {
   const ctx = useContext(C)
   const body = useRef<HTMLDivElement>(null)
+  const [hintBtn, hintText] = useHint(hint ?? '')
   useEffect(() => { ctx?.register(id, title); return () => ctx?.unregister(id) }, [id, title]) // eslint-disable-line react-hooks/exhaustive-deps
-  if (!ctx) return <section className={className}><div className={`win-body ${bodyClass}`} style={bodyStyle}>{children}</div></section>
+  if (!ctx) return <section className={className}>{hint ? <div className="hint-head"><h2 style={{ margin: 0 }}>{title}</h2>{hintBtn}</div> : null}{hintText}<div className={`win-body ${bodyClass}`} style={bodyStyle}>{children}</div></section>
   const { layout, set, dragging, startDrag } = ctx
   if (layout.hidden.includes(id)) return null
   const order = layout.order.indexOf(id)
@@ -127,9 +138,12 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
           aria-expanded={!folded} title={folded ? 'Tap to open' : 'Tap to fold it up'}>
           <span className="win-chev" aria-hidden>{folded ? '▸' : '▾'}</span> {title}{folded && <span className="small muted"> (tap to open)</span>}
         </button>
+        {hint ? hintBtn : null}
+        {extra && <span className="win-extra">{extra}</span>}
         {h !== undefined && <button className="win-btn" onClick={() => set(l => { const height = { ...l.height }; delete height[id]; return { ...l, height } })} title="Full size" aria-label={`${title}: full size`}>⤢</button>}
         <button className="win-btn" onClick={() => set(l => ({ ...l, hidden: [...l.hidden, id] }))} title="Tuck away (it waits in the tray at the bottom)" aria-label={`Tuck away ${title}`}>– <span className="win-word">Hide</span></button>
       </div>
+      {!folded && hint ? hintText : null}
       {!folded && <div className={`win-body ${bodyClass}${h !== undefined ? ' sized' : ''}`} ref={body} style={h !== undefined ? { ...bodyStyle, height: h } : bodyStyle}>{children}</div>}
       {resizable && !folded && <div className="win-size" onPointerDown={resize} role="separator" aria-label={`Drag to make ${title} taller or shorter`} title="Drag to resize">⇕ drag to resize</div>}
     </section>

@@ -6,6 +6,7 @@ import { deleteRecording, recordings, updateRecording, type Recording } from '..
 import { saveTake } from '../audio/takeRecorder'
 import { deleteThenNow, thenNowPairs, type ThenNowPair } from '../audio/thenNow'
 import { ThenVsNow } from '../components/ThenVsNow'
+import { Win, WinArea } from '../components/Win'
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`
 const month = (t: number) => new Date(t).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
@@ -47,9 +48,9 @@ export function MyRecordings({ onExit, onRecord }: { onExit: () => void; onRecor
       <h1 style={{ margin: 0 }}>My recordings</h1>
       <p className="small muted" style={{ margin: 0 }}>Record a song in Play (Options → Record yourself), then tap "Keep it". Record the same song again every month or so: "Then and now" plays your first and latest takes side by side.</p>
       {list === null ? <p className="muted">Loading…</p> : list.length === 0 && !auto.length ? <p className="notice">No recordings yet. Open a song in Play, tap Options → Record yourself, play it through, then "Keep it".</p> : null}
+      <WinArea area="recordings">
       {(pairs.length > 0 || auto.length > 0) && (
-        <section className="panel stack" style={{ gap: 8 }}>
-          <h2 style={{ margin: 0 }}>Then vs now</h2>
+        <Win id="tvn" title="Then vs now" bodyClass="stack" bodyStyle={{ gap: 8 }}>
           <p className="small muted" style={{ margin: 0 }}>Play keeps your first whole run of each song, and later your best one once it's 10 points better (switch it off in Play → Options).</p>
           <div className="row" style={{ gap: 6 }}>
             {auto.map(p => <button key={p.songId} className={`chip${compare === p.title ? ' on' : ''}`} aria-pressed={compare === p.title} onClick={() => setCompare(compare === p.title ? null : p.title)}>{p.title}{p.now ? ' ✓' : ''}</button>)}
@@ -67,11 +68,10 @@ export function MyRecordings({ onExit, onRecord }: { onExit: () => void; onRecor
               <div><b>Now</b> <span className="small muted">{day(pair.now.at)}</span><Player r={pair.now} /></div>
             </div>
           )}
-        </section>
+        </Win>
       )}
       {groups.map(g => (
-        <section key={g.month} className="panel stack" style={{ gap: 8 }}>
-          <h2 style={{ margin: 0 }}>{g.month}</h2>
+        <Win key={g.month} id={`m:${g.month}`} title={g.month} bodyClass="stack" bodyStyle={{ gap: 8 }}>
           {g.items.map(r => (
             <div key={r.id} className="rec-row">
               <div className="row" style={{ justifyContent: 'space-between', gap: 6 }}>
@@ -87,8 +87,9 @@ export function MyRecordings({ onExit, onRecord }: { onExit: () => void; onRecor
               <input className="input" placeholder="A note to yourself (what felt better, what to fix)" defaultValue={r.note ?? ''} onBlur={e => { if ((r.note ?? '') !== e.target.value) void updateRecording({ ...r, note: e.target.value }) }} />
             </div>
           ))}
-        </section>
+        </Win>
       ))}
+      </WinArea>
     </div>
   )
 }

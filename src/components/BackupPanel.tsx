@@ -35,7 +35,6 @@ export function BackupPanel() {
   const sum = pending ? backupSummary(pending) : null
   return (
     <section className="panel stack" style={{ gap: 10 }}>
-      <h2 style={{ margin: 0 }}>Backup</h2>
       <p className="small muted" style={{ margin: 0 }}>
         Your songs, streak, practice history and settings live on this phone only. A backup file keeps them safe (save it to Google Drive)
         and moves them to a new phone or tablet. Last backup: <b>{ago(last)}</b>.

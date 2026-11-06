@@ -12,6 +12,7 @@ import type { Instrument } from '../instrument'
 import { cagedShapes, shapeWindow } from './caged'
 import { usePracticeTimer } from './progress'
 import { Zoomable } from '../components/Zoomable'
+import { Win, WinArea } from '../components/Win'
 
 type Overlay = 'chord' | 'arp' | 'penta' | 'scale' | 'triads'
 const IV = ['R', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7']
@@ -94,7 +95,8 @@ export function CagedExplorer({ inst, onExit, onQuiz }: { inst: Instrument; onEx
         whole fretboard, always in the order {sys}, and each one hands over to the next on shared notes. Learn the shapes and you can play any chord
         (and its scale and arpeggio) anywhere on the neck.
       </p>
-      <div className="panel stack">
+      <WinArea area="caged">
+      <Win id="shapes" title="The shapes on the neck" bodyClass="stack">
         <KeyPicker value={root} onChange={setRoot} label="Chord root" />
         <Chips label="Quality" items={[{ id: 'maj', label: 'Major' }, { id: 'min', label: 'Minor' }]} value={minor ? 'min' : 'maj'} onChange={v => setMinor(v === 'min')} />
         <Chips label="Shape" items={[{ id: 'all', label: 'All five' }, ...shapes.map(s => ({ id: s.letter, label: `${s.letter} shape · fret ${s.lo}` }))]} value={sel} onChange={setSel} />
@@ -125,16 +127,16 @@ export function CagedExplorer({ inst, onExit, onQuiz }: { inst: Instrument; onEx
             </div>
           </div>
         )}
-      </div>
-      <div className="panel stack">
-        <h3 style={{ margin: 0 }}>Practise it</h3>
+      </Win>
+      <Win id="practise-it" title="Practise it" bodyClass="stack">
         <div className="row">
           <button className="btn" onClick={() => onQuiz('caged-name')}>Which shape is this?</button>
           <button className="btn" onClick={() => onQuiz('caged-where')}>Play it with this shape</button>
           <button className="btn" onClick={() => onQuiz('caged-order')}>The order up the neck</button>
         </div>
         <p className="small muted" style={{ margin: 0 }}>Try this on your {inst.noun}: play {name} in all five shapes going up the neck, then back down. Then do it with a different chord every day.</p>
-      </div>
+      </Win>
+      </WinArea>
     </div>
   )
 }

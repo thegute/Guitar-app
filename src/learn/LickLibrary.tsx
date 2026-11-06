@@ -13,6 +13,7 @@ import { openInPlay } from '../nav'
 import { KEYS } from '../theory/notes'
 import { useScreenInfo } from '../assistant/screen'
 import { addToChain } from '../licks/chain'
+import { Win, WinArea } from '../components/Win'
 
 const LEVEL = ['', 'Easy', 'Medium', 'Hard']
 const clip = (t: string, n: number) => (t.length > n ? t.slice(0, n).replace(/\s+\S*$/, '') + '…' : t)
@@ -89,7 +90,8 @@ function LickDetail({ lick, onBack }: { lick: LickDef; onBack: () => void }) {
       <h1 style={{ margin: 0 }}>{lick.name}</h1>
       <p className="small muted" style={{ margin: 0 }}>{st.label} · {kindLabel(lick)} · over {placed?.chord ?? lick.chord} · in the style of {st.listen.split(', ').slice(0, 2).join(' and ')}</p>
       {b && <p style={{ margin: 0 }}>{b.about}</p>}
-      <div className="panel stack" style={{ gap: 8 }}>
+      <WinArea area="lick">
+      <Win id="tab" title="The tab" bodyClass="stack" bodyStyle={{ gap: 8 }}>
         <Chips label="Key" wrap keyStyle items={keys.map(k => ({ id: k, label: keyLabel(k, minor) }))} value={key} onChange={setKey} />
         <Chips label="Speed" items={[{ id: 'full', label: `Full speed (${lick.bpm ?? st.bpm} bpm)` }, { id: 'slow', label: 'Slow (60%)' }]} value={slow ? 'slow' : 'full'} onChange={v => setSlow(v === 'slow')} />
         {placed && placed.capo > 0 && <p className="notice small" style={{ margin: 0 }}>Capo on the {placed.capo}{['st', 'nd', 'rd'][placed.capo - 1] ?? 'th'} fret. Fret numbers count from the capo.</p>}
@@ -97,24 +99,22 @@ function LickDetail({ lick, onBack }: { lick: LickDef; onBack: () => void }) {
         {doc && <button className="btn primary" onClick={() => openInPlay(doc)}>Play along (it listens to you)</button>}
         {(lick.meter ?? 4) === 4 && <button className="btn sm" onClick={() => { addToChain(lick.id, key); setChained(n => n + 1) }}>{chained ? `✓ Added to your lick chain${chained > 1 ? ` (×${chained})` : ''}` : '＋ Add to my lick chain'}</button>}
         {chained > 0 && <span className="small muted">Find it in Learn → Explore → Lick chainer, or Songs → Exercises.</span>}
-      </div>
+      </Win>
       {b && (
         <>
-          <section className="panel stack" style={{ gap: 6 }}>
-            <h2 style={{ margin: 0 }}>How to play it</h2>
+          <Win id="how-to-play-it" title="How to play it" bodyClass="stack" bodyStyle={{ gap: 6 }}>
             <ol className="lick-steps">{b.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
-          </section>
-          <section className="panel stack" style={{ gap: 6 }}>
-            <h2 style={{ margin: 0 }}>The secret</h2>
+          </Win>
+          <Win id="the-secret" title="The secret" bodyClass="stack" bodyStyle={{ gap: 6 }}>
             <p style={{ margin: 0 }}>{b.tip}</p>
-          </section>
-          <section className="panel stack" style={{ gap: 6 }}>
-            <h2 style={{ margin: 0 }}>Where to use it</h2>
+          </Win>
+          <Win id="where-to-use-it" title="Where to use it" bodyClass="stack" bodyStyle={{ gap: 6 }}>
             <p style={{ margin: 0 }}>{b.use}</p>
             <p className="small muted" style={{ margin: 0 }}>Goal: {b.goal} bpm, clean. Start slow (60%), then In time with the speed trainer.</p>
-          </section>
+          </Win>
         </>
       )}
+      </WinArea>
     </div>
   )
 }

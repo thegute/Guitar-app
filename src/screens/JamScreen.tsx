@@ -700,7 +700,8 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
       )}
 
       {page === 'tab' && (
-        <section className="panel stack">
+        <WinArea area="jamTab">
+        <Win id="make" title="Make a tab from this progression" className="panel" bodyClass="stack">
           <p className="small muted" style={{ margin: 0 }}>Turn <b>{prog.map(c => c.symbol).join(' – ')}</b> into a tab to play along with in Play: the mic follows you note by note.</p>
           <div className="seg" role="group" aria-label="What to make">
             {([['pick', 'Fingerpicking'], ['lead', 'Licks & solos'], ['melody', 'Chord melody'], ['riff', 'Riffs']] as const).map(([id, label]) => (
@@ -712,18 +713,17 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
               onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
             : <TabMaker key={tabPart} part={tabPart} chords={prog} tonic={tonic} mode={mode} bpm={bpm} jamStyle={style}
               onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />}
-        </section>
+        </Win>
+        </WinArea>
       )}
 
       {page === 'beats' && <Suspense fallback={<p className="muted">Loading the beat maker…</p>}><StudioScreen active={page === 'beats'} /></Suspense>}
 
-      {page === 'find' && (<>
-        <section className="panel stack">
-          <h2 className="sec-title" style={{ margin: 0 }}>Tab on screen in the video?</h2>
+      {page === 'find' && (<WinArea area="jamFind">
+        <Win id="picture" title="Tab on screen in the video?" className="panel" bodyClass="stack">
           <TabFromPicture onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
-        </section>
-        <section className="panel stack">
-          <h2 className="sec-title" style={{ margin: 0 }}>Listen for the chords</h2>
+        </Win>
+        <Win id="listen" title="Listen for the chords" className="panel" bodyClass="stack">
           <SongFinder
             onUseInJam={(root, minor, chords) => {
               const m: ModeId = minor ? 'minor' : 'major'
@@ -733,12 +733,11 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
               setPage('jam')
             }}
             onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
-        </section>
-        <section className="panel stack">
-          <h2 className="sec-title" style={{ margin: 0 }}>Notes from a recording (accurate)</h2>
+        </Win>
+        <Win id="notes" title="Notes from a recording (accurate)" className="panel" bodyClass="stack">
           <Transcriber onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
-        </section>
-      </>)}
+        </Win>
+      </WinArea>)}
     </div>
   )
 }

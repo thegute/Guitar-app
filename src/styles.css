@@ -1551,6 +1551,8 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 .tuner-string.done { border-color: var(--mint); }
 .tuner-string .tick { position: absolute; top: -7px; right: -5px; width: 18px; height: 18px; border-radius: 50%; background: var(--mint); color: #08130e; font-size: 12px; line-height: 18px; text-align: center; font-weight: 700; }
 .tuner-main { text-align: center; display: grid; gap: 6px; justify-items: center; padding-top: 16px; }
+.win.tuner-main { display: flex; padding-top: 12px; }
+.tuner-main > .win-body { display: grid; gap: 6px; justify-items: center; text-align: center; }
 .tuner-note { display: flex; align-items: baseline; justify-content: center; gap: 14px; min-height: 104px; }
 .tuner-name { font-family: 'Barlow Condensed', sans-serif; font-size: 104px; line-height: 1; font-weight: 600; color: var(--t-col); }
 .tuner-name sub { font-size: 32px; color: var(--ink-3); }
@@ -1799,7 +1801,7 @@ video.mirrored { transform: scaleX(-1); }
 .win-grip { cursor: grab; touch-action: none; }
 .win-body { min-width: 0; }
 .win-body.sized { overflow: auto; overscroll-behavior: contain; }
-.win-size { align-self: center; margin: 6px 0 -6px; width: 64px; height: 22px; border-radius: var(--r-sm); display: grid; place-items: center; font-size: 13px; color: var(--ink-3); background: color-mix(in srgb, var(--ink) 8%, transparent); cursor: ns-resize; touch-action: none; user-select: none; }
+.win-size { align-self: center; margin: 6px 0 -6px; width: auto; padding: 0 12px; white-space: nowrap; height: 22px; border-radius: var(--r-sm); display: grid; place-items: center; font-size: 13px; color: var(--ink-3); background: color-mix(in srgb, var(--ink) 8%, transparent); cursor: ns-resize; touch-action: none; user-select: none; }
 .win-tray { position: sticky; bottom: calc(var(--nav-h) + 8px); z-index: 30; display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; margin-top: 10px; border-radius: var(--r-md); background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--line); box-shadow: var(--shadow); }
 @media (min-width: 760px) { .win-tray { bottom: 8px; } }
 .win-chip { border: 1px solid var(--accent); background: var(--surface); color: var(--ink); border-radius: var(--r-pill); padding: 6px 12px; min-height: var(--h-sm); font: 600 14px var(--ui); cursor: pointer; }
@@ -2225,3 +2227,13 @@ video.mirrored { transform: scaleX(-1); }
 /* cards above the tab (song check, hints, report) never spill over the panel below: the tab box scrolls, and the tab keeps a usable height */
 .play-tab { overflow-y: auto; }
 .play-tab > .tab-view { min-height: 140px; }
+.win-extra { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+/* Play: ☰ Move on a panel's bar drags the panel to another place (phones: above/below; wide: left/right, top/bottom) */
+.split-move { position: absolute; display: inline-flex; align-items: center; gap: 2px; min-height: 28px; padding: 0 10px; border-radius: var(--r-pill);
+  border: 1px solid var(--hairline); background: var(--surface); color: var(--ink-2); font: 600 12px var(--ui); cursor: grab; touch-action: none; }
+.splitter.row .split-move { left: 6px; top: 50%; transform: translateY(-50%); }
+.splitter.col .split-move { bottom: 6px; left: 50%; transform: translateX(-50%); padding: 6px 0; width: 24px; justify-content: center; }
+.splitter.col .split-move-word { display: none; }
+.play.moving-side .play-side, .play.moving-solo .play-solo { outline: 2px dashed var(--accent); outline-offset: -2px; opacity: .75; }
+.play[class*='moving-'] { cursor: grabbing; }
+[data-theme='psy'] .split-move { background: #1c0641; }

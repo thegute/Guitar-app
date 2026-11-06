@@ -18,7 +18,6 @@ import { GearSetup } from '../components/GearSetup'
 import { PedalSettings } from '../controls/PedalSettings'
 import { BackupPanel } from '../components/BackupPanel'
 import { useShowArt } from '../components/Art'
-import { HintHead } from '../components/Fold'
 import { ProfileForm } from '../components/ProfileForm'
 import { haptic, hapticsOn, setHapticsOn } from '../audio/tapFeel'
 import { TALK_CARD_CHOICES, setTalkCardSecs, talkCardSecs } from '../assistant/talkCard'
@@ -27,6 +26,7 @@ import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, instrumen
 import { audio } from '../audio/engine'
 import { gear, isSetUp, latencyMs, useGear } from '../audio/gear'
 import { enableReminders, reminderSettings, remindersAvailable, updateReminderSettings, type ReminderSettings } from './reminders'
+import { Win, WinArea } from '../components/Win'
 
 
 export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => void }) {
@@ -86,14 +86,12 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         { id: 'you', label: 'You' }, { id: 'sound', label: 'Sound' }, { id: 'look', label: 'Look' }, { id: 'backup', label: 'Backup' },
       ]} />
 
-      {page === 'you' && <>
-      <section className="panel stack" style={{ gap: 10 }}>
-        <h2 style={{ margin: 0 }}>AI helper</h2>
+      {page === 'you' && <WinArea area="setYou">
+      <Win id="ai" title="AI helper" bodyClass="stack" bodyStyle={{ gap: 10 }}>
         <BubbleSwitch />
         <AiSetup />
-      </section>
-      <section className="panel stack" style={{ gap: 10 }}>
-        <h2 style={{ margin: 0 }}>Instrument</h2>
+      </Win>
+      <Win id="inst" title="Instrument" bodyClass="stack" bodyStyle={{ gap: 10 }}>
         <div className="inst-cards" role="radiogroup" aria-label="Instrument">
           {(Object.keys(INSTRUMENTS) as InstrumentId[]).map(id => (
             <button key={id} role="radio" aria-checked={inst.id === id} className={`inst-card${inst.id === id ? ' on' : ''}`} onClick={() => inst.id !== id && setAsk(id)}>
@@ -113,25 +111,21 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
           Everything follows your instrument: chord shapes, scales, the tuner, quizzes, practice tabs and play-along. Your saved songs are kept
           in separate banks, so guitar tabs only show in guitar mode and ukulele tabs only in ukulele mode.
         </p>
-      </section>
+      </Win>
 
-      <section className="panel stack" style={{ gap: 10 }}>
-        <HintHead title="About you" hint="Your level, what you want to get better at and the music you like. Today's plan and the songbook use them." />
+      <Win id="about" title="About you" hint="Your level, what you want to get better at and the music you like. Today's plan and the songbook use them." bodyClass="stack" bodyStyle={{ gap: 10 }}>
         <ProfileForm saveLabel="Save" onSaved={() => setSavedProfile(true)} />
         {savedProfile && <span className="small muted" role="status">Saved. Today's plan has been updated.</span>}
-      </section>
+      </Win>
 
-      <section className="panel stack" style={{ gap: 10 }}>
-        <HintHead title="Daily goal" hint="Any 5 minutes keeps your streak alive, with or without your guitar. Hitting the goal earns a bonus." />
+      <Win id="goal" title="Daily goal" hint="Any 5 minutes keeps your streak alive, with or without your guitar. Hitting the goal earns a bonus." bodyClass="stack" bodyStyle={{ gap: 10 }} resizable={false}>
         <Chips label="Minutes a day" items={[5, 10, 15, 20, 30, 45, 60].map(m => ({ id: m, label: `${m} min` }))} value={goal} onChange={setDailyGoalMin} />
-      </section>
-      <section className="panel stack" style={{ gap: 10 }}>
-        <HintHead title="Get ready time" hint="Before anything that scores your timing (In time, the rhythm trainer, chord changes, exercises), a countdown gives you time to get your hands on the guitar. Then a bar of clicks counts you in." />
+      </Win>
+      <Win id="ready" title="Get ready time" bodyClass="stack" bodyStyle={{ gap: 10 }} resizable={false} hint="Before anything that scores your timing (In time, the rhythm trainer, chord changes, exercises), a countdown gives you time to get your hands on the guitar. Then a bar of clicks counts you in.">
         <Chips label="Seconds before timed practice starts" items={GET_READY_CHOICES.map(s => ({ id: s, label: s ? `${s} s` : 'Off' }))} value={readySecs} onChange={v => { setGetReadySecs(v); setReadySecs(v) }} />
-      </section>
+      </Win>
 
-      <section className="panel stack" style={{ gap: 10 }}>
-        <HintHead title="Reminders" hint="Reminders skip days you've already practised, and they suggest guitar-free practice too, so they work on shift days." />
+      <Win id="remind" title="Reminders" hint="Reminders skip days you've already practised, and they suggest guitar-free practice too, so they work on shift days." bodyClass="stack" bodyStyle={{ gap: 10 }}>
         <label className="row" style={{ gap: 8 }}>
           <input type="checkbox" checked={rem.on} onChange={e => void changeRem({ ...rem, on: e.target.checked }, e.target.checked)} />
           <span>Remind me to practise every day</span>
@@ -151,16 +145,17 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         )}
         {remMsg && <p className="small" role="status" style={{ margin: 0 }}>{remMsg}</p>}
         {!remindersAvailable() && !remMsg && <p className="small muted" style={{ margin: 0 }}>Reminders are sent by the Android app.</p>}
-      </section>
+      </Win>
       <UsagePanel />
 
-      </>}
+      </WinArea>}
 
-      {page === 'sound' && <>
-      <HapticsSwitch />
-      <KeepMetronome />
-      <section className="panel stack" style={{ gap: 10 }}>
-        <HintHead title="Your guitar input" hint="Two minutes per input: it measures your room, your strings and the delay of your headphones, so notes are heard reliably and recordings land on the beat." />
+      {page === 'sound' && <WinArea area="setSound">
+      <Win id="switches" title="Switches" bodyClass="stack" bodyStyle={{ gap: 6 }} resizable={false}>
+        <HapticsSwitch />
+        <KeepMetronome />
+      </Win>
+      <Win id="input" title="Your guitar input" hint="Two minutes per input: it measures your room, your strings and the delay of your headphones, so notes are heard reliably and recordings land on the beat." bodyClass="stack" bodyStyle={{ gap: 10 }}>
         <ul className="act-list small">
           {(['mic', 'usb'] as const).map(k => (
             <li key={k}>
@@ -170,22 +165,20 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
           ))}
         </ul>
         <button className="btn" onClick={() => setSetup(true)}>Set up an input</button>
-      </section>
+      </Win>
 
-      <PedalSettings />
+      <Win id="pedals" title="Hands-free (footswitch)"><PedalSettings /></Win>
 
-      <section className="panel stack" style={{ gap: 10 }}>
-        <HintHead title="Playback sound" hint="Used for Hear it, tapping notes and the quizzes. On Auto, a Guitar Pro tab plays in its own guitar sound (acoustic, clean, overdrive or distortion). You can also switch it next to Hear it. Jam picks a sound for each style; change it there under Band. The amp sounds were made from your own Peavey 5150 captures and cab impulse responses; your files aren't inside the app, only the finished notes. Your own playing is never sent back out of the phone: you hear it only through your amp." />
+      <Win id="sound" title="Playback sound" bodyClass="stack" bodyStyle={{ gap: 10 }} hint="Used for Hear it, tapping notes and the quizzes. On Auto, a Guitar Pro tab plays in its own guitar sound (acoustic, clean, overdrive or distortion). You can also switch it next to Hear it. Jam picks a sound for each style; change it there under Band. The amp sounds were made from your own Peavey 5150 captures and cab impulse responses; your files aren't inside the app, only the finished notes. Your own playing is never sent back out of the phone: you hear it only through your amp.">
         <Chips<'auto' | SoundId> label="Sound" items={[{ id: 'auto', label: `Auto (${inst.isUke ? 'nylon' : 'acoustic'}, or the song's own guitar)` }, ...SOUNDS.map(x => ({ id: x.id, label: x.label }))]} value={sound} onChange={v => void tryIt(v)} wrap />
         <p className="small muted" style={{ margin: 0 }}>{soundInfo(activeSound()).hint}</p>
-      </section>
+      </Win>
 
-      </>}
+      </WinArea>}
 
-      {page === 'look' && <>
-      {Capacitor.isNativePlatform() && <FullScreenSwitch />}
-      <section className="panel stack" style={{ gap: 12 }}>
-        <HintHead title="Look" hint={'Psychedelic is neon colours with the samurai dogs and the rest of the KGuitar artwork all through the app, with the words kept on dark cards so they stay easy to read. Night is dim and low-glare for practising in bed. "Match my phone" switches between Day and Night with your phone\'s dark mode.'} />
+      {page === 'look' && <WinArea area="setLook">
+      {Capacitor.isNativePlatform() && <Win id="full" title="Full screen" resizable={false}><FullScreenSwitch /></Win>}
+      <Win id="look" title="Look" bodyClass="stack" bodyStyle={{ gap: 12 }} hint={'Psychedelic is neon colours with the samurai dogs and the rest of the KGuitar artwork all through the app, with the words kept on dark cards so they stay easy to read. Night is dim and low-glare for practising in bed. "Match my phone" switches between Day and Night with your phone\'s dark mode.'}>
         <div className="theme-cards" role="radiogroup" aria-label="Theme">
           {([
             { id: 'auto', label: 'Match my phone', sub: 'Day or Night' },
@@ -230,14 +223,13 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
           <input type="checkbox" checked={showArt} onChange={e => setShowArt(e.target.checked)} />
           <span><b>Show the KGuitar poster</b><span className="small muted">Small, in the menu and on Learn. Tap it to see it full size.</span></span>
         </label>
-      </section>
-      </>}
+      </Win>
+      </WinArea>}
 
-      {page === 'backup' && <>
-      <BackupPanel />
+      {page === 'backup' && <WinArea area="setBackup">
+      <Win id="backup" title="Backup"><BackupPanel /></Win>
 
-      <section className="panel stack small" style={{ gap: 6 }}>
-        <h2 style={{ margin: 0 }}>Credits</h2>
+      <Win id="credits" title="Credits" bodyClass="stack small" bodyStyle={{ gap: 6 }}>
         <span className="muted">Recorded guitar and bass: tonejs-instruments samples by Nicholaus P. Brosowsky (github.com/nbrosowsky/tonejs-instruments).</span>
         <span className="muted">Drums: AVL Drumkits by Glen MacArthur (bandshed.net/avldrumkits, CC BY-SA 3.0); the trimmed samples in this app are shared under the same licence.</span>
         <span className="muted">Amp and acoustic sounds: rendered from the owner's own Neural Amp Modeler captures (MirrorProfiles 5150) and impulse responses (York Audio, Tone Factor, Calypso, PastToFutureReverbs).</span>
@@ -245,8 +237,8 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         <span className="muted">Beat maker instruments: Salamander Grand Piano by Alexander Holm (CC BY 3.0, via Tonejs/audio); VSCO 2 Community Edition by Versilian Studios (CC0); MusyngKite soundfont (CC BY-SA 3.0, via gleitz/midi-js-soundfonts). The trimmed samples in this app are shared under the same licences.</span>
         <span className="muted">Chord shapes: chords-db (github.com/tombatossals/chords-db). Guitar Pro import: alphaTab. Pitch detection: pitchy. PDF reading: pdf.js (Mozilla, Apache 2.0).</span>
         <span className="muted">Notes from a recording: Basic Pitch by Spotify (Apache 2.0), running on TensorFlow.js.</span>
-      </section>
-      </>}
+      </Win>
+      </WinArea>}
       {setup && <GearSetup onClose={() => setSetup(false)} />}
       {target && (
         <div className="sheet-backdrop" onClick={() => setAsk(null)}>

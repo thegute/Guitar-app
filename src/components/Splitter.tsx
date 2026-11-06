@@ -26,6 +26,8 @@ export interface SplitterProps {
   onOpen: (open: boolean) => void
   /** shown on the bar while the panel is hidden */
   closedLabel: string
+  /** a ☰ Move grip on the bar: drag it to put the panel somewhere else */
+  onMoveStart?: (e: RPointerEvent<HTMLButtonElement>) => void
 }
 
 export function Splitter(p: SplitterProps) {
@@ -87,6 +89,9 @@ export function Splitter(p: SplitterProps) {
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={key}
     >
       <span className="grip" aria-hidden />
+      {p.onMoveStart && p.open && (
+        <button className="split-move" onPointerDown={e => { e.stopPropagation(); p.onMoveStart!(e) }} aria-label={`Move ${p.name}: drag it to another place`} title="Drag to move this panel">☰<span className="split-move-word"> Move</span></button>
+      )}
       <button className="split-btn" onClick={() => p.onOpen(!p.open)} aria-label={showHide} title={showHide}>
         <span aria-hidden>{arrow}</span>{!p.open && <span className="split-label">{p.closedLabel}</span>}
       </button>

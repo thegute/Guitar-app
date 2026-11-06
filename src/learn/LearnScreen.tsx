@@ -337,11 +337,10 @@ export function LearnScreen() {
         {awayNote && <p className="small away-note" role="status">{awayNote}</p>}
       </Win>
             {askAbout && (
-              <section className="panel about-card" aria-label="About you">
-                <div className="sec-head"><h2>Make the plan yours</h2><button className="btn sm ghost" onClick={skipProfile}>Not now</button></div>
+              <Win id="aboutq" title="Make the plan yours" className="panel about-card" extra={<button className="btn sm ghost" onClick={skipProfile}>Not now</button>}>
                 <p className="small muted" style={{ margin: 0 }}>Three quick questions, and today's plan picks songs and practice at your level.</p>
                 <ProfileForm />
-              </section>
+              </Win>
             )}
             <Win id="plan" title="Today's plan" className="panel plan">
               <div className="sec-head">
@@ -386,10 +385,40 @@ export function LearnScreen() {
       </WinArea>}
 
       {page === 'course' && (
-        <div className="learn-cols course-cols">
-          <div className="learn-col">
-            <section className="panel course" aria-label="Practice course">
-              <div className="sec-head"><h2>Practice course</h2><span className="small muted">tap or play the answers · 3 stars each</span></div>
+        <WinArea area="learnCourse" className="win-cols course-cols">
+            {inst.id === 'guitar' ? (
+            <Win id="path" title="Zero to Hero: your guitar plan" className="panel path">
+              <ZeroToHero onRecordings={() => push({ k: 'recordings' })} />
+            </Win>
+            ) : (
+            <Win id="path" title={`Path to mastery · stage ${si + 1} of ${path.length}`} className="panel path">
+              <div className="stage-dots" aria-hidden>{path.map((p, i) => <i key={p.id} className={i < si ? 'done' : i === si ? 'on' : ''} />)}</div>
+              <h3 style={{ margin: '4px 0 0' }}>{stage.title}</h3>
+              <p className="small muted" style={{ margin: 0 }}>{stage.why}</p>
+              <ul className="goal-list">
+                {stage.goals.map(g => (
+                  <li key={g.label}>
+                    <button className={g.done ? 'done' : ''} onClick={() => launch(g.go)} disabled={g.done}>
+                      <span className="plan-check">{g.done ? '✓' : ''}</span>
+                      <span>{g.label}{g.guitar && away && !g.done ? <span className="small muted"> (with your {inst.noun})</span> : null}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button className="btn sm ghost" onClick={() => setAllStages(!allStages)}>{allStages ? 'Hide stages' : 'See every stage'}</button>
+              {allStages && (
+                <ol className="stage-list small">
+                  {path.map((p, i) => (
+                    <li key={p.id} className={i < si ? 'done' : i === si ? 'on' : ''}>
+                      <b>{p.title}</b> <span className="muted">{p.goals.filter(g => g.done).length}/{p.goals.length}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </Win>
+            )}
+            <Win id="course" title="Practice course" className="panel course">
+              <div className="sec-head"><span className="small muted">tap or play the answers · 3 stars each</span></div>
               <button className="btn primary course-next" onClick={() => push({ k: 'quiz', id: nq.id })}>Continue: {nq.title}</button>
               <div className="units">
                 {units.map(u => {
@@ -421,51 +450,14 @@ export function LearnScreen() {
                   )
                 })}
               </div>
-            </section>
-          </div>
-          <div className="learn-col">
-            {inst.id === 'guitar' ? (
-            <section className="panel path" aria-label="Zero to Hero">
-              <div className="sec-head"><h2>Zero to Hero</h2><span className="small">your guitar plan</span></div>
-              <ZeroToHero onRecordings={() => push({ k: 'recordings' })} />
-            </section>
-            ) : (
-            <section className="panel path" aria-label="Path to mastery">
-              <div className="sec-head"><h2>Path to mastery</h2><span className="small muted">stage {si + 1} of {path.length}</span></div>
-              <div className="stage-dots" aria-hidden>{path.map((p, i) => <i key={p.id} className={i < si ? 'done' : i === si ? 'on' : ''} />)}</div>
-              <h3 style={{ margin: '4px 0 0' }}>{stage.title}</h3>
-              <p className="small muted" style={{ margin: 0 }}>{stage.why}</p>
-              <ul className="goal-list">
-                {stage.goals.map(g => (
-                  <li key={g.label}>
-                    <button className={g.done ? 'done' : ''} onClick={() => launch(g.go)} disabled={g.done}>
-                      <span className="plan-check">{g.done ? '✓' : ''}</span>
-                      <span>{g.label}{g.guitar && away && !g.done ? <span className="small muted"> (with your {inst.noun})</span> : null}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <button className="btn sm ghost" onClick={() => setAllStages(!allStages)}>{allStages ? 'Hide stages' : 'See every stage'}</button>
-              {allStages && (
-                <ol className="stage-list small">
-                  {path.map((p, i) => (
-                    <li key={p.id} className={i < si ? 'done' : i === si ? 'on' : ''}>
-                      <b>{p.title}</b> <span className="muted">{p.goals.filter(g => g.done).length}/{p.goals.length}</span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </section>
-            )}
-          </div>
-        </div>
+            </Win>
+        </WinArea>
       )}
 
       {page === 'explore' && (
-        <div className="explore stack">
+        <WinArea area="learnExplore" className="explore">
           {groups.map(g => (
-            <section key={g.title} aria-label={g.title} className="tool-group">
-              <h2 className="sec-title">{g.title}</h2>
+            <Win key={g.title} id={`g:${g.title}`} title={g.title} className="tool-group">
               <div className="tool-grid">
                 {g.tools.map(t => (
                   <button key={t.id} className="tool" onClick={() => push({ k: t.id } as Route)}>
@@ -475,8 +467,10 @@ export function LearnScreen() {
                   </button>
                 ))}
               </div>
-            </section>
+            </Win>
           ))}
+          <Win id="songs" title="In the Songs tab" className="tool-group">
+          <div className="tool-grid">
           <button className="tool songbook-link" onClick={() => openSongs('practice')}>
             <ToolBadge id="exercises" />
             <b>Exercises</b>
@@ -487,7 +481,9 @@ export function LearnScreen() {
             <b>Songbook</b>
             <span className="small muted">Folk, bluegrass and reggae songs to learn: in the Songs tab</span>
           </button>
-        </div>
+          </div>
+          </Win>
+        </WinArea>
       )}
     </div>
   )

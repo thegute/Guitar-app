@@ -24,7 +24,7 @@ export const FEATURES: Entry[] = [
     text: 'Timed steps that open the right screen, with a timer bar at the top.',
     keys: 'session routine plan timer practice plan steps today workout' }),
   f({ id: 'windows', title: 'Move, resize or hide a section', where: 'Any screen', guide: 'Arrange your screens', target: { guide: 'start' },
-    text: 'Drag ☰ to move, – to tuck away, ⇕ to resize; the tray brings it back.',
+    text: 'Every screen: drag ☰ to move, – to tuck away, ⇕ to resize; the tray brings it back. In Play, ☰ Move on a panel\'s bar.',
     keys: 'move resize hide minimize minimise drag window layout tray reset bigger smaller rearrange tuck panel' }),
   f({ id: 'handguide', title: 'Where your left hand goes', where: 'Under exercises and generated tabs', guide: 'Where your left hand goes', target: { exercise: 'type:warmup' },
     text: 'Hand position cards: which fret your first finger is on and which finger plays each note.',

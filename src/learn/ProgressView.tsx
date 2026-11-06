@@ -7,6 +7,7 @@ import { ALL_BADGES, earnedBadges, freezes, levelInfo } from './game'
 import { course } from './quiz'
 import { Zoomable } from '../components/Zoomable'
 import { changesTrend, cleanSpeeds, rhythmTrend, timingTrend, type Point } from './trends'
+import { Win, WinArea } from '../components/Win'
 
 const WEEKS = 16
 const DAY_NAMES = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
@@ -78,8 +79,8 @@ export function ProgressView({ inst, onExit }: { inst: Instrument; onExit: () =>
         Level {lv.level}, {lv.title}. {freezes()} streak freeze{freezes() === 1 ? '' : 's'} saved up. {awayDays > 0 && `${awayDays} of your days were away from the guitar and still counted.`}
       </p>
 
-      <section className="panel stack" style={{ gap: 8 }}>
-        <h2 style={{ margin: 0 }}>Practice calendar</h2>
+      <WinArea area="progress">
+      <Win id="practice-calendar" title="Practice calendar" bodyClass="stack" bodyStyle={{ gap: 8 }}>
         <Zoomable id="calendar" max={2.5}>
         <div className="heat" role="img" aria-label={`Practice over the last ${WEEKS} weeks`}>
           <div className="heat-days">{DAY_NAMES.map((n, i) => <span key={i}>{n}</span>)}</div>
@@ -101,12 +102,11 @@ export function ProgressView({ inst, onExit }: { inst: Instrument; onExit: () =>
           <i className="heat-cell l2 away" /><span>away day</span>
           <i className="heat-cell frozen" /><span>freeze</span>
         </div>
-      </section>
+      </Win>
 
       <SkillTrends instId={inst.id} />
 
-      <section className="panel stack" style={{ gap: 8 }}>
-        <h2 style={{ margin: 0 }}>This week</h2>
+      <Win id="this-week" title="This week" bodyClass="stack" bodyStyle={{ gap: 8 }}>
         <p className="small" style={{ margin: 0 }}>
           <b>{tw} minutes</b>{lw > 0 ? (tw >= lw ? `, up from ${lw} last week.` : `, ${lw - tw} behind last week (${lw}).`) : '.'}
           {answers > 0 && ` ${correct} of ${answers} quiz answers right (${Math.round((correct / answers) * 100)}%).`}
@@ -133,10 +133,9 @@ export function ProgressView({ inst, onExit }: { inst: Instrument; onExit: () =>
             {acts.map(([k, v]) => <li key={k}><span>{ACT_LABEL[k as Activity]}</span><b>{Math.round(v / 60)} min</b></li>)}
           </ul>
         )}
-      </section>
+      </Win>
 
-      <section className="panel stack" style={{ gap: 8 }}>
-        <h2 style={{ margin: 0 }}>What you know</h2>
+      <Win id="what-you-know" title="What you know" bodyClass="stack" bodyStyle={{ gap: 8 }}>
         {units.map(u => {
           const ids = u.quizzes.flatMap(q => q.items(inst))
           const m = Math.round(mastery(ids, srs) * 100)
@@ -149,10 +148,9 @@ export function ProgressView({ inst, onExit }: { inst: Instrument; onExit: () =>
             </div>
           )
         })}
-      </section>
+      </Win>
 
-      <section className="panel stack" style={{ gap: 8 }}>
-        <h2 style={{ margin: 0 }}>Badges <span className="small muted">{Object.keys(got).length} of {ALL_BADGES.length}</span></h2>
+      <Win id="badges" title={`Badges (${Object.keys(got).length} of ${ALL_BADGES.length})`} bodyClass="stack" bodyStyle={{ gap: 8 }}>
         <div className="badge-grid">
           {ALL_BADGES.map(b => (
             <div key={b.id} className={`badge${got[b.id] ? ' got' : ''}`}>
@@ -162,7 +160,8 @@ export function ProgressView({ inst, onExit }: { inst: Instrument; onExit: () =>
             </div>
           ))}
         </div>
-      </section>
+      </Win>
+      </WinArea>
     </div>
   )
 }
@@ -194,15 +193,13 @@ function SkillTrends({ instId }: { instId: string }) {
   const pct = (v: number) => (v >= 1 ? 'full speed' : v >= 0.75 ? `${Math.round(v * 100)}%` : `${Math.round(v * 100)}%`)
   if (!changes.length && !timing.length && !rhythm.length && !speeds.length) {
     return (
-      <section className="panel stack" style={{ gap: 6 }}>
-        <h2 style={{ margin: 0 }}>Skill trends</h2>
+      <Win id="skill-trends" title="Skill trends" bodyClass="stack" bodyStyle={{ gap: 6 }}>
         <p className="small muted" style={{ margin: 0 }}>Do a round of chord changes, play a song In time or try the rhythm trainer, and your progress shows up here day by day.</p>
-      </section>
+      </Win>
     )
   }
   return (
-    <section className="panel stack" style={{ gap: 10 }}>
-      <h2 style={{ margin: 0 }}>Skill trends</h2>
+    <Win id="skill-trends" title="Skill trends" bodyClass="stack" bodyStyle={{ gap: 10 }}>
       <div className="trends">
         <Spark points={changes} unit=" a minute" label="Chord changes" />
         <Spark points={timing} unit="%" label="On time (In time)" max={100} />
@@ -219,6 +216,6 @@ function SkillTrends({ instId }: { instId: string }) {
           <span className="small muted">The fastest speed you've played each song at 85% or better.</span>
         </div>
       )}
-    </section>
+    </Win>
   )
 }

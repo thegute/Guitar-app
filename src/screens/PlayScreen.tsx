@@ -75,6 +75,25 @@ interface PlayLayout {
   solo: boolean
   /** Full tab: only the tab and a slim readout (the menu tucks away too) */
   focus: boolean
+  /** phones: the panels from top to bottom (moved with ☰ Move on their bars) */
+  order?: Pane[]
+  /** wide screens: video & readout on the left instead of the right */
+  sideLeft?: boolean
+  /** wide screens: Scales & chords above the tab instead of below */
+  soloTop?: boolean
+}
+type Pane = 'side' | 'tab' | 'solo'
+const ORDER0: Pane[] = ['side', 'tab', 'solo']
+/** Phones with the panels moved: the grid rows in your order (the view switch sits under the title). */
+function phoneGrid(order: Pane[], view: string): { rows: string; areas: string } {
+  const at = (p: Pane) => order.indexOf(p) < order.indexOf('tab')
+  const cells: [string, string][] = [['head', 'auto'], ['switch', 'auto']]
+  for (const p of order) {
+    if (p === 'side') cells.push(...(at('side') ? [['side', 'var(--top-row)'], ['stop', 'auto']] : [['stop', 'auto'], ['side', 'var(--top-row)']]) as [string, string][])
+    else if (p === 'tab') cells.push(['body', view === 'both' ? 'minmax(120px, 1fr)' : 'minmax(0, 1fr)'])
+    else if (view === 'both') cells.push(...(at('solo') ? [['solo', 'var(--solo-row)'], ['ssolo', 'auto']] : [['ssolo', 'auto'], ['solo', 'var(--solo-row)']]) as [string, string][])
+  }
+  return { rows: cells.map(c => c[1]).join(' '), areas: cells.map(c => `'${c[0]}'`).join(' ') }
 }
 const LAYOUT0: PlayLayout = { sideW: 300, soloH: 220, topH: 0, side: true, solo: true, focus: false }
 interface Feedback {
@@ -143,6 +162,44 @@ export function PlayScreen() {
   const playRef = useRef<HTMLDivElement>(null)
   const sideRef = useRef<HTMLElement>(null)
   const focus = lay.focus
+  const order = lay.order?.length === 3 && ORDER0.every(p => lay.order!.includes(p)) ? lay.order : ORDER0
+  const sideAbove = order.indexOf('side') < order.indexOf('tab'), soloAbove = order.indexOf('solo') < order.indexOf('tab')
+  const [movingPane, setMovingPane] = useState<Pane | null>(null)
+  /** ☰ Move on a panel's bar: drag it and let go where it should go. */
+  const startMove = (p: Pane, e: React.PointerEvent) => {
+    e.preventDefault()
+    setMovingPane(p)
+    const l0 = lay
+    const done = (ev: PointerEvent | null) => {
+      removeEventListener('pointerup', up); removeEventListener('pointercancel', cancel)
+      setMovingPane(null)
+      const box = playRef.current
+      if (!ev || !box) return
+      const r = box.getBoundingClientRect()
+      if (wide) {
+        if (p === 'side') { const left = ev.clientX < r.left + r.width / 2; if (left !== !!l0.sideLeft) { setLay({ ...l0, sideLeft: left }); countUse('play:move') } }
+        if (p === 'solo') {
+          const t = box.querySelector('.play-tab')?.getBoundingClientRect()
+          const top = !!t && ev.clientY < t.top + t.height / 2
+          if (top !== !!l0.soloTop) { setLay({ ...l0, soloTop: top }); countUse('play:move') }
+        }
+        return
+      }
+      const sel: Record<Pane, string> = { side: '.play-side', tab: '.play-tab', solo: '.play-solo' }
+      const rest = order.filter(x => x !== p)
+      const shown = rest.filter(x => { const el = box.querySelector<HTMLElement>(sel[x]); return !!el && el.getClientRects().length > 0 })
+      let anchor: Pane | undefined
+      for (const x of shown) { const b = box.querySelector(sel[x])!.getBoundingClientRect(); if (ev.clientY < b.top + b.height / 2) { anchor = x; break } }
+      const i = anchor ? rest.indexOf(anchor) : rest.length
+      const n = [...rest.slice(0, i), p, ...rest.slice(i)]
+      if (n.join() !== order.join()) { setLay({ ...l0, order: n }); countUse('play:move') }
+    }
+    const up = (ev: PointerEvent) => done(ev)
+    const cancel = () => done(null)
+    addEventListener('pointerup', up)
+    addEventListener('pointercancel', cancel)
+  }
+  const movedLayout = order.join() !== ORDER0.join() || !!lay.sideLeft || !!lay.soloTop
   // Music stand: only the tab (much bigger) and one row of big buttons. Tidy: while you play, the other panels fold away.
   const [stand, setStand] = useState(false)
   const [standZoom, setStandZoom] = usePersist('standZoom', 1.6)
@@ -1078,6 +1135,8 @@ export function PlayScreen() {
             <span className="small muted">or pinch the tab</span>
           </div>
           <label className="opt-row opt-check" data-find="tidy"><input type="checkbox" checked={tidy} onChange={() => setTidy(!tidy)} /><span><b>Tidy up while I play</b><span className="small muted">When you start (Listen or In time), the other panels and the menu fold away so the tab is bigger; they come back when you stop. A playing video stays.</span></span></label>
+          <div className="opt-row" data-find="panels"><span><b>Move the panels</b><span className="small muted">Drag <b>☰ Move</b> on a panel's bar (the video and readout, Scales &amp; chords) to put it above or below the tab{wide ? ', or on the left or right' : ''}. Drag the bar itself to make it bigger or smaller.</span></span>
+            {movedLayout && <button className="btn sm" onClick={() => setLay({ ...lay, order: undefined, sideLeft: undefined, soloTop: undefined })}>Put them back</button>}</div>
           <label className="opt-row opt-check" data-find="split"><input type="checkbox" checked={split} onChange={() => setSplitPref(split ? 'off' : 'on')} /><span><b>Split screen</b><span className="small muted">Video and readout on top, the tab below (automatic when the Fold is half-folded).</span></span></label>
         </section>
 
@@ -1110,10 +1169,21 @@ export function PlayScreen() {
   const playH = () => playRef.current?.clientHeight ?? 600
   const playW = () => playRef.current?.clientWidth ?? 900
   const cls = `play view-${view}${showVideo && doc.youtube ? ' has-video' : ''}${split ? ' tabletop' : ''}${manualSplit ? ' manual-split' : ''}` +
-    `${sideOpen ? '' : ' side-closed'}${soloOpen ? '' : ' solo-closed'}${focus || stand || (tidyNow && !videoShown) ? ' focus' : ''}${stand ? ' stand' : ''}${bigView ? ' big' : ''}${tidyNow ? ' tidy' : ''}${lay.topH > 0 ? ' sized-top' : ''}`
+    `${sideOpen ? '' : ' side-closed'}${soloOpen ? '' : ' solo-closed'}${focus || stand || (tidyNow && !videoShown) ? ' focus' : ''}${stand ? ' stand' : ''}${bigView ? ' big' : ''}${tidyNow ? ' tidy' : ''}${lay.topH > 0 ? ' sized-top' : ''}${movingPane ? ` moving-${movingPane}` : ''}`
+  // panels you moved: the grid in your order (not in the split/tabletop, stand or Full tab layouts)
+  const own = !split && !stand && !focus
+  const midRow = lay.sideLeft ? "'side sside body'" : "'body sside side'"
+  const gridStyle: React.CSSProperties = !own ? {} : wide
+    ? (lay.sideLeft || lay.soloTop ? {
+      ...(lay.sideLeft ? { gridTemplateColumns: 'var(--side-col) auto minmax(0, 1fr)' } : {}),
+      gridTemplateRows: lay.soloTop ? 'auto var(--solo-row) auto minmax(0, 1fr)' : 'auto minmax(0, 1fr) auto var(--solo-row)',
+      gridTemplateAreas: lay.soloTop ? `'head head head' 'solo solo solo' 'ssolo ssolo ssolo' ${midRow}` : `'head head head' ${midRow} 'ssolo ssolo ssolo' 'solo solo solo'`,
+    } : {})
+    : order.join() !== ORDER0.join() ? (() => { const g = phoneGrid(order, view); return { gridTemplateRows: g.rows, gridTemplateAreas: g.areas } })() : {}
   return (
     <div ref={playRef} className={cls}
       style={{
+        ...gridStyle,
         ['--tab-zoom' as string]: tabZoom, ['--side-w' as string]: `${lay.sideW}px`, ['--solo-h' as string]: `${lay.soloH}px`,
         ...(lay.topH > 0 ? { ['--top-h' as string]: `${lay.topH}px` } : {}),
         ...(split && posture.tabletop ? { ['--fold-top' as string]: `${posture.top}px`, ['--fold-hinge' as string]: `${posture.hinge}px` } : {}),
@@ -1155,8 +1225,8 @@ export function PlayScreen() {
         {sideOpen && micError && <p className="notice small">{micError}</p>}
       </section>
 
-      <Splitter dir="row" className="split-top" name="the video and readout" open={sideOpen}
-        size={lay.topH || sideRef.current?.offsetHeight || 260} grow={1} min={110} max={() => playH() - 220}
+      <Splitter dir="row" className="split-top" name="the video and readout" open={sideOpen} onMoveStart={own ? e => startMove('side', e) : undefined}
+        size={lay.topH || sideRef.current?.offsetHeight || 260} grow={sideAbove || !own ? 1 : -1} min={110} max={() => playH() - 220}
         target={() => playRef.current} cssVar="--top-h" onStart={() => playRef.current?.classList.add('sized-top')}
         onSize={px => setLay({ ...lay, topH: px, side: true, focus: false })}
         onOpen={o => setLay({ ...lay, side: o, focus: false })} closedLabel="Show video & readout" />
@@ -1165,14 +1235,14 @@ export function PlayScreen() {
         <Chips label="View" find="view" items={[{ id: 'tab', label: 'Tab' }, { id: 'solo', label: 'Scales & chords' }, { id: 'both', label: 'Both' }]} value={view} onChange={setView} />
       </div>
 
-      <Splitter dir="col" className="split-side" name="the side panel" open={sideOpen}
-        size={lay.sideW} grow={-1} min={240} max={() => playW() - 340}
+      <Splitter dir="col" className="split-side" name="the side panel" open={sideOpen} onMoveStart={own ? e => startMove('side', e) : undefined}
+        size={lay.sideW} grow={lay.sideLeft && own ? 1 : -1} min={240} max={() => playW() - 340}
         target={() => playRef.current} cssVar="--side-w"
         onSize={px => setLay({ ...lay, sideW: px, side: true, focus: false })}
         onOpen={o => setLay({ ...lay, side: o, focus: false })} closedLabel="Video & readout" />
 
       <section className="play-tab">
-        <LayoutHint text="Make room on this screen: drag the bars between the boxes (the video, the tab, Scales & chords) to make them bigger or smaller, drag one all the way closed or tap its arrow to hide it, and tap the bar again to bring it back." />
+        <LayoutHint text="Arrange this screen: drag the bars between the boxes (the video, the tab, Scales & chords) to make them bigger or smaller, drag ☰ Move on a bar to put that box somewhere else, drag one all the way closed or tap its arrow to hide it, and tap the bar again to bring it back." />
         {!sideOpen && readout(true)}
         {!sideOpen && micError && <p className="notice small">{micError}</p>}
         {tabTools}
@@ -1303,8 +1373,8 @@ export function PlayScreen() {
         )}
       </section>
 
-      <Splitter dir="row" className="split-solo" name="Scales & chords" open={wide ? soloOpen : true}
-        size={lay.soloH} grow={-1} min={110} max={() => playH() - 240}
+      <Splitter dir="row" className="split-solo" name="Scales & chords" open={wide ? soloOpen : true} onMoveStart={own ? e => startMove('solo', e) : undefined}
+        size={lay.soloH} grow={own && (wide ? lay.soloTop : soloAbove) ? 1 : -1} min={110} max={() => playH() - 240}
         target={() => playRef.current} cssVar="--solo-h"
         onSize={px => setLay({ ...lay, soloH: px, solo: true, focus: false })}
         onOpen={o => { if (wide) setLay({ ...lay, solo: o, focus: false }); else if (!o) setView('tab') }} closedLabel="Scales & chords" />

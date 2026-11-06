@@ -5,6 +5,7 @@ import { GROOVES, loadKit } from '../audio/drums'
 import { keepAwake } from '../audio/engine'
 import { Chips, Field, usePersist } from '../components/Controls'
 import { useScreenInfo } from '../assistant/screen'
+import { Win, WinArea } from '../components/Win'
 
 export const metronome = new Metronome()
 
@@ -100,7 +101,8 @@ export function MetronomeScreen() {
   return (
     <div className="stack" style={{ maxWidth: 760, margin: '0 auto' }}>
       <h1>Metronome</h1>
-      <div className="panel" style={{ textAlign: 'center' }}>
+      <WinArea area="tempo">
+      <Win id="click" title="Tempo" className="panel" bodyStyle={{ textAlign: 'center' }}>
         <div className="row" style={{ justifyContent: 'center', gap: 14 }}>
           <button className="btn icon big" onClick={() => setBpm(Math.max(30, bpm - 1))} aria-label="Slower">−</button>
           <div>
@@ -128,9 +130,9 @@ export function MetronomeScreen() {
           <button className="btn big" onClick={tap}>Tap tempo</button>
         </div>
         <p className="small muted" style={{ marginTop: 12 }}>Tap a beat light to switch it between accent, normal and silent.</p>
-      </div>
+      </Win>
 
-      <div className="panel stack">
+      <Win id="feel" title="Time, sound and drums" className="panel" bodyClass="stack">
         <Field label="Time signature"><Chips label="Time signature" items={SIGS.map(s => ({ id: s.id, label: s.id }))} value={sig} onChange={setSig} /></Field>
         <Field label="Subdivision"><Chips label="Subdivision" items={SUBS} value={sub} onChange={setSub} /></Field>
         <Field label="Sound"><Chips label="Sound" items={SOUNDS} value={sound} onChange={setSound} wrap /></Field>
@@ -141,9 +143,9 @@ export function MetronomeScreen() {
           </select>
         </Field>
         <p className="small muted" style={{ margin: 0 }}>{beats === 4 ? 'A real drummer at any tempo instead of the click, with a fill every 8 bars. The speed trainer works with it too.' : 'Drum beats are in 4/4.'}</p>
-      </div>
+      </Win>
 
-      <div className="panel stack">
+      <Win id="trainer" title="Speed trainer" className="panel" bodyClass="stack">
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <div>
             <h3 style={{ margin: 0 }}>Speed trainer</h3>
@@ -158,7 +160,8 @@ export function MetronomeScreen() {
             <Field label="Stop at"><select className="select" value={trainer.max} onChange={e => setTrainer({ ...trainer, max: +e.target.value })}>{[80, 100, 120, 140, 160, 180, 200, 240].map(v => <option key={v} value={v}>{v} BPM</option>)}</select></Field>
           </div>
         )}
-      </div>
+      </Win>
+      </WinArea>
     </div>
   )
 }

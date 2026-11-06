@@ -10,6 +10,7 @@ import { pc, friendly, INTERVAL_LABELS } from '../theory/notes'
 import { Zoomable } from '../components/Zoomable'
 import { ChordExtras } from '../components/ChordExtras'
 import { useScreenInfo } from '../assistant/screen'
+import { Win, WinArea } from '../components/Win'
 
 const TONAL_SUFFIX: Record<string, string> = {
   major: '', minor: 'm', '5': '5', aug7: '7#5', mmaj7: 'mMaj7', alt: '7alt', '69': '6/9', m69: 'm6/9', '9#11': '9#11',
@@ -44,12 +45,14 @@ export function ChordsScreen() {
   return (
     <div className="stack">
       <h1>Chords{inst.isUke ? <span className="muted small"> · {inst.label}</span> : null}</h1>
+      <WinArea area="chords" className="win-cols">
+      <Win id="pick" title="Pick a chord" className="panel" bodyClass="stack" resizable={false}>
       <KeyPicker value={root} onChange={k => { setRoot(k); setSel(0) }} label="Root note" />
       <Chips label="Chord family" items={CHORD_GROUPS.map(g => ({ id: g.name, label: g.name }))} value={group} onChange={setGroup} />
       <Chips label="Chord type" wrap items={CHORD_GROUPS.find(g => g.name === group)!.types.map(t => ({ id: t.suffix, label: t.label }))} value={suffix} onChange={s => { setSuffix(s); setSel(0) }} />
+      </Win>
 
-      <div className="split">
-        <div className="panel">
+        <Win id="shapes" title="Shapes" className="panel">
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
             <div className="readout" style={{ fontSize: 56 }}>{name}</div>
             <div className="small muted" style={{ textAlign: 'right' }}>
@@ -66,10 +69,9 @@ export function ChordsScreen() {
               {vs.length === 0 && <p className="muted">No shapes for this chord yet.</p>}
             </div>
           </Zoomable>
-        </div>
-        <div className="panel">
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <h3 style={{ margin: 0 }}>Every {name} note on the neck</h3>
+        </Win>
+        <Win id="neck" title={`Every ${name} note on the neck`} className="panel">
+          <div className="row" style={{ justifyContent: 'flex-end' }}>
             <Chips label="Labels" items={[{ id: 'intervals', label: 'Intervals' }, { id: 'notes', label: 'Notes' }]} value={labels} onChange={setLabels} />
           </div>
           <p className="small muted" style={{ margin: '6px 0 10px' }}>Gold dots show the shape you picked. Red is the root.</p>
@@ -85,9 +87,9 @@ export function ChordsScreen() {
             }}
             onTap={midi => strum([midi])}
           />
-        </div>
-      </div>
+        </Win>
       <ChordExtras root={root} suffix={suffix} voicing={v} />
+      </WinArea>
     </div>
   )
 }

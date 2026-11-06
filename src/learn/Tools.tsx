@@ -20,6 +20,7 @@ import { addXp, bump, isAway, usePracticeTimer } from './progress'
 import { logSkill } from './trends'
 import { Zoomable } from '../components/Zoomable'
 import { getReadySecs, useGetReady } from '../components/GetReady'
+import { Win, WinArea } from '../components/Win'
 
 function read<T>(k: string, d: T): T {
   try { const raw = localStorage.getItem(k); return raw ? (JSON.parse(raw) as T) : d } catch { return d }
@@ -507,14 +508,12 @@ export function CircleTool({ onExit, onQuiz }: { onExit: () => void; onQuiz: (id
         Tap any key on the circle. The highlighted slice holds its six main chords: home in the middle, IV on the left, V on the right,
         and the three minor chords just inside them. Neighbouring keys share all but one note.
       </p>
-      <div className="split">
-        <div className="cof-wrap">
+      <WinArea area="circle" className="win-cols">
+        <Win id="circle" title="The circle" className="panel cof-win" bodyClass="cof-wrap">
           <CircleOfFifths tonic={tonic} minor={minor} active={active} size={340}
             onPick={(root, m) => { setTonic(root); setMinor(m); sound(root, m ? 'm' : '') }} />
-        </div>
-        <div className="stack" style={{ gap: 10 }}>
-          <div className="panel stack" style={{ gap: 6 }}>
-            <h2 style={{ margin: 0 }}>{tonic} {minor ? 'minor' : 'major'}</h2>
+        </Win>
+          <Win id="key" title={`${tonic} ${minor ? 'minor' : 'major'}`} bodyClass="stack" bodyStyle={{ gap: 6 }}>
             <p className="small" style={{ margin: 0 }}>Key signature: <b>{keySignature(tonic, minor)}</b>. Relative {minor ? 'major' : 'minor'}: <b>{rel}</b>. Neighbour keys: <b>{nb[0]}</b> and <b>{nb[1]}</b>{minor ? ' (major)' : ''}.</p>
             <div className="circle-chords">
               {chords.map(c => (
@@ -527,9 +526,8 @@ export function CircleTool({ onExit, onQuiz }: { onExit: () => void; onQuiz: (id
               <button className="btn sm" onClick={cadence}>▶ Hear {minor ? 'i–iv–V–i' : 'I–IV–V–I'}</button>
               <button className="btn sm" onClick={() => setMinor(!minor)}>Switch to {minor ? `${names[(t + 3) % 12]} major` : `${names[(t + 9) % 12]} minor`}</button>
             </div>
-          </div>
-          <div className="panel stack" style={{ gap: 6 }}>
-            <h3 style={{ margin: 0 }}>Practise it</h3>
+          </Win>
+          <Win id="practise" title="Practise it" bodyClass="stack" bodyStyle={{ gap: 6 }}>
             <div className="row">
               <button className="btn sm" onClick={() => onQuiz('cof-sig')}>Key signatures</button>
               <button className="btn sm" onClick={() => onQuiz('cof-neighbours')}>IV and V</button>
@@ -540,9 +538,8 @@ export function CircleTool({ onExit, onQuiz }: { onExit: () => void; onQuiz: (id
               Musical use: when a song is in {tonic}{minor ? 'm' : ''}, the chords above are your safe bets, and going one step counter-clockwise
               (like {chords[4].root} to {chords[0].root}) is the strongest move home.
             </p>
-          </div>
-        </div>
-      </div>
+          </Win>
+      </WinArea>
     </div>
   )
 }

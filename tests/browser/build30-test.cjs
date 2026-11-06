@@ -251,7 +251,7 @@ async function playThrough(page) {
     if (seen.length) bad('emoji still on screen: ' + seen.join(' | '))
     await nav(page, 'Learn'); await page.locator('button[aria-label=Settings]').first().click()
     await sub(page, 'You')
-    await page.locator('.fold-toggle:has-text("What you use")').click()
+    if (await page.locator('.fold-toggle:has-text("What you use")').count()) await page.locator('.fold-toggle:has-text("What you use")').click()
     await page.waitForTimeout(1700)
     const rows = await page.locator('.usage-list li').allTextContents()
     console.log(`what you use: ${rows.slice(0, 5).join(' | ')}`)

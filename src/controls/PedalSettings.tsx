@@ -21,7 +21,6 @@ export function PedalSettings() {
 
   return (
     <section className="panel stack" style={{ gap: 10 }}>
-      <h2 style={{ margin: 0 }}>Hands-free (footswitch)</h2>
       <p className="small muted" style={{ margin: 0 }}>
         Pair a Bluetooth page-turner or footswitch with your phone (it works like a keyboard), then use your foot to start, stop or loop
         while both hands are on the guitar. Most two-pedal switches work straight away: right pedal = start/stop, left pedal = back to the start.

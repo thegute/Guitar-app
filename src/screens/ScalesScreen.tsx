@@ -8,6 +8,7 @@ import { audio } from '../audio/engine'
 import { pc, noteToMidi } from '../theory/notes'
 import { useInstrument } from '../instrument'
 import { useScreenInfo } from '../assistant/screen'
+import { Win, WinArea } from '../components/Win'
 
 const POSITIONS = [
   { id: 'all', label: 'Whole neck', from: 0, to: 15 },
@@ -67,6 +68,8 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
   return (
     <div className="stack">
       <h1>Scales</h1>
+      <WinArea area="scales">
+      <Win id="pick" title="Pick a scale" className="panel" bodyClass="stack" resizable={false}>
       <KeyPicker value={root} onChange={setRoot} label="Root note" />
       <div className="row">
         <Field label="Scale">
@@ -80,7 +83,8 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
         </Field>
         <button className="btn" onClick={playScale} disabled={playing} style={{ alignSelf: 'end' }}>{playing ? 'Playing…' : 'Hear it'}</button>
       </div>
-      <div className="panel">
+      </Win>
+      <Win id="neck" title="On the neck" className="panel">
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
           <div className="readout" style={{ fontSize: 40 }}>{root} {def.label}</div>
           <div className="small muted">{info.notes.join(' ')}</div>
@@ -104,10 +108,9 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
           onTap={midi => playNote(midi)}
         />
         <p className="small muted" style={{ marginTop: 8 }}>Tap any dot to hear that note. Red dots are the root.</p>
-      </div>
+      </Win>
       {chords.length > 0 && (
-        <div className="panel">
-          <h3 style={{ marginTop: 0 }}>Chords that come from this scale</h3>
+        <Win id="chords" title="Chords that come from this scale" className="panel">
           <div className="row">
             {chords.map((c, i) => (
               <span key={i} className="chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -116,8 +119,9 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
               </span>
             ))}
           </div>
-        </div>
+        </Win>
       )}
+      </WinArea>
     </div>
   )
 }

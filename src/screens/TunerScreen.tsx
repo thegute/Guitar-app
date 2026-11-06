@@ -15,6 +15,7 @@ import { Field, usePersist } from '../components/Controls'
 import { InputPicker } from '../components/InputPicker'
 import { useScreenInfo } from '../assistant/screen'
 import { pcName } from '../theory/notes'
+import { Win, WinArea } from '../components/Win'
 
 const IN_TUNE = 2 // cents
 const CLOSE = 8
@@ -174,6 +175,8 @@ export function TunerScreen() {
         <InputPicker active={input} onChanged={() => { if (tracker.current) { stop(); void start() } }} />
       </div>
 
+      <WinArea area="tuner">
+      <Win id="strings" title="Strings" className="panel" resizable={false}>
       <div className="tuner-strings" role="radiogroup" aria-label="Which string">
         <button role="radio" aria-checked={lockedString === null} className={`chip${lockedString === null ? ' on' : ''}`} onClick={() => setPick('auto')}>Auto</button>
         {targets.map((m, i) => (
@@ -183,8 +186,9 @@ export function TunerScreen() {
           </button>
         ))}
       </div>
+      </Win>
 
-      <div className="panel tuner-main">
+      <Win id="meter" title="Tuner" className="panel tuner-main">
         <div className="tuner-note">
           <span className="tuner-name">{r ? noteOnly(r.note) : '–'}<sub>{r ? octaveOf(r.note) : ''}</sub></span>
           {r && <span className="tuner-cents" aria-live="off">{`${cents > 0 ? '+' : cents < 0 ? '−' : '±'}${Math.abs(cents).toFixed(1)}¢`}</span>}
@@ -229,9 +233,9 @@ export function TunerScreen() {
           {done.some(Boolean) && <button className="btn ghost" onClick={() => setDone(targets.map(() => false))}>Clear ticks</button>}
         </div>
         {err && <p className="notice small" style={{ textAlign: 'left' }}>{err}</p>}
-      </div>
+      </Win>
 
-      <div className="panel stack">
+      <Win id="tuning" title="Tuning and pitch" className="panel" bodyClass="stack">
         <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <Field label="Tuning">
             <select className="select" value={tuning.id} onChange={e => setTuning(inst.id, e.target.value)}>
@@ -249,7 +253,8 @@ export function TunerScreen() {
           Tap a string above to tune that one (it plays the note so you can tune by ear too); Auto finds the string you play.
           Tune up to the note from below: if you go past it, drop under and come back up, so the string stays put.
         </p>
-      </div>
+      </Win>
+      </WinArea>
     </div>
   )
 }

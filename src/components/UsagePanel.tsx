@@ -1,6 +1,6 @@
 // Settings → You → What you use: the favourites, and what hasn't been opened for a month (counted on this phone only).
 import { useState } from 'react'
-import { Fold } from './Fold'
+import { Win } from './Win'
 import { clearUsage, untouched, usageRows, usageSince } from '../usage'
 
 export function UsagePanel() {
@@ -11,7 +11,7 @@ export function UsagePanel() {
   const buttons = rows.filter(r => r.id.startsWith('btn:')).slice(0, 10)
   const cold = untouched(30)
   return (
-    <Fold id="usage" title="What you use" summary={days < 1 ? 'counting from today' : `${days} day${days === 1 ? '' : 's'} of counts`}
+    <Win id="usage" title={`What you use (${days < 1 ? 'counting from today' : `${days} day${days === 1 ? '' : 's'} of counts`})`} bodyClass="stack" bodyStyle={{ gap: 8 }}
       hint="KGuitar counts which screens, pages and buttons you open, on this phone only (nothing is sent anywhere). After a few weeks this shows what you really use, so the app can be trimmed to fit.">
       {!rows.length ? <p className="small muted" style={{ margin: 0 }}>Nothing counted yet.</p> : <>
         <h3 style={{ margin: 0 }}>Most used</h3>
@@ -27,6 +27,6 @@ export function UsagePanel() {
             : <p className="small muted" style={{ margin: 0 }}>You've used everything.</p>}
       </>}
       <div className="row"><button className="btn sm" onClick={() => { clearUsage(); setN(n => n + 1) }}>Start counting again</button></div>
-    </Fold>
+    </Win>
   )
 }

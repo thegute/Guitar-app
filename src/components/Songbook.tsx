@@ -8,6 +8,7 @@ import { loadSongbookDoc } from '../tabs/songbookDocs'
 import { songStats } from '../play/songStats'
 import { profile } from '../learn/profile'
 import { Chips, usePersist } from './Controls'
+import { Win, WinArea } from './Win'
 
 export function Songbook({ currentId, onOpen }: { currentId: string; onOpen: (d: SongDoc) => void }) {
   const inst = useInstrument()
@@ -24,13 +25,15 @@ export function Songbook({ currentId, onOpen }: { currentId: string; onOpen: (d:
   }
 
   return (
-      <div ref={ref} className="stack songbook-page" id="songbook" style={{ gap: 10 }}>
-        <section className="panel stack songbook-filters" style={{ gap: 8 }}>
+      <div ref={ref} className="songbook-page" id="songbook">
+      <WinArea area="songbook">
+        <Win id="filters" title="Pick a style and level" className="panel songbook-filters" bodyClass="stack" bodyStyle={{ gap: 8 }} resizable={false}>
           <p className="small muted" style={{ margin: 0 }}>{SONGBOOK.length} songs, beginner to advanced. Each has parts: <b>Words & chords</b> to strum and sing, the <b>Melody</b> as a tab, and rhythm parts. Tap a part to play it.</p>
           <Chips label="Style" items={[{ id: 'all' as const, label: 'All' }, ...GENRES]} value={genre} onChange={setGenre} />
           <Chips label="Level" wrap items={[{ id: 0 as const, label: 'Any level' }, ...LEVELS.map(l => ({ id: l.id, label: `${l.id} ${l.label}` }))]} value={level} onChange={setLevel} />
           {level > 0 && <p className="small muted" style={{ margin: 0 }}>{LEVELS.find(l => l.id === level)?.what}</p>}
-        </section>
+        </Win>
+        <Win id="songs" title={`Songs (${list.length})`} className="panel songbook-list">
         <ul className="song-list songbook">
           {list.map(s => {
             const parts = s.parts.filter(p => !(four && p.kind === 'octaves'))
@@ -63,6 +66,8 @@ export function Songbook({ currentId, onOpen }: { currentId: string; onOpen: (d:
           })}
         </ul>
         {!list.length && <p className="small muted">No songs at this level in this style yet. Try another level.</p>}
+        </Win>
+      </WinArea>
       </div>
   )
 }

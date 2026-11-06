@@ -14,6 +14,7 @@ import { chordSymbol } from '../theory/chords'
 import { pc, noteToMidi } from '../theory/notes'
 import { learnGo, openInPlay, remount, go } from '../nav'
 import { scaleName } from '../theory/scales'
+import { Win } from './Win'
 
 /** The scales that fit a chord, best first, with why. */
 export function scalesForChord(suffix: string): { scale: string; why: string }[] {
@@ -83,9 +84,8 @@ export function ChordExtras({ root, suffix, voicing }: { root: string; suffix: s
   }
 
   return (
-    <div className="stack chord-extras" style={{ gap: 10 }}>
-      <section className="panel stack" style={{ gap: 8 }}>
-        <h3 style={{ margin: 0 }}>Hear {name}</h3>
+    <>
+      <Win id="hear" title={`Hear ${name}`} className="panel chord-extras" bodyClass="stack" bodyStyle={{ gap: 8 }}>
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           <button className={`btn${busy === 'chord' ? ' on' : ''}`} onClick={hearChord} disabled={!midis.length}>▶ The chord</button>
           <button className={`btn${busy === 'arp' ? ' on' : ''}`} onClick={hearArp} disabled={!midis.length}>▶ As an arpeggio</button>
@@ -103,9 +103,9 @@ export function ChordExtras({ root, suffix, voicing }: { root: string; suffix: s
             </li>
           ))}
         </ul>
-      </section>
+      </Win>
       <ChordLicks root={root} suffix={suffix} name={name} />
-    </div>
+    </>
   )
 }
 
@@ -140,8 +140,7 @@ function ChordLicks({ root, suffix, name }: { root: string; suffix: string; name
     openInPlay({ id: `lick:${x.l.id}:${root}${suffix}:${inst.id}`, title: placed.song.title, source: 'lesson', inst: inst.id, key: { root, minor: /^m(?!aj)/.test(suffix) }, song: placed.song, updated: Date.now() })
   }
   return (
-    <section className="panel stack" style={{ gap: 8 }}>
-      <h3 style={{ margin: 0 }}>Licks that sound good over {name}</h3>
+    <Win id="licks" title={`Licks that sound good over ${name}`} className="panel chord-extras" bodyClass="stack" bodyStyle={{ gap: 8 }}>
       <div className="search-chips">
         {styles.map(s => <button key={s.id} className="chip" aria-pressed={s.id === st.id} onClick={() => setStyle(s.id)}>{s.label.replace(/ \(.*\)$/, '')}</button>)}
       </div>
@@ -157,6 +156,6 @@ function ChordLicks({ root, suffix, name }: { root: string; suffix: string; name
           </li>
         ))}
       </ul>
-    </section>
+    </Win>
   )
 }

@@ -4,7 +4,7 @@
 import { stopAllSounds } from '../audio/stopAll'
 import { Win, WinArea } from '../components/Win'
 import { TabFromPicture } from '../assistant/TabFromPicture'
-import { Fold, HintHead } from '../components/Fold'
+import { Fold } from '../components/Fold'
 import { Songbook } from '../components/Songbook'
 import { ProgressionTabs } from '../components/ProgressionTabs'
 import { LickChainer } from '../components/LickChainer'
@@ -59,8 +59,10 @@ export function SongsScreen() {
         { id: 'practice', label: 'Exercises' },
         { id: 'add', label: 'Add a song' },
       ]} />
-      {page === 'mine' && <JumpBackIn compact />}
-      {page === 'mine' && <MySongs songs={songs} currentId={currentId} onOpen={open} refresh={refresh} onAdd={() => setPage('add')} onSongbook={() => setPage('songbook')} />}
+      {page === 'mine' && <WinArea area="songsMine">
+        <Win id="jump" title="Practice and jump back in" className="panel" resizable={false}><JumpBackIn compact /></Win>
+        <MySongs songs={songs} currentId={currentId} onOpen={open} refresh={refresh} onAdd={() => setPage('add')} onSongbook={() => setPage('songbook')} />
+      </WinArea>}
       {page === 'songbook' && <Songbook currentId={currentId} onOpen={open} />}
       {page === 'practice' && <PracticePage currentId={currentId} onOpen={open} />}
       {page === 'add' && <AddPage onOpen={open} onAdded={async () => { await refresh(); setPage('mine') }} />}
@@ -81,7 +83,7 @@ function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook }: {
   const shown = list.filter(s => !filter.trim() || `${s.title} ${s.artist ?? ''}`.toLowerCase().includes(filter.trim().toLowerCase()))
   if (!list.length) {
     return (
-      <section className="panel empty-state">
+      <Win id="list" title="My songs" className="panel empty-state">
         <PsyDogCard seed="songs-empty" className="empty-card" />
         <h2>No songs of your own yet</h2>
         <p className="small muted">Add a Guitar Pro file or paste a tab you found online, or start with a song from the songbook. Songs you add in {inst.label.toLowerCase()} mode stay in {inst.label.toLowerCase()} mode.</p>
@@ -90,11 +92,11 @@ function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook }: {
           <button className="btn" onClick={onSongbook}>Open the songbook</button>
         </div>
         {moved && <p className="small muted" role="status">{moved}</p>}
-      </section>
+      </Win>
     )
   }
   return (
-    <section className="stack" style={{ gap: 8 }}>
+    <Win id="list" title={`My songs (${list.length})`} className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
       {moved && <p className="small muted" role="status">{moved}</p>}
       {list.length > 4 && (
         <input className="input" type="search" placeholder="Search your songs" value={filter} onChange={e => setFilter(e.target.value)} aria-label="Search your songs" />
@@ -143,7 +145,7 @@ function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook }: {
         ))}
       </ul>
       {!shown.length && <p className="small muted">No song matches "{filter}".</p>}
-    </section>
+    </Win>
   )
 }
 
@@ -177,7 +179,7 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [scanned, setScanned] = useState<{ name: string; pics: { name: string; mime: string; b64: string; url: string }[] } | null>(null)
-  const pictures = useRef<HTMLElement | null>(null)
+  const pictures = useRef<HTMLDivElement | null>(null)
   const [query, setQuery] = useState('')
   const [clipNote, setClipNote] = useState('')
   const file = useRef<HTMLInputElement>(null)
@@ -237,9 +239,8 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
   }
 
   return (
-    <div className="stack" style={{ gap: 12 }}>
-      <section className="panel stack" style={{ gap: 8 }}>
-        <HintHead level={2} title="1. Find a tab" hint={<>In the phone app, <b>Search … here</b> brings a Songsterr or Ultimate Guitar tab straight in. The site buttons open the site in your browser: download the Guitar Pro file and come back to <b>Upload tab files</b>, or copy the tab text and tap <b>Paste from clipboard</b>.</>} />
+    <WinArea area="songsAdd">
+      <Win id="find" title="1. Find a tab" bodyClass="stack" bodyStyle={{ gap: 8 }} hint={<>In the phone app, <b>Search … here</b> brings a Songsterr or Ultimate Guitar tab straight in. The site buttons open the site in your browser: download the Guitar Pro file and come back to <b>Upload tab files</b>, or copy the tab text and tap <b>Paste from clipboard</b>.</>}>
         <form className="row" style={{ flexWrap: 'nowrap' }} onSubmit={e => { e.preventDefault(); if (query.trim()) window.open(SITES[0].url(query.trim()), '_blank') }}>
           <input className="input" type="search" placeholder="Song or artist" value={query} onChange={e => setQuery(e.target.value)} aria-label="Search for a tab" />
         </form>
@@ -251,10 +252,9 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
             </a>
           ))}
         </div>
-      </section>
+      </Win>
 
-      <section className="panel stack" style={{ gap: 10 }}>
-        <HintHead level={2} title="2. Bring it in" hint={<>Guitar Pro (.gp .gp5 .gpx .gp4 .gp3), PDF tabs and chord sheets, or text tabs (.txt). A PDF that's only scanned pictures goes to the picture reader below. <b>From Google Drive:</b> in the picker, tap ☰ and choose Drive (or your Google account), then open your tabs folder. Long-press a file to select several and import them all at once.</>} />
+      <Win id="bring" title="2. Bring it in" bodyClass="stack" bodyStyle={{ gap: 10 }} hint={<>Guitar Pro (.gp .gp5 .gpx .gp4 .gp3), PDF tabs and chord sheets, or text tabs (.txt). A PDF that's only scanned pictures goes to the picture reader below. <b>From Google Drive:</b> in the picker, tap ☰ and choose Drive (or your Google account), then open your tabs folder. Long-press a file to select several and import them all at once.</>}>
         <div className="row">
           <button className="btn primary" disabled={busy} onClick={() => file.current?.click()}>{busy ? 'Importing…' : 'Upload tab files'}</button>
           <button className="btn" onClick={() => void pasteClipboard()}>Paste from clipboard</button>
@@ -272,13 +272,13 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
         {clipNote && <span className="small muted" role="status">{clipNote}</span>}
         {yt.trim() && !link && <span className="small" style={{ color: 'var(--coral)' }}>That YouTube link doesn't look right.</span>}
         {error && <p className="notice small" role="alert">{error}</p>}
-      </section>
-      <section className="panel stack" style={{ gap: 8 }} ref={pictures}>
-        <h2 style={{ margin: 0 }}>Tab on screen in a video, a photo or a scanned PDF</h2>
+      </Win>
+      <Win id="picture" title="Tab on screen in a video, a photo or a scanned PDF" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+        <div ref={pictures} />
         {scanned && <p className="notice small" style={{ margin: 0 }}>"{scanned.name}" is scanned pages (pictures, no text), so the AI reads them: its pages are below. Tap <b>Read the tab</b>.</p>}
         <TabFromPicture key={scanned?.name ?? ''} youtube={link} initial={scanned?.pics} onOpen={d => void saveSong(d).then(() => onOpen(d))} />
-      </section>
-    </div>
+      </Win>
+    </WinArea>
   )
 }
 
