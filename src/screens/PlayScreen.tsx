@@ -36,6 +36,9 @@ import type { VideoApi } from '../play/inTime'
 import { exampleDoc } from '../tabs/examples'
 import { playNote, strum, SOUNDS, activeSound, onSoundChange, setSoundChoice, soundChoice, soundForProgram, soundInfo, loadSound, soundLoaded, type SoundId } from '../audio/pluck'
 import { audio, keepAwake } from '../audio/engine'
+import { songTempo } from '../play/tempoMap'
+import { TempoBadge, TempoSheet, withSig, withTempo } from '../components/TempoSheet'
+import { askTempo, canAskTempo } from '../assistant/tempoAsk'
 import { TabPlayer } from '../audio/tabPlayer'
 import { keyPrefersFlats, pcName } from '../theory/notes'
 import { setTuning, useInstrument } from '../instrument'
@@ -641,6 +644,33 @@ export function PlayScreen() {
   const [playAt, setPlayAt] = useState(-1)
   const [speed, setSpeed] = usePersist('playSpeed', 1)
   const songBpm = doc?.song.tempo ?? 90
+  const [tempoOpen, setTempoOpen] = useState(false)
+  // the tempo and time signature: set them for the song (In time, click, band, Hear it and video follow)
+  const changeTempo = useCallback((c: Partial<SongDoc['song']>) => {
+    setDoc(d => {
+      if (!d) return d
+      const fileTempo = d.song.fileTempo ?? (d.song.tempoFrom === 'file' ? d.song.tempo : undefined)
+      const n = { ...d, song: { ...d.song, ...c, ...(fileTempo ? { fileTempo } : {}) }, updated: Date.now() }
+      void saveSong(n)
+      return n
+    })
+  }, [])
+  // a pasted tab or a screenshot with no tempo: ask the AI once for the known recording's tempo (if a key is set up)
+  useEffect(() => {
+    if (!doc || doc.song.tempoAsked || (doc.song.tempoFrom && doc.song.tempoFrom !== 'guess') || !canAskTempo()) return
+    const id = doc.id
+    changeTempo({ tempoAsked: true })
+    void askTempo(doc.song.title, doc.artist ?? doc.song.artist).then(a => {
+      if (!a) return
+      setDoc(d => {
+        if (!d || d.id !== id || (d.song.tempoFrom && d.song.tempoFrom !== 'guess')) return d
+        const n = { ...d, song: { ...d.song, ...withTempo(d.song, a.bpm, 'ai'), ...(a.timeSig ? withSig(a.timeSig) : {}) }, updated: Date.now() }
+        void saveSong(n)
+        return n
+      })
+    })
+  }, [doc?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const tempoMap = useMemo(() => (doc ? songTempo(doc.song) : undefined), [doc?.song]) // eslint-disable-line react-hooks/exhaustive-deps
   // the sound for Hear it and tapped notes: your pick, or (on Auto) the guitar the Guitar Pro file asks for
   const [soundSel, setSoundSel] = useState(soundChoice())
   useEffect(() => onSoundChange(() => setSoundSel(soundChoice())), [])
@@ -679,7 +709,7 @@ export function PlayScreen() {
   const withBand = bandOn && bandAvail
   const inTime = useInTime({
     band: withBand ? bandEv : undefined,
-    strum: strumPat, meter,
+    strum: strumPat, meter, tempo: tempoMap?.changes ? tempoMap : undefined,
     flat, loop: loop, startFlat: withBand && pos === 0 ? 0 : cursorFlat >= 0 ? cursorFlat : 0, songBpm, speed, click, guide, sound: hearSound, strict, trainer, video,
     sync: showVideo ? doc?.ytSync : undefined, states,
     latencyMs: () => latencyMs(kindOf(listener.current?.external)),
@@ -779,6 +809,8 @@ export function PlayScreen() {
     p.sound = hearSound
     p.band = withBand ? bandSteps : undefined
     p.strum = strumPat ? { hits: strumPat.hits, offs: stepOffs } : undefined
+    p.meter = meter
+    p.tempo = tempoMap?.changes ? tempoMap : undefined
     p.onStep = i => setPlayAt(i)
     p.onEnd = () => setPlayAt(-1)
     if (loopRange) {
@@ -1258,6 +1290,7 @@ export function PlayScreen() {
             </select>
           ) : doc.artist ? <span className="small muted">{doc.artist}</span> : null}
         </div>
+        <TempoBadge song={doc.song} onOpen={() => setTempoOpen(true)} />
         <button className="btn sm icon-btn" data-find="full" aria-pressed={focus} onClick={() => setLay({ ...lay, focus: !focus })}
           aria-label={focus ? 'Show all panels again' : 'Full tab: hide the other panels'} title={focus ? 'Show all panels again' : 'Full tab'}>
           {focus ? <IconShrink /> : <IconExpand />}
@@ -1475,6 +1508,7 @@ export function PlayScreen() {
 
       {gearOpen && <GearSetup onClose={() => setGearOpen(false)} />}
       {optionsPanel}
+      {tempoOpen && doc && <TempoSheet song={doc.song} fileTempo={doc.song.fileTempo} beatsPerBar={meter} onChange={changeTempo} onClose={() => setTempoOpen(false)} />}
       {tvn && (
         <div className="sheet-backdrop" onClick={() => setTvn(null)}>
           <div className="sheet" role="dialog" aria-modal="true" aria-label="Then vs now" onClick={e => e.stopPropagation()}>

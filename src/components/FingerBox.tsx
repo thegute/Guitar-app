@@ -26,10 +26,36 @@ interface Place { x: number; y: number; w: number; min: boolean }
 // remembered separately for narrow screens (the Fold's cover) and wide ones (inner screen, tablet): the layouts differ
 const sizeClass = () => (typeof innerWidth === 'number' && innerWidth < 600 ? 'narrow' : 'wide')
 const KEY = (w: string) => `kg:fingerBox:${w}:${sizeClass()}`
-const load = (w: string): Place => {
+const stored = (w: string): Place | null => {
   try { const v = JSON.parse(localStorage.getItem(KEY(w)) ?? 'null') as Place | null; if (v && typeof v.x === 'number') return v } catch { /* default */ }
-  // bottom right, out of the tab's way
-  return { x: 0.98, y: 0.68, w: Math.min(260, Math.round((typeof innerWidth === 'number' ? innerWidth : 400) * 0.56)), min: false }
+  return null
+}
+const load = (w: string): Place => stored(w) ?? { x: 0.98, y: 0.68, w: Math.min(260, Math.round((typeof innerWidth === 'number' ? innerWidth : 400) * 0.56)), min: false }
+
+/** Until you move it yourself: the corner of the tab (or of the screen) that covers the fewest buttons and notes. */
+function autoPlace(w: number, h: number): { x: number; y: number } | null {
+  if (typeof document === 'undefined') return null
+  const tab = document.querySelector('.play-tab, .tab-view')?.getBoundingClientRect()
+  const W = innerWidth, H = innerHeight
+  const spots: { left: number; top: number }[] = []
+  if (tab && tab.width > 0) {
+    spots.push({ left: tab.right - w - 6, top: tab.top + 6 }, { left: tab.right - w - 6, top: tab.bottom - h - 6 }, { left: tab.left + 6, top: tab.bottom - h - 6 }, { left: tab.left + 6, top: tab.top + 6 })
+  }
+  spots.push({ left: W - w - 4, top: H * 0.68 }, { left: W - w - 4, top: H * 0.3 })
+  const things = [...document.querySelectorAll('button, [role=tab], input, select, a, .tab-note, .tab-cursor')]
+    .filter(el => !el.closest('.finger-box, .finger-chip'))
+    .map(el => el.getBoundingClientRect()).filter(r => r.width > 0 && r.height > 0)
+  let best: { left: number; top: number; c: number } | null = null
+  for (const sp of spots) {
+    const l = Math.max(4, Math.min(W - w - 4, sp.left)), t = Math.max(4, Math.min(H - h - 4, sp.top))
+    let c = 0
+    for (const r of things) {
+      const ix = Math.min(l + w, r.right) - Math.max(l, r.left), iy = Math.min(t + h, r.bottom) - Math.max(t, r.top)
+      if (ix > 0 && iy > 0) c += (ix * iy) / Math.max(1, r.width * r.height)
+    }
+    if (!best || c < best.c - 0.05) best = { left: l, top: t, c }
+  }
+  return best ? { x: (best.left + w) / W, y: best.top / H } : null
 }
 
 export const FINGER_NAMES = ['open', 'index', 'middle', 'ring', 'pinky']
@@ -49,6 +75,16 @@ function FingerBoxIn({ group, next, beatsToShift, expected, nStr, stringNames, o
     return () => removeEventListener('resize', f)
   }, [where])
   const box = useRef<HTMLDivElement>(null)
+  // not moved yet on this screen size: find a free corner once the page has laid out (and when the Fold opens/closes)
+  useEffect(() => {
+    if (stored(where)) return
+    const id = setTimeout(() => {
+      const el = box.current
+      const sp = autoPlace(el?.offsetWidth ?? 220, el?.offsetHeight ?? 150)
+      if (sp && !stored(where)) setPlace(p => ({ ...p, ...sp }))
+    }, 350)
+    return () => clearTimeout(id)
+  }, [where, place.min, cls.current]) // eslint-disable-line react-hooks/exhaustive-deps
   const save = (p: Place) => { setPlace(p); try { localStorage.setItem(KEY(where), JSON.stringify(p)) } catch { /* full */ } }
   // keep it on screen when the phone turns or the Fold opens
   const [, setVp] = useState(0)

@@ -97,7 +97,7 @@ export function songsterrToSong(data: unknown, title: string): Song {
   const bpm = Number(d.automations?.tempo?.[0]?.bpm) || undefined
   const firstSig = (d.measures?.[0] as Record<string, unknown> | undefined)?.signature as number[] | undefined
   const meter = firstSig ? (4 * firstSig[0]) / firstSig[1] : undefined
-  return { title, tempo: bpm, ...(meter && meter !== 4 ? { meter } : {}), tracks: [{ name: d.name ?? 'Guitar', tuning, capo, bars, program: 25 }] }
+  return { title, tempo: bpm, ...(bpm ? { tempoFrom: 'file' as const } : {}), ...(firstSig && (firstSig[0] !== 4 || firstSig[1] !== 4) ? { timeSig: [firstSig[0], firstSig[1]] as [number, number] } : {}), ...(meter && meter !== 4 && Number.isInteger(meter) ? { meter } : {}), tracks: [{ name: d.name ?? 'Guitar', tuning, capo, bars, program: 25 }] }
 }
 
 // ───────────── Ultimate Guitar ─────────────

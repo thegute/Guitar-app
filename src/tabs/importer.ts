@@ -5,6 +5,7 @@ import { newId, saveSong, type SongDoc } from './library'
 import { parseTextTab } from './textTab'
 import { parseChordSheet } from './chordSheet'
 import { fromTextTab } from './model'
+import { guessTabTempo } from '../audio/tempo'
 
 /** A tab or chord sheet from text, or null if it has neither tab lines nor enough chords. */
 export function songFromText(text: string, title: string, inst: Instrument, youtube?: string): SongDoc | null {
@@ -12,10 +13,12 @@ export function songFromText(text: string, title: string, inst: Instrument, yout
   if (parsed) {
     const song = fromTextTab(parsed)
     if (title) song.title = title
+    // no tempo written on a text tab: a likely one from how busy the rhythm is (the badge in Play says it's a guess)
+    if (!song.tempo) { song.tempo = guessTabTempo(song.tracks[0].bars.flatMap(b => b.steps.filter(st => st.notes.length).map(st => st.dur))); song.tempoFrom = 'guess' }
     return { id: newId(), title: song.title, source: 'text', inst: inst.id, song, youtube, updated: Date.now() }
   }
   const sheet = parseChordSheet(text, title || 'Pasted tab', inst)
-  if (sheet) return { id: newId(), title: sheet.title, source: 'chords', inst: inst.id, song: sheet, youtube, updated: Date.now() }
+  if (sheet) return { id: newId(), title: sheet.title, source: 'chords', inst: inst.id, song: { ...sheet, tempoFrom: sheet.tempoFrom ?? 'guess' }, youtube, updated: Date.now() }
   return null
 }
 

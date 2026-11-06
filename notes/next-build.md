@@ -46,6 +46,31 @@ Each item is its own checkpoint, so any one can be undone with `git revert <chec
 38. **Generic style names** (owner 2026-11-06: "don't call it Marco Cirillo style"): every style, pattern, songbook credit and
     guide line uses a descriptive name; players only in "Listen to" lines and video credits.
 
+## Master blueprint, Step 1 (fretboard brain; owner tries all three steps together; backup branch `backup-before-blueprint`)
+39. **Gear: Pocket Master** (604bfe6). Input picker, gear setup, Settings, guide name it. Ask: does Auto pick it up when plugged in?
+40. **One fingering engine + floating finger box** (0afde3a). Hand-position fingering for every tab (real fret spacing, medium hand),
+    Make it easier, tap a note → choose its finger / another string, Settings → You → Your hand. The box floats anywhere (drag, resize,
+    tuck), finger colours, "shift coming" badge with the reason, Loop this shift. Ask: right fingers on real songs? Box in the way?
+41. **Slack key tunings + play it in my tuning / without the capo + Smart capo** (b74a350). Ask: do adapted tabs sound right?
+42. **The 5-layer neck** (6d8c511). Shape / Triads / Pentatonic / Mode notes / Free fingers, 3 per string, chord drone; CAGED explorer,
+    Scales & chords → Layers, Tools → Chords/Scales, chord peek Pin open. Ask: too many chips? Which layers do you use?
+43. **Voice leading + Play the changes** (7f832a3). Tools → Chords "Voice leading" (chord → the usual next chords), Jam → Solo over it,
+    Scales & chords → Connect; arrows, Hold/move in words, Hear the change, Practise the changes (a tab for Wait for me). Look-ahead:
+    two beats before a chord change its 3rd and root glow cyan with arrows. Ask: readable while playing?
+44. **MIDI footswitch: Chocolate Plus** (b659a89). Settings → Sound → Hands-free: Use a MIDI pedal → Find my Bluetooth pedal (reconnects
+    by itself), USB MIDI too, device list with Listen (untick the Pocket Master if it shows), last button, Teach KGuitar your 4 buttons
+    (A start/stop, B back to start, C loop this bar, D Hear it). NOT tried with the real pedal: ask if Find sees it, if long presses
+    and holds work, and whether A–D should do other things.
+
+## Master blueprint, Step 2 (eyes, ears and game)
+45. **Tempo + time signature everywhere (2a)** (CHECKPOINT_2A). Play's top bar has a tempo badge (♩ 92 · 4/4; "~" = a guess). Tap it:
+    − / +, ½× / 2× (the usual mix-ups), tap along, time signature (2/4 … 12/8), Ask the AI (known songs; asked by itself once for a
+    pasted tab when a key is set up), Back to the file's tempo. Guitar Pro files bring their exact tempo, time signature AND tempo
+    changes (In time, click, band, Hear it and the synced video follow them). Pasted tabs get a guess from their rhythm.
+    Sound tempo detection (audio/tempo.ts) is ready for the Riff Scanner, video auto-sync and loops (2d / Step 3): bench 84/96 exact
+    on recorded guitar samples, the rest offered as ½×/2×. Finger box: starts in the free-est corner of the tab and hides while a
+    sheet or the menu drawer is open. Ask: is the badge in the way on the cover screen?
+
 Checks: npm test (build32/build33 logic, pdf-tab), browser: build33-test [pdf, maketab, transcribe, z2h], beatmaker-test,
 windows-test [screens, drag, play], and the older suites.
 

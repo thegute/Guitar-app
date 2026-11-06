@@ -39,6 +39,16 @@ export interface Song {
   tempo?: number
   /** beats (quarter notes) in a bar: 4 for 4/4, 3 for 3/4 and 6/8; leave out for 4 */
   meter?: number
+  /** the time signature as written (6/8, 7/8 …) when it isn't plain 4/4 */
+  timeSig?: [number, number]
+  /** tempo changes after the first tempo (Guitar Pro files): each from a beat on; see play/tempoMap.ts */
+  tempoMap?: { beat: number; bpm: number }[]
+  /** where the tempo came from: the file, detected from sound, the AI, a guess from the notes, tapped, or set by you */
+  tempoFrom?: 'file' | 'detected' | 'ai' | 'guess' | 'tapped' | 'you'
+  /** the file's own tempo, kept when you change it ("Back to …") */
+  fileTempo?: number
+  /** the AI was asked for this song's tempo already */
+  tempoAsked?: boolean
   /** chord sheets: the strum pattern to show over each bar (see play/strumCoach.ts) */
   strum?: string
   /** a Guitar Pro file's drum part, in beats from the start */

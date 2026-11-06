@@ -71,5 +71,22 @@ export function importGuitarPro(bytes: Uint8Array, fileName = 'Song'): Song {
   if (!tracks.length) throw new Error('No guitar tracks found in this file.')
   const title = score.title?.trim() || fileName.replace(/\.[^.]+$/, '')
   drums.sort((a, b) => a.beat - b.beat)
-  return { title, artist: score.artist?.trim() || undefined, tempo: score.tempo || undefined, tracks, ...(drums.length ? { drums } : {}) }
+  // the time signature and every tempo change, exactly as the file has them
+  const mb0 = score.masterBars[0]
+  const num = mb0?.timeSignatureNumerator ?? 4, den = mb0?.timeSignatureDenominator ?? 4
+  const quarters = (num * 4) / den
+  const tempoMap: { beat: number; bpm: number }[] = []
+  score.masterBars.forEach((mb, i) => {
+    const autos = (mb as unknown as { tempoAutomations?: model.Automation[] }).tempoAutomations ?? (mb.tempoAutomation ? [mb.tempoAutomation] : [])
+    for (const a of autos) if (a && a.value > 0) tempoMap.push({ beat: Math.round(((barStart[i] ?? 0) + (a.ratioPosition || 0) * (barLen[i] ?? 0)) * 1000) / 1000, bpm: a.value })
+  })
+  const tempo = score.tempo || tempoMap[0]?.bpm || undefined
+  const changes = tempoMap.filter((p, k) => p.beat > 0 && Math.abs(p.bpm - (k ? tempoMap[k - 1].bpm : tempo ?? p.bpm)) > 0.01)
+  return {
+    title, artist: score.artist?.trim() || undefined, tempo, ...(tempo ? { tempoFrom: 'file' as const } : {}), tracks,
+    ...(drums.length ? { drums } : {}),
+    ...(num !== 4 || den !== 4 ? { timeSig: [num, den] as [number, number] } : {}),
+    ...(Number.isInteger(quarters) && quarters !== 4 ? { meter: quarters } : {}),
+    ...(changes.length ? { tempoMap: changes } : {}),
+  }
 }

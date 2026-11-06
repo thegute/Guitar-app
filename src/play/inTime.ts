@@ -1,5 +1,6 @@
 // "Play in time": the tab scrolls at tempo (with a click, or following a synced YouTube video) and every note
 // you play is judged early / on time / late. Includes the speed trainer for looped sections.
+import { TempoMap } from './tempoMap'
 import { audio } from '../audio/engine'
 import { playClick } from '../audio/metronome'
 import { playNote, type SoundId } from '../audio/pluck'
@@ -95,6 +96,9 @@ export interface Clock {
 export class InternalClock implements Clock {
   private t0 = 0
   private spbNow: number
+  /** the song's tempo changes (constant when it has none); `k` = seconds multiplier for the playback speed */
+  private map: TempoMap
+  private k: number
   private timer: ReturnType<typeof setInterval> | null = null
   private nextClick = 0
   private guideNext = 0
@@ -106,9 +110,11 @@ export class InternalClock implements Clock {
     private fromBeat: number,
     private toBeat: number,
     bpm: number,
-    private opts: { loop: boolean; click: boolean; countIn: number; guide?: { steps: TimedStep[]; flat: FlatStep[]; sound?: SoundId }; band?: BandEvent[]; onWrap?: () => number | void },
+    private opts: { loop: boolean; click: boolean; countIn: number; guide?: { steps: TimedStep[]; flat: FlatStep[]; sound?: SoundId }; band?: BandEvent[]; onWrap?: () => number | void; tempo?: TempoMap; meter?: number },
   ) {
-    this.spbNow = 60 / bpm
+    this.map = opts.tempo ?? new TempoMap(bpm)
+    this.k = this.map.base / bpm
+    this.spbNow = this.map.spbAt(fromBeat, bpm)
     const ctx = audio()
     this.t0 = ctx.currentTime + 0.15 + opts.countIn * this.spbNow
     // count-in clicks
@@ -120,7 +126,7 @@ export class InternalClock implements Clock {
   }
   private len() { return this.toBeat - this.fromBeat }
   /** absolute audio time of beat b within the current pass */
-  private timeOf(b: number) { return this.t0 + (b - this.fromBeat) * this.spbNow }
+  private timeOf(b: number) { return this.t0 + (this.map.sec(b) - this.map.sec(this.fromBeat)) * this.k }
   private schedule() {
     if (this.stopped) return
     const ctx = audio()
@@ -130,7 +136,7 @@ export class InternalClock implements Clock {
       const wrapAt = this.timeOf(this.toBeat)
       const newBpm = this.opts.onWrap?.()
       this.passes++
-      if (typeof newBpm === 'number' && newBpm > 0) this.spbNow = 60 / newBpm
+      if (typeof newBpm === 'number' && newBpm > 0) this.k = this.map.base / newBpm
       this.t0 = wrapAt
       this.nextClick = Math.ceil(this.fromBeat)
       this.guideNext = 0
@@ -139,7 +145,7 @@ export class InternalClock implements Clock {
     if (this.opts.click) {
       while (this.nextClick < this.toBeat && this.timeOf(this.nextClick) <= horizon) {
         const t = this.timeOf(this.nextClick)
-        if (t >= ctx.currentTime - 0.01) playClick(t, 'wood', Math.round(this.nextClick) % 4 === 0 ? 'accent' : 'beat', 0.55)
+        if (t >= ctx.currentTime - 0.01) playClick(t, 'wood', Math.round(this.nextClick) % (this.opts.meter ?? 4) === 0 ? 'accent' : 'beat', 0.55)
         this.nextClick++
       }
     }
@@ -150,7 +156,7 @@ export class InternalClock implements Clock {
       while (this.bandNext < band.length && band[this.bandNext].beat < this.toBeat - 1e-6 && this.timeOf(band[this.bandNext].beat) <= horizon) {
         const e = band[this.bandNext]
         const t = this.timeOf(e.beat)
-        if (t >= ctx.currentTime - 0.01) this.voices.play(e, t, this.spbNow)
+        if (t >= ctx.currentTime - 0.01) this.voices.play(e, t, this.map.spbAt(e.beat) * this.k)
         this.bandNext++
       }
     }
@@ -167,7 +173,10 @@ export class InternalClock implements Clock {
   }
   beatAt(ctxTime: number) {
     if (this.stopped) return null
-    const b = this.fromBeat + (ctxTime - this.t0) / this.spbNow
+    // before the first beat (count-in) the beat goes below fromBeat at the first tempo
+    const dt = (ctxTime - this.t0) / this.k
+    const b = dt < 0 ? this.fromBeat + (dt * this.map.bpmAt(this.fromBeat)) / 60 : this.map.beat(this.map.sec(this.fromBeat) + dt)
+    this.spbNow = this.map.spbAt(Math.max(this.fromBeat, b)) * this.k
     return b
   }
   spb() { return this.spbNow }
@@ -188,13 +197,19 @@ export interface VideoApi {
   seek(t: number): void
 }
 export interface VideoSync { offset: number; bpm: number }
+/** The video time of a beat (the recording's main tempo is sync.bpm; tempo changes follow the song's map). */
+export function videoTimeOf(sync: VideoSync, beat: number, tempo?: TempoMap) {
+  return tempo ? sync.offset + (tempo.sec(beat) * tempo.base) / sync.bpm : sync.offset + (beat * 60) / sync.bpm
+}
 
 /** Follows a YouTube video that has been synced to the tab (offset = video time of beat 0, bpm of the recording). */
 export class VideoClock implements Clock {
   private ctxRef = 0
   private vRef = 0
   private timer: ReturnType<typeof setInterval>
-  constructor(private api: VideoApi, private sync: VideoSync) {
+  private map: TempoMap
+  constructor(private api: VideoApi, private sync: VideoSync, tempo?: TempoMap) {
+    this.map = tempo ?? new TempoMap(sync.bpm)
     this.sample()
     this.timer = setInterval(() => this.sample(), 100)
   }
@@ -207,9 +222,11 @@ export class VideoClock implements Clock {
   beatAt(ctxTime: number) {
     if (!this.api.playing()) return null
     const v = this.vRef + (ctxTime - this.ctxRef) * this.api.rate()
-    return ((v - this.sync.offset) * this.sync.bpm) / 60
+    this.at = this.map.beat(((v - this.sync.offset) * this.sync.bpm) / this.map.base)
+    return this.at
   }
-  spb() { return 60 / (this.sync.bpm * this.api.rate()) }
+  private at = 0
+  spb() { return this.map.spbAt(this.at, this.sync.bpm) / this.api.rate() }
   stop() { clearInterval(this.timer) }
 }
 

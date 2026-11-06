@@ -2306,3 +2306,17 @@ video.mirrored { transform: scaleX(-1); }
 .fb-arrow.move { stroke: var(--fb-ring); stroke-dasharray: 5 4; }
 .fb-arrow.look { stroke: #22d3ee; }
 .fb-ah.guide { fill: var(--fb-gold); } .fb-ah.move { fill: var(--fb-ring); } .fb-ah.look { fill: #22d3ee; }
+
+/* Tempo badge on Play's top bar (♩ 92 · 4/4; "~" = a guess) and its sheet */
+.tempo-badge { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; line-height: 1; min-width: 44px; padding: 3px 8px; font-variant-numeric: tabular-nums; }
+.tempo-badge .tb-bpm { font-weight: 700; font-size: 15px; }
+.tempo-badge .tb-sig { font-size: 11px; color: var(--ink-2); }
+.tempo-badge.guess .tb-bpm { color: var(--ink-2); }
+.tempo-sheet { width: min(460px, 100%); gap: 10px; }
+.tempo-now { display: flex; align-items: center; justify-content: center; gap: 18px; }
+.tempo-big { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.tempo-big b { font-size: 52px; font-variant-numeric: tabular-nums; }
+.tap-pad { min-width: 96px; min-height: 56px; font-size: 18px; font-weight: 700; touch-action: manipulation; }
+/* the floating finger box stays over the tab and the music stand, but steps aside while a sheet, the menu drawer
+   or a full-screen card is open (it would sit on top of their buttons) */
+body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-ready) :is(.finger-box, .finger-chip) { visibility: hidden; }

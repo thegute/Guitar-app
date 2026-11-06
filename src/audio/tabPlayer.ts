@@ -6,6 +6,7 @@ import { audio } from './engine'
 import { playNote, strum, isPowerChord, activeSound, soundInfo, type SoundId } from './pluck'
 import type { FlatStep } from '../tabs/model'
 import { BandVoices, type BandEvent } from './band'
+import type { TempoMap } from '../play/tempoMap'
 import { playClick, type ClickSound } from './metronome'
 
 export class TabPlayer {
@@ -36,6 +37,8 @@ export class TabPlayer {
   clickSound: ClickSound = 'wood'
   /** beats in a bar (where the accented click goes) */
   meter = 4
+  /** the song's tempo changes (Guitar Pro files); `bpm` passed to play() is its main tempo × speed */
+  tempo?: TempoMap
   /** count-in beats as they sound: 1, 2, 3 … then 0 when the music starts */
   onCount?: (n: number) => void
   private counts: { t: number; n: number }[] = []
@@ -56,8 +59,10 @@ export class TabPlayer {
     let acc = 0
     for (const f of flat) { beatAt.push(acc); acc += f.step.dur }
     this.counts = []
+    const map = this.tempo
+    const spbAt = (b: number) => (map ? map.spbAt(b, bpm) : 60 / bpm)
     if (this.countIn > 0) {
-      const spb = 60 / bpm
+      const spb = spbAt(beatAt[i] ?? 0)
       for (let k = 0; k < this.countIn; k++) {
         playClick(t + k * spb, this.clickSound, k % this.meter === 0 ? 'accent' : 'beat', 0.8)
         this.counts.push({ t: t + k * spb, n: k + 1 })
@@ -72,7 +77,7 @@ export class TabPlayer {
           i = loopFrom
         }
         const st = flat[i].step
-        const spb = 60 / bpm
+        const spb = spbAt(beatAt[i])
         if (this.click) {
           const b0 = beatAt[i]
           for (let k = Math.ceil(b0 - 1e-6); k < b0 + st.dur - 1e-6; k++) playClick(t + (k - b0) * spb, this.clickSound, k % this.meter === 0 ? 'accent' : 'beat', 0.6)
@@ -121,7 +126,7 @@ export class TabPlayer {
           })
         }
         this.queue.push({ t, i })
-        t += (st.dur * 60) / bpm
+        t += st.dur * spb
         i++
       }
       if (loopFrom === undefined && i >= to && !this.endAt) this.endAt = t + 0.2

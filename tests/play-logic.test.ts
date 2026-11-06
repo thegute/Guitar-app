@@ -7,6 +7,7 @@ import { chordInfo, chordTimeline, guessBarChords, voiceLeading, triadShapes, co
 import { detectKey, improvisationScales } from '../src/tabs/keyDetect'
 import { matchNote } from '../src/tabs/follow'
 import { youtubeId, youtubeStart } from '../src/tabs/library'
+import { TempoMap } from '../src/play/tempoMap'
 
 let fails = 0
 const eq = (name: string, got: unknown, want: unknown) => {
@@ -148,6 +149,26 @@ eq('gp bar2 quarters', lead.bars[1].steps.map(s => s.dur), [1, 1, 1, 1])
     if (!(d.length === 8 && d[4].beat === 4 && d[0].voice === 'kick' && d[2].voice === 'snare')) { console.log('FAIL GP drums', JSON.stringify(d.slice(0, 5))); fails++ }
     if (!(song.tracks.length === 1 && song.tracks[0].bars[0].steps.reduce((a, x) => a + x.dur, 0) === 4)) { console.log('FAIL rest bar length'); fails++ }
   } catch (e) { console.log('FAIL GP with drums', (e as Error).message); fails++ }
+}
+
+const okp = (c: boolean, m: string) => eq(m, c, true)
+// ---------- Guitar Pro: exact tempo, tempo changes and time signature ----------
+{
+  const tex = `\\title "Waltz Change"
+\\tempo 120
+.
+\\track "Lead"
+\\staff {tabs}
+\\tuning e4 b3 g3 d3 a2 e2
+\\ts 3 4 :4 5.3 7.3 5.2 | 8.2 5.1 8.1 | \\tempo 90 5.2 7.3 5.3 | 7.4 5.4 7.5 |
+`
+  const score = importer.ScoreLoader.loadAlphaTex(tex, new Settings())
+  const song = importGuitarPro(new exporter.Gp7Exporter().export(score, new Settings()), 'w.gp')
+  okp(song.tempo === 120 && song.tempoFrom === 'file', `GP tempo 120 from the file (${song.tempo}, ${song.tempoFrom})`)
+  okp(song.timeSig?.[0] === 3 && song.timeSig?.[1] === 4 && song.meter === 3, `GP 3/4 (${song.timeSig}, meter ${song.meter})`)
+  okp(song.tempoMap?.length === 1 && song.tempoMap[0].bpm === 90 && Math.abs(song.tempoMap[0].beat - 6) < 1e-6, `GP tempo change to 90 at beat 6 (${JSON.stringify(song.tempoMap)})`)
+  const m = new TempoMap(song.tempo!, song.tempoMap)
+  okp(Math.abs(m.sec(9) - (3 + 2)) < 1e-6, 'bar 4 starts at 5 s (6 beats at 120, 3 at 90)')
 }
 
 console.log(fails ? `\n${fails} FAILED` : '\nall passed')

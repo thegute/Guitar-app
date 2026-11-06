@@ -98,7 +98,9 @@ export async function listSongs(inst?: InstrumentId): Promise<SongDoc[]> {
 export async function refreshBuiltIn(fresh: SongDoc): Promise<SongDoc> {
   const old = await getSong(fresh.id)
   const doc: SongDoc = old
-    ? { ...fresh, youtube: old.youtube, ytSync: old.ytSync, chords: old.chords, key: old.key, loop: old.loop, track: old.track, cursor: old.cursor, easier: old.easier, hand: old.hand, adapt: old.adapt, noCapo: old.noCapo, smartCapo: old.smartCapo }
+    ? { ...fresh, youtube: old.youtube, ytSync: old.ytSync, chords: old.chords, key: old.key, loop: old.loop, track: old.track, cursor: old.cursor, easier: old.easier, hand: old.hand, adapt: old.adapt, noCapo: old.noCapo, smartCapo: old.smartCapo,
+        // a tempo or time signature you set (tapped, asked, typed) stays; the built-in one otherwise
+        ...(old.song.tempoFrom && old.song.tempoFrom !== 'file' && old.song.tempoFrom !== 'guess' ? { song: { ...fresh.song, tempo: old.song.tempo, tempoFrom: old.song.tempoFrom, timeSig: old.song.timeSig ?? fresh.song.timeSig, meter: old.song.meter ?? fresh.song.meter, fileTempo: fresh.song.tempo } } : {}) }
     : fresh
   await saveSong(doc)
   return doc

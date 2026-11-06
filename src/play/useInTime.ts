@@ -1,5 +1,6 @@
 // Runs a "play in time" session for the Play screen: the clock (own click or a synced video), the moving cursor,
 // judging each note or strum, loop passes and the speed trainer.
+import type { TempoMap } from './tempoMap'
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react'
 import type { SoundId } from '../audio/pluck'
 import { audio, keepAwake } from '../audio/engine'
@@ -7,8 +8,8 @@ import { chordMatch } from '../audio/chroma'
 import type { FlatStep } from '../tabs/model'
 import {
   InternalClock, VideoClock, judge, matchTimed, nextSpeed, scoreRun, timeline,
-  type Clock, type Judgement, type RunStats, type VideoApi, type VideoSync,
-} from './inTime'
+  type Clock, type Judgement, type RunStats, type VideoApi, type VideoSync, videoTimeOf,
+}  from './inTime'
 
 export interface TrainerOpts { on: boolean; start: number; step: number; target: number; pass: number }
 export interface InTimeFeedback { j: Judgement | 'miss'; ms: number; key: number }
@@ -26,6 +27,8 @@ interface Args {
   /** chord sheets: time every strum of this pattern */
   strum?: { hits: [number, string][] } | null
   meter?: number
+  /** the song's tempo changes (Guitar Pro files) */
+  tempo?: TempoMap
   /** the band (drums, bass, other parts) to play under you, or undefined */
   band?: import('../audio/band').BandEvent[]
   /** the guitar sound the guide plays in */
@@ -97,12 +100,12 @@ export function useInTime(a: Args) {
     let clock: Clock
     if (useVideo) {
       const v = A.video.current!
-      clock = new VideoClock(v, A.sync!)
-      v.seek(A.sync!.offset + (fromBeat * 60) / A.sync!.bpm - 2)
+      clock = new VideoClock(v, A.sync!, A.tempo)
+      v.seek(videoTimeOf(A.sync!, fromBeat, A.tempo) - 2)
       v.play()
     } else {
       clock = new InternalClock(fromBeat, toBeat, A.songBpm * speed, {
-        loop: !!A.loop, click: A.click, countIn: 4,
+        loop: !!A.loop, click: A.click, countIn: 4, tempo: A.tempo, meter: A.meter,
         guide: A.guide ? { steps: tl.steps, flat: A.flat, sound: A.sound } : undefined,
         band: A.band,
         onWrap: () => {
@@ -150,7 +153,7 @@ export function useInTime(a: Args) {
         // video loop: jump back at the end of the section
         if (r.video && r.loop && b >= r.toBeat) {
           const S = args.current.sync!
-          args.current.video.current?.seek(S.offset + (r.fromBeat * 60) / S.bpm - 1)
+          args.current.video.current?.seek(videoTimeOf(S, r.fromBeat, args.current.tempo) - 1)
           r.passes++
           const s = scoreRun(r.inRange.map(i => r.results[i]), r.errs)
           setPass(p => ({ n: p.n + 1, last: s, speed: p.speed }))
