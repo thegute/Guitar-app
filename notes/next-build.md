@@ -37,8 +37,15 @@ Each item is its own checkpoint, so any one can be undone with `git revert <chec
     them): first thing to check on the phone. Ask: does Open bring the tab in? Which tracks/tabs fail?
 34. **Notes from a recording (Basic Pitch)** (c1048bc). Ask: how close is it on your own playing and on a solo lesson video?
 35. **Guide + search** (2b33f81).
+36. **Every window movable and resizable** (47d75ee; owner 2026-11-06: "all windows are resizable and moveable", picked
+    reorder + resize everywhere, Play too). Tools, Songs, Learn (Course, Explore, Progress, licks, CAGED, circle, recordings), Jam
+    (Make a tab, Find chords), Settings are WinAreas; Play: ☰ Move on the panel bars (Options → Move the panels → Put them back).
+    Ask: is the extra title bar on every box OK on the cover screen, or should small one-box pages drop it?
+37. **Fixes from the full test run** (17251ae): beat maker loop extras race, Make a tab sideways on 360 px, report card spilling
+    over Scales & chords on phones.
 
-Checks: npm test (build32/build33 logic, pdf-tab), browser: build33-test [pdf, maketab, transcribe, z2h], beatmaker-test, and the older suites.
+Checks: npm test (build32/build33 logic, pdf-tab), browser: build33-test [pdf, maketab, transcribe, z2h], beatmaker-test,
+windows-test [screens, drag, play], and the older suites.
 
 ---
 

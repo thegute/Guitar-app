@@ -200,6 +200,8 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   `practice.ts` (chords per bar, beatFromJam), `mySounds.ts` (phone folder of pad samples). ● recording makes one drum layer per pass. Pedal: right = record next loop,
   left = undo, hold = stop (`pedals.ts` hold support).
 - Windows: `components/Win.tsx` (`WinArea area=… defaultHidden`, `Win id title`): ☰ drag to reorder, – tuck into the tray, ⇕ resize, Reset layout; `kg:win:<area>`.
+  Since build 33 every screen uses them (Tools, Songs, Learn pages and tools, Jam pages, Settings); `Win hint` = ⓘ on the bar, `extra` = bar controls.
+  Play keeps its grid + splitters but ☰ Move on a bar moves a panel (`PlayLayout.order` on phones, `sideLeft`/`soloTop` wide; `tests/browser/windows-test.cjs`).
   Used in the beat maker, Jam (jam + solo pages), Learn → Today. Play keeps its own layout (splitters, tuck-away panels).
 - Hand guide: `components/HandGuide.tsx` (handGroups → one card per hand position) under ProgressionTabs Preview, ExerciseBrowser, the studio lick.
 - Ask (menu button "Ask" = search + assistant): `components/SearchSheet.tsx`, `assistant/plan.ts` (AI picks only from building blocks: search results, places,
