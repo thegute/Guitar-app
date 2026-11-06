@@ -50,7 +50,7 @@ export function HandShape({ group, next, moveSoon, expected, nStr, stringNames, 
           const nx = isNext(n.string, n.fret)
           if (n.fret > 0 && (n.fret < group.base || n.fret > group.base + 3)) return null
           return (
-            <g key={`${n.string}-${n.fret}`} className={`hand-dot${nx ? ' next' : ''}${n.fret === 0 ? ' open' : ''}`}>
+            <g key={`${n.string}-${n.fret}`} className={`hand-dot${nx ? ' next' : ''}${n.fret === 0 ? ' open' : ` fing-${n.finger}`}`}>
               <circle cx={x(n.fret)} cy={y(n.string)} r={compact ? 5.5 : 7} />
               <text x={x(n.fret)} y={y(n.string) + (compact ? 3 : 3.5)} textAnchor="middle">{n.fret === 0 ? '0' : n.finger}</text>
             </g>

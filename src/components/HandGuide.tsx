@@ -14,7 +14,9 @@ export function HandGuide({ track, cursor = -1 }: { track: SongTrack; cursor?: n
   const [show, setShow] = usePersist('handGuide', true)
   const inst = useInstrument()
   const flat = useMemo(() => flatten(track), [track])
-  const groups = useMemo(() => handGroups(flat), [flat])
+  const nStr0 = track.tuning?.length ?? inst.midis.length
+  const names0 = useMemo(() => Array.from({ length: nStr0 }, (_, s) => stringName(inst.midis, s)), [nStr0, inst.midis])
+  const groups = useMemo(() => handGroups(flat, { inst: inst.id, stringNames: names0 }), [flat, inst.id, names0])
   const cur = cursor >= 0 ? groupAt(groups, cursor) : -1
   const strip = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -42,11 +44,12 @@ export function HandGuide({ track, cursor = -1 }: { track: SongTrack; cursor?: n
                   <span className="small hg-when">Bar {bar + 1}{i > 0 ? ' · move' : ''}</span>
                   <HandShape group={g} next={groups[i + 1] ?? null} moveSoon={false} expected={[]} nStr={nStr} stringNames={names} compact />
                   <span className="small muted">{g.open ? 'Open strings + frets 1–4' : `${ORD[1]} finger on fret ${g.base}`}{fing.size ? ` · fingers ${[...fing].sort().join(' ')}` : ''}</span>
+                  {g.why && <span className="small hg-why">{g.why}</span>}
                 </div>
               )
             })}
           </div>
-          <p className="small muted" style={{ margin: 0 }}>One finger per fret: 1 index, 2 middle, 3 ring, 4 pinky. Keep your hand there until the next card, then slide the whole hand.</p>
+          <p className="small muted" style={{ margin: 0 }}>One finger per fret: <b className="fc fing-1">1 index</b>, <b className="fc fing-2">2 middle</b>, <b className="fc fing-3">3 ring</b>, <b className="fc fing-4">4 pinky</b>. Keep your hand there until the next card, then move the whole hand when the card says.</p>
         </>
       )}
     </div>

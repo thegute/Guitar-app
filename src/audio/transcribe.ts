@@ -3,10 +3,8 @@
 // beat grid and put on the neck as a tab: single notes (a lead line) or chords too.
 import { lickSong, type LickEvent } from '../licks/notation'
 import type { Song } from '../tabs/model'
-import { style } from '../compose/styles'
-import { placeLine } from '../compose/fret'
-import { placeArranged } from '../compose/arrange'
-import { rng, type LNote } from '../compose/line'
+import { placeAndFinger } from '../hand/engine'
+import { handSize, scaleFor } from '../hand/neck'
 
 export interface HeardNote { start: number; dur: number; midi: number; amp: number }
 
@@ -61,27 +59,23 @@ export function notesToTab(notes: HeardNote[], bpm: number, tuning: number[], ti
   for (const n of loud) { const k = Math.max(0, Math.round((n.start - t0) / grid)); (slots.get(k) ?? slots.set(k, []).get(k)!).push(n) }
   const keys = [...slots.keys()].sort((a, b) => a - b)
   const at = (k: number) => k / 4 // in beats
-  const st = style('pop')
-  let events: LickEvent[]
-  if (!chords) {
-    const line: LNote[] = keys.map((k, i) => {
-      const ns = slots.get(k)!
-      const top = ns.reduce((a, b) => (b.amp > a.amp ? b : a))
-      const next = keys[i + 1] ?? k + Math.max(1, Math.round(top.dur / grid))
-      return { at: at(k), dur: Math.max(.25, at(Math.min(next, k + Math.max(1, Math.round(top.dur / grid)))) - at(k)), midi: top.midi, strong: k % 4 === 0, role: 'chord' }
-    })
-    const placed = placeLine(line, tuning, st, rng(1), 4, 0)
-    events = placed.events
-  } else {
-    const evs = keys.map((k, i) => {
-      const ns = [...new Map(slots.get(k)!.map(n => [n.midi, n])).values()].sort((a, b) => b.midi - a.midi).slice(0, 4)
-      const next = keys[i + 1] ?? k + 4
-      return { at: at(k), dur: at(next) - at(k), melody: ns[0].midi, bass: ns.length > 1 ? ns[ns.length - 1].midi : undefined, inner: ns.slice(1, -1).slice(0, 2).map(n => n.midi) }
-    })
-    const placed = placeArranged(evs, tuning, st)
-    const lead = evs[0].at > 0 ? [{ notes: [], dur: evs[0].at }] : []
-    events = [...lead, ...placed.events]
-  }
+  // the hand brain places the notes (strings, frets) so the hand moves as little as possible
+  const evs = keys.map((k, i) => {
+    const ns = slots.get(k)!
+    const top = ns.reduce((a, b) => (b.amp > a.amp ? b : a))
+    const next = keys[i + 1] ?? k + Math.max(1, Math.round(top.dur / grid))
+    const end = chords ? next : Math.min(next, k + Math.max(1, Math.round(top.dur / grid)))
+    const midis = chords ? [...new Set(ns.map(n => n.midi))].sort((a, b) => b - a).slice(0, 4) : [top.midi]
+    return { at: at(k), dur: Math.max(0.25, at(end) - at(k)), midis }
+  })
+  const placed = placeAndFinger(evs.map(e => ({ midis: e.midis, dur: e.dur })), { scale: scaleFor(tuning.length), size: handSize(), tuning, open: 0.5, warm: 0.3 })
+  const events: LickEvent[] = []
+  let t = 0
+  evs.forEach((e, i) => {
+    if (e.at > t + 1e-6) events.push({ notes: [], dur: Math.round((e.at - t) * 1e4) / 1e4 })
+    events.push({ notes: placed.notes[i].map(n => ({ string: n.string, fret: n.fret })), dur: e.dur })
+    t = e.at + e.dur
+  })
   if (!events.some(e => e.notes.length)) return null
   return lickSong(events, { tuning, title, tempo: bpm, program: 25 })
 }

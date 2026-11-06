@@ -42,8 +42,9 @@ import { setTuning, useInstrument } from '../instrument'
 import { Splitter } from '../components/Splitter'
 import { LayoutHint } from '../components/Win'
 import { onLeavePage } from '../audio/stopAll'
-import { HandShape } from '../components/HandShape'
+import { FingerBox } from '../components/FingerBox'
 import { groupAt, handGroups } from '../play/handShape'
+import { easierTrack, editKey, fixedFingers, otherSpots, withMoves } from '../hand/edits'
 import { IconExpand, IconShrink, IconSliders } from '../components/Icons'
 import { setPlayFocus, useMedia } from '../ui'
 import { checkSong } from '../play/songCheck'
@@ -238,6 +239,7 @@ export function PlayScreen() {
   const [feedback, setFeedback] = useState<Feedback | null>(null)
   const lastMiss = useRef<{ heard: number; want: number[]; bar: number; chordText?: string } | null>(null)
   const [inspect, setInspect] = useState<SongNote | null>(null)
+  const [inspectAt, setInspectAt] = useState(-1)
   const [pos, setPos] = useState(0)
   const [version, setVersion] = useState(0)
   const [flash, setFlash] = useState<{ flat: number; key: number } | null>(null)
@@ -319,7 +321,15 @@ export function PlayScreen() {
   }, [])
 
   const trackIdx = doc ? Math.min(doc.track ?? defaultTrack(doc.song, inst.strings), doc.song.tracks.length - 1) : 0
-  const track = doc?.song.tracks[trackIdx] ?? null
+  const writtenTrack = doc?.song.tracks[trackIdx] ?? null
+  // the tab as you play it: re-fingered for your hand if you asked ("Make it easier"), with your moved notes
+  const [handTick, setHandTick] = useState(0)
+  useEffect(() => { const f = () => setHandTick(t => t + 1); addEventListener('kg-hand', f); return () => removeEventListener('kg-hand', f) }, [])
+  const track = useMemo(() => {
+    if (!writtenTrack) return null
+    const base = doc?.easier ? easierTrack(writtenTrack, profile()?.level ?? 2, inst.id) : writtenTrack
+    return withMoves(base, trackIdx, doc?.hand)
+  }, [writtenTrack, doc?.easier, doc?.hand, trackIdx, inst.id, handTick]) // eslint-disable-line react-hooks/exhaustive-deps
   docRef.current = doc
   const flat = useMemo(() => (track ? flatten(track) : []), [track])
   // press a chord name (tab or chord strip) to peek at its shape without stopping anything
@@ -329,7 +339,8 @@ export function PlayScreen() {
     const ns = st.notes.filter(n => n.tech !== 'x')
     return ns.length >= 3 ? track.tuning.map((_, s) => ns.find(n => n.string === s)?.fret ?? -1) : null
   }, !!doc && !!track)
-  const hands = useMemo(() => handGroups(flat), [flat])
+  const handNames = useMemo(() => (track ? track.tuning.map((_, s) => stringLabel(track.tuning, s, false)) : []), [track])
+  const hands = useMemo(() => handGroups(flat, { inst: inst.id, fixed: fixedFingers(trackIdx, doc?.hand), stringNames: handNames }), [flat, inst.id, trackIdx, doc?.hand, handNames, handTick]) // eslint-disable-line react-hooks/exhaustive-deps
   const follow = useMemo(() => {
     const idx: number[] = []
     const steps: FollowStep[] = []
@@ -823,6 +834,7 @@ export function PlayScreen() {
     setVersion(v => v + 1)
     const ctx = audio()
     void ctx.resume()
+    setInspectAt(flatIdx)
     if (note) {
       setInspect(note)
       if (note.tech !== 'x') playNote(note.midi, ctx.currentTime + 0.02, 0.8, undefined, { sound: hearSound, pm: note.tech === 'PM' })
@@ -941,9 +953,13 @@ export function PlayScreen() {
     const n = pcName(t % 12, flats)
     return s === track.tuning.length - 1 && track.tuning.filter(x => x % 12 === t % 12).length > 1 ? n.toLowerCase() : n
   })
-  const handView = (mini: boolean) => (handOn && hand && hand.notes.some(n => n.fret > 0) ? (
-    <HandShape group={hand} next={handNext} moveSoon={handLeft <= 2} expected={expected} nStr={track.tuning.length} stringNames={strNames} compact={mini} />
-  ) : null)
+  // the floating finger box: beats until the hand has to move
+  const beatsToShift = hand && handNext ? flat.slice(Math.max(0, handAt), handNext.from).reduce((t, f) => t + f.step.dur, 0) : Infinity
+  const fingerBox = handOn && hand && hand.notes.some(n => n.fret > 0) && !(stand && bigView) ? (
+    <FingerBox group={hand} next={handNext} beatsToShift={beatsToShift} expected={expected} nStr={track.tuning.length} stringNames={strNames}
+      onLoopShift={handNext ? () => { const b = flat[handNext.from]?.bar ?? 0; setLoop({ from: Math.max(0, b - 1), to: b }); countUse('play:loopShift') } : undefined} />
+  ) : null
+  void handLeft
   // strum-along: the chord to play next, with its shape
   const wantChord = !done && !!follow.steps[pos]?.chord
   const chordName = cursorFlat >= 0 ? (flat[cursorFlat].step.chord ?? timeline.spans[curSpan]?.name) : undefined
@@ -1039,12 +1055,26 @@ export function PlayScreen() {
             )}
             {taughtNote && <span className="fb taught" role="status">{taughtNote}</span>}
             {!feedback && inspect && (
-              <span className="fb">{inspect.tech === 'x' ? 'Muted note (x): no pitch.' : `That ${inspect.fret} is ${noteName(inspect.midi, flats)}${octave(inspect.midi)} · ${where(inspect)}`}</span>
+              <span className="fb">{inspect.tech === 'x' ? 'Muted note (x): no pitch.' : `That ${inspect.fret} is ${noteName(inspect.midi, flats)}${octave(inspect.midi)} · ${where(inspect)}`}
+                {inspect.tech !== 'x' && inspectAt >= 0 && <NoteHandEdit note={inspect} finger={hands[groupAt(hands, inspectAt)]?.notes.find(n => n.string === inspect.string && n.fret === inspect.fret)?.finger ?? 0}
+                  spots={otherSpots(inspect.midi, track.tuning, track.capo, track.tuning.length === 4 ? 15 : 22, inspect.fret).filter(x => x.string !== inspect.string)}
+                  onFinger={f => { const k = editKey(trackIdx, inspectAt, inspect.string); update({ hand: { ...(doc.hand ?? {}), [k]: { ...(doc.hand?.[k] ?? {}), finger: f } } }); countUse('play:finger') }}
+                  onMove={sp => {
+                    // the key stays the original string, so moving again or back works
+                    const orig = Object.entries(doc.hand ?? {}).find(([k, e]) => k.startsWith(`${trackIdx}:${inspectAt}:`) && e.string === inspect.string)?.[0] ?? editKey(trackIdx, inspectAt, inspect.string)
+                    const origString = Number(orig.split(':')[2])
+                    const back = sp.string === origString
+                    const next = { ...(doc.hand ?? {}) }
+                    if (back) delete next[orig]; else next[orig] = { string: sp.string, fret: sp.fret }
+                    update({ hand: next })
+                    setInspect({ ...inspect, string: sp.string, fret: sp.fret })
+                    countUse('play:otherString')
+                  }} />}
+              </span>
             )}
           </>
         )}
       </div>
-      {handView(mini)}
     </div>
   )
 
@@ -1125,7 +1155,9 @@ export function PlayScreen() {
           ) : (
             <label className="opt-row opt-check" data-find="count"><input type="checkbox" checked={counts} onChange={() => setCounts(!counts)} /><span><b>Count it: 1 & 2 &</b><span className="small muted">Note stems and the count under the tab.</span></span></label>
           )}
-          <label className="opt-row opt-check" data-find="hand"><input type="checkbox" checked={handOn} onChange={() => setHandOn(!handOn)} /><span><b><Ico n="hand" /> Where your fingers go</b><span className="small muted">A small neck with finger numbers for the part you're on.</span></span></label>
+          <label className="opt-row opt-check" data-find="hand"><input type="checkbox" checked={handOn} onChange={() => setHandOn(!handOn)} /><span><b><Ico n="hand" /> Where your fingers go</b><span className="small muted">A floating window with the four frets your hand covers and each finger in colour. Drag it anywhere, resize it from its corner, tuck it away with –.</span></span></label>
+          <div className="opt-row" data-find="fingering"><span><b>Fingering</b><span className="small muted">{doc.easier ? 'Re-fingered for your hand: the same notes on the strings and frets that move your hand least. The tab as written is kept.' : 'As written. Easier re-places the notes for your hand size and level. Tap any note to choose a finger or another string for it.'}</span></span>
+            <Chips label="Fingering" items={[{ id: 'as', label: 'As written' }, { id: 'easy', label: 'Easier for my hand' }]} value={doc.easier ? 'easy' : 'as'} onChange={v => { update({ easier: v === 'easy' }); countUse('play:easier') }} /></div>
           <div className="opt-row" data-find="size"><span className="opt-name">Size</span>
             <span className="zoom-btns" role="group" aria-label="Tab size">
               <button className="btn sm" onClick={() => setTabZoom(z => Math.max(0.7, Math.round((z - 0.1) * 10) / 10))} aria-label="Smaller tab">A−</button>
@@ -1292,6 +1324,7 @@ export function PlayScreen() {
           flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} zoom={stand ? standZoom : tabZoom} onZoom={stand ? setStandZoom : setTabZoom}
           meter={meter} counts={counts} strum={strumPat} marks={report?.bars} />
         {peek.bubble}
+        {fingerBox}
         {inTime.running && inTime.countIn > 0 && <div className="count-big" key={inTime.countIn} role="status" aria-live="assertive" data-testid="count-big">{inTime.countIn}</div>}
         {loopBlink && <div className="loop-blink" key={loopBlink.k} role="status">{loopBlink.text}</div>}
         {bigView && (() => {
@@ -1443,5 +1476,19 @@ function ReportCard({ r, onNext, onAgain, onClose, onThenNow }: { r: Report & { 
       </div>
       <button className="btn sm ghost report-x" onClick={onClose} aria-label="Close">✕</button>
     </div>
+  )
+}
+
+/** After tapping a note: which finger plays it (tap another to choose your own), and the same note on other strings. */
+function NoteHandEdit({ note, finger, spots, onFinger, onMove }: { note: SongNote; finger: number; spots: { string: number; fret: number }[]; onFinger: (f: number) => void; onMove: (s: { string: number; fret: number }) => void }) {
+  if (note.fret === 0 && !spots.length) return null
+  return (
+    <span className="note-edit" role="group" aria-label="Your fingering for this note">
+      {note.fret > 0 && <>
+        <span className="small muted">Finger</span>
+        {[1, 2, 3, 4].map(f => <button key={f} className={`chip sm-chip fing-${f}`} aria-pressed={finger === f} onClick={() => onFinger(f)} aria-label={`Play it with finger ${f}`}>{f}</button>)}
+      </>}
+      {spots.length > 0 && <button className="btn sm ghost" onClick={() => onMove(spots[0])} title="Play the same note on another string">Other string ({spots[0].fret === 0 ? 'open' : `fret ${spots[0].fret}`})</button>}
+    </span>
   )
 }

@@ -27,6 +27,7 @@ import { audio } from '../audio/engine'
 import { gear, isSetUp, latencyMs, useGear } from '../audio/gear'
 import { enableReminders, reminderSettings, remindersAvailable, updateReminderSettings, type ReminderSettings } from './reminders'
 import { Win, WinArea } from '../components/Win'
+import { handSize, setHandSize, type HandSize } from '../hand/neck'
 
 
 export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => void }) {
@@ -111,6 +112,10 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
           Everything follows your instrument: chord shapes, scales, the tuner, quizzes, practice tabs and play-along. Your saved songs are kept
           in separate banks, so guitar tabs only show in guitar mode and ukulele tabs only in ukulele mode.
         </p>
+      </Win>
+
+      <Win id="handsize" title="Your hand" bodyClass="stack" bodyStyle={{ gap: 8 }} resizable={false} hint="How far your fingers spread. KGuitar's fingering engine measures stretches in real distance (frets are wider near the nut), so it knows when to shift your hand and when a stretch is fine.">
+        <HandSizePick />
       </Win>
 
       <Win id="about" title="About you" hint="Your level, what you want to get better at and the music you like. Today's plan and the songbook use them." bodyClass="stack" bodyStyle={{ gap: 10 }}>
@@ -330,5 +335,15 @@ function HapticsSwitch() {
         <span><b>Vibrate on taps</b><span className="small muted"> A light buzz when you tap pads, keys and the rhythm trainer, and a "got it" buzz when a loop or recording is saved, a string is in tune or a quiz answer is right. It never buzzes while the mic is recording.</span></span>
       </label>
     </section>
+  )
+}
+
+function HandSizePick() {
+  const [size, setSize] = useState(handSize)
+  return (
+    <>
+      <Chips<HandSize> label="Hand size" items={[{ id: 'small', label: 'Small' }, { id: 'medium', label: 'Medium' }, { id: 'large', label: 'Large' }]} value={size} onChange={v => { setSize(v); setHandSize(v) }} />
+      <span className="small muted">{size === 'small' ? 'Short stretches; the hand moves more often.' : size === 'large' ? 'Four-fret stretches are fine even at frets 1 to 4.' : 'Four frets comfortably from about fret 3 up; lower down the hand shifts instead.'}</span>
+    </>
   )
 }

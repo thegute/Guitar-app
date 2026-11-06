@@ -22,6 +22,10 @@ export interface SongDoc {
   ytSync?: { offset: number; bpm: number }
   /** bars to practise over and over (inclusive) */
   loop?: { from: number; to: number }
+  /** play it re-fingered for your hand ("Make it easier"); the tab as written stays saved */
+  easier?: boolean
+  /** your own choices, by "track:flat step:string": a finger, or the note moved to another string */
+  hand?: Record<string, { finger?: number; string?: number; fret?: number }>
   updated: number
 }
 
@@ -88,7 +92,7 @@ export async function listSongs(inst?: InstrumentId): Promise<SongDoc[]> {
 export async function refreshBuiltIn(fresh: SongDoc): Promise<SongDoc> {
   const old = await getSong(fresh.id)
   const doc: SongDoc = old
-    ? { ...fresh, youtube: old.youtube, ytSync: old.ytSync, chords: old.chords, key: old.key, loop: old.loop, track: old.track, cursor: old.cursor }
+    ? { ...fresh, youtube: old.youtube, ytSync: old.ytSync, chords: old.chords, key: old.key, loop: old.loop, track: old.track, cursor: old.cursor, easier: old.easier, hand: old.hand }
     : fresh
   await saveSong(doc)
   return doc
