@@ -43,6 +43,8 @@ Each item is its own checkpoint, so any one can be undone with `git revert <chec
     Ask: is the extra title bar on every box OK on the cover screen, or should small one-box pages drop it?
 37. **Fixes from the full test run** (17251ae): beat maker loop extras race, Make a tab sideways on 360 px, report card spilling
     over Scales & chords on phones.
+38. **Generic style names** (owner 2026-11-06: "don't call it Marco Cirillo style"): every style, pattern, songbook credit and
+    guide line uses a descriptive name; players only in "Listen to" lines and video credits.
 
 Checks: npm test (build32/build33 logic, pdf-tab), browser: build33-test [pdf, maketab, transcribe, z2h], beatmaker-test,
 windows-test [screens, drag, play], and the older suites.

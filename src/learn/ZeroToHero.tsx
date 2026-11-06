@@ -112,7 +112,7 @@ export function ZeroToHero({ onRecordings }: { onRecordings: () => void }) {
           return (
             <div key={pth.id} className={`z2h-path${on ? ' on' : ''}`}>
               <div className="row" style={{ gap: 8, justifyContent: 'space-between' }}>
-                <span><b>{pth.title}</b> <span className="small muted">{pth.who}</span></span>
+                <span><b>{pth.title}</b> <span className="small muted">listen to {pth.who}</span></span>
                 <button className={`btn sm${on ? '' : ' primary'}`} onClick={() => set({ ...v, paths: on ? (v.paths ?? []).filter(x => x !== pth.id) : [...(v.paths ?? []), pth.id] })}>{on ? 'Stop following' : 'Follow'}</button>
               </div>
               {on && (

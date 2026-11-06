@@ -14,3 +14,16 @@ Owner's answers (2026-11-06):
 - Shorts source = C with fallback: YouTube Data API key search (~100 searches/day) → if no key / quota out / error, followed-channels feed; mixed.
 - AI waiting = A: first good answer wins, quick jobs 5 s; big scans keep loading with progress steps (as long as needed) + Cancel.
 - Tempo = A (GP exact, Gemini estimate, own beat detection for mic/loops/files, guess for pasted tabs) + tap tempo backup when it fails.
+
+Concept-check answers (2026-11-06, after the full text):
+- Bass octave on Track 3: applied on playback (perfect timing), no live monitoring.
+- Looper with the screen off: not now; keep the screen on while the looper runs.
+- The new 4-track looper REPLACES the Jam looper and the beat maker looper; old test loops don't need moving over.
+- Game Mode: high e on top (like tab).
+- No body-slap percussion mode (Track 1 is plain rhythm).
+- Style names: generic descriptive names everywhere, never "<artist> style" (done 2026-11-06 for every existing style;
+  players stay only in "Listen to" lines, video teacher credits and search keywords). New styles planned for Step 3:
+  Melodic prog, Prog-pop (tapping and hybrid picking), Ambient tapping (the Ichika sound, much more of it), Rudiment picking;
+  heavy low chug and the words "djent"/"math rock" go.
+- Proxy Stream dropped (screen grab covers it); offline mode = built-in generators instead of mock data.
+Still waiting for: "Approved — Start Step 1".

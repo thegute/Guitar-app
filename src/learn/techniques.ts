@@ -146,7 +146,7 @@ export const TECHNIQUES: Technique[] = [
     drill: { label: 'Travis picking: Red River Valley', songbook: { song: 'redriver', part: 'travis' } },
   },
   {
-    id: 'melodic', title: 'Melodic fingerstyle (Marco Cirillo style)', why: 'Open-string chords, a steady thumb and little hammer-ons inside the arpeggio: the calm, beautiful sound of melodic acoustic players.',
+    id: 'melodic', title: 'Melodic fingerstyle', why: 'Open-string chords, a steady thumb and little hammer-ons inside the arpeggio: the calm, beautiful sound of melodic acoustic players.',
     steps: [
       'Thumb (p) takes the bass strings; index, middle and ring (i, m, a) each own one of the G, B and top strings. Rest each finger on its string before you play it.',
       'Use shapes that keep strings ringing between chords: G, Cadd9, Em7 and D/F# all hold the 3rd fret on the top two strings, so those notes never stop.',

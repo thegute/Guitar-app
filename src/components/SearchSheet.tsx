@@ -21,8 +21,8 @@ import { applyBeatChange } from '../studio/beat'
 import { playAction } from '../nav'
 import { screenInfo } from '../assistant/screen'
 
-const TRY = ['I want to practise triads today', 'Teach me Marco Cirillo style fingerstyle', 'CAGED with little melodies in between', 'Chord tones and soloing in A minor', 'Make me a trap beat at 140', 'slow it down', 'G7 chord', 'drop D', "it doesn't hear me"]
-const EXAMPLES = ['I want to practise triads today…', 'Help me learn Marco Cirillo style…', 'Chord tones and soloing in G…', 'Make a lo-fi beat at 80 BPM…', 'Why doesn\'t it hear my notes?…', 'Show me a G7 chord…', 'A 20 minute blues session in A…']
+const TRY = ['I want to practise triads today', 'Teach me melodic fingerstyle', 'CAGED with little melodies in between', 'Chord tones and soloing in A minor', 'Make me a trap beat at 140', 'slow it down', 'G7 chord', 'drop D', "it doesn't hear me"]
+const EXAMPLES = ['I want to practise triads today…', 'Help me learn melodic fingerstyle…', 'Chord tones and soloing in G…', 'Make a lo-fi beat at 80 BPM…', 'Why doesn\'t it hear my notes?…', 'Show me a G7 chord…', 'A 20 minute blues session in A…']
 const RECENT = 'kg:searchRecent'
 const recent = (): string[] => { try { return JSON.parse(localStorage.getItem(RECENT) ?? '[]') } catch { return [] } }
 const remember = (q: string) => {

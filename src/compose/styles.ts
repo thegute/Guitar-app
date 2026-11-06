@@ -85,7 +85,7 @@ const trip = (from: number, to: number): Cell => { const c: Cell = []; for (let 
 export const STYLES: StyleDef[] = [
   // ───────────── Prog & shred
   {
-    id: 'progclean', label: 'Melodic prog (Plini, Syncatto)', group: 'Prog & shred',
+    id: 'progclean', label: 'Melodic prog', group: 'Prog & shred',
     artists: 'Plini, Syncatto (Charlie Robbins), Roy Ziv, Intervals', minor: false,
     feel: 'Clean and soaring: lydian and major 7 colours, legato runs that pour up the neck, tapped notes, wide arpeggios and harmonics. Melodies first, then a flurry, then a long singing note.',
     prog: { major: [[0, 'maj7'], [2, ''], [9, 'm9'], [5, 'maj7']], minor: [[0, 'm9'], [8, 'maj7'], [3, 'maj7'], [10, '6']] },
@@ -100,7 +100,7 @@ export const STYLES: StyleDef[] = [
     zone: [5, 19], moves: 'roam', open: .2, ending: 'legato', riff: 'arpeggio', melody: 'cirillo', pick: ['arp-maj7', 'arp-updown'], program: 27,
   },
   {
-    id: 'polyphia', label: 'Polyphia / Ichika Nito style', group: 'Prog & shred',
+    id: 'polyphia', label: 'Prog-pop: tapping and hybrid picking', group: 'Prog & shred',
     artists: 'Polyphia (Tim Henson, Scott LePage), Ichika Nito', minor: false,
     feel: 'Hybrid-picked arpeggios with open strings ringing against fretted notes, lush maj7 and 9th shapes, harmonics, quick legato flicks and muted "slap" hits, all with a laid-back, almost trap swing.',
     prog: { major: [[0, 'maj9'], [9, 'm9'], [5, 'maj7'], [4, 'm7']], minor: [[0, 'm9'], [5, 'm7'], [8, 'maj7'], [10, '6']] },
@@ -115,7 +115,7 @@ export const STYLES: StyleDef[] = [
     zone: [0, 15], moves: 'roam', open: .65, ending: 'harmonics', riff: 'hybrid', melody: 'cirillo', pick: ['arp-maj7', 'pinch2'], program: 27,
   },
   {
-    id: 'shred', label: 'Shred and melodic rock (Vai, Roy Ziv)', group: 'Prog & shred',
+    id: 'shred', label: 'Shred and melodic rock', group: 'Prog & shred',
     artists: 'Steve Vai, Roy Ziv, John Petrucci (ballads), Joe Satriani', minor: false,
     feel: 'A big singing melody with wide vibrato and bends, lydian colour, then fast alternate-picked sequences and legato bursts up the neck, landing on a screaming long note.',
     prog: { major: [[0, ''], [2, ''], [9, 'm'], [7, '']], minor: [[0, 'm'], [8, ''], [10, ''], [7, '']] },
@@ -130,7 +130,7 @@ export const STYLES: StyleDef[] = [
     zone: [5, 20], moves: 'roam', open: 0, ending: 'bend', riff: 'power', melody: 'ballad', pick: ['arp-updown'], program: 29,
   },
   {
-    id: 'progmetal', label: 'Prog metal (Petrucci, Lee McKinney)', group: 'Prog & shred',
+    id: 'progmetal', label: 'Prog metal', group: 'Prog & shred',
     artists: 'John Petrucci, Lee McKinney (Born of Osiris), Tosin Abasi, Misha Mansoor', minor: true,
     feel: 'Dark and precise: harmonic minor and phrygian runs in 16ths and sextuplets, odd note groupings, three-notes-per-string legato, pedal-point patterns, palm-muted low notes and wide arpeggios.',
     prog: { major: [[0, ''], [10, ''], [8, ''], [7, '']], minor: [[0, 'm'], [8, ''], [1, ''], [7, '']] },
@@ -161,7 +161,7 @@ export const STYLES: StyleDef[] = [
   },
   // ───────────── Blues, rock & pop
   {
-    id: 'mayer', label: 'Blues-pop (John Mayer, Mateus Asato)', group: 'Blues, rock & pop',
+    id: 'mayer', label: 'Blues-pop', group: 'Blues, rock & pop',
     artists: 'John Mayer, Mateus Asato, Stevie Ray Vaughan (slow tunes), Jimi Hendrix (ballads)', minor: false,
     feel: 'Major and minor pentatonic mixed over each chord, double-stop 6ths and 3rds, half-step "curl" bends, slow singing bends, little hammer-on flicks and a lot of space. Behind the beat.',
     prog: { major: [[0, ''], [7, ''], [9, 'm'], [5, '']], minor: [[0, 'm7'], [5, 'm7'], [10, ''], [7, '7']] },
@@ -176,7 +176,7 @@ export const STYLES: StyleDef[] = [
     zone: [2, 15], moves: 'box', open: .05, ending: 'bend', riff: 'hybrid', melody: 'neosoul', pick: ['travis', 'arp-updown'], program: 27,
   },
   {
-    id: 'rock', label: 'Classic rock (Eagles, Fleetwood Mac)', group: 'Blues, rock & pop',
+    id: 'rock', label: 'Classic rock', group: 'Blues, rock & pop',
     artists: 'Eagles ("Hotel California"), Fleetwood Mac ("Dreams"), Michael Jackson\'s guitarists, Billy Joel\'s band, Slash, Clapton', minor: true,
     feel: 'Pentatonic boxes played with feeling: repeating triplet licks, unison bends, the major pentatonic over major chords and twin-guitar harmony lines in 3rds. Hooks you can sing.',
     prog: { major: [[0, ''], [10, ''], [5, ''], [0, '']], minor: [[0, 'm'], [7, ''], [10, ''], [5, ''], [3, ''], [10, ''], [8, ''], [7, '']] },
@@ -206,7 +206,7 @@ export const STYLES: StyleDef[] = [
     zone: [4, 17], moves: 'box', open: .05, ending: 'bend', riff: 'boomchick', melody: 'blues', pick: ['thumb'], program: 29,
   },
   {
-    id: 'pop', label: 'Pop and soul (Ed Sheeran, Bruno Mars, James Arthur)', group: 'Blues, rock & pop',
+    id: 'pop', label: 'Pop and soul', group: 'Blues, rock & pop',
     artists: 'Ed Sheeran, Bruno Mars, James Arthur, The Fray, Mike Posner, Michael Jackson, Billy Joel', minor: false,
     feel: 'A hook you can sing, repeated and answered: notes from the key, sweet 6ths, small slides and a strong ending on the home note. Simple, catchy, nothing wasted.',
     prog: { major: [[0, ''], [7, ''], [9, 'm'], [5, '']], minor: [[0, 'm'], [8, ''], [3, ''], [10, '']] },
@@ -222,7 +222,7 @@ export const STYLES: StyleDef[] = [
   },
   // ───────────── Soul, funk & jazz
   {
-    id: 'neosoul', label: 'Neo-soul (Mateus Asato, Ichika Nito)', group: 'Soul, funk & jazz',
+    id: 'neosoul', label: 'Neo-soul', group: 'Soul, funk & jazz',
     artists: 'Mateus Asato, Ichika Nito, Isaiah Sharkey, Cory Wong (clean side)', minor: false,
     feel: 'Major 7, 9th and 11th colours, hammer-on flourishes inside chord shapes, sliding 4ths and 3rds, smooth pentatonic runs that end on a 9th or 6th rather than the root.',
     prog: { major: [[5, 'maj7'], [4, 'm7'], [2, 'm9'], [0, 'maj9']], minor: [[0, 'm9'], [5, '9'], [3, 'maj7'], [7, 'm7']] },
@@ -237,7 +237,7 @@ export const STYLES: StyleDef[] = [
     zone: [3, 15], moves: 'box', open: .1, ending: 'enclosure', riff: 'funk16', melody: 'neosoul', pick: ['arp-maj7'], program: 27,
   },
   {
-    id: 'funk', label: 'Funk (Cory Wong, Michael Jackson)', group: 'Soul, funk & jazz',
+    id: 'funk', label: 'Funk', group: 'Soul, funk & jazz',
     artists: 'Cory Wong, Michael Jackson\'s session players (David Williams), Nile Rodgers, Vulfpeck', minor: true,
     feel: '16th-note grooves: short dorian and mixolydian lines with muted ghost notes between them, octave hooks, and lots of rests. The rhythm is the melody.',
     prog: { major: [[0, '9'], [5, '9'], [0, '9'], [7, '9']], minor: [[0, 'm7'], [5, '9'], [0, 'm7'], [5, '9']] },
@@ -268,7 +268,7 @@ export const STYLES: StyleDef[] = [
   },
   // ───────────── Country & bluegrass
   {
-    id: 'country', label: 'Modern country (Zac Brown, Luke Combs)', group: 'Country & bluegrass',
+    id: 'country', label: 'Modern country', group: 'Country & bluegrass',
     artists: 'Zac Brown Band, Luke Combs, Morgan Wallen, Cody Johnson (their lead players), Brad Paisley', minor: false,
     feel: 'Major pentatonic with the flat 3rd rolling into the 3rd, sweet 6ths, pedal-steel bends, chicken-pickin\' snaps (muted notes) and hybrid-picked banjo rolls. Ends with the classic 6-5-3-1.',
     prog: { major: [[0, ''], [5, ''], [9, 'm'], [7, '']], minor: [[0, 'm'], [8, ''], [3, ''], [10, '']] },
@@ -283,7 +283,7 @@ export const STYLES: StyleDef[] = [
     zone: [2, 15], moves: 'roam', open: .25, ending: 'chicken', riff: 'boomchick', melody: 'country', pick: ['thumb', 'travis'], program: 27,
   },
   {
-    id: 'bluegrass', label: 'Bluegrass (Doc Watson, Tyler Grant)', group: 'Country & bluegrass',
+    id: 'bluegrass', label: 'Bluegrass', group: 'Country & bluegrass',
     artists: 'Doc Watson, Tyler Grant, Tony Rice, Clarence White', minor: false,
     feel: 'Steady eighth-note flatpicking in first position with open strings ringing, the flat-3rd-to-3rd hammer-on, fiddle-tune lines and the G run to finish. Capo up for other keys, like the pickers do.',
     prog: { major: [[0, ''], [5, ''], [7, ''], [0, '']], minor: [[0, 'm'], [10, ''], [7, ''], [0, 'm']] },
@@ -298,7 +298,7 @@ export const STYLES: StyleDef[] = [
     zone: [0, 5], moves: 'open', open: .85, ending: 'grun', riff: 'crosspick', melody: 'travis', pick: ['travis', 'thumb'], program: 25,
   },
   {
-    id: 'billy', label: 'Modern flatpicking (Billy Strings)', group: 'Country & bluegrass',
+    id: 'billy', label: 'Modern flatpicking', group: 'Country & bluegrass',
     artists: 'Billy Strings, Molly Tuttle, Tony Rice, Doc Watson', minor: false,
     feel: 'Fast, fearless flatpicking: open-string licks, blue notes, chromatic walk-downs, crosspicking rolls and runs that climb up the neck and come back down to the G run.',
     prog: { major: [[0, ''], [10, ''], [5, ''], [0, '']], minor: [[0, 'm'], [10, ''], [8, ''], [7, '']] },
@@ -313,7 +313,7 @@ export const STYLES: StyleDef[] = [
     zone: [2, 14], moves: 'roam', open: .45, ending: 'grun', riff: 'crosspick', melody: 'travis', pick: ['travis'], program: 25,
   },
   {
-    id: 'acoustic', label: 'Acoustic singer-songwriter (Dylan Gossett, Ed Sheeran)', group: 'Country & bluegrass',
+    id: 'acoustic', label: 'Acoustic singer-songwriter', group: 'Country & bluegrass',
     artists: 'Dylan Gossett, Ed Sheeran, Zach Bryan, Noah Kahan', minor: false,
     feel: 'Fills you play between sung lines: hammer-ons inside open chord shapes, walking bass notes between chords, open strings left ringing. Capo up to fit your voice.',
     prog: { major: [[0, ''], [5, ''], [9, 'm'], [7, '']], minor: [[0, 'm'], [8, ''], [3, ''], [10, '']] },
@@ -329,7 +329,7 @@ export const STYLES: StyleDef[] = [
   },
   // ───────────── Island
   {
-    id: 'reggaerock', label: 'Reggae rock (Sublime, Stick Figure, Iration)', group: 'Island',
+    id: 'reggaerock', label: 'Reggae rock', group: 'Island',
     artists: 'Sublime, Stick Figure, Iration, The Movement, Pacific Dub', minor: false,
     feel: 'Laid back and sunny: major-pentatonic hooks, octave lines like a dub echo, slides into notes, 3rds, and the same hook coming back again and again. Behind the beat, lots of space.',
     prog: { major: [[0, ''], [5, ''], [7, ''], [5, '']], minor: [[0, 'm'], [8, ''], [3, ''], [10, '']] },
@@ -376,7 +376,7 @@ export const STYLES: StyleDef[] = [
   },
   // ───────────── Fingerstyle & classical
   {
-    id: 'fingerstyle', label: 'Melodic fingerstyle (Marco Cirillo, Sungha Jung)', group: 'Fingerstyle & classical',
+    id: 'fingerstyle', label: 'Melodic fingerstyle', group: 'Fingerstyle & classical',
     artists: 'Marco Cirillo, Sungha Jung, Tommy Emmanuel, Andy McKee', minor: false,
     feel: 'A melody that sings over open strings ringing like a harp: add9 and sus colours, hammer-ons and pull-offs to open strings, harmonics at the end. Slow down and let every note ring into the next.',
     prog: { major: [[0, 'add9'], [7, ''], [9, 'm7'], [5, 'maj7']], minor: [[0, 'm9'], [8, 'maj7'], [3, 'add9'], [10, 'sus4']] },
@@ -391,7 +391,7 @@ export const STYLES: StyleDef[] = [
     zone: [0, 12], moves: 'open', open: .75, ending: 'harmonics', riff: 'arpeggio', melody: 'cirillo', pick: ['cirillo', 'arp-maj7', 'travis'], program: 25,
   },
   {
-    id: 'classical', label: 'Classical guitar (Tárrega, Sor, Bach)', group: 'Fingerstyle & classical',
+    id: 'classical', label: 'Classical guitar', group: 'Fingerstyle & classical',
     artists: 'Francisco Tárrega, Fernando Sor, Matteo Carcassi, J. S. Bach (lute pieces)', minor: true,
     feel: 'Clear melodic lines with scale runs and arpeggios, the harmonic minor\'s strong pull home, sequences that climb, and a proper cadence at the end. Fingers, not a pick (p i m a).',
     prog: { major: [[0, ''], [5, ''], [7, '7'], [0, '']], minor: [[0, 'm'], [5, 'm'], [7, '7'], [0, 'm']] },

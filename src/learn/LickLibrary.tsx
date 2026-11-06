@@ -88,7 +88,7 @@ function LickDetail({ lick, onBack }: { lick: LickDef; onBack: () => void }) {
         <span className={`lvl lvl-${lick.level}`}>{LEVEL[lick.level]}</span>
       </div>
       <h1 style={{ margin: 0 }}>{lick.name}</h1>
-      <p className="small muted" style={{ margin: 0 }}>{st.label} · {kindLabel(lick)} · over {placed?.chord ?? lick.chord} · in the style of {st.listen.split(', ').slice(0, 2).join(' and ')}</p>
+      <p className="small muted" style={{ margin: 0 }}>{st.label} · {kindLabel(lick)} · over {placed?.chord ?? lick.chord}</p>
       {b && <p style={{ margin: 0 }}>{b.about}</p>}
       <WinArea area="lick">
       <Win id="tab" title="The tab" bodyClass="stack" bodyStyle={{ gap: 8 }}>

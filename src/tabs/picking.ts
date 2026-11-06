@@ -53,7 +53,7 @@ export const PICK_PATTERNS: PickPattern[] = [
   // fingerstyle, slack key and classical
   { id: 'slack', group: 'fingerstyle', label: 'Slack key (alternating thumb, melody pinches)', how: 'The Hawaiian way: the thumb never stops, root and fifth on every beat (open strings in open G), while the fingers pinch a melody note on top and fill in between. Sweet and gentle (nahenahe).',
     hits: [h(0, 'R', 'f3'), h(0.5, 'f2'), h(1, 'A'), h(1.5, 'f3'), h(2, 'R', 'f2'), h(2.5, 'f3'), h(3, 'A'), h(3.5, 'f1')] },
-  { id: 'cirillo', group: 'fingerstyle', label: 'Melodic fingerstyle roll (Marco Cirillo style)', how: 'Bass and melody together on beat 1, then a quick ripple through the chord so every string keeps ringing under the top note. Let the notes overlap like a harp.',
+  { id: 'cirillo', group: 'fingerstyle', label: 'Melodic fingerstyle roll', how: 'Bass and melody together on beat 1, then a quick ripple through the chord so every string keeps ringing under the top note. Let the notes overlap like a harp.',
     hits: [h(0, 'R', 'f3'), h(0.5, 'f1'), h(0.75, 'f2'), h(1, 'f3'), h(1.5, 'A'), h(2, 'R', 'f2'), h(2.5, 'f3'), h(3, 'f1'), h(3.5, 'f2')] },
   { id: 'percussive', group: 'fingerstyle', label: 'Percussive fingerstyle (slap on 2 and 4)', how: 'Ed Sheeran and Sungha Jung style: the thumb plays the bass, and on beats 2 and 4 the side of the hand slaps the strings (x) like a snare drum. Fingers pick the chord in between.',
     hits: [h(0, 'R', 'f3'), h(0.5, 'f2'), h(1, 'X'), h(1.5, 'f1'), h(2, 'A', 'f3'), h(2.5, 'f2'), h(3, 'X'), h(3.5, 'f1')] },
@@ -61,7 +61,7 @@ export const PICK_PATTERNS: PickPattern[] = [
     hits: [0, 1, 2].flatMap(b => [h(b, ...(b === 0 ? ['R', 'f3'] as Role[] : ['f3'] as Role[])), h(b + 1 / 3, 'f2'), h(b + 2 / 3, 'f1')]), beats: 3 },
   { id: 'giuliani', group: 'fingerstyle', label: 'Classical arpeggio (p-i-m-a-m-i)', how: 'A Giuliani study pattern: thumb, then index, middle, ring up the strings and back down. Keep the hand still and let the fingers do the work.',
     hits: [h(0, 'R'), h(0.5, 'f1'), h(1, 'f2'), h(1.5, 'f3'), h(2, 'A'), h(2.5, 'f3'), h(3, 'f2'), h(3.5, 'f1')] },
-  { id: 'arp-maj7', group: 'fingerstyle', label: 'Hybrid-picked arpeggio (Polyphia, Plini)', how: 'Pick plus middle and ring fingers: the bass with the pick, the top strings plucked in a syncopated 16th pattern so the chord shimmers. Let open strings ring.',
+  { id: 'arp-maj7', group: 'fingerstyle', label: 'Hybrid-picked arpeggio', how: 'Pick plus middle and ring fingers: the bass with the pick, the top strings plucked in a syncopated 16th pattern so the chord shimmers. Let open strings ring.',
     hits: [h(0, 'R'), h(0.25, 'f2'), h(0.5, 'f3'), h(0.75, 'f1'), h(1, 'f3'), h(1.5, 'A', 'f2'), h(1.75, 'f3'), h(2.25, 'f1'), h(2.5, 'f3'), h(3, 'f2'), h(3.25, 'f3'), h(3.5, 'f1')] },
   // bluegrass / folk rhythm guitar
   { id: 'boomchick', group: 'bluegrass', label: 'Boom-chick (bass and strum)', how: 'Bass note on 1, a short strum of the top strings on 2, the other bass note on 3, strum on 4. Walks the bass into the next chord.',

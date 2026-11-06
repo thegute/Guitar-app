@@ -70,7 +70,7 @@ export function TabMaker({ chords, tonic: fixedTonic, mode: fixedMode, bpm, jamS
         </select>
       </label>
       {jamStyle && !followJam && <button className="link-btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setFollowJam(true)}>Match Jam's style again</button>}
-      <p className="small muted" style={{ margin: 0 }}>{st.feel} <i>Modelled on: {st.artists}.</i></p>
+      <p className="small muted" style={{ margin: 0 }}>{st.feel} <i>Listen to: {st.artists}.</i></p>
       {!fixedTonic && <KeyPicker value={keyPref} onChange={setKey} />}
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <Chips label="Length" wrap items={[...(hasProg ? [{ id: 0, label: 'Your chords' }] : []), { id: 1, label: '1 bar' }, { id: 2, label: '2 bars' }, { id: 4, label: '4 bars' }, { id: 8, label: '8 bars' }]} value={hasProg || len !== 0 ? len : 4} onChange={setLen} />

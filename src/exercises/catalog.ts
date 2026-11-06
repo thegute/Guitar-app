@@ -48,7 +48,7 @@ export const EX_TYPES: ExType[] = [
   { id: 'barre', label: 'Barre chords', group: 'Chords and rhythm guitar', prefix: 'BR' },
   { id: 'power', label: 'Power chords and riffs', group: 'Chords and rhythm guitar', prefix: 'PW' },
   { id: 'fingerstyle', label: 'Fingerstyle', group: 'Fingerstyle', prefix: 'FS' },
-  { id: 'melodic', label: 'Melodic fingerstyle (Marco Cirillo style)', group: 'Fingerstyle', prefix: 'MF' },
+  { id: 'melodic', label: 'Melodic fingerstyle', group: 'Fingerstyle', prefix: 'MF' },
   ...LICK_STYLES.map(s => ({ id: `lick:${s.id}`, label: `${s.label} licks`, group: 'Licks', prefix: LICK_PREFIX[s.id] ?? s.id.slice(0, 2).toUpperCase() })),
 ]
 

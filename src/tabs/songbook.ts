@@ -560,7 +560,7 @@ K:Am
   // owner's styles (the players named are references for the sound; every note is new). Seeds pick the take. ─────────────
   // prog & shred
   {
-    id: 'aurora', title: 'Aurora Steps', genre: 'prog', credit: 'Original (KGuitar): melodic prog in the style of Plini and Syncatto', key: 'E', meter: 4,
+    id: 'aurora', title: 'Aurora Steps', genre: 'prog', credit: 'Original (KGuitar): melodic prog', key: 'E', meter: 4,
     piece: { style: 'progclean', sections: [
       { name: 'Intro', chart: 'Emaj7 | C#m7 | Amaj7 | B', part: 'pick', pattern: 'arp-maj7' },
       { name: 'Theme', chart: 'Emaj7 | C#m7 | Amaj7 | B', part: 'lead', level: 2, seed: 11, times: 2 },
@@ -572,7 +572,7 @@ K:Am
     parts: [whole(4, 100, 'A full melodic-prog instrumental: ringing maj7 arpeggios, a legato theme that climbs the neck, a heavy djent break, then the solo.'), rhythm('arps', 3, 100, 'arp-maj7', 'Hybrid-picked arpeggios', 'The chords as shimmering pick-and-fingers arpeggios, open strings ringing.')],
   },
   {
-    id: 'staircase', title: 'Glass Staircase', genre: 'prog', credit: 'Original (KGuitar): in the style of Polyphia and Ichika Nito', key: 'A', meter: 4,
+    id: 'staircase', title: 'Glass Staircase', genre: 'prog', credit: 'Original (KGuitar): prog-pop with tapping and hybrid picking', key: 'A', meter: 4,
     piece: { style: 'polyphia', sections: [
       { name: 'Intro', chart: 'Amaj7 | F#m7 | Dmaj7 | E6', part: 'pick', pattern: 'arp-maj7' },
       { name: 'Hook', chart: 'Amaj7 | F#m7 | Dmaj7 | E6', part: 'lead', level: 2, seed: 3, times: 2 },
@@ -583,7 +583,7 @@ K:Am
     parts: [whole(4, 92, 'Hybrid-picked arpeggios over lush maj7 chords, harmonics, quick legato flicks and taps, with a laid-back swing.'), rhythm('arps', 3, 92, 'arp-maj7', 'Hybrid-picked arpeggios', 'Pick plus two fingers, syncopated 16ths, open strings ringing.')],
   },
   {
-    id: 'monsoon', title: 'Iron Monsoon', genre: 'prog', credit: 'Original (KGuitar): prog metal in the style of John Petrucci and Lee McKinney', key: 'E', minor: true, meter: 4,
+    id: 'monsoon', title: 'Iron Monsoon', genre: 'prog', credit: 'Original (KGuitar): prog metal', key: 'E', minor: true, meter: 4,
     piece: { style: 'progmetal', sections: [
       { name: 'Intro riff', chart: 'Em | C | Am | B', part: 'riff', level: 2, seed: 4 },
       { name: 'Verse riff', chart: 'Em | F | Em | B', part: 'riff', level: 3, seed: 9, times: 2 },
@@ -594,7 +594,7 @@ K:Am
     parts: [whole(4, 112, 'Palm-muted riffs in odd groupings, a phrygian twist, harmonic-minor runs and a lead that lands on the low root.'), rhythm('chug', 3, 112, 'strum', 'Power chord strum', 'Down-strokes on the chords, palm-muted, locked to the kick.')],
   },
   {
-    id: 'skyline', title: 'Skyline Run', genre: 'prog', credit: 'Original (KGuitar): melodic shred in the style of Steve Vai and Roy Ziv', key: 'D', meter: 4,
+    id: 'skyline', title: 'Skyline Run', genre: 'prog', credit: 'Original (KGuitar): melodic shred', key: 'D', meter: 4,
     piece: { style: 'shred', sections: [
       { name: 'Riff', chart: 'D | E | Bm | A', part: 'riff', style: 'rock', level: 2, seed: 6 },
       { name: 'Melody', chart: 'D | E | Bm | A', part: 'lead', level: 1, seed: 12, times: 2 },
@@ -606,16 +606,16 @@ K:Am
   },
   // blues, rock and pop
   {
-    id: 'slowburn', title: 'Slow Burn', genre: 'bluesrock', credit: 'Original (KGuitar): blues in the style of John Mayer and Stevie Ray Vaughan', key: 'A', meter: 4,
+    id: 'slowburn', title: 'Slow Burn', genre: 'bluesrock', credit: 'Original (KGuitar): blues', key: 'A', meter: 4,
     piece: { style: 'blues', sections: [
       { name: 'Head', chart: 'A7 | D7 | A7 | A7 | D7 | D7 | A7 | A7 | E7 | D7 | A7 | E7', part: 'lead', level: 1, seed: 14 },
       { name: 'Solo 1', chart: 'A7 | D7 | A7 | A7 | D7 | D7 | A7 | A7 | E7 | D7 | A7 | E7', part: 'lead', style: 'mayer', level: 2, seed: 22 },
       { name: 'Solo 2', chart: 'A7 | D7 | A7 | A7 | D7 | D7 | A7 | A7 | E7 | D7 | A7 | A7', part: 'lead', level: 3, seed: 35 },
     ] },
-    parts: [whole(3, 80, 'Three times round a 12-bar blues: a simple head, a Mayer-style chorus with double stops, then a hotter one. Bend and let it breathe.'), rhythm('pinch', 2, 80, 'pinch', 'Thumb-and-fingers', 'Thumb on the bass, fingers pinching the chord: the clean blues way.')],
+    parts: [whole(3, 80, 'Three times round a 12-bar blues: a simple head, a blues-pop chorus with double stops, then a hotter one. Bend and let it breathe.'), rhythm('pinch', 2, 80, 'pinch', 'Thumb-and-fingers', 'Thumb on the bass, fingers pinching the chord: the clean blues way.')],
   },
   {
-    id: 'velvethour', title: 'Velvet Hour', genre: 'bluesrock', credit: 'Original (KGuitar): neo-soul in the style of Mateus Asato', key: 'D', meter: 4,
+    id: 'velvethour', title: 'Velvet Hour', genre: 'bluesrock', credit: 'Original (KGuitar): neo-soul', key: 'D', meter: 4,
     piece: { style: 'neosoul', sections: [
       { name: 'Intro', chart: 'Gmaj7 | F#m7 | Em9 | Dmaj9', part: 'pick', pattern: 'arp-maj7' },
       { name: 'Melody', chart: 'Gmaj7 | F#m7 | Em9 | Dmaj9', part: 'melody', arrange: 'full', seed: 5, times: 2 },
@@ -625,7 +625,7 @@ K:Am
     parts: [whole(3, 76, 'Maj7 and 9th colours, the melody with chord shells under it, and hammer-on flourishes in the fills.'), rhythm('soul', 2, 76, 'arp-maj7', 'Hybrid arpeggios', 'Roll through each chord, smooth and even.')],
   },
   {
-    id: 'desert', title: 'Desert Echo', genre: 'bluesrock', credit: 'Original (KGuitar): classic rock in the style of the Eagles and Fleetwood Mac', key: 'A', minor: true, meter: 4,
+    id: 'desert', title: 'Desert Echo', genre: 'bluesrock', credit: 'Original (KGuitar): classic rock', key: 'A', minor: true, meter: 4,
     piece: { style: 'rock', sections: [
       { name: 'Riff', chart: 'Am | G | F | E', part: 'riff', level: 2, seed: 3 },
       { name: 'Lead', chart: 'Am | G | F | E', part: 'lead', level: 2, seed: 16, times: 2 },
@@ -635,7 +635,7 @@ K:Am
     parts: [whole(3, 96, 'A minor rock ballad: pentatonic hooks, triplet licks and bends that sing over a descending progression.'), rhythm('arp', 2, 96, 'arp-updown', 'Arpeggiated chords', 'Let each chord ring across the strings.')],
   },
   {
-    id: 'lanterns', title: 'Salt and Static', genre: 'pop', credit: 'Original (KGuitar): a pop ballad in the style of James Arthur and The Fray', key: 'C', meter: 4,
+    id: 'lanterns', title: 'Salt and Static', genre: 'pop', credit: 'Original (KGuitar): a pop ballad', key: 'C', meter: 4,
     piece: { style: 'pop', sections: [
       { name: 'Intro', chart: 'C | G | Am | F', part: 'pick', pattern: 'arp-updown' },
       { name: 'Verse', chart: 'C | G | Am | F', part: 'melody', arrange: 'full', seed: 4, times: 2 },
@@ -645,7 +645,7 @@ K:Am
     parts: [whole(2, 72, 'The song on one guitar: ringing intro, the verse tune with its bass, a chorus that lifts, and out.'), rhythm('ballad', 1, 72, 'arp-updown', 'Ballad arpeggio', 'Let each chord ring across the strings.')],
   },
   {
-    id: 'velvetfunk', title: 'Velvet Strut', genre: 'pop', credit: 'Original (KGuitar): funk in the style of Cory Wong and Vulfpeck', key: 'E', minor: true, meter: 4,
+    id: 'velvetfunk', title: 'Velvet Strut', genre: 'pop', credit: 'Original (KGuitar): funk', key: 'E', minor: true, meter: 4,
     piece: { style: 'funk', mode: 'dorian', sections: [
       { name: 'Groove', chart: 'Em7 | A9 | Em7 | A9', part: 'riff', level: 2, seed: 2, times: 2 },
       { name: 'Hook', chart: 'Em7 | A9 | Em7 | A9', part: 'lead', level: 2, seed: 15 },
@@ -656,7 +656,7 @@ K:Am
   },
   // country & acoustic
   {
-    id: 'gravel', title: 'Gravel Road Home', genre: 'country', credit: 'Original (KGuitar): modern country in the style of the Zac Brown Band and Luke Combs', key: 'G', meter: 4,
+    id: 'gravel', title: 'Gravel Road Home', genre: 'country', credit: 'Original (KGuitar): modern country', key: 'G', meter: 4,
     piece: { style: 'country', sections: [
       { name: 'Intro lick', chart: 'G | C | G | D', part: 'lead', level: 2, seed: 10 },
       { name: 'Verse', chart: 'G | C | Em | D', part: 'pick', pattern: 'boomchick', times: 2 },
@@ -665,7 +665,7 @@ K:Am
     parts: [whole(3, 104, 'An intro lick, a boom-chick verse, then a solo with chicken-pickin\' snaps, 6ths and steel-guitar bends.'), rhythm('boom', 1, 100, 'boomchick', 'Boom-chick', 'Bass on 1 and 3, strum on 2 and 4: the country engine.')],
   },
   {
-    id: 'porch', title: 'Porch Light', genre: 'country', credit: 'Original (KGuitar): acoustic singer-songwriter in the style of Dylan Gossett', key: 'D', meter: 4,
+    id: 'porch', title: 'Porch Light', genre: 'country', credit: 'Original (KGuitar): acoustic singer-songwriter', key: 'D', meter: 4,
     piece: { style: 'acoustic', sections: [
       { name: 'Intro', chart: 'D | A | Bm | G', part: 'pick', pattern: 'travis' },
       { name: 'Verse', chart: 'D | A | Bm | G | D | A | G | D', part: 'melody', arrange: 'bass', seed: 6 },
@@ -675,7 +675,7 @@ K:Am
     parts: [whole(2, 84, 'Travis-picked intro, the story-song melody with the thumb on the bass, a little fill, and the verse again fuller.'), rhythm('travis', 2, 88, 'travis', 'Travis picking', 'Thumb alternates the bass while the fingers pick the top strings.')],
   },
   {
-    id: 'longway', title: 'Long Way From Here', genre: 'country', credit: 'Original (KGuitar): acoustic in the style of Ed Sheeran and Zach Bryan', key: 'G', meter: 4,
+    id: 'longway', title: 'Long Way From Here', genre: 'country', credit: 'Original (KGuitar): acoustic', key: 'G', meter: 4,
     piece: { style: 'acoustic', sections: [
       { name: 'Groove', chart: 'Em | C | G | D', part: 'pick', pattern: 'percussive', times: 2 },
       { name: 'Melody', chart: 'Em | C | G | D | Em | C | G | D', part: 'melody', arrange: 'full', seed: 8 },
@@ -693,7 +693,7 @@ K:Am
   },
   // island
   {
-    id: 'swell', title: 'Sunday Swell', genre: 'reggaerock', credit: 'Original (KGuitar): reggae rock in the style of Stick Figure and Iration', key: 'G', meter: 4,
+    id: 'swell', title: 'Sunday Swell', genre: 'reggaerock', credit: 'Original (KGuitar): reggae rock', key: 'G', meter: 4,
     piece: { style: 'reggaerock', sections: [
       { name: 'Skank', chart: 'G | C | D | C', part: 'riff', level: 2, seed: 4 },
       { name: 'Hook', chart: 'G | C | D | C', part: 'lead', level: 1, seed: 9, times: 2 },
@@ -703,7 +703,7 @@ K:Am
     parts: [whole(2, 88, 'Off-beat skanks, a laid-back hook in octaves and 3rds, a dub break on the low strings, and the hook again.'), rhythm('skank', 1, 88, 'onedrop', 'Off-beat skank', 'Short chops on 2 and 4, everything else muted.')],
   },
   {
-    id: 'tidepool', title: 'Tide Pool Dub', genre: 'reggaerock', credit: 'Original (KGuitar): dub in the style of Pacific Dub and The Movement', key: 'A', minor: true, meter: 4,
+    id: 'tidepool', title: 'Tide Pool Dub', genre: 'reggaerock', credit: 'Original (KGuitar): dub', key: 'A', minor: true, meter: 4,
     piece: { style: 'reggaerock', mode: 'minor', sections: [
       { name: 'Dub', chart: 'Am | Dm | Am | Em', part: 'riff', level: 2, seed: 3, times: 2 },
       { name: 'Melody', chart: 'Am | Dm | Am | Em', part: 'lead', level: 1, seed: 12 },
@@ -713,7 +713,7 @@ K:Am
     parts: [whole(2, 76, 'A minor dub: the bass-line riff, a melody with space for echo, skanks, and the melody home.'), rhythm('double', 3, 76, 'double', 'Double skank', 'Two quick chops on each off-beat.')],
   },
   {
-    id: 'kona', title: 'Kona Morning', genre: 'hawaiian', credit: 'Original (KGuitar): slack key in open G, in the style of Gabby Pahinui and Ledward Kaʻapana', key: 'G', meter: 4,
+    id: 'kona', title: 'Kona Morning', genre: 'hawaiian', credit: 'Original (KGuitar): slack key in open G', key: 'G', meter: 4,
     piece: { style: 'slackkey', sections: [
       { name: 'Melody', chart: 'G | C | G | D7 | G | C | D7 | G', part: 'melody', arrange: 'bass', seed: 7 },
       { name: 'Variation', chart: 'C | G | D7 | G', part: 'lead', level: 2, seed: 15 },
@@ -732,7 +732,7 @@ K:Am
     parts: [whole(3, 80, 'An easy-going slack key tune in C in open G tuning, with the Hawaiian II7–V7–I turnaround.')],
   },
   {
-    id: 'islandsway', title: 'Island Sway', genre: 'hawaiian', credit: 'Original (KGuitar): Hawaiian style in standard tuning (Kaʻau Crater Boys, Hawaiian Style Band)', key: 'D', meter: 4,
+    id: 'islandsway', title: 'Island Sway', genre: 'hawaiian', credit: 'Original (KGuitar): Hawaiian style in standard tuning', key: 'D', meter: 4,
     piece: { style: 'hawaiian', sections: [
       { name: 'Strum', chart: 'D | G | E7 | A7', part: 'pick', pattern: 'pinch2' },
       { name: 'Melody', chart: 'D | G | E7 | A7 | D | G | A7 | D', part: 'melody', arrange: 'full', seed: 9 },
@@ -743,7 +743,7 @@ K:Am
   },
   // fingerstyle
   {
-    id: 'lanterns2', title: 'Paper Lanterns', genre: 'fingerstyle', credit: 'Original (KGuitar): melodic fingerstyle in the style of Marco Cirillo', key: 'E', meter: 4,
+    id: 'lanterns2', title: 'Paper Lanterns', genre: 'fingerstyle', credit: 'Original (KGuitar): melodic fingerstyle', key: 'E', meter: 4,
     piece: { style: 'fingerstyle', sections: [
       { name: 'Intro', chart: 'Eadd9 | B | C#m7 | Amaj7', part: 'pick', pattern: 'cirillo' },
       { name: 'Theme', chart: 'Eadd9 | B | C#m7 | Amaj7 | Eadd9 | B | Amaj7 | Amaj7', part: 'melody', arrange: 'full', seed: 6 },
@@ -753,7 +753,7 @@ K:Am
     parts: [whole(3, 76, 'Open strings ringing like a harp under a singing melody, hammer-ons inside the shapes and harmonics to finish.'), rhythm('cirillo', 2, 76, 'cirillo', 'Melodic fingerstyle roll', 'Bass and melody together on 1, then a ripple through the chord.')],
   },
   {
-    id: 'harbor', title: 'Harbor Lights', genre: 'fingerstyle', credit: 'Original (KGuitar): fingerstyle in the style of Sungha Jung and Tommy Emmanuel', key: 'C', meter: 4,
+    id: 'harbor', title: 'Harbor Lights', genre: 'fingerstyle', credit: 'Original (KGuitar): melodic fingerstyle', key: 'C', meter: 4,
     piece: { style: 'fingerstyle', sections: [
       { name: 'Groove', chart: 'Cadd9 | G | Am7 | Fmaj7', part: 'pick', pattern: 'percussive' },
       { name: 'Melody', chart: 'Cadd9 | G | Am7 | Fmaj7 | Cadd9 | G | Fmaj7 | Cadd9', part: 'melody', arrange: 'full', seed: 4 },
