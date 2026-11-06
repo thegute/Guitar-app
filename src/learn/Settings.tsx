@@ -159,7 +159,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         <ul className="act-list small">
           {(['mic', 'usb'] as const).map(k => (
             <li key={k}>
-              <span>{k === 'mic' ? <><Ico n="mic" /> Phone mic</> : <><Ico n="guitar" /> USB amp (Amphonix)</>}</span>
+              <span>{k === 'mic' ? <><Ico n="mic" /> Phone mic</> : <><Ico n="guitar" /> USB pedal or interface (Pocket Master)</>}</span>
               <b>{isSetUp(k) ? `set up · sensitivity ${gear(k).gate} · timing ${latencyMs(k)} ms` : 'not set up yet'}</b>
             </li>
           ))}

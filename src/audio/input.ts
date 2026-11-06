@@ -1,5 +1,5 @@
 // Where the guitar sound comes from: the phone's microphone (acoustic) or a USB audio interface /
-// guitar headphone amp plugged into the phone (electric), e.g. a Sonicake Amphonix 2 over USB-C.
+// guitar headphone amp plugged into the phone (electric), e.g. a Sonicake Pocket Master multi-effects pedal over USB-C (it is a USB audio interface too).
 
 import { Capacitor } from '@capacitor/core'
 
@@ -28,7 +28,7 @@ export interface InputDevice {
 export type InputChoice = 'auto' | 'mic' | string
 
 const KEY = 'kg:inputDevice'
-const EXTERNAL = /usb|amphonix|sonicake|interface|audio\s*2\.0|line|guitar|irig|focusrite|scarlett|behringer|presonus|steinberg|boss|katana|spark|mustang|tonex|amplug|zoom|line ?6/i
+const EXTERNAL = /usb|amphonix|sonicake|pocket ?master|qme|interface|audio\s*2\.0|line|guitar|irig|focusrite|scarlett|behringer|presonus|steinberg|boss|katana|spark|mustang|tonex|amplug|zoom|line ?6/i
 const BUILT_IN = /built.?in|bottom|top|back|front|phone|speakerphone|internal|default|communications|earpiece|headset/i
 
 export function getChoice(): InputChoice {
@@ -136,7 +136,9 @@ async function openRaw(): Promise<OpenedInput> {
 
 export function shortName(label: string, external: boolean) {
   if (!external) return micName()
-  if (/amphonix|sonicake/i.test(label)) return 'Amphonix'
+  if (/pocket ?master|qme/i.test(label)) return 'Pocket Master'
+  if (/amphonix/i.test(label)) return 'Amphonix'
+  if (/sonicake/i.test(label)) return 'Sonicake'
   const clean = label.replace(/\(.*?\)/g, '').replace(/usb[- ]?audio|audio device|\bdevice\b/gi, '').trim()
   return clean.length > 1 && clean.length < 16 ? clean : 'USB input'
 }

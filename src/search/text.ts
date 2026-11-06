@@ -94,7 +94,7 @@ const GROUPS: Record<string, string> = {
   record: 'record recording recorder capture tape _recordme',
   video: 'video videos youtube yt clip clips watch _tapsync',
   hearing: 'mic microphone listen listening hear hearing detect detection recognize recognise sensitivity sensitive input _notheard _phonemic',
-  usb: 'usb amp amplifier interface amphonix sonicake electric plug plugged cable _usbamp',
+  usb: 'usb amp amplifier pedal pocketmaster interface amphonix sonicake electric plug plugged cable _usbamp',
   song: 'song songs tab tabs tablature sheet music piece pieces track tracks',
   add: 'add import upload load paste download file files new _guitarpro _ultimateguitar songsterr gp gp5 gpx',
   chord: 'chord chords shape shapes voicing voicings grip grips diagram diagrams',

@@ -77,22 +77,22 @@ export function InputPicker({ active, onChanged, needsSetup = false }: { active?
             {busy && <p className="small muted">Looking for inputs…</p>}
             {!busy && usb.length === 0 && (phone ? (
               <p className="notice small">
-                No USB amp found yet. Plug the Amphonix 2 into the phone's USB-C port (USB-C to USB-C cable), switch it on,
-                then reopen this list. If it still isn't listed, keep <b>Automatic</b>: Android usually sends a plugged-in
-                USB amp to apps by itself.
+                No USB pedal or interface found yet. Plug the Pocket Master (or any USB audio pedal or interface) into the
+                phone's USB-C port, switch it on, then reopen this list. If it still isn't listed, keep <b>Automatic</b>: Android
+                usually sends a plugged-in USB device to apps by itself.
               </p>
             ) : (
               <p className="notice small">
-                No audio interface found yet. Plug it (or the Amphonix 2) into the computer, allow the microphone when the
+                No audio interface found yet. Plug it (or the Pocket Master) into the computer, allow the microphone when the
                 browser asks, then reopen this list: Chrome and Firefox list every input once the mic is allowed. The input
                 your guitar is plugged into is usually input 1.
               </p>
             ))}
             <div className="panel small" style={{ display: 'grid', gap: 6 }}>
-              <b>Electric guitar through the Amphonix 2 or an audio interface</b>
-              <span className="muted">• The app hears the {phone ? "amp's USB" : "interface's"} signal directly, so no mic or room noise.</span>
+              <b>Electric guitar through the Pocket Master or another USB pedal or interface</b>
+              <span className="muted">• The app hears the {phone ? "pedal's USB" : "interface's"} signal directly, so no mic or room noise.</span>
               <span className="muted">• Use a clean or lightly driven preset with delay and reverb off while learning a tab. Heavy distortion and echoes make notes harder to tell apart.</span>
-              <span className="muted">• {phone ? 'Phone' : 'Computer'} sound (YouTube, "Hear it") usually plays in the amp's or interface's headphones too. If the app reacts to notes in the video, turn the video down.</span>
+              <span className="muted">• {phone ? 'Phone' : 'Computer'} sound (YouTube, "Hear it") usually plays in the pedal's or interface's headphones too. If the app reacts to notes in the video, turn the video down.</span>
               <span className="muted">• Run <b>Set up this input</b> once for the amp and once for the {phone ? 'phone' : 'computer'} mic: it tunes note detection and timing for each.</span>
             </div>
             <button className="btn primary" onClick={() => { setOpen(false); setSetup(true) }}>Set up this input</button>

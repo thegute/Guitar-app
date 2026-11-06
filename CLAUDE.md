@@ -1,9 +1,13 @@
 # KGuitar: project brief
 
 A personal guitar practice app for its owner (one user, sideloaded), built as an Android app (Capacitor) plus web version.
-Main phone: **Samsung Galaxy Z Fold 8** (cover screen ~412 dp wide, inner screen ~840 × 757 dp).
-Electric guitar goes through a **Sonicake Amphonix 2** headphone amp (USB-C, USB Audio 2.0 class compliant) into the phone;
-acoustic guitar uses the phone mic. Keep both working.
+Main phone: **Samsung Galaxy Z Fold 8** (cover screen ~412 dp wide, inner screen ~840 × 757 dp); also a **Galaxy Tab S10+**
+(12.4", 2800 × 1752, Android 14+; check ~800–1400 dp portrait/landscape).
+Electric guitar goes through a **Sonicake Pocket Master** multi-FX pedal (since 2026-11-06; replaced the Amphonix 2): USB audio
+interface over USB-C/OTG, stereo, 44.1 kHz / 16-bit, runs the community "PocketMaster CFW" firmware; it has its own tones and tuner.
+Acoustic guitar uses the phone mic. Keep both working. Footswitch: **M-Vave Chocolate Plus** (4 buttons A–D, short + long press;
+BLE-MIDI / USB-MIDI or keyboard / page-turner mode). The Android web view has no Web MIDI, so in the phone app it works in
+keyboard/page-turner mode until a native MIDI plugin exists.
 
 ## What matters most
 The **Play** screen (play-along) is the heart of the app. Everything else supports it:

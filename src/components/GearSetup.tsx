@@ -1,5 +1,5 @@
 // Gear setup: a two-minute walk-through that tunes note detection and timing to your input
-// (phone mic for acoustic, or a USB amp such as the Amphonix for electric). Saved per input kind.
+// (phone mic for acoustic, or a USB pedal / interface such as the Pocket Master for electric). Saved per input kind.
 import { micWhere } from '../audio/input'
 import { Ico } from './Icon'
 import { useEffect, useRef, useState } from 'react'
@@ -161,7 +161,7 @@ export function GearSetup({ onClose }: { onClose: () => void }) {
                 <li key={d.id} className={choice === d.id ? 'on' : ''}><button className="song-open" onClick={() => { setChoice(d.id); setC(d.id) }}><b><Ico n="guitar" /> {d.label}</b><span className="small muted">USB amp or interface</span></button></li>
               ))}
             </ul>
-            {!devs.some(d => d.external) && <p className="small muted" style={{ margin: 0 }}>No USB amp found. Plug in the Amphonix with its USB-C cable and it will show up here.</p>}
+            {!devs.some(d => d.external) && <p className="small muted" style={{ margin: 0 }}>No USB pedal or interface found. Plug in the Pocket Master with its USB-C cable and it will show up here.</p>}
             <button className="btn primary big" onClick={() => setStep('quiet')}>Next</button>
           </div>
         )}

@@ -604,7 +604,7 @@ export function PlayScreen() {
       setListening(true)
       void keepAwake(true)
     } catch {
-      setMicError(`KGuitar needs microphone access to hear your guitar (this also covers a USB amp like the Amphonix or an audio interface). Allow it ${micWhere()}, then try again.`)
+      setMicError(`KGuitar needs microphone access to hear your guitar (this also covers a USB pedal like the Pocket Master or an audio interface). Allow it ${micWhere()}, then try again.`)
     }
   }
   const toggleListenRef = useRef(toggleListen)
