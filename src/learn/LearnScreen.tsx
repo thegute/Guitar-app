@@ -457,7 +457,7 @@ export function LearnScreen() {
       {page === 'explore' && (
         <WinArea area="learnExplore" className="explore">
           {groups.map(g => (
-            <Win key={g.title} id={`g:${g.title}`} title={g.title} className="tool-group">
+            <Win key={g.title} id={`g:${g.title}`} title={g.title} className="panel tool-group">
               <div className="tool-grid">
                 {g.tools.map(t => (
                   <button key={t.id} className="tool" onClick={() => push({ k: t.id } as Route)}>
@@ -469,7 +469,7 @@ export function LearnScreen() {
               </div>
             </Win>
           ))}
-          <Win id="songs" title="In the Songs tab" className="tool-group">
+          <Win id="songs" title="In the Songs tab" className="panel tool-group">
           <div className="tool-grid">
           <button className="tool songbook-link" onClick={() => openSongs('practice')}>
             <ToolBadge id="exercises" />

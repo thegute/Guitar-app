@@ -86,7 +86,7 @@ function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook }: {
       <Win id="list" title="My songs" className="panel empty-state">
         <PsyDogCard seed="songs-empty" className="empty-card" />
         <h2>No songs of your own yet</h2>
-        <p className="small muted">Add a Guitar Pro file or paste a tab you found online, or start with a song from the songbook. Songs you add in {inst.label.toLowerCase()} mode stay in {inst.label.toLowerCase()} mode.</p>
+        <p className="small muted">{`Add a Guitar Pro file or paste a tab you found online, or start with a song from the songbook. Songs you add in ${inst.label.toLowerCase()} mode stay in ${inst.label.toLowerCase()} mode.`}</p>
         <div className="row" style={{ justifyContent: 'center' }}>
           <button className="btn primary" onClick={onAdd}>Add a song</button>
           <button className="btn" onClick={onSongbook}>Open the songbook</button>

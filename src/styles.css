@@ -1801,7 +1801,7 @@ video.mirrored { transform: scaleX(-1); }
 .win-grip { cursor: grab; touch-action: none; }
 .win-body { min-width: 0; }
 .win-body.sized { overflow: auto; overscroll-behavior: contain; }
-.win-size { align-self: center; margin: 6px 0 -6px; width: auto; padding: 0 12px; white-space: nowrap; height: 22px; border-radius: var(--r-sm); display: grid; place-items: center; font-size: 13px; color: var(--ink-3); background: color-mix(in srgb, var(--ink) 8%, transparent); cursor: ns-resize; touch-action: none; user-select: none; }
+.win-size { align-self: center; margin: 6px 0 -6px; width: auto; padding: 0 12px; white-space: nowrap; height: 22px; border-radius: var(--r-sm); display: grid; place-items: center; font-size: 13px; color: var(--ink-2); background: color-mix(in srgb, var(--ink) 8%, transparent); cursor: ns-resize; touch-action: none; user-select: none; }
 .win-tray { position: sticky; bottom: calc(var(--nav-h) + 8px); z-index: 30; display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; margin-top: 10px; border-radius: var(--r-md); background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--line); box-shadow: var(--shadow); }
 @media (min-width: 760px) { .win-tray { bottom: 8px; } }
 .win-chip { border: 1px solid var(--accent); background: var(--surface); color: var(--ink); border-radius: var(--r-pill); padding: 6px 12px; min-height: var(--h-sm); font: 600 14px var(--ui); cursor: pointer; }
