@@ -19,8 +19,12 @@ export function placeFor(l: LickDef, root: string, from = l.ref): Placement | nu
   const d = ((pc(root) - pc(from)) % 12 + 12) % 12
   const ev = parseLick(l.tab).events
   const span = fretSpan(ev)
-  if (st.move === 'capo') return d <= 7 ? { capo: d, shift: 0 } : null
-  const mid = (st.zone[0] + st.zone[1]) / 2
+  // capo styles keep the capo only for licks built on open strings (and always for bluegrass and folk, which live by
+  // the headstock); fretted licks move up the neck like the players do (owner: full neck except bluegrass)
+  const capoIt = st.move === 'capo' && (span.open || l.style === 'bluegrass' || l.style === 'folk')
+  if (capoIt) return d <= 7 ? { capo: d, shift: 0 } : null
+  const zone = st.move === 'capo' ? [3, 12] : st.zone
+  const mid = (zone[0] + zone[1]) / 2
   const opts = [d, d - 12, d + 12].filter(s => {
     if (span.open && s < 0) return false
     if (span.hi + s > 21) return false
@@ -28,7 +32,7 @@ export function placeFor(l: LickDef, root: string, from = l.ref): Placement | nu
     return true
   })
   if (!opts.length) return null
-  const cost = (s: number) => Math.abs((span.lo + span.hi) / 2 + s - mid) + Math.abs(s) * 0.15 + (span.hi + s > st.zone[1] + 5 ? 6 : 0)
+  const cost = (s: number) => Math.abs((span.lo + span.hi) / 2 + s - mid) + Math.abs(s) * 0.15 + (span.hi + s > zone[1] + 5 ? 6 : 0)
   return { capo: 0, shift: opts.sort((a, b) => cost(a) - cost(b))[0] }
 }
 
