@@ -155,6 +155,54 @@ async function pasteSong(page, text, title) {
     await page.context().close()
   }
 
+  if (want('tunings')) {
+    const page = await newPage(browser, { width: 412, height: 915 })
+    // a Drop D riff while tuned to Standard: retune, or play it in Standard
+    await pasteSong(page, `Drop riff
+e|-----------|
+B|-----------|
+G|-----------|
+D|-----------|
+A|-----------|
+D|-0-0-3-5-0-|`, 'Drop riff')
+    // tell KGuitar the tab is in Drop D: the paste box keeps the tuning names on the left
+    const notice = page.locator('.notice.retune')
+    const n = await notice.count()
+    console.log(`retune notice: ${n ? (await notice.first().textContent()).slice(0, 90) : 'none'}`)
+    if (n && (await page.locator('[data-testid=adapt]').count())) {
+      await page.locator('[data-testid=adapt]').click(); await page.waitForTimeout(300)
+      const note = await page.locator('[data-testid=adapt-note]').textContent().catch(() => '')
+      console.log(`adapted: ${note.slice(0, 140)}`)
+      if (!/octave up|frets/.test(note)) bad(`no explanation after Play it in Standard (${note})`)
+      const frets = (await page.locator('.tab-note').allTextContents()).map(t => parseInt(t)).join(' ')
+      console.log(`frets now: ${frets}`)
+      await page.locator('[data-testid=adapt-note] button:has-text("As written")').click()
+    } else bad('no "Play it in Standard" on the retune notice for a Drop D tab')
+    // Tuner lists the slack key tunings
+    await nav(page, 'Tools'); await sub(page, 'Tuner'); await page.waitForTimeout(300)
+    const opts = await page.locator('select option').allTextContents()
+    for (const t of ['G wahine', "Leonard's C", 'C Mauna Loa', 'Open G', 'C wahine']) if (!opts.some(o => o.includes(t))) bad(`tuner has no ${t}`)
+    // a chord sheet in Eb gets a Smart capo idea
+    await pasteSong(page, `Eb song
+Eb        Ab        Bb        Cm
+Words go here and here
+Eb        Ab        Bb        Bb
+More words go here too`, 'Eb song')
+    await page.locator('.opts-btn').click(); await page.waitForSelector('.play-opts')
+    const sc = page.locator('.play-opts [data-find=capo]')
+    if (!(await sc.count())) bad('no Smart capo for a chord sheet in Eb')
+    else {
+      console.log(`smart capo: ${(await sc.textContent()).slice(0, 120)}`)
+      await sc.locator('button:has-text("Capo")').click(); await page.waitForTimeout(200)
+      await page.locator('.play-opts >> text=Done').click(); await page.waitForTimeout(300)
+      const chords = await page.locator('.tab-chord').allTextContents()
+      console.log(`chords with the capo: ${[...new Set(chords)].join(' ')}`)
+      if (chords.some(c => /Eb|Ab/.test(c))) bad(`capo shapes not shown (${chords.join(' ')})`)
+    }
+    if (page.errors.length) bad(`tunings errors: ${page.errors.join(' | ')}`)
+    await page.context().close()
+  }
+
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : 'step 1: all good')
   process.exit(problems.length ? 1 : 0)

@@ -37,11 +37,13 @@ export function SongCheckCard({ check, speed, onSpeed, onLoopBar, onClose }: {
   )
 }
 
-export function RetuneNotice({ check, current, onTune, onClose }: {
+export function RetuneNotice({ check, current, onTune, onClose, onAdapt }: {
   check: SongCheck
   current: string
   onTune: () => void
   onClose: () => void
+  /** play it in the tuning you're in instead */
+  onAdapt?: () => void
 }) {
   const t = check.tuning
   if (!t) return null
@@ -49,10 +51,11 @@ export function RetuneNotice({ check, current, onTune, onClose }: {
     <div className="notice retune" role="status">
       <span>
         {t.id ? <>This song is in <b>{t.name}</b> ({t.notes}). </> : <>This tab uses an unusual tuning: <b>{t.notes}</b>. </>}
-        You're tuned to {current}, so the notes won't match until you retune.
+        You're tuned to {current}: retune, or play it in {current} (the same notes, moved to fit).
       </span>
-      <span className="row" style={{ flexWrap: 'nowrap', gap: 6 }}>
+      <span className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
         <button className="btn sm primary" onClick={onTune}>{t.id ? `Tune to ${t.name}` : 'Open the tuner'}</button>
+        {onAdapt && <button className="btn sm" onClick={onAdapt} data-testid="adapt">Play it in {current}</button>}
         <button className="btn sm ghost" onClick={onClose} aria-label="Hide this">✕</button>
       </span>
     </div>

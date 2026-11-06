@@ -45,6 +45,8 @@ import { onLeavePage } from '../audio/stopAll'
 import { FingerBox } from '../components/FingerBox'
 import { groupAt, handGroups } from '../play/handShape'
 import { easierTrack, editKey, fixedFingers, otherSpots, withMoves } from '../hand/edits'
+import { adaptTrack } from '../hand/adapt'
+import { bestCapo, capoTrack } from '../hand/capo'
 import { IconExpand, IconShrink, IconSliders } from '../components/Icons'
 import { setPlayFocus, useMedia } from '../ui'
 import { checkSong } from '../play/songCheck'
@@ -327,9 +329,21 @@ export function PlayScreen() {
   useEffect(() => { const f = () => setHandTick(t => t + 1); addEventListener('kg-hand', f); return () => removeEventListener('kg-hand', f) }, [])
   const track = useMemo(() => {
     if (!writtenTrack) return null
-    const base = doc?.easier ? easierTrack(writtenTrack, profile()?.level ?? 2, inst.id) : writtenTrack
+    // in your tuning / without the capo, then re-fingered if asked, then your own moved notes
+    const sameLen = writtenTrack.tuning.length === inst.midis.length
+    const tuned0 = (doc?.adapt && sameLen) || (doc?.noCapo && writtenTrack.capo) ? adaptTrack(writtenTrack, doc?.adapt && sameLen ? inst.midis : writtenTrack.tuning, !doc?.noCapo).track : writtenTrack
+    const tuned = doc?.smartCapo ? capoTrack(tuned0, doc.smartCapo, inst) : tuned0
+    const base = doc?.easier ? easierTrack(tuned, profile()?.level ?? 2, inst.id) : tuned
     return withMoves(base, trackIdx, doc?.hand)
-  }, [writtenTrack, doc?.easier, doc?.hand, trackIdx, inst.id, handTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [writtenTrack, doc?.easier, doc?.hand, doc?.adapt, doc?.noCapo, doc?.smartCapo, trackIdx, inst.id, inst.midis, handTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  // chord sheets: a capo that turns barre chords into open shapes
+  const capoIdea = useMemo(() => {
+    if (!doc || doc.source !== 'chords' || !writtenTrack) return null
+    const names = writtenTrack.bars.flatMap(b => b.steps.map(st => st.chord ?? '')).filter(Boolean)
+    const idea = bestCapo(names, inst)
+    return idea.capo > 0 && idea.effortNow - idea.effort >= 1 ? idea : null
+  }, [doc?.source, writtenTrack, inst]) // eslint-disable-line react-hooks/exhaustive-deps
+  const adaptNote = useMemo(() => (writtenTrack && (doc?.adapt || doc?.noCapo) ? adaptTrack(writtenTrack, doc?.adapt && writtenTrack.tuning.length === inst.midis.length ? inst.midis : writtenTrack.tuning, !doc?.noCapo).changes : []), [writtenTrack, doc?.adapt, doc?.noCapo, inst.midis])
   docRef.current = doc
   const flat = useMemo(() => (track ? flatten(track) : []), [track])
   // press a chord name (tab or chord strip) to peek at its shape without stopping anything
@@ -1156,6 +1170,14 @@ export function PlayScreen() {
             <label className="opt-row opt-check" data-find="count"><input type="checkbox" checked={counts} onChange={() => setCounts(!counts)} /><span><b>Count it: 1 & 2 &</b><span className="small muted">Note stems and the count under the tab.</span></span></label>
           )}
           <label className="opt-row opt-check" data-find="hand"><input type="checkbox" checked={handOn} onChange={() => setHandOn(!handOn)} /><span><b><Ico n="hand" /> Where your fingers go</b><span className="small muted">A floating window with the four frets your hand covers and each finger in colour. Drag it anywhere, resize it from its corner, tuck it away with –.</span></span></label>
+          {capoIdea && (
+            <div className="opt-row" data-find="capo"><span><b>Smart capo</b><span className="small muted">{doc.smartCapo ? `Capo ${(writtenTrack?.capo ?? 0) + doc.smartCapo} with easier shapes (${capoIdea.shapes.join(' ')}): it sounds the same.` : `Capo ${(writtenTrack?.capo ?? 0) + capoIdea.capo} turns these chords into easier shapes: ${capoIdea.shapes.join(' ')}. It sounds the same.`}</span></span>
+              <Chips label="Capo" items={[{ id: 'as', label: 'As written' }, { id: 'smart', label: `Capo ${(writtenTrack?.capo ?? 0) + capoIdea.capo}` }]} value={doc.smartCapo ? 'smart' : 'as'} onChange={v => { update({ smartCapo: v === 'smart' ? capoIdea.capo : undefined }); countUse('play:smartCapo') }} /></div>
+          )}
+          {!!writtenTrack?.capo && doc.source !== 'chords' && (
+            <div className="opt-row" data-find="nocapo"><span><b>Capo {writtenTrack.capo}</b><span className="small muted">{doc.noCapo ? 'Playing it without the capo: every fret is higher, the notes are the same.' : 'No capo handy? Play the same notes without it.'}</span></span>
+              <Chips label="Capo" items={[{ id: 'as', label: 'With capo' }, { id: 'no', label: 'Without capo' }]} value={doc.noCapo ? 'no' : 'as'} onChange={v => { update({ noCapo: v === 'no' }); countUse('play:noCapo') }} /></div>
+          )}
           <div className="opt-row" data-find="fingering"><span><b>Fingering</b><span className="small muted">{doc.easier ? 'Re-fingered for your hand: the same notes on the strings and frets that move your hand least. The tab as written is kept.' : 'As written. Easier re-places the notes for your hand size and level. Tap any note to choose a finger or another string for it.'}</span></span>
             <Chips label="Fingering" items={[{ id: 'as', label: 'As written' }, { id: 'easy', label: 'Easier for my hand' }]} value={doc.easier ? 'easy' : 'as'} onChange={v => { update({ easier: v === 'easy' }); countUse('play:easier') }} /></div>
           <div className="opt-row" data-find="size"><span className="opt-name">Size</span>
@@ -1308,7 +1330,17 @@ export function PlayScreen() {
         )}
         {check?.tuning && retuneHidden !== doc.id && (
           <RetuneNotice check={check} current={inst.tuning.name.replace(/\s*\(.*\)$/, '')} onClose={() => setRetuneHidden(doc.id)}
-            onTune={() => { if (check.tuning?.id) setTuning(inst.id, check.tuning.id); go('tuner') }} />
+            onTune={() => { if (check.tuning?.id) setTuning(inst.id, check.tuning.id); go('tuner') }}
+            onAdapt={() => { update({ adapt: true }); countUse('play:adapt') }} />
+        )}
+        {(doc.adapt || doc.noCapo) && adaptNote.length > 0 && retuneHidden !== `a:${doc.id}` && (
+          <div className="notice retune" role="status" data-testid="adapt-note">
+            <span><b>{doc.adapt ? `Playing it in ${inst.tuning.name.replace(/\s*\(.*\)$/, '')}` : 'Playing it without the capo'}</b>: {adaptNote.join('; ')}.</span>
+            <span className="row" style={{ flexWrap: 'nowrap', gap: 6 }}>
+              <button className="btn sm" onClick={() => update({ adapt: false, noCapo: false })}>As written</button>
+              <button className="btn sm ghost" onClick={() => setRetuneHidden(`a:${doc.id}`)} aria-label="Hide this">✕</button>
+            </span>
+          </div>
         )}
         {checkOpen && check && (
           <SongCheckCard check={check} speed={speed} onSpeed={v => { setSpeed(v); if (playAt >= 0) stopPreview() }}
