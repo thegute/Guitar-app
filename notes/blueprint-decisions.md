@@ -30,4 +30,16 @@ Concept-check answers (2026-11-06, after the full text):
 - YouTube Data API key: he'll get one himself (Gemini walking him through it); KGuitar needs a place to paste it (Step 2), kept on the phone only like the AI keys.
 - He's going with my recommendations (checkpoints per piece, reuse existing parts, track roles as defaults, built-in offline fallbacks,
   no Proxy Stream, original pieces in the acoustic songwriter style, architecture file at the end).
-Still waiting for: "Approved — Start Step 1".
+Approved 2026-11-06 ("okay you start the build"); the owner tries everything once all three steps are done; checkpoints per piece
+(backup branch backup-before-blueprint = the state before any blueprint code).
+Step 1 answers: hand size medium; the floating box replaces the readout's hand diagram.
+Steps 2 and 3 are broken into substeps (2a–2g, 3a–3j) like Step 1. Owner went with my picks:
+- Riff Scanner lives in Jam (replaces Find chords; shortcut from Songs → Add a song), three big buttons: Scan a video / Shorts / Listen.
+- Game Mode is a view inside Play (Tab · Stand · Game), not its own screen.
+- The 4-track looper has its own Jam page and a slim bar on Play, Scales and the beat maker.
+- Scans that were heard (not read from the screen) ask "Does this look right?" before saving.
+- Guitar separation (stem model): off for now, maybe later.
+- Scan chain: 1 Gemini watches the link → 2 KGuitar screen grab (on-screen tab) + inside-the-phone sound (AudioPlaybackCapture) →
+  3 the owner's Samsung screen recording (media sounds) picked as a file (Riff Scanner explains how when 2 fails) →
+  4 the mic only when he taps "Play it out loud". On-screen tab gives notes/frets, sound gives timing/tempo.
+- Chocolate MIDI (1g) comes before the looper pedal profile (3d).
