@@ -152,7 +152,18 @@ const busy = (status: number) => status === 500 || status === 502 || status === 
  *  few seconds, and if it hasn't answered by then the next one is asked too, at the same time; whichever answers
  *  first wins. A model that's busy, missing or over its free limit is skipped at once. After about 30 seconds the
  *  built-in helper answers instead. */
-export async function ask(system: string, msgs: Msg[], o: { pictures?: boolean; json?: boolean; maxTokens?: number; onText?: (soFar: string) => void } = {}): Promise<string> {
+export interface AskOpts {
+  pictures?: boolean; json?: boolean; maxTokens?: number; onText?: (soFar: string) => void
+  /** an answer this says no to counts as a miss: the race goes on with the others (the first GOOD answer wins) */
+  accept?: (text: string) => boolean
+  /** ask the next model alongside after this long without an answer (default 6 s, 20 s with a picture) */
+  hedgeMs?: number
+  /** give up after this long (default 30 s, 90 s with a picture) */
+  deadlineMs?: number
+  /** Cancel */
+  signal?: AbortSignal
+}
+export async function ask(system: string, msgs: Msg[], o: AskOpts = {}): Promise<string> {
   const v = aiSettings()
   const p = activeProvider(v, !!o.pictures)
   if (!p) throw new AiError(o.pictures ? 'Reading pictures needs a free Google Gemini or Groq key: add one in Settings → You → AI helper.' : 'No AI key yet: add a free one in Settings → You → AI helper.')
@@ -168,8 +179,8 @@ export async function ask(system: string, msgs: Msg[], o: { pictures?: boolean; 
   // is), then the other Gemini models. Ones that just failed wait at the back for 10 minutes.
   const tries = [own[0], ...others, ...own.slice(1)].filter(Boolean)
   tries.sort((a, b) => Number(cooling(a.model)) - Number(cooling(b.model)))
-  const deadline = Date.now() + (hasImage ? 90000 : 30000)
-  const hedgeMs = hasImage ? 20000 : 6000
+  const deadline = Date.now() + (o.deadlineMs ?? (hasImage ? 90000 : 30000))
+  const hedgeMs = o.hedgeMs ?? (hasImage ? 20000 : 6000)
   lastTries = []
   return new Promise<string>((resolve, reject) => {
     let done = false, next = 0, running = 0, leader = -1
@@ -177,6 +188,10 @@ export async function ask(system: string, msgs: Msg[], o: { pictures?: boolean; 
     const timers: number[] = []
     const finish = (f: () => void) => { if (done) return; done = true; timers.forEach(clearTimeout); f() }
     const giveUp = () => finish(() => reject(last ?? new AiError(`${p.label} took too long to answer.`, true)))
+    if (o.signal) {
+      if (o.signal.aborted) { finish(() => reject(new AiError('Cancelled.'))); return }
+      o.signal.addEventListener('abort', () => finish(() => reject(new AiError('Cancelled.'))), { once: true })
+    }
     const launch = () => {
       if (done) return
       const left = deadline - Date.now()
@@ -186,6 +201,9 @@ export async function ask(system: string, msgs: Msg[], o: { pictures?: boolean; 
       // only the first model that starts writing shows its words
       const onText = o.onText ? (soFar: string) => { if (leader < 0) leader = i; if (leader === i && !done) o.onText!(soFar) } : undefined
       askOnce(t.p, t.model, v.keys[t.p.id]!, system, msgs, { ...o, onText }, Math.min(hasImage ? 60000 : 25000, left)).then(text => {
+        if (o.accept && !o.accept(text)) throw Object.assign(new AiError(`${t.p.label} answered, but not with what was asked for.`, true), { unwanted: true })
+        return text
+      }).then(text => {
         running--
         lastTries.push(`${t.model}: answered in ${((Date.now() - t0) / 1000).toFixed(1)} s`)
         if (t.p.id === 'gemini' && i > 0) { workedModel = t.model; try { localStorage.setItem('kgx:aiWorked', t.model) } catch { /* storage */ } }
@@ -194,7 +212,7 @@ export async function ask(system: string, msgs: Msg[], o: { pictures?: boolean; 
         running--
         last = e instanceof AiError ? e : new AiError(`Couldn't reach ${t.p.label}. Check the internet connection.`)
         lastTries.push(`${t.model}: ${last.message} (${((Date.now() - t0) / 1000).toFixed(1)} s)`)
-        if (last.retry) coolUntil.set(t.model, Date.now() + 10 * 60000)
+        if (last.retry && !(e as { unwanted?: boolean }).unwanted) coolUntil.set(t.model, Date.now() + 10 * 60000)
         if (leader === i) leader = -1
         if (done) return
         if (!last.retry) { if (!running) giveUp(); return }

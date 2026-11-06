@@ -239,7 +239,7 @@ async function playThrough(page) {
     await page.waitForSelector('.tab-note', { timeout: 8000 })
     const emoji = /[\u{1F300}-\u{1FAFF}\u{23E9}-\u{23FA}\u2728]/u
     const seen = []
-    for (const [tab, subs] of [['Play', []], ['Songs', ['My songs', 'Songbook', 'Exercises', 'Add a song']], ['Learn', ['Today', 'Course', 'Explore']], ['Jam', ['Jam', 'Solo over it', 'Make a tab', 'Find chords', 'Beat maker']], ['Tools', []]]) {
+    for (const [tab, subs] of [['Play', []], ['Songs', ['My songs', 'Songbook', 'Exercises', 'Add a song']], ['Learn', ['Today', 'Course', 'Explore']], ['Jam', ['Jam', 'Solo over it', 'Make a tab', 'Riff Scanner', 'Beat maker']], ['Tools', []]]) {
       await nav(page, tab); await page.waitForTimeout(400)
       for (const s of subs.length ? subs : [null]) {
         if (s) { await sub(page, s); await page.waitForTimeout(350) }

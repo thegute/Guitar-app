@@ -3,7 +3,7 @@
 // and adding a song (find one online, upload Guitar Pro or text files, or paste a tab or chord sheet).
 import { stopAllSounds } from '../audio/stopAll'
 import { Win, WinArea } from '../components/Win'
-import { TabFromPicture } from '../assistant/TabFromPicture'
+import { ScanVideo } from '../scan/RiffScanner'
 import { Fold } from '../components/Fold'
 import { Songbook } from '../components/Songbook'
 import { ProgressionTabs } from '../components/ProgressionTabs'
@@ -25,7 +25,8 @@ import { Clipboard } from '@capacitor/clipboard'
 import { INSTRUMENTS, useInstrument, type InstrumentId } from '../instrument'
 import { KeyPicker, Chips, usePersist } from '../components/Controls'
 import { ExerciseBrowser } from '../exercises/ExerciseBrowser'
-import { openInPlay } from '../nav'
+import { go, openInPlay, setSubPage } from '../nav'
+import { Ico } from '../components/Icon'
 import { TAB_SITES } from '../tabs/tabSites'
 
 const SITES = TAB_SITES
@@ -273,10 +274,12 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
         {yt.trim() && !link && <span className="small" style={{ color: 'var(--coral)' }}>That YouTube link doesn't look right.</span>}
         {error && <p className="notice small" role="alert">{error}</p>}
       </Win>
-      <Win id="picture" title="Tab on screen in a video, a photo or a scanned PDF" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+      <Win id="picture" title="Riff Scanner: a tab on screen, a photo or a scanned PDF" bodyClass="stack" bodyStyle={{ gap: 8 }}
+        extra={<button className="btn sm" onClick={() => { setSubPage('jam', 'find'); go('progressions') }} data-testid="open-scanner"><Ico n="scan" /> Full scanner</button>}>
         <div ref={pictures} />
         {scanned && <p className="notice small" style={{ margin: 0 }}>"{scanned.name}" is scanned pages (pictures, no text), so the AI reads them: its pages are below. Tap <b>Read the tab</b>.</p>}
-        <TabFromPicture key={scanned?.name ?? ''} youtube={link} initial={scanned?.pics} onOpen={d => void saveSong(d).then(() => onOpen(d))} />
+        <ScanVideo key={scanned?.name ?? ''} youtube={link} initialPics={scanned?.pics.map(p => ({ name: p.name, url: p.url }))} />
+        <p className="small muted" style={{ margin: 0 }}>The full Riff Scanner (Jam → Riff Scanner) also scans YouTube links and Shorts, and listens.</p>
       </Win>
     </WinArea>
   )

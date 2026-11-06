@@ -159,7 +159,7 @@ async function tour(browser, theme, sizeName, { contrastCheck = true } = {}) {
   for (const s of ['You', 'Sound', 'Look', 'Backup']) { await sub(page, s); await check(page, `${tag}-settings-${s.toLowerCase()}`, { contrastCheck }) }
   await nav(page, 'Jam')
   await page.waitForTimeout(300)
-  for (const s of ['Jam', 'Solo over it', 'Make a tab', 'Find chords']) { await sub(page, s); await check(page, `${tag}-jam-${s.split(' ')[0].toLowerCase()}`, { contrastCheck }) }
+  for (const s of ['Jam', 'Solo over it', 'Make a tab', 'Riff Scanner']) { await sub(page, s); await check(page, `${tag}-jam-${s.split(' ')[0].toLowerCase()}`, { contrastCheck }) }
   await nav(page, 'Tools')
   for (const s of ['Tuner', 'Tempo', 'Chords', 'Scales']) { await sub(page, s); await check(page, `${tag}-tools-${s.toLowerCase()}`, { contrastCheck }) }
   await page.context().close()

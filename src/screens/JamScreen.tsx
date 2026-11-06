@@ -39,7 +39,8 @@ import { patternForStrum } from '../tabs/picking'
 import { saveSong } from '../tabs/library'
 import { openInPlay } from '../nav'
 import { SongFinder } from '../components/SongFinder'
-import { TabFromPicture } from '../assistant/TabFromPicture'
+import { RiffScanner } from '../scan/RiffScanner'
+import type { Quality } from '../audio/chordFinder'
 import { Zoomable } from '../components/Zoomable'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { PsyPic } from '../components/PsyArt'
@@ -646,6 +647,14 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     </div>
   )
 
+  // chords found by listening or scanning → this Jam progression
+  const takeFound = (root: string, minor: boolean, chords: { root: string; q: Quality }[]) => {
+    const m: ModeId = minor ? 'minor' : 'major'
+    setTonic(root)
+    setMode(m)
+    load(chords.map(c => spell(root, m, { semi: (pc(c.root) - pc(root) + 12) % 12, type: c.q })).map(c => ({ ...c, beats: rate })))
+    setPage('jam')
+  }
   return (
     <div className={`stack jam${playing ? ' playing' : ''}`} style={{ ['--beat' as string]: `${(60 / bpm).toFixed(3)}s` }}>
       <header className="screen-head jam-head">
@@ -657,7 +666,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         { id: 'jam', label: 'Jam' },
         { id: 'solo', label: 'Solo over it' },
         { id: 'tab', label: 'Make a tab' },
-        { id: 'find', label: 'Find chords' },
+        { id: 'find', label: 'Riff Scanner' },
         { id: 'beats', label: 'Beat maker' },
       ]} />
 
@@ -741,25 +750,25 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
 
       {page === 'beats' && <Suspense fallback={<p className="muted">Loading the beat maker…</p>}><StudioScreen active={page === 'beats'} /></Suspense>}
 
-      {page === 'find' && (<WinArea area="jamFind">
-        <Win id="picture" title="Tab on screen in the video?" className="panel" bodyClass="stack">
-          <TabFromPicture onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
-        </Win>
-        <Win id="listen" title="Listen for the chords" className="panel" bodyClass="stack">
-          <SongFinder
-            onUseInJam={(root, minor, chords) => {
-              const m: ModeId = minor ? 'minor' : 'major'
-              setTonic(root)
-              setMode(m)
-              load(chords.map(c => spell(root, m, { semi: (pc(c.root) - pc(root) + 12) % 12, type: c.q })).map(c => ({ ...c, beats: rate })))
-              setPage('jam')
-            }}
-            onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
-        </Win>
-        <Win id="notes" title="Notes from a recording (accurate)" className="panel" bodyClass="stack">
-          <Transcriber onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
-        </Win>
-      </WinArea>)}
+      {page === 'find' && (
+        <RiffScanner
+          onUseInJam={names => {
+            // scanned chord names → this Jam progression (key from the first chord)
+            const parsed = names.map(n => /^([A-G][#b]?)(.*)$/.exec(n.split('/')[0])).filter((m): m is RegExpExecArray => !!m)
+            if (parsed.length < 2) return
+            const q = (suf: string): Quality => /^m7/.test(suf) ? 'm7' : /^(m|min)(?!aj)/.test(suf) ? 'm' : /^7/.test(suf) ? '7' : ''
+            const root = parsed[0][1], minor = q(parsed[0][2]).startsWith('m')
+            takeFound(root, minor, parsed.map(m => ({ root: m[1], q: q(m[2]) })))
+          }}
+          listen={<WinArea area="jamFind">
+            <Win id="listen" title="Listen for the chords" className="panel" bodyClass="stack">
+              <SongFinder onUseInJam={takeFound} onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
+            </Win>
+            <Win id="notes" title="Notes from a recording (accurate)" className="panel" bodyClass="stack">
+              <Transcriber onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
+            </Win>
+          </WinArea>} />
+      )}
     </div>
   )
 }

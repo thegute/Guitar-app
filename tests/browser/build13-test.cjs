@@ -339,7 +339,7 @@ async function play(browser) {
 
 // ---------------------------------------------------------------- finder
 async function finder(browser) {
-  const page = await newPage(browser, { 'kg:tab2': 'progressions', 'kg:sub:jam': 'find' })
+  const page = await newPage(browser, { 'kg:tab2': 'progressions', 'kg:sub:jam': 'find', 'kg:scanMode': 'listen' })
   await page.waitForSelector('.song-finder')
   await page.locator('.song-finder button.listen').click()
   let chips = []
@@ -364,7 +364,7 @@ async function finder(browser) {
   if (jamChords.join(' ') !== 'G C D') bad(`Use in Jam loaded ${jamChords.join(' ')}`)
   await shot(page, 'finder-jam')
   // and as a chord sheet in Play (the chords found are still there on Find chords)
-  await sub(page, 'Find chords')
+  await sub(page, 'Riff Scanner'); await page.locator('[data-testid=scan-mode-listen]').click()
   await page.locator('.song-finder button:has-text("Open as a chord sheet")').click()
   try { const t = await playHasTab(page); if (!t.chords) bad('finder chord sheet has no chords') } catch { bad('finder: Open as a chord sheet did nothing') }
   if (page.errors.length) bad('finder page errors: ' + page.errors.join(' | '))
@@ -482,7 +482,7 @@ async function sizes(browser) {
     await check('counts')
     // Jam: the chord finder
     await nav(page, 'Jam'); await page.waitForSelector('.jam')
-    await sub(page, 'Find chords'); await page.waitForSelector('.song-finder'); await check('finder')
+    await sub(page, 'Riff Scanner'); await page.locator('[data-testid=scan-mode-listen]').click(); await page.waitForSelector('.song-finder'); await check('finder')
     if (page.errors.length) bad(`sizes ${name}/${theme} page errors: ` + page.errors.join(' | '))
     console.log(`sizes ${name}/${theme} done`)
     await page.context().close()
@@ -514,7 +514,7 @@ async function intime(browser) {
 // ---------------------------------------------------------------- melody
 async function melody() {
   const browser = await launch('ode.wav')
-  const page = await newPage(browser, { 'kg:tab2': 'progressions', 'kg:sub:jam': 'find', ...(process.env.MELODY_THEME ? { 'kg:theme': process.env.MELODY_THEME } : {}) })
+  const page = await newPage(browser, { 'kg:tab2': 'progressions', 'kg:sub:jam': 'find', 'kg:scanMode': 'listen', ...(process.env.MELODY_THEME ? { 'kg:theme': process.env.MELODY_THEME } : {}) })
   await page.waitForSelector('.song-finder')
   await page.locator('.song-finder button:has-text("Notes (melody)")').click()
   await page.locator('.song-finder button.listen').click()

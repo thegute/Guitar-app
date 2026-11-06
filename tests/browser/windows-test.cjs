@@ -40,7 +40,7 @@ async function drag(page, from, toX, toY) {
     ['Tools', 'Tuner', 3], ['Tools', 'Tempo', 3], ['Tools', 'Chords', 4], ['Tools', 'Scales', 2],
     ['Songs', 'My songs', 2], ['Songs', 'Songbook', 2], ['Songs', 'Exercises', 3], ['Songs', 'Add a song', 3],
     ['Learn', 'Today', 3], ['Learn', 'Course', 2], ['Learn', 'Explore', 3],
-    ['Jam', 'Jam', 2], ['Jam', 'Solo over it', 3], ['Jam', 'Make a tab', 1], ['Jam', 'Find chords', 3],
+    ['Jam', 'Jam', 2], ['Jam', 'Solo over it', 3], ['Jam', 'Make a tab', 1], ['Jam', 'Riff Scanner', 2],
     ['Settings', 'You', 6], ['Settings', 'Sound', 4], ['Settings', 'Look', 1], ['Settings', 'Backup', 2],
   ]
   if (want('screens')) for (const vp of [{ width: 360, height: 760 }, { width: 412, height: 915 }, { width: 840, height: 757 }]) {
@@ -48,6 +48,7 @@ async function drag(page, from, toX, toY) {
     for (const [tab, pg, min] of SCREENS) {
       if (tab === 'Settings') { await nav(page, 'Learn'); await page.locator('[aria-label="Settings"]').click() } else await nav(page, tab)
       await sub(page, pg)
+      if (pg === 'Riff Scanner') await page.locator('[data-testid=scan-mode-listen]').click()
       await page.waitForTimeout(500)
       const n = await page.locator('.win').count()
       const bars = await page.locator('.win .win-grip').count()

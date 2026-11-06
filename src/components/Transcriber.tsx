@@ -1,4 +1,4 @@
-// Jam → Find chords → "Notes from a recording": record yourself (or the phone speaker playing a solo lesson) or pick
+// Jam → Riff Scanner → Listen → "Notes from a recording": record yourself (or the phone speaker playing a solo lesson) or pick
 // an audio file, and Basic Pitch writes down every note; then it's a tab, single notes or with the chords.
 import { useEffect, useRef, useState } from 'react'
 import { Ico } from './Icon'

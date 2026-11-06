@@ -84,7 +84,7 @@ const errs = (page, where) => { if (page.errors.length) bad(`${where} page error
   }
   if (want('transcribe')) {
     const page = await newPage(browser, {}, { width: 840, height: 757 })
-    await nav(page, 'Jam'); await sub(page, 'Find chords')
+    await nav(page, 'Jam'); await sub(page, 'Riff Scanner'); await page.locator('[data-testid=scan-mode-listen]').click()
     const box = page.locator('[data-testid=transcriber]')
     await box.locator('[data-testid=tx-file]').setInputFiles(path.join(DIR, 'out', 'ode.wav'))
     await box.locator('[data-testid=tx-open]').waitFor({ timeout: 90000 }).catch(() => bad('transcribe: no tab after 90 s'))

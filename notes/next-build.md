@@ -71,6 +71,15 @@ Each item is its own checkpoint, so any one can be undone with `git revert <chec
     on recorded guitar samples, the rest offered as ½×/2×. Finger box: starts in the free-est corner of the tab and hides while a
     sheet or the menu drawer is open. Ask: is the badge in the way on the cover screen?
 
+46. **Riff Scanner (2b + 2c)** (CHECKPOINT_2BC). Jam → Find chords is now Jam → Riff Scanner: three big buttons Scan a video /
+    Shorts / Listen (Listen = the old live mic chords/melody + Notes from a recording). Scan a video: Screenshots or a Video or
+    audio file (Samsung screen recordings too). It finds the tab staves itself (gold box, drag it or its corners), crops,
+    enlarges 2–3×, greys, flips dark video tabs to black on white, sharpens; a scrolling tab in a video is followed and stitched;
+    then Gemini + Groq race (the first answer that really is a tab wins). Steps show as they happen, with Cancel. Tempo from the
+    sound (or a tempo written on the tab). Result: title, tempo badge, Open in Play, Practise it today, Use the chords in Jam,
+    Fix the tab text, Hear it + preview. Sound-only scans ask "Does this look right?" first. Songs → Add a song keeps the
+    picture part (and scanned PDFs) with a "Full scanner" button. Ask: does it find the tab in your real lesson videos?
+
 Checks: npm test (build32/build33 logic, pdf-tab), browser: build33-test [pdf, maketab, transcribe, z2h], beatmaker-test,
 windows-test [screens, drag, play], and the older suites.
 

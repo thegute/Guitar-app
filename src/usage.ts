@@ -48,7 +48,7 @@ export const KNOWN: Record<string, string> = {
   'page:songs:mine': 'Songs → My songs', 'page:songs:songbook': 'Songs → Songbook', 'page:songs:practice': 'Songs → Practice',
   'page:songs:add': 'Songs → Add a song',
   'page:learn:today': 'Learn → Today', 'page:learn:course': 'Learn → Course', 'page:learn:explore': 'Learn → Explore',
-  'page:jam:jam': 'Jam → Jam', 'page:jam:solo': 'Jam → Solo over it', 'page:jam:tab': 'Jam → Make a tab', 'page:jam:find': 'Jam → Find chords',
+  'page:jam:jam': 'Jam → Jam', 'page:jam:solo': 'Jam → Solo over it', 'page:jam:tab': 'Jam → Make a tab', 'page:jam:find': 'Jam → Riff Scanner',
   'page:jam:beats': 'Jam → Beat maker',
   'learn:ear': 'Ear trainer', 'learn:caged': 'CAGED', 'learn:changes': 'Chord changes', 'learn:rhythm': 'Rhythm trainer',
   'learn:circle': 'Circle of fifths', 'learn:progress': 'Progress', 'learn:lessons': 'Lessons', 'learn:techniques': 'Technique',

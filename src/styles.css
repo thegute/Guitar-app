@@ -2320,3 +2320,35 @@ video.mirrored { transform: scaleX(-1); }
 /* the floating finger box stays over the tab and the music stand, but steps aside while a sheet, the menu drawer
    or a full-screen card is open (it would sit on top of their buttons) */
 body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-ready) :is(.finger-box, .finger-chip) { visibility: hidden; }
+
+/* Riff Scanner */
+.scan-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); }
+.scan-mode { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; min-height: 76px; border-radius: var(--r-md);
+  border: 1px solid var(--hairline); background: var(--surface); color: var(--ink); cursor: pointer; text-align: center; }
+.scan-mode .ico { width: 22px; height: 22px; }
+.scan-mode b { font-size: 15px; }
+.scan-mode .small { color: var(--ink-2); line-height: 1.2; }
+.scan-mode.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+@media (max-width: 400px) { .scan-mode .small { display: none; } .scan-mode { min-height: 60px; } }
+[data-theme='psy'] .scan-mode { background: rgba(28, 6, 65, .92); }
+.scan-progress { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: var(--r-md); border: 1px solid var(--hairline); background: var(--surface); }
+[data-theme='psy'] .scan-progress { background: rgba(28, 6, 65, .94); }
+.scan-progress ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.scan-progress li { display: grid; grid-template-columns: 22px 1fr; align-items: center; gap: 4px 8px; }
+.scan-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--hairline); display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+.st-run .scan-dot { border-color: var(--accent); border-top-color: transparent; animation: spin 0.9s linear infinite; }
+.st-done .scan-dot { background: var(--mint); border-color: var(--mint); color: #062; }
+.st-fail .scan-dot { background: var(--coral); border-color: var(--coral); color: #300; }
+.st-skip, .st-wait { color: var(--ink-2); }
+.scan-bar { grid-column: 2; height: 4px; border-radius: 2px; background: var(--hairline); overflow: hidden; display: block; }
+.scan-bar b { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+@media (prefers-reduced-motion: reduce) { .st-run .scan-dot { animation: none; border-top-color: var(--accent); } }
+.crop-wrap { position: relative; max-width: 100%; touch-action: none; user-select: none; line-height: 0; }
+.crop-wrap img { width: 100%; height: auto; border-radius: var(--r-sm); }
+.crop-rect { position: absolute; border: 2px solid var(--gold); border-radius: 4px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, .35); cursor: move; }
+.crop-h { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--gold); border: 2px solid #000; opacity: .85; }
+.crop-h::after { content: ''; position: absolute; inset: -12px; } /* a bigger touch target than it looks */
+.crop-h.tl { left: -2px; top: -2px; cursor: nwse-resize; }
+.crop-h.br { right: -2px; bottom: -2px; cursor: nwse-resize; }
+.crop-wrap { overflow: hidden; border-radius: var(--r-sm); }
+.scan-check { display: flex; flex-direction: column; gap: 6px; }
