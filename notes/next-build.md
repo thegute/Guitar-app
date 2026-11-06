@@ -71,7 +71,7 @@ Each item is its own checkpoint, so any one can be undone with `git revert <chec
     on recorded guitar samples, the rest offered as ½×/2×. Finger box: starts in the free-est corner of the tab and hides while a
     sheet or the menu drawer is open. Ask: is the badge in the way on the cover screen?
 
-46. **Riff Scanner (2b + 2c)** (CHECKPOINT_2BC). Jam → Find chords is now Jam → Riff Scanner: three big buttons Scan a video /
+46. **Riff Scanner (2b + 2c)** (3e54677). Jam → Find chords is now Jam → Riff Scanner: three big buttons Scan a video /
     Shorts / Listen (Listen = the old live mic chords/melody + Notes from a recording). Scan a video: Screenshots or a Video or
     audio file (Samsung screen recordings too). It finds the tab staves itself (gold box, drag it or its corners), crops,
     enlarges 2–3×, greys, flips dark video tabs to black on white, sharpens; a scrolling tab in a video is followed and stitched;
