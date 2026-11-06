@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react'
 import { launch } from '../search/launch'
 import { startSession } from '../sessions/session'
-import { PATHS, PHASES, RULES, START_CHECK, TEMPO_RULE, currentFocus, gateDone, routine, saveZ2H, weekOf, z2h, z2hStats, type Z2H } from './zeroHero'
+import { PATHS, PHASES, RULES, START_CHECK, TEMPO_RULE, currentFocus, gateDone, routine, saveZ2H, weekOf, z2h, z2hStats, type Watch, type Z2H } from './zeroHero'
+import { LessonVideoCard } from './LessonReader'
 
 export function ZeroToHero({ onRecordings }: { onRecordings: () => void }) {
   const [v, setV] = useState<Z2H>(z2h)
@@ -65,6 +66,7 @@ export function ZeroToHero({ onRecordings }: { onRecordings: () => void }) {
                 <span className="plan-check">›</span><span>{f.label}</span>
               </button>
               {!p.weeks && <button className="btn sm ghost" onClick={() => set({ ...v, ticks: [...v.ticks, 'f:' + f.label] })} title="I've got this one">✓</button>}
+              {f.watch && <WatchRow w={f.watch} v={v} set={set} />}
             </li>
           ))}
         </ul>
@@ -122,6 +124,7 @@ export function ZeroToHero({ onRecordings }: { onRecordings: () => void }) {
                         <li key={st.label}>
                           <button className={done ? 'done' : ''} onClick={() => st.target && launch(st.target)}><span className="plan-check">{done ? '✓' : '›'}</span><span>{st.label}</span></button>
                           <button className="btn sm ghost" aria-pressed={done} onClick={() => set({ ...v, ticks: done ? v.ticks.filter(x => x !== k) : [...v.ticks, k] })}>{done ? 'Undo' : '✓'}</button>
+                          {st.watch && <WatchRow w={st.watch} v={v} set={set} />}
                         </li>
                       )
                     })}
@@ -158,6 +161,27 @@ export function ZeroToHero({ onRecordings }: { onRecordings: () => void }) {
             </li>
           ))}
         </ol>
+      )}
+    </div>
+  )
+}
+
+/** A lesson video for one spot in the plan: Watch opens it here; it's ticked once played (or by hand). */
+function WatchRow({ w, v, set }: { w: Watch; v: Z2H; set: (v: Z2H) => void }) {
+  const [open, setOpen] = useState(false)
+  const k = 'w:' + w.id
+  const seen = v.ticks.includes(k)
+  const mark = (on: boolean) => set({ ...v, ticks: on ? [...v.ticks.filter(x => x !== k), k] : v.ticks.filter(x => x !== k) })
+  return (
+    <div className="z2h-watch">
+      <button className={`btn sm${seen ? ' ghost' : ''}`} aria-expanded={open} onClick={() => setOpen(!open)} data-testid="z2h-watch">
+        {seen ? '✓ Watched' : '▶ Watch'}: {w.title}{w.who ? ` (${w.who})` : ''}
+      </button>
+      {open && (
+        <>
+          <LessonVideoCard video={{ id: w.id, title: w.title }} onPlay={() => { if (!seen) mark(true) }} />
+          <button className="link-btn small" onClick={() => mark(!seen)}>{seen ? 'Mark as not watched' : "I've watched it"}</button>
+        </>
       )}
     </div>
   )

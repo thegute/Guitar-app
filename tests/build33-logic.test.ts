@@ -106,3 +106,12 @@ const steps = (s: ReturnType<typeof compose>['song']) => s.tracks[0].bars.flatMa
   assert.deepEqual(songsterrIds('https://www.songsterr.com/a/wsa/band-test-song-tab-s77t2'), { songId: 77, track: 2 })
   console.log('Songsterr and Ultimate Guitar import: ok')
 }
+{
+  // Zero to Hero and style paths: a lesson video on every skill spot, YouTube ids, a watch step on odd days
+  const { PHASES, PATHS } = await import('../src/learn/zeroHero')
+  const spots = [...PHASES.flatMap(p => [...p.focus, ...(p.weeks ?? []).flatMap(w => w.focus)]), ...PATHS.flatMap(p => p.steps)]
+  const withVideo = spots.filter(f => f.watch)
+  for (const f of withVideo) assert.match(f.watch!.id, /^[\w-]{11}$/, f.label)
+  assert.ok(withVideo.length >= 55, `${withVideo.length} spots with a video`)
+  console.log(`Zero to Hero videos: ${withVideo.length} of ${spots.length} spots: ok`)
+}

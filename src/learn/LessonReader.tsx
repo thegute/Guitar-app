@@ -136,7 +136,7 @@ function BlockView({ b, inst, onGo }: { b: Block; inst: Instrument; onGo: (g: Go
 }
 
 /** Watch: the lesson's YouTube video. The picture loads first; tapping it plays the video here. */
-function LessonVideoCard({ video }: { video: LessonVideo }) {
+export function LessonVideoCard({ video, onPlay }: { video: LessonVideo; onPlay?: () => void }) {
   const [play, setPlay] = useState(false)
   useEffect(() => setPlay(false), [video.id])
   const origin = typeof location !== 'undefined' && /^https?:/.test(location.origin) ? location.origin : ''
@@ -148,7 +148,7 @@ function LessonVideoCard({ video }: { video: LessonVideo }) {
             title={video.title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen
             referrerPolicy="strict-origin-when-cross-origin" />
         ) : (
-          <button className="lv-poster" onClick={() => setPlay(true)} aria-label={`Play the video: ${video.title}`}>
+          <button className="lv-poster" onClick={() => { setPlay(true); onPlay?.() }} aria-label={`Play the video: ${video.title}`}>
             <img src={videoThumb(video.id)} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = 'none' }} />
             <span className="lv-play" aria-hidden="true">▶</span>
           </button>

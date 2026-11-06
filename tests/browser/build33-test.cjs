@@ -97,6 +97,26 @@ const errs = (page, where) => { if (page.errors.length) bad(`${where} page error
     errs(page, 'transcribe')
     await page.context().close()
   }
+  if (want('z2h')) {
+    for (const vp of [{ width: 412, height: 915 }, { width: 840, height: 757 }]) {
+      const page = await newPage(browser, { 'kg:z2h': { phase: 2, since: Date.now(), placed: true, ticks: [], paths: ['slackkey', 'flatpick'] }, 'kg:sub:learn': 'course' }, vp)
+      await nav(page, 'Learn'); await sub(page, 'Course')
+      const btns = page.locator('[data-testid=z2h-watch]')
+      await btns.first().waitFor({ timeout: 8000 }).catch(() => bad(`${vp.width}: no Watch buttons in Zero to Hero`))
+      const n = await btns.count()
+      await btns.first().click()
+      await page.locator('.z2h-watch .lv-poster').first().click().catch(() => bad('no video poster'))
+      await page.waitForTimeout(300)
+      const ticked = await page.evaluate(() => JSON.parse(localStorage.getItem('kg:z2h')).ticks.filter(t => t.startsWith('w:')).length)
+      console.log(`${vp.width}: ${n} Watch buttons, ${ticked} ticked after playing one`)
+      if (!ticked) bad(`${vp.width}: playing a video didn't tick it`)
+      const sideways = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
+      if (sideways) bad(`${vp.width}: sideways scroll in Zero to Hero`)
+      if (vp.width === 412) await page.screenshot({ path: 'tests/browser/out/z2h-watch.png' })
+      errs(page, 'z2h')
+      await page.context().close()
+    }
+  }
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : '\nall good')
   process.exit(problems.length ? 1 : 0)

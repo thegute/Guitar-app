@@ -2212,3 +2212,8 @@ video.mirrored { transform: scaleX(-1); }
 .site-hits .select { max-width: 40%; }
 .tx-progress { height: 8px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
 .tx-progress i { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+.z2h-watch { flex: 1 1 100%; display: grid; gap: 6px; padding-left: 22px; min-width: 0; }
+.z2h .goal-list .z2h-watch > button.btn { display: block; justify-self: start; width: auto; max-width: 100%; text-align: left; white-space: normal; height: auto; min-height: var(--h-sm, 32px); padding: 4px 10px; }
+.z2h .goal-list .z2h-watch > button.link-btn { display: inline-block; justify-self: start; width: auto; white-space: nowrap; }
+.z2h .goal-list li { flex-wrap: wrap; }
+.z2h .goal-list li > button:first-child { flex: 1 1 0; }
