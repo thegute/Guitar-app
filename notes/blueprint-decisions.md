@@ -26,4 +26,8 @@ Concept-check answers (2026-11-06, after the full text):
   Melodic prog, Prog-pop (tapping and hybrid picking), Ambient tapping (the Ichika sound, much more of it), Rudiment picking;
   heavy low chug and the words "djent"/"math rock" go.
 - Proxy Stream dropped (screen grab covers it); offline mode = built-in generators instead of mock data.
+- Screen on while looping: the owner handles it himself (no WakeLock work needed for the looper).
+- YouTube Data API key: he'll get one himself (Gemini walking him through it); KGuitar needs a place to paste it (Step 2), kept on the phone only like the AI keys.
+- He's going with my recommendations (checkpoints per piece, reuse existing parts, track roles as defaults, built-in offline fallbacks,
+  no Proxy Stream, original pieces in the acoustic songwriter style, architecture file at the end).
 Still waiting for: "Approved — Start Step 1".
