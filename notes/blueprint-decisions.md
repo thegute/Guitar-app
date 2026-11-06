@@ -1,8 +1,7 @@
 # Master blueprint: decisions so far (discussion only; NO code until the owner says "Approved — Start Step 1")
 
 Received 2026-11-06 as an attachment cut off at ~20,000 characters, mid Step 2 §3 Game Mode ("accompanied by a **bouncin").
-Still missing: the rest of Game Mode, the Step 3 details, and his 5-point checklist. He'll paste from the
-"#### 3. Yousician-Style Interactive Game Mode" heading to the end.
+The rest arrived the same day. Full text: notes/blueprint-part1.txt (to the cut) + notes/blueprint-part2.txt (from Game Mode §3 on).
 
 Owner's answers (2026-11-06):
 - Tunings: baritone uke stays D-G-B-E ("low-G G-C-E-A" = the tenor low-G that exists). No guitalele.

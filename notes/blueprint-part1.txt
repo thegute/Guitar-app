@@ -1,0 +1,100 @@
+### 🛑 STEP 0: FINISH ALL CURRENT ACTIVE TASKS FIRST, THEN ADD THIS BLUEPRINT TO YOUR TASK LIST
+Before you start working on the new Master Upgrade below:
+1. **Check your current active task list and workspace:** Finish writing out and saving whatever tasks you are currently mid-way through right now (including the guitar-centric theory videos, the Koala Sampler Beat Maker integration in `Jam -> Beat maker`, and any other pending edits you had queued up) so zero progress is lost or left half-finished.
+2. **Queue this Master Upgrade next — DO NOT write code for the new features yet:** Once your current tasks are cleanly wrapped up, read every single word of the Master Blueprint below from beginning to end.
+3. **Pass the Comprehension Check & Start a Back-and-Forth With Me First:** Before writing a single line of code for this new upgrade, reply with the **5-Point Concept & Intent Check** at the bottom of this prompt so we can go back and forth, refine any details together, and make sure you 100% grasp my vision before I give you the green light to code **Step 1**.
+
+---
+
+### MASTER ROLLOUT ARCHITECTURE: THE 3-STEP DEPENDENCY BUILD PLAN
+Once we finish our back-and-forth discussion and I explicitly say **"Approved — Start Step 1"**, you will build this upgrade in **3 strict, sequential steps** ordered by code dependencies (so foundational engines are built first and you never have to rewrite the same file twice, and using modular functions / surgical diffs so you never hit output token limits):
+
+- **STEP 1 (The Core Fretboard Brain, Movable Hand Position Box, 5-Layer Geometry Stack & Voice Leading):** Dynamic multi-instrument & alternate tuning math (`Taro Patch / Open G`, `Wahine`, `Mauna Loa`, `Drop D`, Guitar, 20" Guitalele, Tenor Uke, Low-G Baritone Uke), Deep-Thinking Biomechanical 4-Fret Hand Pathfinding, the **Movable / Resizable / Hideable `"Where your fingers go"` Live Box** (defaulting to visible, with Android WakeLock & IndexedDB persistence), the **5-Layer Fretboard Geometry Stack** (CAGED + Triad X-Ray + Pentatonic + 3NPS Modal Bridge + Free-Finger Chord Embellishments), and the **Chord Voice Leading & Melodic Improvisation ("Play the Changes") Engine**.
+- **STEP 2 (The Eyes, Ears & Game Highway — Universal Auto-BPM, Riff Scanner & Yousician 60fps Game Mode):** Universal Auto-BPM & Beat-Grid detection across every tab reader/importer/video/sampler in the app, overhauling `Jam -> Find chords` and `Tab from a screenshot` into **Riff Scanner** (Full Video/Audio/Multi-Screenshot Scanner + Live Client-Side **YouTube Shorts Infinite Feed** with `<canvas>` 2x/3x super-resolution upscaling, 5s Gemini+Groq race, shuffle, 1-per-10 creator deduplication, genre boosting, and automated copyright-block Mic fallback), and the **60fps Yousician Horizontal 6-String Game Mode** (working in both `Wait for me` and `In time` modes).
+- **STEP 3 (The Jam Studio, New Styles & Mastery Curriculum — Koala + 4-Track Pro Looper Workstation, Prog Melodic Metal & Dylan Gossett Acoustic Courses, Helper & Architecture Export):** Unifying the `Jam` and `Beat maker` loopers with our **Koala Sampler Beat Maker** into a pro 4-Track Guitar Looper + Koala Hybrid Workstation, replacing `djent` and `math rock` everywhere with **Progressive Melodic Metal** and **Dylan Gossett Acoustic Singer-Songwriter** (tutorials, lessons, licks, and tab generators), expanding `Zero to Hero` (5-phase gates) and the **3-Step Practice Loop (`Concept -> Exercise -> Challenge`)**, registering everything with the `+Helper bubble` and `Talk` voice commands, adding Offline Mock-Data Fallback Mode, and generating `KGUITAR_ARCHITECTURE.md` at the very end for future token-saving chats.
+
+---
+
+### STEP 1 SPECIFICATION: CORE FRETBOARD BRAIN, MOVABLE HAND BOX, 5-LAYER GEOMETRY & VOICE LEADING
+
+#### 1. Deep-Thinking Biomechanical Hand-Position Pathfinding & Movable/Resizable "Where Your Fingers Go" Box
+Upgrade our existing **"Where your fingers go"** (beside the tab in `Play`) and **"Where your left hand goes"** (under exercises, licks, and generated tabs) neck diagrams so they use deep algorithmic + AI pathfinding to guide my entire fretting hand:
+- **Deep-Thinking Ergonomic Trajectory Pass (Biomechanical Cost Function):** Whenever raw notes or tabs are scanned, imported, or generated, never assign frets or fingers note-by-note in isolation. Run a look-ahead pathfinding pass (Dynamic Programming / Viterbi biomechanical cost optimization + AI reasoning) across whole phrases and bars:
+  * **The 4-Fret Box Rule:** Restrict notes within a stationary phrase to a maximum 4-fret span (`anchor_fret` to `anchor_fret + 3`, one finger per fret: `1=Index, 2=Middle, 3=Ring, 4=Pinky`, `0=Open`) unless an explicit slide, pull-off, or intentional position shift is marked.
+  * **Position Continuity & Open-String Pivots:** Minimize wild hand jumps across distant frets for adjacent notes, utilizing open strings (`0`) as natural pivots to shift hand positions smoothly.
+  * **String Selection & Warm Tone Priority:** Prioritize higher-numbered frets on thicker wound strings over lower frets on thinner plain strings when pitches overlap, keeping fingerings compact and tone warm.
+  * **Pre-Output Bar Validation Check:** Automatically validate every measure before rendering: if consecutive notes require a stretch > 4 frets without a shift, automatically transpose/re-finger the outlier note onto an adjacent string (using the active tuning's exact string intervals) and recalculate the hand metadata.
+- **Small, Movable, Resizable & Hideable `"Where your fingers go"` Box (Default = NOT Hidden):**
+  * Attach explicit metadata to every beat/measure: `{ anchor_fret, span_end_fret, finger_assignment: 0|1|2|3|4, upcoming_shift_fret }`.
+  * **Window Controls & Default Visibility:** Render `"Where your fingers go"` as a compact, clearly legible floating/dockable window using our app's window system:
+    1. **Default to Visible (Even During `Tidy up while I play`):** By default, keep this box **open and visible** when I tap `Listen` or `Start` (do NOT let `Tidy up while I play` auto-hide it!).
+    2. **Hideable When Wanted:** Give it a `-` minimize/hide button (and keep the toggle in `Play -> Options`) so I can manually tuck it into the bottom tray or hide it whenever I want extra screen space.
+    3. **Movable & Resizable:** Let me drag its slim title bar to move it anywhere on screen, and drag its resize handle (or pinch-to-zoom) to make it smaller or larger, remembering my preferred size and position.
+  * **Live Visual Behavior:** As the tab or Yousician highway plays in `Play` and `Riff Scanner`, the box must:
+    1. Visually shade and highlight the entire active **4-Fret Hand Box** (e.g., `Frets 5–8`, labeled `"Index on Fret 5"`) so I immediately see where my whole hand plants on the neck, not just isolated dots.
+    2. Display exact finger numbers (`1=Index` to `4=Pinky`) inside the box, **color-matched to our Yousician Game Mode blocks** (`1=Blue, 2=Green, 3=Orange, 4=Red, 0=White`).
+    3. Dynamically slide along the neck in real time as the tab progresses, flashing a subtle **"Upcoming Shift -> Fret X"** preview badge and arrow 2 beats before my hand needs to shift (plus a 1-tap **"Loop This Shift"** button to practice tricky 2-bar position jumps).
+
+#### 2. Multi-Layer Fretboard Geometry Stack (Everything Connected Inside One Shape)
+- In `CAGED explorer`, `Scales & chords` (in `Play`), `Chord peek` (add a **"Pin Open"** button to `Chord peek` so it stays open when inspecting layers instead of auto-closing after 1.5 seconds), and `Tools -> Chords / Scales`, build a **stackable 5-layer toggle bar** on the *exact same fretboard diagram*:
+  1. **Layer 1 — CAGED Chord Voicing:** The full open or barre CAGED chord shape.
+  2. **Layer 2 — Triad X-Ray:** Highlights the internal `Root - 3rd - 5th` triad skeleton (and playable 3-string triad inversions across string sets `1-2-3`, `2-3-4`, `3-4-5`, `4-5-6`) living directly inside that CAGED shape.
+  3. **Layer 3 — Nested Pentatonic Box:** Overlays the 5-note Major/Minor Pentatonic box that wraps around that exact CAGED shape.
+  4. **Layer 4 — Pentatonic-to-Modal / 3NPS Bridge:** Animates the **2 diatonic passing tones** that turn the 5-note Pentatonic box into a full 7-note diatonic mode, and highlights the diagonal bridge pathways connecting into **3-Note-Per-String (3NPS)** runs.
+  5. **Layer 5 — Chord Embellishments ("Free-Finger Targets"):** Dynamically calculates which fingers are free (or can lift/hammer) while holding the chord shape, highlighting reachable surrounding scale notes right underneath my hand (`sus2`, `sus4`, `add9`, `6th`, `7th`, Hendrix/Mayer double-stops, and Dylan Gossett acoustic hammer-on targets) with tap-to-hear audio preview.
+- **"Sustain Chord Drone / Pad" Button:** Add a 1-tap button on any chord diagram that sustains a warm, continuous chord drone/pad so I can test out the 5-layer embellishments, triads, and modal notes on my guitar at my own pace.
+- **Hyper-Connected Cross-Links:** Viewing any scale, chord, or lesson anywhere in the app automatically displays 1-tap quick-jump chips to its connected CAGED shapes, internal triads, voice-led inversions, chord embellishments, arpeggios, and matching `Must-know licks` (`+ Add to my lick chain`).
+
+#### 3. Interactive Chord Voice Leading & Melodic Improvisation ("Play the Changes") Engine
+- **Chord Voice Leading Engine:**
+  * In `Tools -> Chords`, `CAGED explorer`, `Jam`, and `Scales & chords`, add a **"Voice Leading"** toggle (plus a 1-tap `"Practice Chord Transitions"` drill mode in `Wait for me`).
+  * Whenever a chord progression is active (`Chord A -> Chord B -> Chord C -> Chord D`), algorithmically compute the smoothest, closest physical inversion path on the neck so the player's hand stays in one compact 4-to-5 fret zone instead of jumping wildly between root-position barre chords:
+    1. **Common Tone Anchors:** Highlight notes shared between consecutive chords that stay planted on the *exact same string and fret* in a glowing anchor color.
+    2. **Voice-Leading Vectors (Arrows) & Guide Tones:** Draw smooth directional arrows on the fretboard showing how the moving voices—especially the **3rds and 7ths (Guide Tones)**—resolve by half-step (1 fret) or whole-step (2 frets) into the next chord's triad or shell/drop-2 voicing.
+- **Melodic Improvisation & "Play the Changes" Trainer:**
+  * Upgrade `Jam -> Solo over it` and our improvisation lessons so the fretboard never just displays a static wall of scale dots:
+    1. **Live Gold Chord-Tone Targets:** Dynamically highlight the active chord's **Target Tones (`Root, 3rd, 5th, 7th, 9th`)** in bright gold (matching our `Beat maker` gold chord notes) while rendering surrounding scale passing tones in a subtler secondary color.
+    2. **2-Beat Look-Ahead Resolution Preview:** Exactly 2 beats before the backing track or loop switches to the next chord, pulse a **cyan "Upcoming Target" halo** on the *next* chord's 3rd and Root (plus a voice-leading arrow from the nearest current chord tone) so I can visually anticipate the change and land my solo phrase right on the new chord's sweet spot.
+
+#### 4. Hawaiian Slack Key (Ki Hō'alu), Taro Patch (Open G) & Dynamic Multi-Instrument Math
+- **Native Tuning & Multi-Instrument Support:** Support across First Launch, `Tools -> Tuner`, `Song check ("Tune to...")`, and all fretboard visualizers:
+  * **Taro Patch / Open G:** `D-G-D-G-B-D`
+  * **Hawaiian Slack Key Variations:** Wahine (`D-G-D-F#-B-D` and `C-G-E-G-B-E`), Mauna Loa (`C-G-C-G-A-E`)
+  * **Drop D & Open D:** `D-A-D-G-B-E` and `D-A-D-F#-A-D`
+  * **Full Instrument Awareness:** Standard 6-String Guitar, **20-inch Scale 6-String Guitalele (`E-A-D-G-B-E`)**, Tenor Ukulele (`G-C-E-A`), and **Low-G Baritone Ukulele (`G-C-E-A` with Low G)**.
+- **Dynamic Mathematical Fretboard Recalculation:** Drive all fretboard diagrams, CAGED shapes, Triad X-Rays, Voice-Leading arrows, Embellishment targets, and Hand-Position windows from the active tuning's open-string MIDI pitch array `[s6, s5, s4, s3, s2, s1]` (plus a **"Smart Capo / Adapt to Current Tuning"** translator toggle in `Play` and `Riff Scanner` so capoed or alternate-tuned tabs can optionally be transposed onto my current tuning). Highlight how Drop D shifts 6th-string shapes +2 frets, and how Taro Patch (`D-G-D-G-B-D`) reorganizes major/minor triads and open-string drone resonances.
+
+---
+
+### STEP 2 SPECIFICATION: UNIVERSAL AUTO-BPM, RIFF SCANNER & YOUSICIAN 60FPS GAME MODE
+
+#### 1. Universal Tempo (BPM) & Beat-Grid Detection Across All Tab Readers & Samplers
+Every single tab reader, scanner, song importer, video syncer, and sampler across the entire KGuitar app must automatically calculate, display, and lock in the **exact BPM tempo and time signature (`4/4`, `3/4`, `6/8`, `5/4`, `7/8`)**:
+- **Riff Scanner (Full Videos, Shorts & Audio Files) & `Play -> Video`:** Automatically analyze audio onset envelopes / beat transients to detect the exact BPM and align the beat grid (upgrading manual 8-beat `Sync by tapping` in `Play -> Video` so it syncs automatically, while keeping tap-along as a manual fine-tune option).
+- **`Songs -> Add a song` (`.gp/.gp5/.gpx`, Pasted Clipboard Tabs, Google Drive & Screenshots):** Read exact tempo and tempo-change automation nodes from Guitar Pro files; for pasted text tabs and screenshots, combine AI song/metadata recognition with rhythmic note-density analysis to set the accurate default BPM.
+- **Koala Sampler Pads & Pro Looper Tracks:** Automatically detect the BPM of recorded guitar loops and imported Koala audio samples from duration and transient peaks so everything locks to the master clock and auto-time-stretches cleanly.
+- **Live BPM Badge:** Display the detected BPM and time signature prominently on the top bar of every tab player, automatically configuring `In time` scroll speed, the metronome, and backing drums.
+
+#### 2. Overhauling "Jam -> Find Chords" into "Riff Scanner" (100% Client-Side APK)
+Overhaul **Jam -> Find chords** (and upgrading `Tab from a screenshot` in `Songs -> Add a song`) and officially rename it to **Riff Scanner** across all tabs, headers, `Ask`, and the `+Helper bubble`. Everything must run 100% inside our standalone client-side Android APK (using HTML5 `<canvas>`, WebAudio, and our simultaneous **Gemini + Groq race-condition AI helper**—no Python backend server required):
+- **Unified Dashboard & Top Toggle Menu:**
+  * Preserve our existing live Mic chord-listening mode (with its automatic talking rejection and toggleable `Include singing` switch) as a fast **"Live Mic"** mode inside Riff Scanner.
+  * **View A — Full Video, Audio & Multi-Screenshot Scanner:** Paste any YouTube URL (full-length songs, live performances, guitar tutorials), upload a local video/audio file, or drop in single/multiple tab screenshots. Display a live multi-stage progress timeline (`Fetching Video/Frames` $\rightarrow$ `Super-Res Upscaling & Panorama Stitching` / `Audio Pitch Analysis` $\rightarrow$ `Gemini + Groq Race` $\rightarrow$ `Biomechanical 4-Fret Hand Pathfinding` $\rightarrow$ `Auto-BPM Lock`).
+  * **View B — Live YouTube Shorts Infinite Feed:** A TikTok/YouTube Shorts-style vertical infinite-scrolling player (swipe or keyboard/pedal navigation) that **fetches actual YouTube Shorts client-side** (via YouTube Data API v3 / public Invidious or Piped JSON endpoints + responsive player), letting me swipe through `#guitartabs` Shorts and scan/play along with them on the very same screen. Support Galaxy Fold `Split screen` (Short on top half, interactive Tab / Yousician Game Mode + Movable Hand Box on bottom half). If a Short is copyright/embedding-blocked, instantly trigger the **Automatic Audio-Fallback Mic Mode** so you can play it on speaker and transcribe it live.
+  * **Embedded Interactive Tab / Game Mode Player & 1-Tap Connections:** Directly beneath BOTH video players, embed our interactive Tab / Yousician Game Mode canvas with Play/Pause/Reset, Auto-BPM badge & slider, moving playhead, our movable **"Where your fingers go" Box**, and 1-tap toolbar buttons for: **"Open in Play (Wait for me / In time / Game Mode)"**, **"Send to Pro Looper"**, **"Sample to Koala Pad"**, **"Push to Practice Routine / Today's Plan"**, **"Use in Jam"**, and **"+ Add to my lick chain"** (`Lick chainer`).
+- **Fixing Tiny Video Tabs (HTML5 `<canvas>` Super-Resolution & Panoramic Stitcher):**
+  * Before sending any cropped tab region or video frame sequence to our AI vision endpoint, pass it through an off-screen HTML5 `<canvas>` pre-processing pipeline:
+    1. **Target Crop Zone:** Crop to the horizontal rectangular tab strip zone (with optional drag-handles to adjust the crop box).
+    2. **2x to 3x Smooth Bicubic Upscaling:** Scale the cropped image 2x–3x so small fret numbers (`9` vs `0`, `3` vs `8`, `1` vs `7`) become large and clear.
+    3. **High-Contrast Grayscale & 3x3 Edge-Sharpening Convolution Kernel:** Convert to high-contrast luminance/thresholding and apply an unsharp/sharpening kernel so fret digits have razor-sharp edges against the horizontal string lines.
+    4. **Sequential Frame Deduplication & Panorama Stitching:** For scrolling video tabs, sample frames across the clip, detect horizontal scroll offset, skip duplicate static frames, and stitch new measures edge-to-edge into a clean panoramic tab strip.
+  * **Simultaneous Gemini + Groq Race Safeguard (5-Second Timeout):** Route the upscaled, sharpened tab strip into our existing Gemini + Groq race helper with a strict **5-second timeout safeguard** so the fastest valid structured response wins and the UI never lags.
+  * **Both Notes & Chords + Full Video Audio-to-Tab:** Extract and render both **6-string single-note/lead tab matrices** AND **chord blocks** (chord names, diagrams, voice-leading arrows, embellishments, and strumming patterns `D, U, B, X`) together. For full-length videos without on-screen tabs, wire the cleanest client-side or Gemini multimodal audio pipeline (filtering out talking and vocals unless `Include singing` is on) and pass raw notes through our Step 1 Biomechanical Hand-Position Optimizer.
+- **YouTube Shorts Randomization, Creator Deduplication & Updated Genre Boosting:**
+  * **Randomized Shuffle (`Fisher-Yates shuffle`):** Target `#guitartabs` as the core search tag for YouTube Shorts, and shuffle fetched batches so clips never play in rigid chronological order.
+  * **Strict Creator Deduplication Rule:** Enforce a sliding-window rule: **no single creator channel (`channelId` / author) can appear more than once per 10 videos** in the feed.
+  * **Updated Multi-Genre Priority Boosting (Exclude Djent/Math Rock):** Actively filter out/deprioritize `djent` and `math rock`, while boosting YouTube Shorts matching my styles: **Progressive Melodic Metal** (`melodic metal`, `prog metal`, `melodic prog`, `plini style`, `intervals style`), **Acoustic Singer-Songwriter / Dylan Gossett Style** (`dylan gossett`, `acoustic guitar`, `chord embellishments`, `singer songwriter guitar`, `americana guitar`, `acoustic riff`, `acoustic tab`), **Jazz, Blues, Billy Strings Flatpicking & Bluegrass** (`jazz guitar`, `blues guitar`, `bluegrass`, `flatpicking`, `billy strings style`), and **Hawaiian Slack Key & Taro Patch** (`slack key`, `taro patch`, `ki hoalu`, `open g guitar`). Verify metadata contains valid guitar/tab keywords before queueing.
+
+#### 3. Yousician-Style Interactive Game Mode (Plus Standard Tab & Music Stand)
+In `Play` and `Riff Scanner`, add a 1-tap view switcher on the top bar to switch seamlessly at any time between **`Standard Tab`**, **`Music Stand`**, and **`Game Mode (Yousician View)`**:
+- **60fps Horizontal Scrolling 6-String Highway (AudioClock Synced):** Render a vibrant, smooth horizontal 6-string highway (synced directly to `audioContext.currentTime` so timing never drifts) where notes scroll right-to-left across a glowing vertical **Playhead Hit-Line**, accompanied by a **bouncin
