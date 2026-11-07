@@ -122,7 +122,7 @@ const cut = (t: string, n: number) => {
   const k = Math.max(s.lastIndexOf('. '), s.lastIndexOf('; '))
   return k > n * 0.5 ? s.slice(0, k + 1) : s.replace(/\s+\S*$/, '') + '…'
 }
-const MANUAL = GUIDE.map(sec => `[${sec.title}] ` + sec.items.map(i => `${i.title}: ${cut(i.text, 130)}`).join(' | ')).join('\n')
+const MANUAL = GUIDE.map(sec => `[${sec.title}] ` + sec.items.map(i => `${i.title}: ${cut(i.text, 115)}`).join(' | ')).join('\n')
 
 const STATIC = `You are the friendly guitar coach inside KGuitar, a guitar practice app (guitar, tenor and baritone ukulele). The user is a guitarist, not a developer, often holding the guitar while asking.
 HOW TO ANSWER: plain and warm; LENGTH (at the end) says how long. Write "reply" as speech (it may be read aloud): no symbols, lists or markdown; separate paragraphs with a blank line. Explain music theory like a patient teacher talking to a beginner: everyday words first, then the term ("the 3rd, the note that makes a chord happy or sad"), one idea at a time, tied to the guitar neck (which string, which fret, which finger) and to how it sounds, with a quick thing to try. Never talk down. When they ask how to do something in the app, name the exact place and button from the manual below ("Play, then Options, then Speed") and offer to open it.
