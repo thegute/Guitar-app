@@ -141,10 +141,64 @@ function seek(v: HTMLVideoElement, t: number) {
 export interface VideoTab { pieces: Piece[]; frames: number; kept: number; scrolled: boolean; box: Box | null }
 
 /**
- * A video file (a lesson download, a Samsung screen recording) → tab strips: frames every `every` seconds; the tab
- * area is found on the first frames that have one; static frames are skipped; a scrolling tab is followed and
- * stitched; anything else (a page turn) starts a new strip.
+ * Frames in, tab strips out, one frame at a time (a long screen grab never keeps more than two frames): the tab
+ * area is found on the first frames that have staff lines; frames where nothing changed are skipped; a scrolling tab
+ * is followed and the new part stitched on; anything else (a page turn) starts a new strip.
  */
+export class Stitcher {
+  box: Box | null
+  private gap = 0
+  private prev: Gray | null = null
+  private prevProf: Float32Array | null = null
+  private pano: Gray | null = null
+  private out: Piece[] = []
+  frames = 0
+  kept = 0
+  scrolled = false
+  /** frames looked at while still searching for the tab */
+  private searched = 0
+  constructor(box: Box | null = null) { this.box = box }
+  /** still looking for where the tab is */
+  get searching() { return !this.box }
+  add(src: Src) {
+    this.frames++
+    if (!this.box) {
+      // look for staff lines (on every frame until found, but give up after 60 tries: then read whole frames)
+      this.searched++
+      const { w, h } = sizeOf(src)
+      const { g, scale } = grayAt(src, 1000)
+      const s = findStrips(g)
+      if (s.length) {
+        this.box = unionBox(s.map(x => toBox(x, scale, w, h)))
+        this.gap = (s[0].lines[s[0].lines.length - 1] - s[0].lines[0]) / (s[0].lines.length - 1) / scale
+      } else if (this.searched < 60) return
+      else this.box = { x: 0, y: 0, w: 1, h: 1 }
+    }
+    const g = enhance(src, this.box, this.gap || undefined)
+    if (this.prev && sameFrame(this.prev, g)) return
+    const prof = profile(g)
+    const sh = this.prev && this.prevProf ? shiftBetween(this.prevProf, prof) : null
+    const P = this.pano
+    if (P && sh && sh.dx > 0) {
+      // scrolled sideways: add the new columns on the right
+      this.scrolled = true
+      const add = sh.dx, w = P.w + add
+      const px = new Float32Array(w * g.h)
+      for (let y = 0; y < g.h; y++) { px.set(P.px.subarray(y * P.w, (y + 1) * P.w), y * w); px.set(g.px.subarray(y * g.w + g.w - add, (y + 1) * g.w), y * w + P.w) }
+      this.pano = { w, h: g.h, px }
+    } else if (!P || !sh) {
+      // a new page (or the first): keep what we had, start again
+      this.flush()
+      this.pano = g
+    }
+    this.kept++
+    this.prev = g; this.prevProf = prof
+  }
+  private flush() { if (this.pano) for (const part of cutWide(this.pano)) this.out.push(pieceOf(part)); this.pano = null }
+  finish(): Piece[] { this.flush(); return this.out }
+}
+
+/** A video file (a lesson download, a Samsung screen recording) → tab strips, a frame every `every` seconds. */
 export async function tabFromVideo(file: Blob, o: { every?: number; from?: number; to?: number; box?: Box | null; onProgress?: (f: number, note: string) => void; signal?: AbortSignal } = {}): Promise<VideoTab> {
   const url = URL.createObjectURL(file)
   const v = document.createElement('video')
@@ -154,51 +208,15 @@ export async function tabFromVideo(file: Blob, o: { every?: number; from?: numbe
     const dur = v.duration
     const from = o.from ?? 0, to = Math.min(dur, o.to ?? dur)
     const every = o.every ?? Math.max(0.5, Math.min(1.5, (to - from) / 240))
-    // find the tab area on the first frames that have staff lines
-    let box = o.box ?? null, gap = 0
-    for (let t = from; !box && t < Math.min(to, from + 40); t += 2) {
-      if (o.signal?.aborted) throw new Error('Cancelled.')
-      await seek(v, t)
-      const { g, scale } = grayAt(v, 1000)
-      const s = findStrips(g)
-      if (s.length) {
-        box = unionBox(s.map(x => toBox(x, scale, v.videoWidth, v.videoHeight)))
-        gap = (s[0].lines[s[0].lines.length - 1] - s[0].lines[0]) / (s[0].lines.length - 1) / scale
-      }
-    }
-    const pieces: Piece[] = []
-    let frames = 0, kept = 0, scrolled = false
-    let prev: Gray | null = null, prevProf: Float32Array | null = null
-    let pano: Gray | null = null
-    const flush = () => { if (pano) for (const part of cutWide(pano)) pieces.push(pieceOf(part)); pano = null }
+    const st = new Stitcher(o.box ?? null)
     for (let t = from; t <= to; t += every) {
       if (o.signal?.aborted) throw new Error('Cancelled.')
       await seek(v, t)
-      frames++
       o.onProgress?.((t - from) / Math.max(0.001, to - from), `${Math.round(t)} s of ${Math.round(to)} s`)
-      const g = enhance(v, box, gap || undefined)
-      if (prev && sameFrame(prev, g)) continue
-      const prof = profile(g)
-      const sh = prev && prevProf ? shiftBetween(prevProf, prof) : null
-      if (pano && sh && sh.dx > 0) {
-        // scrolled sideways: add the new columns on the right
-        scrolled = true
-        const add = sh.dx
-        const P: Gray = pano
-        const w = P.w + add
-        const px = new Float32Array(w * g.h)
-        for (let y = 0; y < g.h; y++) { px.set(P.px.subarray(y * P.w, (y + 1) * P.w), y * w); px.set(g.px.subarray(y * g.w + g.w - add, (y + 1) * g.w), y * w + P.w) }
-        pano = { w, h: g.h, px }
-      } else if (!pano || !sh) {
-        // a new page (or the first): keep what we had, start again
-        flush()
-        pano = g
-      }
-      kept++
-      prev = g; prevProf = prof
+      st.add(v)
     }
-    flush()
-    return { pieces, frames, kept, scrolled, box }
+    const pieces = st.finish()
+    return { pieces, frames: st.frames, kept: st.kept, scrolled: st.scrolled, box: st.box }
   } finally {
     v.removeAttribute('src'); v.load()
     URL.revokeObjectURL(url)

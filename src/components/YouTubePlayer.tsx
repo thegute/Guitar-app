@@ -57,9 +57,11 @@ interface Props {
   tabBpm?: number
   /** the line under the link box (default: use headphones so the mic hears only you) */
   note?: string
+  /** YouTube's error code (101/150/152/153 = the owner doesn't allow playing it in other apps) */
+  onError?: (code: number) => void
 }
 
-export function YouTubePlayer({ url, onUrl, onApi, sync, onSync, tabBpm = 90, note = 'Use headphones, so the mic hears only your guitar.' }: Props) {
+export function YouTubePlayer({ url, onUrl, onApi, sync, onSync, tabBpm = 90, note = 'Use headphones, so the mic hears only your guitar.', onError }: Props) {
   const id = url ? youtubeId(url) : null
   const [draft, setDraft] = useState('')
   const [bad, setBad] = useState(false)
@@ -86,10 +88,10 @@ export function YouTubePlayer({ url, onUrl, onApi, sync, onSync, tabBpm = 90, no
       </div>
     )
   }
-  return <Player key={id} id={id} url={url!} onUrl={onUrl} onApi={onApi} sync={sync} onSync={onSync} tabBpm={tabBpm} />
+  return <Player key={id} id={id} url={url!} onUrl={onUrl} onApi={onApi} sync={sync} onSync={onSync} tabBpm={tabBpm} onError={onError} />
 }
 
-function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90 }: Props & { id: string; url: string }) {
+function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90, onError }: Props & { id: string; url: string }) {
   const frame = useRef<HTMLIFrameElement>(null)
   const player = useRef<YTPlayer | null>(null)
   const [ready, setReady] = useState(false)
@@ -123,7 +125,7 @@ function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90 }: Props & { 
                 seek: t => p()?.seekTo(Math.max(0, t), true),
               })
             },
-            onError: (e: { data: number }) => alive && setError(e.data),
+            onError: (e: { data: number }) => { if (alive) { setError(e.data); onError?.(e.data) } },
           },
         })
       })

@@ -1,7 +1,7 @@
 // Blueprint Step 2 in the browser: tempo badge + sheet (tap along, ½×/2×, time signature): the floating finger box (drag, resize, tuck, remembered), the upcoming shift badge
 // and Loop this shift, choosing a finger / another string for a tapped note, Make it easier, hand size in Settings;
 // later parts: tunings, layers, voice leading, play the changes.
-// Needs `vite preview` on :4173 and CHROME_PATH.  node tests/browser/step2-test.cjs [tempo,scan,scanvideo]
+// Needs `vite preview` on :4173 and CHROME_PATH.  node tests/browser/step2-test.cjs [tempo,scan,scanvideo,scanlink]
 const { chromium } = require('playwright')
 const path = require('path')
 const DIR = path.join(__dirname, 'out')
@@ -15,7 +15,7 @@ async function newPage(browser, viewport, seed = {}) {
   page.errors = []
   page.on('pageerror', e => page.errors.push(e.message))
   await page.addInitScript(s => {
-    if (sessionStorage.getItem('seeded')) return
+    try { if (window.top !== window || sessionStorage.getItem('seeded')) return } catch { return }
     localStorage.clear()
     for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:askBubble': 'false', 'kg:layoutHint': '1', 'kg:getReady': '0', ...s })) localStorage.setItem(k, v)
     sessionStorage.setItem('seeded', '1')
@@ -206,6 +206,58 @@ E|-3---------|-----------|`
     if (total < 960 * 2 * 1.3) bad(`video: the scrolling tab wasn't stitched (total ${total} px, widest ${widest})`)
     await page.screenshot({ path: `${DIR}/step2-scan-video.png` })
     if (page.errors.length) bad(`video scan errors: ${page.errors.join(' | ')}`)
+    await page.context().close()
+  }
+
+  if (want('scanlink')) for (const ok of [true, false]) {
+    const page = await newPage(browser, { width: 412, height: 915 }, { 'kgx:ai': JSON.stringify({ provider: 'gemini', keys: { gemini: 'test-key' }, models: {} }), 'kg:scanMode': '"scan"' })
+    page.sent = []
+    await page.route('**/generativelanguage.googleapis.com/**', async route => {
+      const req = route.request()
+      if (req.method() !== 'POST') return route.fulfill({ json: { models: [] } })
+      const body = JSON.parse(req.postData() || '{}')
+      const part = body.contents?.[0]?.parts?.[0]
+      if (part?.file_data) {
+        page.watched = { uri: part.file_data.file_uri, meta: part.video_metadata }
+        if (!ok) return route.fulfill({ status: 403, json: { error: { status: 'PERMISSION_DENIED', message: 'The video is private' } } })
+        return route.fulfill({ json: { candidates: [{ content: { parts: [{ text: 'SOURCE: screen\nTEMPO: 104\nTIME: 3/4\nKEY: G\nCHORDS: G C D\nTAB:\n' + CANNED.split('\n').slice(1).join('\n') }] } }] } })
+      }
+      const img = body.contents?.[0]?.parts?.find(p => p.inline_data)
+      route.fulfill({ json: { candidates: [{ content: { parts: [{ text: img ? CANNED : 'NO TAB' }] } }] } })
+    })
+    await page.route('**/www.youtube.com/**', r => r.abort())
+    await nav(page, 'Jam'); await sub(page, 'Riff Scanner')
+    await page.fill('[data-testid=scan-link]', 'https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+    await page.fill('input[aria-label="From (minutes:seconds)"]', '1:20')
+    await page.fill('input[aria-label="To (minutes:seconds)"]', '2:05')
+    await page.locator('[data-testid=scan-link-go]').click()
+    if (ok) {
+      await page.waitForSelector('[data-testid=scan-result]', { timeout: 15000 }).catch(() => bad('link: no result when Gemini watched it'))
+      const badge = (await page.locator('[data-testid=scan-result] [data-testid=tempo-badge]').innerText().catch(() => '')).replace(/\s+/g, ' ')
+      console.log(`link (Gemini ok): watched ${page.watched?.uri} ${JSON.stringify(page.watched?.meta)} → badge "${badge}"`)
+      if (!/youtube\.com\/watch\?v=dQw4w9WgXcQ/.test(page.watched?.uri || '')) bad('link: Gemini was not given the YouTube link')
+      if (page.watched?.meta?.start_offset !== '80s' || page.watched?.meta?.end_offset !== '125s') bad(`link: the part to watch wasn't sent (${JSON.stringify(page.watched?.meta)})`)
+      if (!/^104 3\/4$/.test(badge)) bad(`link: tempo/time from Gemini not used ("${badge}")`)
+      await page.locator('[data-testid=scan-play]').click()
+      await page.waitForSelector('.tab-note', { timeout: 5000 }).catch(() => bad('link: Open in Play showed no tab'))
+      const yt = await page.evaluate(() => new Promise(res => {
+        const r = indexedDB.open('kguitar'); r.onsuccess = () => { const tx = r.result.transaction(r.result.objectStoreNames[0], 'readonly'); const g = tx.objectStore(r.result.objectStoreNames[0]).getAll(); g.onsuccess = () => res(g.result.filter(d => d.title === 'Scanned riff').map(d => d.youtube)) }
+      }))
+      if (!JSON.stringify(yt).includes('dQw4w9WgXcQ')) bad(`link: the scanned song wasn't saved with its video (${JSON.stringify(yt)})`)
+    } else {
+      await page.waitForSelector('[data-testid=scan-grab]', { timeout: 15000 }).catch(() => bad('link: no screen-grab step after Gemini failed'))
+      const why = await page.locator('[data-testid=scan-grab] p').first().innerText().catch(() => '')
+      console.log(`link (Gemini refused): "${why.slice(0, 120)}"`)
+      if (!/can't open this video|private/i.test(why)) bad(`link: the reason wasn't shown ("${why}")`)
+      if (!(await page.locator('[data-testid=grab-start]').count())) bad('link: no Start the grab button')
+      await page.screenshot({ path: `${DIR}/step2-scan-grab.png` })
+      await page.locator('[data-testid=scan-grab] button:has-text("Use a screen recording instead")').click()
+      await page.waitForSelector('[data-testid=scan-record]')
+      if (!(await page.locator('[data-testid=scan-loud]').count())) bad('link: no Play it out loud button')
+      await page.screenshot({ path: `${DIR}/step2-scan-record.png` })
+      if (await sideways(page)) bad('link: sideways overflow')
+    }
+    if (page.errors.length) bad(`link errors: ${page.errors.join(' | ')}`)
     await page.context().close()
   }
 

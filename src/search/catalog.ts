@@ -49,7 +49,7 @@ export const FEATURES: Entry[] = [
     keys: 'loop looper in time sync align quantize pedal record guitar loop beat' }),
   f({ id: 'screenshot', title: 'Riff Scanner: tab from a screenshot or video', where: 'Jam → Riff Scanner, Songs → Add a song', guide: 'Riff Scanner', target: { jam: { page: 'find' } },
     text: 'Screenshots, a video file or a screen recording: the tab on screen is found, sharpened, stitched and read into a real tab.',
-    keys: 'riff scanner riffscanner scan scanner screenshot picture photo image ocr read tab video on screen tab from video screen recording transcribe riff' }),
+    keys: 'youtube link scan a video gemini watch screen grab screen record riff scanner riffscanner scan scanner screenshot picture photo image ocr read tab video on screen tab from video screen recording transcribe riff' }),
   f({ id: 'fullscreen', title: 'Full screen (hide the phone\'s buttons)', where: 'Settings → Look (phone app)', guide: 'Full screen', target: { go: { settings: 'look' } },
     text: 'Hide the home and back buttons, the status bar and the taskbar.',
     keys: 'full screen fullscreen hide navigation bar home button back button taskbar dock immersive bottom bar covered blocked' }),

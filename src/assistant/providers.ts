@@ -340,3 +340,48 @@ export function ttsModel(): string {
   const tts = savedModels('gemini').filter(m => /tts/.test(m)).sort((a, b) => ver(b) - ver(a) || Number(/pro/.test(a)) - Number(/pro/.test(b)))
   return tts[0] ?? 'gemini-2.5-flash-preview-tts'
 }
+
+/**
+ * Gemini watches a public YouTube video (Google lets Gemini open YouTube links itself: about 8 hours of video a day
+ * on the free tier) and answers about it. `from`/`to` (seconds) limit it to a part. Only Gemini can do this.
+ * Long jobs: waits up to `timeoutMs` (default 4 minutes); Cancel with `signal`.
+ */
+export async function watchVideo(url: string, prompt: string, o: { from?: number; to?: number; detail?: boolean; maxTokens?: number; timeoutMs?: number; signal?: AbortSignal } = {}): Promise<string> {
+  const v = aiSettings()
+  const key = v.keys.gemini
+  if (!key) throw new AiError('Watching a YouTube video needs a free Google Gemini key (Settings → You → AI helper).')
+  const model = v.models.gemini || workedModel || PROVIDERS[0].model
+  const meta: Record<string, string | number> = {}
+  if (o.from !== undefined) meta.start_offset = `${Math.max(0, Math.round(o.from))}s`
+  if (o.to !== undefined) meta.end_offset = `${Math.round(o.to)}s`
+  // short parts: more frames a second, so a scrolling tab isn't missed
+  if (o.detail) meta.fps = 2
+  const make = (extras: boolean) => {
+    // without the extras, only the part to watch is kept
+    const vm = extras ? meta : Object.fromEntries(Object.entries(meta).filter(([k]) => k !== 'fps'))
+    return {
+    contents: [{ role: 'user', parts: [{ file_data: { file_uri: url }, ...(Object.keys(vm).length ? { video_metadata: vm } : {}) }, { text: prompt }] }],
+    generationConfig: { maxOutputTokens: o.maxTokens ?? 8000, ...(extras && o.detail ? { mediaResolution: 'MEDIA_RESOLUTION_HIGH' } : {}), ...geminiThinking(model) },
+    }
+  }
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`
+  const p = PROVIDERS[0]
+  const call = (extras: boolean) => {
+    const req = post(endpoint, {}, make(extras), o.timeoutMs ?? 240000)
+    if (!o.signal) return req
+    return Promise.race([req, new Promise<never>((_, rej) => { if (o.signal!.aborted) rej(new AiError('Cancelled.')); o.signal!.addEventListener('abort', () => rej(new AiError('Cancelled.')), { once: true }) })])
+  }
+  let r: { status: number; data: unknown }
+  try { r = await call(true) } catch (e) { if (e instanceof AiError) throw e; throw new AiError(e instanceof Timeout ? 'Gemini took too long watching the video: try a shorter part (From / To).' : "Couldn't reach Google Gemini. Check the internet connection.", true) }
+  // an older model that doesn't take the extra settings: ask again without them
+  if (r.status === 400) { try { r = await call(false) } catch (e) { if (e instanceof AiError) throw e; throw new AiError("Couldn't reach Google Gemini.", true) } }
+  if (r.status >= 300) {
+    const raw = JSON.stringify(r.data ?? '').slice(0, 400)
+    if (/private|unavailable|not.*accessible|PERMISSION_DENIED|cannot be processed|Unsupported|invalid.*uri/i.test(raw)) throw new AiError("Gemini can't open this video (it may be private, age-restricted or not allowed). KGuitar will watch it on screen instead.", true)
+    throw new AiError(why(r.status, r.data, p), true)
+  }
+  const d = r.data as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
+  const text = d.candidates?.[0]?.content?.parts?.map(x => x.text ?? '').join('') ?? ''
+  if (!text.trim()) throw new AiError('Gemini watched it but sent back nothing.', true)
+  return text
+}

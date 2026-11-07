@@ -16,6 +16,15 @@ import { analyse } from '../audio/tempo'
 import { CropBox, ScanProgress, ScanResult, setStage, type ScanOut, type Stage } from './ScanParts'
 import { loadPicture, piecesFromPictures, soundOf, tabBoxes, tabFromVideo, unionBox, type Box, type Piece } from './pictures'
 import { canRead, readPieces, writtenTempo } from './read'
+import { chartText, parseTime, watchLink } from './link'
+import { canGrab, startGrab, type GrabSession } from './grab'
+import { youtubeId } from '../tabs/library'
+import { YouTubePlayer } from '../components/YouTubePlayer'
+import type { VideoApi } from '../play/inTime'
+import { withSig } from '../components/TempoSheet'
+import { aiSettings } from '../assistant/providers'
+
+const canAskGemini = () => !!aiSettings().keys.gemini
 
 export type ScanMode = 'scan' | 'shorts' | 'listen'
 
@@ -47,7 +56,7 @@ export function RiffScanner({ listen, onUseInJam, startMode }: {
           </button>
         ))}
       </div>
-      {mode === 'scan' && <ScanVideo onUseInJam={onUseInJam} />}
+      {mode === 'scan' && <ScanVideo onUseInJam={onUseInJam} links onListen={() => setMode('listen')} />}
       {mode === 'shorts' && <p className="small muted">Shorts arrive in the next part of this build.</p>}
       {mode === 'listen' && listen}
     </div>
@@ -55,8 +64,24 @@ export function RiffScanner({ listen, onUseInJam, startMode }: {
 }
 
 /** Screenshots, or a video / audio file → a tab. */
-export function ScanVideo({ onUseInJam, youtube, initialPics }: { onUseInJam?: (chords: string[]) => void; youtube?: string; initialPics?: { name: string; url: string }[] }) {
+export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onListen }: {
+  onUseInJam?: (chords: string[]) => void
+  youtube?: string
+  initialPics?: { name: string; url: string }[]
+  /** offer a YouTube link (Gemini watches it → KGuitar grabs its screen → your screen recording) */
+  links?: boolean
+  /** "Play it out loud": go to the mic */
+  onListen?: () => void
+}) {
   const inst = useInstrument()
+  const [link, setLink] = usePersist('scanLink', '')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [phase, setPhase] = useState<null | 'grab' | 'record'>(null)
+  const [why, setWhy] = useState('')
+  const [grabbing, setGrabbing] = useState(0)
+  const ytApi = useRef<VideoApi | null>(null)
+  const session = useRef<GrabSession | null>(null)
   const [pics, setPics] = useState<Pic[]>([])
   const [box, setBox] = useState<Box | null>(null)
   const [stages, setStages] = useState<Stage[] | null>(null)
@@ -167,7 +192,86 @@ export function ScanVideo({ onUseInJam, youtube, initialPics }: { onUseInJam?: (
     } catch (e) { fail(e) }
   }
 
-  const again = () => { setOut(null); setPics([]); setBox(null); setMsg('') }
+  const linkUrl = youtubeId(link) ? link.trim() : ''
+  const strNames = [...inst.tuning.notes].reverse().map((n, i) => { const x = n.replace(/-?\d+$/, ''); return i === 0 && inst.strings === 6 ? 'e' : x }).map(x => `${x}|`).join(', ')
+  // 1 Gemini watches the link
+  async function scanLink() {
+    if (!linkUrl) return
+    setPhase(null); setWhy('')
+    const signal = begin([
+      { id: 'watch', label: 'Gemini is watching the video', state: 'run' },
+      { id: 'hand', label: 'Placing it on the neck', state: 'wait' },
+      { id: 'tempo', label: 'Tempo and time signature', state: 'wait' },
+    ])
+    const t0 = Date.now()
+    const tick = setInterval(() => step('watch', { note: `${Math.round((Date.now() - t0) / 1000)} s (a whole song can take a minute or two)` }), 1000)
+    try {
+      if (!canAskGemini()) throw new AiError('Gemini needs its free key to watch videos.')
+      const w = await watchLink(linkUrl, { inst: inst.isUke ? 'ukulele' : 'guitar', strings: strNames, from: parseTime(from), to: parseTime(to), signal })
+      clearInterval(tick)
+      if (w.source === 'none' || (!w.tab && w.chords.length < 2)) throw new AiError("Gemini watched it but found no guitar part it could write down.")
+      step('watch', { state: 'done', note: w.source === 'screen' ? 'read the tab on screen' : 'worked it out from the sound' })
+      step('hand', { state: 'run' })
+      const title = 'Scanned riff'
+      let doc = w.tab ? songFromScan(w.tab, title, inst, linkUrl) : null
+      const chordsOnly = !doc
+      if (!doc) doc = songFromText(chartText(w.chords), title, inst, linkUrl)
+      if (!doc) throw new AiError("Gemini's answer didn't read as a tab or chords.")
+      doc = { ...doc, id: newId(), youtube: linkUrl, song: { ...doc.song, ...(w.tempo ? { tempo: w.tempo, tempoFrom: 'ai' as const } : {}), ...(w.timeSig ? withSig(w.timeSig) : {}) } }
+      step('hand', { state: 'done' }); step('tempo', { state: 'done', note: `${Math.round(doc.song.tempo ?? 90)} BPM${w.timeSig ? `, ${w.timeSig.join('/')}` : ''}` })
+      setOut({
+        doc, heard: w.source !== 'screen' || chordsOnly, text: w.tab || undefined, reparse: t => songFromScan(t, title, inst, linkUrl),
+        how: w.source === 'screen' ? 'Gemini watched the video and read the tab on screen.' : chordsOnly ? 'Gemini watched the video and wrote down the chords it heard.' : 'Gemini watched the video and worked the part out from the sound.',
+      })
+      setStages(null)
+    } catch (e) {
+      clearInterval(tick)
+      if (signal.aborted) { fail(e); return }
+      // 2 next: KGuitar watches it here and grabs the screen
+      setStages(null)
+      setWhy(e instanceof Error ? e.message : 'Gemini could not watch it.')
+      setPhase('grab')
+    }
+  }
+  // 2 KGuitar grabs its own screen (and the sound inside the phone) while the video plays here
+  async function startGrabbing() {
+    const f = parseTime(from) ?? 0, t = parseTime(to)
+    const secs = Math.min(300, Math.max(10, t !== undefined ? t - f + 2 : 180))
+    try {
+      session.current = await startGrab({ seconds: secs, fps: 2 })
+      session.current.onStopped(() => void stopGrabbing())
+      ytApi.current?.seek(f); ytApi.current?.play()
+      const t0 = Date.now()
+      setGrabbing(1)
+      const id = setInterval(() => { if (!session.current) { clearInterval(id); return } setGrabbing(Math.max(1, Math.round((Date.now() - t0) / 1000))) }, 1000)
+    } catch (e) { setWhy(e instanceof Error ? e.message : 'Screen capture could not start.'); session.current = null }
+  }
+  async function stopGrabbing() {
+    const sess = session.current
+    if (!sess) return
+    session.current = null
+    setGrabbing(0)
+    ytApi.current?.pause()
+    const signal = begin([
+      { id: 'frames', label: 'Finding and stitching the tab', state: 'run', pct: 0 },
+      { id: 'sound', label: 'Listening to the sound (tempo)', state: 'wait' },
+      { id: 'ai', label: 'Reading the tab (Gemini + Groq race)', state: 'wait' },
+      { id: 'hand', label: 'Placing it on the neck', state: 'wait' },
+      { id: 'tempo', label: 'Tempo', state: 'wait' },
+    ])
+    try {
+      const g = await sess.stop(p => step('frames', { pct: p }))
+      step('frames', { state: g.pieces.length ? 'done' : 'fail', note: g.pieces.length ? `${g.pieces.length} strip${g.pieces.length === 1 ? '' : 's'} from ${g.frames} frames${g.scrolled ? ', scrolling tab stitched' : ''}` : 'no tab on screen' })
+      const a = g.sound ? analyse(g.sound.x, g.sound.sr) : null
+      step('sound', { state: a ? 'done' : 'skip', note: a ? `${Math.round(a.bpm)} BPM` : g.sound ? 'no clear beat' : 'no sound captured' })
+      if (!g.pieces.length) throw new Error('No tab showed on screen while it played. If the tab is only heard, not shown, try a screen recording with Media sounds, or Play it out loud.')
+      await readOut(g.pieces, signal, 'Scanned riff', `KGuitar watched the video on screen and read the tab${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined)
+      setOut(o => (o ? { ...o, doc: { ...o.doc, youtube: linkUrl || o.doc.youtube } } : o))
+      setPhase(null)
+    } catch (e) { fail(e); setPhase('record') }
+  }
+
+  const again = () => { setOut(null); setPics([]); setBox(null); setMsg(''); setPhase(null); setWhy('') }
   if (out) return <ScanResult out={out} onUseInJam={onUseInJam} onAgain={again} />
   return (
     <div className="scan-video stack" style={{ gap: 10 }}>
@@ -175,6 +279,56 @@ export function ScanVideo({ onUseInJam, youtube, initialPics }: { onUseInJam?: (
         <div className="notice small">Reading tabs off the screen needs a free Google Gemini key (a minute to set up, no card). Sound-only files work without it. <button className="btn sm" onClick={() => setSetup(!setup)}>{setup ? 'Close' : 'Set it up'}</button></div>
       )}
       {setup && !ready && <AiSetup compact />}
+      {links && (
+        <form className="scan-link stack" style={{ gap: 6 }} onSubmit={e => { e.preventDefault(); void scanLink() }}>
+          <div className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+            <input className="input" inputMode="url" placeholder="YouTube link (a lesson, a song, a Short)" value={link} onChange={e => setLink(e.target.value)} aria-label="YouTube link to scan" data-testid="scan-link" />
+            <button className="btn primary" type="submit" disabled={!linkUrl || !!stages} data-testid="scan-link-go"><Ico n="scan" /> Scan</button>
+          </div>
+          <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="small muted">Only a part?</span>
+            <input className="input" style={{ width: 72, flex: 'none' }} placeholder="from 1:20" value={from} onChange={e => setFrom(e.target.value)} aria-label="From (minutes:seconds)" />
+            <input className="input" style={{ width: 72, flex: 'none' }} placeholder="to 2:05" value={to} onChange={e => setTo(e.target.value)} aria-label="To (minutes:seconds)" />
+          </div>
+          {link.trim() && !linkUrl && <span className="small" style={{ color: 'var(--coral)' }}>That doesn't look like a YouTube link.</span>}
+        </form>
+      )}
+      {phase === 'grab' && linkUrl && (
+        <div className="scan-grab stack panel" style={{ gap: 8 }} data-testid="scan-grab">
+          <p className="small" style={{ margin: 0 }}><b>Next: KGuitar watches it here.</b> {why}</p>
+          <YouTubePlayer url={linkUrl} onUrl={u => { setLink(u ?? ''); if (!u) setPhase(null) }} onApi={a => { ytApi.current = a }} onError={code => { if ([101, 150, 152, 153].includes(code)) { setWhy("This video's owner doesn't let it play inside other apps."); setPhase('record') } }} note="" />
+          {canGrab() ? (
+            grabbing ? (
+              <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+                <button className="btn primary on" onClick={() => void stopGrabbing()} data-testid="grab-stop"><Ico n="stop" fill /> Stop ({grabbing} s)</button>
+                <span className="small muted">Let the tab play on screen; stop at the end of the part.</span>
+              </div>
+            ) : (
+              <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button className="btn primary" onClick={() => void startGrabbing()} data-testid="grab-start"><Ico n="screen" /> Start the grab</button>
+                <span className="small muted">Android asks to allow screen capture (pick KGuitar or the entire screen). The video plays{parseTime(from) !== undefined ? ` from ${from}` : ''}; the sound is taken inside the phone, not with the mic.</span>
+              </div>
+            )
+          ) : <p className="small muted" style={{ margin: 0 }}>This browser can't grab the screen: use a screen recording (below).</p>}
+          <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setPhase('record')}>Use a screen recording instead</button>
+        </div>
+      )}
+      {phase === 'record' && (
+        <div className="scan-record stack panel" style={{ gap: 6 }} data-testid="scan-record">
+          {why && <p className="small" style={{ margin: 0 }}>{why}</p>}
+          <b>Record it with your phone, then pick the recording</b>
+          <ol className="small" style={{ margin: 0, paddingLeft: 18 }}>
+            <li>Swipe down from the top of the screen twice and tap <b>Screen recorder</b> (on Samsung it's in Quick settings).</li>
+            <li>Under sound, choose <b>Media sounds</b> (not the mic), then Start.</li>
+            <li>Open the video in YouTube{linkUrl ? <> (<a href={linkUrl} target="_blank" rel="noreferrer">open it</a>)</> : null}, play the part with the tab on screen, then stop the recording.</li>
+            <li>Come back here and tap <b>Pick the screen recording</b>.</li>
+          </ol>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <label className="btn primary"><Ico n="upload" /> Pick the screen recording<input type="file" accept="video/*" hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} /></label>
+            {onListen && <button className="btn ghost" onClick={onListen} data-testid="scan-loud">Play it out loud (mic)</button>}
+          </div>
+        </div>
+      )}
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <label className="btn primary"><Ico n="camera" /> Screenshots<input type="file" accept="image/*" multiple hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} data-testid="scan-pics" /></label>
         <label className="btn"><Ico n="upload" /> Video or audio file<input type="file" accept="video/*,audio/*" hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} data-testid="scan-file" /></label>

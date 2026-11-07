@@ -16,6 +16,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ListenPlugin.class);
         // MIDI footswitches: USB and Bluetooth LE MIDI (the web view has no Web MIDI)
         registerPlugin(MidiPlugin.class);
+        // Riff Scanner: grab the screen + the sound inside the phone while a video plays
+        registerPlugin(ScreenGrabPlugin.class);
         super.onCreate(savedInstanceState);
         if (getBridge() != null) getBridge().setWebViewClient(new MediaWebViewClient(getBridge()));
     }
