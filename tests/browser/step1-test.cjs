@@ -274,6 +274,55 @@ More words go here too`, 'Eb song')
     await page.context().close()
   }
 
+  if (want('gaps')) for (const vp of [{ width: 412, height: 915, n: 'cover' }, { width: 840, height: 757, n: 'inner' }]) {
+    const page = await newPage(browser, vp)
+    // Tools → Chords: double-stops around the shape, then Licks over the chord
+    await nav(page, 'Tools'); await sub(page, 'Chords'); await page.waitForTimeout(400)
+    const ln = page.locator('.win[data-win="layers"] [data-testid=layer-neck]')
+    await ln.scrollIntoViewIfNeeded()
+    await ln.locator('[data-testid=ds-toggle]').click(); await page.waitForTimeout(150)
+    const ds = ln.locator('[data-testid=double-stops]')
+    for (const k of ['3rds', '4ths', '6ths']) {
+      await ds.locator(`.chip:has-text("${k}")`).first().click(); await page.waitForTimeout(120)
+      const pairs = await ds.locator('.row .chip').count()
+      if (!pairs) bad(`${vp.n}: no ${k} double-stops`)
+      else {
+        await ds.locator('.row .chip').first().click(); await page.waitForTimeout(150)
+        const t = await ln.locator('[role=status]').textContent()
+        const lit = await ln.locator('.note-dot.role-target').count()
+        console.log(`${vp.n}: ${k} ${pairs} pairs; "${t.slice(0, 70)}" lit ${lit}`)
+        if (lit < 2) bad(`${vp.n}: ${k} pair not highlighted (${lit})`)
+      }
+    }
+    await page.screenshot({ path: `${DIR}/step1-doublestops-${vp.n}.png` })
+    const lo = ln.locator('[data-testid=licks-over]')
+    if (!(await lo.count())) bad(`${vp.n}: no Licks over button`)
+    else {
+      const label = await lo.textContent()
+      await lo.click(); await page.waitForTimeout(500)
+      const note = page.locator('[data-testid=lick-want]')
+      if (!(await note.count())) bad(`${vp.n}: Licks over didn't open filtered licks (${label})`)
+      else console.log(`${vp.n}: ${label} → ${(await note.textContent()).slice(0, 80)}`)
+      await page.screenshot({ path: `${DIR}/step1-lickswant-${vp.n}.png` })
+    }
+    // Tuner: an open tuning explains itself
+    await nav(page, 'Tools'); await sub(page, 'Tuner'); await page.waitForTimeout(300)
+    const sel = page.locator('select.select').first()
+    const og = (await sel.locator('option').allTextContents()).find(o => /Open G/.test(o))
+    await sel.selectOption({ label: og }); await page.waitForTimeout(300)
+    const te = page.locator('[data-testid=tuning-explain]')
+    if (!(await te.count())) bad(`${vp.n}: no tuning explanation for Open G`)
+    else {
+      const t = await te.textContent()
+      console.log(`${vp.n}: tuning: ${t.slice(0, 110)}`)
+      if (!/Open G/.test(t) || !/fret 5 = C/.test(t)) bad(`${vp.n}: Open G explanation is off (${t.slice(0, 160)})`)
+    }
+    await page.screenshot({ path: `${DIR}/step1-tuning-${vp.n}.png` })
+    if (await sideways(page)) bad(`${vp.n}: gaps page scrolls sideways`)
+    if (page.errors.length) bad(`${vp.n} gaps errors: ${page.errors.join(' | ')}`)
+    await page.context().close()
+  }
+
   if (want('voice')) for (const vp of [{ width: 412, height: 915, n: 'cover' }, { width: 840, height: 757, n: 'inner' }]) {
     const page = await newPage(browser, vp)
     // Tools → Chords: voice leading to the usual next chords, with arrows and a description

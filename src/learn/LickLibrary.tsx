@@ -25,14 +25,16 @@ export function LickLibrary({ initial, onExit }: { initial?: string; onExit: () 
   const [style, setStyleNow] = useState<LickStyleId>(((first?.style ?? (LICK_STYLES.some(s => s.id === initial) ? initial : styleRaw)) as LickStyleId) || 'blues')
   const [all, setAll] = useState(false)
   const [open, setOpen] = useState<string | null>(first?.id ?? null)
+  // "Licks over Gm" from a chord or scale neck: the licks that fit (minor or major), shown in that key
+  const [want, setWant] = usePersist<{ root: string; minor: boolean } | null>('lickWantKey', null)
   const pick = (s: LickStyleId) => { setStyleNow(s); setStyle(s); setOpen(null) }
   const st = lickStyle(style)
-  const list = useMemo(() => LICKS.filter(l => l.style === style && (all || l.must)).sort((a, b) => a.level - b.level), [style, all])
+  const list = useMemo(() => LICKS.filter(l => l.style === style && (all || l.must) && (!want || (l.minor ?? lickStyle(l.style).minor) === want.minor)).sort((a, b) => a.level - b.level), [style, all, want])
   const cur = open ? lickById(open) : null
   // the phone's Back button steps back inside the licks (a lick → the list → must-know) before leaving
   useBack(!!open, () => setOpen(null))
   useBack(all && !open, () => setAll(false))
-  if (cur) return <LickDetail lick={cur} onBack={() => (first && open === first.id && initial === first.id ? onExit() : setOpen(null))} />
+  if (cur) return <LickDetail lick={cur} wantKey={want?.root} onBack={() => (first && open === first.id && initial === first.id ? onExit() : setOpen(null))} />
   const counts = (s: LickStyleId) => LICKS.filter(l => l.style === s && l.must).length
   return (
     <div className="stack lick-library">
@@ -50,6 +52,13 @@ export function LickLibrary({ initial, onExit }: { initial?: string; onExit: () 
         </select>
       </label>
       <p className="small muted" style={{ margin: 0 }}>{st.feel} <i>Listen to: {st.listen}.</i></p>
+      {want && (
+        <div className="row small notice" style={{ gap: 8, alignItems: 'center' }} data-testid="lick-want">
+          <span>Licks that fit <b>{want.root}{want.minor ? ' minor' : ' major'}</b>, shown in that key.</span>
+          <button className="btn sm ghost" onClick={() => setWant(null)}>Show all</button>
+        </div>
+      )}
+      {want && !list.length && <p className="small muted">No {want.minor ? 'minor' : 'major'} licks in this style: try another style.</p>}
       {LICKS.some(l => l.style === style && !l.must) && <Chips label="Which licks" items={[{ id: 'must', label: 'Must-know' }, { id: 'all', label: `Every ${st.label.replace(/ \(.*\)$/, '').toLowerCase()} lick` }]} value={all ? 'all' : 'must'} onChange={v => setAll(v === 'all')} />}
       <ul className="lick-list">
         {list.map(l => (
@@ -68,11 +77,11 @@ export function LickLibrary({ initial, onExit }: { initial?: string; onExit: () 
 
 const kindLabel = (l: LickDef) => ({ lick: 'Lick', arpeggio: 'Arpeggio', run: 'Run', riff: 'Riff', ending: 'Ending', 'double-stop': 'Double stops', turnaround: 'Turnaround' } as Record<string, string>)[l.kind]
 
-function LickDetail({ lick, onBack }: { lick: LickDef; onBack: () => void }) {
+function LickDetail({ lick, onBack, wantKey }: { lick: LickDef; onBack: () => void; wantKey?: string }) {
   const inst = useInstrument()
   const st = lickStyle(lick.style)
   const minor = lick.minor ?? st.minor
-  const [key, setKey] = useState(lick.ref)
+  const [key, setKey] = useState(wantKey && placeFor(lick, wantKey) ? wantKey : lick.ref)
   useScreenInfo('lick', { label: `Lick "${lick.name}" (${st.label}) in ${key}${minor ? ' minor' : ''}`, summary: `In Must-know licks, looking at "${lick.name}", a ${st.label} lick (level ${lick.level}${lick.chord ? `, over ${lick.chord} in the written key` : ''}), shown in ${key}${minor ? ' minor' : ''}.${lick.must ? ` What it is: ${lick.must.about}` : ''}` })
   const [slow, setSlow] = useState(false)
   const [chained, setChained] = useState(0)

@@ -15,6 +15,7 @@ import { Field, usePersist } from '../components/Controls'
 import { InputPicker } from '../components/InputPicker'
 import { useScreenInfo } from '../assistant/screen'
 import { pcName } from '../theory/notes'
+import { TuningExplain } from '../components/TuningExplain'
 import { Win, WinArea } from '../components/Win'
 
 const IN_TUNE = 2 // cents
@@ -253,6 +254,7 @@ export function TunerScreen() {
           Tap a string above to tune that one (it plays the note so you can tune by ear too); Auto finds the string you play.
           Tune up to the note from below: if you go past it, drop under and come back up, so the string stays put.
         </p>
+        {!inst.isUke && <TuningExplain midis={inst.midis} />}
       </Win>
       </WinArea>
     </div>

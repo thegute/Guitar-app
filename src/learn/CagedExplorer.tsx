@@ -2,6 +2,7 @@
 // (its arpeggio, its pentatonic box, its scale and its triads).
 import { useMemo } from 'react'
 import { Scale } from 'tonal'
+import { TuningExplain } from '../components/TuningExplain'
 import { Fretboard, type Mark } from '../components/Fretboard'
 import { ChordDiagram } from '../components/ChordDiagram'
 import { Chips, KeyPicker, usePersist } from '../components/Controls'
@@ -102,6 +103,7 @@ export function CagedExplorer({ inst, onExit, onQuiz }: { inst: Instrument; onEx
         <KeyPicker value={root} onChange={setRoot} label="Chord root" />
         <Chips label="Quality" items={[{ id: 'maj', label: 'Major' }, { id: 'min', label: 'Minor' }]} value={minor ? 'min' : 'maj'} onChange={v => setMinor(v === 'min')} />
         <Chips label="Shape" items={[{ id: 'all', label: 'All five' }, ...shapes.map(s => ({ id: s.letter, label: `${s.letter} shape · fret ${s.lo}` }))]} value={sel} onChange={setSel} />
+        {!inst.isUke && <TuningExplain midis={inst.midis} />}
         {sel === 'all' ? (
           <Fretboard tuning={inst.midis} fromFret={0} toFret={16} markFor={markFor} onTap={m => { const ctx = audio(); strum([m], ctx.currentTime + 0.01) }} />
         ) : shape && (

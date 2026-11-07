@@ -7,7 +7,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Fretboard, type Mark } from './Fretboard'
 import { Chips, usePersist } from './Controls'
 import { Ico } from './Icon'
-import { LAYERS, MODES, layerSpots, type LayerId, type ModeId } from '../theory/layers'
+import { KEYS } from '../theory/notes'
+import { LAYERS, MODES, doubleStops, layerSpots, type LayerId, type ModeId } from '../theory/layers'
 import { cagedShapes } from '../learn/caged'
 import type { Instrument } from '../instrument'
 import { playNote, strum } from '../audio/pluck'
@@ -30,7 +31,7 @@ interface Props {
   /** smaller neck (peek bubble) */
   compact?: boolean
   /** hide the jump-to chips (inside the tool they'd link to) */
-  noLinks?: ('caged' | 'chord' | 'scale')[]
+  noLinks?: ('caged' | 'chord' | 'scale' | 'licks')[]
 }
 
 const drone = new Drone()
@@ -43,6 +44,9 @@ export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, no
   const [modeMaj, setModeMaj] = usePersist<ModeId>('layerModeMaj', 'ionian')
   const [modeMin, setModeMin] = usePersist<ModeId>('layerModeMin', 'aeolian')
   const [nps, setNps] = usePersist('layerNps', false)
+  const [dsOn, setDsOn] = usePersist('layerDoubles', false)
+  const [dsKind, setDsKind] = usePersist<'3rds' | '4ths' | '6ths'>('layerDoubleKind', '3rds')
+  const [dsSel, setDsSel] = useState(-1)
   const [droning, setDroning] = useState(false)
   const mode = minor ? modeMin : modeMaj
   const set = useMemo(() => layerSpots({ rootPc, minor, inst, shape, layers: new Set(on), mode, nps }), [rootPc, minor, inst, shape, on, mode, nps])
@@ -53,8 +57,13 @@ export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, no
     last.current = { rootPc, minor }
   }, [rootPc, minor, droning])
   useEffect(() => () => { drone.stop() }, [])
+  const doubles = useMemo(() => (dsOn ? doubleStops({ rootPc, minor, tuning: inst.midis, window: set.window }).filter(d => d.kind === dsKind) : []), [dsOn, dsKind, rootPc, minor, inst.midis, set.window])
+  useEffect(() => setDsSel(-1), [doubles])
+  const strNames = inst.midis.map((m, i) => { const n = SHARPS[m % 12]; return i === inst.midis.length - 1 && inst.midis.filter(x => x % 12 === m % 12).length > 1 ? n.toLowerCase() : n })
   const pathKeys = useMemo(() => new Map(set.path.map((p, i) => [`${p.s}-${p.f}`, i + 1])), [set.path])
   const markFor = (_m: number, s: number, f: number): Mark | null => {
+    const d = doubles[dsSel]
+    if (d && ((d.lo.s === s && d.lo.f === f) || (d.hi.s === s && d.hi.f === f))) return { label: d.kind[0], role: 'target' }
     const sp = set.spots.get(`${s}-${f}`)
     const step = pathKeys.get(`${s}-${f}`)
     if (sp) return { label: sp.label, role: sp.role }
@@ -89,7 +98,23 @@ export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, no
           <button key={l.id} className={`chip layer-chip lay-${l.id}`} aria-pressed={on.includes(l.id)} onClick={() => toggle(l.id)} title={l.what}>{l.label}</button>
         ))}
         <button className="chip layer-chip" aria-pressed={nps} onClick={() => setNps(!nps)} title="The whole mode, three notes per string, from the shape's root">3 per string</button>
+        <button className="chip layer-chip" aria-pressed={dsOn} onClick={() => setDsOn(!dsOn)} title="Two notes at once around the shape: 3rds, 4ths and 6ths (Hendrix, Mayer, soul)" data-testid="ds-toggle">Double-stops</button>
       </div>
+      {dsOn && (
+        <div className="stack" style={{ gap: 4 }} data-testid="double-stops">
+          <Chips label="Double-stops" items={[{ id: '3rds', label: '3rds (Mayer, soul)' }, { id: '4ths', label: '4ths (Hendrix)' }, { id: '6ths', label: '6ths (skip a string)' }]} value={dsKind} onChange={v => setDsKind(v as '3rds' | '4ths' | '6ths')} wrap />
+          <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
+            {doubles.length ? doubles.slice(0, 18).map((d, i) => (
+              <button key={i} className={`chip${dsSel === i ? ' on' : ''}`} aria-pressed={dsSel === i} onClick={() => {
+                setDsSel(i)
+                const ctx = audio(); void ctx.resume()
+                playNote(d.lo.midi, ctx.currentTime + 0.02, 0.85); playNote(d.hi.midi, ctx.currentTime + 0.02, 0.85)
+                setWhat(d.what)
+              }}>{strNames[d.lo.s]}{d.lo.f} + {strNames[d.hi.s]}{d.hi.f}</button>
+            )) : <span className="small muted">None of these around this shape: try another kind or shape.</span>}
+          </div>
+        </div>
+      )}
       {(on.includes('bridge') || nps) && (
         <Chips label="Mode" items={MODES[minor ? 'min' : 'maj'].map(m => ({ id: m.id, label: m.label }))} value={mode} onChange={v => (minor ? setModeMin(v) : setModeMaj(v))} wrap />
       )}
@@ -101,6 +126,7 @@ export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, no
         </button>
         {!noLinks.includes('caged') && <button className="btn sm ghost" onClick={() => { put('cagedRoot', SHARPS[rootPc]); put('cagedMinor', minor); learnGo({ tool: 'caged' }) }}>CAGED explorer</button>}
         {!noLinks.includes('chord') && <button className="btn sm ghost" onClick={() => launch({ chord: { root: SHARPS[rootPc], suffix: minor ? 'minor' : 'major' } })}>{name} in Chords</button>}
+        {!noLinks.includes('licks') && <button className="btn sm ghost" onClick={() => { put('lickWantKey', { root: KEYS[rootPc], minor }); learnGo({ licks: '' }) }} data-testid="licks-over">Licks over {name}</button>}
         {!noLinks.includes('scale') && <button className="btn sm ghost" onClick={() => launch({ scale: { root: SHARPS[rootPc], scale: scaleName === 'ionian' ? 'major' : scaleName } })}>{scaleLabel(minor, mode)} in Scales</button>}
       </div>
       <div className="layer-legend small" aria-hidden>

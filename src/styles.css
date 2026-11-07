@@ -2408,3 +2408,6 @@ body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-re
 .game-secs li { display: grid; grid-template-columns: 1fr auto auto; gap: var(--sp-3); align-items: center; padding: 2px 0; }
 .stars { color: var(--accent); letter-spacing: 1px; }
 .stars.gold { color: var(--gold, #fc3); text-shadow: 0 0 6px var(--gold, #fc3); }
+.tuning-explain summary { cursor: pointer; }
+.tuning-explain ul { margin: var(--sp-1) 0 0; padding-left: 1.2em; }
+.tuning-explain li { margin: 2px 0; }

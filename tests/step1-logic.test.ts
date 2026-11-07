@@ -7,7 +7,8 @@ import { bestCapo, capoTrack, transposeChord } from '../src/hand/capo'
 import { flatten, type SongTrack } from '../src/tabs/model'
 import { INSTRUMENTS, type Instrument } from '../src/instrument'
 import { TUNINGS, noteToMidi } from '../src/theory/notes'
-import { layerSpots } from '../src/theory/layers'
+import { layerSpots, doubleStops } from '../src/theory/layers'
+import { tuningInfo } from '../src/theory/tuningInfo'
 import { voiceLead, describeChange } from '../src/theory/voicelead'
 import { targetView } from '../src/theory/targets'
 import { chordInfo } from '../src/tabs/harmony'
@@ -143,5 +144,24 @@ void (async () => {
   // a pedal that only ever sends 127: a later 127 is a new press
   await new Promise(r => setTimeout(r, 450))
   ok(await next([[0xb0, 21, 127]], 'Pocket Master') === 'midi:cc:21', 'repeated 127 after a pause = new press')
+  // double-stops around an open G shape: 3rds on G+B, 4ths, 6ths with a string skipped, all in G major
+  {
+    const std = [40, 45, 50, 55, 59, 64]
+    const ds = doubleStops({ rootPc: 7, minor: false, tuning: std, window: [0, 3] })
+    const G = [0, 2, 4, 5, 7, 9, 11].map(i => (7 + i) % 12)
+    ok(ds.length > 6 && ds.every(d => G.includes(d.lo.midi % 12) && G.includes(d.hi.midi % 12)), `double-stops in G major (${ds.length})`)
+    ok(ds.some(d => d.kind === '3rds' && d.lo.s === 3 && d.hi.s === 4 && d.lo.f === 0 && d.hi.f === 0), '3rd: open G + open B')
+    ok(ds.filter(d => d.kind === '6ths').every(d => d.hi.s - d.lo.s === 2 && [8, 9].includes(d.hi.midi - d.lo.midi)), '6ths skip a string')
+    ok(ds.filter(d => d.kind === '4ths').every(d => d.hi.midi - d.lo.midi === 5), '4ths are perfect 4ths')
+  }
+  // tunings in plain words
+  {
+    const T = (id: string) => tuningInfo(TUNINGS.find(t => t.id === id)!.notes.map(noteToMidi))
+    ok(T('standard') === null, 'standard: nothing to explain')
+    ok(/^Drop D/.test(T('dropd')!.summary) && T('dropd')!.points.some(p => /2 frets/.test(p)), 'Drop D: shapes on the 6th string 2 frets higher')
+    ok(/Open G/.test(T('openg')!.summary) && T('openg')!.points.some(p => /fret 5 = C, fret 7 = D/.test(p)), 'taro patch: barre = major chord, I IV V at 0 5 7')
+    ok(/maj7/.test(T('gwahine')!.summary) && /maj9/.test(T('cwahine')!.summary) && /C6/.test(T('maunaloa')!.summary), 'wahine and Mauna Loa chords named')
+    ok(/sus4/.test(T('dadgad')!.summary) && /^Drop C/.test(T('dropc')!.summary) && /half step lower/.test(T('halfdown')!.summary), 'DADGAD sus4, Drop C, half step down')
+  }
   console.log(`step 1 logic: ${checks} checks, 0 failed`)
 })()

@@ -125,3 +125,34 @@ export function layerSpots(o: {
   }
   return { shape, window: win, spots, chordPcs, path }
 }
+
+// ---------- double-stops: two notes at once, the way Hendrix, Mayer and soul players decorate a chord ----------
+export interface DoubleStop { lo: { s: number; f: number; midi: number }; hi: { s: number; f: number; midi: number }; kind: '3rds' | '4ths' | '6ths'; what: string }
+/**
+ * Pairs inside a fret window (the shape's, two frets either side): 3rds on neighbouring strings (Mayer, soul), 4ths on
+ * neighbouring strings (Hendrix's "Little Wing" moves), 6ths with one string skipped (Hendrix, Cropper). Both notes in the
+ * chord's scale (major or natural minor of the root), at least one of them a chord tone.
+ */
+export function doubleStops(o: { rootPc: number; minor: boolean; tuning: number[]; window: [number, number] }): DoubleStop[] {
+  const { rootPc: r, minor, tuning } = o
+  const scale = (minor ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11]).map(i => (r + i) % 12)
+  const chord = [r, (r + (minor ? 3 : 4)) % 12, (r + 7) % 12]
+  const lo = Math.max(0, o.window[0] - 2), hi = o.window[1] + 2
+  const out: DoubleStop[] = []
+  const name = (m: number) => ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'][m % 12]
+  const strName = (s: number) => (s === tuning.length - 1 ? 'high e' : ['E', 'A', 'D', 'G', 'B', 'e'][s] ?? `string ${s + 1}`)
+  for (let s = 0; s + 1 < tuning.length; s++) for (const gap of [1, 2]) {
+    const t = s + gap
+    if (t >= tuning.length) continue
+    for (let f1 = lo; f1 <= hi; f1++) for (let f2 = lo; f2 <= hi; f2++) {
+      if (Math.abs(f1 - f2) > 3) continue
+      const a = tuning[s] + f1, b = tuning[t] + f2
+      const iv = b - a
+      const kind = gap === 1 && (iv === 3 || iv === 4) ? '3rds' : gap === 1 && iv === 5 ? '4ths' : gap === 2 && (iv === 8 || iv === 9) ? '6ths' : null
+      if (!kind || !scale.includes(a % 12) || !scale.includes(b % 12) || !(chord.includes(a % 12) || chord.includes(b % 12))) continue
+      out.push({ lo: { s, f: f1, midi: a }, hi: { s: t, f: f2, midi: b }, kind, what: `${kind === '3rds' ? 'A 3rd' : kind === '4ths' ? 'A 4th' : 'A 6th'}: ${name(a)} (${strName(s)} string, fret ${f1}) with ${name(b)} (${strName(t)} string, fret ${f2})${kind === '6ths' ? ', skip the string between (mute it with the finger on the lower string)' : ''}` })
+    }
+  }
+  // lowest first within each kind
+  return out.sort((x, y) => (x.kind === y.kind ? x.lo.f + x.hi.f - (y.lo.f + y.hi.f) || x.lo.s - y.lo.s : x.kind.localeCompare(y.kind)))
+}
