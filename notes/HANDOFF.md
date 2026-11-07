@@ -3,7 +3,7 @@
 Last updated 2026-11-07 (end of the "big update" chat). Read this whole file, then `CLAUDE.md` (the project brief, loaded
 automatically), then `notes/next-build.md` (every change waiting for "ship it", with checkpoints), then
 `notes/blueprint-decisions.md` and `notes/blueprint-part1.txt` / `part2.txt` (the owner's master blueprint, full text).
-Nothing important lives only in the old chat: if a detail isn't in these files or the code, it doesn't exist yet.
+**Also read `notes/WEEK.md` first: the owner's test notes, quick ideas and bugs from the week.** Nothing important lives only in the old chat: if a detail isn't in these files or the code, it doesn't exist yet.
 
 ## Where things stand
 - Repo github.com/thegute/Guitar-app, local clone /home/claude/guitar-app. Work branch **`big-update`** (everything since build-31).
