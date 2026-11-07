@@ -61,3 +61,13 @@ jobs:
             --title "KGuitar build ${{ github.run_number }}" \
             --notes "On your phone: open this page, tap KGuitar-${{ github.run_number }}.apk, then Install. Each new build installs over the old one and keeps your settings." \
             --latest
+
+      - name: Publish a test build page (big-update, before "ship it")
+        if: github.ref == 'refs/heads/big-update'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "test-${{ github.run_number }}" "KGuitar-${{ github.run_number }}.apk" \
+            --target big-update --prerelease \
+            --title "KGuitar TEST build ${{ github.run_number }} (big update, not final)" \
+            --notes "Test build of the big update, for trying before it ships. On your phone: open this page, tap KGuitar-${{ github.run_number }}.apk, then Install. It installs over your current KGuitar and keeps your songs and settings."
