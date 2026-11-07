@@ -237,6 +237,15 @@ function Wave({ buf, start, end, onChange, onHear }: { buf: AudioBuffer; start: 
 }
 export { sampleNow }
 
+/** "An octave higher and faster." */
+function pitchWords(p: number, keep: boolean): string {
+  if (Math.abs(p) < 0.005) return 'Its own pitch.'
+  const oct = Math.floor(Math.abs(p) / 12 + 1e-6)
+  const how = `${p > 0 ? 'higher' : 'lower'}${keep ? ', same length' : p > 0 ? ' and faster' : ' and slower'}.`
+  const s = oct ? `${oct === 1 ? 'An octave' : 'Two octaves'} ${how}` : how
+  return s[0].toUpperCase() + s.slice(1)
+}
+
 /** The pitch dial: two octaves down to two up, anything in between; Tape (pitch and speed together) or Keep the speed. */
 function PitchDial({ def, set, buf, id }: { def: PadDef; set: (p: Partial<PadDef>, remember?: boolean) => void; buf: { buf: AudioBuffer; start: number; end: number } | null; id: string }) {
   const [busy, setBusy] = useState('')
@@ -254,7 +263,7 @@ function PitchDial({ def, set, buf, id }: { def: PadDef; set: (p: Partial<PadDef
       <Dial value={def.pitch ?? 0} min={-24} max={24} snap={1} label="Pitch" format={fmt}
         onChange={v => set({ pitch: v })} onCommit={v => { set({ pitch: v }, true); ready(v) }} />
       <div className="stack" style={{ gap: 6, flex: 1, minWidth: 160 }}>
-        <span className="small muted">{Math.abs(def.pitch ?? 0) < 0.005 ? 'Its own pitch.' : `${Math.abs(def.pitch ?? 0) >= 12 ? `${Math.floor(Math.abs(def.pitch ?? 0) / 12)} octave${Math.abs(def.pitch ?? 0) >= 24 ? 's' : ''} ` : ''}${(def.pitch ?? 0) > 0 ? 'higher' : 'lower'}${keep ? ', same length' : (def.pitch ?? 0) > 0 ? ' and faster' : ' and slower'}.`}</span>
+        <span className="small muted">{pitchWords(def.pitch ?? 0, keep)}</span>
         {sampled && (
           <span className="seg" role="group" aria-label="How the pitch changes">
             <button aria-pressed={!keep} onClick={() => { set({ pitchMode: 'tape' }, true); setBusy('') }} title="Higher is faster, lower is slower, like a record sped up or slowed down.">Tape</button>

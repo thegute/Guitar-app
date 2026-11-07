@@ -30,7 +30,20 @@ function trim() {
   while (cache.size > 24) cache.delete(cache.keys().next().value as string)
 }
 
+const energy = (x: Float32Array) => { let e = 0; for (let i = 0; i < x.length; i += 7) e += x[i] * x[i]; return e }
+
+/** The engine's first run in a session can start before its code is ready (an offline render runs faster than real
+ *  time), giving silence: then it's simply done again. */
 async function render(buf: AudioBuffer, a: number, b: number, semis: number, natural: boolean): Promise<AudioBuffer | null> {
+  const want = energy(buf.getChannelData(0).subarray(Math.floor(a * buf.sampleRate), Math.ceil(b * buf.sampleRate)))
+  for (let k = 0; k < 3; k++) {
+    const r = await renderOnce(buf, a, b, semis, natural)
+    if (!r || want === 0 || energy(r.getChannelData(0)) > want * 0.05) return r
+  }
+  return null
+}
+
+async function renderOnce(buf: AudioBuffer, a: number, b: number, semis: number, natural: boolean): Promise<AudioBuffer | null> {
   const sr = buf.sampleRate
   const i0 = Math.max(0, Math.floor(a * sr)), i1 = Math.min(buf.length, Math.ceil(b * sr))
   if (i1 - i0 < 64) return null
