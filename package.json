@@ -26,6 +26,7 @@
     "@spotify/basic-pitch": "1.0.1",
     "@tombatossals/chords-db": "^0.5.1",
     "lucide-react": "0.468.0",
+    "onnxruntime-web": "1.22.0",
     "pdfjs-dist": "4.10.38",
     "pitchy": "^4.1.0",
     "react": "^19.3.1",

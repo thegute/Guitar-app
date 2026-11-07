@@ -18,6 +18,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(MidiPlugin.class);
         // Riff Scanner: grab the screen + the sound inside the phone while a video plays
         registerPlugin(ScreenGrabPlugin.class);
+        // Riff Scanner: the guitar-note and beat models on the phone
+        registerPlugin(MlPlugin.class);
         super.onCreate(savedInstanceState);
         if (getBridge() != null) getBridge().setWebViewClient(new MediaWebViewClient(getBridge()));
     }
