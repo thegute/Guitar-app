@@ -148,6 +148,14 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
    reggae, gospel/hymns). Only public-domain / traditional / our own originals (no copyrighted songs; lyrics only pre-1929); check each
    title's status, skip anything uncertain (e.g. later arrangements/authored songs); chords + form + sections + suggested tempo/key; Nashville
    numbers; each song works in Band mode and feeds the chord chart overlays.
+   **Round 5 (2026-11-07), sound plan:** do the recommendation: (A) Band mode = free CC0 Meta steel samples + the new strum engine, A/B vs
+   current with the owner; (B) Track mode = real recordings captured on the phone for personal practice only (never bundled/re-hosted/uploaded;
+   no YouTube audio downloading). DESIGN FOR SWAPPABLE SOUND SOURCES: the strum engine must take any "strum pack" (a folder with
+   `index.json`: chord or note -> stroke direction -> strength -> takes) so he can later drop in (1) his OWN recorded strums (write him a
+   short recording guide: chords, down/up, 3 strengths, 3+ takes, chop/mute, 44.1 kHz, DI + mic) or (2) a PROFESSIONAL library he has
+   WRITTEN PERMISSION to use (keep the licence/permission note + credit in `public/samples/<id>/LICENSE.txt` and in Settings -> Credits;
+   he must confirm in writing before any such pack is bundled; never bundle a pack whose licence forbids app redistribution). Packs are
+   chosen in Settings -> Sound (Auto = best installed), shown with their licence.
    Saved ideas: the Deep Dive course
    (notes/next-build.md "Saved for the next work cycle": real depth in CAGED, modes, intervals, ear training, voicings, soloing,
    improvising, voice leading); extra FX, note repeat/arp; weekly challenge + ghost; left-handed mode; Google Drive backup (needs his
