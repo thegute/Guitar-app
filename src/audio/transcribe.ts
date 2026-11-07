@@ -21,13 +21,47 @@ async function resample(x: Float32Array, sr: number): Promise<Float32Array> {
   return (await ctx.startRendering()).getChannelData(0)
 }
 
+// Basic Pitch's own windows: 2 s (43844 samples at 22050 Hz), 30 frames of overlap; 15 frames dropped at each edge
+const BP = { win: 22050 * 2 - 256, overlap: 30 * 256, edge: 15 }
+/** The windows Basic Pitch looks at (exactly as its own code cuts them) and how many frames the whole clip has. */
+export function bpWindows(audio: Float32Array): { wins: Float32Array[]; frames: number } {
+  const hop = BP.win - BP.overlap
+  const padded = new Float32Array(BP.overlap / 2 + audio.length)
+  padded.set(audio, BP.overlap / 2)
+  const wins: Float32Array[] = []
+  for (let a = 0; a < padded.length; a += hop) { const w = new Float32Array(BP.win); w.set(padded.subarray(a, a + BP.win)); wins.push(w) }
+  return { wins, frames: Math.floor(audio.length * (Math.floor(22050 / 256) / 22050)) }
+}
+/** One window's output (frames × bins) without its overlapping edges, as rows. */
+export function bpUnwrap(x: Float32Array, bins: number): number[][] {
+  const n = x.length / bins, rows: number[][] = []
+  for (let f = BP.edge; f < n - BP.edge; f++) rows.push(Array.from(x.subarray(f * bins, (f + 1) * bins)))
+  return rows
+}
+
 /** Every note in a recording (any number at once), with start, length, pitch and loudness. */
 export async function transcribe(x: Float32Array, sr: number, onPercent?: (p: number) => void): Promise<HeardNote[]> {
   const audio = await resample(x, sr)
   const bp = await import('@spotify/basic-pitch')
-  const model = new bp.BasicPitch(`${import.meta.env.BASE_URL}models/basic-pitch/model.json`)
-  const frames: number[][] = [], onsets: number[][] = [], contours: number[][] = []
-  await model.evaluateModel(audio, (f, o, c) => { frames.push(...f); onsets.push(...o); contours.push(...c) }, p => onPercent?.(p))
+  let frames: number[][] = [], onsets: number[][] = [], contours: number[][] = []
+  try {
+    // fast: the same network through ONNX Runtime
+    const { basicPitchRunner } = await import('../ml/models')
+    const run = await basicPitchRunner()
+    const { wins, frames: total } = bpWindows(audio)
+    for (let i = 0; i < wins.length && frames.length < total; i++) {
+      onPercent?.(i / wins.length)
+      const r = await run(wins[i])
+      frames.push(...bpUnwrap(r.frames, 88)); onsets.push(...bpUnwrap(r.onsets, 88)); contours.push(...bpUnwrap(r.contours, 264))
+    }
+    frames = frames.slice(0, total); onsets = onsets.slice(0, total); contours = contours.slice(0, total)
+    onPercent?.(1)
+  } catch {
+    // offline in a browser that hasn't fetched ONNX Runtime yet: its TensorFlow.js build (slower, always here)
+    frames = []; onsets = []; contours = []
+    const model = new bp.BasicPitch(`${import.meta.env.BASE_URL}models/basic-pitch/model.json`)
+    await model.evaluateModel(audio, (f, o, c) => { frames.push(...f); onsets.push(...o); contours.push(...c) }, p => onPercent?.(p))
+  }
   const events = bp.noteFramesToTime(bp.addPitchBendsToNoteEvents(contours, bp.outputToNotesPoly(frames, onsets, 0.5, 0.3, 11, true, null, null, true)))
   return events.map(e => ({ start: e.startTimeSeconds, dur: e.durationSeconds, midi: e.pitchMidi, amp: e.amplitude })).sort((a, b) => a.start - b.start)
 }

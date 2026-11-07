@@ -76,17 +76,17 @@ async function webDownload(files: ModelFile[], onProgress: (f: number) => void, 
     const r = await fetch(f.url, { signal })
     if (!r.ok || !r.body) throw new Error(`Download failed (${r.status}).`)
     const reader = r.body.getReader()
-    const parts: Uint8Array[] = []
+    // written straight into one buffer of the known size (a 100 MB file never sits in memory twice)
+    let buf = new Uint8Array(f.bytes)
     let got = 0
     for (;;) {
       const { done: end, value } = await reader.read()
       if (end) break
-      parts.push(value); got += value.length; done += value.length
+      if (got + value.length > buf.length) { const b = new Uint8Array(Math.max(buf.length * 1.25, got + value.length)); b.set(buf.subarray(0, got)); buf = b }
+      buf.set(value, got); got += value.length; done += value.length
       onProgress(done / total)
     }
-    const buf = new Uint8Array(got)
-    let o = 0
-    for (const p of parts) { buf.set(p, o); o += p.length }
+    if (got !== buf.length) buf = buf.slice(0, got)
     if ((await sha256(buf.buffer)) !== f.sha256) throw new Error('The download was damaged: try again.')
     await c.put(f.url, new Response(buf, { headers: { 'content-length': String(got), 'content-type': 'application/octet-stream' } }))
   }
@@ -135,7 +135,7 @@ export interface BeatRunner { run(spect: Float32Array, frames: number): Promise<
 
 type Ort = typeof import('onnxruntime-web')
 let ortP: Promise<Ort> | null = null
-async function ortWeb(): Promise<Ort> {
+export async function ortWeb(): Promise<Ort> {
   ortP ??= import('onnxruntime-web').then(o => {
     // the WebAssembly files come from the CDN at exactly this version (they're big, and only the web needs them)
     o.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/'
@@ -214,6 +214,21 @@ export async function beatRunner(): Promise<BeatRunner> {
       const r = await s.run({ spect: new ort.Tensor('float32', spect, [1, frames, 128]) })
       return { beat: (r.beat.data as Float32Array).slice(), downbeat: (r.downbeat.data as Float32Array).slice() }
     },
+  }
+}
+
+// ---------- the quick draft: Basic Pitch (Spotify, Apache 2.0, 230 KB, shipped with the app) ----------
+let bpSess: Promise<Sess> | null = null
+/** Basic Pitch's network through ONNX Runtime (about 100x faster than its TensorFlow.js build on a phone's CPU). */
+export async function basicPitchRunner(): Promise<(win: Float32Array) => Promise<{ frames: Float32Array; onsets: Float32Array; contours: Float32Array }>> {
+  const ort = await ortWeb()
+  bpSess ??= ort.InferenceSession.create(`${import.meta.env.BASE_URL}models/basic-pitch/nmp.onnx`, { executionProviders: ['wasm'] })
+  const s = await bpSess.catch(e => { bpSess = null; throw e })
+  return async win => {
+    const r = await s.run({ [s.inputNames[0]]: new ort.Tensor('float32', win, [1, win.length, 1]) })
+    // the converted graph's outputs: :0 contours (264 bins), :1 notes (88), :2 onsets (88)
+    const g = (k: string) => (r[`StatefulPartitionedCall:${k}`].data as Float32Array).slice()
+    return { frames: g('1'), onsets: g('2'), contours: g('0') }
   }
 }
 

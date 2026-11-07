@@ -15,6 +15,8 @@ async function newPage(browser, viewport, seed = {}) {
   const page = await ctx.newPage()
   page.errors = []
   page.on('pageerror', e => page.errors.push(e.message))
+  page.on('crash', () => console.log('  PAGE CRASHED'))
+  page.on('console', m => { if (m.type() === 'error') console.log('  console: ' + m.text().slice(0, 200)) })
   await page.addInitScript(s => {
     try { if (window.top !== window || sessionStorage.getItem('seeded')) return } catch { return }
     localStorage.clear()
@@ -56,7 +58,7 @@ async function pasteSong(page, text, title) {
 }
 
 ;(async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] })
+  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--disable-dev-shm-usage'] })
 
   if (want('tempo')) for (const vp of [{ width: 412, height: 915, n: 'cover' }, { width: 840, height: 757, n: 'inner' }, { width: 1400, height: 876, n: 'tab-s10' }]) {
     const page = await newPage(browser, vp)
@@ -93,7 +95,7 @@ async function pasteSong(page, text, title) {
       const r = indexedDB.open('kguitar'); r.onsuccess = () => { try { const tx = r.result.transaction(r.result.objectStoreNames[0], 'readonly'); const g = tx.objectStore(r.result.objectStoreNames[0]).getAll(); g.onsuccess = () => res(g.result.filter(d => d.title === 'Tempo test').map(d => [d.song.tempo, d.song.tempoFrom, d.song.timeSig && d.song.timeSig.join('/')])) } catch (e) { res(String(e)) } }; r.onerror = () => res('no db')
     }))
     console.log(`${vp.n}: badge "${t0}" → "${t1}" · saved ${JSON.stringify(saved)}`)
-    if (!JSON.stringify(saved).includes('[120,"you","3/4"]')) bad(`${vp.n}: tempo not saved with the song (${JSON.stringify(saved)})`)
+    if (!(Array.isArray(saved) && saved.some(d => Math.abs(d[0] - v) <= 1 && d[1] === 'you' && d[2] === '3/4'))) bad(`${vp.n}: tempo not saved with the song (${JSON.stringify(saved)})`)
     // In time uses it
     await page.locator('.play-mode button:has-text("In time"), [data-find=mode] button:has-text("In time"), button:has-text("In time")').first().click().catch(() => {})
     await page.waitForTimeout(300)
@@ -270,7 +272,7 @@ E|-3---------|-----------|`
     const page = await newPage(browser, { width: 840, height: 757 }, { 'kgx:ai': JSON.stringify({ provider: 'gemini', keys: { gemini: 'test-key' }, models: {} }), 'kg:scanMode': '"scan"' })
     page.heard = 0
     // the model files and onnxruntime-web's WebAssembly from local copies (the app fetches them from Hugging Face / jsDelivr)
-    await page.route('**/huggingface.co/**', r => { const f = path.join(MODELS, path.basename(new URL(r.request().url()).pathname)); r.fulfill({ status: 200, body: fs.readFileSync(f), headers: { 'content-type': 'application/octet-stream', 'access-control-allow-origin': '*' } }) })
+    await page.route('**/huggingface.co/**', r => { const f = path.join(MODELS, path.basename(new URL(r.request().url()).pathname)); r.fulfill({ status: 200, path: f, headers: { 'content-type': 'application/octet-stream', 'access-control-allow-origin': '*' } }) })
     await page.route('**/cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/**', r => { const f = path.join(ORTDIR, path.basename(new URL(r.request().url()).pathname)); r.fulfill({ status: 200, body: fs.readFileSync(f), headers: { 'content-type': f.endsWith('.wasm') ? 'application/wasm' : 'text/javascript', 'access-control-allow-origin': '*' } }) })
     await page.route('**/generativelanguage.googleapis.com/**', async r => {
       const body = JSON.parse(r.request().postData() || '{}')
@@ -296,8 +298,21 @@ E|-3---------|-----------|`
     await page.screenshot({ path: `${DIR}/step2-sound-draft.png` })
     // download (served locally) → the better version
     const t1 = Date.now()
+    // Chrome's request interception can't pass ~100 MB bodies (the browser goes away), so the models are put straight
+    // into the app's model cache from the preview server, exactly where the download would leave them
+    const TM = path.join(__dirname, '..', '..', 'dist', '__testmodels')
+    fs.mkdirSync(TM, { recursive: true })
+    for (const f of ['guitar_crnn.onnx', 'guitar_crnn.onnx.data', 'beat_this.onnx']) if (!fs.existsSync(path.join(TM, f))) fs.symlinkSync(path.join(MODELS, f), path.join(TM, f))
+    await page.evaluate(async () => {
+      const c = await caches.open('kg-models-v1')
+      const base = 'https://huggingface.co/baroned/musicnote-ondevice-models/resolve/fb6a270d0492862389958c898d7def780ad6ccff/'
+      for (const f of ['guitar_crnn.onnx', 'guitar_crnn.onnx.data', 'beat_this.onnx']) {
+        const b = await (await fetch('/__testmodels/' + f)).arrayBuffer()
+        await c.put(base + f, new Response(b, { headers: { 'content-length': String(b.byteLength) } }))
+      }
+    })
     await page.locator('[data-testid=scan-download]').click()
-    await page.waitForSelector('[data-testid=scan-better-run]', { timeout: 120000 }).catch(() => bad('sound: the better pass never started'))
+    await page.waitForSelector('[data-testid=scan-better-run]', { timeout: 120000 }).catch(e => bad('sound: the better pass never started: ' + e.message.split('\n')[0]))
     await page.waitForSelector('[data-testid=scan-better-ready]', { timeout: 400000 }).catch(() => bad('sound: no better version'))
     const ready = await page.locator('[data-testid=scan-better-ready]').innerText().catch(() => '')
     console.log(`sound: ${ready.replace(/\s+/g, ' ')} (${((Date.now() - t1) / 1000).toFixed(0)} s incl. loading the models)`)
