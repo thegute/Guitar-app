@@ -19,7 +19,20 @@ export const STRUM_PATTERNS: StrumPattern[] = [
   { id: 'waltzdown', label: 'Three downstrokes', meter: 3, how: 'One down on each beat: 1, 2, 3.', hits: [[0, 'D'], [1, 'D'], [2, 'D']] },
 ]
 
-export const strumPattern = (id?: string) => STRUM_PATTERNS.find(p => p.id === id)
+/**
+ * A pattern by id, or a heard one written as eighths: "custom:D-DU-UDU" (4/4, 8 slots) or "custom:D-DUDU" (3/4, 6 slots),
+ * D down · U up · B bass · X chop · - nothing (the Riff Scanner writes these from what the AI heard).
+ */
+export function strumPattern(id?: string): StrumPattern | undefined {
+  if (id?.startsWith('custom:')) {
+    const slots = id.slice(7).replace(/\s/g, '').toUpperCase()
+    if (!/^[DUBX-]+$/.test(slots) || (slots.length !== 8 && slots.length !== 6)) return undefined
+    const hits = [...slots].flatMap((c, i) => (c === '-' ? [] : [[i / 2, c as Stroke] as [number, Stroke]]))
+    if (!hits.length) return undefined
+    return { id, label: `As heard (${slots})`, meter: slots.length === 6 ? 3 : 4, how: 'The strum the Riff Scanner heard in the recording.', hits }
+  }
+  return STRUM_PATTERNS.find(p => p.id === id)
+}
 /** Patterns that fit a song in this meter (2/4 tunes count in 4). */
 export const patternsFor = (meter = 4) => STRUM_PATTERNS.filter(p => p.meter === (meter === 3 ? 3 : 4))
 

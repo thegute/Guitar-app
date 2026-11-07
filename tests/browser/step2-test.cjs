@@ -1,7 +1,8 @@
 // Blueprint Step 2 in the browser: tempo badge + sheet (tap along, ½×/2×, time signature): the floating finger box (drag, resize, tuck, remembered), the upcoming shift badge
 // and Loop this shift, choosing a finger / another string for a tapped note, Make it easier, hand size in Settings;
 // later parts: tunings, layers, voice leading, play the changes.
-// Needs `vite preview` on :4173 and CHROME_PATH.  node tests/browser/step2-test.cjs [tempo,scan,scanvideo,scanlink]
+// Needs `vite preview` on :4173 and CHROME_PATH.  node tests/browser/step2-test.cjs [tempo,scan,scanvideo,scanlink,scansound]
+// scansound needs the models in KG_MODELS (default /tmp/claude-0/models) and test audio in KG_BENCH (see tools/ml-bench)
 const { chromium } = require('playwright')
 const path = require('path')
 const DIR = path.join(__dirname, 'out')
@@ -258,6 +259,66 @@ E|-3---------|-----------|`
       if (await sideways(page)) bad('link: sideways overflow')
     }
     if (page.errors.length) bad(`link errors: ${page.errors.join(' | ')}`)
+    await page.context().close()
+  }
+
+  if (want('scansound')) {
+    const fs = require('fs')
+    const MODELS = process.env.KG_MODELS || '/tmp/claude-0/models'
+    const BENCH = process.env.KG_BENCH || '/tmp/claude-0/bench'
+    const ORTDIR = path.join(__dirname, '..', '..', 'node_modules', 'onnxruntime-web', 'dist')
+    const page = await newPage(browser, { width: 840, height: 757 }, { 'kgx:ai': JSON.stringify({ provider: 'gemini', keys: { gemini: 'test-key' }, models: {} }), 'kg:scanMode': '"scan"' })
+    page.heard = 0
+    // the model files and onnxruntime-web's WebAssembly from local copies (the app fetches them from Hugging Face / jsDelivr)
+    await page.route('**/huggingface.co/**', r => { const f = path.join(MODELS, path.basename(new URL(r.request().url()).pathname)); r.fulfill({ status: 200, body: fs.readFileSync(f), headers: { 'content-type': 'application/octet-stream', 'access-control-allow-origin': '*' } }) })
+    await page.route('**/cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/**', r => { const f = path.join(ORTDIR, path.basename(new URL(r.request().url()).pathname)); r.fulfill({ status: 200, body: fs.readFileSync(f), headers: { 'content-type': f.endsWith('.wasm') ? 'application/wasm' : 'text/javascript', 'access-control-allow-origin': '*' } }) })
+    await page.route('**/generativelanguage.googleapis.com/**', async r => {
+      const body = JSON.parse(r.request().postData() || '{}')
+      const aud = body.contents?.[0]?.parts?.find(p => p.inline_data && /audio/.test(p.inline_data.mime_type))
+      if (aud) { page.heard++; page.audioBytes = Buffer.from(aud.inline_data.data, 'base64').length }
+      r.fulfill({ json: { candidates: [{ content: { parts: [{ text: aud ? 'SONG: Unknown\nKEY: E\nTEMPO: 96\nTIME: 4/4\nCHORDS: 0.0 E; 2.5 A; 5.0 G; 7.5 D; 10.0 E; 12.5 A; 15.0 G; 17.5 D\nSTRUM: D-DU-UDU\nTECHNIQUES: none\nVOICE: ' : 'NO TAB' }] } }] } })
+    })
+    await nav(page, 'Jam'); await sub(page, 'Riff Scanner')
+    const t0 = Date.now()
+    await page.locator('[data-testid=scan-file]').setInputFiles(path.join(BENCH, 'strum96.wav'))
+    await page.waitForSelector('[data-testid=scan-result]', { timeout: 90000 }).catch(() => bad('sound: no quick draft'))
+    const tDraft = (Date.now() - t0) / 1000
+    const badge = (await page.locator('[data-testid=scan-result] [data-testid=tempo-badge]').innerText().catch(() => '')).replace(/\s+/g, ' ')
+    console.log(`sound: quick draft after ${tDraft.toFixed(1)} s, badge "${badge}"`)
+    if (!/^(9[5-7]|19[0-3]|4[7-9]) /.test(badge)) bad(`sound: tempo off ("${badge}", true 96)`)
+    if (!(await page.locator('[data-testid=scan-check]').count())) bad('sound: a heard scan should ask "Does this look right?"')
+    await page.waitForSelector('[data-testid=scan-ai-note]:has-text("Gemini:")', { timeout: 30000 }).catch(() => bad('sound: no AI second opinion'))
+    const ai = await page.locator('[data-testid=scan-ai-note]').innerText().catch(() => '')
+    console.log(`sound: ${ai} (sent ${page.heard} clip, ${(page.audioBytes / 1e6).toFixed(2)} MB)`)
+    const chordsOnTab = await page.locator('[data-testid=scan-player] .tab-chord, [data-testid=scan-player] text.chord').count()
+    console.log(`sound: chord names on the tab: ${chordsOnTab}`)
+    if (!(await page.locator('[data-testid=scan-getmodels]').count())) bad('sound: no offer to download the models')
+    await page.screenshot({ path: `${DIR}/step2-sound-draft.png` })
+    // download (served locally) → the better version
+    const t1 = Date.now()
+    await page.locator('[data-testid=scan-download]').click()
+    await page.waitForSelector('[data-testid=scan-better-run]', { timeout: 120000 }).catch(() => bad('sound: the better pass never started'))
+    await page.waitForSelector('[data-testid=scan-better-ready]', { timeout: 400000 }).catch(() => bad('sound: no better version'))
+    const ready = await page.locator('[data-testid=scan-better-ready]').innerText().catch(() => '')
+    console.log(`sound: ${ready.replace(/\s+/g, ' ')} (${((Date.now() - t1) / 1000).toFixed(0)} s incl. loading the models)`)
+    await page.locator('[data-testid=scan-ok]').click()
+    await page.locator('[data-testid=scan-use-better]').click()
+    const notes = await page.locator('[data-testid=scan-player] .tab-note').count()
+    console.log(`sound: better version shows ${notes} notes`)
+    if (notes < 20) bad(`sound: the better version has few notes (${notes})`)
+    await page.screenshot({ path: `${DIR}/step2-sound-better.png` })
+    // connections
+    await page.locator('[data-testid=scan-chain]').click()
+    const mine = await page.evaluate(() => JSON.parse(localStorage.getItem('kg:myLicks') || '[]').length)
+    const note1 = await page.locator('[data-testid=scan-note]').innerText().catch(() => '')
+    console.log(`sound: lick chain → ${mine} riff(s) kept · "${note1}"`)
+    if (!mine) bad('sound: Add to my lick chain kept nothing')
+    await page.locator('[data-testid=scan-pad]').click()
+    await page.waitForFunction(() => /pad \d+ of Your pads/.test(document.querySelector('[data-testid=scan-note]')?.textContent || ''), null, { timeout: 30000 }).catch(() => bad('sound: Sample to a pad did nothing'))
+    const pads = await page.evaluate(() => Object.keys((JSON.parse(localStorage.getItem('kg:studioBeat') || '{}').pads) || {}).filter(k => /^u\d+$/.test(k)))
+    console.log(`sound: pad → ${pads.join(', ')}`)
+    if (await sideways(page)) bad('sound: sideways overflow')
+    if (page.errors.length) bad(`sound errors: ${page.errors.join(' | ')}`)
     await page.context().close()
   }
 

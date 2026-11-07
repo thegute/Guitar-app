@@ -13,8 +13,10 @@ import { songTempo } from '../play/tempoMap'
 import { useInstrument } from '../instrument'
 import { pcName } from '../theory/notes'
 import { Ico } from '../components/Icon'
+import { chordTimeline } from '../tabs/harmony'
+import { strumPattern } from '../play/strumCoach'
 
-export function ScanPlayer({ doc }: { doc: SongDoc }) {
+export function ScanPlayer({ doc, marks }: { doc: SongDoc; marks?: number[] }) {
   const inst = useInstrument()
   const track = doc.song.tracks[0]
   const flat = useMemo(() => flatten(track), [track])
@@ -30,9 +32,11 @@ export function ScanPlayer({ doc }: { doc: SongDoc }) {
     const n = pcName(t % 12, false)
     return s === track.tuning.length - 1 && track.tuning.filter(x => x % 12 === t % 12).length > 1 ? n.toLowerCase() : n
   }), [track.tuning])
+  // chord names over the tab (the scan's own: written ones or the AI's)
+  const spans = useMemo(() => chordTimeline(track, {}, []).spans, [track])
   const hands = useMemo(() => handGroups(flat, { inst: inst.id, stringNames: strNames }), [flat, inst.id, strNames])
   useEffect(() => () => player.current?.stop(), [])
-  useEffect(() => { player.current?.stop(); setAt(-1); setFrom(0); setLoop(null) }, [doc])
+  useEffect(() => { player.current?.stop(); setAt(-1); setFrom(0); setLoop(null) }, [doc.song.tracks])
 
   const start = (i: number, lp = loop) => {
     const p = (player.current ??= new TabPlayer())
@@ -74,7 +78,7 @@ export function ScanPlayer({ doc }: { doc: SongDoc }) {
         </label>
         {loop && <button className="btn sm on" onClick={() => { setLoop(null); if (playing) start(at, null) }}>Looping bars {loop.from + 1}–{loop.to + 1} ✕</button>}
       </div>
-      <TabView track={track} mode="fret" flats={false} cursor={cur} playing={playing} states={states} version={0} spans={[]}
+      <TabView track={track} mode="fret" flats={false} cursor={cur} playing={playing} states={states} version={0} spans={spans} marks={marks} strum={strumPattern(doc.song.strum) ?? null} meter={doc.song.meter ?? 4}
         onTap={i => { if (playing) start(i); else setFrom(i) }} />
       {hand && hand.notes.some(n => n.fret > 0) && (
         <FingerBox where="scan" group={hand} next={next} beatsToShift={toShift} expected={expected} nStr={track.tuning.length} stringNames={strNames}

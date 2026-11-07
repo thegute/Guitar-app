@@ -18,6 +18,7 @@ import { loadPicture, piecesFromPictures, soundOf, tabBoxes, tabFromVideo, union
 import { canRead, readPieces, writtenTempo } from './read'
 import { chartText, parseTime, watchLink } from './link'
 import { canGrab, startGrab, type GrabSession } from './grab'
+import { useSoundScan } from './useSoundScan'
 import { youtubeId } from '../tabs/library'
 import { YouTubePlayer } from '../components/YouTubePlayer'
 import type { VideoApi } from '../play/inTime'
@@ -86,6 +87,8 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
   const [box, setBox] = useState<Box | null>(null)
   const [stages, setStages] = useState<Stage[] | null>(null)
   const [out, setOut] = useState<ScanOut | null>(null)
+  // a scan from sound keeps working after the first result: the better version, the AI's second opinion
+  const sound = useSoundScan(youtube)
   const [msg, setMsg] = useState('')
   const [setup, setSetup] = useState(false)
   const abort = useRef<AbortController | null>(null)
@@ -177,19 +180,15 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       }
       if (isVideo) step('ai', { state: 'skip', note: pieces.length ? 'needs an AI key' : 'no tab on screen' })
       if (!snd) throw new Error("This file has no sound I can open, and no tab on screen to read.")
-      step('notes', { state: 'run', pct: 0 })
-      const { transcribe, notesToTab } = await import('../audio/transcribe')
-      const notes = await transcribe(snd.x.slice(0, snd.sr * 120), snd.sr, p => step('notes', { pct: p }))
-      if (signal.aborted) throw new Error('Cancelled.')
-      step('notes', { state: 'done', note: `${notes.length} notes` })
-      step('hand', { state: 'run' })
-      const bpm = a ? Math.round(a.bpm) : 90
-      const song = notesToTab(notes, bpm, inst.midis, title, false)
-      if (!song) throw new Error("I didn't hear clear guitar notes in it. A solo guitar part works best.")
-      step('hand', { state: 'done' }); step('tempo', { state: 'done', note: `${bpm} BPM` })
-      setOut({ doc: { id: newId(), title, source: 'text', inst: inst.id, song: { ...song, tempoFrom: a ? 'detected' : 'guess', ...(a && (a.meter.num !== 4 || a.meter.den !== 4) ? { timeSig: [a.meter.num, a.meter.den] as [number, number] } : {}) }, ...(youtube ? { youtube } : {}), updated: Date.now() }, heard: true, how: `Worked out from the sound of "${f.name}" (a note detector on the phone): good for one guitar, rough with a full band.` })
-      setStages(null)
+      await scanSound(snd.x, snd.sr, title, `the sound of "${f.name}"`, isVideo ? [{ id: 'frames', label: 'Looking through the video for a tab', state: 'done', note: 'no tab on screen' }] : [])
     } catch (e) { fail(e) }
+  }
+
+  /** Notes from sound: quick draft at once, then the better version and the AI's second opinion (soundScan.ts). */
+  async function scanSound(x: Float32Array, sr: number, title: string, source: string, done: Stage[] = [], yt?: string) {
+    // the shared engine shows its own steps from here
+    abort.current?.abort(); setStages(null); setOut(null); setMsg('')
+    await sound.run(x, sr, title, source, done, yt)
   }
 
   const linkUrl = youtubeId(link) ? link.trim() : ''
@@ -264,15 +263,23 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       step('frames', { state: g.pieces.length ? 'done' : 'fail', note: g.pieces.length ? `${g.pieces.length} strip${g.pieces.length === 1 ? '' : 's'} from ${g.frames} frames${g.scrolled ? ', scrolling tab stitched' : ''}` : 'no tab on screen' })
       const a = g.sound ? analyse(g.sound.x, g.sound.sr) : null
       step('sound', { state: a ? 'done' : 'skip', note: a ? `${Math.round(a.bpm)} BPM` : g.sound ? 'no clear beat' : 'no sound captured' })
-      if (!g.pieces.length) throw new Error('No tab showed on screen while it played. If the tab is only heard, not shown, try a screen recording with Media sounds, or Play it out loud.')
+      if (!g.pieces.length) {
+        if (!g.sound) throw new Error('No tab showed on screen while it played, and no sound came through. Try a screen recording with Media sounds, or Play it out loud.')
+        // no tab on screen: work it out from the sound that played inside the phone
+        await scanSound(g.sound.x, g.sound.sr, 'Scanned riff', 'the sound of the video (inside the phone)', [{ id: 'frames', label: 'Finding and stitching the tab', state: 'done', note: 'no tab on screen' }], linkUrl)
+        setPhase(null)
+        return
+      }
       await readOut(g.pieces, signal, 'Scanned riff', `KGuitar watched the video on screen and read the tab${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined)
       setOut(o => (o ? { ...o, doc: { ...o.doc, youtube: linkUrl || o.doc.youtube } } : o))
       setPhase(null)
     } catch (e) { fail(e); setPhase('record') }
   }
 
-  const again = () => { setOut(null); setPics([]); setBox(null); setMsg(''); setPhase(null); setWhy('') }
+  const again = () => { sound.reset(); setOut(null); setPics([]); setBox(null); setMsg(''); setPhase(null); setWhy('') }
   if (out) return <ScanResult out={out} onUseInJam={onUseInJam} onAgain={again} />
+  const heardView = sound.view({ onUseInJam, onAgain: again })
+  if (heardView) return heardView
   return (
     <div className="scan-video stack" style={{ gap: 10 }}>
       {!ready && (
@@ -346,7 +353,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
         </div>
       )}
       {stages && <ScanProgress stages={stages} onCancel={() => abort.current?.abort()} />}
-      {msg && <p className="small" role="status" style={{ margin: 0 }} data-testid="scan-msg">{msg}</p>}
+      {(msg || sound.msg) && <p className="small" role="status" style={{ margin: 0 }} data-testid="scan-msg">{msg || sound.msg}</p>}
     </div>
   )
 }

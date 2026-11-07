@@ -385,3 +385,40 @@ export async function watchVideo(url: string, prompt: string, o: { from?: number
   if (!text.trim()) throw new AiError('Gemini watched it but sent back nothing.', true)
   return text
 }
+
+/**
+ * Gemini listens to a recording (inline audio, up to a few minutes) and answers. Tries your Gemini model, then the
+ * other Flash ones this key has when one is busy or out of free requests. Only Gemini can do this (the free Groq and
+ * OpenRouter models can't hear music).
+ */
+export async function listenAudio(b64: string, mime: string, prompt: string, o: { maxTokens?: number; timeoutMs?: number; signal?: AbortSignal } = {}): Promise<string> {
+  const v = aiSettings()
+  const key = v.keys.gemini
+  if (!key) throw new AiError('Listening needs a free Google Gemini key (Settings → You → AI helper).')
+  const p = PROVIDERS[0]
+  let last: AiError | null = null
+  for (const model of geminiOrder(v.models.gemini || workedModel || p.model).slice(0, 3)) {
+    if (o.signal?.aborted) throw new AiError('Cancelled.')
+    const body = {
+      contents: [{ role: 'user', parts: [{ inline_data: { mime_type: mime, data: b64 } }, { text: prompt }] }],
+      generationConfig: { maxOutputTokens: o.maxTokens ?? 6000, ...geminiThinking(model) },
+    }
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`
+    let r: { status: number; data: unknown }
+    try {
+      const req = post(url, {}, body, o.timeoutMs ?? 180000)
+      r = o.signal ? await Promise.race([req, new Promise<never>((_, rej) => o.signal!.addEventListener('abort', () => rej(new AiError('Cancelled.')), { once: true }))]) : await req
+    } catch (e) {
+      if (e instanceof AiError) throw e
+      last = new AiError(e instanceof Timeout ? 'Gemini took too long listening.' : "Couldn't reach Google Gemini.", true)
+      continue
+    }
+    if (refusesThinking(r)) { stepDown(model); continue }
+    if (r.status >= 300) { last = new AiError(why(r.status, r.data, p), true); if ([429, 500, 503, 404].includes(r.status)) continue; break }
+    const d = r.data as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
+    const text = d.candidates?.[0]?.content?.parts?.map(x => x.text ?? '').join('') ?? ''
+    if (text.trim()) return text
+    last = new AiError('Gemini listened but sent back nothing.', true)
+  }
+  throw last ?? new AiError('Gemini could not listen to it.')
+}

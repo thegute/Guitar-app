@@ -6,6 +6,7 @@ import type { Song, SongBar, SongStep } from '../tabs/model'
 import { placeAndFinger } from '../hand/engine'
 import { handSize, scaleFor } from '../hand/neck'
 import type { BeatGrid, Note } from './post'
+import { chordInfo } from '../tabs/harmony'
 
 export interface ToTabOpts {
   tuning: number[]
@@ -17,6 +18,10 @@ export interface ToTabOpts {
   bpm?: number
   /** General MIDI program for Hear it (25 steel acoustic, 27 clean electric) */
   program?: number
+  /** chord names with the time (s) each starts (the AI's second opinion): written above the tab */
+  chordTimes?: { t: number; name: string }[]
+  /** filled in: bars where the chord and the notes clearly disagree (0-based, counting a pickup bar) */
+  report?: { checkBars: number[] }
 }
 
 /** Each note's place in beats from the first downbeat (negative = before it). */
@@ -87,6 +92,17 @@ export function notesToSong(notes: Note[], o: ToTabOpts): Song | null {
     return { at: k, dur: Math.max(1 / 12, dur), midis }
   })
   const placed = placeAndFinger(evs.map(e => ({ midis: e.midis, dur: e.dur })), { scale: scaleFor(o.tuning.length), size: handSize(), tuning: o.tuning, open: 0.5, warm: 0.3 })
+  // chord names: on the first note at (or just before) where each chord starts
+  const chordAt = new Map<number, string>()
+  const chordPos: { at: number; name: string }[] = []
+  if (o.chordTimes?.length) {
+    const cp = beatPositions(o.chordTimes.map(c => c.t), o.grid, bpm).map(p => Math.round(p * 4) / 4 * scale)
+    o.chordTimes.forEach((c, i) => {
+      chordPos.push({ at: cp[i], name: c.name })
+      const j = evs.findIndex(e => e.at >= cp[i] - 0.26)
+      if (j >= 0 && evs[j].at - cp[i] <= 1.5 * scale) chordAt.set(j, c.name)
+    })
+  }
   // bars: a pickup bar for what comes before the first "1", then whole bars
   const first = keys[0]
   const startAt = first < 0 ? first : Math.floor(first / meter) * meter
@@ -94,12 +110,12 @@ export function notesToSong(notes: Note[], o: ToTabOpts): Song | null {
   let bar: SongStep[] = [], barEnd = first < 0 ? 0 : startAt + meter, t = startAt
   const push = (st: SongStep) => { if (st.dur > 1e-6) bar.push({ ...st, dur: Math.round(st.dur * 1e4) / 1e4 }) }
   const close = () => { bars.push({ steps: bar }); bar = []; barEnd += meter }
-  const emit = (notesOf: SongStep['notes'], at: number, dur: number) => {
+  const emit = (notesOf: SongStep['notes'], at: number, dur: number, chord?: string) => {
     if (at > t + 1e-6) rest(at - t)
     let left = dur, firstPart = true
     while (left > 1e-6) {
       const take = Math.min(left, barEnd - t)
-      push({ notes: firstPart ? notesOf : [], dur: take })
+      push({ notes: firstPart ? notesOf : [], dur: take, ...(firstPart && chord ? { chord } : {}) })
       t += take; left -= take; firstPart = false
       if (t >= barEnd - 1e-6) close()
     }
@@ -108,9 +124,26 @@ export function notesToSong(notes: Note[], o: ToTabOpts): Song | null {
     let left = d
     while (left > 1e-6) { const take = Math.min(left, barEnd - t); push({ notes: [], dur: take }); t += take; left -= take; if (t >= barEnd - 1e-6) close() }
   }
-  evs.forEach((e, i) => emit(placed.notes[i].map(n => ({ string: n.string, fret: n.fret, midi: o.tuning[n.string] + n.fret })), e.at, e.dur))
+  evs.forEach((e, i) => emit(placed.notes[i].map(n => ({ string: n.string, fret: n.fret, midi: o.tuning[n.string] + n.fret })), e.at, e.dur, chordAt.get(i)))
   if (bar.length) { rest(barEnd - t) }
   if (!bars.some(b => b.steps.some(s => s.notes.length))) return null
+  // bars where the chord and the notes clearly disagree (most of the notes' time is outside the chord): "check this bar"
+  if (o.report && chordPos.length) {
+    const check: number[] = []
+    let start = startAt
+    bars.forEach((b, bi) => {
+      const len = b.steps.reduce((a, x) => a + x.dur, 0)
+      const cur = [...chordPos].reverse().find(c => c.at <= start + len / 2)
+      const info = cur ? chordInfo(cur.name) : null
+      if (info) {
+        let inChord = 0, all = 0, count = 0
+        for (const st of b.steps) for (const n of st.notes) { count++; all += st.dur; if (info.pcs.includes(n.midi % 12)) inChord += st.dur }
+        if (count >= 3 && inChord / all < 0.4) check.push(bi)
+      }
+      start += len
+    })
+    o.report.checkBars = check
+  }
   const quarterBpm = Math.round(bpm * scale * 10) / 10
   const sig: [number, number] | undefined = compound ? [perBar * 3, 8] : perBar !== 4 ? [perBar, 4] : undefined
   return {

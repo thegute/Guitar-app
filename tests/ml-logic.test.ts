@@ -5,6 +5,8 @@ import { strict as assert } from 'node:assert'
 import { BEAT, NOTE, beatChunks, beatChunk, beatsFrom, gridFrom, joinBeatChunks, noteChunks, notesFrom, type NoteOut } from '../src/ml/post'
 import { beatPositions, notesToSong, quantize } from '../src/ml/toTab'
 import { resample } from '../src/ml/dsp'
+import { parseHeard, withoutVoice, wavBase64 } from '../src/scan/listen'
+import { strumPattern } from '../src/play/strumCoach'
 
 let checks = 0
 const ok = (c: boolean, m: string) => { checks++; assert.ok(c, m) }
@@ -134,4 +136,55 @@ const allSteps = (s: ReturnType<typeof notesToSong>) => s!.tracks[0].bars.flatMa
   ok(y.length === 16000 && Math.abs(zc - 440) <= 1, `440 Hz stays 440 Hz (${zc})`)
 }
 void beatPositions
+
+// the AI's second opinion, read
+{
+  const h = parseHeard(`SONG: Unknown
+KEY: G
+TEMPO: 96
+TIME: 4/4
+CHORDS: 0.0 G; 2.5 C; 5.0 D7; 7.5 Em
+SECTIONS: 0.0 intro; 10.2 verse
+STRUM: D-DU-UDU
+TECHNIQUES: hammer-ons, slides
+VOICE: 0.0-1.8 talk; 12-20 sing
+NOTES:
+0.50 E4 0.25
+0.75 F#4 0.25
+1.00 G4 0.5`)
+  ok(!h.song && h.key === 'G' && h.tempo === 96 && h.timeSig?.join('/') === '4/4', `song/key/tempo/time (${JSON.stringify([h.song, h.key, h.tempo, h.timeSig])})`)
+  ok(h.chords.length === 4 && h.chords[2].name === 'D7' && h.chords[2].t === 5, `chords with times (${JSON.stringify(h.chords)})`)
+  ok(h.sections.length === 2 && h.sections[1].name === 'verse', 'sections')
+  ok(h.strum === 'D-DU-UDU' && h.techniques.join(',') === 'hammer-ons,slides', 'strum and techniques')
+  ok(h.voice.length === 2 && h.voice[0].kind === 'talk' && h.voice[1].kind === 'sing' && h.voice[1].to === 20, `voice stretches (${JSON.stringify(h.voice)})`)
+  ok(h.notes?.length === 3 && h.notes[1].midi === 66 && Math.abs(h.notes[2].end - 1.5) < 1e-9, `the AI's own notes (${JSON.stringify(h.notes)})`)
+  const ns = [note(1, 60), note(5, 62), note(15, 64), note(25, 65)]
+  ok(withoutVoice(ns, h.voice).map(n => n.midi).join() === '62,65', 'talking and singing taken out')
+  ok(withoutVoice(ns, h.voice, true).map(n => n.midi).join() === '62,64,65', 'singing kept when asked')
+  const known = parseHeard('SONG: Greensleeves | Traditional\nTEMPO: 72\nTIME: 6/8')
+  ok(known.song === 'Greensleeves' && known.artist === 'Traditional' && known.timeSig?.join('/') === '6/8', 'a known song')
+  ok(parseHeard('nothing useful').chords.length === 0, 'an empty answer reads as nothing')
+}
+// the heard strum as the song's own pattern
+{
+  const p = strumPattern('custom:D-DU-UDU')!
+  ok(!!p && p.meter === 4 && JSON.stringify(p.hits) === JSON.stringify([[0, 'D'], [1, 'D'], [1.5, 'U'], [2.5, 'U'], [3, 'D'], [3.5, 'U']]), `custom strum (${JSON.stringify(p?.hits)})`)
+  ok(strumPattern('custom:D-D-D-')?.meter === 3 && !strumPattern('custom:nonsense'), 'waltz strum; nonsense ignored')
+}
+// chord names on the tab, and a bar where they disagree
+{
+  const beats = Array.from({ length: 20 }, (_, i) => 0.5 + i * 0.5)
+  const g = gridFrom(beats, beats.filter((_, i) => i % 4 === 0))!
+  // bar 1: G chord tones; bar 2: notes of F major over a "G" label → check it
+  const ns = [...[55, 59, 62, 67].map((m, i) => note(0.5 + i * 0.5, m)), ...[53, 57, 60, 65].map((m, i) => note(2.5 + i * 0.5, m))]
+  const report = { checkBars: [] as number[] }
+  const s = notesToSong(ns, { tuning, title: 't', chords: false, grid: g, chordTimes: [{ t: 0.5, name: 'G' }], report })!
+  ok(s.tracks[0].bars[0].steps[0].chord === 'G', 'chord written above the first note')
+  ok(JSON.stringify(report.checkBars) === '[1]', `bar 2 flagged (${report.checkBars})`)
+}
+// the clip sent to the AI: a WAV at 16 kHz
+{
+  const b = Buffer.from(wavBase64(new Float32Array(44100).fill(0.5), 44100), 'base64')
+  ok(b.toString('latin1', 0, 4) === 'RIFF' && b.readUInt32LE(24) === 16000 && b.readUInt32LE(40) === 32000, `16 kHz WAV, 1 s (${b.readUInt32LE(24)}, ${b.readUInt32LE(40)})`)
+}
 console.log(`ml logic: ${checks} checks, 0 failed`)
