@@ -2,7 +2,7 @@
 // hear, trim), Put it on a pad / Chop it across pads, the pitch dial (keys, −/+, double tap, Tape / Keep the speed),
 // Signalsmith's keep-the-speed copy checked for pitch and length, and the stems with the real model (routed locally).
 // Needs `vite preview` on :4173, CHROME_PATH, and the model in KG_MODELS/demucs for the `stems` part.
-// Usage: node tests/browser/getsound-test.cjs [file,video,dial,shift,stems]
+// Usage: node tests/browser/getsound-test.cjs [file,video,dial,shift,micfx,stems]
 const { chromium } = require('playwright')
 const path = require('path')
 const fs = require('fs')
@@ -197,6 +197,38 @@ async function openGetSound(page) {
       console.log(`shift ${o.semis > 0 ? '+' : ''}${o.semis}${o.natural ? ' (voice natural)' : ''}: ${o.f0.toFixed(1)} Hz (wanted ${o.want.toFixed(1)}), same length, starts at ${o.onset.toFixed(3)} s (original ${r.onset0.toFixed(3)})`)
     }
     errs(page, 'shift')
+    await page.context().close()
+  }
+
+  // ---------- mic effects: each one makes sound, keeps the length (reverb adds its tail), octaves land an octave away ----------
+  if (want('micfx')) {
+    fs.mkdirSync(path.join(DIST, '__test'), { recursive: true })
+    execSync(`npx -y esbuild@0.25 src/studio/micFx.ts --bundle --format=iife --global-name=KGFx --log-level=error --outfile=${path.join(DIST, '__test', 'fx.js')}`, { cwd: path.join(__dirname, '..', '..') })
+    const page = await newPage(browser, { width: 840, height: 757 })
+    await page.addScriptTag({ url: '/__test/fx.js' })
+    const r = await page.evaluate(async () => {
+      const sr = 44100, x = new Float32Array(sr * 1.5)
+      for (let i = 0; i < x.length; i++) { const t = i / sr; x[i] = (Math.sin(2 * Math.PI * 196 * t) + 0.5 * Math.sin(2 * Math.PI * 392 * t)) * Math.min(1, t * 20) * 0.5 }
+      const out = {}
+      for (const f of window.KGFx.MIC_FX.map(m => m.id)) {
+        const y = await window.KGFx.applyMicFx(x, sr, f)
+        let peak = 0, e = 0
+        for (const v of y) { peak = Math.max(peak, Math.abs(v)); e += v * v }
+        out[f] = { len: y.length, peak, rms: Math.sqrt(e / y.length), f0: window.KGFx.framePitch(y, Math.round(sr * 0.6), 2048, sr), same: f === 'none' ? y === x : false }
+      }
+      // the octaves on a plain sine (a strong 2nd harmonic would make a pitch reading ambiguous)
+      const pure = x.map((_, i) => Math.sin(2 * Math.PI * 196 * i / sr) * Math.min(1, i / sr * 20) * 0.5)
+      for (const f of ['octaveUp', 'octaveDown']) out[f].f0 = window.KGFx.framePitch(await window.KGFx.applyMicFx(pure, sr, f), Math.round(sr * 0.6), 4096, sr)
+      return out
+    })
+    for (const [f, o] of Object.entries(r)) {
+      if (!(o.peak > 0.05)) bad(`mic effect ${f}: silent`)
+      if (f === 'reverb' ? o.len <= 66150 : o.len !== 66150) bad(`mic effect ${f}: length ${o.len}`)
+    }
+    if (Math.abs(1200 * Math.log2(r.octaveUp.f0 / 392)) > 40) bad(`octave up: ${r.octaveUp.f0.toFixed(1)} Hz, wanted 392`)
+    if (Math.abs(1200 * Math.log2(r.octaveDown.f0 / 98)) > 40) bad(`octave down: ${r.octaveDown.f0.toFixed(1)} Hz, wanted 98`)
+    console.log('mic effects: ' + Object.entries(r).map(([f, o]) => `${f} ${o.f0 ? Math.round(o.f0) + ' Hz' : '-'}`).join(', '))
+    errs(page, 'micfx')
     await page.context().close()
   }
 

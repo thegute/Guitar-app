@@ -13,7 +13,7 @@ import { YouTubePlayer } from '../components/YouTubePlayer'
 import { startGrab, type GrabSession } from '../scan/grab'
 import { downloadModels, haveModel, MODELS } from '../ml/models'
 import { newId, type Beat } from './beat'
-import { USER_PADS, detectRoot, sliceAtOnsets, trimSilence } from './pads'
+import { USER_PADS, detectRoot, padName, sliceAtOnsets, trimSilence } from './pads'
 import { saveSample } from './padSamples'
 
 const MAX_FILE_MB = 400
@@ -194,7 +194,7 @@ function ClipEditor({ clip, beat, setBeat, onAgain, onDone }: { clip: Clip; beat
     await saveSample(id, data, p.sr)
     const label = name.trim() || 'Sample'
     setBeat(b => ({ ...b, pads: { ...b.pads, [free]: { src: 'rec', sample: id, start: 0, end: data.length / p.sr, root: detectRoot(data, p.sr) ?? undefined, name: label, mode: 'oneshot' } } }), true)
-    onDone(`"${label}" is on pad ${free.slice(1)} of Your pads. Tap it to play; open it to turn the pitch dial.`)
+    onDone(`"${label}" is on pad ${padName(free)} of Your pads. Tap it to play; open it to turn the pitch dial.`)
   }
   const chop = async () => {
     const p = piece()
@@ -208,7 +208,7 @@ function ClipEditor({ clip, beat, setBeat, onAgain, onDone }: { clip: Clip; beat
     const label = name.trim() || 'Chop'
     const defs = slices.map((s, i) => [slots[i], { src: 'rec' as const, sample: id, start: s.start, end: s.end, root: detectRoot(data.subarray(Math.round(s.start * p.sr), Math.round(s.end * p.sr)), p.sr) ?? undefined, name: `${label.slice(0, 11)} ${i + 1}`, choke: 1 }] as const)
     setBeat(b => ({ ...b, pads: { ...b.pads, ...Object.fromEntries(defs) } }), true)
-    onDone(`${slices.length} pieces are on Your pads (pads ${slots[0].slice(1)}–${slots[slices.length - 1].slice(1)}).`)
+    onDone(`${slices.length} pieces are on Your pads (pads ${padName(slots[0])}–${padName(slots[slices.length - 1])}).`)
   }
 
   return (

@@ -8,7 +8,7 @@ import { TapRecorder } from '../audio/tap'
 import { audio, out } from '../audio/engine'
 import { activeSound, soundForProgram } from '../audio/pluck'
 import { saveSample } from '../studio/padSamples'
-import { detectRoot, trimSilence, USER_PADS } from '../studio/pads'
+import { detectRoot, padName, trimSilence, USER_PADS } from '../studio/pads'
 import { loadBeat, pushBeat } from '../studio/beat'
 
 const MAX = 12
@@ -47,5 +47,5 @@ export async function riffToPad(doc: SongDoc, sound?: { x: Float32Array; sr: num
   const id = `scan-${Date.now().toString(36)}`
   await saveSample(id, data, sr)
   pushBeat({ ...beat, pads: { ...beat.pads, [free]: { src: 'rec', sample: id, start: 0, end: data.length / sr, root: detectRoot(data, sr) ?? undefined, name: doc.title.slice(0, 18), mode: 'oneshot' } } })
-  return `It's on pad ${free.slice(1)} of Your pads (Jam → Beat maker).`
+  return `It's on pad ${padName(free)} of Your pads (Jam → Beat maker).`
 }

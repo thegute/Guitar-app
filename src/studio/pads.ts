@@ -6,9 +6,13 @@
 import type { Voice } from '../audio/drums'
 import { onsetEnvelope } from './loops'
 
-/** A pad: one of the kit's drums, or one of your 16 own pads (u1…u16, the "Your pads" page). */
+/** A pad: one of the kit's drums, or one of your 32 own pads (u1…u32: bank A = u1…u16, bank B = u17…u32). */
 export type PadId = Voice | `u${number}`
-export const USER_PADS: PadId[] = Array.from({ length: 16 }, (_, i) => `u${i + 1}` as PadId)
+export const USER_PADS: PadId[] = Array.from({ length: 32 }, (_, i) => `u${i + 1}` as PadId)
+export const BANKS = { A: USER_PADS.slice(0, 16), B: USER_PADS.slice(16) } as const
+export type BankId = keyof typeof BANKS
+/** "A 3", "B 12": a pad's bank and number for messages */
+export const padName = (p: string) => { const n = Number(p.slice(1)); return n > 16 ? `B ${n - 16}` : `A ${n}` }
 export const isUserPad = (p: string): boolean => /^u\d+$/.test(p)
 
 export type PadSrc = 'kit' | 'rec' | 'file' | 'note' | 'chord'

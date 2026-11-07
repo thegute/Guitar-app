@@ -12,11 +12,14 @@ import { usePedals } from '../controls/pedals'
 import { newId, type Beat } from './beat'
 import { USER_PADS, detectRoot, sliceAtOnsets } from './pads'
 import { saveSample } from './padSamples'
+import { applyMicFx } from './micFx'
+import { MicFxPicker, useMicFx } from './MicFxPicker'
 
 const MAX_SECS = 20
 
 export function ChopSheet({ setBeat, onClose, onDone }: { setBeat: (f: (b: Beat) => Beat, remember?: boolean) => void; onClose: () => void; onDone: (n: number) => void }) {
   useBack(true, onClose)
+  const [micFx] = useMicFx()
   const rec = useRef<InputRecorder | null>(null)
   const [state, setState] = useState<'idle' | 'rec' | 'cut'>('idle')
   const [level, setLevel] = useState(0)
@@ -52,7 +55,8 @@ export function ChopSheet({ setBeat, onClose, onDone }: { setBeat: (f: (b: Beat)
       for (let i = 0; i < raw.length; i++) peak = Math.max(peak, Math.abs(raw[i]))
       if (peak < 0.01) { setMsg('That was too quiet. Play a little louder or closer to the mic, then try again.'); setState('idle'); return }
       const g = Math.min(8, 0.85 / peak)
-      setTake({ data: raw.map(v => v * g), sr: ctx.sampleRate })
+      const fxd = await applyMicFx(raw.map(v => v * g), ctx.sampleRate, micFx, { keepLength: true })
+      setTake({ data: fxd, sr: ctx.sampleRate })
     } catch { setMsg("Couldn't record. Check the microphone and try again."); setState('idle'); return }
     setState('idle')
   }
@@ -87,6 +91,7 @@ export function ChopSheet({ setBeat, onClose, onDone }: { setBeat: (f: (b: Beat)
       <div className="sheet chop" role="dialog" aria-modal="true" aria-label="Chop a riff onto pads" onClick={e => e.stopPropagation()} data-testid="chop">
         <div className="sheet-head"><h2>Chop a riff</h2><button className="btn sm" onClick={onClose}>Close</button></div>
         <p className="small muted" style={{ margin: 0 }}>Record a short riff or melody (up to {MAX_SECS} s). It's cut at every note you pick and the notes go onto Your pads, one per pad, so you can play them in any order. A foot pedal starts and stops it too.</p>
+        <MicFxPicker />
         <button className={`btn big chop-rec${state === 'rec' ? ' on' : ''}`} onClick={() => (state === 'rec' ? void stop() : start())} disabled={state === 'cut'} data-testid="chop-rec">
           {state === 'rec' ? <><Ico n="stop" fill /> Stop ({secs.toFixed(1)} s)</> : state === 'cut' ? 'Cutting…' : <><Ico n="record" fill className="rec-dot" /> {take ? 'Record again' : 'Record a riff'}</>}
           <span className="pad-meter" style={{ ['--lv' as string]: String(Math.min(1, level * 3)) }} aria-hidden />

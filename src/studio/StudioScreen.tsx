@@ -35,11 +35,15 @@ import { deleteLoop, fitToBars, gridOffset, levelLoop, loopsFor, rotate, saveLoo
 import { loopTempo } from '../audio/tempo'
 import { beatChords, scalesFor } from './practice'
 import { guessPads, loadMyPads, loadSample, mySounds, mySoundsAvailable, pickSoundFolder, saveMySounds, type MySounds } from './mySounds'
-import { USER_PADS, detectRoot, isUserPad, trimSilence, type PadId } from './pads'
+import { BANKS, detectRoot, isUserPad, trimSilence, type BankId, type PadId } from './pads'
 import { saveSample } from './padSamples'
 import { PadEditor } from './PadEditor'
 import { ChopSheet } from './ChopSheet'
 import { GetSound } from './GetSound'
+import { applyMicFx, MIC_FX_KEY, type MicFx } from './micFx'
+import { MicFxPicker } from './MicFxPicker'
+/** the mic effect chosen now (read when a recording is kept) */
+const micFx = (): MicFx => { try { return (JSON.parse(localStorage.getItem(`kg:${MIC_FX_KEY}`) ?? '"none"') as MicFx) || 'none' } catch { return 'none' } }
 import { FX, type FxKind } from './fx'
 import { BounceSave } from './BounceSave'
 import type { Handle } from '../audio/pluck'
@@ -380,8 +384,9 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
   const [page, setPage] = usePersist<PadPage>('studioPadPage', 'kit')
   const [repeat, setRepeat] = usePersist<number>('studioRepeat', 0)
   const [size, setSize] = usePersist<'s' | 'm' | 'l'>('studioPadSize', 'm')
+  const [bank, setBank] = usePersist<BankId>('studioBank', 'A')
   // the three you use most come first, as big pads with room between them
-  const voices: PadId[] = page === 'kit' ? [...MAIN, ...padsFor(beat.kit).filter(v => !MAIN.includes(v))] : page === 'perc' ? PADS.perc : USER_PADS
+  const voices: PadId[] = page === 'kit' ? [...MAIN, ...padsFor(beat.kit).filter(v => !MAIN.includes(v))] : page === 'perc' ? PADS.perc : BANKS[bank] ?? BANKS.A
   const grid = useRef<HTMLDivElement>(null)
   const repeats = useRef(new Map<number, ReturnType<typeof setInterval>>())
   const held = useRef(new Map<number, Handle>())
@@ -448,6 +453,11 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
           <button aria-pressed={page === 'perc'} onClick={() => setPage('perc')}>Percussion</button>
           <button aria-pressed={page === 'mine'} onClick={() => setPage('mine')}>Your pads</button>
         </div>
+        {page === 'mine' && (
+          <div className="seg" role="group" aria-label="Bank" data-testid="pad-bank">
+            {(['A', 'B'] as const).map(k => <button key={k} aria-pressed={bank === k} onClick={() => setBank(k)} title={`Bank ${k}: pads ${k === 'A' ? '1–16' : '17–32'}`}>Bank {k}{BANKS[k].some(p => beat.pads?.[p]) ? ' •' : ''}</button>)}
+          </div>
+        )}
         <button className={`btn sm st-sample${sampler.on ? ' on' : ''}`} aria-pressed={sampler.on} onClick={() => void sampler.toggle()} data-testid="sample-mode">
           <Ico n="mic" /> {sampler.on ? 'Sampling: done' : 'Sample'}
         </button>
@@ -456,6 +466,7 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
         <div className="st-sample-bar" role="status">
           <span className="st-meter" style={{ ['--lv' as string]: String(Math.min(1, sampler.level * 3)) }} aria-hidden />
           <span className="small">{sampler.msg || <><b>Hold a pad</b> and make a sound, let go to stop. <b>Tap</b> a pad for its settings.</>}</span>
+          <MicFxPicker compact />
           {canUndo && <button className="btn sm" onClick={undo}>↶ Undo</button>}
         </div>
       ) : (
@@ -495,7 +506,7 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
       )}
       {getSound && <GetSound beat={beat} setBeat={(f, r) => setBeat(f, r)} onClose={() => setGetSound(false)} onDone={m => { setGetSound(false); setChopMsg(m) }} />}
       {chop && <ChopSheet setBeat={(f, r) => setBeat(f, r)} onClose={() => setChop(false)} onDone={n => { setChop(false); setChopMsg(`${n} notes are on Your pads. Play them, or pick "Your pads" as the Keyboard's sound to play one up and down.`) }} />}
-      {page === 'mine' && !sampler.on && !voices.some(v => beat.pads?.[v]) && <p className="small muted" style={{ margin: 0 }}>Your own 16 pads. Tap <b>Sample</b>, then hold a pad and make a sound, or tap a pad to put an instrument note or chord on it.</p>}
+      {page === 'mine' && !sampler.on && !voices.some(v => beat.pads?.[v]) && <p className="small muted" style={{ margin: 0 }}>Your own 32 pads, in banks A and B. Tap <b>Sample</b>, then hold a pad and make a sound, or tap a pad to put an instrument note or chord on it.</p>}
       <LagNote />
       {mySoundsAvailable() && <MySoundsPanel pads={voices.filter(v => !isUserPad(v)) as Voice[]} mine={mine} setMine={setMine} />}
       {editing && (
@@ -561,7 +572,9 @@ function useSampler(t: StudioTransport, beat: Beat, setBeat: SetBeat) {
       if (peak < 0.004) { setMsg('That was too quiet to use: get closer to the mic and try again.'); return 'rec' }
       // level it so a quiet "tss" is as loud as the kit
       const gain = Math.min(8, 0.85 / peak)
-      const data = raw.map(v => v * gain)
+      // the mic effect goes onto the recording
+      const data = await applyMicFx(raw.map(v => v * gain), sr, micFx())
+      if (data.length !== raw.length) { const c2 = trimSilence(data, sr); cut.start = c2.start; cut.end = c2.end }
       const id = newId()
       await saveSample(id, data, sr)
       const piece = data.subarray(Math.round(cut.start * sr), Math.round(cut.end * sr))
@@ -1065,7 +1078,7 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
     const ctx = audio()
     const sr = ctx.sampleRate
     const b = live.current.beat
-    let x = levelLoop(raw, sr)
+    let x = await applyMicFx(levelLoop(raw, sr), sr, micFx(), { keepLength: true })
     let moved = 0
     if (align) { moved = gridOffset(x, sr, t.stepDur); if (moved) x = rotate(x, moved * sr) }
     // shorter than the beat: repeat it to fill; longer: the beat grows to match
@@ -1208,6 +1221,7 @@ function Looper({ t, beat, loops, playing, play, pedalMode, setPedalMode }: { t:
             <button aria-pressed={mode === 'beat'} onClick={() => setMode('beat')} disabled={busy}>On the beat ({beat.bars} bar{beat.bars > 1 ? 's' : ''})</button>
             <button aria-pressed={mode === 'free'} onClick={() => setMode('free')} disabled={busy}>Free</button>
           </div>
+          <MicFxPicker />
           <div className="row" style={{ gap: 8 }}>
             <button className={`btn primary big${state === 'rec' || state === 'waiting' ? ' on' : ''}`} onClick={loops.record} disabled={state === 'working' || (busy && mode === 'beat')}>
               {state === 'idle' ? '● Record a loop' : state === 'waiting' ? 'Get ready…' : state === 'rec' ? (mode === 'free' ? '■ Stop recording' : 'Recording…') : 'Fitting…'}

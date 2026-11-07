@@ -25,6 +25,14 @@ export function prepareShift(id: string, buf: AudioBuffer, a: number, b: number,
   return p
 }
 
+/** A whole recording shifted (no cache): the mic effects' octave up / down. */
+export async function shiftSamples(x: Float32Array, sr: number, semis: number): Promise<Float32Array> {
+  const buf = new AudioBuffer({ length: x.length, numberOfChannels: 1, sampleRate: sr })
+  buf.getChannelData(0).set(x)
+  const r = await render(buf, 0, x.length / sr, semis, false)
+  return r ? r.getChannelData(0).slice() : x
+}
+
 /** Keep memory in check: the 24 most recent shifted sounds. */
 function trim() {
   while (cache.size > 24) cache.delete(cache.keys().next().value as string)
