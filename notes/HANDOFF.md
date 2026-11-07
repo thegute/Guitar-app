@@ -136,6 +136,9 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
    [style fluency, composing, odd meters, chord melody, repertoire]); each lesson Learn → Practice → Jam → Check; each grade ends with a
    graded graduation gig; absorbs Zero to Hero + the Deep Dive spec (notes/next-build.md). Original text only; curated videos from the best
    teachers; build ONE grade at a time, starting with a pilot grade.
+   **Round 3 answers:** owner is a late beginner who can play pentatonics; the curriculum must take a RELATIVELY NEW player all the way to pro
+   (all 6 grades, none skipped). Proposed build order: Grade 1 = deepen the existing Zero to Hero (placement test lets him skip), PILOT =
+   Grade 2 (his level: neck knowledge, barre chords, major scale, pentatonic -> CAGED intro), then 3, 4, 5, 6. Still to ask: minutes/day.
    Saved ideas: the Deep Dive course
    (notes/next-build.md "Saved for the next work cycle": real depth in CAGED, modes, intervals, ear training, voicings, soloing,
    improvising, voice leading); extra FX, note repeat/arp; weekly challenge + ghost; left-handed mode; Google Drive backup (needs his
