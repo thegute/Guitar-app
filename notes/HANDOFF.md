@@ -60,7 +60,9 @@ Nothing important lives only in the old chat: if a detail isn't in these files o
    4–8 Hz wobble = vibrato; the fingering Viterbi (`tabs/fingering.ts` / hand brain) must keep legato pairs on one string; (e) if a tab is
    visible in the video, the picture read leads and the sound fixes timing; (f) a benchmark: GP files rendered with our banks + backing +
    reverb + compression (tools/ render scripts), measuring note F1 and technique accuracy before/after, plus his real videos.
-3. **Part 1 #2: Game Mode, Yousician-style.** (a) A bouncing ball that arcs from note to note and lands on each note exactly on its time
+3. **Part 1 #2: Game Mode, Yousician-style.** Owner 2026-11-07 on test-40: "on Play it for me it just has a line that doesn't move… I want a bouncing
+   ball EXACTLY like Yousician". Now: a 7 px gold dot pinned to the hit line (GameHighway.tsx ~163) that moves only while a run plays;
+   "Play for me" only sounds the next note, so nothing scrolls. Build the real Yousician ball FIRST in this item. (a) A bouncing ball that arcs from note to note and lands on each note exactly on its time
    (a ball exists in `components/GameHighway.tsx` since 1d4f07d: check how it moves and make it a true parabolic hop per note, landing
    on the hit line at the note's time, size/colour per finger); (b) a floating, movable, resizable, hidable tiny finger diagram (see #4);
    (c) **YouTube backing with the guitar removed**: he chose the 6-stem model and "record it once, then play": the video plays through
