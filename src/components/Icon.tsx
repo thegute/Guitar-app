@@ -4,7 +4,7 @@ import {
   BookOpen, Camera, Dices, Drum, Eye, FileText, Flame, Flower2, Footprints, Guitar, Hand, Headphones, Image, Mic, Music, Pause, Play,
   RotateCcw, SkipBack, SlidersHorizontal, Snowflake, Sparkles, Speech, Square, Star, TreePalm, Volume2, Circle, Repeat, PartyPopper, GripVertical,
   Trophy, Crown, Timer, Gem, Sparkle, Target, Disc3, Brain, Zap, Ear, Puzzle, MapPin, CalendarCheck, CircleCheck, CircleArrowUp, CircleArrowDown,
-  Minus, Plus, Trash2, ScanLine, Gamepad2, Film, Upload, ScreenShare, Shuffle, Layers,
+  Minus, Plus, Trash2, ScanLine, Gamepad2, Film, Upload, ScreenShare, Shuffle, Layers, Undo2, Redo2, Scissors, Save, ChevronDown, Waves,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -16,7 +16,7 @@ const ICONS = {
   trophy: Trophy, crown: Crown, timer: Timer, gem: Gem, sparkle: Sparkle, target: Target, disc: Disc3, brain: Brain, zap: Zap, ear: Ear,
   puzzle: Puzzle, pin: MapPin, calendar: CalendarCheck, check: CircleCheck, up: CircleArrowUp,
   minus: Minus, plus: Plus, trash: Trash2, scan: ScanLine, game: Gamepad2, film: Film, upload: Upload, screen: ScreenShare, shuffle: Shuffle, layers: Layers,
-  down: CircleArrowDown,
+  down: CircleArrowDown, undo: Undo2, redo: Redo2, scissors: Scissors, save: Save, more: ChevronDown, waves: Waves,
 } satisfies Record<string, LucideIcon>
 export type IconName = keyof typeof ICONS
 

@@ -1,7 +1,7 @@
 // Leaving a page stops whatever it was playing (a tab preview, an exercise, a jam loop, a beat, the metronome, a
 // drone, the helper's voice). Players add themselves while they play; App, Learn and Songs call stopAllSounds() when
 // you move to another page. Settings → Sound can keep the metronome going while you look around.
-interface Stoppable { stop(): void; kind?: string }
+interface Stoppable { stop(): void; kind?: string; /** true = keep playing across pages (the looper with loops in it) */ keep?: () => boolean }
 const live = new Set<Stoppable>()
 const extra = new Set<() => void>()
 /** A player started (call from its start/play). */
@@ -15,6 +15,7 @@ export function stopAllSounds() {
   const keep = keepMetronome()
   for (const p of [...live]) {
     if (keep && p.kind === 'metronome') continue
+    if (p.keep?.()) continue
     try { p.stop() } catch { /* already stopped */ }
     live.delete(p)
   }

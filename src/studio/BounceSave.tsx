@@ -16,10 +16,10 @@ import { saveSample } from './padSamples'
 import { beatInPart, newId, partsMade, playOrder, type Beat } from './beat'
 import { instr } from './sounds'
 import type { StudioTransport } from './transport'
-import type { LoopLayer } from './transport'
 
 type SetBeat = (f: Beat | ((b: Beat) => Beat), remember?: boolean) => void
-interface LoopsApi { layers: (LoopLayer & { bars: number })[]; addRaw: (x: Float32Array, bars: number) => Promise<string>; setMutes: (m: Record<string, boolean>) => void; remove: (id: string) => void }
+/** The looper's tracks as Bounce sees them (a bounce goes on an empty track; '' = none free). */
+interface LoopsApi { layers: { id: string; mute?: boolean }[]; addRaw: (x: Float32Array, bars: number) => Promise<string>; setMutes: (m: Record<string, boolean>) => void; remove: (id: string) => void }
 
 /** Record taps for `passes` times round, starting at the top of the next pass. */
 async function record(t: StudioTransport, play: (c?: number) => void, nodes: AudioNode[], passes: number, onWait: (secs: number) => void, signal: { cancelled: boolean }) {
@@ -72,11 +72,12 @@ export function BounceSave({ t, beat, setBeat, loops, play, stop }: { t: StudioT
           const before = beat
           const mutes = Object.fromEntries(loops.layers.map(l => [l.id, !!l.mute]))
           const id = await loops.addRaw(mono, beat.bars)
+          if (!id) { setMsg('All four looper tracks are full: clear one (Jam → Looper), then bounce.'); setBusy(null); return }
           loops.setMutes(Object.fromEntries(loops.layers.map(l => [l.id, true])))
           setBeat(b => ({ ...b, rows: b.rows.map(r => ({ ...r, mute: true })), layers: (b.layers ?? []).map(l => ({ ...l, mute: true })), tracks: b.tracks.map(x => ({ ...x, mute: true })) }))
           setUndoB({ loop: id, beat: before, mutes })
           haptic('success')
-          setMsg('Bounced: everything you heard is now one loop in the Looper, and what it came from is muted. Keep stacking, or undo the bounce.')
+          setMsg(`Bounced: everything you heard is now one loop on looper track ${Number(id) + 1}, and what it came from is muted. Keep stacking, or undo the bounce.`)
         } else {
           const pad = USER_PADS.find(p => !beat.pads?.[p]) ?? USER_PADS[USER_PADS.length - 1]
           const id = newId()

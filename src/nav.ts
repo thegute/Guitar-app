@@ -47,6 +47,8 @@ export function takePendingDoc(): SongDoc | null {
 /** Choose the page (sub-tab) a screen opens on next time it appears. */
 export function setSubPage(screen: 'songs' | 'learn' | 'jam' | 'settings', page: string) {
   try { localStorage.setItem(`kg:sub:${screen}`, JSON.stringify(page)) } catch { /* storage unavailable */ }
+  // a screen that's already open switches too
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('kg-subpage', { detail: { screen, page } }))
 }
 export function openSongs(section: 'mine' | 'songbook' | 'practice' | 'add' = 'songbook') {
   setSubPage('songs', section)
@@ -70,7 +72,7 @@ export function takePendingExercise(): string | null {
   pendingExercise = null
   return c
 }
-export function openJam(page: 'jam' | 'solo' | 'tab' | 'find' | 'beats' = 'jam') {
+export function openJam(page: 'jam' | 'solo' | 'tab' | 'find' | 'beats' | 'loop' = 'jam') {
   setSubPage('jam', page)
   go('progressions')
 }

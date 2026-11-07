@@ -26,15 +26,20 @@ export function armBar(bar: number, barDur: number, graceSec = 0.12): number {
   return (bar - f) * barDur <= graceSec ? f : f + 1
 }
 
+/** Loop lengths on offer, in bars: 1, 2, 4 … up to 8 times the beat's length (whole bars that sit on the grid). */
+export function lengths(base: number): number[] {
+  const out: number[] = []
+  for (let b = 1; b <= 8 * base; b *= 2) out.push(b)
+  return out
+}
+
 /**
- * A loop closed by hand ("Auto" length): the allowed length (base × 1, 2, 4 or 8 bars) nearest to what was played.
- * When you close a little early it records on to that length; a little late, it ends there. Never shorter than 1 base.
+ * A loop closed by hand ("Auto" length): the length on offer nearest to what was played. Close a little early and it
+ * records on to that length; a little late and it ends there.
  */
 export function autoLength(playedBars: number, base: number): number {
-  const opts = MULTS.map(m => m * base)
-  let best = opts[0]
-  for (const o of opts) if (Math.abs(Math.log(o / Math.max(0.01, playedBars))) < Math.abs(Math.log(best / Math.max(0.01, playedBars)))) best = o
-  return best
+  const p = Math.max(0.01, playedBars)
+  return lengths(base).reduce((best, o) => (Math.abs(Math.log(o / p)) < Math.abs(Math.log(best / p)) ? o : best))
 }
 
 /**

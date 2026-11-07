@@ -66,6 +66,13 @@ export class StudioTransport {
   readonly fx: PerformFx
   readonly drumBus: GainNode
   readonly loopBus: GainNode
+  /** the beat itself (drums, instrument tracks, their reverb): the looper can switch it off and keep the loops */
+  readonly beatBus: GainNode
+  /** a part chosen live (the looper's A/B switch), from the step it starts on; overrides the song chain */
+  livePart: { part: PartId; from: number } | null = null
+  /** the looper keeps the beat going when you change page while it has loops (see stopAll) */
+  keep: () => boolean = () => false
+  get kind() { return 'beat' }
   private reverb: ConvolverNode
   private reverbIn: GainNode
   private trackBus = new Map<string, { g: GainNode; send: GainNode }>()
@@ -79,9 +86,11 @@ export class StudioTransport {
     this.reverb = makeReverb(ctx)
     this.reverbIn = ctx.createGain()
     this.reverbIn.gain.value = 0.8
-    this.reverbIn.connect(this.reverb).connect(this.master)
+    this.beatBus = ctx.createGain()
+    this.beatBus.connect(this.master)
+    this.reverbIn.connect(this.reverb).connect(this.beatBus)
     this.drumBus = ctx.createGain()
-    this.drumBus.connect(this.master)
+    this.drumBus.connect(this.beatBus)
     this.loopBus = ctx.createGain()
     this.loopBus.connect(this.master)
     this.setBeat(beat)
@@ -98,7 +107,7 @@ export class StudioTransport {
       const ctx = audio()
       const g = ctx.createGain()
       const send = ctx.createGain()
-      g.connect(this.master)
+      g.connect(this.beatBus)
       g.connect(send).connect(this.reverbIn)
       b = { g, send }
       this.trackBus.set(trackId, b)
@@ -170,6 +179,35 @@ export class StudioTransport {
     return this.t0
   }
 
+  /**
+   * Start with step 0 at `t0`, which may already be past (the looper's first free loop: the beat joins in where the
+   * loop has got to). Nothing before now is played.
+   */
+  startFrom(t0: number) {
+    liveSound(this)
+    this.stop()
+    const ctx = audio()
+    void ctx.resume()
+    this.playing = true
+    this.t0 = t0
+    this.next = Math.max(0, Math.ceil((ctx.currentTime + 0.02 - t0) / this.stepDur))
+    this.nextT = this.t0 + this.next * this.stepDur
+    this.restartLayers()
+    const tick = () => this.schedule()
+    tick()
+    this.timer = setInterval(tick, 25)
+    const frame = () => {
+      const now = ctx.currentTime
+      let last = -1
+      while (this.queue.length && this.queue[0].t <= now) { const q = this.queue.shift()!; last = q.s; this.playPart = q.part }
+      if (last >= 0) { this.step = last; this.stepFns.forEach(f => f(last)) }
+      this.raf = requestAnimationFrame(frame)
+    }
+    this.raf = requestAnimationFrame(frame)
+  }
+  /** The absolute step (counting from the start) at audio time `t`. */
+  stepAt(t: number) { return (t - this.t0) / this.stepDur }
+
   private schedule() {
     const ctx = audio()
     const n = totalSteps(this.beat)
@@ -178,7 +216,7 @@ export class StudioTransport {
       const t = this.nextT + this.swingOff(s)
       // which part plays this time round (the song chain), else the one you're editing
       const order = playOrder(this.beat)
-      const part = order[Math.floor(this.next / n) % order.length]
+      const part = this.livePart && this.next >= this.livePart.from ? this.livePart.part : order[Math.floor(this.next / n) % order.length]
       const b = beatInPart(this.beat, part)
       for (const r of allRows(b)) {
         const v = r.steps[s]

@@ -32,5 +32,11 @@ export function useSubTab<T extends string>(key: string, ids: readonly T[], init
   const [v, set] = usePersist<T>(`sub:${key}`, initial ?? ids[0])
   const cur = ids.includes(v) ? v : (initial ?? ids[0])
   useEffect(() => { countUse(`page:${key}:${cur}`) }, [key, cur])
+  // another screen sent you to one of this screen's pages (setSubPage in nav.ts) while it's open
+  useEffect(() => {
+    const f = (e: Event) => { const d = (e as CustomEvent<{ screen: string; page: string }>).detail; if (d?.screen === key && (ids as readonly string[]).includes(d.page)) set(d.page as T) }
+    window.addEventListener('kg-subpage', f)
+    return () => window.removeEventListener('kg-subpage', f)
+  }, [key, ids, set])
   return [cur, set]
 }

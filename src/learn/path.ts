@@ -16,7 +16,7 @@ export type Go =
   | { songbook: { song: string; part: string } }
   | { songs: 'songbook' | 'mine' | 'practice' | 'add' }
   | { settings: 'you' | 'sound' | 'look' | 'backup' }
-  | { jam: 'jam' | 'solo' | 'tab' | 'find' | 'beats' }
+  | { jam: 'jam' | 'solo' | 'tab' | 'find' | 'beats' | 'loop' }
   | { learn: 'today' | 'course' | 'explore' }
   | { technique: string }
   /** the must-know licks: a style or one lick */

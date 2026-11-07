@@ -1,6 +1,6 @@
 // Jam: generate chord progressions (lots of options), see every chord shape, play them back with strumming and drums,
-// record your own playing as a loop, and see which scales to solo with.
-import { micWhere } from '../audio/input'
+// loop over it in the 4-track looper, and see which scales to solo with.
+import { Ico } from '../components/Icon'
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MODES, STYLES, FLAVORS, ENDINGS, SPICE, STYLE_DEFAULTS, FN_LABEL,
@@ -13,7 +13,6 @@ import { scaleById, scaleInfo } from '../theory/scales'
 import { ChordDiagram } from '../components/ChordDiagram'
 import { Fretboard } from '../components/Fretboard'
 import { CircleOfFifths } from '../components/CircleOfFifths'
-import { InputPicker } from '../components/InputPicker'
 import { Chips, Field, KeyPicker, usePersist } from '../components/Controls'
 import { IconDice, IconLock, IconPlay, IconStop, IconPencil } from '../components/Icons'
 import { Fold, useHint } from '../components/Fold'
@@ -25,10 +24,8 @@ import { strum as strumNotes, preload, SOUNDS, soundInfo, loadSound, loadBank, b
 import { BASSLINES } from '../audio/bass'
 import { audio, keepAwake } from '../audio/engine'
 import { JamTransport } from '../audio/jam'
-import { InputRecorder, makeLayerBuffer, measureLatency } from '../audio/looper'
-import { gear, kindOf, latencyMs, setGear, useGear } from '../audio/gear'
 import { useRig } from '../audio/rig'
-import { bump, usePracticeTimer } from '../learn/progress'
+import { usePracticeTimer } from '../learn/progress'
 import { usePedals } from '../controls/pedals'
 import { STRUMS } from '../audio/strums'
 import { GROOVES, GROOVE_GROUPS, KITS, grooveOf, kitInfo, loadKit, kitLoaded, type KitId } from '../audio/drums'
@@ -49,6 +46,7 @@ import { pc } from '../theory/notes'
 import { useScreenInfo } from '../assistant/screen'
 
 const StudioScreen = lazy(() => import('../studio/StudioScreen').then(m => ({ default: m.StudioScreen })))
+const LooperPanel = lazy(() => import('../looper/LooperPanel').then(m => ({ default: m.LooperPanel })))
 
 const COUNTS = [2, 4, 8, 12, 16]
 const RATES = [{ id: 8, label: 'Every 2 bars' }, { id: 4, label: 'Every bar' }, { id: 2, label: 'Twice a bar' }]
@@ -106,7 +104,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [tabPartRaw, setTabPart] = usePersist<'pick' | 'melody' | 'licks' | 'lead' | 'riff'>('jamTabPart', 'pick')
   const tabPart = tabPartRaw === 'licks' ? 'lead' : tabPartRaw
   const [optionsOpen, setOptionsOpen] = usePersist('jamOptionsOpen', false)
-  const [page, setPage] = useSubTab('jam', ['jam', 'solo', 'tab', 'find', 'beats'] as const)
+  const [page, setPage] = useSubTab('jam', ['jam', 'solo', 'tab', 'find', 'beats', 'loop'] as const)
   const [prog, setProg] = usePersist<ProgChord[]>('jamProg', [])
   useScreenInfo('jam', { label: `Jam: ${prog.map(c => c.symbol).join(' ') || 'no chords yet'} in ${tonic} ${mode}`, summary: `In Jam with a ${style === 'any' ? '' : style + ' '}progression in ${tonic} ${mode}: ${prog.map(c => `${c.symbol} (${c.roman})`).join(', ') || 'none yet'}, at ${bpm} BPM.` })
   const [shapeIdx, setShapeIdx] = useState<number[]>([])
@@ -131,23 +129,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
 
   // ---------- looper ----------
   const transport = useRef<JamTransport | null>(null)
-  const recorder = useRef<InputRecorder | null>(null)
-  const recCancel = useRef<{ cancelled: boolean } | null>(null)
-  const [layers, setLayers] = useState<{ id: number; muted: boolean; shift: number }[]>([])
-  const [rec, setRec] = useState<{ from: number; until: number } | null>(null)
-  const [recLevel, setRecLevel] = useState(0)
-  const [backingWhileRec, setBackingWhileRec] = usePersist('loopBackingRec', false)
-  const [calib, setCalib] = useState<{ running: boolean; click: number; result?: number | null } | null>(null)
-  const [loopError, setLoopError] = useState('')
-  const [inputInfo, setInputInfo] = useState<{ label: string; external: boolean } | null>(null)
-  useGear()
   useRig()
-  // the timing delay belongs to the input you record from (phone mic or USB amp)
-  const latKind = kindOf(inputInfo?.external)
-  const latMs = latencyMs(latKind)
-  const latMeasured = gear(latKind).latencyMs >= 0
-  const setLatency = (ms: number) => setGear(latKind, { latencyMs: ms })
-  const hasLoop = layers.length > 0
   usePracticeTimer('jam', playing, true)
 
   const tr = () => (transport.current ??= new JamTransport())
@@ -227,7 +209,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   }
   // changing how often chords change keeps the chords, just re-times them
   useEffect(() => {
-    if (!hasLoop && prog.some(c => c.beats !== rate)) setProg(p => p.map(x => ({ ...x, beats: rate })))
+    if (prog.some(c => c.beats !== rate)) setProg(p => p.map(x => ({ ...x, beats: rate })))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rate])
 
@@ -236,7 +218,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     const t = tr()
     chosen.forEach(v => preload(midisOf(v), tone))
     t.setSong(prog.map((c, i) => ({ midis: midisOf(chosen[i]), beats: c.beats ?? 4, root: pc(c.root), tones: typeTones(c.type) })), bpm, strumKind, drums, bassLine, tone, kitId === 'auto' ? null : kitId)
-    t.setMix({ chords: chordsOn && (!rec || backingWhileRec), drums: drumsOn, click: clickOn, bass: bassOn })
+    t.setMix({ chords: chordsOn, drums: drumsOn, click: clickOn, bass: bassOn })
   }
   // load the sounds this style needs ahead of time, so the first bars aren't the stand-in synth
   useEffect(() => {
@@ -263,23 +245,22 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     return t0
   }
   function stopAll() {
-    recCancel.current && (recCancel.current.cancelled = true)
     transport.current?.stop()
     setPlaying(false)
     setPos({ chord: -1, countIn: 0, beat: -1 })
     void keepAwake(false)
   }
-  useEffect(() => () => { transport.current?.stop(); recorder.current?.stop(); void keepAwake(false) }, [])
+  useEffect(() => () => { transport.current?.stop(); void keepAwake(false) }, [])
   // the beat maker has its own clock: the jam loop stops when you open it
-  useEffect(() => { if (page === 'beats' && transport.current?.playing) stopAll() }, [page]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if ((page === 'beats' || page === 'loop') && transport.current?.playing) stopAll() }, [page]) // eslint-disable-line react-hooks/exhaustive-deps
   // live changes: restart in time (layers keep their place)
   useEffect(() => {
-    if (transport.current?.playing && !rec) startPlay(0)
+    if (transport.current?.playing) startPlay(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bpm, strumKind, drums, prog, shapeIdx, shapePref, bassLine, tone, kitId])
   useEffect(() => {
-    transport.current?.setMix({ chords: chordsOn && (!rec || backingWhileRec), drums: drumsOn, click: clickOn, bass: bassOn })
-  }, [chordsOn, drumsOn, clickOn, rec, backingWhileRec, bassOn])
+    transport.current?.setMix({ chords: chordsOn, drums: drumsOn, click: clickOn, bass: bassOn })
+  }, [chordsOn, drumsOn, clickOn, bassOn])
 
   // follow the playhead
   useEffect(() => {
@@ -292,83 +273,25 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
       const p = t.position()
       const key = `${p.chord}|${p.countIn}|${Math.floor(p.beat)}`
       if (key !== last) { last = key; setPos({ chord: p.chord, countIn: p.countIn, beat: p.beat }) }
-      if (recorder.current?.open) setRecLevel(recorder.current.level)
     }
     loop()
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  // ---------- recording ----------
-  async function openRecorder() {
-    recorder.current ??= new InputRecorder()
-    await recorder.current.start()
-    const inp = recorder.current.input
-    setInputInfo(inp ? { label: inp.label, external: inp.external } : null)
-  }
-  async function record(add: boolean) {
-    if (rec) return
-    setLoopError('')
-    try {
-      await openRecorder()
-    } catch {
-      setLoopError(`KGuitar needs microphone access to record (this also covers a USB amp). Allow it ${micWhere()} and try again.`)
-      return
-    }
-    const t = tr()
-    if (!add) { t.clearLayers(); setLayers([]) }
-    let from: number
-    if (!t.playing) from = startPlay(4)
-    else from = t.nextLoopStart(0.6)
-    const until = from + t.loopDur
-    const signal = { cancelled: false }
-    recCancel.current = signal
-    setRec({ from, until })
-    try {
-      const samples = await recorder.current!.capture(from + latencyMs(kindOf(recorder.current!.input?.external)) / 1000, t.loopDur, signal)
-      const id = Date.now()
-      t.addLayer(makeLayerBuffer(samples), id)
-      bump('loopsRecorded')
-      setLayers(ls => [...ls, { id, muted: false, shift: 0 }])
-      // your recording takes over from the backing chords
-      if (!add) setChordsOn(false)
-    } catch {
-      /* stopped while recording */
-    } finally {
-      setRec(null)
-      recorder.current?.stop()
-      setRecLevel(0)
-    }
-  }
-  function clearLoop() {
-    transport.current?.clearLayers()
-    setLayers([])
-    setChordsOn(true)
-  }
-  async function calibrate() {
+  // this progression as a beat (drums from the style's groove, keys + bass on the chords), then the looper on it
+  async function loopIt() {
     stopAll()
-    setLoopError('')
-    try {
-      await openRecorder()
-    } catch {
-      setLoopError('KGuitar needs microphone access for the timing check.')
-      return
-    }
-    setCalib({ running: true, click: -1 })
-    const ms = await measureLatency(recorder.current!, i => setCalib(c => (c ? { ...c, click: i } : c)))
-    recorder.current?.stop()
-    if (ms !== null) setGear(kindOf(recorder.current?.input?.external), { latencyMs: ms })
-    setCalib({ running: false, click: 8, result: ms })
+    const [{ station }, { beatFromJam }] = await Promise.all([import('../looper/station'), import('../studio/practice')])
+    const chords = prog.map(c => { const ci = readChord(c.symbol); const root = ci ? ci.root : pc(c.root); return { root: c.root, ivs: ci ? [...new Set(ci.pcs.map(p => (p - root + 12) % 12))].sort((a, b) => a - b) : [0, 4, 7], beats: c.beats ?? 4 } })
+    const b = beatFromJam({ chords, bpm, key: tonic, minor: /minor|aeolian|dorian|phrygian|locrian/i.test(mode), groove: drums === 'off' ? 'rock' : drums, kit })
+    station().useBeat({ ...b, name: `Jam ${prog.map(c => c.symbol).join(' ')}`.slice(0, 40) })
+    setPage('loop')
   }
-
   usePedals({
     startStop: () => (transport.current?.playing ? stopAll() : void playWhenReady()),
     restart: () => { stopAll(); startPlay(0) },
-    record: () => void record(layers.length > 0),
   })
 
-  const recProgress = rec ? Math.max(0, Math.min(1, (audio().currentTime - rec.from) / (rec.until - rec.from))) : 0
-  const recWaiting = rec && audio().currentTime < rec.from
-  const locked = hasLoop || !!rec
 
   // ---------- pieces ----------
   const [cardsHint, cardsHintBody] = useHint('Tap a chord to hear it, tap its diagram for another shape, ↻ swaps it for a different chord that does the same job, and the lock keeps it when you roll again.', 'How the chord cards work')
@@ -423,7 +346,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
             ) : <div className="small muted" style={{ padding: 12 }}>No shape found</div>}
             <div className="pc-foot">
               <span className="small muted">{list.length > 1 ? `shape ${(shapeIdx[i] ?? autoIdx[i]) + 1}/${list.length}` : ''}</span>
-              <button className="pc-swap" disabled={locked} onClick={e => { e.stopPropagation(); swap(i) }} aria-label={`Swap ${c.symbol} for another chord`}>↻</button>
+              <button className="pc-swap" onClick={e => { e.stopPropagation(); swap(i) }} aria-label={`Swap ${c.symbol} for another chord`}>↻</button>
             </div>
           </div>
         )
@@ -445,7 +368,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
           {playing ? <IconStop /> : <IconPlay />} {playing ? 'Stop' : loadingSounds ? 'Loading sounds…' : 'Play loop'}
         </button>
         <Field label={`Tempo ${bpm} BPM`}>
-          <input type="range" min={50} max={200} value={bpm} disabled={hasLoop} onChange={e => setBpm(+e.target.value)} style={{ accentColor: 'var(--amber)', width: 170 }} aria-label="Loop tempo" />
+          <input type="range" min={50} max={200} value={bpm} onChange={e => setBpm(+e.target.value)} style={{ accentColor: 'var(--amber)', width: 170 }} aria-label="Loop tempo" />
         </Field>
         {pos.countIn > 0 && <span className="count-in readout">{pos.countIn}</span>}
       </div>
@@ -503,69 +426,6 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         <button className="chip" aria-pressed={drumsOn} onClick={() => setDrumsOn(!drumsOn)}>Drums</button>
         <button className="chip" aria-pressed={clickOn} onClick={() => setClickOn(!clickOn)}>Click</button>
       </div>
-    </div>
-  )
-
-  const looper = (
-    <div className="stack looper">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <span className="small muted">Records from:</span>
-        <InputPicker active={inputInfo} />
-      </div>
-      <div className="row">
-        <button className={`btn big rec${rec ? ' on' : ''}`} onClick={() => (rec ? stopAll() : void record(false))} disabled={!!calib?.running}>
-          <span className="rec-dot" /> {rec ? (recWaiting ? 'Get ready…' : 'Recording…') : hasLoop ? 'Record again' : 'Record'}
-        </button>
-        {hasLoop && !rec && <button className="btn" onClick={() => void record(true)}>＋ Add a layer</button>}
-        {hasLoop && !rec && <button className="btn" onClick={clearLoop}>Clear</button>}
-      </div>
-      {rec && (
-        <div className="rec-meter">
-          <div className="rec-progress"><div style={{ width: `${recProgress * 100}%` }} /></div>
-          <div className="small muted">{recWaiting ? (pos.countIn > 0 ? `Count-in: ${pos.countIn}` : 'Starts at the top of the loop…') : 'Recording one pass of the loop'} · input level</div>
-          <div className="level"><div style={{ width: `${Math.min(100, recLevel * 160)}%` }} /></div>
-        </div>
-      )}
-      {layers.length > 0 && (
-        <ul className="layers">
-          {layers.map((l, i) => (
-            <li key={l.id}>
-              <span>Layer {i + 1}</span>
-              <button className="chip" aria-pressed={!l.muted} onClick={() => { transport.current?.muteLayer(l.id, !l.muted); setLayers(ls => ls.map(x => (x.id === l.id ? { ...x, muted: !x.muted } : x))) }}>{l.muted ? 'Muted' : 'On'}</button>
-              <span className="nudge" title="Fine timing: if this layer sounds late, tap Earlier">
-                <button className="btn sm" onClick={() => { const v = transport.current?.nudgeLayer(l.id, -10) ?? 0; setLayers(ls => ls.map(x => (x.id === l.id ? { ...x, shift: v } : x))) }} aria-label="Play this layer later">Later</button>
-                <span className="small muted">{l.shift > 0 ? `${l.shift} ms early` : l.shift < 0 ? `${-l.shift} ms late` : 'in time'}</span>
-                <button className="btn sm" onClick={() => { const v = transport.current?.nudgeLayer(l.id, 10) ?? 0; setLayers(ls => ls.map(x => (x.id === l.id ? { ...x, shift: v } : x))) }} aria-label="Play this layer earlier">Earlier</button>
-              </span>
-              <button className="btn sm ghost" onClick={() => { transport.current?.removeLayer(l.id); setLayers(ls => ls.filter(x => x.id !== l.id)) }}>Delete</button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {hasLoop && <p className="small muted" style={{ margin: 0 }}>Your loop replaces the backing chords (turn <b>Chords</b> back on to hear both). Tempo and chords are locked while a loop exists.</p>}
-      <details className="small">
-        <summary>Recording settings and timing</summary>
-        <div className="stack" style={{ gap: 8, marginTop: 8 }}>
-          <label className="row"><input type="checkbox" checked={backingWhileRec} onChange={e => setBackingWhileRec(e.target.checked)} /> Play the backing chords while I record (leave off with the phone mic, or the mic records them too)</label>
-          <div className="row">
-            <span>Timing fix{inputInfo ? (inputInfo.external ? ' (amp)' : ' (phone mic)') : ''}: <b>{latMs} ms</b>{latMeasured ? '' : ' (estimated)'}</span>
-            <button className="btn sm" onClick={() => setLatency(Math.max(0, latMs - 10))}>−10</button>
-            <button className="btn sm" onClick={() => setLatency(Math.min(500, latMs + 10))}>+10</button>
-            <button className="btn sm" onClick={() => void calibrate()} disabled={!!calib?.running || !!rec}>Timing check</button>
-          </div>
-          {calib && (
-            <p className="notice" style={{ margin: 0 }}>
-              {calib.running
-                ? `Play a short muted strum exactly on each click (${Math.max(0, calib.click + 1)} / 8). With the phone mic and no headphones, you can just stay quiet: it hears the clicks itself.`
-                : calib.result !== null && calib.result !== undefined
-                  ? `Done: your setup delays sound by about ${calib.result} ms, so recordings are shifted back by that much.`
-                  : "Couldn't hear clear clicks or strums. Try again a little louder, or set the timing fix by ear: if your loop sounds late, raise it."}
-            </p>
-          )}
-          <p className="muted" style={{ margin: 0 }}>If your recorded loop sounds a little late or early against the drums, run the timing check once. Bluetooth headphones add a lot of delay; wired headphones or the amp's own headphone jack work best.</p>
-        </div>
-      </details>
-      {loopError && <p className="notice small" role="alert">{loopError}</p>}
     </div>
   )
 
@@ -630,7 +490,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
               minor={minorKey}
               used={prog.map(circleChord)}
               active={cur ? circleChord(cur) : null}
-              onPick={(root, minor) => { if (locked) return; setTonic(root); setMode(minor ? (mode === 'dorian' || mode === 'phrygian' || mode === 'harmonic' ? mode : 'minor') : (mode === 'mixolydian' || mode === 'lydian' ? mode : 'major')) }}
+              onPick={(root, minor) => { setTonic(root); setMode(minor ? (mode === 'dorian' || mode === 'phrygian' || mode === 'harmonic' ? mode : 'minor') : (mode === 'mixolydian' || mode === 'lydian' ? mode : 'major')) }}
               size={300}
             />
           </div>
@@ -670,6 +530,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         { id: 'tab', label: 'Make a tab' },
         { id: 'find', label: 'Riff Scanner' },
         { id: 'beats', label: 'Beat maker' },
+        { id: 'loop', label: 'Looper' },
       ]} />
 
       {page === 'jam' && (
@@ -679,7 +540,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
           <Win id="gen" title="Progression" className="panel" bodyClass="stack">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <span className="row" style={{ gap: 6, minWidth: 0 }}><span className="small muted">{summary}</span>{cardsHint}</span>
-              <button className="btn primary big" onClick={roll} disabled={locked} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <button className="btn primary big" onClick={roll} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                 <IconDice /> New progression
               </button>
             </div>
@@ -688,9 +549,11 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
             {chordInfo}
             {transportRow}
           </Win>
-          <Win id="looper" title={`Looper${rec ? ' (recording…)' : hasLoop ? ` (${layers.length} layer${layers.length > 1 ? 's' : ''})` : ''}`} className="panel">
-            <p className="small muted" style={{ marginTop: 0 }}>{`Tap Record, listen to the count-in, and play the progression once through (${totalBars} bars). Recording starts and stops on the beat by itself and is exactly one loop long.`}</p>
-            {looper}
+          <Win id="looper" title="Loop over it" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+            <p className="small muted" style={{ margin: 0 }}>Turns this progression into a beat (drums, keys and bass on these chords, at {bpm} BPM) and opens the 4-track looper on it: record rhythm, embellishments, a bassline and a lead over it.</p>
+            <div className="row" style={{ gap: 8 }}>
+              <button className="btn primary" onClick={() => void loopIt()} disabled={!prog.length} data-testid="jam-loop-it"><Ico n="loop" /> Loop over this progression</button>
+            </div>
           </Win>
           <Win id="famous" title={`Famous progressions in ${tonic}`} className="panel">
             <div className="stack" style={{ gap: 8 }}>
@@ -701,7 +564,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
                     <div className="readout" style={{ fontSize: 20, fontWeight: 600, color: 'var(--pearl-2)', overflowWrap: 'anywhere' }}>{s.chords.map(c => c.symbol).join('  ')}</div>
                     {s.note && <div className="small muted">{s.note}</div>}
                   </div>
-                  <button className="btn" disabled={locked} onClick={() => load(s.chords)}>Use this</button>
+                  <button className="btn" onClick={() => load(s.chords)}>Use this</button>
                 </div>
               ))}
             </div>
@@ -750,6 +613,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         </WinArea>
       )}
 
+      {page === 'loop' && <Suspense fallback={<p className="muted">Loading the looper…</p>}><LooperPanel /></Suspense>}
       {page === 'beats' && <Suspense fallback={<p className="muted">Loading the beat maker…</p>}><StudioScreen active={page === 'beats'} /></Suspense>}
 
       {page === 'find' && (

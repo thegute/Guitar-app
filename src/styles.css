@@ -2411,3 +2411,79 @@ body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-re
 .tuning-explain summary { cursor: pointer; }
 .tuning-explain ul { margin: var(--sp-1) 0 0; padding-left: 1.2em; }
 .tuning-explain li { margin: 2px 0; }
+
+/* ───────── the 4-track looper (Jam → Looper) and its strip on other screens ───────── */
+.lp-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.lp-play { width: 64px; height: 64px; border-radius: 50%; font-size: 24px; padding: 0; display: grid; place-items: center; }
+.lp-tempo { display: inline-flex; align-items: center; gap: 4px; }
+.lp-tempo b { font: 700 26px/1 var(--display); min-width: 2.2ch; text-align: center; }
+.lp-parts button .small { opacity: 0.75; }
+.lp-parts button.armed, .lb-part.armed { animation: lp-armed 0.6s ease-in-out infinite alternate; outline: 2px solid var(--gold); outline-offset: -2px; }
+.lp-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; }
+.lp-note { margin: 0; padding: 6px 10px; border-radius: var(--r-sm); background: var(--surface-2); }
+.lp-note.armed { background: color-mix(in srgb, var(--gold) 22%, var(--surface)); color: var(--ink); font-weight: 600; }
+.lp-note.rec { background: color-mix(in srgb, var(--coral) 20%, var(--surface)); color: var(--ink); font-weight: 600; }
+.lp-start { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.lp-start .seg button { font-size: 14px; }
+.lp-tracks { display: grid; grid-template-columns: 1fr; gap: var(--sp-3); }
+@media (min-width: 720px) { .lp-tracks { grid-template-columns: 1fr 1fr; } }
+.lp-track { --tc: var(--accent); position: relative; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--hairline); border-left: 4px solid var(--tc); min-width: 0; }
+.lp-track.r-embellish { --tc: var(--mint); }
+.lp-track.r-bass { --tc: var(--gold); }
+.lp-track.r-lead { --tc: var(--coral); }
+.lp-track.sel { box-shadow: 0 0 0 2px var(--tc); }
+.lp-track.muted .lp-wave { opacity: 0.35; }
+.lp-th { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.lp-th b { font: 600 18px/1.1 var(--display); }
+.lp-num { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--tc); color: var(--bg); font: 700 15px/1 var(--display); flex: none; }
+.lp-len { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lp-ms { min-width: 36px; font-weight: 700; }
+.lp-ms[aria-pressed="true"] { background: var(--tc); color: var(--bg); border-color: var(--tc); }
+.lp-body { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.lp-rec { position: relative; width: 92px; height: 92px; flex: none; border-radius: 50%; border: 0; background: var(--surface-2); color: var(--ink); cursor: pointer; display: grid; place-items: center; padding: 0; touch-action: manipulation; }
+.lp-rec:disabled { opacity: 0.45; cursor: default; }
+.lp-rec svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.lp-ring-bg { fill: none; stroke: var(--line); stroke-width: 3; }
+.lp-ring { fill: none; stroke: var(--tc); stroke-width: 3.4; stroke-linecap: round; }
+.lp-dot { position: absolute; top: 22px; width: 18px; height: 18px; border-radius: 50%; background: var(--ink-3); }
+.lp-lab { position: absolute; bottom: 20px; left: 8px; right: 8px; font: 600 13px/1.1 var(--display); text-align: center; }
+.lp-track.s-empty .lp-dot { background: var(--coral); }
+.lp-track.s-loop .lp-dot { background: var(--tc); border-radius: 3px; clip-path: polygon(15% 0, 100% 50%, 15% 100%); }
+.lp-track.s-armed .lp-rec, .lp-track.s-dubArmed .lp-rec { box-shadow: 0 0 0 3px var(--gold); animation: lp-armed 0.5s ease-in-out infinite alternate; }
+.lp-track.s-rec .lp-rec, .lp-track.s-closing .lp-rec { background: color-mix(in srgb, var(--coral) 85%, black); color: #fff; }
+.lp-track.s-rec .lp-dot, .lp-track.s-closing .lp-dot { background: #fff; }
+.lp-track.s-dub .lp-rec { background: color-mix(in srgb, var(--gold) 80%, black); color: #1a1000; }
+.lp-track.s-dub .lp-dot { background: #1a1000; }
+.lp-track.s-working .lp-rec { opacity: 0.7; }
+@keyframes lp-armed { from { filter: brightness(1); } to { filter: brightness(1.35); } }
+@media (prefers-reduced-motion: reduce) { .lp-track.s-armed .lp-rec, .lp-track.s-dubArmed .lp-rec, .lp-parts button.armed, .lb-part.armed { animation: none; } }
+.lp-wave-wrap { position: relative; flex: 1; min-width: 0; height: 64px; border-radius: var(--r-sm); background: var(--surface-2); overflow: hidden; }
+.lp-wave { display: block; width: 100%; height: 100%; }
+.lp-wave rect { fill: var(--tc); }
+.lp-head { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: 0; pointer-events: none; }
+.lp-hint { position: absolute; inset: 6px 8px; display: flex; align-items: center; line-height: 1.25; }
+.lp-lens { flex-wrap: wrap; border-radius: var(--r-md); }
+.lp-lens button { font-size: 13px; padding: 5px 10px; }
+.lp-faders { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); }
+.lp-fader { display: inline-flex; align-items: center; gap: 6px; flex: 1 1 140px; min-width: 0; }
+.lp-fader input { flex: 1; min-width: 60px; accent-color: var(--tc); }
+.lp-actions { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.lp-sp { flex: 1; }
+.lp-more { padding-top: var(--sp-2); border-top: 1px solid var(--hairline); }
+.lp-more .chip[aria-pressed="true"] { background: var(--tc); color: var(--bg); border-color: var(--tc); }
+.lp-pedals ul { margin: 4px 0; padding-left: 0; display: grid; gap: 2px; }
+.lp-chords .chip.on { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+.looper-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 6px 8px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--hairline); }
+.looper-bar .st-light { width: 34px; height: 34px; }
+.looper-bar .st-light b { font-size: 11px; }
+.lb-part { min-width: 36px; font-weight: 700; }
+.lb-track { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface-2); color: var(--ink); font: 700 15px/1 var(--display); cursor: pointer; touch-action: manipulation; }
+.lb-track.sel { border-color: var(--ink); }
+.lb-track.s-loop { background: var(--mint); color: var(--bg); border-color: var(--mint); }
+.lb-track.s-rec, .lb-track.s-closing { background: var(--coral); color: #fff; border-color: var(--coral); }
+.lb-track.s-dub { background: var(--gold); color: var(--gold-ink); border-color: var(--gold); }
+.lb-track.s-armed, .lb-track.s-dubArmed { border-color: var(--gold); animation: lp-armed 0.5s ease-in-out infinite alternate; }
+html[data-theme='psy'] .lp-track, html[data-theme='psy'] .looper-bar { background: rgba(14, 0, 34, 0.92); }
+.play-head:has(.looper-bar) { flex-wrap: wrap; }
+.play-head .looper-bar { order: 10; flex-basis: 100%; padding: 4px 6px; }
+.lp-tracks { align-items: start; }

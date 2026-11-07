@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { LooperStrip } from '../looper/LazyBar'
 import { Scale, Chord } from 'tonal'
 import { SCALES, scaleById, scaleInfo } from '../theory/scales'
 import { Fretboard } from '../components/Fretboard'
@@ -69,6 +70,7 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
   return (
     <div className="stack">
       <h1>Scales</h1>
+      <LooperStrip />
       <WinArea area="scales">
       <Win id="pick" title="Pick a scale" className="panel" bodyClass="stack" resizable={false}>
       <KeyPicker value={root} onChange={setRoot} label="Root note" />

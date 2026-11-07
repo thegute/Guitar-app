@@ -56,8 +56,8 @@ export class InputRecorder {
       let peak = 0
       for (let i = 0; i < c.d.length; i += 4) peak = Math.max(peak, Math.abs(c.d[i]))
       this.level = this.level * 0.7 + peak * 0.3
-      // keep about 90 seconds
-      const keepFrom = this.lastFrame - ctx.sampleRate * 90
+      // keep about 3 minutes (the looper's longest overdub)
+      const keepFrom = this.lastFrame - ctx.sampleRate * 180
       while (this.chunks.length && this.chunks[0].f + this.chunks[0].d.length < keepFrom) this.chunks.shift()
       this.waiters = this.waiters.filter(w => (this.lastFrame >= w.endFrame ? (w.resolve(), false) : true))
     }

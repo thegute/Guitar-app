@@ -1,5 +1,6 @@
 // Play along: the tab, a YouTube mini player, the mic following your playing note by note,
 // and the scales / chords of the song for soloing.
+import { LooperStrip } from '../looper/LazyBar'
 import { holdFullScreen } from '../theme'
 import { micWhere } from '../audio/input'
 import { Ico } from '../components/Icon'
@@ -1335,6 +1336,7 @@ export function PlayScreen() {
             <span className="dot" /> {listening ? 'Listening' : 'Listen'}
           </button>
         )}
+        <LooperStrip />
       </header>
 
       <section className="play-side" ref={sideRef}>

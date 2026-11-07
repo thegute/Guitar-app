@@ -2,6 +2,12 @@
 // record loops that lock to the beat (by foot with a pedal), and practise guitar over what you made. Edit mode has the
 // step grid, the piano roll and the mix. One clock runs it all (transport.ts); hits recorded while ● is on snap to
 // the grid. Inner Fold screen: pads and keys side by side. Half-folded: the grid on top, pads on the bottom half.
+import { sharedTransport } from './shared'
+import { station, stationMade } from '../looper/station'
+import { LooperBar, useStation } from '../looper/LooperPanel'
+import { openJam } from '../nav'
+import { FxPad } from './FxPad'
+import { BeatLight } from './BeatLight'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { haptic, quietForMic } from '../audio/tapFeel'
 import { Ico } from '../components/Icon'
@@ -30,9 +36,7 @@ import {
   PART_IDS, beatInPart, curPart, deletePart, partsMade, switchPart, type PartId,
 } from './beat'
 import { CHORD_TYPES, INSTRS, INSTR_GROUPS, chordNotes, instr, keyChord, loadInstr, type Voicing } from './sounds'
-import { StudioTransport, type LoopFx, type LoopLayer } from './transport'
-import { deleteLoop, fitToBars, gridOffset, levelLoop, loopsFor, rotate, saveLoop, stretch } from './loops'
-import { loopTempo } from '../audio/tempo'
+import type { StudioTransport } from './transport'
 import { beatChords, scalesFor } from './practice'
 import { guessPads, loadMyPads, loadSample, mySounds, mySoundsAvailable, pickSoundFolder, saveMySounds, type MySounds } from './mySounds'
 import { BANKS, detectRoot, isUserPad, trimSilence, type BankId, type PadId } from './pads'
@@ -44,7 +48,6 @@ import { applyMicFx, MIC_FX_KEY, type MicFx } from './micFx'
 import { MicFxPicker } from './MicFxPicker'
 /** the mic effect chosen now (read when a recording is kept) */
 const micFx = (): MicFx => { try { return (JSON.parse(localStorage.getItem(`kg:${MIC_FX_KEY}`) ?? '"none"') as MicFx) || 'none' } catch { return 'none' } }
-import { FX, type FxKind } from './fx'
 import { BounceSave } from './BounceSave'
 import type { Handle } from '../audio/pluck'
 
@@ -72,7 +75,7 @@ export function StudioScreen({ active }: { active: boolean }) {
   const box = useRef<HTMLDivElement>(null)
   const posture = useFoldPosture()
   const t = useRef<StudioTransport | null>(null)
-  const tr = () => (t.current ??= new StudioTransport(beat))
+  const tr = () => (t.current ??= sharedTransport())
   const history = useRef<Beat[]>([])
   const future = useRef<Beat[]>([])
   const cur = useRef(beat)
@@ -88,8 +91,11 @@ export function StudioScreen({ active }: { active: boolean }) {
   useEffect(() => { tr().setBeat(beat); const id = setTimeout(() => saveBeat(beat), 300); return () => clearTimeout(id) }, [beat]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => onBeatChange(b => setBeat(b)), [setBeat])
   useEffect(() => { void prepareKit(beat.kit) }, [beat.kit])
-  useEffect(() => () => t.current?.stop(), [])
-  useEffect(() => { if (!active && t.current?.playing) { t.current.stop(); setPlaying(false); setRecording(false) } }, [active])
+  // leaving the beat maker stops the beat, unless the looper has loops going on it (the looper bar keeps it)
+  useEffect(() => () => { if (!t.current?.keep()) t.current?.stop() }, [])
+  useEffect(() => { if (!active && t.current?.playing && !t.current.keep()) { t.current.stop(); setPlaying(false); setRecording(false) } }, [active])
+  // the shared clock can be started and stopped from the looper too
+  useEffect(() => { const id = setInterval(() => { const p = !!t.current?.playing; setPlaying(v => (v === p ? v : p)) }, 250); return () => clearInterval(id) }, [])
   useEffect(() => {
     const el = box.current
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -106,7 +112,7 @@ export function StudioScreen({ active }: { active: boolean }) {
   }, [beat.pads]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const play = (countIn = 0) => { void audio().resume(); tr().start(countIn); setPlaying(true) }
-  const stop = () => { loops.cancel(); t.current?.stop(); setPlaying(false); setRecording(false) }
+  const stop = () => { if (stationMade()) station().stopNow(); else t.current?.stop(); setPlaying(false); setRecording(false) }
   const toggleRecord = () => {
     take.current = null
     if (recording) { setRecording(false); setMsg(''); return }
@@ -168,14 +174,21 @@ export function StudioScreen({ active }: { active: boolean }) {
   const loopRec = useRef(false)
   const loopHits = useRef(0)
 
-  const loops = useLoops(tr(), beat, setBeat, play, loopHits)
-  loopRec.current = loops.state === 'rec'
-  // foot pedal: press = record the next loop, the other pedal = undo the last loop, hold = stop (or plain start/stop)
+  const st = useStation()
+  loopRec.current = !!st.rec && st.rec.status === 'rec'
+  // the looper's tracks, for Bounce (a bounce lands on an empty track and mutes the others)
+  const loops = {
+    layers: [0, 1, 2, 3].filter(i => st.loopOf(i)).map(i => ({ id: String(i), mute: st.s.tracks[i].mute })),
+    addRaw: async (x: Float32Array, bars: number) => { const i = [0, 1, 2, 3].find(k => !st.loopOf(k)); if (i === undefined) return ''; await st.putOn(i, x, bars, 0); return String(i) },
+    setMutes: (m: Record<string, boolean>) => Object.entries(m).forEach(([id, mu]) => st.setTrack(Number(id), { mute: mu })),
+    remove: (id: string) => st.clear(Number(id)),
+  }
+  // foot pedal: press = record / overdub on the looper's selected track, the other pedal = undo, hold = stop (or plain start/stop)
   const [pedalMode, setPedalMode] = usePersist<'loop' | 'play'>('studioPedal', 'loop')
   usePedals({
-    startStop: () => { if (pedalMode === 'loop') loops.record(); else if (tr().playing) stop(); else play(0) },
-    record: () => loops.record(),
-    restart: () => { if (pedalMode === 'loop') loops.undo(); else if (tr().playing) play(0) },
+    startStop: () => { if (pedalMode === 'loop') void st.press(); else if (tr().playing) stop(); else play(0) },
+    record: () => void st.press(),
+    restart: () => { if (pedalMode === 'loop') st.undo(); else if (tr().playing) play(0) },
     hold: (a: PedalAction) => { if (a === 'startStop' || a === 'record') stop() },
   })
 
@@ -250,7 +263,7 @@ export function StudioScreen({ active }: { active: boolean }) {
         {pads}
         <Win id="layers" title="Drum layers" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}><Layers beat={beat} setBeat={setBeat} /></Win>
         {keys}
-        <Looper t={tr()} beat={beat} loops={loops} playing={playing} play={play} pedalMode={pedalMode} setPedalMode={setPedalMode} />
+        <LoopWin pedalMode={pedalMode} setPedalMode={setPedalMode} />
         <Effects t={tr()} playing={playing} play={play} />
         <BounceSave t={tr()} beat={beat} setBeat={setBeat} loops={loops} play={play} stop={stop} />
         <Win id="steps" title="Step grid" className="panel"><Steps beat={beat} setBeat={setBeat} t={tr()} /></Win>
@@ -283,34 +296,6 @@ export function StudioScreen({ active }: { active: boolean }) {
 }
 
 // ───────────────────────── the beat light: count-in numbers, then a flash on every beat (bar 1 brighter)
-function BeatLight({ t, playing, big = false, label }: { t: StudioTransport; playing: boolean; big?: boolean; label?: string }) {
-  const el = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const d = el.current
-    if (!d) return
-    const b = d.querySelector('b')!
-    if (!playing) { d.dataset.state = 'off'; b.textContent = label ?? ''; return }
-    let raf = 0, last = ''
-    const tick = () => {
-      const now = audio().currentTime
-      const spb = 60 / t.beat.bpm
-      let state: string, text: string
-      if (now < t.t0) { state = 'count'; text = String(Math.ceil((t.t0 - now) / spb - 0.001)) }
-      else {
-        const pos = t.position(now)
-        const beat = Math.floor(pos / 4)
-        state = pos / 4 - beat < 0.28 ? (beat % 4 === 0 ? 'one' : 'beat') : 'idle'
-        text = label ?? `${Math.floor(beat / 4) + 1}.${(beat % 4) + 1}`
-      }
-      if (state + text !== last) { d.dataset.state = state; b.textContent = text; last = state + text }
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [playing, t, label])
-  return <div ref={el} className={`st-light${big ? ' big' : ''}`} data-state="off" aria-hidden><b /></div>
-}
-
 // ───────────────────────── tempo with tap
 function Tempo({ bpm, onChange }: { bpm: number; onChange: (b: number) => void }) {
   const taps = useRef<number[]>([])
@@ -1037,238 +1022,21 @@ function Roll({ t, beat, setBeat }: { t: StudioTransport; beat: Beat; setBeat: S
 }
 
 // ───────────────────────── loops that lock to the beat (the engine; the view is below)
-type Layer = LoopLayer & { bars: number }
-function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (countIn?: number) => void, screenHits: { current: number }) {
-  const [mode, setMode] = usePersist<'beat' | 'free'>('studioLoopMode', 'beat')
-  const [align, setAlign] = usePersist('studioAlign', true)
-  const [state, setState] = useState<'idle' | 'waiting' | 'rec' | 'working'>('idle')
-  const [note, setNote] = useState('')
-  // a first free loop far from the beat's tempo: offer to change the beat to the loop's own tempo (then it fits whole)
-  const [tempoOffer, setTempoOffer] = useState<{ raw: Float32Array; bpm: number; bars: 1 | 2 | 4 | 8; id: string } | null>(null)
-  const lastKept = useRef('')
-  const [layers, setLayersRaw] = useState<Layer[]>([])
-  const rec = useRef<InputRecorder | null>(null)
-  const freeStart = useRef(0)
-  const cancelRef = useRef({ cancelled: false })
-  const saveChain = useRef<Promise<unknown>>(Promise.resolve())
-  const live = useRef({ state, mode, layers, beat })
-  live.current = { state, mode, layers, beat }
-  const setLayers = (ls: Layer[]) => { live.current.layers = ls; setLayersRaw(ls); t.layers = ls; t.refreshLayers() }
-  useEffect(() => {
-    let alive = true
-    void loopsFor(beat.name).then(list => {
-      if (!alive) return
-      const ctx = audio()
-      setLayers(list.map(l => { const buf = ctx.createBuffer(1, l.data.length, l.sr); buf.getChannelData(0).set(l.data); return { id: l.id, buf, vol: l.vol, mute: l.mute, bars: l.bars, rev: l.rev, half: l.half, fx: l.fx } }))
-    })
-    return () => { alive = false }
-  }, [beat.name]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => () => { cancelRef.current.cancelled = true; rec.current?.stop() }, [])
-  // no buzzing while the looper records (the mic would hear it)
-  useEffect(() => { if (state === 'waiting' || state === 'rec') { quietForMic(true); return () => quietForMic(false) } }, [state])
-
-  const keep = async (raw: Float32Array, bars: number, extra = '') => {
-    if (screenHits.current > 0) {
-      // you played the on-screen keys or pads: they're already in the beat as notes, in time; the mic only heard the speaker
-      setNote(`Your ${screenHits.current} note${screenHits.current > 1 ? 's' : ''} on the screen went straight into the beat, in time (see Piano roll and Drum layers). The Looper records your guitar through the mic or amp.`)
-      screenHits.current = 0
-      return
-    }
-    if (!rec.current?.input?.external) extra += ' Tip: wear headphones so the mic only hears your guitar, not the beat from the speaker.'
-    const ctx = audio()
-    const sr = ctx.sampleRate
-    const b = live.current.beat
-    let x = await applyMicFx(levelLoop(raw, sr), sr, micFx(), { keepLength: true })
-    let moved = 0
-    if (align) { moved = gridOffset(x, sr, t.stepDur); if (moved) x = rotate(x, moved * sr) }
-    // shorter than the beat: repeat it to fill; longer: the beat grows to match
-    if (bars > b.bars) setBeat(bb => setBars(bb, bars as Beat['bars']))
-    else if (bars < b.bars) { const rep = new Float32Array(Math.round(b.bars / bars) * x.length); for (let k = 0; k * x.length < rep.length; k++) rep.set(x, k * x.length); x = rep }
-    const id = newId()
-    lastKept.current = id
-    const len = Math.max(bars, b.bars)
-    await saveLoop({ id, beat: b.name, sr, data: x, vol: 1, bars: len, at: Date.now() })
-    const buf = ctx.createBuffer(1, x.length, sr)
-    buf.getChannelData(0).set(x)
-    const count = live.current.layers.length + 1
-    setLayers([...live.current.layers, { id, buf, vol: 1, bars: len }])
-    haptic('success')
-    setNote(`Loop ${count} added${moved ? `, moved ${Math.round(Math.abs(moved) * 1000)} ms ${moved > 0 ? 'earlier' : 'later'} onto the beat` : ''}.${extra}`)
-  }
-  const input = () => latencyMs(kindOf(rec.current?.input?.external)) / 1000
-
-  /** Record: on the beat it starts at the next bar 1 and stops by itself; free, a second call stops it. */
-  const record = async () => {
-    const { state: st, mode: md } = live.current
-    if (st === 'idle') haptic('medium')
-    if (st === 'rec' && md === 'free') {
-      setState('working')
-      const ctx = audio()
-      const dur = ctx.currentTime - freeStart.current
-      try {
-        const raw = await rec.current!.capture(freeStart.current + input(), dur)
-        const fit = fitToBars(raw, ctx.sampleRate, t.barDur)
-        const first = live.current.layers.length === 0
-        setTempoOffer(null)
-        await keep(fit.samples, fit.bars, fit.how === 'stretch' ? ` Fitted to ${fit.bars} bar${fit.bars > 1 ? 's' : ''} (${fit.ratio >= 1 ? 'slowed' : 'sped up'} ${Math.abs(Math.round((fit.ratio - 1) * 100))}%, too small to hear).` : ` Kept at its own speed and made ${fit.bars} bar${fit.bars > 1 ? 's' : ''} long (${fit.ratio > 1 ? 'a little quiet added at the end' : 'the end trimmed'}). For a perfect fit, use "On the beat".`)
-        // the first loop decides the tempo: when it's far from the beat's, offer the loop's own tempo
-        if (first && fit.how === 'trim' && lastKept.current) {
-          const lt = loopTempo(raw, ctx.sampleRate)
-          const bars = lt && lt.beats % 4 === 0 ? lt.beats / 4 : 0
-          if (lt && (bars === 1 || bars === 2 || bars === 4 || bars === 8) && Math.abs(lt.bpm - live.current.beat.bpm) >= 2) setTempoOffer({ raw, bpm: Math.round(lt.bpm), bars, id: lastKept.current })
-        }
-      } catch { setNote("Couldn't record. Check the input: Play → Options → Set up input.") }
-      setState('idle')
-      return
-    }
-    if (st !== 'idle') return
-    cancelRef.current = { cancelled: false }
-    screenHits.current = 0
-    try {
-      rec.current ??= new InputRecorder()
-      await rec.current.start()
-    } catch { setNote("The microphone or amp input couldn't be opened. Allow microphone access and try again."); return }
-    const ctx = audio()
-    if (md === 'free') {
-      if (!t.playing) play(0)
-      freeStart.current = ctx.currentTime
-      setState('rec')
-      setNote('Recording. Play your loop, then stop recording when it comes round: it will be fitted to the beat.')
-      return
-    }
-    if (!t.playing) play(4)
-    const passStart = Math.max(t.t0, t.t0 + Math.ceil((ctx.currentTime + 0.05 - t.t0) / t.loopDur) * t.loopDur)
-    setState('waiting')
-    const bars = live.current.beat.bars
-    setNote(`Get ready: recording starts on bar 1 and stops by itself after ${bars} bar${bars > 1 ? 's' : ''}.`)
-    const sig = cancelRef.current
-    window.setTimeout(() => { if (!sig.cancelled) setState(s => (s === 'waiting' ? 'rec' : s)) }, Math.max(0, (passStart - ctx.currentTime) * 1000))
-    try {
-      const raw = await rec.current.capture(passStart + input(), t.loopDur, sig)
-      if (sig.cancelled) throw new Error('cancelled')
-      setState('working')
-      await keep(raw, bars)
-    } catch { /* cancelled */ }
-    setState('idle')
-  }
-  const cancel = () => {
-    if (live.current.state === 'idle') return
-    cancelRef.current.cancelled = true
-    setState('idle')
-    setNote('Recording cancelled.')
-  }
-  /** Take back the last loop (or the one being recorded). */
-  const undo = () => {
-    if (live.current.state !== 'idle') { cancel(); return }
-    const ls = live.current.layers
-    const last = ls[ls.length - 1]
-    if (!last) return
-    void deleteLoop(last.id)
-    setLayers(ls.slice(0, -1))
-    setNote(`Loop ${ls.length} removed.`)
-  }
-  const setLayer = (id: string, patch: Partial<LoopLayer>) => {
-    const next = live.current.layers.map(l => (l.id === id ? { ...l, ...patch } : l))
-    setLayers(next)
-    // saves one after another, each from the newest settings (quick taps used to overwrite each other)
-    const name = live.current.beat.name
-    saveChain.current = saveChain.current.then(() => loopsFor(name)).then(list => {
-      const s = list.find(x => x.id === id), l = live.current.layers.find(x => x.id === id)
-      if (s && l) return saveLoop({ ...s, vol: l.vol, mute: l.mute, rev: l.rev, half: l.half, fx: l.fx })
-    }).catch(() => undefined)
-  }
-  const remove = (id: string) => { void deleteLoop(id); setLayers(live.current.layers.filter(x => x.id !== id)) }
-  /** The beat takes the first loop's tempo; the loop is kept whole (a tiny stretch to the rounded tempo, never heard). */
-  const applyLoopTempo = async () => {
-    const o = tempoOffer
-    if (!o) return
-    setTempoOffer(null)
-    remove(o.id)
-    const sr = audio().sampleRate
-    setBeat(b => setBars({ ...b, bpm: o.bpm }, o.bars))
-    t.beat = { ...live.current.beat, bpm: o.bpm }
-    const target = Math.round(((o.bars * 4 * 60) / o.bpm) * sr)
-    await keep(stretch(o.raw, target, sr), o.bars, ` The beat is now ${o.bpm} BPM and your loop fits as ${o.bars} whole bar${o.bars > 1 ? 's' : ''}.`)
-  }
-  /** Add a ready-made loop (a bounce): exactly the beat's length, kept as it is. */
-  const addRaw = async (x: Float32Array, bars: number) => {
-    const ctx = audio()
-    const id = newId()
-    await saveLoop({ id, beat: live.current.beat.name, sr: ctx.sampleRate, data: x, vol: 1, bars, at: Date.now() })
-    const buf = ctx.createBuffer(1, x.length, ctx.sampleRate)
-    buf.getChannelData(0).set(x)
-    setLayers([...live.current.layers, { id, buf, vol: 1, bars }])
-    return id
-  }
-  /** Mute or unmute several loops at once (a bounce mutes what it replaced). */
-  const setMutes = (m: Record<string, boolean>) => {
-    setLayers(live.current.layers.map(l => (l.id in m ? { ...l, mute: m[l.id] } : l)))
-    void loopsFor(live.current.beat.name).then(list => list.forEach(sv => { if (sv.id in m) void saveLoop({ ...sv, mute: m[sv.id] }) }))
-  }
-  return { mode, setMode, align, setAlign, state, note, layers, record: () => void record(), cancel, undo, setLayer, remove, addRaw, setMutes, tempoOffer, setTempoOffer, applyLoopTempo }
-}
-type Loops = ReturnType<typeof useLoops>
-
-function Looper({ t, beat, loops, playing, play, pedalMode, setPedalMode }: { t: StudioTransport; beat: Beat; loops: Loops; playing: boolean; play: (c?: number) => void; pedalMode: 'loop' | 'play'; setPedalMode: (m: 'loop' | 'play') => void }) {
-  const { mode, setMode, align, setAlign, state, note, layers, tempoOffer, setTempoOffer, applyLoopTempo } = loops
-  const busy = state !== 'idle'
+/** The beat maker's window onto the 4-track looper: its strip (play, part, the four tracks) and the way in. */
+function LoopWin({ pedalMode, setPedalMode }: { pedalMode: 'loop' | 'play'; setPedalMode: (m: 'loop' | 'play') => void }) {
   return (
-    <Win id="loops" title="Looper" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }}>
-      <div className="st-loophead">
-        <BeatLight t={t} playing={playing} big label={state === 'rec' ? 'REC' : undefined} />
-        <div className="stack" style={{ gap: 8, flex: 1, minWidth: 0 }}>
-          <div className="seg" role="group" aria-label="Loop mode">
-            <button aria-pressed={mode === 'beat'} onClick={() => setMode('beat')} disabled={busy}>On the beat ({beat.bars} bar{beat.bars > 1 ? 's' : ''})</button>
-            <button aria-pressed={mode === 'free'} onClick={() => setMode('free')} disabled={busy}>Free</button>
-          </div>
-          <MicFxPicker />
-          <div className="row" style={{ gap: 8 }}>
-            <button className={`btn primary big${state === 'rec' || state === 'waiting' ? ' on' : ''}`} onClick={loops.record} disabled={state === 'working' || (busy && mode === 'beat')}>
-              {state === 'idle' ? '● Record a loop' : state === 'waiting' ? 'Get ready…' : state === 'rec' ? (mode === 'free' ? '■ Stop recording' : 'Recording…') : 'Fitting…'}
-            </button>
-            {busy && mode === 'beat' && <button className="btn" onClick={loops.cancel}>Cancel</button>}
-            {!busy && layers.length > 0 && <button className="btn" onClick={loops.undo}>↶ Undo last loop</button>}
-            {!playing && layers.length > 0 && <button className="btn" onClick={() => play(0)}>▶ Play with loops</button>}
-          </div>
-        </div>
+    <Win id="loops" title="Looper" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+      <LooperBar always />
+      <p className="small muted" style={{ margin: 0 }}>Four looper tracks on this beat: tap a number to record on that track (it starts on the next bar). Lengths, overdubs, volumes, part A / B and the extras are on the looper page.</p>
+      <div className="row" style={{ gap: 8 }}>
+        <button className="btn" onClick={() => openJam('loop')} data-testid="open-looper"><Ico n="loop" /> Open the 4-track looper</button>
       </div>
-      {note && <p className="small" style={{ margin: 0 }} role="status">{note}</p>}
-      {tempoOffer && (
-        <div className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }} data-testid="loop-tempo-offer">
-          <span>Your loop is about <b>{tempoOffer.bpm} BPM</b> ({tempoOffer.bars} bar{tempoOffer.bars > 1 ? 's' : ''}). Change the beat to it, so the whole loop fits?</span>
-          <button className="btn sm primary" onClick={() => void applyLoopTempo()}>Use {tempoOffer.bpm} BPM</button>
-          <button className="btn sm ghost" onClick={() => setTempoOffer(null)}>Keep {beat.bpm}</button>
-        </div>
-      )}
-      {layers.length > 0 && (
-        <ul className="st-layers">
-          {layers.map((l, i) => (
-            <li key={l.id}>
-              <b>Loop {i + 1}</b><span className="small muted">{l.bars} bar{l.bars > 1 ? 's' : ''}</span>
-              <input type="range" min={0} max={2} step={0.05} value={l.vol} onChange={e => loops.setLayer(l.id, { vol: Number(e.target.value) })} aria-label={`Loop ${i + 1} volume`} />
-              <button className="btn sm ghost" aria-pressed={!!l.mute} onClick={() => loops.setLayer(l.id, { mute: !l.mute })}>M</button>
-              <button className="btn sm ghost" onClick={() => loops.remove(l.id)} aria-label={`Delete loop ${i + 1}`}>✕</button>
-              <span className="st-layer-x">
-                <button className="btn sm ghost" aria-pressed={!!l.rev} onClick={() => loops.setLayer(l.id, { rev: !l.rev })} title="Play it backwards">⇆ Back</button>
-                <button className="btn sm ghost" aria-pressed={!!l.half} onClick={() => loops.setLayer(l.id, { half: !l.half })} title="Half speed: an octave lower, twice as long">½ speed</button>
-                <select className="select sm" value={l.fx ?? 'none'} aria-label={`Loop ${i + 1} effect`} onChange={e => loops.setLayer(l.id, { fx: e.target.value as LoopFx })}>
-                  <option value="none">No effect</option><option value="echo">Echo</option><option value="far">Far away (radio)</option><option value="space">Big space</option>
-                </select>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      <label className="ex-check"><input type="checkbox" checked={align} onChange={e => setAlign(e.target.checked)} /> Auto-align: nudge what I play onto the beat</label>
       <label className="field st-field" style={{ maxWidth: 420 }}><span>Foot pedal (Bluetooth page turner or MIDI)</span>
         <select className="select" value={pedalMode} onChange={e => setPedalMode(e.target.value as 'loop' | 'play')}>
-          <option value="loop">Looping: right = record next loop, left = undo, hold right = stop</option>
+          <option value="loop">Looping: right = record / overdub, left = undo, hold right = stop</option>
           <option value="play">Start and stop the beat</option>
         </select>
       </label>
-      <p className="small muted" style={{ margin: 0 }}>
-        <b>On the beat</b>: a bar of count-in, then it records exactly {beat.bars} bar{beat.bars > 1 ? 's' : ''} and stops itself. <b>Free</b>: start and stop whenever; it becomes 1, 2, 4 or 8 bars at this tempo without changing pitch. Loops are levelled so they're never too quiet (up to 2× louder with the slider). The input's delay is taken off (measure it in Jam → Looper → timing check).
-      </p>
     </Win>
   )
 }
@@ -1397,43 +1165,9 @@ function VolumesButton() {
 
 // ───────────────────────── performance effects: pick one, drag a finger round the square
 function Effects({ t, playing, play }: { t: StudioTransport; playing: boolean; play: (c?: number) => void }) {
-  const [kind, setKind] = usePersist<FxKind>('studioFx', 'filter')
-  const [latch, setLatch] = usePersist('studioFxLatch', false)
-  const [on, setOn] = useState(false)
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
-  const box = useRef<HTMLDivElement>(null)
-  const xy = (e: React.PointerEvent) => { const r = box.current!.getBoundingClientRect(); return { x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), y: Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height)) } }
-  useEffect(() => () => t.fx.release(), [t])
-  const info = FX.find(f => f.id === kind)!
   return (
     <Win id="fx" title="Effects" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
-      <div className="st-fx-kinds" role="group" aria-label="Effect">
-        {FX.map(f => <button key={f.id} className={`chip${kind === f.id ? ' on' : ''}`} aria-pressed={kind === f.id} onClick={() => { t.fx.release(); setOn(false); setPos(null); setKind(f.id) }}>{f.label}</button>)}
-      </div>
-      <div className={`st-xy${on ? ' on' : ''}`} ref={box} data-testid="fx-pad" role="application" aria-label={`${info.label} effect pad: drag your finger around`}
-        onPointerDown={e => {
-          e.preventDefault()
-          try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
-          void audio().resume()
-          const p = xy(e)
-          if (latch && on) { t.fx.move(p.x, p.y); setPos(p); return }
-          haptic('medium')
-          t.fx.engage(kind, p.x, p.y); setOn(true); setPos(p)
-        }}
-        onPointerMove={e => { if (!on || e.buttons === 0) return; const p = xy(e); t.fx.move(p.x, p.y); setPos(p) }}
-        onPointerUp={() => { if (!latch) { t.fx.release(); setOn(false); setPos(null) } }}
-        onPointerCancel={() => { if (!latch) { t.fx.release(); setOn(false); setPos(null) } }}>
-        {pos && <span className="st-xy-dot" style={{ left: `${pos.x * 100}%`, top: `${(1 - pos.y) * 100}%` }} aria-hidden />}
-        <span className="st-xy-x small">{info.x}</span>
-        <span className="st-xy-y small">{info.y} ↑</span>
-        {!on && <span className="st-xy-hint">{playing ? 'Touch and drag' : 'Press ▶, then touch and drag'}</span>}
-      </div>
-      <div className="row" style={{ gap: 8 }}>
-        {!playing && <button className="btn sm" onClick={() => play(0)}><Ico n="play" fill /> Play the beat</button>}
-        <label className="ex-check"><input type="checkbox" checked={latch} onChange={e => { setLatch(e.target.checked); if (!e.target.checked) { t.fx.release(); setOn(false); setPos(null) } }} /> Latch: keep it on when I let go</label>
-        {latch && on && <button className="btn sm" onClick={() => { t.fx.release(); setOn(false); setPos(null) }}>Effect off</button>}
-      </div>
-      <p className="small muted" style={{ margin: 0 }}>The effect goes over the whole beat and your loops while your finger is down, then back to normal (echo and reverb ring out). Stutter repeats the bit you touched, on the beat.</p>
+      <FxPad t={t} playing={playing} play={play} />
     </Win>
   )
 }

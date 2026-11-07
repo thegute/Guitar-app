@@ -1,6 +1,7 @@
 // Jam → Riff Scanner → Listen → "Notes from a recording": record yourself (or the phone speaker playing a solo lesson) or pick
 // an audio file: a quick draft at once, then the guitar-note model's exact version and the AI's chords (useSoundScan).
 import { VoiceOutToggle } from '../scan/VoiceOut'
+import { takePendingSound } from '../scan/pending'
 import { useEffect, useRef, useState } from 'react'
 import { Ico } from './Icon'
 import { InputRecorder } from '../audio/looper'
@@ -19,6 +20,8 @@ export function Transcriber({ youtube }: { onOpen?: (d: SongDoc) => void; youtub
   const [msg, setMsg] = useState('')
   const scan = useSoundScan(youtube)
   useEffect(() => () => { rec.current?.stop(); if (t0.current) quietForMic(false) }, [])
+  // a sound sent here from another screen (a looper track)
+  useEffect(() => { const p = takePendingSound(); if (p) void scan.run(p.x, p.sr, p.title, 'your looper track') }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (state !== 'rec') return
     const id = setInterval(() => { const s = audio().currentTime - t0.current; setSecs(s); if (s >= MAX) void stop() }, 200)
