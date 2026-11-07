@@ -139,6 +139,15 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
    **Round 3 answers:** owner is a late beginner who can play pentatonics; the curriculum must take a RELATIVELY NEW player all the way to pro
    (all 6 grades, none skipped). Proposed build order: Grade 1 = deepen the existing Zero to Hero (placement test lets him skip), PILOT =
    Grade 2 (his level: neck knowledge, barre chords, major scale, pentatonic -> CAGED intro), then 3, 4, 5, 6. Still to ask: minutes/day.
+   **Round 4 answers (2026-11-07):** (1) FIRST grade to build = **Grade 3 (Connect the neck)**, not Grade 2. (2) Strum Machine side: "figure out
+   a way to get realistic strum sounds": build a strum engine on the CC0 Meta steel samples (notes/research-acoustic.md): down/up strokes with
+   per-string timing spread (8-25 ms, scaled by tempo + strength, up-strokes quicker and lighter, top strings only), per-string velocity curve,
+   open-position bluegrass chords, bass-note + brush (boom-chuck), muted "chop", ghost/dead strums, pick + string noise, release/mute at the
+   end, round-robin between the 3 velocity layers; search for CC0 recorded chord/strum one-shots to layer; A/B against current with the owner
+   before replacing. (3) **Song library = 300 songs across genres, PRIORITY BLUEGRASS** (then folk, old-time, country, blues, Hawaiian,
+   reggae, gospel/hymns). Only public-domain / traditional / our own originals (no copyrighted songs; lyrics only pre-1929); check each
+   title's status, skip anything uncertain (e.g. later arrangements/authored songs); chords + form + sections + suggested tempo/key; Nashville
+   numbers; each song works in Band mode and feeds the chord chart overlays.
    Saved ideas: the Deep Dive course
    (notes/next-build.md "Saved for the next work cycle": real depth in CAGED, modes, intervals, ear training, voicings, soloing,
    improvising, voice leading); extra FX, note repeat/arp; weekly challenge + ghost; left-handed mode; Google Drive backup (needs his
