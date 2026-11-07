@@ -16,7 +16,10 @@ import type { StudioTransport } from './transport'
 import type { MySounds } from './mySounds'
 import { loadSample } from './mySounds'
 import { Dial } from '../components/Dial'
-import { prepareShift } from './pitchShift'
+import { prepareShift, stretchSamples } from './pitchShift'
+import { keyMove, loopTempo, soundKey } from './analyse'
+import { newId as newSampleId } from './beat'
+import { saveSample } from './padSamples'
 
 const noteName = (m: number, flats: boolean) => (flats ? FLATS : SHARPS)[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1)
 const MODES: { id: PadMode; label: string; hint: string }[] = [
@@ -152,6 +155,7 @@ export function PadEditor({ pad, beat, setBeat, t, mine, onClose, onRecord, reco
         <section className="opt-group" aria-label="Pad settings">
           <h3>Settings</h3>
           <PitchDial def={def} set={set} buf={buf} id={shiftId(def, pad, beat.kit)} />
+          {(def.src === 'rec' || def.src === 'file') && buf && buf.end - buf.start >= 0.8 && <FitToBeat def={def} set={set} buf={buf} beat={beat} />}
           <div className="opt-row"><span className="opt-name">Volume</span>
             <input type="range" min={0} max={2} step={0.05} value={def.vol ?? 1} onChange={e => set({ vol: Number(e.target.value) })} aria-label="Pad volume" />
             <b className="pad-val">{Math.round((def.vol ?? 1) * 100)}%</b>
@@ -276,6 +280,55 @@ function PitchDial({ def, set, buf, id }: { def: PadDef; set: (p: Partial<PadDef
         )}
         {busy && <span className="small" role="status">{busy}</span>}
       </div>
+    </div>
+  )
+}
+
+/** Fit to the beat: the sample's own tempo and key, then one tap to stretch it to the beat's tempo (same pitch) or move it
+ *  into the beat's key (the pitch dial, keeping the speed). */
+function FitToBeat({ def, set, buf, beat }: { def: PadDef; set: (p: Partial<PadDef>, remember?: boolean) => void; buf: { buf: AudioBuffer; start: number; end: number }; beat: Beat }) {
+  const info = useMemo(() => {
+    const sr = buf.buf.sampleRate
+    const x = buf.buf.getChannelData(0).slice(Math.floor(buf.start * sr), Math.ceil(buf.end * sr))
+    return { tempo: loopTempo(x, sr), key: soundKey(x, sr), x, sr }
+  }, [buf])
+  const [busy, setBusy] = useState('')
+  const t = info.tempo
+  const rate = t ? beat.bpm / t.bpm : 1
+  const move = info.key && info.key.sure > 0.15 ? keyMove(info.key.key, { root: beat.key, minor: beat.minor }) : null
+  const stretch = async () => {
+    if (!t) return
+    setBusy('Stretching…')
+    try {
+      const y = await stretchSamples(info.x, info.sr, rate)
+      const id = newSampleId()
+      await saveSample(id, y, info.sr)
+      set({ src: 'rec', sample: id, start: 0, end: y.length / info.sr, file: undefined }, true)
+      setBusy(`Stretched to ${beat.bpm} BPM: ${t.beats} beats, same pitch.`)
+    } catch (e) { setBusy(e instanceof Error ? e.message : 'It stopped.') }
+  }
+  return (
+    <div className="stack fit-beat" style={{ gap: 6 }} data-testid="fit-beat">
+      <h4 style={{ margin: 0 }}>Fit to the beat</h4>
+      <span className="small">
+        {t ? <>Its tempo: about <b data-testid="fit-bpm">{Math.round(t.bpm)} BPM</b> ({t.beats} beats{t.beats % 4 === 0 ? `, ${t.beats / 4} bar${t.beats > 4 ? 's' : ''}` : ''}). </> : 'No steady tempo in it. '}
+        {info.key ? <>Its key: <b data-testid="fit-key">{info.key.key.label}</b>{info.key.sure < 0.15 ? ' (a rough guess)' : ''}.</> : ''}
+      </span>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+        {t && Math.abs(rate - 1) > 0.005 && (
+          <button className="btn sm" onClick={() => void stretch()} disabled={!!busy && busy.endsWith('…')} data-testid="fit-stretch">
+            Stretch to {beat.bpm} BPM ({rate > 1 ? 'faster' : 'slower'} {Math.abs(Math.round((rate - 1) * 100))}%)
+          </button>
+        )}
+        {move !== null && move !== 0 && (
+          <button className="btn sm" onClick={() => set({ pitch: move, pitchMode: 'keep' }, true)} data-testid="fit-key-move">
+            Move it to {beat.key}{beat.minor ? ' minor' : ''} ({move > 0 ? '+' : '−'}{Math.abs(move)})
+          </button>
+        )}
+        {move === 0 && <span className="small muted">Already in the beat's key.</span>}
+      </div>
+      {t && Math.abs(rate - 1) > 0.3 && <span className="small muted">That's a big stretch: it can sound smeared. Changing the beat's tempo nearer {Math.round(t.bpm)} keeps it clean.</span>}
+      {busy && <span className="small" role="status">{busy}</span>}
     </div>
   )
 }

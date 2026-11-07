@@ -1,7 +1,7 @@
 // Bounce and save: record what the beat maker plays (after the effects) for one time round, then
 //   * into one loop: everything becomes a single looper layer and what it came from is muted (so you can keep
 //     stacking without running out of layers; Undo the bounce brings it all back)
-//   * onto a pad: the whole loop on one of Your pads, to play from a pad or chop up
+//   * onto a pad (resample): the whole loop, effects and all, on one of Your pads, to play from a pad or chop up
 //   * save as audio: a WAV of the mix, and optionally each part on its own (stems), to share or use elsewhere
 // It plays through once while it records (that's how it hears exactly what you hear).
 import { useRef, useState } from 'react'
@@ -11,7 +11,7 @@ import { TapRecorder, encodeWav } from '../audio/tap'
 import { shareFiles } from '../audio/shareFiles'
 import { Win } from '../components/Win'
 import { Ico } from '../components/Icon'
-import { USER_PADS } from './pads'
+import { USER_PADS, padName } from './pads'
 import { saveSample } from './padSamples'
 import { beatInPart, newId, partsMade, playOrder, type Beat } from './beat'
 import { instr } from './sounds'
@@ -81,8 +81,8 @@ export function BounceSave({ t, beat, setBeat, loops, play, stop }: { t: StudioT
           const pad = USER_PADS.find(p => !beat.pads?.[p]) ?? USER_PADS[USER_PADS.length - 1]
           const id = newId()
           await saveSample(id, mono, sr)
-          setBeat(b => ({ ...b, pads: { ...b.pads, [pad]: { src: 'rec', sample: id, start: 0, end: mono.length / sr, name: 'Bounce' } } }))
-          setMsg(`The whole loop is on Your pads → Pad ${pad.slice(1)} ("Bounce"). Tap it to play it, or open it in Sample mode to trim it.`)
+          setBeat(b => ({ ...b, pads: { ...b.pads, [pad]: { src: 'rec', sample: id, start: 0, end: mono.length / sr, name: 'Resample' } } }))
+          setMsg(`The whole loop (with its effects) is on Your pads → pad ${padName(pad)} ("Resample"). Tap it to play it, or open it in Sample mode to trim it, pitch it or chop it.`)
         }
       }
     } catch { if (!sig.current.cancelled) setMsg("Couldn't record that. Try again.") }
@@ -101,7 +101,7 @@ export function BounceSave({ t, beat, setBeat, loops, play, stop }: { t: StudioT
       <p className="small muted" style={{ margin: 0 }}>It plays once round while it records, so it gets exactly what you hear (effects too).</p>
       <div className="row" style={{ gap: 8 }}>
         <button className="btn" disabled={!!busy || song} onClick={() => void go('loop')} data-testid="bounce-loop"><Ico n="loop" /> Bounce into one loop</button>
-        <button className="btn" disabled={!!busy || song} onClick={() => void go('pad')} data-testid="bounce-pad">Bounce onto a pad</button>
+        <button className="btn" disabled={!!busy || song} onClick={() => void go('pad')} data-testid="bounce-pad">Resample onto a pad</button>
       </div>
       {song && <p className="small muted" style={{ margin: 0 }}>Bouncing records one part: turn the song off (Controls → Song) to bounce the part you're editing.</p>}
       <div className="row" style={{ gap: 8 }}>

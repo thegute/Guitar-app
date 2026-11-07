@@ -2,7 +2,7 @@
 // hear, trim), Put it on a pad / Chop it across pads, the pitch dial (keys, −/+, double tap, Tape / Keep the speed),
 // Signalsmith's keep-the-speed copy checked for pitch and length, and the stems with the real model (routed locally).
 // Needs `vite preview` on :4173, CHROME_PATH, and the model in KG_MODELS/demucs for the `stems` part.
-// Usage: node tests/browser/getsound-test.cjs [file,video,dial,shift,micfx,stems]
+// Usage: node tests/browser/getsound-test.cjs [file,video,dial,shift,micfx,chop,fit,stems]
 const { chromium } = require('playwright')
 const path = require('path')
 const fs = require('fs')
@@ -229,6 +229,81 @@ async function openGetSound(page) {
     if (Math.abs(1200 * Math.log2(r.octaveDown.f0 / 98)) > 40) bad(`octave down: ${r.octaveDown.f0.toFixed(1)} Hz, wanted 98`)
     console.log('mic effects: ' + Object.entries(r).map(([f, o]) => `${f} ${o.f0 ? Math.round(o.f0) + ' Hz' : '-'}`).join(', '))
     errs(page, 'micfx')
+    await page.context().close()
+  }
+
+  // ---------- chop: equal pieces and tap to cut ----------
+  if (want('chop')) {
+    const page = await newPage(browser, { width: 412, height: 915 })
+    if (await openGetSound(page)) {
+      await page.locator('[data-testid=gs-file]').setInputFiles(path.join(OUT, 'gs-mix.wav'))
+      await page.waitForSelector('[data-testid=clip-editor]', { timeout: 8000 })
+      await page.locator('[data-testid=gs-chop-how] button:has-text("Equal pieces")').click()
+      await page.locator('[aria-label="How many pieces"] button', { hasText: /^4$/ }).click()
+      const marks = await page.locator('.clip-mark').count()
+      if (marks !== 3) bad(`equal 4: ${marks} cut marks shown (3 expected)`)
+      await page.locator('[data-testid=clip-editor] input.input').fill('Eq')
+      await page.locator('[data-testid=gs-chop]').click()
+      await page.waitForTimeout(600)
+      let b = await beat(page)
+      const eq = Object.values(b.pads || {}).filter(d => /^Eq \d/.test(d.name || ''))
+      if (eq.length !== 4 || Math.abs(eq[0].end - eq[0].start - 1) > 0.01) bad(`equal 4 of a 4 s clip: ${eq.length} pads, first ${eq[0] ? (eq[0].end - eq[0].start).toFixed(2) : '-'} s`)
+      // tap to cut: three taps while it plays
+      await openGetSound(page)
+      await page.locator('[data-testid=gs-file]').setInputFiles(path.join(OUT, 'gs-mix.wav'))
+      await page.waitForSelector('[data-testid=clip-editor]', { timeout: 8000 })
+      await page.locator('[data-testid=gs-chop-how] button:has-text("Tap to cut")').click()
+      await page.locator('[data-testid=gs-chop]').click()
+      for (const ms of [700, 900, 800]) { await page.waitForTimeout(ms); await page.locator('[data-testid=gs-tap]').dispatchEvent('pointerdown') }
+      const shown = await page.locator('.clip-mark').count()
+      if (shown !== 3) bad(`tap to cut: ${shown} marks shown after 3 taps`)
+      await page.locator('[data-testid=clip-editor] input.input').fill('Tp')
+      await page.locator('[data-testid=gs-chop]').click()
+      await page.waitForTimeout(600)
+      b = await beat(page)
+      const tp = Object.values(b.pads || {}).filter(d => /^Tp \d/.test(d.name || '')).sort((x, y) => x.start - y.start)
+      if (tp.length !== 4) bad(`tap to cut: ${tp.length} pads (4 expected)`)
+      else if (Math.abs(tp[1].start - 0.7) > 0.25 || Math.abs(tp[2].start - 1.6) > 0.3) bad(`tap to cut: cuts at ${tp.map(d => d.start.toFixed(2)).join(', ')}`)
+      else console.log(`chop: equal 4 → 4 pads; taps → cuts at ${tp.map(d => d.start.toFixed(2)).join(', ')} s`)
+    }
+    errs(page, 'chop')
+    await page.context().close()
+  }
+
+  // ---------- fit to the beat: the clip's tempo (drums every 0.5 s = 120 BPM) and stretching it to the beat's tempo ----------
+  if (want('fit')) {
+    const page = await newPage(browser, { width: 840, height: 757 })
+    if (await openGetSound(page)) {
+      await page.locator('[data-testid=gs-file]').setInputFiles(path.join(OUT, 'gs-mix.wav'))
+      await page.waitForSelector('[data-testid=clip-editor]', { timeout: 8000 })
+      const box = await page.locator('[data-testid=clip-wave]').boundingBox()
+      // select 0–8 s (16 beats at 120)
+      await page.mouse.move(box.x + (4 / 12) * box.width, box.y + 40); await page.mouse.down(); await page.mouse.move(box.x + (8 / 12) * box.width, box.y + 40, { steps: 6 }); await page.mouse.up()
+      await page.locator('[data-testid=gs-put]').click()
+      await page.waitForTimeout(500)
+      let b = await beat(page)
+      const id = Object.entries(b.pads || {}).find(([, d]) => d.src === 'rec')?.[0]
+      await page.locator('[data-testid=sample-mode]').click()
+      await page.waitForTimeout(500)
+      await page.locator(`.st-pad[data-voice="${id}"]`).first().click()
+      await page.waitForSelector('[data-testid=fit-beat]', { timeout: 5000 }).catch(() => bad('no Fit to the beat in the pad editor'))
+      const bpm = await page.locator('[data-testid=fit-bpm]').innerText().catch(() => '')
+      const key = await page.locator('[data-testid=fit-key]').innerText().catch(() => '')
+      console.log(`fit: heard ${bpm}, key ${key}, beat at ${b.bpm} BPM`)
+      if (!/^1(19|20|21) BPM/.test(bpm)) bad(`fit: tempo should be about 120: "${bpm}"`)
+      const before = b.pads[id].end - b.pads[id].start
+      if (await page.locator('[data-testid=fit-stretch]').count()) {
+        await page.locator('[data-testid=fit-stretch]').click()
+        await page.waitForFunction(() => /Stretched to/.test(document.querySelector('[data-testid=fit-beat] [role=status]')?.textContent || ''), null, { timeout: 20000 }).catch(() => bad('fit: stretch never finished'))
+        b = await beat(page)
+        const after = b.pads[id].end - b.pads[id].start
+        const want = before * 120 / b.bpm
+        if (Math.abs(after - want) > 0.08) bad(`fit: stretched to ${after.toFixed(2)} s, expected ${want.toFixed(2)}`)
+        else console.log(`fit: ${before.toFixed(2)} s → ${after.toFixed(2)} s at ${b.bpm} BPM`)
+      } else if (b.bpm !== 120) bad('fit: no stretch button')
+      await page.screenshot({ path: path.join(OUT, 'gs-fit.png') })
+    }
+    errs(page, 'fit')
     await page.context().close()
   }
 

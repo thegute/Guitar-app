@@ -2379,3 +2379,4 @@ body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-re
 .clip-handle { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: var(--accent); pointer-events: none; }
 .clip-handle::after { content: ''; position: absolute; top: 50%; left: 50%; width: 16px; height: 34px; margin: -17px 0 0 -8px; border-radius: 6px; background: var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.35); }
 .gs-parts { flex-wrap: wrap; }
+.clip-mark { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1.5px dashed var(--gold, #fc0); pointer-events: none; }

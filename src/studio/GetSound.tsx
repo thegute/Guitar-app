@@ -196,13 +196,39 @@ function ClipEditor({ clip, beat, setBeat, onAgain, onDone }: { clip: Clip; beat
     setBeat(b => ({ ...b, pads: { ...b.pads, [free]: { src: 'rec', sample: id, start: 0, end: data.length / p.sr, root: detectRoot(data, p.sr) ?? undefined, name: label, mode: 'oneshot' } } }), true)
     onDone(`"${label}" is on pad ${padName(free)} of Your pads. Tap it to play; open it to turn the pitch dial.`)
   }
-  const chop = async () => {
+  // chopping: at each hit / word, into equal pieces, or where you tap while it plays ("lazy chop")
+  const [chopHow, setChopHow] = useState<'hits' | 'equal' | 'tap'>('hits')
+  const [pieces, setPieces] = useState(8)
+  const [taps, setTaps] = useState<number[] | null>(null)
+  const tapStart = useRef(0)
+  const cutsFor = (data: Float32Array, sr: number, max: number): { start: number; end: number }[] => {
+    const len = data.length / sr
+    if (chopHow === 'equal') return Array.from({ length: Math.min(max, pieces) }, (_, i) => ({ start: (i * len) / pieces, end: ((i + 1) * len) / pieces }))
+    if (chopHow === 'tap' && taps) {
+      const at = [0, ...taps.filter(x => x > 0.02 && x < len - 0.02)].slice(0, max)
+      return at.map((a, i) => ({ start: a, end: at[i + 1] ?? len }))
+    }
+    return sliceAtOnsets(data, sr, max, 0.12)
+  }
+  const marks = useMemo(() => {
+    if (chopHow === 'tap') return (taps ?? []).map(t => sel[0] + t)
+    const a = Math.floor(sel[0] * clip.sr), b = Math.ceil(sel[1] * clip.sr)
+    if (b - a > clip.sr * 60) return []
+    return cutsFor(mono(clip.chans.map(c => c.subarray(a, b))), clip.sr, 16).slice(1).map(c => sel[0] + c.start)
+  }, [chopHow, taps, pieces, sel, clip]) // eslint-disable-line react-hooks/exhaustive-deps
+  const startTaps = () => {
+    hear()
+    tapStart.current = audio().currentTime
+    setTaps([])
+  }
+  const tap = () => { if (taps) setTaps([...taps, audio().currentTime - tapStart.current]) }
+  const chop = async (cuts?: { start: number; end: number }[]) => {
     const p = piece()
     const data = mono(p.chans)
     const free = freePads()
     const slots = free.length ? free : USER_PADS
-    const slices = sliceAtOnsets(data, p.sr, Math.min(16, slots.length), 0.12)
-    if (slices.length < 2) { setNote('No clear hits or words to cut at: put it on one pad instead.'); return }
+    const slices = cuts ?? cutsFor(data, p.sr, Math.min(16, slots.length))
+    if (slices.length < 2) { setNote(chopHow === 'tap' ? 'Tap "Cut here" at least once while it plays.' : 'No clear hits or words to cut at: put it on one pad instead.'); return }
     const id = newId()
     await saveSample(id, data, p.sr)
     const label = name.trim() || 'Chop'
@@ -214,7 +240,7 @@ function ClipEditor({ clip, beat, setBeat, onAgain, onDone }: { clip: Clip; beat
   return (
     <div className="stack" style={{ gap: 10 }} data-testid="clip-editor">
       <p className="small muted" style={{ margin: 0 }}>Drag the two handles round the bit you want (drag the wave to move along, ± to zoom). {dur.toFixed(1)} s in all.</p>
-      <ClipWave clip={clip} sel={sel} setSel={setSel} view={view} setView={setView} />
+      <ClipWave clip={clip} sel={sel} setSel={setSel} view={view} setView={setView} marks={marks} />
       <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <button className="btn sm primary" onClick={hear} data-testid="gs-hear"><Ico n="play" fill /> Hear it</button>
         <button className="btn sm" onClick={() => { const pad = (sel[1] - sel[0]) * 0.15; setView([Math.max(0, sel[0] - pad), Math.min(dur, sel[1] + pad)]) }}>Zoom to it</button>
@@ -240,10 +266,30 @@ function ClipEditor({ clip, beat, setBeat, onAgain, onDone }: { clip: Clip; beat
           </div>
         )}
       </div>
+      <div className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span>Chop</span>
+        <span className="seg" role="group" aria-label="How to chop" data-testid="gs-chop-how">
+          <button aria-pressed={chopHow === 'hits'} onClick={() => setChopHow('hits')} title="Cut at every hit, note or word">At each hit</button>
+          <button aria-pressed={chopHow === 'equal'} onClick={() => setChopHow('equal')} title="Cut into equal pieces">Equal pieces</button>
+          <button aria-pressed={chopHow === 'tap'} onClick={() => { setChopHow('tap'); setTaps(null) }} title="It plays; tap where each piece should start">Tap to cut</button>
+        </span>
+        {chopHow === 'equal' && (
+          <span className="seg" role="group" aria-label="How many pieces">
+            {[2, 4, 8, 16].map(n => <button key={n} aria-pressed={pieces === n} onClick={() => setPieces(n)}>{n}</button>)}
+          </span>
+        )}
+      </div>
+      {chopHow === 'tap' && taps && (
+        <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button className="btn big primary" onPointerDown={tap} data-testid="gs-tap">Cut here</button>
+          <span className="small">{taps.length} cut{taps.length === 1 ? '' : 's'} so far ({taps.length + 1} pieces).</span>
+          <button className="btn sm ghost" onClick={startTaps}>Start again</button>
+        </div>
+      )}
       <label className="field"><span>Pad name</span><input className="input" value={name} maxLength={14} onChange={e => setName(e.target.value)} /></label>
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <button className="btn primary" onClick={() => void putOnPad()} disabled={!!isoState} data-testid="gs-put">Put it on a pad</button>
-        <button className="btn" onClick={() => void chop()} disabled={!!isoState} data-testid="gs-chop">Chop it across pads</button>
+        <button className="btn" onClick={() => void (chopHow === 'tap' && !taps?.length ? startTaps() : chop())} disabled={!!isoState} data-testid="gs-chop">{chopHow === 'tap' && !taps?.length ? 'Play it and tap to cut' : 'Chop it across pads'}</button>
         <button className="btn ghost" onClick={onAgain}>Another sound</button>
       </div>
       {note && <p className="small" role="status" style={{ margin: 0 }} data-testid="gs-note">{note}</p>}
@@ -252,7 +298,7 @@ function ClipEditor({ clip, beat, setBeat, onAgain, onDone }: { clip: Clip; beat
 }
 
 /** The clip's wave with the selection: drag a handle to move it, drag the wave to slide along, tap to move the nearest handle. */
-function ClipWave({ clip, sel, setSel, view, setView }: { clip: Clip; sel: [number, number]; setSel: (s: [number, number]) => void; view: [number, number]; setView: (v: [number, number]) => void }) {
+function ClipWave({ clip, sel, setSel, view, setView, marks = [] }: { clip: Clip; sel: [number, number]; setSel: (s: [number, number]) => void; view: [number, number]; setView: (v: [number, number]) => void; marks?: number[] }) {
   const box = useRef<HTMLDivElement>(null)
   const cv = useRef<HTMLCanvasElement>(null)
   const [w, setW] = useState(600)
@@ -340,6 +386,7 @@ function ClipWave({ clip, sel, setSel, view, setView }: { clip: Clip; sel: [numb
           }
         }}>
         <canvas ref={cv} style={{ width: '100%', height: H, display: 'block' }} />
+        {marks.filter(m => m > view[0] && m < view[1]).map((m, i) => <span key={i} className="clip-mark" style={{ left: pct(m) }} aria-hidden />)}
         <span className="clip-handle" style={{ left: pct(sel[0]) }} aria-hidden />
         <span className="clip-handle" style={{ left: pct(sel[1]) }} aria-hidden />
       </div>

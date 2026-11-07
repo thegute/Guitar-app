@@ -73,7 +73,10 @@ async function hold(page, sel, ms) {
       if (!(k2.start > k.start)) bad(`dragging the start handle did not trim (${k.start} → ${k2.start})`)
     } else bad('no wave in the pad editor')
     // pitch and reverse
-    await page.locator('[aria-label="Pitch in semitones"]').evaluate(el => { const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(el, '-5'); el.dispatchEvent(new Event('input', { bubbles: true })) })
+    // the pitch dial: five steps down with the keys
+    const knob = page.locator('[data-testid=pitch-dial] [role=slider]')
+    await knob.focus()
+    for (let i = 0; i < 5; i++) await knob.press('ArrowDown')
     await page.locator('.pad-editor label:has-text("Reverse") input').check()
     await page.locator('[data-testid=pad-hear]').click()
     b = await beat(page)
@@ -231,7 +234,7 @@ async function hold(page, sel, ms) {
     b = await beat(page)
     if (b.rows.some(r => r.mute) || (await page.locator('.st-layers li').count()) !== 0) bad('undo the bounce did not bring it back')
     await page.locator('[data-testid=bounce-pad]').click()
-    await page.waitForFunction(() => /Pad 1/.test(document.querySelector('[data-testid=bounce-msg]')?.textContent || ''), null, { timeout: 15000 }).catch(() => bad('bounce onto a pad never finished'))
+    await page.waitForFunction(() => /pad A 1/.test(document.querySelector('[data-testid=bounce-msg]')?.textContent || ''), null, { timeout: 15000 }).catch(() => bad('bounce onto a pad never finished'))
     b = await beat(page)
     if (b.pads?.u1?.src !== 'rec') bad('bounce onto a pad did not fill Pad 1')
     // save as audio, with stems
