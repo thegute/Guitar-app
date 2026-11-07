@@ -16,6 +16,7 @@ import type { BeatGrid, Note } from '../ml/post'
 import { notesToSong } from '../ml/toTab'
 import { aiListen, withoutVoice, type Heard } from './listen'
 import { aiSettings } from '../assistant/providers'
+import { markTechniques, type Evidence } from '../ml/legato'
 
 export type Pass = 'idle' | 'running' | 'ready' | 'done' | 'used' | 'failed' | 'skipped'
 export interface ScanState {
@@ -56,6 +57,9 @@ export class SoundScan {
   state: ScanState = { draft: null, better: null, betterPass: 'idle', betterPct: 0, betterNote: '', needModels: false, askLong: null, ai: 'idle', aiNote: '', heard: null, grid: null, check: { draft: [], better: [] }, how: '', error: '' }
   private ctrl = new AbortController()
   private draftNotes: Note[] = []
+  /** pitch contours + pick clicks from the quick draft: also used to mark techniques on the better version's notes */
+  private evidence: Evidence | null = null
+  private marked = false
   private betterNotes: Note[] | null = null
   private longAnswer: ((go: boolean) => void) | null = null
   private bpmGuess = 90
@@ -89,11 +93,14 @@ export class SoundScan {
     this.onStage?.('beats', { state: grid ? 'done' : 'skip', note: grid ? `${Math.round(grid.bpm)} BPM, ${grid.beatsPerBar} a bar${beatsHere ? '' : ' (quick detector)'}` : 'no clear beat' })
     // 1b the quick draft
     this.onStage?.('draft', { state: 'run', pct: 0 })
-    const { transcribe } = await import('../audio/transcribe')
-    const heardNotes = await transcribe(x.slice(0, sr * 240), sr, p => this.onStage?.('draft', { pct: p }))
+    const { scanNotes } = await import('../audio/transcribe')
+    const quick = await scanNotes(x.slice(0, sr * 240), sr, p => this.onStage?.('draft', { pct: p }))
     if (signal.aborted) throw new Error('Cancelled.')
-    this.draftNotes = heardNotes.map(n => ({ start: n.start, end: n.start + n.dur, midi: n.midi, velocity: n.amp }))
-    this.onStage?.('draft', { state: 'done', note: `${this.draftNotes.length} notes` })
+    this.draftNotes = quick.notes
+    this.evidence = quick.evidence
+    this.marked = quick.marked
+    const moves = quick.notes.filter(n => n.tech).length
+    this.onStage?.('draft', { state: 'done', note: `${this.draftNotes.length} notes${moves ? `, ${moves} hammer-ons / pull-offs / slides / bends` : ''}` })
     this.rebuild()
     if (!this.state.draft) {
       // nothing clear yet: wait for the better pass / the AI before giving up
@@ -133,15 +140,16 @@ export class SoundScan {
         onProgress: (f, note) => this.set({ betterPct: f, betterNote: note }),
         confirm: secs => new Promise<boolean>(res => { this.longAnswer = res; this.set({ askLong: secs }) }),
       })
-      this.betterNotes = r.notes
+      // the same technique marks as the draft (its pitch contours and pick clicks cover the first 4 minutes)
+      this.betterNotes = this.marked && this.evidence ? markTechniques(r.notes, this.evidence) : r.notes
       if (r.notes.length < 6 && canHear() && !this.state.heard?.notes) {
         // it heard almost nothing clear (a busy full band?): ask the AI for its own notes as a backup
         this.set({ betterPass: 'failed', betterNote: 'The guitar model heard almost nothing clear: asking Gemini for a rough version…' })
         await this.listen(true)
         if (this.state.heard?.notes?.length) { this.rebuild(this.state.heard.notes, 'ai'); return }
       }
-      this.rebuild(r.notes, 'better')
-      this.set({ betterPass: 'ready', betterNote: `${r.notes.length} notes, in ${Math.round(r.secs)} s on ${r.where === 'phone' ? 'the phone' : r.where === 'webgpu' ? 'the graphics chip' : 'this browser'}` })
+      this.rebuild(this.betterNotes, 'better')
+      this.set({ betterPass: 'ready', betterNote: `${this.betterNotes.length} notes, in ${Math.round(r.secs)} s on ${r.where === 'phone' ? 'the phone' : r.where === 'webgpu' ? 'the graphics chip' : 'this browser'}` })
     } catch (e) {
       const cancelled = e instanceof Error && /Cancelled/.test(e.message)
       this.set({ betterPass: cancelled ? 'skipped' : 'failed', betterNote: cancelled ? 'Kept the quick version.' : `The guitar-note model stopped: ${e instanceof Error ? e.message : 'error'}` })

@@ -3,6 +3,8 @@
 // beat grid and put on the neck as a tab: single notes (a lead line) or chords too.
 import { lickSong, type LickEvent } from '../licks/notation'
 import type { Song } from '../tabs/model'
+import type { Note } from '../ml/post'
+import { analyseTechniques, makeEvidence, type Evidence } from '../ml/legato'
 import { placeAndFinger } from '../hand/engine'
 import { handSize, scaleFor } from '../hand/neck'
 
@@ -39,30 +41,70 @@ export function bpUnwrap(x: Float32Array, bins: number): number[][] {
   return rows
 }
 
+export type BPRunner = (win: Float32Array) => Promise<{ frames: Float32Array; onsets: Float32Array; contours: Float32Array }>
+/** Basic Pitch's three outputs for a whole clip (22050 Hz mono): note activity, onsets, and the pitch contours (3 bins a semitone). */
+export interface BPRaw { frames: number[][]; onsets: number[][]; contours: number[][] }
+
+/** The clip through a runner window by window (ONNX Runtime on the phone, in the browser or in Node for the benchmark). */
+export async function bpRaw(audio: Float32Array, run: BPRunner, onPercent?: (p: number) => void): Promise<BPRaw> {
+  let frames: number[][] = [], onsets: number[][] = [], contours: number[][] = []
+  const { wins, frames: total } = bpWindows(audio)
+  for (let i = 0; i < wins.length && frames.length < total; i++) {
+    onPercent?.(i / wins.length)
+    const r = await run(wins[i])
+    frames.push(...bpUnwrap(r.frames, 88)); onsets.push(...bpUnwrap(r.onsets, 88)); contours.push(...bpUnwrap(r.contours, 264))
+  }
+  frames = frames.slice(0, total); onsets = onsets.slice(0, total); contours = contours.slice(0, total)
+  onPercent?.(1)
+  return { frames, onsets, contours }
+}
+
+/** Basic Pitch's note rules. The defaults used to be 0.5 / 0.3 / 11 frames (128 ms): that dropped every fast or soft note. */
+export interface NoteRules { onset: number; frame: number; minFrames: number }
+export const NOTE_RULES: NoteRules = { onset: 0.5, frame: 0.3, minFrames: 11 }
+
+/** Basic Pitch's raw outputs for a 22.05 kHz clip: ONNX Runtime when it's there, else its TensorFlow.js build (slower, always here). */
+async function rawFor(audio: Float32Array, bp: typeof import('@spotify/basic-pitch'), onPercent?: (p: number) => void): Promise<BPRaw> {
+  try {
+    const { basicPitchRunner } = await import('../ml/models')
+    return await bpRaw(audio, await basicPitchRunner(), onPercent)
+  } catch {
+    const frames: number[][] = [], onsets: number[][] = [], contours: number[][] = []
+    const model = new bp.BasicPitch(`${import.meta.env.BASE_URL}models/basic-pitch/model.json`)
+    await model.evaluateModel(audio, (f, o, c) => { frames.push(...f); onsets.push(...o); contours.push(...c) }, p => onPercent?.(p))
+    return { frames, onsets, contours }
+  }
+}
+
 /** Every note in a recording (any number at once), with start, length, pitch and loudness. */
 export async function transcribe(x: Float32Array, sr: number, onPercent?: (p: number) => void): Promise<HeardNote[]> {
   const audio = await resample(x, sr)
   const bp = await import('@spotify/basic-pitch')
-  let frames: number[][] = [], onsets: number[][] = [], contours: number[][] = []
-  try {
-    // fast: the same network through ONNX Runtime
-    const { basicPitchRunner } = await import('../ml/models')
-    const run = await basicPitchRunner()
-    const { wins, frames: total } = bpWindows(audio)
-    for (let i = 0; i < wins.length && frames.length < total; i++) {
-      onPercent?.(i / wins.length)
-      const r = await run(wins[i])
-      frames.push(...bpUnwrap(r.frames, 88)); onsets.push(...bpUnwrap(r.onsets, 88)); contours.push(...bpUnwrap(r.contours, 264))
-    }
-    frames = frames.slice(0, total); onsets = onsets.slice(0, total); contours = contours.slice(0, total)
-    onPercent?.(1)
-  } catch {
-    // offline in a browser that hasn't fetched ONNX Runtime yet: its TensorFlow.js build (slower, always here)
-    frames = []; onsets = []; contours = []
-    const model = new bp.BasicPitch(`${import.meta.env.BASE_URL}models/basic-pitch/model.json`)
-    await model.evaluateModel(audio, (f, o, c) => { frames.push(...f); onsets.push(...o); contours.push(...c) }, p => onPercent?.(p))
-  }
-  const events = bp.noteFramesToTime(bp.addPitchBendsToNoteEvents(contours, bp.outputToNotesPoly(frames, onsets, 0.5, 0.3, 11, true, null, null, true)))
+  return heardNotes(bp, await rawFor(audio, bp, onPercent), NOTE_RULES)
+}
+
+/** Looser rules, only safe with the technique pass behind them (it folds bend / vibrato pieces, drops ghosts and pass-through notes). */
+export const RELAXED_RULES: NoteRules = { onset: 0.4, frame: 0.3, minFrames: 6 }
+
+/**
+ * The quick draft with techniques: the notes (fast ones and soft legato ones included) with hammer-ons, pull-offs, slides, bends and
+ * vibrato marked, and the evidence (pitch contours + pick clicks) so the better guitar-note model's notes can be marked the same way.
+ * When the sound has no clear pick click (a full mix), the stricter rules are used and nothing is marked.
+ */
+export async function scanNotes(x: Float32Array, sr: number, onPercent?: (p: number) => void): Promise<{ notes: Note[]; evidence: Evidence; marked: boolean }> {
+  const audio = await resample(x, sr)
+  const bp = await import('@spotify/basic-pitch')
+  const raw = await rawFor(audio, bp, onPercent)
+  const toNote = (n: HeardNote): Note => ({ start: n.start, end: n.start + n.dur, midi: n.midi, velocity: n.amp })
+  const evidence = makeEvidence(raw.contours, audio)
+  const r = analyseTechniques(heardNotes(bp, raw, RELAXED_RULES).map(toNote), evidence)
+  if (r.analysed) return { notes: r.notes, evidence, marked: true }
+  return { notes: heardNotes(bp, raw, NOTE_RULES).map(toNote), evidence, marked: false }
+}
+
+/** Basic Pitch's notes from its raw outputs, with `rules`. */
+export function heardNotes(bp: typeof import('@spotify/basic-pitch'), raw: BPRaw, rules: NoteRules): HeardNote[] {
+  const events = bp.noteFramesToTime(bp.addPitchBendsToNoteEvents(raw.contours, bp.outputToNotesPoly(raw.frames, raw.onsets, rules.onset, rules.frame, rules.minFrames, true, null, null, true)))
   return events.map(e => ({ start: e.startTimeSeconds, dur: e.durationSeconds, midi: e.pitchMidi, amp: e.amplitude })).sort((a, b) => a.start - b.start)
 }
 

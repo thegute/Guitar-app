@@ -4,6 +4,7 @@
 // split in three is written in 6/8 (or 9/8, 12/8). Strings and frets come from the hand engine.
 import type { Song, SongBar, SongStep } from '../tabs/model'
 import { placeAndFinger } from '../hand/engine'
+import { keepLegatoOnString } from '../hand/legato'
 import { handSize, scaleFor } from '../hand/neck'
 import type { BeatGrid, Note } from './post'
 import { chordInfo } from '../tabs/harmony'
@@ -44,7 +45,10 @@ export function beatPositions(times: number[], grid: BeatGrid | null | undefined
   })
 }
 
-/** Round each beat's notes to 16ths or triplets (whichever fits better; 16ths when it's close). */
+/**
+ * Round each beat's notes to 16ths, triplets or (for a fast run) 32nds, whichever fits that beat's notes best.
+ * 16ths win when it's close; 32nds are only tried for a beat that has five or more notes or two notes closer than a 16th.
+ */
 export function quantize(pos: number[]): { q: number[]; triplets: number; split: number } {
   const byBeat = new Map<number, number[]>()
   pos.forEach((p, i) => { const b = Math.floor(p + 1e-6); (byBeat.get(b) ?? byBeat.set(b, []).get(b)!).push(i) })
@@ -54,7 +58,10 @@ export function quantize(pos: number[]): { q: number[]; triplets: number; split:
     const err = (d: number) => idx.reduce((e, i) => e + Math.abs((pos[i] - b) * d - Math.round((pos[i] - b) * d)) / d, 0)
     const e4 = err(4), e3 = err(3)
     const off = idx.some(i => Math.abs(pos[i] - Math.round(pos[i])) > 0.12)
-    const d = e3 * 1.25 < e4 ? 3 : 4
+    let d = e3 * 1.25 < e4 ? 3 : 4
+    const sorted = idx.map(i => pos[i]).sort((x, y) => x - y)
+    const tight = sorted.some((x, k) => k > 0 && x - sorted[k - 1] < 0.2)
+    if (d === 4 && (idx.length >= 5 || tight) && err(8) * 2 < e4) d = 8
     if (off) { split++; if (d === 3) triplets++ }
     for (const i of idx) q[i] = b + Math.round((pos[i] - b) * d) / d
   }
@@ -89,9 +96,13 @@ export function notesToSong(notes: Note[], o: ToTabOpts): Song | null {
     // a tab note lasts until the next one (no fussy little rests); a real gap of a beat or more stays a rest
     const dur = o.chords || next - k <= 1 + 1e-6 ? next - k : Math.min(next - k, Math.max(own, 1))
     const midis = o.chords ? [...new Set(idx.map(i => keep[i].midi))].sort((a, b) => b - a).slice(0, 6) : [keep[top].midi]
-    return { at: k, dur: Math.max(1 / 12, dur), midis }
+    // a technique mark only on a single note (a chord's notes don't hammer together)
+    const tech = midis.length === 1 ? keep[top].tech : undefined
+    return { at: k, dur: Math.max(1 / 12, dur), midis, tech }
   })
-  const placed = placeAndFinger(evs.map(e => ({ midis: e.midis, dur: e.dur })), { scale: scaleFor(o.tuning.length), size: handSize(), tuning: o.tuning, open: 0.5, warm: 0.3 })
+  // bends and vibrato help the hand engine choose fingers; hammer-ons / pull-offs / slides are kept on one string afterwards
+  const placed = placeAndFinger(evs.map(e => ({ midis: e.midis, dur: e.dur, ...(e.tech === 'b' || e.tech === '~' ? { techs: [e.tech] } : {}) })), { scale: scaleFor(o.tuning.length), size: handSize(), tuning: o.tuning, open: 0.5, warm: 0.3 })
+  placed.notes = keepLegatoOnString(placed.notes, evs.map(e => e.tech), o.tuning)
   // chord names: on the first note at (or just before) where each chord starts
   const chordAt = new Map<number, string>()
   const chordPos: { at: number; name: string }[] = []
@@ -124,7 +135,7 @@ export function notesToSong(notes: Note[], o: ToTabOpts): Song | null {
     let left = d
     while (left > 1e-6) { const take = Math.min(left, barEnd - t); push({ notes: [], dur: take }); t += take; left -= take; if (t >= barEnd - 1e-6) close() }
   }
-  evs.forEach((e, i) => emit(placed.notes[i].map(n => ({ string: n.string, fret: n.fret, midi: o.tuning[n.string] + n.fret })), e.at, e.dur, chordAt.get(i)))
+  evs.forEach((e, i) => emit(placed.notes[i].map(n => ({ string: n.string, fret: n.fret, midi: o.tuning[n.string] + n.fret, ...(e.tech ? { tech: e.tech } : {}) })), e.at, e.dur, chordAt.get(i)))
   if (bar.length) { rest(barEnd - t) }
   if (!bars.some(b => b.steps.some(s => s.notes.length))) return null
   // bars where the chord and the notes clearly disagree (most of the notes' time is outside the chord): "check this bar"

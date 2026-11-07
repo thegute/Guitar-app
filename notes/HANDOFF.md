@@ -91,7 +91,17 @@ Nothing important lives only in the old chat: if a detail isn't in these files o
      embellishments A6Iw4dK-3-o; walks Ksy2QKDZFpg, DtE_FHRJgn8; drones pQ71rLu8WZU, kSiSqwZUiYU; song form qXvot5xEgP8;
      Travis K2Z3RZc5t-A; already verified earlier: ipAEa0RcKCg (American Trail strumming), CCy7o76cv60 (Coal hammer-ons),
      O9_HLJ7NYBI (bass walks), 1mKGX-XiEjA (Plini tapping), FvKiOyY-zOA (Plini pentatonic).
-7. **Brainstorm the next build with him, back and forth** (he wants this before the credits reset). Saved ideas: the Deep Dive course
+7. **Brainstorm the next build with him, back and forth** (he wants this before the credits reset, ~2026-11-13). His three topics (sent 2026-11-07 12:09):
+   (1) **Deep overhaul of Zero to Hero + guitar theory, modeled on Pickup Music**: real depth, not primers, each idea with a concrete
+   step-by-step practice plan; research pickupmusic.com (app, site, reviews: graded Learning Pathways, daily bite-sized exercises,
+   CAGED/triad neck connection, jamming, graduation pieces) and why players praise it; make Learn / Zero to Hero resemble that depth.
+   Original text only, never copy their material. (2) **Quick Start Guide + in-depth illustrated manual with real Day Mode screenshots**
+   (how / why / when for every feature): propose how to design and generate it (screenshots via the browser tests' `shot` tooling).
+   (3) **Strum Machine analysis + integration** (strummachine.com): a copy of its features deeply wired into the app (chord changes drive the
+   floating finger diagrams, triad / pentatonic / chord-tone overlays, lessons), lots of built-in songs with real acoustic guitar sound;
+   and give an opinion on an even better way: load a YouTube backing track and auto-sense key, timing and chords (Riff Scanner beat
+   grid + chord finder + stems) so he can jam over it with the overlays; or combine both. Brainstorm these WITH him, back and forth.
+   Saved ideas: the Deep Dive course
    (notes/next-build.md "Saved for the next work cycle": real depth in CAGED, modes, intervals, ear training, voicings, soloing,
    improvising, voice leading); extra FX, note repeat/arp; weekly challenge + ghost; left-handed mode; Google Drive backup (needs his
    Google Cloud setup); app upgrades from the audit (lazy-load screens, tests in CI, lint, split PlayScreen, web offline cache);

@@ -14,7 +14,7 @@ export const NOTE = { sr: 16000, chunk: 160000, fps: 100, frames: 1001, keys: 88
 export const NOTE_STEP = 128000
 
 export interface NoteOut { onset: Float32Array; offset: Float32Array; frame: Float32Array; velocity: Float32Array }
-export interface Note { start: number; end: number; midi: number; velocity: number }
+export interface Note { start: number; end: number; midi: number; velocity: number; /** h p / \\ b ~ : the move this note starts (see ml/legato.ts) */ tech?: string }
 
 /** Where each chunk starts (samples) for audio of length n. */
 export function noteChunks(n: number): number[] {

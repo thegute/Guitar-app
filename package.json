@@ -11,7 +11,8 @@
     "bench:ml": "npx -y esbuild@0.25 tests/ml-bench.ts --bundle --platform=node --format=esm --log-level=warning --external:onnxruntime-node --outfile=node_modules/.tmp/ml-bench.mjs && node node_modules/.tmp/ml-bench.mjs",
     "test:detect": "npx -y esbuild@0.25 tests/detect-eval.ts --bundle --platform=node --format=esm --log-level=warning --outfile=node_modules/.tmp/detect-eval.mjs && node node_modules/.tmp/detect-eval.mjs",
     "bench:demucs": "npx -y esbuild@0.25 tests/demucs-bench.ts --bundle --platform=node --format=esm --log-level=warning --outfile=node_modules/.tmp/demucs-bench.mjs && node --max-old-space-size=6000 node_modules/.tmp/demucs-bench.mjs",
-    "review:pack": "node tools/make-review.mjs"
+    "review:pack": "node tools/make-review.mjs",
+    "bench:scan": "npx -y esbuild@0.25 tests/scan-bench.ts --bundle --platform=node --format=esm --packages=external --log-level=warning --outfile=node_modules/.tmp/scan-bench.mjs && node node_modules/.tmp/scan-bench.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
