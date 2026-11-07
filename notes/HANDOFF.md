@@ -30,7 +30,17 @@ Nothing important lives only in the old chat: if a detail isn't in these files o
 
 ## Work queue, in order (agreed 2026-11-07)
 1. ~~Handoff + Gemini review package~~ (done: this file, CLAUDE.md, `review/`). Keep them current.
-2. **Part 1 #1: Riff Scanner accuracy from video, slides, hammer-ons, pull-offs.** His report: scanning a video misses a lot of notes;
+2. **Part 1 #1: Riff Scanner accuracy from video, slides, hammer-ons, pull-offs.**
+   **STATUS 2026-11-07 (commit 784aaba, test-40 sent to him):** done (a) technique pass `ml/legato.ts` (pick click + contours) wired via
+   `transcribe.ts scanNotes` + soundScan (better notes marked too), `hand/legato.ts` one-string chains, toTab marks + 32nds. Bench
+   `npm run bench:scan` (render `python3 tools/ml-bench/make_legato.py /tmp/claude-0/bench/legato`; ORT_NODE=/tmp/claude-0/ort with
+   onnxruntime-node@1.22.0): dry F1 83→92, p 51/51, h 98/134 (11 h read as "/": tune glide vs jump), b 6/7, ~ 3/3, 0 false marks.
+   Video-style mixes: no pick click → nothing marked (by design). NEXT: wire `ml/stems.ts` (6-stem guitar stem, written, untested;
+   model at /tmp/claude-0/models/demucs6, `KG_STEMS=… npm run bench:scan video`) before scanning video sound, then re-bench; then (e)
+   picture-led merge and his video 7YKecUwEzZU (Staged Right, bends/slides/h/p). Ask him how test-40 did on his own playing.
+   Web app: web.yml dispatch on big-update builds but deploy is blocked by the github-pages environment rule (main only); he was told how
+   to allow big-update (Settings → Environments → github-pages → Deployment branches) and re-run it himself.
+   His report: scanning a video misses a lot of notes;
    slides and pull-offs/hammer-ons are never detected. Diagnosis (from the code, 2026-11-07):
    - `src/audio/transcribe.ts` Basic Pitch draft uses `outputToNotesPoly(frames, onsets, 0.5, 0.3, 11, …)`: minimum note 11 frames
      (≈128 ms) drops fast notes (16ths at 120 BPM are 125 ms); onset 0.5 / frame 0.3 miss soft legato notes; then `amp ≥ 0.18`.
