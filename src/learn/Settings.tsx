@@ -4,6 +4,7 @@ import { Ico, instIcon } from '../components/Icon'
 import { Capacitor } from '@capacitor/core'
 import { usePersist } from '../components/Controls'
 import { AiSetup } from '../assistant/AiSetup'
+import { ShortsSetup } from '../scan/ShortsFeed'
 import { GET_READY_CHOICES, getReadySecs, setGetReadySecs } from '../components/GetReady'
 import { useEffect, useState } from 'react'
 import { Chips } from '../components/Controls'
@@ -92,6 +93,9 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
       <Win id="ai" title="AI helper" bodyClass="stack" bodyStyle={{ gap: 10 }}>
         <BubbleSwitch />
         <AiSetup />
+      </Win>
+      <Win id="ytkey" title="YouTube key (Shorts)" bodyClass="stack" bodyStyle={{ gap: 10 }}>
+        <ShortsSetup inSettings onDone={() => {}} />
       </Win>
       <Win id="inst" title="Instrument" bodyClass="stack" bodyStyle={{ gap: 10 }}>
         <div className="inst-cards" role="radiogroup" aria-label="Instrument">

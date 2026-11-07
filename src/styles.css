@@ -2380,3 +2380,14 @@ body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-re
 .clip-handle::after { content: ''; position: absolute; top: 50%; left: 50%; width: 16px; height: 34px; margin: -17px 0 0 -8px; border-radius: 6px; background: var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.35); }
 .gs-parts { flex-wrap: wrap; }
 .clip-mark { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1.5px dashed var(--gold, #fc0); pointer-events: none; }
+
+/* Riff Scanner → Shorts */
+.shorts-styles { flex-wrap: wrap; }
+.shorts-stage { display: grid; gap: var(--sp-3); grid-template-columns: 1fr; }
+@media (min-width: 760px) { .shorts-stage { grid-template-columns: minmax(240px, 360px) 1fr; align-items: start; } }
+.shorts-player { display: flex; flex-direction: column; gap: var(--sp-2); align-items: center; }
+.short-frame { height: min(68vh, 640px); width: auto; max-width: 100%; aspect-ratio: 9 / 16; border: 0; border-radius: var(--r-lg); background: #000; }
+.short-blocked { height: min(68vh, 640px); width: auto; max-width: 100%; aspect-ratio: 9 / 16; justify-content: center; padding: var(--sp-4); border-radius: var(--r-lg); background: var(--surface); }
+.shorts-nav { display: flex; gap: var(--sp-3); align-items: center; }
+.shorts-title { font-size: 1.05rem; line-height: 1.25; }
+@media (max-width: 759px) { .shorts-stage.scanning .short-frame { height: min(42vh, 400px); } }

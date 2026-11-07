@@ -19,6 +19,7 @@ import { canRead, readPieces, writtenTempo } from './read'
 import { chartText, parseTime, watchLink } from './link'
 import { canGrab, startGrab, type GrabSession } from './grab'
 import { useSoundScan } from './useSoundScan'
+import { ShortsFeed } from './ShortsFeed'
 import { youtubeId } from '../tabs/library'
 import { YouTubePlayer } from '../components/YouTubePlayer'
 import type { VideoApi } from '../play/inTime'
@@ -58,14 +59,14 @@ export function RiffScanner({ listen, onUseInJam, startMode }: {
         ))}
       </div>
       {mode === 'scan' && <ScanVideo onUseInJam={onUseInJam} links onListen={() => setMode('listen')} />}
-      {mode === 'shorts' && <p className="small muted">Shorts arrive in the next part of this build.</p>}
+      {mode === 'shorts' && <ShortsFeed onListen={() => setMode('listen')} onUseInJam={onUseInJam} />}
       {mode === 'listen' && listen}
     </div>
   )
 }
 
 /** Screenshots, or a video / audio file → a tab. */
-export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onListen }: {
+export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onListen, initialLink }: {
   onUseInJam?: (chords: string[]) => void
   youtube?: string
   initialPics?: { name: string; url: string }[]
@@ -73,9 +74,12 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
   links?: boolean
   /** "Play it out loud": go to the mic */
   onListen?: () => void
+  /** start with this link in the box (a Short from the feed) */
+  initialLink?: string
 }) {
   const inst = useInstrument()
   const [link, setLink] = usePersist('scanLink', '')
+  useEffect(() => { if (initialLink) setLink(initialLink) }, [initialLink]) // eslint-disable-line react-hooks/exhaustive-deps
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [phase, setPhase] = useState<null | 'grab' | 'record'>(null)

@@ -9,7 +9,7 @@ import { Capacitor } from '@capacitor/core'
 /** The phone app can record its own sound; a computer browser can share a tab's sound. */
 const canGrab = () => (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') || (typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia && !/Android|iPhone|iPad/i.test(navigator.userAgent))
 
-interface YTPlayer {
+export interface YTPlayer {
   playVideo(): void
   pauseVideo(): void
   seekTo(s: number, allowAhead: boolean): void
@@ -30,7 +30,7 @@ declare global {
 }
 
 let apiPromise: Promise<YTNamespace> | null = null
-function loadApi(): Promise<YTNamespace> {
+export function loadApi(): Promise<YTNamespace> {
   if (window.YT?.Player) return Promise.resolve(window.YT)
   if (!apiPromise) {
     apiPromise = new Promise((res, rej) => {

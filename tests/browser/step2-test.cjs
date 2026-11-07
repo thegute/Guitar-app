@@ -1,7 +1,7 @@
 // Blueprint Step 2 in the browser: tempo badge + sheet (tap along, ½×/2×, time signature): the floating finger box (drag, resize, tuck, remembered), the upcoming shift badge
 // and Loop this shift, choosing a finger / another string for a tapped note, Make it easier, hand size in Settings;
 // later parts: tunings, layers, voice leading, play the changes.
-// Needs `vite preview` on :4173 and CHROME_PATH.  node tests/browser/step2-test.cjs [tempo,scan,scanvideo,scanlink,scansound,rig]
+// Needs `vite preview` on :4173 and CHROME_PATH.  node tests/browser/step2-test.cjs [tempo,scan,scanvideo,scanlink,scansound,rig,shorts]
 // scansound needs the models in KG_MODELS (default /tmp/claude-0/models) and test audio in KG_BENCH (see tools/ml-bench)
 const { chromium } = require('playwright')
 const path = require('path')
@@ -261,6 +261,57 @@ E|-3---------|-----------|`
       if (await sideways(page)) bad('link: sideways overflow')
     }
     if (page.errors.length) bad(`link errors: ${page.errors.join(' | ')}`)
+    await page.context().close()
+  }
+
+  // ---------- Shorts: the key, the feed from YouTube search (stubbed), styles, next, scan this Short ----------
+  if (want('shorts')) for (const vp of [{ width: 412, height: 915, n: 'cover' }, { width: 840, height: 757, n: 'inner' }]) {
+    const page = await newPage(browser, vp, { 'kg:scanMode': '"shorts"' })
+    page.searches = []
+    const vid = (k, i) => `${String(k.length % 9999).padStart(4, '0')}${String(i).padStart(7, '0')}`
+    await page.route('**/www.googleapis.com/youtube/v3/search**', route => {
+      const u = new URL(route.request().url())
+      page.searches.push(u.searchParams.get('q'))
+      if (u.searchParams.get('key') !== 'AIzaTEST') return route.fulfill({ status: 400, json: { error: { code: 400, message: 'API key not valid', errors: [{ reason: 'badRequest' }] } } })
+      const q = u.searchParams.get('q') || ''
+      const items = Array.from({ length: 12 }, (_, i) => ({ id: { videoId: vid(q.replace(/\W/g, '') + 'xxxx', i) }, snippet: { title: i === 3 ? 'djent riff' : `${q.replace('#guitartabs ', '').replace(' #shorts', '')} lick ${i} #guitar`, channelTitle: `Chan ${q.length % 7}-${i}`, channelId: `UC${String(q.length % 7).padStart(11, '0')}${String(i).padStart(11, '0')}` } }))
+      route.fulfill({ json: { items, nextPageToken: 'n2' } })
+    })
+    await page.route('**/www.googleapis.com/youtube/v3/videos**', route => {
+      const ids = new URL(route.request().url()).searchParams.get('id').split(',')
+      route.fulfill({ json: { items: ids.map((id, i) => ({ id, contentDetails: { duration: i === 5 ? 'PT4M10S' : 'PT45S' }, status: { embeddable: i !== 7 } })) } })
+    })
+    await page.route('**/www.youtube.com/**', r => r.abort())
+    await nav(page, 'Jam'); await sub(page, 'Riff Scanner')
+    await page.waitForSelector('[data-testid=shorts-setup]', { timeout: 5000 }).catch(() => bad(`${vp.n}: no key setup on first visit`))
+    await page.fill('[data-testid=yt-key]', 'AIzaBAD')
+    await page.locator('[data-testid=shorts-setup] button:has-text("Save and check")').click()
+    await page.waitForFunction(() => /didn't work/.test(document.querySelector('[data-testid=shorts-setup] [role=status]')?.textContent || ''), null, { timeout: 5000 }).catch(() => bad(`${vp.n}: a bad key wasn't reported`))
+    await page.fill('[data-testid=yt-key]', 'AIzaTEST')
+    await page.locator('[data-testid=shorts-setup] button:has-text("Save and check")').click()
+    await page.waitForFunction(() => /key works/.test(document.querySelector('[data-testid=shorts-setup] [role=status]')?.textContent || ''), null, { timeout: 5000 }).catch(() => bad(`${vp.n}: a good key wasn't confirmed`))
+    const stored = await page.evaluate(() => [localStorage.getItem('kgx:youtube'), localStorage.getItem('kg:youtube')])
+    if (stored[0] !== 'AIzaTEST' || stored[1]) bad(`${vp.n}: the key should be kept under kgx: only (${JSON.stringify(stored)})`)
+    await page.locator('[data-testid=shorts-setup] button:has-text("Show the Shorts")').click()
+    await page.waitForSelector('[data-testid=shorts] .short-frame', { timeout: 8000 }).catch(() => bad(`${vp.n}: no Short shown`))
+    const feed = await page.evaluate(() => JSON.parse(localStorage.getItem('kg:shortsFeed') || '[]'))
+    if (feed.some(s => /djent/i.test(s.title))) bad(`${vp.n}: a djent Short got into the feed`)
+    if (feed.some(s => /\d{7}$/.test(s.id) && (s.id.endsWith('0000005') || s.id.endsWith('0000007')))) bad(`${vp.n}: a long or not-embeddable video got in`)
+    for (let i = 0; i < feed.length; i++) for (let j = i + 1; j < Math.min(feed.length, i + 10); j++) if (feed[i].channelId === feed[j].channelId) { bad(`${vp.n}: channel ${feed[i].channel} twice within 10`); i = feed.length; break }
+    const src1 = await page.locator('.short-frame').getAttribute('src')
+    await page.locator('[data-testid=shorts-next]').click()
+    const src2 = await page.locator('.short-frame').getAttribute('src')
+    if (src1 === src2) bad(`${vp.n}: next didn't change the Short`)
+    await page.keyboard.press('ArrowUp')
+    if ((await page.locator('.short-frame').getAttribute('src')) !== src1) bad(`${vp.n}: ↑ didn't go back`)
+    await page.locator('[data-testid=shorts-scan]').click()
+    await page.waitForFunction(() => /shorts\//.test(document.querySelector('[data-testid=scan-link]')?.value || ''), null, { timeout: 4000 }).catch(() => {})
+    const link = await page.inputValue('[data-testid=scan-link]').catch(() => '')
+    if (!/youtube\.com\/shorts\//.test(link)) bad(`${vp.n}: Scan this Short didn't fill the link ("${link}")`)
+    console.log(`${vp.n}: ${feed.length} Shorts from ${page.searches.length} searches (${page.searches.slice(0, 2).join(' | ')})`)
+    await page.screenshot({ path: `${DIR}/step2-shorts-${vp.n}.png` })
+    if (await sideways(page)) bad(`${vp.n}: sideways overflow in Shorts`)
+    if (page.errors.length) bad(`${vp.n} shorts errors: ${page.errors.join(' | ')}`)
     await page.context().close()
   }
 
