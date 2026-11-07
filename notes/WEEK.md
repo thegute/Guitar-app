@@ -32,6 +32,9 @@ Tick with [x] and add a few words about what happened. Short notes are perfect (
    Then the floating finger box in Game, YouTube backing with the guitar removed, and the clean full-screen game.
 4. **Brainstorm with you** on the three big ideas (Pickup-Music-depth Zero to Hero + theory; Quick Start + illustrated Day Mode manual;
    Strum Machine + YouTube backing that finds key, tempo and chords by itself).
+   Also queued from the brainstorm: **realistic acoustic sounds** (Meta Open Sound steel + nylon guitar, CC0; notes/research-acoustic.md),
+   **gear button on every screen** with all settings + the manual, **much larger song library**, **Band + Track mode on one chord chart**,
+   **Pickup-style pathways/grades with a graded graduation gig**, **manual in the app + a sendable PDF/Docs file**.
 Then: floating finger diagrams everywhere, looper "start when I play", the two courses.
 
 ## Quick ideas (add anything, any time, in any words)
