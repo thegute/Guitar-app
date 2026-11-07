@@ -128,7 +128,7 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
    buried in Learn and hard to reach; make it easy to get to (ask him: 6th tab, or a gear button on every screen?).
    **Round 2 answers (2026-11-07):** graduation gig graded by the app only, NO sharing. **Settings: a gear button in the top corner of
    EVERY screen** (not a 6th tab); that gear opens all settings AND the manual (How to use KGuitar / Quick Start) in one place. Realistic
-   acoustic: search free professional sample sets (licences first), owner does not need to record his own.
+   acoustic: search free professional sample sets (licences first), owner does not need to record his own. RESULT: best free set = Meta Open Sound Steel + Nylon Guitar (CC0), see notes/research-acoustic.md (not yet auditioned).
    Saved ideas: the Deep Dive course
    (notes/next-build.md "Saved for the next work cycle": real depth in CAGED, modes, intervals, ear training, voicings, soloing,
    improvising, voice leading); extra FX, note repeat/arp; weekly challenge + ghost; left-handed mode; Google Drive backup (needs his
