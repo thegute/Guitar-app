@@ -4,6 +4,10 @@ import { youtubeId, youtubeStart } from '../tabs/library'
 import { fitTaps, type VideoApi, type VideoSync } from '../play/inTime'
 import { parseLocalVideo } from '../lessons/folders'
 import { LocalVideo } from './LocalVideo'
+import { Capacitor } from '@capacitor/core'
+
+/** The phone app can record its own sound; a computer browser can share a tab's sound. */
+const canGrab = () => (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') || (typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia && !/Android|iPhone|iPad/i.test(navigator.userAgent))
 
 interface YTPlayer {
   playVideo(): void
@@ -59,14 +63,16 @@ interface Props {
   note?: string
   /** YouTube's error code (101/150/152/153 = the owner doesn't allow playing it in other apps) */
   onError?: (code: number) => void
+  /** when each tab note sounds (seconds from bar 1 at the tab's tempo): turns on "Sync automatically" */
+  noteSecs?: number[]
 }
 
-export function YouTubePlayer({ url, onUrl, onApi, sync, onSync, tabBpm = 90, note = 'Use headphones, so the mic hears only your guitar.', onError }: Props) {
+export function YouTubePlayer({ url, onUrl, onApi, sync, onSync, tabBpm = 90, note = 'Use headphones, so the mic hears only your guitar.', onError, noteSecs }: Props) {
   const id = url ? youtubeId(url) : null
   const [draft, setDraft] = useState('')
   const [bad, setBad] = useState(false)
   const local = parseLocalVideo(url)
-  if (local) return <LocalVideo key={local.uri} file={local} onUrl={onUrl} onApi={onApi} sync={sync} onSync={onSync} tabBpm={tabBpm} />
+  if (local) return <LocalVideo key={local.uri} file={local} onUrl={onUrl} onApi={onApi} sync={sync} onSync={onSync} tabBpm={tabBpm} noteSecs={noteSecs} />
 
   if (!id) {
     return (
@@ -88,10 +94,10 @@ export function YouTubePlayer({ url, onUrl, onApi, sync, onSync, tabBpm = 90, no
       </div>
     )
   }
-  return <Player key={id} id={id} url={url!} onUrl={onUrl} onApi={onApi} sync={sync} onSync={onSync} tabBpm={tabBpm} onError={onError} />
+  return <Player key={id} id={id} url={url!} onUrl={onUrl} onApi={onApi} sync={sync} onSync={onSync} tabBpm={tabBpm} onError={onError} noteSecs={noteSecs} />
 }
 
-function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90, onError }: Props & { id: string; url: string }) {
+function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90, onError, noteSecs }: Props & { id: string; url: string }) {
   const frame = useRef<HTMLIFrameElement>(null)
   const player = useRef<YTPlayer | null>(null)
   const [ready, setReady] = useState(false)
@@ -192,14 +198,35 @@ function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90, onError }: P
         {onSync && <button className={`btn sm${sync ? ' set' : ''}`} disabled={!ready} aria-pressed={syncOpen} onClick={() => setSyncOpen(!syncOpen)}>{sync ? 'Synced' : 'Sync with tab'}</button>}
         <button className="btn sm ghost" onClick={() => onUrl(undefined)}>Change video</button>
       </div>
-      {syncOpen && onSync && <SyncPanel ready={ready} now={now} sync={sync} onSync={onSync} tabBpm={tabBpm} />}
+      {syncOpen && onSync && <SyncPanel ready={ready} now={now} sync={sync} onSync={onSync} tabBpm={tabBpm}
+        auto={noteSecs ? { noteSecs, play: () => { setRate(1); player.current?.setPlaybackRate(1); player.current?.playVideo() } } : undefined} />}
     </div>
   )
 }
 
 /** Line a video up with the tab: tap along on the beat, or set bar 1 and the tempo by hand. */
-export function SyncPanel({ ready, now, sync, onSync, tabBpm = 90 }: { ready: boolean; now: () => number; sync?: VideoSync; onSync: (s: VideoSync | undefined) => void; tabBpm?: number }) {
+export function SyncPanel({ ready, now, sync, onSync, tabBpm = 90, auto }: { ready: boolean; now: () => number; sync?: VideoSync; onSync: (s: VideoSync | undefined) => void; tabBpm?: number; auto?: { noteSecs: number[]; play: () => void } }) {
   const [bpmDraft, setBpmDraft] = useState(String(Math.round(sync?.bpm ?? tabBpm)))
+  // Sync automatically: KGuitar listens to the video
+  const [autoState, setAutoState] = useState<{ left?: number; busy: boolean; msg: string }>({ busy: false, msg: '' })
+  const autoCtl = useRef<AbortController | null>(null)
+  useEffect(() => () => autoCtl.current?.abort(), [])
+  const runAuto = async () => {
+    if (!auto) return
+    autoCtl.current?.abort()
+    const ctl = (autoCtl.current = new AbortController())
+    auto.play()
+    setAutoState({ busy: true, msg: '' })
+    try {
+      const { autoSync } = await import('../play/autoSync')
+      const r = await autoSync({ noteSecs: auto.noteSecs, tabBpm, now, signal: ctl.signal, onTick: left => setAutoState({ busy: true, left, msg: '' }) })
+      onSync(r.sync)
+      setBpmDraft(String(Math.round(r.sync.bpm)))
+      setAutoState({ busy: false, msg: r.sure === 'yes' ? 'Synced by ear. Use Tab is late / early to fine-tune.' : 'Synced, but this part comes more than once in the tab: if the tab follows the wrong verse, try again at a part that only comes once.' })
+    } catch (e) {
+      setAutoState({ busy: false, msg: e instanceof Error ? e.message : 'It stopped.' })
+    }
+  }
   // tap to sync: video times of the taps
   const vtaps = useRef<number[]>([])
   const [tapCount, setTapCount] = useState(0)
@@ -207,7 +234,19 @@ export function SyncPanel({ ready, now, sync, onSync, tabBpm = 90 }: { ready: bo
   return (
     <div className="yt-sync small">
       <p style={{ margin: 0 }}>Line the video up with the tab, so the tab scrolls with the recording in <b>In time</b> mode.</p>
-      <p style={{ margin: 0 }}><b>Tap to sync:</b> play the video and tap <b>Tap along</b> on every beat, starting on the first beat of the tab. After 8 taps the tempo and start are set; keep tapping to make it more exact.</p>
+      {auto && canGrab() && (
+        <div className="stack" style={{ gap: 4 }} data-testid="auto-sync">
+          <p style={{ margin: 0 }}><b>Sync automatically:</b> go to a part where the guitar plays the tab, then tap. KGuitar plays the video and listens to it for 15 seconds{Capacitor.isNativePlatform() ? ' (Android asks to allow recording the screen: only the sound is used, nothing is kept)' : ' (the browser asks what to share: pick this tab and tick "Share tab audio")'}.</p>
+          <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+            <button className="btn primary" disabled={!ready || autoState.busy} onClick={() => void runAuto()} data-testid="auto-sync-go">
+              {autoState.busy ? (autoState.left ? `Listening… ${autoState.left}` : 'Starting…') : 'Sync automatically'}
+            </button>
+            {autoState.busy && <button className="btn sm ghost" onClick={() => autoCtl.current?.abort()}>Stop</button>}
+          </div>
+          {autoState.msg && <span role="status" data-testid="auto-sync-msg">{autoState.msg}</span>}
+        </div>
+      )}
+      <p style={{ margin: 0 }}><b>{auto && canGrab() ? 'Or tap' : 'Tap'} to sync:</b> play the video and tap <b>Tap along</b> on every beat, starting on the first beat of the tab. After 8 taps the tempo and start are set; keep tapping to make it more exact.</p>
       <div className="row">
         <button className="btn primary tap-sync" disabled={!ready} onClick={() => {
           const t = now()

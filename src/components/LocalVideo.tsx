@@ -17,9 +17,10 @@ interface Props {
   sync?: VideoSync
   onSync?: (s: VideoSync | undefined) => void
   tabBpm?: number
+  noteSecs?: number[]
 }
 
-export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90 }: Props) {
+export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90, noteSecs }: Props) {
   const v = useRef<HTMLVideoElement>(null)
   useEffect(() => onLeavePage(() => v.current?.pause()), [])
   const [ready, setReady] = useState(false)
@@ -95,7 +96,8 @@ export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90 }: Pr
         {onSync && <button className={`btn sm${sync ? ' set' : ''}`} disabled={!ready} aria-pressed={syncOpen} onClick={() => setSyncOpen(!syncOpen)}>{sync ? 'Synced' : 'Sync with tab'}</button>}
         <button className="btn sm ghost" onClick={() => onUrl(undefined)}>Change video</button>
       </div>
-      {syncOpen && onSync && <SyncPanel ready={ready} now={now} sync={sync} onSync={onSync} tabBpm={tabBpm} />}
+      {syncOpen && onSync && <SyncPanel ready={ready} now={now} sync={sync} onSync={onSync} tabBpm={tabBpm}
+        auto={noteSecs ? { noteSecs, play: () => { const el = v.current; if (!el) return; setRate(1); el.playbackRate = 1; void el.play() } } : undefined} />}
     </div>
   )
 }

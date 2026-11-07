@@ -32,7 +32,7 @@ import { recordRun, songStats } from '../play/songStats'
 import { barMistakes, makeReport, type Report } from '../play/report'
 import { chordEase, forgetTaught, meantNote, taughtAlias, taughtCount, teachChord, teachNote } from '../play/taught'
 import { useFoldPosture } from '../play/fold'
-import type { VideoApi } from '../play/inTime'
+import { videoTimeOf, type VideoApi } from '../play/inTime'
 import { exampleDoc } from '../tabs/examples'
 import { playNote, strum, SOUNDS, activeSound, onSoundChange, setSoundChoice, soundChoice, soundForProgram, soundInfo, loadSound, soundLoaded, type SoundId } from '../audio/pluck'
 import { audio, keepAwake } from '../audio/engine'
@@ -671,6 +671,13 @@ export function PlayScreen() {
     })
   }, [doc?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const tempoMap = useMemo(() => (doc ? songTempo(doc.song) : undefined), [doc?.song]) // eslint-disable-line react-hooks/exhaustive-deps
+  // when each note sounds (seconds from bar 1 at the tab's tempo): for "Sync automatically" with the video
+  const noteSecs = useMemo(() => {
+    const out: number[] = []
+    let b = 0
+    for (const f of flat) { if (f.step.notes.length) out.push(videoTimeOf({ offset: 0, bpm: songBpm }, b, tempoMap?.changes ? tempoMap : undefined)); b += f.step.dur }
+    return out
+  }, [flat, songBpm, tempoMap])
   // the sound for Hear it and tapped notes: your pick, or (on Auto) the guitar the Guitar Pro file asks for
   const [soundSel, setSoundSel] = useState(soundChoice())
   useEffect(() => onSoundChange(() => setSoundSel(soundChoice())), [])
@@ -1311,7 +1318,7 @@ export function PlayScreen() {
       <section className="play-side" ref={sideRef}>
         {/* stays mounted while hidden so a playing video keeps going */}
         {(doc.youtube ? showVideo : videoAsk) && <YouTubePlayer url={doc.youtube} onUrl={u => { update({ youtube: u, ytSync: u ? doc.ytSync : undefined }); if (u) setShowVideo(true); setVideoAsk(false) }} onApi={api => { video.current = api }}
-          sync={doc.ytSync} onSync={sync => update({ ytSync: sync })} tabBpm={songBpm} />}
+          sync={doc.ytSync} onSync={sync => update({ ytSync: sync })} tabBpm={songBpm} noteSecs={noteSecs} />}
         {sideOpen && readout(false)}
         {sideOpen && micError && <p className="notice small">{micError}</p>}
       </section>

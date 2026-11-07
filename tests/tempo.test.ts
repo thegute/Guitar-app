@@ -3,7 +3,8 @@
 // and the tempo map (Guitar Pro tempo changes).
 import './test-env'
 import { strict as assert } from 'node:assert'
-import { onsets, tempoFromOnsets, trackBeats, guessMeter, analyse, alignTab, loopTempo, guessTabTempo, tapBpm } from '../src/audio/tempo'
+import { autoSync } from '../src/play/autoSync'
+import { onsets, hopSec, tempoFromOnsets, trackBeats, guessMeter, analyse, alignTab, alignAnywhere, loopTempo, guessTabTempo, tapBpm } from '../src/audio/tempo'
 import { TempoMap } from '../src/play/tempoMap'
 import { guessTabTempo as _g } from '../src/audio/tempo'
 import { songFromText } from '../src/tabs/importer'
@@ -123,6 +124,60 @@ for (const bpm of [90, 132]) {
   ok(!!al && Math.abs(al.offset - off) < 0.03, `video offset found: ${al?.offset} (real ${off})`)
   ok(!!al && Math.abs(al.bpm - real) < 1.2, `video tempo found: ${al?.bpm} (real ${real})`)
 }
+
+// ---------- auto video sync: a 14 s clip from the middle of a song (bar 1 is long before the clip) ----------
+{
+  // a 32-bar riff with a varied rhythm, file tempo 100; the video plays at 98.5 and the clip starts 41.3 s into the song
+  const cell = [[0, 1, 1.5, 2, 3, 3.5], [0, 0.5, 1, 2, 2.75, 3], [0, 1, 2, 2.5, 3, 3.25, 3.5], [0, 1.5, 2, 3]]
+  const beatsAt: number[] = []
+  // a riff that never repeats exactly (a real song's repeats are a different, honest ambiguity)
+  let seed = 7
+  for (let bar = 0; bar < 32; bar++) { seed = (seed * 1103515245 + 12345) % 2147483648; for (const b of cell[(seed >> 8) % 4]) beatsAt.push(bar * 4 + b) }
+  const real = 98.5, songStart = 0.8, clipFrom = 41.3, clipLen = 14
+  const ev = beatsAt.map((b, i) => ({ t: songStart + b * 60 / real - clipFrom, midis: [52 + (i * 5) % 12], vel: 0.6 + 0.3 * ((i * 13) % 5) / 4 })).filter(e => e.t >= 0 && e.t < clipLen)
+  const env = onsets(render(clipLen, ev, 0.02), SR)
+  const t0 = Date.now()
+  const al = alignAnywhere(env, beatsAt.map(b => b * 60 / 100), 100, { hop: hopSec(SR) })
+  const want = songStart - clipFrom
+  ok(!!al && Math.abs(al.start - want) < 0.04, `clip from the middle: bar 1 at ${al?.start} s of the clip (real ${want.toFixed(2)}), ${Date.now() - t0} ms`)
+  ok(!!al && Math.abs(al.bpm - real) < 1, `its tempo: ${al?.bpm} (real ${real})`)
+  ok(!!al && al.score > 0.4 && al.sure > 1.02, `a clear match (score ${al?.score.toFixed(2)}, ${al?.sure.toFixed(2)}× the next place)`)
+  // the same clip against a different song's rhythm: not sure
+  const other: number[] = []
+  for (let bar = 0; bar < 32; bar++) for (const b of [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]) other.push(bar * 4 + b)
+  const o2 = alignAnywhere(env, other.map(b => b * 60 / 100), 100)
+  ok(!o2 || o2.score < 0.32, `a different song's rhythm doesn't match (score ${o2?.score.toFixed(2)})`)
+}
+
+// ---------- Sync automatically: the whole flow with a pretend video (it plays from 61.0 s; the tab starts at 18.4 s) ----------
+await (async () => {
+  let seed = 11
+  const beatsAt: number[] = []
+  const cell = [[0, 1, 1.5, 2, 3, 3.5], [0, 0.5, 1, 2, 2.75, 3], [0, 1, 2, 2.5, 3, 3.25, 3.5], [0, 1.5, 2, 3]]
+  void seed
+  const pickCell = (bar: number) => Math.floor(((Math.abs(Math.sin(bar * 12.9898 + 4.1) * 43758.5453)) % 1) * 4)
+  for (let bar = 0; bar < 40; bar++) for (const b of cell[pickCell(bar)]) beatsAt.push(bar * 4 + b)
+  const fileBpm = 92, realBpm = 90.5, bar1 = 18.4, from = 61.0, listen = 15
+  let clock = 0 // seconds since the grab started
+  const video = () => from + clock
+  const ev = beatsAt.map((b, i) => ({ t: bar1 + b * 60 / realBpm - from, midis: [50 + (i * 7) % 12], vel: 0.8 })).filter(e => e.t >= 0 && e.t < listen + 0.3)
+  const x = render(listen + 0.3, ev, 0.02)
+  const r = await autoSync({
+    noteSecs: beatsAt.map(b => b * 60 / fileBpm), tabBpm: fileBpm, now: video, wall: () => clock * 1000,
+    wait: async ms => { clock += ms / 1000 },
+    // the recording runs a little past the last tick (it stops after KGuitar reads the video's time)
+    grab: async () => ({ onStopped() {}, async stop() { return { pieces: [], frames: 0, scrolled: false, sound: { x: x.slice(0, Math.round((clock) * SR)), sr: SR } } } }),
+  })
+  ok(r.sure === 'yes', `sure of it (${r.sure})`)
+  ok(Math.abs(r.sync.offset - bar1) < 0.05, `Sync automatically: bar 1 at ${r.sync.offset} s of the video (real ${bar1})`)
+  ok(Math.abs(r.sync.bpm - realBpm) < 1, `and the video's tempo ${r.sync.bpm} (real ${realBpm})`)
+  // paused while listening
+  clock = 0
+  let paused = false
+  const r2 = await autoSync({ noteSecs: beatsAt.map(b => b * 60 / fileBpm), tabBpm: fileBpm, now: () => (paused ? from + 3 : video()), wall: () => clock * 1000, wait: async ms => { clock += ms / 1000; if (clock > 3) paused = true },
+    grab: async () => ({ onStopped() {}, async stop() { return { pieces: [], frames: 0, scrolled: false, sound: { x: x.slice(0, Math.round(clock * SR)), sr: SR } } } }) }).catch(e => String(e.message))
+  ok(typeof r2 === 'string' && /paused/.test(r2), `a paused video is noticed: ${typeof r2 === 'string' ? r2.slice(0, 40) : 'no'}`)
+})()
 
 // ---------- loop tempo: a 2-bar loop at 93 ----------
 {

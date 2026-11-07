@@ -11,6 +11,8 @@
 import { FFT } from './noteDetect'
 
 export const HOP_SEC = 0.01
+/** The real time between onset frames at this sample rate (10 ms rounded to whole samples: 22050 Hz gives 10.023 ms). */
+export const hopSec = (sr: number) => Math.max(1, Math.round(sr * HOP_SEC)) / sr
 
 /** Onset strength every 10 ms. */
 export function onsets(x: Float32Array, sr: number): Float32Array {
@@ -244,10 +246,11 @@ export interface Analysis { bpm: number; confidence: number; alts: number[]; bea
 /** Everything at once from a recording (mono samples). Compound meters give the quarter-note BPM (6/8 at ♩. = 60 → 90). */
 export function analyse(x: Float32Array, sr: number): Analysis | null {
   const env = onsets(x, sr)
-  const g = tempoFromOnsets(env)
+  const hop = hopSec(sr)
+  const g = tempoFromOnsets(env, { hop })
   if (!g) return null
-  const beats = trackBeats(env, g.bpm)
-  const meter = guessMeter(env, beats)
+  const beats = trackBeats(env, g.bpm, hop)
+  const meter = guessMeter(env, beats, hop)
   const firstDownbeat = beats[meter.downbeat] ?? beats[0] ?? 0
   return { ...g, beats, meter, firstDownbeat }
 }
@@ -284,6 +287,97 @@ export function alignTab(env: Float32Array, noteSecs: number[], bpm: number, o: 
     }
   }
   return best.score > 0 ? { offset: Math.round(best.offset * 1000) / 1000, bpm: Math.round(best.bpm * 10) / 10, score: best.score } : null
+}
+
+/**
+ * Where a clip of a recording sits in a tab, when the clip may start anywhere in the song (auto video sync: you play the
+ * video at the part you're learning and KGuitar listens). Tries the tab from many notes on; returns where bar 1 of the
+ * tab would be in the clip (seconds, negative = before the clip started), the recording's tempo, and how sure it is
+ * (the best match against the best match a beat or more away: repeating rhythms make it less sure).
+ */
+export function alignAnywhere(env: Float32Array, noteSecs: number[], bpm: number, o: { hop?: number; spread?: number; window?: number } = {}): { start: number; bpm: number; score: number; sure: number } | null {
+  const hop = o.hop ?? HOP_SEC
+  const notes = [...new Set(noteSecs.filter(s => s >= 0).map(s => Math.round(s * 1000) / 1000))].sort((a, b) => a - b)
+  const W = o.window ?? 96
+  if (notes.length < 6 || env.length < 100) return null
+  let mx = 0
+  for (const v of env) mx = Math.max(mx, v)
+  if (!(mx > 0)) return null
+  const sm = new Float32Array(env.length)
+  for (let i = 0; i < env.length; i++) sm[i] = Math.max(env[i], 0.7 * (env[i - 1] ?? 0), 0.7 * (env[i + 1] ?? 0), 0.4 * (env[i - 2] ?? 0), 0.4 * (env[i + 2] ?? 0)) / mx
+  let mean = 0
+  for (const v of sm) mean += v
+  mean /= sm.length
+  const clip = env.length * hop
+  const spread = o.spread ?? 0.04
+  const step = Math.max(1, Math.floor(notes.length / 80))
+  // the best score for each place bar 1 could be (in 40 ms buckets), and the very best match to refine
+  const buckets = new Map<number, number>()
+  let best = { sc: 0, k: 0, d: 0, off: 0, start: 0 }
+  const idx = new Int32Array(W)
+  const fit = (k: number, d: number) => {
+    const r = 1 / (1 + d)
+    // as many notes as fit in most of the clip: the longer the stretch compared, the fewer look-alike places
+    let m = 0
+    while (m < Math.min(W, notes.length - k) && (notes[k + m] - notes[k]) * r < clip * 0.85) { idx[m] = Math.round(((notes[k + m] - notes[k]) * r) / hop); m++ }
+    return { m, r }
+  }
+  for (let k = 0; k + 6 <= notes.length; k += step) {
+    for (let d = -spread; d <= spread + 1e-9; d += 0.005) {
+      const { m, r } = fit(k, d)
+      if (m < 6) continue
+      const span = idx[m - 1]
+      // a short stretch (the end of the song) matches by chance more easily: it counts for less
+      const cover = Math.min(1, (span * hop) / (clip * 0.6))
+      // the stretch must fit in the clip (it may start anywhere in it)
+      for (let off = 0; off + span < sm.length; off++) {
+        let sc = 0
+        for (let j = 0; j < m; j++) sc += sm[off + idx[j]]
+        sc = (sc / m - mean) * cover
+        if (sc <= 0) continue
+        const start = off * hop - notes[k] * r
+        const key = Math.round(start / 0.04)
+        if (sc > (buckets.get(key) ?? 0)) buckets.set(key, sc)
+        if (sc > best.sc) best = { sc, k, d, off, start }
+      }
+    }
+  }
+  if (!(best.sc > 0)) return null
+  // the best one at least most of a beat away (a song that repeats itself makes that close)
+  const spb = 60 / bpm
+  let second = 0
+  for (const [key, sc] of buckets) if (Math.abs(key * 0.04 - best.start) > spb * 0.75 && sc > second) second = sc
+  // refine: each tab note to the nearest onset peak (within 40 ms of where the coarse match puts it), then a straight
+  // line through those pairs gives the tempo and the start far more exactly than the 0.5 % search steps
+  const raw = smooth(env, 1)
+  let rmx = 0
+  for (const v of raw) rmx = Math.max(rmx, v)
+  const peaks: number[] = []
+  for (let i = 1; i + 1 < raw.length; i++) if (raw[i] > raw[i - 1] && raw[i] >= raw[i + 1] && raw[i] > rmx * 0.12) {
+    // the peak between frames (a parabola through three points)
+    const a = raw[i - 1], b = raw[i], c = raw[i + 1], den = a - 2 * b + c
+    peaks.push((i + (den !== 0 ? (0.5 * (a - c)) / den : 0)) * hop)
+  }
+  const n0 = fit(best.k, best.d).m
+  const rc = 1 / (1 + best.d), t0c = best.off * hop
+  const xs: number[] = [], ys: number[] = []
+  for (let j = 0; j < n0; j++) {
+    const rel = notes[best.k + j] - notes[best.k]
+    const p = t0c + rel * rc
+    let near = -1, dist = 0.04
+    for (const q of peaks) { const dd = Math.abs(q - p); if (dd < dist) { dist = dd; near = q } }
+    if (near >= 0) { xs.push(rel); ys.push(near) }
+  }
+  let r = rc, t0 = t0c
+  if (xs.length >= 6) {
+    const mx2 = xs.reduce((a, b) => a + b, 0) / xs.length, my = ys.reduce((a, b) => a + b, 0) / ys.length
+    let sxy = 0, sxx = 0
+    for (let j = 0; j < xs.length; j++) { sxy += (xs[j] - mx2) * (ys[j] - my); sxx += (xs[j] - mx2) ** 2 }
+    if (sxx > 0) { const rr = sxy / sxx; if (Math.abs(rr / rc - 1) < 0.01) { r = rr; t0 = my - rr * mx2 } }
+  }
+  const fine = { d: 1 / r - 1 }
+  const start = t0 - notes[best.k] * r
+  return { start: Math.round(start * 1000) / 1000, bpm: Math.round(bpm * (1 + fine.d) * 100) / 100, score: best.sc, sure: second > 0 ? best.sc / second : 9 }
 }
 
 /** A recorded loop is a whole number of beats long: the tempo from its length that best matches its onsets. */
