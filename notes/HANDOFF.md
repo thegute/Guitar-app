@@ -129,6 +129,13 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
    **Round 2 answers (2026-11-07):** graduation gig graded by the app only, NO sharing. **Settings: a gear button in the top corner of
    EVERY screen** (not a 6th tab); that gear opens all settings AND the manual (How to use KGuitar / Quick Start) in one place. Realistic
    acoustic: search free professional sample sets (licences first), owner does not need to record his own. RESULT: best free set = Meta Open Sound Steel + Nylon Guitar (CC0), see notes/research-acoustic.md (not yet auditioned).
+   **Round 3 (2026-11-07), the big goal:** the Learn section must become "EXACTLY like Pickup Music" in depth: a full MASTERY curriculum so he
+   can learn every concept in depth and become a pro-level player. Proposed shape (confirm with him): 6 grades (1 Foundations, 2 Neck
+   knowledge, 3 Connect the neck [CAGED/pentatonic positions/triads], 4 Lead + harmony craft [modes, arpeggios, voicings, voice leading,
+   legato/hybrid/bends], 5 Improvisation + harmony [chord-tone soloing, ii-V-I, borrowed harmony, transcribing, ear training], 6 Pro level
+   [style fluency, composing, odd meters, chord melody, repertoire]); each lesson Learn → Practice → Jam → Check; each grade ends with a
+   graded graduation gig; absorbs Zero to Hero + the Deep Dive spec (notes/next-build.md). Original text only; curated videos from the best
+   teachers; build ONE grade at a time, starting with a pilot grade.
    Saved ideas: the Deep Dive course
    (notes/next-build.md "Saved for the next work cycle": real depth in CAGED, modes, intervals, ear training, voicings, soloing,
    improvising, voice leading); extra FX, note repeat/arp; weekly challenge + ghost; left-handed mode; Google Drive backup (needs his
