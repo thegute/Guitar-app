@@ -3,7 +3,7 @@
 // Each track has its waveform with a playhead, a ring that goes round with its loop, volume, pan, mute, solo,
 // undo / redo / clear, and extras (backwards, half speed, the bass octave, the lead dipping the others, chop onto pads,
 // make it a tab). Part A / B switches the beat and every loop together on the next bar. A footswitch drives it all.
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { audio } from '../audio/engine'
 import { haptic } from '../audio/tapFeel'
 import { usePedals, type PedalAction } from '../controls/pedals'
@@ -14,11 +14,14 @@ import { useInstrument } from '../instrument'
 import { BeatLight } from '../studio/BeatLight'
 import { FxPad } from '../studio/FxPad'
 import { MicFxPicker } from '../studio/MicFxPicker'
+import { TimingCheck } from './TimingCheck'
 import { beatInPart, type PartId } from '../studio/beat'
 import { beatChords } from '../studio/practice'
 import { openJam } from '../nav'
 import { lengths } from './logic'
 import { ROLES, station, type LenChoice, type LoopPart, type LoopStation, type Role } from './station'
+import { useScreenCommands, useScreenInfo } from '../assistant/screen'
+import { looperCommand } from './commands'
 import { chopToPads, resampleToPad, resampleToTrack, saveMix, toScanner } from './bridges'
 
 /** The looper, re-rendering when it changes. */
@@ -49,6 +52,13 @@ export function LooperPanel() {
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
   const [confirmAll, setConfirmAll] = useState(false)
+  // the helper sees the looper and takes commands ("record track 2", "chorus", "stop")
+  const cmd = useCallback((q: string) => looperCommand(st, q), [st])
+  useScreenCommands('looper', cmd)
+  useScreenInfo('looper', {
+    label: `Looper: ${[0, 1, 2, 3].filter(i => st.loopOf(i)).length} of 4 tracks, part ${st.s.part}`,
+    summary: `In Jam → Looper (4-track looper on the beat "${t.beat.name}", ${Math.round(t.beat.bpm)} BPM, ${t.beat.bars} bar beat, ${st.playing ? 'playing' : 'stopped'}, part ${st.s.part}). Tracks: ${st.s.tracks.map((tr, i) => `${i + 1} ${ROLES.find(r => r.role === tr.role)?.label}: ${st.lengthOf(i) ? `${st.lengthOf(i)} bars, ${tr.parts[st.s.part]?.takes.length} take(s)${tr.mute ? ', muted' : ''}` : 'empty'}`).join('; ')}. The person can say "record track 2", "overdub", "stop", "undo", "chorus", "mute track 1".`,
+  })
   // the mic stays open while the looper is on screen (if it's already allowed), so a press a hair late still starts on the beat
   useEffect(() => {
     let alive = true
@@ -160,6 +170,7 @@ export function LooperPanel() {
           </div>
         </Win>
         <Win id="lp-set" title="Settings and footswitch" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+          <TimingCheck />
           <MicFxPicker />
           <label className="ex-check"><input type="checkbox" checked={st.s.align} onChange={e => st.set({ align: e.target.checked })} /> Auto-align: nudge a new loop onto the beat (up to 90 ms)</label>
           <label className="ex-check"><input type="checkbox" checked={st.s.advance} onChange={e => st.set({ advance: e.target.checked })} /> After a new loop, the footswitch moves to the next empty track</label>

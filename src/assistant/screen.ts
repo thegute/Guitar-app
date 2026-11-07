@@ -37,3 +37,19 @@ export function useScreenInfo(owner: string, info: ScreenInfo | null) {
   }, [owner, key]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => setScreenInfo(owner, null), [owner])
 }
+
+// ---- spoken / typed commands a screen understands without any AI ("record track 2", "switch to the chorus")
+const commands = new Map<string, { run: (q: string) => string | null; at: number }>()
+/** While mounted, the helper tries this screen's commands first; return a reply when it did something, else null. */
+export function useScreenCommands(owner: string, run: (q: string) => string | null) {
+  useEffect(() => {
+    commands.set(owner, { run, at: ++seq })
+    return () => { commands.delete(owner) }
+  }, [owner, run])
+}
+/** The newest screen's answer to a command, or null. */
+export function screenCommand(q: string): string | null {
+  const list = [...commands.values()].sort((a, b) => b.at - a.at)
+  for (const c of list) { const r = c.run(q); if (r) return r }
+  return null
+}

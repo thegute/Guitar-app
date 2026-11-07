@@ -74,5 +74,32 @@ ok(autoLength(0.4, 4) === 1, 'very short → 1 bar')
 ok(peaks(Float32Array.from([0, 0.5, -1, 0.25]), 2)[1] === 1, 'peaks are normalised')
 ok(equalSlices(4, 4)[3].start === 3 && equalSlices(4, 4)[3].end === 4, 'equal slices')
 
-console.log(`looper logic: ${checks} checks, ${failed} failed`)
+// what you can say to the helper on the looper page
+{
+  const { looperCommand } = await import('../src/looper/commands')
+  const calls: string[] = []
+  const tracks = ['rhythm', 'embellish', 'bass', 'lead'].map(role => ({ role, vol: 1, mute: false, solo: false, parts: {} }))
+  const st = {
+    s: { sel: 0, part: 'A', tracks },
+    press: (i: number) => { calls.push(`press ${i}`); return Promise.resolve() },
+    stop: () => calls.push('stop'), stopNow: () => calls.push('stopNow'), start: () => calls.push('start'),
+    undo: (i: number) => calls.push(`undo ${i}`), redo: (i: number) => calls.push(`redo ${i}`), clear: (i: number) => calls.push(`clear ${i}`),
+    switchPart: (p?: string) => calls.push(`part ${p}`), setTrack: (i: number, p: object) => calls.push(`set ${i} ${JSON.stringify(p)}`),
+    loopOf: () => null,
+  } as never
+  const say = (q: string) => { calls.length = 0; const r = looperCommand(st, q); return { r, c: calls.join(',') } }
+  ok(say('record track 2').c === 'press 1', 'record track 2')
+  ok(say('Record the bass').c === 'press 2', `record the bass → ${say('Record the bass').c}`)
+  ok(say('mute track one').c.startsWith('set 0 {"mute":true}'), 'mute track one')
+  ok(say('switch to the chorus').c === 'part B', 'chorus → part B')
+  ok(say('back to the verse').c === 'part A', 'verse → part A')
+  ok(say('stop').c === 'stop' && say('stop now').c === 'stopNow', 'stop / stop now')
+  ok(say('undo').c === 'undo 0', 'undo on the selected track')
+  ok(say('clear track 4').c === 'clear 3', 'clear track 4')
+  ok(say('clear everything').c === '', 'clear everything is not done by voice')
+  ok(say('lead louder').c.startsWith('set 3 {"vol"'), 'lead louder')
+  ok(looperCommand(st, 'I really love the way the second track sounds when it is quiet and soft') === null, 'a long sentence is not a command')
+  ok(looperCommand(st, 'hello') === null, 'hello is not a command')
+}
+console.log(`looper logic + commands: ${checks} checks, ${failed} failed`)
 if (failed) process.exit(1)

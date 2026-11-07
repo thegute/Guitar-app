@@ -134,6 +134,20 @@ export function PedalSettings() {
         </p>
       </div>
 
+      <div className="pedal-profiles small" data-testid="pedal-profiles">
+        <b>What A–D do on each screen</b>
+        <table className="pedal-table">
+          <thead><tr><th /><th>Play</th><th>Looper</th></tr></thead>
+          <tbody>
+            <tr><th>A</th><td>Start / stop</td><td>Record · close the loop · overdub · stop adding</td></tr>
+            <tr><th>B</th><td>Back to the start</td><td>Stop at the end of the bar (twice: now) · <i>hold</i>: clear the track</td></tr>
+            <tr><th>C</th><td>Loop this bar</td><td>Undo the last take · <i>hold</i>: redo</td></tr>
+            <tr><th>D</th><td>Hear it</td><td>Part A ↔ B on the next bar · <i>hold</i>: stutter effect</td></tr>
+          </tbody>
+        </table>
+        <span className="muted">The looper uses the same four buttons: teach them once above. A two-button page turner works too (A and B).</span>
+      </div>
+
       <ul className="pedal-list">
         {ORDER.map(a => {
           const codes = Object.entries(b).filter(([, act]) => act === a).map(([c]) => c)

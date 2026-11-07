@@ -62,26 +62,12 @@ const only = process.argv[2]
     await page.click('button:has-text("Hide options")')
     await page.$eval('input[aria-label="Loop tempo"]', el => { const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(el, '160'); el.dispatchEvent(new Event('input', { bubbles: true })) })
     out.tempoLabel = await page.textContent('.jam .field span')
-    // record a layer
-    // the looper folds away: open it first
-    if (!(await page.isVisible('.looper button.rec'))) await page.click('.fold-toggle:has-text("Looper")')
-    await page.click('.looper button.rec')
-    await page.waitForTimeout(800)
-    out.countIn = await page.textContent('.looper .rec-meter').catch(() => 'none')
-    await page.screenshot({ path: `${DIR}/jam-${vp.name}-3-recording.png` })
-    await page.waitForSelector('.layers li', { timeout: 15000 }).catch(() => {})
-    out.layers = await page.$$eval('.layers li', e => e.length)
-    out.chordsChip = await page.$eval('button.chip:has-text("Backing guitar")', b => b.getAttribute('aria-pressed'))
-    // nudge earlier
-    await page.click('.layers li >> text=Earlier').catch(() => {})
-    out.nudge = await page.textContent('.layers li .nudge').catch(() => '')
+    // loop over it: the progression becomes a beat and the 4-track looper opens on it
+    await page.click('[data-testid=jam-loop-it]')
+    await page.waitForSelector('[data-testid=looper]', { timeout: 8000 }).catch(() => errors.push('Loop over this progression did not open the looper'))
+    out.looperChords = (await page.$$eval('.lp-chords .chip', e => e.map(x => x.textContent))).join(' ')
     await page.screenshot({ path: `${DIR}/jam-${vp.name}-4-looper.png` })
-    // add a second layer while playing
-    await page.click('button:has-text("Add a layer")')
-    await page.waitForFunction(() => document.querySelectorAll('.layers li').length >= 2, null, { timeout: 15000 }).catch(() => {})
-    out.layers2 = await page.$$eval('.layers li', e => e.length)
-    await page.click('button:has-text("Stop")')
-    await page.click('button:has-text("Clear")')
+    await page.click('.subtabs [role=tab]:has-text("Jam")')
     // circle of fifths (on the Solo over it page): pick D
     await page.click('.subtabs [role=tab]:has-text("Solo over it")')
     await page.waitForSelector('.cof-cell')
@@ -89,13 +75,12 @@ const only = process.argv[2]
     await page.waitForTimeout(200)
     out.afterCircle = await page.textContent('.jam .small.muted')
     await page.screenshot({ path: `${DIR}/jam-${vp.name}-5-circle.png`, fullPage: true })
-    // timing check (fake mic: just make sure it finishes)
-    await page.click('.subtabs [role=tab]:has-text("Jam")')
-    if (!(await page.isVisible('.looper button.rec'))) await page.click('.fold-toggle:has-text("Looper")')
-    await page.click('.looper summary').catch(() => {})
-    await page.click('button:has-text("Timing check")')
+    // timing check (fake mic: just make sure it finishes) now lives in the looper's settings
+    await page.click('.subtabs [role=tab]:has-text("Looper")')
+    await page.locator('[data-testid=timing-check] button:has-text("Timing check")').click().catch(() => errors.push('no timing check in the looper'))
     await page.waitForTimeout(7500)
-    out.timing = (await page.textContent('.looper .notice').catch(() => ''))?.slice(0, 90)
+    out.timing = (await page.textContent('[data-testid=timing-check] .notice').catch(() => ''))?.slice(0, 90)
+    await page.click('.subtabs [role=tab]:has-text("Jam")')
     out.hScroll = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
 
     // Play screen: loop bars 2–3

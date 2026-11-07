@@ -2487,3 +2487,12 @@ html[data-theme='psy'] .lp-track, html[data-theme='psy'] .looper-bar { backgroun
 .play-head:has(.looper-bar) { flex-wrap: wrap; }
 .play-head .looper-bar { order: 10; flex-basis: 100%; padding: 4px 6px; }
 .lp-tracks { align-items: start; }
+.pedal-profiles { display: grid; gap: 6px; }
+.pedal-table { width: 100%; border-collapse: collapse; }
+.pedal-table th, .pedal-table td { text-align: left; vertical-align: top; padding: 4px 6px; border-top: 1px solid var(--hairline); }
+.pedal-table thead th { border-top: 0; color: var(--ink-2); font-weight: 600; }
+.pedal-table tbody th { width: 1.6em; font: 700 16px/1.2 var(--display); }
+/* a <label> that is a button (file pickers) centres its icon and words like any button */
+label.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
+[data-theme='psy'] .voice-out > label { justify-self: start; background: rgba(20, 0, 43, 0.86); padding: 4px 8px; border-radius: 8px; }
+[data-theme='psy'] .voice-out .muted { color: var(--ink-2); }

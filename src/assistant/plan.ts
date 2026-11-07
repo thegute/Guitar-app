@@ -9,7 +9,7 @@ import { instr } from '../studio/sounds'
 import { beatChords } from '../studio/practice'
 import { activeProvider, ask, AiError, lastTries } from './providers'
 import type { AskContext } from './bus'
-import { screenInfo, type ScreenInfo } from './screen'
+import { screenCommand, screenInfo, type ScreenInfo } from './screen'
 import { GUIDE } from '../learn/guide'
 
 export interface BeatChange { starter?: string; bpm?: number; key?: string; minor?: boolean; patterns?: string[]; swing?: number }
@@ -166,6 +166,8 @@ export async function plan(q: string, results: Result[], ctx: AskContext = 'gene
   const beat = ctx === 'beat' ? loadBeat() : null
   const screen = screenInfo()
   const local = (): Answer => {
+    const sc = /\b(what|why|how|explain|tell|which|show)\b/i.test(q) ? null : screenCommand(spokenNumbers(q))
+    if (sc) return { reply: sc, ai: false }
     const pc = playCommand(q, screen)
     if (pc) return pc
     if (beat && /idea|suggest|better|what (should|can)|next/i.test(q)) return { reply: 'A few ideas for this beat:', ideas: beatIdeas(beat), ai: false }
@@ -177,6 +179,8 @@ export async function plan(q: string, results: Result[], ctx: AskContext = 'gene
   // a plain command ("slower", "loop 5 to 8 at 70 percent") is done straight away, even with an AI key: no waiting
   const quick = playCommand(q, screen)
   if (quick && !/\b(what|why|how|explain|tell|which|show)\b/i.test(q)) return quick
+  // a command the screen on top understands (the looper: "record track 2", "chorus", "stop")
+  if (!/\b(what|why|how|explain|tell|which|show)\b/i.test(q)) { const sc = screenCommand(spokenNumbers(q)); if (sc) return { reply: sc, ai: false } }
   if (!activeProvider()) return { ...local(), note: 'Built-in helper. Add a free AI key in Settings → You → AI helper for smarter answers.' }
   try {
     const raw = await ask(SYSTEM(ctx, beat ? beatSummary(beat) : '', results, screen, how), [...past.flatMap(p => [{ role: 'user' as const, text: p.q }, { role: 'assistant' as const, text: JSON.stringify({ reply: p.a }) }]), { role: 'user', text: q }], { json: true, maxTokens: how === 'voice' ? 900 : 2400, ...(onReply ? { onText: (raw: string) => { const r = partialReply(raw); if (r) onReply(r) } } : {}) })
