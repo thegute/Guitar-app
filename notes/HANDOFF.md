@@ -117,6 +117,15 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
    floating finger diagrams, triad / pentatonic / chord-tone overlays, lessons), lots of built-in songs with real acoustic guitar sound;
    and give an opinion on an even better way: load a YouTube backing track and auto-sense key, timing and chords (Riff Scanner beat
    grid + chord finder + stems) so he can jam over it with the overlays; or combine both. Brainstorm these WITH him, back and forth.
+   **Owner's answers 2026-11-07 (brainstorm round 1):** (a) Pickup-style depth: lessons = Learn → Practice → Jam → Check (the mic grades the
+   Check step), a graduation piece per pathway from the composer, step-by-step daily plan; he wants MUCH deeper research on Pickup Music
+   (see notes/research-pickup.md, keep extending it). (b) Strum Machine: YES to "both": Band mode (Strum-Machine-style) + Track mode
+   (YouTube/file: scanner finds tempo, key, chords) feeding ONE chord chart that drives finger box + overlays + lessons.
+   (c) **Acoustic guitar sounds are NOT good enough: he needs far more life-like, realistic acoustic guitar** (strums, picking, bass,
+   band); plan real multi-sampled / layered sources with licences checked (CC0/CC-BY only, credited; no non-commercial). (d) **Much larger
+   song library** (public-domain/traditional/original; no copyrighted songs, lyrics only pre-1929). (e) **Manual: BOTH in the app and a
+   file he can send** (PDF and/or Docs), real Day Mode screenshots made by the browser tests. (f) **A top-level Settings tab**: Settings is
+   buried in Learn and hard to reach; make it easy to get to (ask him: 6th tab, or a gear button on every screen?).
    Saved ideas: the Deep Dive course
    (notes/next-build.md "Saved for the next work cycle": real depth in CAGED, modes, intervals, ear training, voicings, soloing,
    improvising, voice leading); extra FX, note repeat/arp; weekly challenge + ghost; left-handed mode; Google Drive backup (needs his

@@ -37,7 +37,10 @@ Then: floating finger diagrams everywhere, looper "start when I play", the two c
 ## Quick ideas (add anything, any time, in any words)
 Format: date, idea. Gemini ideas welcome too. Paste them here with "(Gemini)".
 - 2026-11-07, Bouncing ball exactly like Yousician; the tab slides so the ball never hops off the screen.
-- 
+- 2026-11-07, Acoustic guitar sounds must be much more realistic (not good enough now).
+- 2026-11-07, Much larger song library (Strum Machine style), plus Band mode + YouTube Track mode on one chart.
+- 2026-11-07, Manual in the app AND as a file to send (PDF/Docs), Day Mode screenshots.
+- 2026-11-07, Settings should be its own easy-to-reach place, not buried in Learn.
 - 
 - 
 
