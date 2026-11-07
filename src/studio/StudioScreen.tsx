@@ -9,6 +9,7 @@ import { audio } from '../audio/engine'
 import { KITS, kitInfo, prepareKit, type KitId, type Voice } from '../audio/drums'
 import { InputRecorder } from '../audio/looper'
 import { kindOf, latencyMs } from '../audio/gear'
+import { RigChip } from '../components/AudioSetup'
 import { usePersist } from '../components/Controls'
 import { Fold } from '../components/Fold'
 import { Win, WinArea, useWinShow } from '../components/Win'
@@ -182,6 +183,7 @@ export function StudioScreen({ active }: { active: boolean }) {
         <BeatLight t={tr()} playing={playing} />
         <Tempo bpm={beat.bpm} onChange={bpm => setBeat(b => ({ ...b, bpm }))} />
         <span className="st-spacer" />
+        <RigChip />
         <button className="btn sm" onClick={undo} disabled={!history.current.length} aria-label="Undo" title="Undo">↶</button>
         <button className="btn sm" onClick={redo} disabled={!future.current.length} aria-label="Redo" title="Redo">↷</button>
         <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')}><Ico n="sparkles" /> Ideas</button>

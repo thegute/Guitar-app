@@ -103,7 +103,7 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   loop restart. `audio/bass.ts`: BASSLINES + `bassMidi` (walking, approach notes). JamTransport has bass bus + sound; a new
   strum stops the last one. `engine.ts` master: compressor + soft ceiling.
 - Check the mix: `node tests/browser/sound-capture.cjs Metal,Reggae` (PARTS=guitar|bass|drums) then
-  `python3 tools/analyse-capture.py tests/browser/out/sound-metal.wav 140`. Live guitar input is never processed or monitored.
+  `python3 tools/analyse-capture.py tests/browser/out/sound-metal.wav 140`. Live guitar input is never processed; it is played back only in the opt-in "interface" audio setup (rig.ts).
 
 ## Build 11 (review pass)
 - Metronome: recorded cross-stick / cowbell / hi-hat clicks and `Metronome.groove` (a GROOVES drum beat in 4/4, fill every 8 bars).
@@ -282,15 +282,24 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
    (8–15, each with its checkpoint) and revert any he doesn't want (`git revert <checkpoint>`). In a month: go through What you use together.
    Builds 32–33 wait on `big-update` for "ship it" (items 16–35, ask about each after he tries them).
 0b. The owner sent a MASTER BLUEPRINT (3 steps: fretboard brain + hand box + 5-layer geometry + voice leading; auto-BPM + Riff Scanner +
-   Shorts feed + Yousician game mode; 4-track looper workstation, Progressive Melodic Metal + Dylan Gossett courses, export doc). Rule:
-   discuss it first (5-point concept check), and code nothing of it until he says "Approved — Start Step 1". His attachment was cut off
-   in the Game Mode part, so ask for the rest.
+   Shorts feed + Yousician game mode; 4-track looper workstation, Progressive Melodic Metal + Dylan Gossett courses, export doc).
+   Approved 2026-11-06 and in progress on `big-update` (full text notes/blueprint-part1.txt + part2.txt, answers in
+   notes/blueprint-decisions.md; Game Mode spec is complete in part2).
 1. Owner tries build 29 (his Gemini choice 3.5 Flash Lite answers in 0.7 s; 3.8/3.7 Flash hang or 503 on the free tier; Groq key added = first backup); fix what he finds. Untested on a real phone: 🎤 talk with the USB amp plugged in / while Play listens, Gemini voice, streaming in the Android web view.
 2. Note follower accuracy (fewer misreads, accept bends; GP test files in the scratchpad testdata) and a better note detector for Notes mode (own guitar only).
 3. Hand position accuracy in Play, Jam looper loud/reliable, ukulele theory, more badges, chord-tone lessons, deep CAGED, a simplicity pass.
 4. Keep the brother's Docs guide (https://claude.ai/artifact/7Cuc18hXrt23FDQ1PniqV5) in step with the in-app guide. The owner should switch on GitHub Pages
    (Settings → Pages → Source: GitHub Actions) for the web version.
    Owner rules still hold: only "Brandy" is named on screen; never invent names or titles for the art or the dogs.
+
+## Audio setups (rig.ts, 2026-11-06)
+- Pocket Master over USB + Spark NEO wireless in its 1/4" out (TS plug = LEFT only). `audio/rig.ts`: 'pedal' (auto when the pedal is in
+  the device list: everything mono via the `fold` node at the end of engine.ts, `double` takes skipped, no playback of the guitar),
+  'stereo' (default; "Switch to stereo" for wired headphones on the pedal lasts until unplugged), 'interface' (opt-in "Hear my guitar
+  through KGuitar", input.ts plays the newest open input into `finalOut()`; never the mic or the pedal). Generic USB names: "Yes, that's
+  my pedal" (`kg:rig.pedals`). gear.ts kind 'pedal' = USB sensitivity + its own timing (the wireless adds delay). Voice filters incl.
+  voiceIsolation are asked off and read back (`filtersStillOn`). UI `components/AudioSetup.tsx` (AudioSetup in the input sheet and
+  Settings → Sound, RigChip in the beat maker, RigNotice when it switches). Tests `tests/rig-logic.test.ts`, step2-test `rig`.
 
 ## Ideas not done yet
 Left-handed mode, automatic tempo detection from the video, per-note polyphonic transcription (chords are judged by chroma only), cloud sync between devices.

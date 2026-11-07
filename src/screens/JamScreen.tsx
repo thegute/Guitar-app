@@ -27,6 +27,7 @@ import { audio, keepAwake } from '../audio/engine'
 import { JamTransport } from '../audio/jam'
 import { InputRecorder, makeLayerBuffer, measureLatency } from '../audio/looper'
 import { gear, kindOf, latencyMs, setGear, useGear } from '../audio/gear'
+import { useRig } from '../audio/rig'
 import { bump, usePracticeTimer } from '../learn/progress'
 import { usePedals } from '../controls/pedals'
 import { STRUMS } from '../audio/strums'
@@ -140,6 +141,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [loopError, setLoopError] = useState('')
   const [inputInfo, setInputInfo] = useState<{ label: string; external: boolean } | null>(null)
   useGear()
+  useRig()
   // the timing delay belongs to the input you record from (phone mic or USB amp)
   const latKind = kindOf(inputInfo?.external)
   const latMs = latencyMs(latKind)

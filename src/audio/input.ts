@@ -2,6 +2,8 @@
 // guitar headphone amp plugged into the phone (electric), e.g. a Sonicake Pocket Master multi-effects pedal over USB-C (it is a USB audio interface too).
 
 import { Capacitor } from '@capacitor/core'
+import { monitoring, monitorVol, noteDevices, noteInput, onRig } from './rig'
+import { audio, finalOut } from './engine'
 
 /** On a phone or tablet (the app, or a phone's browser), or on a computer. */
 export function onPhone(): boolean {
@@ -65,13 +67,25 @@ export async function listInputs(askPermission = false): Promise<InputDevice[]> 
       /* no permission: show what we have */
     }
   }
-  return devs
+  const list = devs
     .filter(d => d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications')
     .map((d, i) => ({
       id: d.deviceId,
       label: d.label || `Input ${i + 1}`,
       external: EXTERNAL.test(d.label) && !/speakerphone|earpiece/i.test(d.label),
     }))
+  // the audio setups switch to "pedal + wireless" (mono) by themselves when the Pocket Master is in the list
+  if (devs.some(d => d.label)) noteDevices(list)
+  return list
+}
+
+/** Keep an eye on what's plugged in (the pedal setup switches by itself). Labels need mic permission first. */
+let watching = false
+export function watchDevices() {
+  if (watching || typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) return
+  watching = true
+  void listInputs().catch(() => {})
+  navigator.mediaDevices.addEventListener?.('devicechange', () => void listInputs().catch(() => {}))
 }
 
 export interface OpenedInput {
@@ -81,7 +95,36 @@ export interface OpenedInput {
   external: boolean
 }
 
-const RAW = { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+// every voice-call filter off: they treat a sustained note as noise to remove, and squash its dynamics
+const RAW = { echoCancellation: false, noiseSuppression: false, autoGainControl: false, voiceIsolation: false } as MediaTrackConstraints
+
+/** Filters the phone left on anyway (some Android phones ignore the request), from the last input opened. */
+let filtersLeft: string[] = []
+export const filtersStillOn = () => filtersLeft
+function checkFilters(stream: MediaStream) {
+  const st = (stream.getAudioTracks()[0]?.getSettings?.() ?? {}) as MediaTrackSettings & { voiceIsolation?: boolean }
+  filtersLeft = [st.echoCancellation && 'echo cancelling', st.noiseSuppression && 'noise suppression', st.autoGainControl && 'automatic volume', st.voiceIsolation && 'voice isolation'].filter(Boolean) as string[]
+}
+
+// Your guitar played back through KGuitar: only in the "interface" setup (rig.ts), switched on by you. The newest open
+// input is played; it goes after the compressor so KGuitar's own sounds never pump it.
+const openStreams: MediaStream[] = []
+let mon: { stream: MediaStream; src: MediaStreamAudioSourceNode; g: GainNode } | null = null
+function syncMonitor() {
+  const want = monitoring() ? openStreams[openStreams.length - 1] ?? null : null
+  if (mon && mon.stream !== want) { try { mon.src.disconnect(); mon.g.disconnect() } catch { /* gone */ } mon = null }
+  if (want && !mon) {
+    try {
+      const ctx = audio()
+      const src = ctx.createMediaStreamSource(want)
+      const g = ctx.createGain()
+      src.connect(g).connect(finalOut())
+      mon = { stream: want, src, g }
+    } catch { mon = null }
+  }
+  if (mon) mon.g.gain.value = monitorVol()
+}
+onRig(syncMonitor)
 
 // While any input is open, <html> carries data-listening and Psychedelic mode's moving background holds still: the
 // listening code shares the page's thread, and on a busy phone the motion could make it miss a quick re-picked note.
@@ -93,9 +136,21 @@ function syncListening() {
   else delete el.dataset.listening
 }
 function watch(stream: MediaStream): MediaStream {
+  openStreams.push(stream)
   for (const t of stream.getTracks()) {
     let done = false
-    const end = () => { if (done) return; done = true; openTracks = Math.max(0, openTracks - 1); syncListening() }
+    const end = () => {
+      if (done) return
+      done = true
+      openTracks = Math.max(0, openTracks - 1)
+      syncListening()
+      if (stream.getTracks().every(x => x.readyState === 'ended' || x === t)) {
+        const i = openStreams.indexOf(stream)
+        if (i >= 0) openStreams.splice(i, 1)
+        if (!openStreams.length) noteInput(null)
+        syncMonitor()
+      }
+    }
     openTracks++
     const stop = t.stop.bind(t)
     t.stop = () => { end(); stop() }
@@ -109,6 +164,10 @@ function watch(stream: MediaStream): MediaStream {
 export async function openInput(): Promise<OpenedInput> {
   const opened = await openRaw()
   watch(opened.stream)
+  checkFilters(opened.stream)
+  noteInput(opened)
+  void listInputs().catch(() => {})
+  syncMonitor()
   return opened
 }
 async function openRaw(): Promise<OpenedInput> {

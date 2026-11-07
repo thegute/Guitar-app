@@ -17,6 +17,8 @@ import { isToolPage, onGo, onRemount, TAB_IDS, type Tab, type ToolPage } from '.
 import { SearchSheet } from './components/SearchSheet'
 import { SessionBar } from './sessions/SessionBar'
 import { AskBubble } from './assistant/AskBubble'
+import { RigNotice } from './components/AudioSetup'
+import { watchDevices } from './audio/input'
 import { onAsk, type AskContext } from './assistant/bus'
 import { stopAllSounds } from './audio/stopAll'
 import { stopSpeaking } from './assistant/speak'
@@ -53,6 +55,8 @@ export default function App() {
   const tabRef = useRef<Tab>(tab)
   tabRef.current = tab
   // what you use (counted on this phone only; Settings → You → What you use)
+  // the pedal + wireless setup switches on by itself when the Pocket Master is plugged in
+  useEffect(() => { watchDevices() }, [])
   useEffect(() => { countUse(tab === 'tools' ? `tool:${toolPage}` : `screen:${tab}`) }, [tab, toolPage])
   useEffect(() => watchButtons(() => tabRef.current), [])
   useEffect(() => onGo(t => {
@@ -139,6 +143,7 @@ export default function App() {
       <PsyBackdrop />
       <main className={`main${tab === 'play' ? ' main-play' : ''}`} id="main">
         <SessionBar />
+        <RigNotice />
         {tab === 'play' && <PlayScreen key={inst.id} />}
         {tab === 'songs' && <SongsScreen key={inst.id} />}
         {tab === 'learn' && <LearnScreen key={inst.id} />}

@@ -1,7 +1,7 @@
 // Blueprint Step 2 in the browser: tempo badge + sheet (tap along, ½×/2×, time signature): the floating finger box (drag, resize, tuck, remembered), the upcoming shift badge
 // and Loop this shift, choosing a finger / another string for a tapped note, Make it easier, hand size in Settings;
 // later parts: tunings, layers, voice leading, play the changes.
-// Needs `vite preview` on :4173 and CHROME_PATH.  node tests/browser/step2-test.cjs [tempo,scan,scanvideo,scanlink,scansound]
+// Needs `vite preview` on :4173 and CHROME_PATH.  node tests/browser/step2-test.cjs [tempo,scan,scanvideo,scanlink,scansound,rig]
 // scansound needs the models in KG_MODELS (default /tmp/claude-0/models) and test audio in KG_BENCH (see tools/ml-bench)
 const { chromium } = require('playwright')
 const path = require('path')
@@ -261,6 +261,56 @@ E|-3---------|-----------|`
       if (await sideways(page)) bad('link: sideways overflow')
     }
     if (page.errors.length) bad(`link errors: ${page.errors.join(' | ')}`)
+    await page.context().close()
+  }
+
+  // ---------- Audio setups: the Pocket Master switches to mono by itself; wired headphones = one tap to stereo ----------
+  if (want('rig')) for (const vp of [{ width: 412, height: 915, n: 'cover' }, { width: 840, height: 757, n: 'inner' }]) {
+    const page = await newPage(browser, vp)
+    // the phone's device list with the pedal in it (the fake mic stays the real input)
+    await page.evaluate(() => {
+      const md = navigator.mediaDevices
+      const real = md.enumerateDevices.bind(md)
+      md.enumerateDevices = async () => [...(await real()), { deviceId: 'pm1', kind: 'audioinput', label: 'USB-Audio - Pocket Master', groupId: 'g', toJSON() { return this } }]
+      md.dispatchEvent(new Event('devicechange'))
+    })
+    // a permission once so labels show (the app asks the same way)
+    await page.evaluate(async () => { const s = await navigator.mediaDevices.getUserMedia({ audio: true }); s.getTracks().forEach(t => t.stop()); navigator.mediaDevices.dispatchEvent(new Event('devicechange')) })
+    await page.waitForSelector('[data-testid=rig-notice]', { timeout: 5000 }).catch(() => bad(`${vp.n}: no "Pocket Master plugged in" notice`))
+    const note = await page.locator('[data-testid=rig-notice]').innerText().catch(() => '')
+    if (!/mono/.test(note)) bad(`${vp.n}: notice should say mono: "${note}"`)
+    await page.screenshot({ path: `${DIR}/step2-rig-notice-${vp.n}.png` })
+    if (await sideways(page)) bad(`${vp.n}: sideways overflow with the notice`)
+    // Jam's input button says mono; its sheet has the setup
+    await nav(page, 'Jam')
+    const btn = page.locator('.input-btn').first()
+    if (await btn.count()) {
+      const t = await btn.innerText()
+      if (!/mono/.test(t)) bad(`${vp.n}: input button should show mono: "${t}"`)
+      await btn.click()
+      const now = await page.locator('.sheet [data-testid=rig-now]').innerText().catch(() => '')
+      if (!/Pedal \+ wireless/.test(now)) bad(`${vp.n}: setup should be the pedal: "${now}"`)
+      await page.locator('.sheet [data-testid=rig-switch]').click()
+      const now2 = await page.locator('.sheet [data-testid=rig-now]').innerText().catch(() => '')
+      if (!/Stereo/.test(now2)) bad(`${vp.n}: the switch should give stereo: "${now2}"`)
+      await page.locator('.sheet [data-testid=rig-switch]').click()
+      await page.screenshot({ path: `${DIR}/step2-rig-sheet-${vp.n}.png` })
+      if (await sideways(page)) bad(`${vp.n}: sideways overflow in the input sheet`)
+      await page.locator('.sheet button:has-text("Done")').first().click()
+    } else bad(`${vp.n}: no input button on Jam`)
+    // Settings → Sound lists the pedal setup's own timing
+    await nav(page, 'Learn'); await sub(page, 'Today')
+    const settings = page.locator('button[aria-label=Settings]').first()
+    if (!(await settings.count())) bad(`${vp.n}: no Settings button`)
+    else {
+      await settings.click(); await sub(page, 'Sound')
+      await page.waitForTimeout(300)
+      const row = await page.locator('text=Pocket Master + wireless').count()
+      if (!(await page.locator('[data-testid=audio-setup]').count())) bad(`${vp.n}: Settings → Sound has no Audio setup`)
+      if (!row) bad(`${vp.n}: Settings → Sound has no Pocket Master + wireless timing row`)
+      await page.screenshot({ path: `${DIR}/step2-rig-settings-${vp.n}.png`, fullPage: false })
+    }
+    if (page.errors.length) bad(`${vp.n} rig errors: ${page.errors.join(' | ')}`)
     await page.context().close()
   }
 

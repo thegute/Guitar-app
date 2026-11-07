@@ -25,6 +25,7 @@ import { UsagePanel } from '../components/UsagePanel'
 import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, instrumentSound, activeSound, soundInfo, SOUNDS, type SoundId } from '../audio/pluck'
 import { audio } from '../audio/engine'
 import { gear, isSetUp, latencyMs, useGear } from '../audio/gear'
+import { AudioSetup } from '../components/AudioSetup'
 import { enableReminders, reminderSettings, remindersAvailable, updateReminderSettings, type ReminderSettings } from './reminders'
 import { Win, WinArea } from '../components/Win'
 import { handSize, setHandSize, type HandSize } from '../hand/neck'
@@ -162,15 +163,17 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
       </Win>
       <Win id="input" title="Your guitar input" hint="Two minutes per input: it measures your room, your strings and the delay of your headphones, so notes are heard reliably and recordings land on the beat." bodyClass="stack" bodyStyle={{ gap: 10 }}>
         <ul className="act-list small">
-          {(['mic', 'usb'] as const).map(k => (
+          {(['mic', 'usb', 'pedal'] as const).map(k => (
             <li key={k}>
-              <span>{k === 'mic' ? <><Ico n="mic" /> Phone mic</> : <><Ico n="guitar" /> USB pedal or interface (Pocket Master)</>}</span>
-              <b>{isSetUp(k) ? `set up · sensitivity ${gear(k).gate} · timing ${latencyMs(k)} ms` : 'not set up yet'}</b>
+              <span>{k === 'mic' ? <><Ico n="mic" /> Phone mic</> : k === 'usb' ? <><Ico n="guitar" /> USB pedal or interface (Pocket Master)</> : <><Ico n="headphones" /> Pocket Master + wireless (mono)</>}</span>
+              <b>{k === 'pedal' ? `timing ${latencyMs(k)} ms${gear(k).latencyMs >= 0 ? '' : ' (a guess)'}` : isSetUp(k) ? `set up · sensitivity ${gear(k).gate} · timing ${latencyMs(k)} ms` : 'not set up yet'}</b>
             </li>
           ))}
         </ul>
         <button className="btn" onClick={() => setSetup(true)}>Set up an input</button>
       </Win>
+
+      <Win id="rig" title="Audio setup" hint="How KGuitar's sound reaches your ears. With the Pocket Master plugged in, everything is mono so your wireless (which only hears the left side) gets all of it, and KGuitar never plays your guitar back (the pedal does that with no delay). Each setup keeps its own timing correction."><AudioSetup /></Win>
 
       <Win id="pedals" title="Hands-free (footswitch)"><PedalSettings /></Win>
 

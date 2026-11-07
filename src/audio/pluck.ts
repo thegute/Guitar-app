@@ -2,6 +2,7 @@
 // instant fallback while a bank loads. The amp tones were rendered offline from the owner's own amp captures and cab /
 // body impulse responses (tools/render_tones.py); only the finished notes ship. Live guitar input is never processed here.
 import { audio, out } from './engine'
+import { monoOut } from './rig'
 import { midiToFreq } from '../theory/notes'
 
 const cache = new Map<string, AudioBuffer>()
@@ -258,6 +259,8 @@ export interface NoteOpts {
 }
 
 export function playNote(midi: number, when = 0, gain = 0.8, dest?: AudioNode, opts: NoteOpts = {}): Handle {
+  // mono (the pedal + wireless setup): two takes added together sound hollow, so one centred take
+  if (opts.double && monoOut()) opts = { ...opts, double: false }
   const id = opts.sound ?? activeSound()
   const bank = banks.get(id)
   const t = when || audio().currentTime
@@ -316,6 +319,7 @@ export function chordKind(midis: number[]): { minor: boolean; bass: number } | n
 
 /** Strum notes (low to high for a downstroke). Amp tones play power chords and major / minor chords as recorded chords. */
 export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: number; gain?: number; dest?: AudioNode; sound?: SoundId; pm?: boolean; double?: boolean } = {}): Handle {
+  if (opts.double && monoOut()) opts = { ...opts, double: false }
   const ctx = audio()
   const t0 = when || ctx.currentTime + 0.01
   const id = opts.sound ?? activeSound()

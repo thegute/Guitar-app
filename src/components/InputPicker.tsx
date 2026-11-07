@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { Ico } from './Icon'
 import { getChoice, listInputs, onInputChange, onPhone, setChoice, type InputChoice, type InputDevice } from '../audio/input'
 import { GearSetup } from './GearSetup'
+import { AudioSetup } from './AudioSetup'
+import { useRig } from '../audio/rig'
 
 export function InputPicker({ active, onChanged, needsSetup = false }: { active?: { label: string; external: boolean } | null; onChanged?: () => void; needsSetup?: boolean }) {
   const [open, setOpen] = useState(false)
@@ -10,6 +12,7 @@ export function InputPicker({ active, onChanged, needsSetup = false }: { active?
   const [devs, setDevs] = useState<InputDevice[]>([])
   const [busy, setBusy] = useState(false)
   const [setup, setSetup] = useState(false)
+  const r = useRig()
 
   useEffect(() => onInputChange(() => setC(getChoice())), [])
   useEffect(() => {
@@ -35,7 +38,7 @@ export function InputPicker({ active, onChanged, needsSetup = false }: { active?
   return (
     <>
       <button className={`btn sm input-btn${needsSetup ? ' needs-setup' : ''}`} onClick={() => setOpen(true)} aria-label={needsSetup ? 'Choose and set up the sound input (not set up yet)' : 'Choose the sound input'}>
-        <Ico n={now === 'amp' ? 'guitar' : 'mic'} /> {active ? (active.external ? 'Amp' : 'Mic') : choice === 'auto' ? 'Auto' : choice === 'mic' ? 'Mic' : 'Amp'} ▾
+        <Ico n={now === 'amp' ? 'guitar' : 'mic'} /> {active ? (active.external ? 'Amp' : 'Mic') : choice === 'auto' ? 'Auto' : choice === 'mic' ? 'Mic' : 'Amp'}{r === 'pedal' ? ' · mono' : ''} ▾
         {needsSetup && <i className="setup-dot" aria-hidden="true" />}
       </button>
       {open && (
@@ -96,6 +99,10 @@ export function InputPicker({ active, onChanged, needsSetup = false }: { active?
               <span className="muted">• Run <b>Set up this input</b> once for the amp and once for the {phone ? 'phone' : 'computer'} mic: it tunes note detection and timing for each.</span>
             </div>
             <button className="btn primary" onClick={() => { setOpen(false); setSetup(true) }}>Set up this input</button>
+            <div className="panel">
+              <h3 style={{ margin: '0 0 6px' }}>Audio setup</h3>
+              <AudioSetup compact />
+            </div>
           </div>
         </div>
       )}

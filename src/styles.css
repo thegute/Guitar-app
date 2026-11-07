@@ -2352,3 +2352,7 @@ body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-re
 .crop-h.br { right: -2px; bottom: -2px; cursor: nwse-resize; }
 .crop-wrap { overflow: hidden; border-radius: var(--r-sm); }
 .scan-check { display: flex; flex-direction: column; gap: 6px; }
+
+/* Audio setups: the notice when the Pocket Master is plugged in (switches to mono by itself) */
+.rig-notice { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin: 0 0 var(--sp-2); }
+.rig-notice > span { flex: 1 1 200px; }
