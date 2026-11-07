@@ -11,3 +11,4 @@ tsconfig.tsbuildinfo
 tests/browser/out
 art/preview
 __pycache__
+review/out/

@@ -277,7 +277,35 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   (Basic Pitch 1.0.1, model in public/models/basic-pitch, tfjs lazy chunk): Jam → Find chords → Notes from a recording.
 - Tests: `tests/build33-logic.test.ts`, `tests/pdf-tab.test.ts` (+ fixtures), `tests/browser/build33-test.cjs [pdf, maketab, transcribe, z2h]`.
 
+## Big update, Steps 2–3 (on `big-update`, test builds test-38 / test-39; items 47–57 in notes/next-build.md)
+- **New chat? Read `notes/HANDOFF.md` first**: state, owner rules, the agreed work queue (Riff Scanner accuracy, Game Mode upgrades with
+  YouTube backing minus the guitar, floating finger diagrams everywhere, looper "start when I play", the two courses, brainstorm).
+- Riff Scanner sound path: `scan/soundScan.ts` (passes), `audio/transcribe.ts` (Basic Pitch through ONNX Runtime, `ml/models.ts`
+  `basicPitchRunner`, tfjs fallback), `ml/run.ts` (guitar-note model + Beat This, downloaded on request), `scan/useSoundScan.tsx`,
+  `scan/ScanPlayer.tsx`; `scan/VoiceOut.tsx` "Take the voice out first" (HT-Demucs vocals out before scanning, ≤150 s).
+- Shorts: `scan/shorts.ts` + `scan/ShortsFeed.tsx` (YouTube Data API v3 with the owner's key `kgx:youtube`, quota counter, RSS for followed
+  channels). Auto video sync: `play/autoSync.ts`, `audio/tempo.ts` `alignAnywhere` (SyncPanel "Sync automatically").
+- Get a sound: `studio/GetSound.tsx` (files, YouTube grab, ClipEditor with parts via `ml/voice.ts` `isolate` → `ml/demucs.ts` own STFT/iSTFT
+  around `htdemucs_fwd.onnx`; phone runs it natively `MlPlugin.runStems`, half floats), `studio/pitchShift.ts` (Signalsmith Stretch 1.3.2),
+  `components/Dial.tsx` pitch dial, `studio/micFx.ts` + `MicFxPicker.tsx`, `studio/analyse.ts` (sample tempo/key), banks A/B (`pads.ts` BANKS).
+- Game Mode: `play/game.ts` (sections, highway, Scorer 3×→5×, stars, best per part `kg:gameBest`), `components/GameHighway.tsx` (canvas,
+  ball), `components/GameView.tsx` (HUD, end card, Perfect it, Auto speed 25–125 %, Play for me); PlayScreen `gameView` ('playView').
+- Step 1 gaps: `theory/layers.ts` `doubleStops`, LayerNeck Double-stops + "Licks over X" (`lickWantKey`), `theory/tuningInfo.ts` +
+  `components/TuningExplain.tsx` (Tuner, CAGED explorer).
+- **4-track looper** (`src/looper/`): `station.ts` (LoopStation on the shared beat clock `studio/shared.ts`; tracks × parts A/B, takes in
+  IndexedDB `kg-looper`, session `kg:looper`; armed commands land on the next bar with a 120 ms grace; Auto or fixed lengths `logic.ts`
+  `lengths` = 1 bar … 8× the beat; overdubs fold; bass octave / backwards / half speed rendered once and cached; lead ducks the others;
+  free first loop sets the tempo `tempoFromLoop` + `transport.startFrom`; tempo changes stretch takes), `LooperPanel.tsx` (Jam → Looper,
+  `LooperBar` strip, NowNeck chord tones + embellishments), `LazyBar.tsx` (strip on Play / Scales only when loops exist), `bridges.ts` (chop onto
+  pads, resample to pad / track, save mix to My recordings, send to Riff Scanner via `scan/pending.ts`), `commands.ts` (helper commands
+  through `assistant/screen.ts` `useScreenCommands`), `TimingCheck.tsx`. Transport gained `beatBus`, `livePart`, `startFrom`, `keep`
+  (stopAll leaves the beat running while the looper has loops). Jam → "Loop over this progression" (`beatFromJam`) replaced the old Jam
+  looper; the beat maker's Looper window is the strip. `nav.ts` `setSubPage` now also switches an open screen (`kg-subpage` event).
+- Tests: `tests/looper-logic.test.ts`, `tests/browser/looper-test.cjs [basic,free,bass,pedal,bridges,jam,sizes]`, game-test,
+  getsound-test, step1-test gaps, build33-test voiceout (+ `gen-ode-voice.py`).
+
 ## Next up — pick up here
+**The current queue is in `notes/HANDOFF.md` (2026-11-07); the items below are older context.**
 0. Build 30 shipped as build-31: after the owner tries it, ASK HIM ABOUT EACH of the 8 items in notes/next-build.md
    (8–15, each with its checkpoint) and revert any he doesn't want (`git revert <checkpoint>`). In a month: go through What you use together.
    Builds 32–33 wait on `big-update` for "ship it" (items 16–35, ask about each after he tries them).

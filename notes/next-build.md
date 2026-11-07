@@ -80,6 +80,29 @@ Each item is its own checkpoint, so any one can be undone with `git revert <chec
     Fix the tab text, Hear it + preview. Sound-only scans ask "Does this look right?" first. Songs → Add a song keeps the
     picture part (and scanned PDFs) with a "Full scanner" button. Ask: does it find the tab in your real lesson videos?
 
+47. **Riff Scanner sound pass + scan player** (2e27dba, 4787649). Quick draft (Basic Pitch through ONNX Runtime, ~80× faster), then the
+    guitar-note model (downloaded on request), Gemini second opinion; result plays with a moving playhead; a sample goes to a pad.
+    Ask: how close are the notes on your real lesson videos? (He said 2026-11-07: misses a lot of notes, no slides / pull-offs: see
+    "Part 1 #1" in notes/HANDOFF.md.)
+48. **Sync the video automatically** (457c9f4). Play → Video → Sync with tab → Sync automatically (listens 15 s, finds start + tempo).
+49. **Audio setups: Pocket Master + Spark NEO** (65d7513). Mono by itself with the pedal, one tap to stereo, opt-in monitoring. Ask: no echo?
+50. **Get a sound + stems + pitch dial** (24ab0c2, 8af0c30). Beat maker → Your pads → Get a sound (file / YouTube grab), Voice only /
+    Without the voice / Drums / Bass / Instruments (HT-Demucs on the phone), chop; Pitch dial (Tape / Keep the speed / voice natural).
+51. **Banks + mic effects** (60b7876). 32 pads in banks A/B; Mic effect on recordings (bass, treble, fuzz, robot, reverb, octave ±, synth).
+52. **Fit to the beat, chop modes, resample** (85eeaef). Sample tempo + key, stretch to tempo, move to key; chop at hits / equal / tap.
+53. **Shorts feed** (cb9b2ed). Jam → Riff Scanner → Shorts (needs his YouTube key in Settings → You; it stays on the phone).
+54. **Game Mode** (1d4f07d). Play → Game: highway, finger colours, ball, 3×→5×, stars per part, best of each part, Perfect it, Auto speed,
+    Play for me. (He asked 2026-11-07 for a Yousician-style ball that arcs onto notes, a floating finger box, YouTube backing with the guitar
+    removed, and a clean full-screen mode: notes/HANDOFF.md Part 1 #2.)
+55. **Double-stops, Licks over a chord, tuning explanations** (d1f03a3). 5-layer neck Double-stops; Licks over X; Tuner "What this tuning changes".
+56. **Take the voice out first** (e502720). Riff Scanner removes singing / talking before scanning files and video sound (77 → 33 notes, 31 played).
+57. **The 4-track looper** (37a9163, e894403, 286d2d9). Jam → Looper (replaces the Jam and beat maker loopers): one button per track,
+    armed to the bar, Auto or fixed lengths, overdub folding, A/B parts, bass octave, lead ducking, free first loop sets the tempo, timing check,
+    chop / make a tab / resample / save, footswitch A–D, helper commands, strip on Play / Scales / beat maker, Jam → Loop over this progression.
+    Ask: does the ARMED → beat 1 punch-in feel right? Is Auto length intuitive? (He asked 2026-11-07 for "start when I play": not built yet.)
+
+Test builds for him (pre-releases, main untouched): test-38 (everything up to 55), test-39 (+ 56, 57).
+
 Checks: npm test (build32/build33 logic, pdf-tab), browser: build33-test [pdf, maketab, transcribe, z2h], beatmaker-test,
 windows-test [screens, drag, play], and the older suites.
 
