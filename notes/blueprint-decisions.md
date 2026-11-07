@@ -43,3 +43,14 @@ Steps 2 and 3 are broken into substeps (2a–2g, 3a–3j) like Step 1. Owner wen
   3 the owner's Samsung screen recording (media sounds) picked as a file (Riff Scanner explains how when 2 fails) →
   4 the mic only when he taps "Play it out loud". On-screen tab gives notes/frets, sound gives timing/tempo.
 - Chocolate MIDI (1g) comes before the looper pedal profile (3d).
+
+Mid-build audit (2026-11-06 evening), owner's answers:
+- Note scanner: Basic Pitch quick draft first (seconds), then the stronger guitar model (Riley et al. GAPS CRNN, ONNX,
+  downloaded on first use) refines in the background chunk by chunk ("Better version ready"); after the first 10 s chunk it
+  estimates the time and asks if it would take over ~2 min. Beat This! (ONNX) for tempo/downbeats on real songs. Offline
+  before the download = the quick version only.
+- Imported GP tabs with big stretches: keep the writer's frets, flag the stretch, one-tap "Make it easier".
+- Screenshot AI wait: keep the 5 s hedge + keep loading with progress and Cancel.
+- Google Drive: build a real Drive connection (Google sign-in once, KGuitar backs up by itself) — needs a one-time Google
+  Cloud setup done together with the owner.
+- Order: fix the 9 audit gaps + the new note scanner first, then 2e Shorts and 2f Game Mode.
