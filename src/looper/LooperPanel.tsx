@@ -294,6 +294,7 @@ function NowNeck({ st, tuning }: { st: LoopStation; tuning: number[] }) {
   const part: PartId = (st.s.part as PartId)
   const chords = useMemo(() => beatChords(beatInPart(t.beat, part)), [t.beat, part])
   const [pos, setPos] = useState({ bar: 0, beat: 0 })
+  const [emb, setEmb] = useState(() => st.s.tracks[st.s.sel]?.role === 'embellish')
   useEffect(() => {
     let raf = 0, last = ''
     const tick = () => {
@@ -314,11 +315,15 @@ function NowNeck({ st, tuning }: { st: LoopStation; tuning: number[] }) {
   const next = chords[(idx + 1) % n]
   const changing = next && next.name !== now.name && pos.beat >= 2
   const third = next ? next.pcs.find(p => (p - next.root + 12) % 12 === 3 || (p - next.root + 12) % 12 === 4) : undefined
+  const minor = now.pcs.includes((now.root + 3) % 12)
+  // the notes a free finger adds over the chord: 9 (add9 / sus2), 4 (sus4), 6
+  const EMB: [number, string][] = [[2, '9'], [5, '4'], [9, minor ? '' : '6']]
   const markFor = (midi: number): Mark | null => {
     const p = midi % 12
     if (changing && third !== undefined && p === third) return { label: '3', role: 'next' }
     if (p === now.root) return { label: 'R', role: 'root' }
     if (now.pcs.includes(p)) return { label: '', role: 'target' }
+    if (emb) { const e = EMB.find(([iv, l]) => l && (now.root + iv) % 12 === p); if (e) return { label: e[1], role: 'embel' } }
     return null
   }
   return (
@@ -326,6 +331,7 @@ function NowNeck({ st, tuning }: { st: LoopStation; tuning: number[] }) {
       <div className="row lp-chords" style={{ gap: 6, flexWrap: 'wrap' }} aria-label="The beat's chords">
         {chords.map((c, k) => <span key={k} className={`chip${k === idx ? ' on' : ''}`}>{c?.name ?? '–'}</span>)}
       </div>
+      <label className="ex-check small"><input type="checkbox" checked={emb} onChange={e => setEmb(e.target.checked)} data-testid="lp-emb" /> Show the embellishments too (violet: 9, 4 and 6 a free finger can add)</label>
       <Fretboard tuning={tuning} fromFret={0} toFret={12} markFor={markFor} compact zoomId="looper-neck" />
       <span className="small muted">Now: <b>{now.name}</b>{next && next.name !== now.name ? <> → next <b>{next.name}</b></> : null}</span>
     </>
