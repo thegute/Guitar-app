@@ -139,7 +139,7 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
    **Round 3 answers:** owner is a late beginner who can play pentatonics; the curriculum must take a RELATIVELY NEW player all the way to pro
    (all 6 grades, none skipped). Proposed build order: Grade 1 = deepen the existing Zero to Hero (placement test lets him skip), PILOT =
    Grade 2 (his level: neck knowledge, barre chords, major scale, pentatonic -> CAGED intro), then 3, 4, 5, 6. Still to ask: minutes/day.
-   **Round 4 answers (2026-11-07):** (1) FIRST grade to build = **Grade 3 (Connect the neck)**, not Grade 2. (2) Strum Machine side: "figure out
+   **Round 4 answers (2026-11-07):** (1) CORRECTION (owner, 13:00): FIRST grade to build = **Grade 2 (Neck knowledge)**, as originally proposed (NOT Grade 3); then 3, 4, 5, 6; Grade 1 = deepen Zero to Hero. (2) Strum Machine side: "figure out
    a way to get realistic strum sounds": build a strum engine on the CC0 Meta steel samples (notes/research-acoustic.md): down/up strokes with
    per-string timing spread (8-25 ms, scaled by tempo + strength, up-strokes quicker and lighter, top strings only), per-string velocity curve,
    open-position bluegrass chords, bass-note + brush (boom-chuck), muted "chop", ghost/dead strums, pick + string noise, release/mute at the
