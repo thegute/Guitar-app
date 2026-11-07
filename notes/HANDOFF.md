@@ -28,6 +28,10 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
   input is never processed (played back only in the opt-in interface setup); models whose training data is non-commercial are never
   bundled or re-hosted (download from the source on request); ask before deleting anything on his computer.
 
+## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar
+## theory AND techniques, "just like Pickup Music" (6 grades, mastery path; see item 7 round 3-5 decisions, notes/research-pickup.md).
+## Start with Grade 2 as the pilot. The other queue items below follow it (or ride along in the same build when small).
+
 ## Work queue, in order (agreed 2026-11-07)
 1. ~~Handoff + Gemini review package~~ (done: this file, CLAUDE.md, `review/`). Keep them current.
 2. **Part 1 #1: Riff Scanner accuracy from video, slides, hammer-ons, pull-offs.**

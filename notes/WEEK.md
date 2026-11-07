@@ -24,6 +24,7 @@ Tick with [x] and add a few words about what happened. Short notes are perfect (
 - [ ] Web app: does it open and load songs on the computer and the tablet?
 
 ## What Claude works on next session (in this order)
+0. **MAIN FOCUS of the next build (owner): redo the Learn tabs into a full theory + techniques mastery course like Pickup Music, Grade 2 first.**
 1. Read your notes in this file and fix anything broken in test-40.
 2. **Riff Scanner for videos**: take the guitar out of the mix first (6-stem model), so notes and techniques work on lesson videos with
    backing; then tune hammer-on vs slide (it sometimes reads a hammer-on as a slide); test on the Staged Right video.
