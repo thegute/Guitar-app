@@ -30,6 +30,9 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar
 ## theory AND techniques, "just like Pickup Music" (6 grades, mastery path; see item 7 round 3-5 decisions, notes/research-pickup.md).
+## BAR: PRO LEVEL (owner 2026-11-07 13:04: "I want it pro level"). Not primers: every topic taught to working-professional depth
+## (theory + physical technique + musical use), with measurable targets (tempos, accuracy %, keys/positions), a mic-graded check, and a
+## correctness audit of all theory by a separate reviewer before it ships. Grade 6 ends at professional-level playing.
 ## Start with Grade 2 as the pilot. The other queue items below follow it (or ride along in the same build when small).
 
 ## Work queue, in order (agreed 2026-11-07)
