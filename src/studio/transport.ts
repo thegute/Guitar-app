@@ -305,7 +305,7 @@ export class StudioTransport {
     const def = this.beat.pads?.[pad]
     if (!def) return null
     const root = def.src === 'note' || def.src === 'chord' ? def.midi ?? 60 : def.root ?? 60
-    const d: PadDef = { ...def, pitch: (def.pitch ?? 0) + midi - root, mode: def.mode === 'loop' ? 'loop' : 'hold', choke: 0, ...(steps ? { len: steps } : {}) }
+    const d: PadDef = { ...def, keyShift: midi - root, mode: def.mode === 'loop' ? 'loop' : 'hold', choke: 0, ...(steps ? { len: steps } : {}) }
     return playPad(d, pad, when, vel, { kit: this.beat.kit, files: this.files, stepDur: this.stepDur, dest }, !!steps)
   }
   /** Hit a pad now (finger drumming): plays at once, on the beat's kit. */

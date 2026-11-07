@@ -244,6 +244,62 @@ public class MlPlugin extends Plugin {
         });
     }
 
+    /** IEEE half precision, rounded to nearest even (Float.floatToFloat16 needs Android 15, so it's done here). */
+    static short toHalf(float f) {
+        int x = Float.floatToRawIntBits(f);
+        int sign = (x >>> 16) & 0x8000;
+        int e = (x >>> 23) & 0xff;
+        int m = x & 0x7fffff;
+        if (e == 0xff) return (short) (sign | 0x7c00 | (m != 0 ? 0x200 : 0)); // infinity / NaN
+        int ne = e - 127 + 15;
+        if (ne >= 0x1f) return (short) (sign | 0x7c00); // too big: infinity
+        if (ne <= 0) { // subnormal half
+            if (ne < -10) return (short) sign;
+            m |= 0x800000;
+            int shift = 14 - ne;
+            int h = m >>> shift, rem = m & ((1 << shift) - 1), mid = 1 << (shift - 1);
+            if (rem > mid || (rem == mid && (h & 1) != 0)) h++;
+            return (short) (sign | h);
+        }
+        int h = (ne << 10) | (m >>> 13), rem = m & 0x1fff;
+        if (rem > 0x1000 || (rem == 0x1000 && (h & 1) != 0)) h++; // a carry into the exponent is right (up to infinity)
+        return (short) (sign | h);
+    }
+    private static String asHalf(FloatBuffer fb) {
+        ByteBuffer out = ByteBuffer.allocate(fb.remaining() * 2).order(ByteOrder.LITTLE_ENDIAN);
+        while (fb.hasRemaining()) out.putShort(toHalf(fb.get()));
+        return Base64.encodeToString(out.array(), Base64.NO_WRAP);
+    }
+
+    /**
+     * One 7.8 s segment through HT-Demucs (voice isolation / stems): x = [1,4,2048,336], xt = [1,2,343980] (float32,
+     * prepared in the app). All four sources come back as half-precision floats (x_out [16,2048,336], xt_out [8,343980]).
+     */
+    @PluginMethod
+    public void runStems(PluginCall call) {
+        String id = call.getString("id"), xs = call.getString("x"), xts = call.getString("xt");
+        runner.execute(() -> {
+            try {
+                OrtSession s = sessions.get(id);
+                if (s == null) throw new Exception("not loaded");
+                long t0 = System.currentTimeMillis();
+                float[] x = floats(xs), xt = floats(xts);
+                java.util.Map<String, OnnxTensor> in = new HashMap<>();
+                try (OnnxTensor a = OnnxTensor.createTensor(env, FloatBuffer.wrap(x), new long[] { 1, 4, 2048, 336 });
+                     OnnxTensor b = OnnxTensor.createTensor(env, FloatBuffer.wrap(xt), new long[] { 1, 2, 343980 })) {
+                    in.put("x", a); in.put("xt", b);
+                    try (OrtSession.Result r = s.run(in)) {
+                        JSObject o = new JSObject();
+                        o.put("x", asHalf(((OnnxTensor) r.get("x_out").get()).getFloatBuffer()));
+                        o.put("xt", asHalf(((OnnxTensor) r.get("xt_out").get()).getFloatBuffer()));
+                        o.put("ms", System.currentTimeMillis() - t0);
+                        call.resolve(o);
+                    }
+                }
+            } catch (Exception e) { call.reject(String.valueOf(e.getMessage())); }
+        });
+    }
+
     @Override
     protected void handleOnDestroy() {
         for (OrtSession s : sessions.values()) { try { s.close(); } catch (Exception ignored) { } }

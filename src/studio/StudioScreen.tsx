@@ -39,6 +39,7 @@ import { USER_PADS, detectRoot, isUserPad, trimSilence, type PadId } from './pad
 import { saveSample } from './padSamples'
 import { PadEditor } from './PadEditor'
 import { ChopSheet } from './ChopSheet'
+import { GetSound } from './GetSound'
 import { FX, type FxKind } from './fx'
 import { BounceSave } from './BounceSave'
 import type { Handle } from '../audio/pluck'
@@ -390,6 +391,7 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
   const sampler = useSampler(t, beat, setBeat)
   const [editing, setEditing] = useState<string | null>(null)
   const [chop, setChop] = useState(false)
+  const [getSound, setGetSound] = useState(false)
   const [chopMsg, setChopMsg] = useState('')
   const lastPad = useRef<string>('kick')
   // light up the pads the beat plays, straight on the page (no redraw of the screen on every step)
@@ -486,10 +488,12 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
       </div>
       {page === 'mine' && !sampler.on && (
         <div className="row" style={{ gap: 8 }}>
+          <button className="btn sm" onClick={() => setGetSound(true)} data-testid="gs-open"><Ico n="upload" /> Get a sound</button>
           <button className="btn sm" onClick={() => setChop(true)} data-testid="chop-open"><Ico n="guitar" /> Chop a riff onto pads</button>
           {chopMsg && <span className="small" role="status">{chopMsg}</span>}
         </div>
       )}
+      {getSound && <GetSound beat={beat} setBeat={(f, r) => setBeat(f, r)} onClose={() => setGetSound(false)} onDone={m => { setGetSound(false); setChopMsg(m) }} />}
       {chop && <ChopSheet setBeat={(f, r) => setBeat(f, r)} onClose={() => setChop(false)} onDone={n => { setChop(false); setChopMsg(`${n} notes are on Your pads. Play them, or pick "Your pads" as the Keyboard's sound to play one up and down.`) }} />}
       {page === 'mine' && !sampler.on && !voices.some(v => beat.pads?.[v]) && <p className="small muted" style={{ margin: 0 }}>Your own 16 pads. Tap <b>Sample</b>, then hold a pad and make a sound, or tap a pad to put an instrument note or chord on it.</p>}
       <LagNote />

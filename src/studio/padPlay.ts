@@ -7,6 +7,7 @@ import type { Handle } from '../audio/pluck'
 import { loadInstr, playInstr } from './sounds'
 import { sampleNow } from './padSamples'
 import type { PadDef } from './pads'
+import { prepareShift, shiftedNow } from './pitchShift'
 
 const revCache = new WeakMap<AudioBuffer, AudioBuffer>()
 function reversedBuf(b: AudioBuffer): AudioBuffer {
@@ -38,6 +39,9 @@ export function padBuffer(def: PadDef, pad: string, kit: KitId, files: Map<strin
   return null
 }
 
+/** What a pad's shifted copies are kept under. */
+export const shiftId = (def: PadDef, pad: string, kit: KitId) => def.sample ?? def.file?.uri ?? `kit:${kit}:${pad}`
+
 const chokes = new Map<number, Handle>()
 
 export interface PadPlayCtx { kit: KitId; files: Map<string, AudioBuffer>; stepDur: number; dest: AudioNode }
@@ -52,7 +56,7 @@ export function playPad(def: PadDef, pad: string, when: number, vel: number, c: 
   if (def.src === 'note' || def.src === 'chord') {
     if (!def.inst) return null
     void loadInstr(def.inst)
-    const root = (def.midi ?? 60) + (def.pitch ?? 0)
+    const root = (def.midi ?? 60) + (def.pitch ?? 0) + (def.keyShift ?? 0)
     const notes = def.src === 'chord' ? (def.ivs ?? [0, 4, 7]).map(i => root + i) : [root]
     const g = ctx.createGain()
     g.gain.value = 1
@@ -63,15 +67,25 @@ export function playPad(def: PadDef, pad: string, when: number, vel: number, c: 
     if (def.fadeIn) { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + def.fadeIn) }
     h = { stop: (at?: number) => { const s = Math.max(at ?? ctx.currentTime, ctx.currentTime); const f = def.fadeOut || 0.03; g.gain.setTargetAtTime(0, s, f / 3); hs.forEach(x => x.stop(s + f)) } }
   } else {
-    const pb = padBuffer(def, pad, c.kit, c.files)
+    let pb = padBuffer(def, pad, c.kit, c.files)
     if (!pb) return null
+    // the dial: tape (pitch and speed together) or keep the speed (a shifted copy, made once and kept)
+    const dial = def.pitch ?? 0
+    let tape = dial
+    if (def.pitchMode === 'keep' && Math.abs(dial) > 0.005) {
+      const id = shiftId(def, pad, c.kit)
+      const sh = shiftedNow(id, pb.start, pb.end, dial, !!def.natural)
+      if (sh) { pb = { buf: sh, start: 0, end: sh.duration }; tape = 0 }
+      else void prepareShift(id, pb.buf, pb.start, pb.end, dial, !!def.natural)
+    }
+    tape += def.keyShift ?? 0
     const buf = def.reverse ? reversedBuf(pb.buf) : pb.buf
     const a = def.reverse ? buf.duration - pb.end : pb.start
     const b = def.reverse ? buf.duration - pb.start : pb.end
     const len = Math.max(0.005, b - a)
     const src = ctx.createBufferSource()
     src.buffer = buf
-    src.playbackRate.value = Math.pow(2, (def.pitch ?? 0) / 12)
+    src.playbackRate.value = Math.pow(2, tape / 12)
     const g = ctx.createGain()
     const level = 0.9 * vol * vol
     const fi = Math.min(def.fadeIn ?? 0, len / 2)

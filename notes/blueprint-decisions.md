@@ -60,3 +60,16 @@ Mid-build audit (2026-11-06 evening), owner's answers:
   If the guitar model can't run or hears almost nothing clear, the AI's own notes are the backup (marked rough, "Does this
   look right?"). Nothing uploaded for screenshots or offline.
 - Speed: the big models run natively on Android (ONNX Runtime for Android, all cores); onnxruntime-web is the web fallback.
+
+## 2026-11-06 evening: Koala / Yousician comparison (owner's choices)
+- Beat maker, THIS build: Get a sound (file + YouTube grab, clip editor), voice isolation as a toggle, pitch dial (Tape /
+  Keep the speed, voice natural), ALL FOUR stems (drums / bass / vocals / other), stretch a loop/pad to the beat's tempo with
+  automatic tempo + key detection, equal chop and lazy chop (tap pads while it plays), resample (record the beat maker's
+  output through the effects onto a pad), 2 banks of Your pads (A/B = 32 pads, not 64), mic effects while recording
+  (robot, octave up/down, fuzz, synth, more bass/treble, reverb).
+- Game Mode, THIS build: score multiplier (3x → 5x on clean in-time notes, a miss drops it), stars per section + best score
+  from your best run of each section, "Perfect it" (drills the sections you lost stars on), auto speed (25–125 % in 5 %
+  steps), "Play for me" (hear a note/chord first).
+- NOT wanted: difficulty levels / simplified versions of songs ("I don't want to learn any simplified versions of songs").
+- Next cycle: extra effects (comb, ring mod, talkbox, flanger, tempo delay, per-pad/bus FX, mixer slots), note repeat +
+  arpeggiator, weekly challenge + ghost of your best run, left-handed mode; plus the Deep Dive course.

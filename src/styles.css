@@ -2356,3 +2356,26 @@ body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-re
 /* Audio setups: the notice when the Pocket Master is plugged in (switches to mono by itself) */
 .rig-notice { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin: 0 0 var(--sp-2); }
 .rig-notice > span { flex: 1 1 200px; }
+
+/* The dial (pad pitch) */
+.dial { display: inline-flex; flex-direction: column; align-items: center; gap: var(--sp-1); user-select: none; }
+.dial-knob { cursor: grab; outline: none; border-radius: 50%; }
+.dial-knob:focus-visible { box-shadow: 0 0 0 3px var(--accent); }
+.dial-knob.on { cursor: grabbing; }
+.dial-track { fill: none; stroke: var(--line, rgba(127,127,127,.35)); stroke-width: 6; stroke-linecap: round; }
+.dial-fill { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; }
+.dial-tick { stroke: var(--ink-3); stroke-width: 1.2; opacity: .55; }
+.dial-tick.zero { stroke: var(--ink); opacity: 1; stroke-width: 2; }
+.dial-cap { fill: var(--surface); stroke: var(--line, rgba(127,127,127,.35)); stroke-width: 1; }
+.dial-pointer { stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
+.dial-val { fill: var(--ink); font: 600 17px var(--font-display, inherit); font-variant-numeric: tabular-nums; }
+.dial-steps { display: flex; align-items: center; gap: var(--sp-2); }
+.pitch-dial { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; }
+
+/* Get a sound: the clip editor */
+.get-sound { max-width: 760px; }
+.clip-wave-wrap { display: flex; flex-direction: column; gap: var(--sp-1); }
+.clip-wave { position: relative; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line, rgba(127,127,127,.3)); overflow: hidden; cursor: grab; }
+.clip-handle { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: var(--accent); pointer-events: none; }
+.clip-handle::after { content: ''; position: absolute; top: 50%; left: 50%; width: 16px; height: 34px; margin: -17px 0 0 -8px; border-radius: 6px; background: var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.gs-parts { flex-wrap: wrap; }

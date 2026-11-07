@@ -3,13 +3,15 @@
 //   notes  Riley et al. guitar transcription (GAPS checkpoint, Kong et al. model), MIT; trained on recordings that are
 //          for non-commercial use only, which is why KGuitar never ships or re-hosts it: the phone downloads it itself
 //   beats  Beat This! (Foscarin et al., JKU), MIT
+//   voice  HT-Demucs v4 (Meta, MIT), its inner network as converted by the WebNN project (MIT): voice isolation
 // On the phone they run natively (ONNX Runtime for Android on several cores, MlPlugin.java); in a browser through
 // onnxruntime-web (WebGPU when there is one, else WebAssembly), kept in the browser's cache.
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { NOTE, type NoteOut } from './post'
 
 export interface ModelFile { name: string; url: string; bytes: number; sha256: string }
-export type ModelId = 'notes' | 'beats'
+export type ModelId = 'notes' | 'beats' | 'voice'
+const VOICE = 'https://huggingface.co/webnn/stem-separator/resolve/b56f9e66ceffca2401f83d2469dadaddd06e4994/onnx/'
 const HF = 'https://huggingface.co/baroned/musicnote-ondevice-models/resolve/fb6a270d0492862389958c898d7def780ad6ccff/'
 export const MODELS: Record<ModelId, { label: string; main: string; files: ModelFile[] }> = {
   notes: {
@@ -25,6 +27,14 @@ export const MODELS: Record<ModelId, { label: string; main: string; files: Model
     main: 'beat_this.onnx',
     files: [{ name: 'beat_this.onnx', url: HF + 'beat_this.onnx', bytes: 83106043, sha256: '66f856129d70b3540aeef9b9cdf0fd7f96d24fd676810f110a7547ec332a511a' }],
   },
+  voice: {
+    label: 'Voice isolation',
+    main: 'htdemucs_fwd.onnx',
+    files: [
+      { name: 'htdemucs_fwd.onnx', url: VOICE + 'htdemucs_fwd.onnx', bytes: 2385507, sha256: '555f511fb653348a1c9495ab6b6091767d1920798f3fba68629a1fe5b135a45f' },
+      { name: 'htdemucs_fwd.onnx.data', url: VOICE + 'htdemucs_fwd.onnx.data', bytes: 168361984, sha256: '23a7c68669c041363caaef94641e961dc8c4e16b9891cb87f58f0e199a5e8820' },
+    ],
+  },
 }
 export const totalMB = (ids: ModelId[] = ['notes', 'beats']) => Math.round(ids.reduce((t, id) => t + MODELS[id].files.reduce((a, f) => a + f.bytes, 0), 0) / 1e6)
 
@@ -37,6 +47,7 @@ interface MlNative {
   unload(o: { id: string }): Promise<void>
   runNotes(o: { id: string; data: string }): Promise<{ onset: string; offset: string; frame: string; velocity: string; ms: number }>
   runBeats(o: { id: string; data: string; frames: number }): Promise<{ beat: string; downbeat: string; ms: number }>
+  runStems(o: { id: string; x: string; xt: string }): Promise<{ x: string; xt: string; ms: number }>
   addListener(e: 'progress', f: (p: { done: number; total: number }) => void): Promise<{ remove: () => void }>
 }
 const native = registerPlugin<MlNative>('Ml')
@@ -56,6 +67,16 @@ function unb64(s: string): Uint8Array {
 }
 const f32ToB64 = (x: Float32Array) => b64(new Uint8Array(x.buffer, x.byteOffset, x.byteLength))
 const b64ToF32 = (s: string) => { const b = unb64(s); return new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4) }
+/** IEEE half floats (little-endian) → float32 */
+export function halfToF32(u: Uint16Array): Float32Array {
+  const f = new Float32Array(u.length)
+  for (let i = 0; i < u.length; i++) {
+    const h = u[i], s = h & 0x8000 ? -1 : 1, e = (h >> 10) & 0x1f, m = h & 0x3ff
+    f[i] = e === 0 ? s * m * 2 ** -24 : e === 31 ? (m ? NaN : s * Infinity) : s * (1 + m / 1024) * 2 ** (e - 15)
+  }
+  return f
+}
+const b64HalfToF32 = (s: string) => { const b = unb64(s); return halfToF32(new Uint16Array(b.buffer, b.byteOffset, b.byteLength / 2)) }
 const b64U16ToF32 = (s: string) => { const b = unb64(s); const u = new Uint16Array(b.buffer, b.byteOffset, b.byteLength / 2); const f = new Float32Array(u.length); for (let i = 0; i < u.length; i++) f[i] = u[i] / 65535; return f }
 
 // ---------- web: the browser's cache ----------
@@ -146,14 +167,15 @@ export async function ortWeb(): Promise<Ort> {
 }
 type Sess = import('onnxruntime-web').InferenceSession
 const webSessions = new Map<ModelId, { s: Sess; where: 'webgpu' | 'wasm' }>()
-async function webSession(id: ModelId): Promise<{ s: Sess; where: 'webgpu' | 'wasm' }> {
+async function webSession(id: ModelId, only?: 'wasm'): Promise<{ s: Sess; where: 'webgpu' | 'wasm' }> {
   const have = webSessions.get(id)
-  if (have) return have
+  if (have && (!only || have.where === only)) return have
+  if (have) { void have.s.release().catch(() => {}); webSessions.delete(id) }
   const ort = await ortWeb()
   const m = MODELS[id]
   const main = await webBytes(m.files.find(f => f.name === m.main)!)
   const extra = await Promise.all(m.files.filter(f => f.name !== m.main).map(async f => ({ path: f.name, data: await webBytes(f) })))
-  const gpu = typeof navigator !== 'undefined' && 'gpu' in navigator
+  const gpu = !only && typeof navigator !== 'undefined' && 'gpu' in navigator
   for (const ep of gpu ? (['webgpu', 'wasm'] as const) : (['wasm'] as const)) {
     try {
       const s = await ort.InferenceSession.create(main, { executionProviders: [ep], ...(extra.length ? { externalData: extra } : {}) })
@@ -215,6 +237,41 @@ export async function beatRunner(): Promise<BeatRunner> {
       return { beat: (r.beat.data as Float32Array).slice(), downbeat: (r.downbeat.data as Float32Array).slice() }
     },
   }
+}
+
+// ---------- voice isolation / stems: one 7.8 s segment, all four sources ----------
+export interface VoiceRunner { where: 'phone' | 'webgpu' | 'wasm'; run(x: Float32Array, xt: Float32Array): Promise<{ x: Float32Array; xt: Float32Array }> }
+export async function voiceRunner(): Promise<VoiceRunner> {
+  if (onPhone()) {
+    if (!loaded.has('voice')) { const r = await native.load({ id: 'voice', file: MODELS.voice.main }); if (!r.ok) throw new Error(r.error ?? 'load'); loaded.add('voice') }
+    return {
+      where: 'phone',
+      async run(x, xt) {
+        const r = await native.runStems({ id: 'voice', x: f32ToB64(x), xt: f32ToB64(xt) })
+        return { x: b64HalfToF32(r.x), xt: b64HalfToF32(r.xt) }
+      },
+    }
+  }
+  let { s, where } = await webSession('voice')
+  const ort = await ortWeb()
+  const once = async (x: Float32Array, xt: Float32Array) => {
+    const r = await s.run({ x: new ort.Tensor('float32', x, [1, 4, 2048, 336]), xt: new ort.Tensor('float32', xt, [1, 2, 343980]) })
+    return { x: (r.x_out.data as Float32Array).slice(), xt: (r.xt_out.data as Float32Array).slice() }
+  }
+  const out: VoiceRunner = {
+    where,
+    async run(x, xt) {
+      const r = await once(x, xt)
+      // some graphics chips give NaN for parts of this network: then it runs on the processor instead
+      if (where === 'webgpu' && r.xt.some((v, i) => i % 9973 === 0 && !Number.isFinite(v))) {
+        ;({ s, where } = await webSession('voice', 'wasm'))
+        out.where = where
+        return once(x, xt)
+      }
+      return r
+    },
+  }
+  return out
 }
 
 // ---------- the quick draft: Basic Pitch (Spotify, Apache 2.0, 230 KB, shipped with the app) ----------

@@ -29,8 +29,14 @@ export interface PadDef {
   end?: number
   /** the note a recording is (found when it's recorded): Keys mode plays it up and down from here */
   root?: number
-  /** semitones up or down */
+  /** semitones up or down (any amount in between: the pitch dial) */
   pitch?: number
+  /** tape = pitch and speed together (a record sped up or slowed down); keep = the same length at any pitch */
+  pitchMode?: 'tape' | 'keep'
+  /** keep mode: keep a voice natural (no cartoon voice) */
+  natural?: boolean
+  /** Keys mode: semitones from the pad's own pitch (always tape, on top of the dial) */
+  keyShift?: number
   vol?: number
   reverse?: boolean
   mode?: PadMode

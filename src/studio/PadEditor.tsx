@@ -10,11 +10,13 @@ import { FLATS, SHARPS, keyPrefersFlats, pc } from '../theory/notes'
 import { padLabel, voiceLabel, type Beat } from './beat'
 import { isUserPad, type PadDef, type PadMode, type PadSrc } from './pads'
 import { loadSampleBuf, sampleNow } from './padSamples'
-import { padBuffer } from './padPlay'
+import { padBuffer, shiftId } from './padPlay'
 import { CHORD_TYPES, INSTRS, INSTR_GROUPS, instr, keyChord, loadInstr } from './sounds'
 import type { StudioTransport } from './transport'
 import type { MySounds } from './mySounds'
 import { loadSample } from './mySounds'
+import { Dial } from '../components/Dial'
+import { prepareShift } from './pitchShift'
 
 const noteName = (m: number, flats: boolean) => (flats ? FLATS : SHARPS)[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1)
 const MODES: { id: PadMode; label: string; hint: string }[] = [
@@ -149,10 +151,7 @@ export function PadEditor({ pad, beat, setBeat, t, mine, onClose, onRecord, reco
 
         <section className="opt-group" aria-label="Pad settings">
           <h3>Settings</h3>
-          <div className="opt-row"><span className="opt-name">Pitch</span>
-            <input type="range" min={-24} max={24} step={1} value={def.pitch ?? 0} onChange={e => set({ pitch: Number(e.target.value) })} aria-label="Pitch in semitones" />
-            <b className="pad-val">{(def.pitch ?? 0) > 0 ? '+' : ''}{def.pitch ?? 0}</b>
-          </div>
+          <PitchDial def={def} set={set} buf={buf} id={shiftId(def, pad, beat.kit)} />
           <div className="opt-row"><span className="opt-name">Volume</span>
             <input type="range" min={0} max={2} step={0.05} value={def.vol ?? 1} onChange={e => set({ vol: Number(e.target.value) })} aria-label="Pad volume" />
             <b className="pad-val">{Math.round((def.vol ?? 1) * 100)}%</b>
@@ -237,3 +236,37 @@ function Wave({ buf, start, end, onChange, onHear }: { buf: AudioBuffer; start: 
   )
 }
 export { sampleNow }
+
+/** The pitch dial: two octaves down to two up, anything in between; Tape (pitch and speed together) or Keep the speed. */
+function PitchDial({ def, set, buf, id }: { def: PadDef; set: (p: Partial<PadDef>, remember?: boolean) => void; buf: { buf: AudioBuffer; start: number; end: number } | null; id: string }) {
+  const [busy, setBusy] = useState('')
+  const sampled = def.src === 'rec' || def.src === 'file' || def.src === 'kit'
+  const keep = def.pitchMode === 'keep' && sampled
+  const fmt = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v) % 1 ? Math.abs(v).toFixed(2) : Math.abs(v)}`
+  // keep-the-speed copies are made when you let go of the dial (they take a moment)
+  const ready = (v: number, mode = def.pitchMode, natural = !!def.natural) => {
+    if (mode !== 'keep' || !buf || Math.abs(v) < 0.005) { setBusy(''); return }
+    setBusy('Getting it ready…')
+    void prepareShift(id, buf.buf, buf.start, buf.end, v, natural).then(r => setBusy(r ? '' : "Couldn't shift this sound: it plays as Tape."))
+  }
+  return (
+    <div className="pitch-dial" data-testid="pitch-dial">
+      <Dial value={def.pitch ?? 0} min={-24} max={24} snap={1} label="Pitch" format={fmt}
+        onChange={v => set({ pitch: v })} onCommit={v => { set({ pitch: v }, true); ready(v) }} />
+      <div className="stack" style={{ gap: 6, flex: 1, minWidth: 160 }}>
+        <span className="small muted">{Math.abs(def.pitch ?? 0) < 0.005 ? 'Its own pitch.' : `${Math.abs(def.pitch ?? 0) >= 12 ? `${Math.floor(Math.abs(def.pitch ?? 0) / 12)} octave${Math.abs(def.pitch ?? 0) >= 24 ? 's' : ''} ` : ''}${(def.pitch ?? 0) > 0 ? 'higher' : 'lower'}${keep ? ', same length' : (def.pitch ?? 0) > 0 ? ' and faster' : ' and slower'}.`}</span>
+        {sampled && (
+          <span className="seg" role="group" aria-label="How the pitch changes">
+            <button aria-pressed={!keep} onClick={() => { set({ pitchMode: 'tape' }, true); setBusy('') }} title="Higher is faster, lower is slower, like a record sped up or slowed down.">Tape</button>
+            <button aria-pressed={keep} onClick={() => { set({ pitchMode: 'keep' }, true); ready(def.pitch ?? 0, 'keep') }} title="Higher or lower without changing its length, so it stays in time.">Keep the speed</button>
+          </span>
+        )}
+        {keep && (
+          <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={!!def.natural} onChange={e => { set({ natural: e.target.checked }, true); ready(def.pitch ?? 0, 'keep', e.target.checked) }} />
+            <span>Keep a voice natural <span className="muted">(no cartoon voice when it's shifted)</span></span></label>
+        )}
+        {busy && <span className="small" role="status">{busy}</span>}
+      </div>
+    </div>
+  )
+}
