@@ -97,6 +97,41 @@ const errs = (page, where) => { if (page.errors.length) bad(`${where} page error
     errs(page, 'transcribe')
     await page.context().close()
   }
+  if (want('voiceout')) {
+    // a guitar melody with someone singing other notes over it: with "Take the voice out first" the scan should be
+    // close to the 31 notes played; without it, the singing adds notes
+    const fs = require('fs')
+    const DIST = path.join(DIR, '..', '..', 'dist'), MODELS = process.env.KG_MODELS || '/tmp/claude-0/models'
+    const TM = path.join(DIST, '__testmodels')
+    fs.mkdirSync(TM, { recursive: true })
+    for (const f of ['htdemucs_fwd.onnx', 'htdemucs_fwd.onnx.data']) if (!fs.existsSync(path.join(TM, f))) fs.symlinkSync(path.join(MODELS, 'demucs', f), path.join(TM, f))
+    const count = async (voiceOut) => {
+      const page = await newPage(browser, { 'kg:scanVoiceOut': voiceOut }, { width: 840, height: 757 })
+      await page.route(/cdn\.jsdelivr\.net\/npm\/onnxruntime-web@[^/]+\/dist\/(.+)$/, r => r.fulfill({ path: path.join(DIR, '..', '..', 'node_modules', 'onnxruntime-web', 'dist', /dist\/(.+)$/.exec(r.request().url())[1]), headers: { 'access-control-allow-origin': '*' } }))
+      if (voiceOut) await page.evaluate(async () => {
+        const c = await caches.open('kg-models-v1')
+        const base = 'https://huggingface.co/webnn/stem-separator/resolve/b56f9e66ceffca2401f83d2469dadaddd06e4994/onnx/'
+        for (const f of ['htdemucs_fwd.onnx', 'htdemucs_fwd.onnx.data']) { const b = await (await fetch('/__testmodels/' + f)).arrayBuffer(); await c.put(base + f, new Response(b, { headers: { 'content-length': String(b.byteLength) } })) }
+      })
+      await nav(page, 'Jam'); await sub(page, 'Riff Scanner'); await page.locator('[data-testid=scan-mode-listen]').click()
+      const box = page.locator('[data-testid=transcriber]')
+      const tg = box.locator('[data-testid=voice-out-toggle]')
+      if (!(await tg.count())) bad('voiceout: no Take the voice out first switch')
+      if (voiceOut && (await box.locator('[data-testid=voice-out-get]').count())) bad('voiceout: asks to download a model that is already there')
+      await box.locator('[data-testid=tx-file]').setInputFiles(path.join(DIR, 'out', 'ode-voice.wav'))
+      if (voiceOut) await page.locator('text=Taking the singing and talking out').first().waitFor({ timeout: 15000 }).catch(() => bad('voiceout: no voice step shown'))
+      await box.locator('[data-testid=scan-result]').waitFor({ timeout: 400000 }).catch(() => bad(`voiceout ${voiceOut}: no tab`))
+      const n = await box.locator('[data-testid=scan-player] .tab-note').count()
+      await page.screenshot({ path: path.join(DIR, 'out', `b33-voiceout-${voiceOut ? 'on' : 'off'}.png`) })
+      errs(page, 'voiceout')
+      await page.context().close()
+      return n
+    }
+    const off = await count(false), on = await count(true)
+    console.log(`voice out: ${off} notes with the singing, ${on} with the voice taken out (31 played)`)
+    if (!(Math.abs(on - 31) < Math.abs(off - 31))) bad(`voiceout: taking the voice out didn't help (${off} → ${on})`)
+    if (Math.abs(on - 31) > 6) bad(`voiceout: ${on} notes with the voice out, expected about 31`)
+  }
   if (want('z2h')) {
     for (const vp of [{ width: 412, height: 915 }, { width: 840, height: 757 }]) {
       const page = await newPage(browser, { 'kg:z2h': { phase: 2, since: Date.now(), placed: true, ticks: [], paths: ['slackkey', 'flatpick'] }, 'kg:sub:learn': 'course' }, vp)

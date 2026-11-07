@@ -19,6 +19,7 @@ import { canRead, readPieces, writtenTempo } from './read'
 import { chartText, parseTime, watchLink } from './link'
 import { canGrab, startGrab, type GrabSession } from './grab'
 import { useSoundScan } from './useSoundScan'
+import { VoiceOutToggle } from './VoiceOut'
 import { ShortsFeed } from './ShortsFeed'
 import { youtubeId } from '../tabs/library'
 import { YouTubePlayer } from '../components/YouTubePlayer'
@@ -344,6 +345,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
         <label className="btn primary"><Ico n="camera" /> Screenshots<input type="file" accept="image/*" multiple hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} data-testid="scan-pics" /></label>
         <label className="btn"><Ico n="upload" /> Video or audio file<input type="file" accept="video/*,audio/*" hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} data-testid="scan-file" /></label>
       </div>
+      <VoiceOutToggle />
       <p className="small muted" style={{ margin: 0 }}>A tab shown on screen is read exactly (pause on it and screenshot, a few in order if it scrolls). A screen recording of the video also works: KGuitar finds the tab, follows it as it scrolls, and takes the tempo from the sound.</p>
       {pics.length > 0 && !stages && (
         <div className="stack" style={{ gap: 8 }}>

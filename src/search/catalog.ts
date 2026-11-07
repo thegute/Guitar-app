@@ -399,6 +399,9 @@ export const FEATURES: Entry[] = [
   f({ id: 'transcribe', title: 'Notes from a recording', where: 'Jam → Riff Scanner → Listen', guide: 'Notes from a recording (accurate)', target: { go: { jam: 'find' } },
     text: 'Record yourself or pick an audio or video file: Basic Pitch writes down every note (chords too) and makes a tab.',
     keys: 'transcribe transcription notes from audio audio to tab recording to tab basic pitch melody to tab what notes video file mp3 tab from audio' }),
+  f({ id: 'voiceout', title: 'Take the voice out before scanning', where: 'Jam → Riff Scanner (Scan a video, Notes from a recording)', guide: 'Notes from a recording (accurate)', target: { go: { jam: 'find' } },
+    text: 'Singing or talking over the guitar is taken out first, so it doesn\'t turn into wrong notes.',
+    keys: 'voice out remove vocals talking singing lesson chatter teacher talking over guitar isolate guitar scan transcribe cleaner notes' }),
 
   // ───────────── Tools
   f({ id: 'tuner', title: 'Tuner', where: 'Tools → Tuner', guide: ['Tune up first', 'Tuner'], target: { tool: 'tuner' }, boost: 0.1,

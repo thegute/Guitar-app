@@ -1,5 +1,6 @@
 // Jam → Riff Scanner → Listen → "Notes from a recording": record yourself (or the phone speaker playing a solo lesson) or pick
 // an audio file: a quick draft at once, then the guitar-note model's exact version and the AI's chords (useSoundScan).
+import { VoiceOutToggle } from '../scan/VoiceOut'
 import { useEffect, useRef, useState } from 'react'
 import { Ico } from './Icon'
 import { InputRecorder } from '../audio/looper'
@@ -68,6 +69,7 @@ export function Transcriber({ youtube }: { onOpen?: (d: SongDoc) => void; youtub
           <label className={`btn${state !== 'idle' || scan.busy ? ' disabled' : ''}`}><Ico n="file" /> Audio or video file<input type="file" accept="audio/*,video/*" hidden disabled={state !== 'idle' || scan.busy} onChange={e => { void file(e.target.files?.[0]); e.target.value = '' }} data-testid="tx-file" /></label>
         </div>
       )}
+      {!result && <VoiceOutToggle />}
       {(msg || scan.msg) && <p className="small" role="status" style={{ margin: 0 }}>{msg || scan.msg}</p>}
       {result}
     </div>
