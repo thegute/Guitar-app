@@ -62,7 +62,11 @@ Nothing important lives only in the old chat: if a detail isn't in these files o
    reverb + compression (tools/ render scripts), measuring note F1 and technique accuracy before/after, plus his real videos.
 3. **Part 1 #2: Game Mode, Yousician-style.** Owner 2026-11-07 on test-40: "on Play it for me it just has a line that doesn't move… I want a bouncing
    ball EXACTLY like Yousician". Now: a 7 px gold dot pinned to the hit line (GameHighway.tsx ~163) that moves only while a run plays;
-   "Play for me" only sounds the next note, so nothing scrolls. Build the real Yousician ball FIRST in this item. (a) A bouncing ball that arcs from note to note and lands on each note exactly on its time
+   "Play for me" only sounds the next note, so nothing scrolls. Build the real Yousician ball FIRST in this item. Agreed design (owner 2026-11-07): the tab/notes slide right→left
+   continuously toward the fixed play line and the ball stays at (or just around) that line, so it never leaves the screen; between
+   notes it arcs up and lands ON the next note's head (its string's height, a chord's box) exactly on the beat, arc height from the gap;
+   the notes sliding under it make it look like it hops along them. Rests: small beat hops or a wait. Paused / Wait for me: scroll and
+   ball wait together. Big and easy to see. Check a current Yousician guitar video first to match the look. (a) A bouncing ball that arcs from note to note and lands on each note exactly on its time
    (a ball exists in `components/GameHighway.tsx` since 1d4f07d: check how it moves and make it a true parabolic hop per note, landing
    on the hit line at the note's time, size/colour per finger); (b) a floating, movable, resizable, hidable tiny finger diagram (see #4);
    (c) **YouTube backing with the guitar removed**: he chose the 6-stem model and "record it once, then play": the video plays through
