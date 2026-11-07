@@ -384,7 +384,7 @@ export function alignAnywhere(env: Float32Array, noteSecs: number[], bpm: number
 export function loopTempo(x: Float32Array, sr: number): { bpm: number; beats: number } | null {
   const dur = x.length / sr
   if (dur < 0.8) return null
-  const g = tempoFromOnsets(onsets(x, sr))
+  const g = tempoFromOnsets(onsets(x, sr), { hop: hopSec(sr) })
   let best: { bpm: number; beats: number; err: number } | null = null
   for (let beats = 2; beats <= 64; beats++) {
     const bpm = (60 * beats) / dur

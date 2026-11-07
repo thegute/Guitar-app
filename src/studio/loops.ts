@@ -5,6 +5,7 @@
 //   * free loop: play a loop roughly, stop whenever; it's stretched (without changing pitch) to a whole number of bars
 // Takes are levelled to a steady loudness (not just their peak), so quiet playing isn't lost in the mix.
 // Pure maths here (no audio context), so it can be tested; stored in IndexedDB per beat.
+import { loopTempo } from '../audio/tempo'
 
 /** Onset strength every `hop` samples (positive change in energy). */
 export function onsetEnvelope(x: Float32Array, sr: number, hopSec = 0.005): Float32Array {
@@ -120,6 +121,19 @@ export function fitToBars(x: Float32Array, sr: number, barDur: number): { sample
   const out = new Float32Array(len)
   out.set(x.subarray(0, Math.min(len, x.length)))
   return { samples: out, bars, ratio: len / x.length, how: 'trim' }
+}
+
+/**
+ * A loop (a pad sample or a free take) to the beat's tempo: its own tempo and length in beats (from its length and the
+ * pulse heard in it), then stretched to the same number of beats at `bpm`. Stretching more than 25% sounds smeared, so
+ * then it says how far off it is instead and the beat can change to the loop's tempo.
+ */
+export function matchTempo(x: Float32Array, sr: number, bpm: number): { srcBpm: number; beats: number; ratio: number; samples?: Float32Array } | null {
+  const lt = loopTempo(x, sr)
+  if (!lt) return null
+  const target = Math.round(((lt.beats * 60) / bpm) * sr)
+  const ratio = target / x.length
+  return { srcBpm: lt.bpm, beats: lt.beats, ratio, ...(Math.abs(ratio - 1) <= 0.25 ? { samples: Math.abs(ratio - 1) < 0.002 ? x : stretch(x, target, sr) } : {}) }
 }
 
 /** Level a take: about −18 dBFS loudness over the parts you played, peaks kept under control, tiny edge fades. */

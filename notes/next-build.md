@@ -115,3 +115,15 @@ Each one is its own saved checkpoint, so any single one can be undone without to
 
 Checks: npm test (new tests/build30-logic.test.ts), tests/browser/build30-test.cjs (report, practice, right, tvn, remote, usage),
 ui-scan at 4 sizes, build14 tour + contrast, older browser suites.
+
+## Saved for the next work cycle (owner 2026-11-06: "if not, save it for after usage credit resets")
+- DEEP DIVE course (intermediate → advanced), the written theory lessons are only primers (55 lessons, ~4,300 words, ~80 each).
+  10 units, each multi-part (~800–1,500 original words per part, never copied), with hear-it examples on the neck, mic-checked
+  exercises, a checkpoint per unit, wired into Zero to Hero and the Practice button:
+  1 CAGED in depth (arpeggios + chord tones inside each shape, connecting shapes) · 2 Intervals everywhere (shapes on every string
+  pair incl. the B-string shift, finding notes by interval) · 3 Modes you can use (characteristic notes, which chords imply which
+  mode, vamps, hearing them) · 4 Triads and voice leading (string sets, inversions, smooth moves; uses the fretboard brain / Connect)
+  · 5 Pro voicings (drop-2, drop-3, shells, extensions, chord melody) · 6 Chord-tone soloing (target notes on the changes) ·
+  7 Improvising (approach notes, enclosures, motif development, phrasing, space, rhythmic variety, call and response) ·
+  8 Ear training course (intervals in context, chord qualities, progressions, melodic dictation) · 9 Transcribing method ·
+  10 Modal and borrowed harmony.

@@ -31,7 +31,8 @@ import {
 } from './beat'
 import { CHORD_TYPES, INSTRS, INSTR_GROUPS, chordNotes, instr, keyChord, loadInstr, type Voicing } from './sounds'
 import { StudioTransport, type LoopFx, type LoopLayer } from './transport'
-import { deleteLoop, fitToBars, gridOffset, levelLoop, loopsFor, rotate, saveLoop } from './loops'
+import { deleteLoop, fitToBars, gridOffset, levelLoop, loopsFor, rotate, saveLoop, stretch } from './loops'
+import { loopTempo } from '../audio/tempo'
 import { beatChords, scalesFor } from './practice'
 import { guessPads, loadMyPads, loadSample, mySounds, mySoundsAvailable, pickSoundFolder, saveMySounds, type MySounds } from './mySounds'
 import { USER_PADS, detectRoot, isUserPad, trimSilence, type PadId } from './pads'
@@ -1025,6 +1026,9 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
   const [align, setAlign] = usePersist('studioAlign', true)
   const [state, setState] = useState<'idle' | 'waiting' | 'rec' | 'working'>('idle')
   const [note, setNote] = useState('')
+  // a first free loop far from the beat's tempo: offer to change the beat to the loop's own tempo (then it fits whole)
+  const [tempoOffer, setTempoOffer] = useState<{ raw: Float32Array; bpm: number; bars: 1 | 2 | 4 | 8; id: string } | null>(null)
+  const lastKept = useRef('')
   const [layers, setLayersRaw] = useState<Layer[]>([])
   const rec = useRef<InputRecorder | null>(null)
   const freeStart = useRef(0)
@@ -1064,6 +1068,7 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
     if (bars > b.bars) setBeat(bb => setBars(bb, bars as Beat['bars']))
     else if (bars < b.bars) { const rep = new Float32Array(Math.round(b.bars / bars) * x.length); for (let k = 0; k * x.length < rep.length; k++) rep.set(x, k * x.length); x = rep }
     const id = newId()
+    lastKept.current = id
     const len = Math.max(bars, b.bars)
     await saveLoop({ id, beat: b.name, sr, data: x, vol: 1, bars: len, at: Date.now() })
     const buf = ctx.createBuffer(1, x.length, sr)
@@ -1086,7 +1091,15 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
       try {
         const raw = await rec.current!.capture(freeStart.current + input(), dur)
         const fit = fitToBars(raw, ctx.sampleRate, t.barDur)
+        const first = live.current.layers.length === 0
+        setTempoOffer(null)
         await keep(fit.samples, fit.bars, fit.how === 'stretch' ? ` Fitted to ${fit.bars} bar${fit.bars > 1 ? 's' : ''} (${fit.ratio >= 1 ? 'slowed' : 'sped up'} ${Math.abs(Math.round((fit.ratio - 1) * 100))}%, too small to hear).` : ` Kept at its own speed and made ${fit.bars} bar${fit.bars > 1 ? 's' : ''} long (${fit.ratio > 1 ? 'a little quiet added at the end' : 'the end trimmed'}). For a perfect fit, use "On the beat".`)
+        // the first loop decides the tempo: when it's far from the beat's, offer the loop's own tempo
+        if (first && fit.how === 'trim' && lastKept.current) {
+          const lt = loopTempo(raw, ctx.sampleRate)
+          const bars = lt && lt.beats % 4 === 0 ? lt.beats / 4 : 0
+          if (lt && (bars === 1 || bars === 2 || bars === 4 || bars === 8) && Math.abs(lt.bpm - live.current.beat.bpm) >= 2) setTempoOffer({ raw, bpm: Math.round(lt.bpm), bars, id: lastKept.current })
+        }
       } catch { setNote("Couldn't record. Check the input: Play → Options → Set up input.") }
       setState('idle')
       return
@@ -1148,6 +1161,18 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
     }).catch(() => undefined)
   }
   const remove = (id: string) => { void deleteLoop(id); setLayers(live.current.layers.filter(x => x.id !== id)) }
+  /** The beat takes the first loop's tempo; the loop is kept whole (a tiny stretch to the rounded tempo, never heard). */
+  const applyLoopTempo = async () => {
+    const o = tempoOffer
+    if (!o) return
+    setTempoOffer(null)
+    remove(o.id)
+    const sr = audio().sampleRate
+    setBeat(b => setBars({ ...b, bpm: o.bpm }, o.bars))
+    t.beat = { ...live.current.beat, bpm: o.bpm }
+    const target = Math.round(((o.bars * 4 * 60) / o.bpm) * sr)
+    await keep(stretch(o.raw, target, sr), o.bars, ` The beat is now ${o.bpm} BPM and your loop fits as ${o.bars} whole bar${o.bars > 1 ? 's' : ''}.`)
+  }
   /** Add a ready-made loop (a bounce): exactly the beat's length, kept as it is. */
   const addRaw = async (x: Float32Array, bars: number) => {
     const ctx = audio()
@@ -1163,12 +1188,12 @@ function useLoops(t: StudioTransport, beat: Beat, setBeat: SetBeat, play: (count
     setLayers(live.current.layers.map(l => (l.id in m ? { ...l, mute: m[l.id] } : l)))
     void loopsFor(live.current.beat.name).then(list => list.forEach(sv => { if (sv.id in m) void saveLoop({ ...sv, mute: m[sv.id] }) }))
   }
-  return { mode, setMode, align, setAlign, state, note, layers, record: () => void record(), cancel, undo, setLayer, remove, addRaw, setMutes }
+  return { mode, setMode, align, setAlign, state, note, layers, record: () => void record(), cancel, undo, setLayer, remove, addRaw, setMutes, tempoOffer, setTempoOffer, applyLoopTempo }
 }
 type Loops = ReturnType<typeof useLoops>
 
 function Looper({ t, beat, loops, playing, play, pedalMode, setPedalMode }: { t: StudioTransport; beat: Beat; loops: Loops; playing: boolean; play: (c?: number) => void; pedalMode: 'loop' | 'play'; setPedalMode: (m: 'loop' | 'play') => void }) {
-  const { mode, setMode, align, setAlign, state, note, layers } = loops
+  const { mode, setMode, align, setAlign, state, note, layers, tempoOffer, setTempoOffer, applyLoopTempo } = loops
   const busy = state !== 'idle'
   return (
     <Win id="loops" title="Looper" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }}>
@@ -1190,6 +1215,13 @@ function Looper({ t, beat, loops, playing, play, pedalMode, setPedalMode }: { t:
         </div>
       </div>
       {note && <p className="small" style={{ margin: 0 }} role="status">{note}</p>}
+      {tempoOffer && (
+        <div className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }} data-testid="loop-tempo-offer">
+          <span>Your loop is about <b>{tempoOffer.bpm} BPM</b> ({tempoOffer.bars} bar{tempoOffer.bars > 1 ? 's' : ''}). Change the beat to it, so the whole loop fits?</span>
+          <button className="btn sm primary" onClick={() => void applyLoopTempo()}>Use {tempoOffer.bpm} BPM</button>
+          <button className="btn sm ghost" onClick={() => setTempoOffer(null)}>Keep {beat.bpm}</button>
+        </div>
+      )}
       {layers.length > 0 && (
         <ul className="st-layers">
           {layers.map((l, i) => (

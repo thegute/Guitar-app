@@ -285,6 +285,8 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
    Shorts feed + Yousician game mode; 4-track looper workstation, Progressive Melodic Metal + Dylan Gossett courses, export doc).
    Approved 2026-11-06 and in progress on `big-update` (full text notes/blueprint-part1.txt + part2.txt, answers in
    notes/blueprint-decisions.md; Game Mode spec is complete in part2).
+0c. Next work cycle: the DEEP DIVE course (10 units, spec in notes/next-build.md "Saved for the next work cycle"); the owner
+   asked for real depth in CAGED, modes, intervals, ear training, voicings, soloing, improvising, voice leading.
 1. Owner tries build 29 (his Gemini choice 3.5 Flash Lite answers in 0.7 s; 3.8/3.7 Flash hang or 503 on the free tier; Groq key added = first backup); fix what he finds. Untested on a real phone: 🎤 talk with the USB amp plugged in / while Play listens, Gemini voice, streaming in the Android web view.
 2. Note follower accuracy (fewer misreads, accept bends; GP test files in the scratchpad testdata) and a better note detector for Notes mode (own guitar only).
 3. Hand position accuracy in Play, Jam looper loud/reliable, ukulele theory, more badges, chord-tone lessons, deep CAGED, a simplicity pass.
