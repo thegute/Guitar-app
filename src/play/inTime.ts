@@ -78,8 +78,10 @@ export function scoreRun(results: (Judgement | 'miss' | undefined)[], errs: numb
 }
 
 /** Speed trainer: after a pass, the next speed (fraction of full tempo). */
-export function nextSpeed(cur: number, score: number, opts: { step: number; target: number; pass: number }) {
+export function nextSpeed(cur: number, score: number, opts: { step: number; target: number; pass: number; down?: number; min?: number }) {
   if (score >= opts.pass) return Math.min(opts.target, Math.round((cur + opts.step) * 100) / 100)
+  // auto speed (Game Mode): a rough pass slows it down a step
+  if (opts.down !== undefined && score < opts.down) return Math.max(opts.min ?? 0.25, Math.round((cur - opts.step) * 100) / 100)
   return cur
 }
 

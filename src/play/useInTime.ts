@@ -11,7 +11,7 @@ import {
   type Clock, type Judgement, type RunStats, type VideoApi, type VideoSync, videoTimeOf,
 }  from './inTime'
 
-export interface TrainerOpts { on: boolean; start: number; step: number; target: number; pass: number }
+export interface TrainerOpts { on: boolean; start: number; step: number; target: number; pass: number; down?: number; min?: number }
 export interface InTimeFeedback { j: Judgement | 'miss'; ms: number; key: number }
 
 interface Args {
@@ -217,6 +217,10 @@ export function useInTime(a: Args) {
     args.current.onChange()
   }, [])
 
+  /** where the music is now, in beats (null when stopped): Game Mode's highway reads this every frame */
+  const beatNow = useCallback((): number | null => { const r = run.current; return r ? r.clock.beatAt(audio().currentTime) : null }, [])
+  const speedNow = useCallback((): number => run.current?.speed ?? 1, [])
+
   useEffect(() => () => stop(), [stop])
-  return { running, cursor, feedback, stats, pass, usingVideo, start, stop, played, countIn, wraps }
+  return { running, cursor, feedback, stats, pass, usingVideo, start, stop, played, countIn, wraps, beatNow, speedNow }
 }

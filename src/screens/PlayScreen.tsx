@@ -32,7 +32,8 @@ import { recordRun, songStats } from '../play/songStats'
 import { barMistakes, makeReport, type Report } from '../play/report'
 import { chordEase, forgetTaught, meantNote, taughtAlias, taughtCount, teachChord, teachNote } from '../play/taught'
 import { useFoldPosture } from '../play/fold'
-import { videoTimeOf, type VideoApi } from '../play/inTime'
+import { nextSpeed, timeline as inTimeTimeline, videoTimeOf, type VideoApi } from '../play/inTime'
+import { GameView } from '../components/GameView'
 import { exampleDoc } from '../tabs/examples'
 import { playNote, strum, SOUNDS, activeSound, onSoundChange, setSoundChoice, soundChoice, soundForProgram, soundInfo, loadSound, soundLoaded, type SoundId } from '../audio/pluck'
 import { audio, keepAwake } from '../audio/engine'
@@ -208,6 +209,9 @@ export function PlayScreen() {
   const movedLayout = order.join() !== ORDER0.join() || !!lay.sideLeft || !!lay.soloTop
   // Music stand: only the tab (much bigger) and one row of big buttons. Tidy: while you play, the other panels fold away.
   const [stand, setStand] = useState(false)
+  /** Play → Game: the note highway instead of the tab */
+  const [gameView, setGameView] = usePersist<'tab' | 'game'>('playView', 'tab')
+  const [gameDone, setGameDone] = useState(0)
   const [standZoom, setStandZoom] = usePersist('standZoom', 1.6)
   // the music stand's big view (remote): on narrow screens (the Fold's cover screen) unless you pick the tab
   const [standView, setStandView] = useState<'auto' | 'tab' | 'big'>('auto')
@@ -725,11 +729,28 @@ export function PlayScreen() {
     onHitNote: () => bumpCounts({ notesHit: 1, [doc?.source === 'lesson' ? 'exerciseNotes' : 'songNotes']: 1 }),
     onPass: (s, sp) => { if (s.score >= 90) bump('loop90'); if (loop) saveRun(s.score, 'time', sp, false, [loop.from, loop.to]) },
     onFinish: s => {
+      setGameDone(n => n + 1)
+      // Game Mode's Auto speed after a whole run too (loops use the speed trainer)
+      if (gameView === 'game' && trainer.on && trainer.down !== undefined && !loop) setSpeed(nextSpeed(speed, s.score, trainer))
       if (s.score >= 60) bump(doc?.source === 'lesson' ? 'exercisesFinished' : 'songsFinished')
       const was = saveRun(s.score, 'time', speed, !loop && s.total > 0, loop ? [loop.from, loop.to] : undefined)
       if (!loop && s.total > 0) showReport(s.score, 'time', speed, was, s)
     },
   })
+  // Game Mode: when each step sounds (beats), chord names, and the wrong/right events of Wait for me
+  const gameBeats = useMemo(() => inTimeTimeline(flat, strumPat, meter).beatOf, [flat, strumPat, meter])
+  const gameChordAt = useCallback((i: number) => timeline.spans[timeline.at[i]]?.name || undefined, [timeline])
+  const fbCount = useRef(0)
+  const gameWaitFb = useMemo(() => (feedback ? { ok: feedback.ok, key: ++fbCount.current, text: feedback.ok ? undefined : `THAT WAS ${noteName(feedback.heard, flats)}` } : null), [feedback]) // eslint-disable-line react-hooks/exhaustive-deps
+  /** Play for me: hear a note (or the whole step) without moving the cursor */
+  const playFor = useCallback((flatIdx: number, noteIdx?: number) => {
+    const st = flat[flatIdx]?.step
+    if (!st) return
+    const ns = playable(st)
+    const ctx = audio(); void ctx.resume()
+    if (noteIdx !== undefined && ns[noteIdx]) playNote(ns[noteIdx].midi, ctx.currentTime + 0.02, 0.8, undefined, { sound: hearSound })
+    else if (ns.length) strum(ns.map(n => n.midi), ctx.currentTime + 0.02, { spread: 0.02, sound: hearSound })
+  }, [flat, hearSound])
   // a quick "again" flash on the tab each time the loop goes round (Wait for me and In time)
   useEffect(() => { if (passes.n > 0) setLoopBlink(b => ({ k: (b?.k ?? 0) + 1, text: `⟲ Again${passes.last !== null ? ` · last time ${passes.last}%` : ''}` })) }, [passes.n]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (inTime.wraps > 0 && inTime.running) setLoopBlink(b => ({ k: (b?.k ?? 0) + 1, text: `⟲ Again${inTime.pass.last ? ` · last time ${inTime.pass.last.score}%` : ''}` })) }, [inTime.wraps]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1302,6 +1323,7 @@ export function PlayScreen() {
           aria-label={focus ? 'Show all panels again' : 'Full tab: hide the other panels'} title={focus ? 'Show all panels again' : 'Full tab'}>
           {focus ? <IconShrink /> : <IconExpand />}
         </button>
+        <button className="btn sm" data-find="game" aria-pressed={gameView === 'game'} onClick={() => setGameView(gameView === 'game' ? 'tab' : 'game')} title="Game: notes slide toward you on a highway, with points and stars" data-testid="game-toggle"><Ico n="game" /><span className="stand-label"> Game</span></button>
         <button className="btn sm stand-btn" data-find="stand" onClick={() => setStand(true)} aria-label="Music stand: just the tab, big, with big buttons" title="Music stand"><Ico n="music" /><span className="stand-label"> Stand</span></button>
         <button className="btn sm" data-find="video" aria-pressed={doc.youtube ? showVideo : videoAsk} onClick={() => (doc.youtube ? setShowVideo(!showVideo) : setVideoAsk(!videoAsk))}>Video</button>
         {mode === 'time' ? (
@@ -1353,7 +1375,7 @@ export function PlayScreen() {
             </span>
           </div>
         )}
-        {report && (
+        {report && gameView !== 'game' && (
           <ReportCard r={report} onClose={() => setReport(null)} onNext={() => {
             const r = report
             if (r.next.kind === 'loop' && r.loop) { setLoop(r.loop); if (r.next.speed) setSpeed(r.next.speed); countUse('play:report') }
@@ -1396,11 +1418,21 @@ export function PlayScreen() {
             <button className="btn sm" onClick={() => setSelecting(null)}>Cancel</button>
           </div>
         )}
-        <TabView track={track} mode={labelMode} flats={flats} cursor={inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0 || inTime.running} states={states.current}
+        {gameView === 'game' && !stand ? (
+          <GameView songId={doc.id} flat={flat} beatOf={gameBeats} hands={hands} stringNames={handNames} chordAt={gameChordAt}
+            mode={mode} running={inTime.running} beatNow={inTime.beatNow} timeFb={inTime.feedback} finished={gameDone}
+            cursorFlat={cursorFlat} listening={listening} waitFb={gameWaitFb} states={states.current} version={version}
+            spb={60 / (songBpm * (inTime.running ? inTime.speedNow() : speed))}
+            autoSpeed={trainer.on && trainer.down !== undefined} speedPct={Math.round((inTime.running ? inTime.speedNow() : speed) * 100)}
+            onAutoSpeed={on => setTrainer(on ? { on: true, start: Math.min(1, speed), step: 0.05, target: 1.25, pass: 90, down: 60, min: 0.25 } : { on: false, start: 0.6, step: 0.05, target: 1, pass: 90 })}
+            onPlayFor={playFor}
+            onPerfect={sec => { setLoop({ from: sec.fromBar, to: sec.toBar }); setMode('time'); setTrainer({ on: true, start: Math.min(1, Math.max(0.5, speed - 0.1)), step: 0.05, target: 1.25, pass: 90, down: 60, min: 0.25 }); setLoopBlink(b => ({ k: (b?.k ?? 0) + 1, text: `Perfect it: ${sec.name}. Press Start` })) }}
+            onAgain={() => { restart(); if (mode === 'time') void toggleRun() }} />
+        ) : <TabView track={track} mode={labelMode} flats={flats} cursor={inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0 || inTime.running} states={states.current}
           flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} zoom={stand ? standZoom : tabZoom} onZoom={stand ? setStandZoom : setTabZoom}
-          meter={meter} counts={counts} strum={strumPat} marks={report?.bars} />
+          meter={meter} counts={counts} strum={strumPat} marks={report?.bars} />}
         {peek.bubble}
-        {fingerBox}
+        {gameView !== 'game' && fingerBox}
         {inTime.running && inTime.countIn > 0 && <div className="count-big" key={inTime.countIn} role="status" aria-live="assertive" data-testid="count-big">{inTime.countIn}</div>}
         {loopBlink && <div className="loop-blink" key={loopBlink.k} role="status">{loopBlink.text}</div>}
         {bigView && (() => {

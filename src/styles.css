@@ -2391,3 +2391,20 @@ body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-re
 .shorts-nav { display: flex; gap: var(--sp-3); align-items: center; }
 .shorts-title { font-size: 1.05rem; line-height: 1.25; }
 @media (max-width: 759px) { .shorts-stage.scanning .short-frame { height: min(42vh, 400px); } }
+
+/* Play → Game: the note highway */
+.game-highway { width: 100%; border-radius: var(--r-lg); overflow: hidden; touch-action: manipulation; }
+.game-highway canvas { display: block; }
+.game-hud { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.game-score b { font: 700 1.5rem var(--font-display, inherit); }
+.game-mult { font: 800 1.15rem var(--font-display, inherit); padding: 0 var(--sp-2); border-radius: var(--r-pill); background: var(--surface); }
+.game-mult.m4 { color: var(--mint, #4ade80); }
+.game-mult.m5 { color: var(--gold, #fc3); box-shadow: 0 0 10px var(--gold, #fc3); }
+.game-spacer { flex: 1; }
+.game-legend { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
+.fdot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+.fdot.f0 { border: 2px solid #fff; background: transparent; }
+.fdot.f1 { background: #3b82f6; } .fdot.f2 { background: #22c55e; } .fdot.f3 { background: #f59e0b; } .fdot.f4 { background: #ef4444; }
+.game-secs li { display: grid; grid-template-columns: 1fr auto auto; gap: var(--sp-3); align-items: center; padding: 2px 0; }
+.stars { color: var(--accent); letter-spacing: 1px; }
+.stars.gold { color: var(--gold, #fc3); text-shadow: 0 0 6px var(--gold, #fc3); }
