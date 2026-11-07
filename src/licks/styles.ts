@@ -5,11 +5,13 @@
 export type LickStyleId =
   | 'blues' | 'rock' | 'altrock' | 'metal' | 'progmetal' | 'mathrock' | 'jazz' | 'mayer' | 'neosoul' | 'funk'
   | 'hawaiian' | 'bluegrass' | 'billy' | 'country' | 'folk' | 'fingerstyle' | 'acoustic' | 'reggaerock' | 'popsoul' | 'progclean'
+  /** your own riffs (scanned or saved): not a generator style, never listed with the styles */
+  | 'mine'
 
 export interface LickStyle {
   id: LickStyleId
   label: string
-  group: 'Blues & rock' | 'Heavy' | 'Jazz, soul & funk' | 'Island' | 'Roots'
+  group: 'Blues & rock' | 'Heavy' | 'Jazz, soul & funk' | 'Island' | 'Roots' | 'Yours'
   feel: string
   /** players to listen to for this sound (style references only: every lick here is original) */
   listen: string
@@ -84,4 +86,6 @@ export const LICK_STYLES: LickStyle[] = [
     feel: 'Fingerpicked and melodic: open-string chord colours (add9, maj7, sus), the thumb on the bass and the fingers on top, hammer-ons and harmonics inside the arpeggios, and runs where every note rings into the next. Slow down and let it breathe.',
     listen: 'Marco Cirillo, Tommy Emmanuel (ballads), Andy McKee, Sungha Jung' },
 ]
-export const lickStyle = (id: string) => LICK_STYLES.find(s => s.id === (id === 'jawaiian' ? 'reggaerock' : id)) ?? LICK_STYLES[0]
+/** Your own riffs: moved along the neck like a lead line, played with the clean sound. */
+export const MINE_STYLE: LickStyle = { id: 'mine', label: 'My riffs', group: 'Yours', feel: 'Riffs you scanned or saved.', listen: '', minor: false, move: 'shift', zone: [0, 15], bpm: 90, program: 27 }
+export const lickStyle = (id: string) => (id === 'mine' ? MINE_STYLE : LICK_STYLES.find(s => s.id === (id === 'jawaiian' ? 'reggaerock' : id)) ?? LICK_STYLES[0])

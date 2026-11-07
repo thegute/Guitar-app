@@ -54,3 +54,9 @@ Mid-build audit (2026-11-06 evening), owner's answers:
 - Google Drive: build a real Drive connection (Google sign-in once, KGuitar backs up by itself) — needs a one-time Google
   Cloud setup done together with the owner.
 - Order: fix the 9 audit gaps + the new note scanner first, then 2e Shorts and 2f Game Mode.
+- AI second opinion on every scan from sound (owner 2026-11-06): Gemini listens to the same clip while the guitar model works:
+  song name, chords per bar, key, tempo/time, sections, strum pattern, techniques, talking/singing stretches. Used to label
+  chords, take talking/singing out of the notes, settle half/double tempo, mark bars where chords and notes disagree.
+  If the guitar model can't run or hears almost nothing clear, the AI's own notes are the backup (marked rough, "Does this
+  look right?"). Nothing uploaded for screenshots or offline.
+- Speed: the big models run natively on Android (ONNX Runtime for Android, all cores); onnxruntime-web is the web fallback.

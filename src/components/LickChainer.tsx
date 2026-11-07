@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEven
 import { Ico } from './Icon'
 import { useInstrument } from '../instrument'
 import { LICKS, type LickDef } from '../licks/library'
+import { deleteMyLick, myLicks, onMyLicks } from '../licks/mine'
 import { LICK_STYLES, lickStyle, type LickStyleId } from '../licks/styles'
 import { lickInKey, keyLabel, placeFor } from '../licks/generator'
 import { chainSong, chainTempo, chainable, flowNext, lickBars, lickDots, loadChain, newUid, onChain, placeChain, saveChain, type Chain } from '../licks/chain'
@@ -42,7 +43,9 @@ export function LickChainer({ onOpen }: { onOpen: (d: SongDoc) => void }) {
     id: `jam:chain:${inst.id}:${chain.key}:${chain.links.map(l => l.lick).join('.')}:${tempo}:${chain.gap}`.slice(0, 200),
     title: made.song.title, source: 'jam', inst: inst.id, key: { root: chain.key, minor }, song: made.song, updated: Date.now(),
   } : null
-  const pool = useMemo(() => LICKS.filter(l => l.style === style && chainable(l) && (!mustOnly || !!l.must)).sort((a, b) => a.level - b.level), [style, mustOnly])
+  const [mine, setMine] = useState(myLicks)
+  useEffect(() => onMyLicks(() => setMine(myLicks())), [])
+  const pool = useMemo(() => (style === 'mine' ? mine.filter(chainable) : LICKS.filter(l => l.style === style && chainable(l) && (!mustOnly || !!l.must)).sort((a, b) => a.level - b.level)), [style, mustOnly, mine])
 
   // hearing one lick (from the list or a card)
   const player = useRef<TabPlayer | null>(null)
@@ -149,9 +152,11 @@ export function LickChainer({ onOpen }: { onOpen: (d: SongDoc) => void }) {
       <div className="stack" style={{ gap: 6 }}>
         <b>Add licks</b>
         <div className="chips" role="group" aria-label="Lick style">
+          {mine.length > 0 && <button className="chip" aria-pressed={style === 'mine'} onClick={() => setStyle('mine')} data-testid="chain-mine">My riffs ({mine.length})</button>}
           {LICK_STYLES.map(s => <button key={s.id} className="chip" aria-pressed={s.id === style} onClick={() => setStyle(s.id)}>{s.label.replace(/ \(.*\)$/, '')}</button>)}
         </div>
-        <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={mustOnly} onChange={e => setMustOnly(e.target.checked)} /> Must-know licks only</label>
+        {style === 'mine' ? <p className="small muted" style={{ margin: 0 }}>Riffs you scanned in the Riff Scanner and kept with "Add to my lick chain".</p>
+          : <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={mustOnly} onChange={e => setMustOnly(e.target.checked)} /> Must-know licks only</label>}
         <div className="chain-pool">
           {pool.map(l => {
             const fits = !chain.links.length || !!placeFor(l, chain.key)
@@ -163,6 +168,7 @@ export function LickChainer({ onOpen }: { onOpen: (d: SongDoc) => void }) {
                   <span className="chain-plus" aria-hidden>＋</span>
                 </button>
                 <button className="btn sm ghost" onClick={() => hear(l)} aria-label={`Hear ${l.name}`}>{hearing === l.id ? <Ico n="stop" fill /> : <Ico n="sound" />}</button>
+                {l.style === 'mine' && <button className="btn sm ghost" onClick={() => deleteMyLick(l.id)} aria-label={`Delete ${l.name}`}><Ico n="trash" /></button>}
               </div>
             )
           })}

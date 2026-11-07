@@ -2,6 +2,7 @@
 // one key, and each one is placed on the neck near where the one before it ended, so your hand doesn't jump around.
 // A capo style's licks keep their capo when they all share one; otherwise the capo is "baked in" (same pitches,
 // fretted higher) so the chain can mix styles.
+import { findLick } from './mine'
 import type { Song } from '../tabs/model'
 import { LICKS, type LickDef } from './library'
 import { lickStyle } from './styles'
@@ -24,7 +25,7 @@ const listeners = new Set<() => void>()
 export function loadChain(): Chain {
   try {
     const c = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Chain | null
-    return c && Array.isArray(c.links) ? { ...EMPTY_CHAIN, ...c, links: c.links.filter(l => LICKS.some(x => x.id === l.lick)) } : { ...EMPTY_CHAIN }
+    return c && Array.isArray(c.links) ? { ...EMPTY_CHAIN, ...c, links: c.links.filter(l => !!findLick(l.lick)) } : { ...EMPTY_CHAIN }
   } catch { return { ...EMPTY_CHAIN } }
 }
 export function saveChain(c: Chain) {
@@ -58,7 +59,7 @@ export function placeChain(c: Chain): Placed[] {
   let prevCenter: number | null = null
   let prevEnd: number | null = null
   for (const link of c.links) {
-    const lick = LICKS.find(l => l.id === link.lick)
+    const lick = findLick(link.lick)
     if (!lick) continue
     const p = placeFor(lick, c.key)
     if (!p) { out.push({ link, lick, events: [], capo: 0, fits: false }); continue }
@@ -96,7 +97,7 @@ export function placeChain(c: Chain): Placed[] {
 
 export function chainTempo(c: Chain): number {
   if (c.tempo > 0) return c.tempo
-  const first = LICKS.find(l => l.id === c.links[0]?.lick)
+  const first = findLick(c.links[0]?.lick ?? '')
   return first ? first.bpm ?? lickStyle(first.style).bpm : 90
 }
 
