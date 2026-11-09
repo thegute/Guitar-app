@@ -42,6 +42,11 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ## 5. Windows (owner 2026-11-09): in Songs at least, ideally almost everywhere, every window resizable in LENGTH AND WIDTH, and a resized
 ##    window must still show all its info (content reflows / fits, not cut off). Win.tsx today only resizes height (⇕). Design to agree
 ##    with him: tidy grid (narrow windows sit side by side on Fold inner / tablet; cover screen stays one column) vs free placement.
+## 2026-11-09 answers: windows = TIDY GRID (snap side by side, never overlap, corner resize, others make room; cover screen 1 column).
+##   The floating hand diagram stays FREE-floating. BUG: it sometimes goes behind other windows / is hard to grab -> always on top, a
+##   handle that is always tappable, never under a Win. He wants MORE floating panels (ideas offered, he picks) that can be combined or
+##   chosen. Exercises MOVE to Learn and get tidied. He asked whether Play should be merged too (proposal: Songs library -> song player
+##   screen with a "Now playing" bar; awaiting his answer).
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar
