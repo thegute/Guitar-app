@@ -58,6 +58,9 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ## 2026-11-09: Band (Strum Machine) lives in JAM (agreed); 300 songs in the one Songs library with "Play with the band". Gear proposal sent
 ##   (setup only: You, Sound, Look, Floating cards, Controls, AI helper, Backup, Manual, About; in-play controls stay in the player), no
 ##   objection yet. Now brainstorming: make Jam more intuitive + Beat maker like pro beat makers (proposals sent 00:39).
+## 2026-11-09 beat maker: used for QUICK BEATS + SAMPLES, "like Koala but with more features". Proposal: one fixed pro layout (transport bar
+##   on top, 4x4 pads, bottom views Pads/Steps/Keys/Mixer/FX, parts A-D strip, hold a pad = edit sheet), not Win windows; Jam = 3 choices
+##   (Play with a band / Make a beat / Loop myself). Extra-value ideas sent 00:45, awaiting his picks.
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar
