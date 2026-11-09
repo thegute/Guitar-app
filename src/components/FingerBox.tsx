@@ -35,7 +35,7 @@ const load = (w: string): Place => stored(w) ?? { x: 0.98, y: 0.68, w: Math.min(
 /** Until you move it yourself: the corner of the tab (or of the screen) that covers the fewest buttons and notes. */
 function autoPlace(w: number, h: number): { x: number; y: number } | null {
   if (typeof document === 'undefined') return null
-  const tab = document.querySelector('.play-tab, .tab-view')?.getBoundingClientRect()
+  const tab = document.querySelector('.play-tab, .tab-view, .game-highway')?.getBoundingClientRect()
   const W = innerWidth, H = innerHeight
   const spots: { left: number; top: number }[] = []
   if (tab && tab.width > 0) {

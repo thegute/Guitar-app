@@ -740,6 +740,16 @@ export function PlayScreen() {
   })
   // Game Mode: when each step sounds (beats), chord names, and the wrong/right events of Wait for me
   const gameBeats = useMemo(() => inTimeTimeline(flat, strumPat, meter).beatOf, [flat, strumPat, meter])
+  // Game's clock: In time's, or Hear it's playhead (the highway scrolls and the ball bounces along while the tab plays itself)
+  const gameBeatNow = useCallback((): number | null => {
+    const live = inTime.beatNow()
+    if (live !== null) return live
+    const at = player.current?.position()
+    if (!at) return null
+    const b0 = gameBeats[at.i] ?? 0, b1 = gameBeats[at.i + 1] ?? b0 + (flat[at.i]?.step.dur ?? 1)
+    const dur = flat[at.i]?.step.dur || 1
+    return b0 + (at.into / dur) * (b1 - b0)
+  }, [inTime, gameBeats, flat])
   const gameChordAt = useCallback((i: number) => timeline.spans[timeline.at[i]]?.name || undefined, [timeline])
   const fbCount = useRef(0)
   const gameWaitFb = useMemo(() => (feedback ? { ok: feedback.ok, key: ++fbCount.current, text: feedback.ok ? undefined : `THAT WAS ${noteName(feedback.heard, flats)}` } : null), [feedback]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1422,7 +1432,7 @@ export function PlayScreen() {
         )}
         {gameView === 'game' && !stand ? (
           <GameView songId={doc.id} flat={flat} beatOf={gameBeats} hands={hands} stringNames={handNames} chordAt={gameChordAt}
-            mode={mode} running={inTime.running} beatNow={inTime.beatNow} timeFb={inTime.feedback} finished={gameDone}
+            mode={mode} running={inTime.running} beatNow={gameBeatNow} timeFb={inTime.feedback} finished={gameDone}
             cursorFlat={cursorFlat} listening={listening} waitFb={gameWaitFb} states={states.current} version={version}
             spb={60 / (songBpm * (inTime.running ? inTime.speedNow() : speed))}
             autoSpeed={trainer.on && trainer.down !== undefined} speedPct={Math.round((inTime.running ? inTime.speedNow() : speed) * 100)}
@@ -1434,7 +1444,7 @@ export function PlayScreen() {
           flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} zoom={stand ? standZoom : tabZoom} onZoom={stand ? setStandZoom : setTabZoom}
           meter={meter} counts={counts} strum={strumPat} marks={report?.bars} />}
         {peek.bubble}
-        {gameView !== 'game' && fingerBox}
+        {fingerBox}
         {inTime.running && inTime.countIn > 0 && <div className="count-big" key={inTime.countIn} role="status" aria-live="assertive" data-testid="count-big">{inTime.countIn}</div>}
         {loopBlink && <div className="loop-blink" key={loopBlink.k} role="status">{loopBlink.text}</div>}
         {bigView && (() => {

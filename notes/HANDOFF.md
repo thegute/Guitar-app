@@ -75,6 +75,10 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ## 2026-11-09 EFFORT SPLIT (owner bought credits, stays on MEDIUM): MEDIUM now = Game ball + Hear it + floating hand in Game; floating
 ##   cards; menu (Play into Songs, Now playing, gear); tidy-grid windows except Learn; Exercises into Learn; beat maker mockup + layout.
 ##   OPUS HIGH later = Riff Scanner from video, realistic strum engine, pro-level Learn course, automatic style/level, the 300 SONGS.
+## 2026-11-09 voice "record this" + USB: the VOICE is heard on the phone's BUILT-IN mic; the RECORDING comes from the chosen input (Pocket
+##   Master over USB = clean DI, no voice). Android may route the default mic to the USB interface when plugged in -> keep speech on the
+##   built-in mic (AudioRecord/SpeechRecognizer preferred device, Android 12+), else our own small recogniser on the built-in mic; footswitch
+##   + big on-screen record button as backup. Test on his Fold with the pedal plugged in.
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar

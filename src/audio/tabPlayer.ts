@@ -14,7 +14,9 @@ export class TabPlayer {
   onEnd?: () => void
   private timer: ReturnType<typeof setInterval> | null = null
   private raf = 0
-  private queue: { t: number; i: number }[] = []
+  private queue: { t: number; i: number; spb: number; dur: number }[] = []
+  /** the step sounding now: when it started (audio time), its seconds per beat and length in beats (for a smooth playhead) */
+  private cur: { t: number; i: number; spb: number; dur: number } | null = null
   private ringing = new Map<number, { stop: (at?: number) => void }>()
   private all: { stop: (at?: number) => void }[] = []
   private endAt = 0
@@ -83,7 +85,7 @@ export class TabPlayer {
           for (let k = Math.ceil(b0 - 1e-6); k < b0 + st.dur - 1e-6; k++) playClick(t + (k - b0) * spb, this.clickSound, k % this.meter === 0 ? 'accent' : 'beat', 0.6)
         }
         for (const { off, e } of this.band?.[i] ?? []) this.voices.play(e, t + off * spb, spb)
-        if (!this.part) { this.queue.push({ t, i }); t += st.dur * spb; i++; continue }
+        if (!this.part) { this.queue.push({ t, i, spb, dur: st.dur }); t += st.dur * spb; i++; continue }
         const notes = st.notes
         const ns = notes.filter(n => n.tech !== 'x')
         notes.forEach(n => { if (n.tech === 'x') { this.ringing.get(n.string)?.stop(t); this.ringing.delete(n.string) } })
@@ -125,7 +127,7 @@ export class TabPlayer {
             this.all.push(h)
           })
         }
-        this.queue.push({ t, i })
+        this.queue.push({ t, i, spb, dur: st.dur })
         t += st.dur * spb
         i++
       }
@@ -138,7 +140,7 @@ export class TabPlayer {
       const now = ctx.currentTime
       let last = -1
       while (this.counts.length && this.counts[0].t <= now) this.onCount?.(this.counts.shift()!.n)
-      while (this.queue.length && this.queue[0].t <= now) last = this.queue.shift()!.i
+      while (this.queue.length && this.queue[0].t <= now) { this.cur = this.queue.shift()!; last = this.cur.i }
       if (last >= 0) this.onStep?.(last)
       if (this.endAt && now >= this.endAt) {
         this.stop()
@@ -148,6 +150,13 @@ export class TabPlayer {
       this.raf = requestAnimationFrame(tick)
     }
     this.raf = requestAnimationFrame(tick)
+  }
+
+  /** Where the playback is right now: the step sounding and how many beats into it (0 … its length); null before the first note. */
+  position(): { i: number; into: number } | null {
+    const c = this.cur
+    if (!this.playing || !c) return null
+    return { i: c.i, into: Math.max(0, Math.min(c.dur, (audio().currentTime - c.t) / c.spb)) }
   }
 
   stop() {
@@ -161,6 +170,7 @@ export class TabPlayer {
     this.voices.stop(now)
     this.ringing.clear()
     this.queue = []
+    this.cur = null
     this.counts = []
     this.playing = false
   }

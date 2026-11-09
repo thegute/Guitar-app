@@ -1,7 +1,8 @@
 // Game Mode's note highway (Play → Game): the strings run across the screen (high e on top, like the tab), the notes
 // slide in from the right to the hit line, coloured by the finger that plays them (1 blue, 2 green, 3 orange, 4 red,
 // open white), with their length, slides / hammer-ons / pull-offs / bends / vibrato / dead notes drawn on them and chord
-// boxes for strums. A ball bounces from note to note so you see the timing coming. Drawn on a canvas each frame.
+// boxes for strums. A big ball bounces from note to note on the hit line (Yousician-style) so you see the timing coming;
+// it follows In time's clock or Hear it's playhead. Drawn on a canvas each frame.
 import { useEffect, useRef } from 'react'
 import { FINGER_COLORS, type HighwayItem, type Section, type SectionResult } from '../play/game'
 
@@ -49,12 +50,12 @@ export function GameHighway(p: Props) {
       const n0 = props.current.stringNames.length
       // a string every 22–34 px (whatever fits a third of the screen's height)
       const gap0 = Math.max(22, Math.min(34, Math.round((window.innerHeight * 0.32) / Math.max(1, n0 - 1))))
-      const W = Math.max(280, w!.clientWidth), H = props.current.height ?? 40 + 22 + gap0 * Math.max(1, n0 - 1)
+      const W = Math.max(280, w!.clientWidth), H = props.current.height ?? 54 + 20 + gap0 * Math.max(1, n0 - 1)
       c!.width = W * dpr; c!.height = H * dpr
       c!.style.width = `${W}px`; c!.style.height = `${H}px`
       c!.getContext('2d')!.setTransform(dpr, 0, 0, dpr, 0, 0)
       const n = props.current.stringNames.length
-      const top = 40, bottom = 22
+      const top = 54, bottom = 20
       lay.current = { W, H, hitX: Math.round(W * 0.2), ppb: 0, top, gap: (H - top - bottom) / Math.max(1, n - 1) }
     }
     size()
@@ -160,17 +161,48 @@ export function GameHighway(p: Props) {
       g.strokeStyle = accent; g.lineWidth = 3; g.shadowColor = accent; g.shadowBlur = 12
       g.beginPath(); g.moveTo(hitX, top - 16); g.lineTo(hitX, top + gap * (nStr - 1) + 14); g.stroke()
       g.shadowBlur = 0
-      // the bouncing ball: lands on the hit line exactly as each note arrives
+      // THE BALL (like Yousician): it stays on the hit line while the notes slide under it, arcs up between notes and lands ON
+      // the next note's head (the top note of a chord) exactly as it reaches the line, so it never leaves the screen. Long gaps
+      // become one hop per beat; a short gap is a small hop, a long one a big hop. Stopped (Wait for me / paused), it sits on
+      // the note it's waiting for.
+      const R = Math.max(9, Math.min(15, head * 0.42))
+      const landY = (k: number) => Math.min(...P.items[k].notes.map(n => yOf(n.string))) - head / 2 - R + 1
       let prev = -1, next = -1
       for (let k = 0; k < P.items.length; k++) { if (P.items[k].beat <= now + 1e-6) prev = k; else { next = k; break } }
-      if (next >= 0) {
-        const b0 = prev >= 0 ? P.items[prev].beat : now - 1, b1 = P.items[next].beat
-        const f = Math.max(0, Math.min(1, (now - b0) / Math.max(0.05, b1 - b0)))
-        const lane = Math.min(...P.items[next].notes.map(n => yOf(n.string))) - head / 2 - 6
-        const hgt = Math.min(60, 22 + (b1 - b0) * 18)
-        const y = lane - 4 * f * (1 - f) * hgt
-        g.fillStyle = gold; g.shadowColor = gold; g.shadowBlur = 10
-        g.beginPath(); g.arc(hitX, y, 7, 0, Math.PI * 2); g.fill(); g.shadowBlur = 0
+      let ballY: number | null = null, squash = 0
+      if (live === null) {
+        // waiting: on the note at the line (or the next one)
+        const k = P.items.findIndex(it => it.beat >= now - 0.02)
+        if (k >= 0 && Math.abs(xOf(P.items[k].beat) - hitX) < 40) { ballY = landY(k); squash = 0.12 + 0.06 * Math.sin(t / 260) }
+      } else if (next >= 0) {
+        const b0 = prev >= 0 ? P.items[prev].beat : Math.min(now, P.items[next].beat - 1), b1 = P.items[next].beat
+        const y0 = prev >= 0 ? landY(prev) : landY(next), y1 = landY(next)
+        // whole beats inside a long gap get their own hops
+        const marks = [b0]
+        if (b1 - b0 > 1.25) for (let q = Math.floor(b0) + 1; q < b1 - 0.5; q++) marks.push(q)
+        marks.push(b1)
+        let j = 0
+        while (j < marks.length - 2 && now >= marks[j + 1]) j++
+        const s0 = marks[j], s1 = marks[j + 1]
+        const f = Math.max(0, Math.min(1, (now - s0) / Math.max(0.04, s1 - s0)))
+        const ya = j === 0 ? y0 : y1, yb = y1
+        // never above the top of the highway
+        const hop = Math.max(6, Math.min(gap * 2.6, 18 + (s1 - s0) * P.spb * 70, Math.min(ya, yb) - R - 3))
+        ballY = ya + (yb - ya) * f - 4 * f * (1 - f) * hop
+        // a little squash just after it lands
+        const since = (now - s0) * P.spb
+        squash = since < 0.09 ? 0.3 * (1 - since / 0.09) : 0
+      } else if (prev >= 0 && now - P.items[prev].beat < 0.6) {
+        ballY = landY(prev)
+      }
+      if (ballY !== null) {
+        // its shadow on the line below it, then the ball with a soft glow
+        g.globalAlpha = 0.25; g.fillStyle = '#000'
+        g.beginPath(); g.ellipse(hitX, top + gap * (nStr - 1) + 8, R * 0.9, R * 0.28, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1
+        g.fillStyle = gold; g.shadowColor = gold; g.shadowBlur = 16
+        g.beginPath(); g.ellipse(hitX, ballY + R * squash * 0.5, R * (1 + squash * 0.5), R * (1 - squash * 0.5), 0, 0, Math.PI * 2); g.fill()
+        g.shadowBlur = 0
+        g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.arc(hitX - R * 0.32, ballY - R * 0.35, R * 0.28, 0, Math.PI * 2); g.fill()
       }
       // feedback words and sparks at the hit line
       const fb = P.feedback
