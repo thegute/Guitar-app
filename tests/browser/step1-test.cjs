@@ -64,16 +64,16 @@ async function pasteSong(page, text, title) {
     if (!(await box.count())) { bad(`${vp.n}: no finger box in Play`); continue }
     // drag it
     const b0 = await box.boundingBox()
-    await drag(page, box.locator('.fbx-bar'), -120, -200)
+    await drag(page, box.locator('.fc-bar'), -120, -200)
     const b1 = await box.boundingBox()
     console.log(`${vp.n}: box moved ${Math.round(b0.x)},${Math.round(b0.y)} → ${Math.round(b1.x)},${Math.round(b1.y)}`)
     if (Math.abs(b1.y - b0.y) < 100) bad(`${vp.n}: dragging the finger box didn't move it`)
     // resize it
-    await drag(page, box.locator('.fbx-size'), 50, 0)
+    await drag(page, box.locator('.fc-size'), 50, 0)
     const b2 = await box.boundingBox()
     if (!(b2.width > b1.width + 20) && b1.width < vp.width - 40) bad(`${vp.n}: resizing didn't make it wider (${b1.width} → ${b2.width})`)
     // tuck and bring back
-    await box.locator('button[aria-label^="Tuck"]').click()
+    await box.locator('button[aria-label^="Shrink"]').click()
     if (!(await page.locator('[data-testid=finger-chip]').count())) bad(`${vp.n}: no chip after tucking the box`)
     await page.reload(); await page.waitForSelector('.tab-note')
     if (!(await page.locator('[data-testid=finger-chip]').count())) bad(`${vp.n}: the tucked box wasn't remembered`)
@@ -84,10 +84,10 @@ async function pasteSong(page, text, title) {
     if (b3.x < 0 || b3.y < 0 || b3.x + b3.width > vp.width + 1 || b3.y + b3.height > vp.height + 1) bad(`${vp.n}: box off the screen ${JSON.stringify(b3)}`)
     if (await sideways(page)) bad(`${vp.n}: sideways scroll with the box`)
 
+    // park the box low on the screen so the song check's "Got it", the tab's first lines and the readout are free to tap
+    { const bb = await page.locator('[data-testid=finger-box] .fc-bar').boundingBox(); await drag(page, page.locator('[data-testid=finger-box] .fc-bar'), 0, vp.height - 230 - bb.y) }
     // a song with a shift: the badge comes two beats before, with Loop this shift
     await pasteSong(page, SHIFTY, 'Shift test')
-    // park the box low on the screen so the tab's first lines and the readout are free to tap
-    { const bb = await page.locator('[data-testid=finger-box] .fbx-bar').boundingBox(); await drag(page, page.locator('[data-testid=finger-box] .fbx-bar'), 0, vp.height - 230 - bb.y) }
     const notes = page.locator('.tab-note')
     const n = await notes.count()
     let saw = '', loopBtn = false
@@ -365,7 +365,7 @@ More words go here too`, 'Eb song')
     await nav(page, 'Play'); await page.waitForSelector('.tab-note')
     if (vp.width < 760) await page.click('.view-switch >> text=Both').catch(() => {})
     await page.screenshot({ path: `${DIR}/step1-voice-play-${vp.n}.png` })
-    if (await page.locator('[data-testid=finger-box] button[aria-label^="Tuck"]').count()) await page.locator('[data-testid=finger-box] button[aria-label^="Tuck"]').click()
+    if (await page.locator('[data-testid=finger-box] button[aria-label^="Shrink"]').count()) await page.locator('[data-testid=finger-box] button[aria-label^="Shrink"]').click()
     await page.locator('.harmony .h-modes button:has-text("Connect")').click({ timeout: 8000 }); await page.waitForTimeout(200)
     const shapesChip = page.locator('.harmony button:has-text("Voice leading shapes")')
     if (await shapesChip.count()) { await shapesChip.click(); await page.waitForTimeout(250); if (!(await page.locator('.harmony [data-testid=voice-lead]').count())) bad(`${vp.n}: Connect → Voice leading shapes is empty`) }

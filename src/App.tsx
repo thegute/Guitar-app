@@ -17,6 +17,8 @@ import { isToolPage, onGo, onRemount, TAB_IDS, type Tab, type ToolPage } from '.
 import { SearchSheet } from './components/SearchSheet'
 import { SessionBar } from './sessions/SessionBar'
 import { AskBubble } from './assistant/AskBubble'
+import { FloatLayer } from './float/FloatLayer'
+import { setFloatScreen } from './float/bus'
 import { RigNotice } from './components/AudioSetup'
 import { watchDevices } from './audio/input'
 import { onAsk, type AskContext } from './assistant/bus'
@@ -58,6 +60,8 @@ export default function App() {
   // the pedal + wireless setup switches on by itself when the Pocket Master is plugged in
   useEffect(() => { watchDevices() }, [])
   useEffect(() => { countUse(tab === 'tools' ? `tool:${toolPage}` : `screen:${tab}`) }, [tab, toolPage])
+  // the floating cards follow the screen you're on (each screen has its own set)
+  useEffect(() => { setFloatScreen(tab === 'progressions' ? 'jam' : tab) }, [tab])
   useEffect(() => watchButtons(() => tabRef.current), [])
   useEffect(() => onGo(t => {
     const to: Tab = isToolPage(t) ? 'tools' : t
@@ -143,6 +147,7 @@ export default function App() {
       <PsyBackdrop />
       <main className={`main${tab === 'play' ? ' main-play' : ''}`} id="main">
         <SessionBar />
+        <FloatLayer />
         <RigNotice />
         {tab === 'play' && <PlayScreen key={inst.id} />}
         {tab === 'songs' && <SongsScreen key={inst.id} />}

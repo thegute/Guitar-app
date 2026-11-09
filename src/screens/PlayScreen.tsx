@@ -16,7 +16,7 @@ import { InputPicker } from '../components/InputPicker'
 import { NoteListener, matchNote, type FollowStep } from '../tabs/follow'
 import { defaultTrack, flatten, playable, trackPickup, type SongNote, type SongTrack } from '../tabs/model'
 import { detectKey, improvisationScales, type KeyGuess } from '../tabs/keyDetect'
-import { chordInfo, chordTimeline, guessBarChords } from '../tabs/harmony'
+import { chordInfo, chordTimeline, guessBarChords, keyScalePcs } from '../tabs/harmony'
 import { docInstrument, getSong, listSongs, saveSong, type SongDoc } from '../tabs/library'
 import { go, onOpenSong, takePendingDoc, onPlayAction, takePlayAction } from '../nav'
 import type { PlayAction, PlayFocus } from '../search/types'
@@ -48,6 +48,8 @@ import { Splitter } from '../components/Splitter'
 import { LayoutHint } from '../components/Win'
 import { onLeavePage } from '../audio/stopAll'
 import { FingerBox } from '../components/FingerBox'
+import { FloatPicker } from '../float/FloatLayer'
+import { clearFloat, publishFloat, toggleCard, useShownCards } from '../float/bus'
 import { groupAt, handGroups } from '../play/handShape'
 import { easierTrack, editKey, fixedFingers, otherSpots, withMoves } from '../hand/edits'
 import { adaptTrack } from '../hand/adapt'
@@ -163,7 +165,6 @@ export function PlayScreen() {
   const posture = useFoldPosture()
   const split = splitPref === 'on' || (splitPref === 'auto' && posture.tabletop)
   const [tabZoom, setTabZoom] = usePersist('tabZoom', 1)
-  const [handOn, setHandOn] = usePersist('handGuide', true)
   const [layRaw, setLay] = usePersist<PlayLayout>('playLayout', LAYOUT0)
   const lay = { ...LAYOUT0, ...layRaw }
   const wide = useMedia('(min-width: 760px)')
@@ -1009,6 +1010,27 @@ export function PlayScreen() {
   const liveAt = inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat
   const liveSpan = liveAt >= 0 ? timeline.at[liveAt] : -1
   const beatsToNextChord = liveSpan >= 0 && timeline.spans[liveSpan] ? flat.slice(liveAt, timeline.spans[liveSpan].end).reduce((t, f) => t + f.step.dur, 0) : 99
+  // what the floating cards show (float/FloatLayer.tsx): the chord now and next, the bar, the tempo, the key, the video
+  const cardsShown = useShownCards('play')
+  const fbKey = useRef(0)
+  useEffect(() => {
+    if (!doc || !track) { clearFloat('play'); return }
+    const sNow = timeline.spans[liveSpan >= 0 ? liveSpan : curSpan], sNext = timeline.spans[(liveSpan >= 0 ? liveSpan : curSpan) + 1]
+    const at = liveAt >= 0 ? liveAt : 0
+    publishFloat('play', {
+      title: doc.title, video: doc.youtube, tuning: track.tuning, flats,
+      chordNow: sNow?.name || undefined, chordNext: sNext?.name || undefined, beatsToChange: beatsToNextChord < 99 ? beatsToNextChord : undefined,
+      keyPcs: keyScalePcs(key), keyName: key.label,
+      bar: flat[at] ? flat[at].bar + 1 : undefined, bars: track.bars.length,
+      loop: loop ? (loop.from === loop.to ? `bar ${loop.from + 1}` : `bars ${loop.from + 1}–${loop.to + 1}`) : undefined,
+      bpm: songBpm, speed, setSpeed,
+    })
+  }) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!feedback) return
+    publishFloat('play', { feedback: { ok: feedback.ok, heard: noteName(feedback.heard, flats), want: expected[0] ? noteName(expected[0].midi, flats) : undefined, key: ++fbKey.current } })
+  }, [feedback]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => clearFloat('play'), [])
   const lm = lastMiss.current
   useScreenInfo('play', doc && track ? {
     label: `Play: "${doc.title}", bar ${nowBar + 1}${loop ? `, looping ${loop.from === loop.to ? `bar ${loop.from + 1}` : `bars ${loop.from + 1}–${loop.to + 1}`}` : ''} at ${Math.round(speed * 100)}%`,
@@ -1044,8 +1066,10 @@ export function PlayScreen() {
   })
   // the floating finger box: beats until the hand has to move
   const beatsToShift = hand && handNext ? flat.slice(Math.max(0, handAt), handNext.from).reduce((t, f) => t + f.step.dur, 0) : Infinity
+  const handOn = cardsShown.includes('hand')
+  const setHandOn = (on: boolean) => { if (on !== handOn) toggleCard('play', 'hand') }
   const fingerBox = handOn && hand && hand.notes.some(n => n.fret > 0) && !(stand && bigView) ? (
-    <FingerBox group={hand} next={handNext} beatsToShift={beatsToShift} expected={expected} nStr={track.tuning.length} stringNames={strNames}
+    <FingerBox group={hand} next={handNext} beatsToShift={beatsToShift} expected={expected} nStr={track.tuning.length} stringNames={strNames} onHide={() => setHandOn(false)}
       onLoopShift={handNext ? () => { const b = flat[handNext.from]?.bar ?? 0; setLoop({ from: Math.max(0, b - 1), to: b }); countUse('play:loopShift') } : undefined} />
   ) : null
   void handLeft
@@ -1245,6 +1269,7 @@ export function PlayScreen() {
             <label className="opt-row opt-check" data-find="count"><input type="checkbox" checked={counts} onChange={() => setCounts(!counts)} /><span><b>Count it: 1 & 2 &</b><span className="small muted">Note stems and the count under the tab.</span></span></label>
           )}
           <label className="opt-row opt-check" data-find="hand"><input type="checkbox" checked={handOn} onChange={() => setHandOn(!handOn)} /><span><b><Ico n="hand" /> Where your fingers go</b><span className="small muted">A floating window with the four frets your hand covers and each finger in colour. Drag it anywhere, resize it from its corner, tuck it away with –.</span></span></label>
+          <div className="opt-row stack" style={{ gap: 6 }} data-find="cards"><span><b>Floating cards</b> <span className="small muted">Pick any you like: each floats over everything, drag it anywhere, resize it from its corner, – shrinks it to a bubble, × hides it.</span></span><FloatPicker screen="play" /></div>
           {capoIdea && (
             <div className="opt-row" data-find="capo"><span><b>Smart capo</b><span className="small muted">{doc.smartCapo ? `Capo ${(writtenTrack?.capo ?? 0) + doc.smartCapo} with easier shapes (${capoIdea.shapes.join(' ')}): it sounds the same.` : `Capo ${(writtenTrack?.capo ?? 0) + capoIdea.capo} turns these chords into easier shapes: ${capoIdea.shapes.join(' ')}. It sounds the same.`}</span></span>
               <Chips label="Capo" items={[{ id: 'as', label: 'As written' }, { id: 'smart', label: `Capo ${(writtenTrack?.capo ?? 0) + capoIdea.capo}` }]} value={doc.smartCapo ? 'smart' : 'as'} onChange={v => { update({ smartCapo: v === 'smart' ? capoIdea.capo : undefined }); countUse('play:smartCapo') }} /></div>
