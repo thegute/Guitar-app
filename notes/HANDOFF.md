@@ -65,6 +65,10 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ##   backup; check mic sharing between speech recognition and recording, and with the USB pedal input, on his phone; never record the
 ##   spoken words). LIKES: pull sounds from a song OR a YouTube video (stems -> pads); LOVES #4 chord pads that follow the progression.
 ##   Asked for more detail on: riff-to-pads, style starters + variation, swing/humanise, practice over this, kits + send.
+## 2026-11-09 beat maker: owner wants ALL the ideas (riff-to-pads, sounds from songs/YouTube, chord pads, style starters + variation +
+##   fills, swing/humanise, practice over this, kits + send, voice "record this") AND clean/pro/not bloated. UX plan sent 00:51: fixed zones
+##   (transport bar / parts strip / one centre view / bottom view switcher), each feature on the thing it acts on (pad sheet, Beat menu,
+##   Sounds drawer, Done menu), voice + pedal invisible, 3-way start screen; offered a visual mockup before building.
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar
