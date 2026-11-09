@@ -55,6 +55,9 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ##   + gear (settings + manual). Exercises move to Learn (Exercise library + lesson Practice steps).
 ## 2026-11-09 reorder (owner): REALISTIC ACOUSTIC SOUNDS + STRUM MACHINE (Band/Track mode, strum engine, 300 songs) go ABOVE the
 ##   pro-level Learn course. Where it lives + what the gear button opens: proposals sent 00:35, awaiting his answers.
+## 2026-11-09: Band (Strum Machine) lives in JAM (agreed); 300 songs in the one Songs library with "Play with the band". Gear proposal sent
+##   (setup only: You, Sound, Look, Floating cards, Controls, AI helper, Backup, Manual, About; in-play controls stay in the player), no
+##   objection yet. Now brainstorming: make Jam more intuitive + Beat maker like pro beat makers (proposals sent 00:39).
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar
