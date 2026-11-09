@@ -24,6 +24,9 @@ Tick with [x] and add a few words about what happened. Short notes are perfect (
 - [ ] Web app: does it open and load songs on the computer and the tablet?
 
 ## What Claude works on next session (in this order)
+**NEW TOP 4 (owner 2026-11-09), before everything below:** (1) Songs tab: one library, style + level on every song (asked or analysed),
+sort/search/filter; (2) Game: bouncing ball + Hear it moves the tab and ball + floating hand in Game; (3) Exercises cleanup + floating hand
+replaces the windowed hand diagram; (4) Add a song: one merged section, Riff Scanner from video must really work (slower is fine).
 0. **MAIN FOCUS of the next build (owner): redo the Learn tabs into a full theory + techniques mastery course like Pickup Music, Grade 2 first.**
 1. Read your notes in this file and fix anything broken in test-40.
 2. **Riff Scanner for videos**: take the guitar out of the mix first (6-stem model), so notes and techniques work on lesson videos with

@@ -28,6 +28,18 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
   input is never processed (played back only in the opt-in interface setup); models whose training data is non-commercial are never
   bundled or re-hosted (download from the source on request); ask before deleting anything on his computer.
 
+## NEW TOP OF THE QUEUE (owner 2026-11-09 00:14): these 4 come BEFORE everything else (incl. the Learn overhaul, which follows them):
+## 1. Songs tab refinement: My songs vs Songbook is confusing; consider ONE library; Songbook's "pick a style and level" is clunky.
+##    Every song added any way gets a style + difficulty (asked, or worked out by analysing the song) and the list sorts/searches/filters by them.
+## 2. Game Mode: Songsterr import works great, BUT in Game there is no bouncing ball; "Hear it" just plays the sound without the tab/highway
+##    moving or the ball bouncing (Hear it must drive the same clock: tab scrolls, ball bounces, no scoring). The floating hand diagram must
+##    float in Game too. (Ball design agreed 2026-11-07, see item 3.)
+## 3. Exercises (Songs -> Exercises) is too cluttered: replace the windowed left-hand diagram (HandGuide window) with the floating hand
+##    diagram; brainstorm a cleanup WITH him (sections? layout?).
+## 4. Add a song: merge "Find a tab" and "Bring it in" into one. Riff Scanner from a SCREENSHOT works well; from VIDEO it "fails horribly".
+##    He is fine waiting longer for accuracy. Brainstorm + fix; "I need Riff Scanner to work."
+## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
+
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar
 ## theory AND techniques, "just like Pickup Music" (6 grades, mastery path; see item 7 round 3-5 decisions, notes/research-pickup.md).
 ## BAR: PRO LEVEL (owner 2026-11-07 13:04: "I want it pro level"). Not primers: every topic taught to working-professional depth
