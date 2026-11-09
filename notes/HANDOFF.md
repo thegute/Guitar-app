@@ -53,6 +53,8 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ##   spot + size, snaps to edges, shrinks to a bubble; always on top + always grabbable. PLAY TAB IS MERGED into Songs: Songs = library,
 ##   opening a song = the song player (all Play features kept), a "Now playing" bar on every screen; menu = Songs · Learn · Jam · Tools
 ##   + gear (settings + manual). Exercises move to Learn (Exercise library + lesson Practice steps).
+## 2026-11-09 reorder (owner): REALISTIC ACOUSTIC SOUNDS + STRUM MACHINE (Band/Track mode, strum engine, 300 songs) go ABOVE the
+##   pro-level Learn course. Where it lives + what the gear button opens: proposals sent 00:35, awaiting his answers.
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar
