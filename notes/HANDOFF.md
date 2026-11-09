@@ -38,7 +38,7 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ##    diagram; brainstorm a cleanup WITH him (sections? layout?).
 ## 4. Add a song: merge "Find a tab" and "Bring it in" into one. Riff Scanner from a SCREENSHOT works well; from VIDEO it "fails horribly".
 ##    He is fine waiting longer for accuracy. Brainstorm + fix; "I need Riff Scanner to work."
-## Failing Riff Scanner video from the owner (2026-11-09): https://youtube.com/shorts/c_8nhmfqVbs (a Short). Use it as the main test case.
+## Failing Riff Scanner video from the owner (2026-11-09): https://youtube.com/shorts/c_8nhmfqVbs (a Short). = "Dust In a Baggie Intro | Billy Strings" by Level Up Guitar Tabs: fast bluegrass flatpicking, from a TAB channel (tab very likely on screen -> read the frames first). Use it as the main test case.
 ## 5. Windows (owner 2026-11-09): in Songs at least, ideally almost everywhere, every window resizable in LENGTH AND WIDTH, and a resized
 ##    window must still show all its info (content reflows / fits, not cut off). Win.tsx today only resizes height (⇕). Design to agree
 ##    with him: tidy grid (narrow windows sit side by side on Fold inner / tablet; cover screen stays one column) vs free placement.
