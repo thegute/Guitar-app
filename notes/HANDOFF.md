@@ -47,6 +47,12 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ##   handle that is always tappable, never under a Win. He wants MORE floating panels (ideas offered, he picks) that can be combined or
 ##   chosen. Exercises MOVE to Learn and get tidied. He asked whether Play should be merged too (proposal: Songs library -> song player
 ##   screen with a "Now playing" bar; awaiting his answer).
+## 2026-11-09 decisions (final): FLOATING CARDS: build all of: hand diagram, chord now + next (beat countdown), mini neck map, live
+##   feedback ("you played G, tab wants A"), bar/beat counter, tempo pill, quick tuner, MINI YOUTUBE PLAYER, practice timer. Card idea:
+##   separable cards / one dock; each card can be hidden; show ONE or SEVERAL at once (he'll mostly use one); chosen per screen; remembers
+##   spot + size, snaps to edges, shrinks to a bubble; always on top + always grabbable. PLAY TAB IS MERGED into Songs: Songs = library,
+##   opening a song = the song player (all Play features kept), a "Now playing" bar on every screen; menu = Songs · Learn · Jam · Tools
+##   + gear (settings + manual). Exercises move to Learn (Exercise library + lesson Practice steps).
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar
