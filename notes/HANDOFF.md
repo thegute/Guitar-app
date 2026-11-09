@@ -61,6 +61,10 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ## 2026-11-09 beat maker: used for QUICK BEATS + SAMPLES, "like Koala but with more features". Proposal: one fixed pro layout (transport bar
 ##   on top, 4x4 pads, bottom views Pads/Steps/Keys/Mixer/FX, parts A-D strip, hold a pad = edit sheet), not Win windows; Jam = 3 choices
 ##   (Play with a band / Make a beat / Loop myself). Extra-value ideas sent 00:45, awaiting his picks.
+## 2026-11-09 beat maker picks: VOICE "record this" -> count-in, recording starts 3 s later (instead of the footswitch; keep pedal as
+##   backup; check mic sharing between speech recognition and recording, and with the USB pedal input, on his phone; never record the
+##   spoken words). LIKES: pull sounds from a song OR a YouTube video (stems -> pads); LOVES #4 chord pads that follow the progression.
+##   Asked for more detail on: riff-to-pads, style starters + variation, swing/humanise, practice over this, kits + send.
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar
