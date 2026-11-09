@@ -69,6 +69,9 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ##   fills, swing/humanise, practice over this, kits + send, voice "record this") AND clean/pro/not bloated. UX plan sent 00:51: fixed zones
 ##   (transport bar / parts strip / one centre view / bottom view switcher), each feature on the thing it acts on (pad sheet, Beat menu,
 ##   Sounds drawer, Done menu), voice + pedal invisible, 3-way start screen; offered a visual mockup before building.
+## 2026-11-09 WINDOWS RULE (owner): EVERY window in the app is RESIZABLE (width + height) and MOVABLE in the tidy grid, EXCEPT Learn
+##   (Learn is rebuilt later). Beat maker: its zones (pads, steps, keys, mix, FX, pad sheet) are tidy-grid windows too (side by side on big
+##   screens); only the transport bar stays pinned. FIRST beat-maker step = a visual MOCKUP (phone + big screen) for him to comment on.
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar
