@@ -1,11 +1,15 @@
-// Windows you can arrange yourself: every big section of a screen gets a slim title bar with
-//   ☰  drag up or down to move it,   –  tuck it away,   and a ⇕ handle at the bottom to make it taller or shorter.
+// Windows you can arrange yourself, in a tidy grid: every big section of a screen gets a slim title bar with
+//   ☰  drag it anywhere in the grid (beside or between other windows),   –  tuck it away,
+//   and a ◢ corner handle: drag down for taller or shorter, drag sideways for narrower or wider. Widths snap to a third,
+//   a half, two thirds or the full width, so narrow windows sit side by side and never overlap; on a narrow screen
+//   (the Fold's cover, a phone) there's room for one column, so every window is full width and only the height changes.
+// Learn's own pages keep the old one-column windows (Learn is being rebuilt).
 // Tucked-away windows wait as buttons in a tray at the bottom of the screen: tap one to bring it back.
 // "Reset layout" puts everything back. Everything is remembered per screen (kg:win:<area>).
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useHint } from './Fold'
 
-interface Layout { order: string[]; hidden: string[]; height: Record<string, number>; moved?: boolean; folded?: string[] }
+interface Layout { order: string[]; hidden: string[]; height: Record<string, number>; moved?: boolean; folded?: string[]; /** share of the row (1/3, 1/2, 2/3, 1) */ width?: Record<string, number> }
 const EMPTY: Layout = { order: [], hidden: [], height: {} }
 interface Ctx {
   area: string
@@ -15,7 +19,17 @@ interface Ctx {
   set: (f: (l: Layout) => Layout) => void
   dragging: string | null
   startDrag: (id: string, e: React.PointerEvent) => void
+  /** windows can be narrower than the row here (a wide enough screen, not Learn) */
+  grid: boolean
+  areaEl: () => HTMLDivElement | null
 }
+/** Learn's pages stay one column until Learn is rebuilt */
+const ONE_COLUMN = new Set(['learnCourse', 'learnToday', 'learnExplore', 'caged', 'lick', 'recordings', 'progress', 'circle'])
+/** the widths a window snaps to */
+export const WIDTHS = [1 / 3, 1 / 2, 2 / 3, 1]
+const GAP = 10
+/** the row is wide enough for two windows side by side */
+const roomy = (w: number) => w >= 600
 const C = createContext<Ctx | null>(null)
 
 function load(area: string): Layout {
@@ -30,6 +44,16 @@ export function WinArea({ area, children, className = '', defaultHidden = [] }: 
   const [titles, setTitles] = useState<Record<string, string>>({})
   const [dragging, setDragging] = useState<string | null>(null)
   const box = useRef<HTMLDivElement>(null)
+  const [areaW, setAreaW] = useState(0)
+  useEffect(() => {
+    const el = box.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => setAreaW(el.clientWidth))
+    ro.observe(el)
+    setAreaW(el.clientWidth)
+    return () => ro.disconnect()
+  }, [])
+  const grid = !ONE_COLUMN.has(area) && roomy(areaW)
   // another screen using the same WinArea: load its layout (not on the first mount: the windows inside have just
   // registered themselves, and reloading here would forget them)
   const shownArea = useRef(area)
@@ -61,9 +85,16 @@ export function WinArea({ area, children, className = '', defaultHidden = [] }: 
       if (!el) return
       const wins = [...el.querySelectorAll<HTMLElement>('.win')].filter(w => w.dataset.win !== id && w.closest('.win-area') === el)
       let target: string | null = null, before = true
+      const rowW = el.clientWidth
       for (const w of wins) {
         const r = w.getBoundingClientRect()
-        if (ev.clientY >= r.top && ev.clientY <= r.bottom) { target = w.dataset.win!; before = ev.clientY < r.top + r.height / 2; break }
+        // narrower than the row: beside it (left or right half); full width: above or below (top or bottom half)
+        const beside = r.width < rowW * 0.9
+        if (ev.clientY >= r.top && ev.clientY <= r.bottom && (!beside || (ev.clientX >= r.left && ev.clientX <= r.right))) {
+          target = w.dataset.win!
+          before = beside ? ev.clientX < r.left + r.width / 2 : ev.clientY < r.top + r.height / 2
+          break
+        }
       }
       if (!target) return
       set(l => {
@@ -79,13 +110,14 @@ export function WinArea({ area, children, className = '', defaultHidden = [] }: 
     addEventListener('pointerup', up)
     addEventListener('pointercancel', up)
   }, [set])
-  const ctx = useMemo(() => ({ area, layout, register, unregister, set, dragging, startDrag }), [area, layout, register, unregister, set, dragging, startDrag])
+  const areaEl = useCallback(() => box.current, [])
+  const ctx = useMemo(() => ({ area, layout, register, unregister, set, dragging, startDrag, grid, areaEl }), [area, layout, register, unregister, set, dragging, startDrag, grid, areaEl])
   const hidden = layout.hidden.filter(id => titles[id])
-  const changed = layout.hidden.length > 0 || Object.keys(layout.height).length > 0 || !!layout.moved || !!layout.folded?.length
+  const changed = layout.hidden.length > 0 || Object.keys(layout.height).length > 0 || Object.keys(layout.width ?? {}).length > 0 || !!layout.moved || !!layout.folded?.length
   return (
     <C.Provider value={ctx}>
       <LayoutHint />
-      <div className={`win-area ${className}`} ref={box}>{children}</div>
+      <div className={`win-area ${className}${grid ? ' win-grid' : ''}`} ref={box}>{children}</div>
       {(hidden.length > 0 || changed) && (
         <div className="win-tray" role="toolbar" aria-label="Tucked-away windows">
           {hidden.map(id => (
@@ -111,19 +143,33 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
   const [hintBtn, hintText] = useHint(hint ?? '')
   useEffect(() => { ctx?.register(id, title); return () => ctx?.unregister(id) }, [id, title]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!ctx) return <section className={className}>{hint ? <div className="hint-head"><h2 style={{ margin: 0 }}>{title}</h2>{hintBtn}</div> : null}{hintText}<div className={`win-body ${bodyClass}`} style={bodyStyle}>{children}</div></section>
-  const { layout, set, dragging, startDrag } = ctx
+  const { layout, set, dragging, startDrag, grid, areaEl } = ctx
   if (layout.hidden.includes(id)) return null
   const order = layout.order.indexOf(id)
   const folded = (layout.folded ?? []).includes(id)
   const h = layout.height[id]
+  const w = grid ? layout.width?.[id] : undefined
+  // the ◢ corner: down/up = height, sideways = width (snapped to a third, a half, two thirds or full; only where there's room)
   const resize = (e: React.PointerEvent) => {
     e.preventDefault()
     const el = body.current
-    if (!el) return
-    const startY = e.clientY, startH = el.getBoundingClientRect().height
+    const win = (e.currentTarget as HTMLElement).closest('.win') as HTMLElement | null
+    if (!el || !win) return
+    const startY = e.clientY, startX = e.clientX, startH = el.getBoundingClientRect().height, startW = win.getBoundingClientRect().width
+    const rowW = areaEl()?.clientWidth ?? startW
+    let sideways = false
     const move = (ev: PointerEvent) => {
-      const nh = Math.max(minHeight, Math.round(startH + ev.clientY - startY))
-      set(l => ({ ...l, height: { ...l.height, [id]: nh } }))
+      const dy = ev.clientY - startY, dx = ev.clientX - startX
+      if (Math.abs(dy) > 6) {
+        const nh = Math.max(minHeight, Math.round(startH + dy))
+        set(l => (l.height[id] === nh ? l : { ...l, height: { ...l.height, [id]: nh } }))
+      }
+      if (grid && (sideways || Math.abs(dx) > 24)) {
+        sideways = true
+        const want = (startW + dx + GAP) / (rowW + GAP)
+        const snap = WIDTHS.reduce((b, f) => (Math.abs(f - want) < Math.abs(b - want) ? f : b), 1)
+        set(l => ((l.width?.[id] ?? 1) === snap ? l : { ...l, width: { ...(l.width ?? {}), [id]: snap } }))
+      }
     }
     const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up) }
     addEventListener('pointermove', move)
@@ -131,7 +177,8 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
     addEventListener('pointercancel', up)
   }
   return (
-    <section className={`win ${className}${dragging === id ? ' dragging' : ''}`} data-win={id} style={{ order: order < 0 ? 99 : order }}>
+    <section className={`win ${className}${dragging === id ? ' dragging' : ''}${w !== undefined && w < 1 ? ' part' : ''}`} data-win={id}
+      style={{ order: order < 0 ? 99 : order, ...(w !== undefined ? { flex: `0 0 calc(${w * 100}% - ${GAP * (1 - w)}px)`, maxWidth: `calc(${w * 100}% - ${GAP * (1 - w)}px)` } : {}) }}>
       <div className="win-bar">
         <button className="win-grip" onPointerDown={e => startDrag(id, e)} aria-label={`Move ${title}: drag up or down`} title="Drag to move">☰ <span className="win-word">Move</span></button>
         <button className="win-title" onClick={() => set(l => { const f = l.folded ?? []; return { ...l, folded: f.includes(id) ? f.filter(x => x !== id) : [...f, id] } })}
@@ -140,12 +187,17 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
         </button>
         {hint ? hintBtn : null}
         {extra && <span className="win-extra">{extra}</span>}
-        {h !== undefined && <button className="win-btn" onClick={() => set(l => { const height = { ...l.height }; delete height[id]; return { ...l, height } })} title="Full size" aria-label={`${title}: full size`}>⤢</button>}
+        {(h !== undefined || w !== undefined) && <button className="win-btn" onClick={() => set(l => { const height = { ...l.height }; delete height[id]; const width = { ...(l.width ?? {}) }; delete width[id]; return { ...l, height, width } })} title="Back to its own size" aria-label={`${title}: back to its own size`}>⤢</button>}
         <button className="win-btn" onClick={() => set(l => ({ ...l, hidden: [...l.hidden, id] }))} title="Tuck away (it waits in the tray at the bottom)" aria-label={`Tuck away ${title}`}>– <span className="win-word">Hide</span></button>
       </div>
       {!folded && hint ? hintText : null}
       {!folded && <div className={`win-body ${bodyClass}${h !== undefined ? ' sized' : ''}`} ref={body} style={h !== undefined ? { ...bodyStyle, height: h } : bodyStyle}>{children}</div>}
-      {resizable && !folded && <div className="win-size" onPointerDown={resize} role="separator" aria-label={`Drag to make ${title} taller or shorter`} title="Drag to resize">⇕ drag to resize</div>}
+      {resizable && !folded && (
+        <div className={`win-size${grid ? ' both' : ''}`} onPointerDown={resize} role="separator"
+          aria-label={grid ? `Drag to resize ${title}: down for taller, sideways for wider or narrower` : `Drag to make ${title} taller or shorter`} title="Drag to resize">
+          {grid ? '◢ drag to resize' : '⇕ drag to resize'}
+        </div>
+      )}
     </section>
   )
 }
@@ -165,7 +217,7 @@ export function LayoutHint({ text }: { text?: string }) {
   if (seen) return null
   return (
     <div className="layout-hint" role="note">
-      <span>{text ?? 'You can arrange this screen. Tap a box\'s name to fold it up (tap again to open it). Drag ☰ Move to put a box higher or lower. Drag ⇕ under a box to make it taller or shorter. – Hide tucks it into the tray at the bottom (tap it there to bring it back).'}</span>
+      <span>{text ?? 'You can arrange this screen. Tap a box\'s name to fold it up (tap again to open it). Drag ☰ Move to put a box somewhere else (on a big screen, beside another one). Drag the handle under a box down for taller, or sideways for narrower so boxes sit side by side. – Hide tucks it into the tray at the bottom (tap it there to bring it back).'}</span>
       <button className="btn sm" onClick={() => { try { localStorage.setItem('kg:layoutHint', '1') } catch { /* noop */ } setSeen(true) }}>Got it</button>
     </div>
   )

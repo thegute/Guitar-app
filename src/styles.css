@@ -2537,3 +2537,13 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .np-text { display: grid; min-width: 0; flex: 1; line-height: 1.2; }
 .np-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
 .np-go { font: 700 13px var(--ui); color: var(--ink); padding: 0 6px; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- tidy-grid windows (components/Win.tsx): narrow windows sit side by side ---------- */
+.win-area.win-grid { flex-flow: row wrap; align-items: flex-start; }
+.win-area.win-grid > * { flex: 1 1 100%; max-width: 100%; }
+.win-area.win-grid > .win.part { min-width: 0; }
+.win-area.win-grid.win-cols > .win.panel:not([style*="flex"]) { flex: 1 1 340px; }
+.win-size.both { align-self: flex-end; cursor: nwse-resize; margin-right: -4px; }
+/* a narrow window: its insides wrap and scroll sideways instead of spilling out */
+.win.part .win-body { overflow-x: auto; }
+.win.part .win-bar .win-word { display: none; }
