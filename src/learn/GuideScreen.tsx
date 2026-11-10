@@ -5,7 +5,7 @@ import { lessonsAvailable } from '../lessons/folders'
 import type { Go } from './path'
 import { resetWelcome } from '../components/Welcome'
 
-export function GuideScreen({ onExit, onGo, initial }: { onExit: () => void; onGo: (g: Go) => void; initial?: string }) {
+export function GuideScreen({ onExit, onGo, initial, embedded }: { onExit: () => void; onGo: (g: Go) => void; initial?: string; /** inside Settings → Manual: no Back button of its own */ embedded?: boolean }) {
   const [open, setOpen] = useState<string>(initial && GUIDE.some(s => s.id === initial) ? initial : 'start')
   // opened at a section (from search): bring it into view
   useEffect(() => {
@@ -15,8 +15,8 @@ export function GuideScreen({ onExit, onGo, initial }: { onExit: () => void; onG
   }, [initial])
   return (
     <div className="stack guide">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <button className="btn sm" onClick={onExit}>← Back</button>
+      <div className="row" style={{ justifyContent: embedded ? 'flex-end' : 'space-between' }}>
+        {!embedded && <button className="btn sm" onClick={onExit}>← Back</button>}
         <button className="btn sm ghost" onClick={() => { resetWelcome(); location.reload() }}>Replay the welcome</button>
       </div>
       <div className="guide-title">

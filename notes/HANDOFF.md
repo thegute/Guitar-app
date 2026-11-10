@@ -79,6 +79,10 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ##   Master over USB = clean DI, no voice). Android may route the default mic to the USB interface when plugged in -> keep speech on the
 ##   built-in mic (AudioRecord/SpeechRecognizer preferred device, Android 12+), else our own small recogniser on the built-in mic; footswitch
 ##   + big on-screen record button as backup. Test on his Fold with the pedal plugged in.
+## 2026-11-09 07:48 idea (owner): the Ask bubble suggests smart tips per screen. Proposal sent: glowing dot on the bubble (never pops over
+##   play), tip card with Show me / Got it / No more tips here; tips from guide.ts (offline), picked by moment (first visit, struggling in a bar,
+##   better way, never-used features from usage.ts), smarter with Gemini using progress; max 1 per visit + a few a day, dismissed never return,
+##   Settings: Tips On / Only when I ask / Off. ANSWER (10:42): the GLOWING DOT, plus a setting to ALWAYS SHOW tips (Tips: Dot / Always show / Only when I ask / Off). Guitar-advice question unanswered.
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar

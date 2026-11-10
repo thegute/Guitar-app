@@ -218,7 +218,7 @@ const takes = (s, i, part = 'A') => s?.tracks?.[i]?.parts?.[part]?.takes?.length
     await page.waitForSelector('[data-testid=transcriber]', { timeout: 8000 }).catch(() => bad('bridges: Make it a tab did not open the Riff Scanner'))
     await page.locator('[data-testid=transcriber] [data-testid=scan-result]').waitFor({ timeout: 120000 }).catch(() => bad('bridges: no tab from the loop'))
     // the strip on the Riff Scanner? no: on Play and Scales
-    await page.locator('nav.nav button:has-text("Play")').click()
+    await page.locator('[data-testid=now-playing]').click()
     await page.waitForSelector('[data-testid=looper-bar]', { timeout: 8000 }).catch(() => bad('bridges: no looper strip on Play'))
     await page.screenshot({ path: path.join(OUT, 'lp-play-strip.png') })
     if (await sideways(page)) bad('Play with the looper strip scrolls sideways')

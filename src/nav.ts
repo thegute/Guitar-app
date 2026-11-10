@@ -89,6 +89,8 @@ export function onLearnGo(f: (g: LearnGo) => void) {
 }
 /** Open a Learn page (a quiz, a lesson, a tool, a Settings page …) from another screen. */
 export function learnGo(g: LearnGo) {
+  // Settings is its own page over any screen now (the gear), not a page of Learn
+  if ('settings' in g) { openGear(g.settings); return }
   if (learnListeners.size) learnListeners.forEach(f => f(g))
   else pendingLearn = g
   go('learn')
@@ -127,4 +129,17 @@ export function onRemount(f: () => void) {
 /** Tools and Jam read their settings when they open: after changing them from outside, open them afresh. */
 export function remount() {
   remountListeners.forEach(f => f())
+}
+
+// ---- the gear: Settings (and the manual, the floating cards) as one page over any screen
+export type GearPage = 'you' | 'sound' | 'look' | 'cards' | 'backup' | 'manual'
+const gearListeners = new Set<(page?: GearPage, sec?: string) => void>()
+export function onGear(f: (page?: GearPage, sec?: string) => void) {
+  gearListeners.add(f)
+  return () => { gearListeners.delete(f) }
+}
+/** Open Settings (at a page; the manual at a section). */
+export function openGear(page?: GearPage, sec?: string) {
+  if (page) setSubPage('settings', page)
+  gearListeners.forEach(f => f(page, sec))
 }

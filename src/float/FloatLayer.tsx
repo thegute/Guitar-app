@@ -214,11 +214,13 @@ function TimerBody() {
 }
 
 /** Choose the floating cards for a screen (Play's Options, the gear's Floating cards). */
+/** screens that know where your hand is (the hand card needs a tab) */
+const HAND_SCREENS = ['play']
 export function FloatPicker({ screen }: { screen: string }) {
   const shown = useShownCards(screen)
   return (
     <div className="float-picker" role="group" aria-label="Floating cards" data-testid="float-picker">
-      {CARDS.map(c => (
+      {CARDS.filter(c => c.id !== 'hand' || HAND_SCREENS.includes(screen)).map(c => (
         <button key={c.id} className="chip" aria-pressed={shown.includes(c.id)} onClick={() => toggleCard(screen, c.id)} title={c.hint} data-card={c.id}>
           <Ico n={c.icon} /> {c.title}
         </button>

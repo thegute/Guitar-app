@@ -82,7 +82,7 @@ const sub = (page, label) => page.locator(`.subtabs [role=tab]:has-text("${label
       for (const n of names) { await sub(page, n); await page.waitForTimeout(450); await scan(page, `${sz} ${tab} → ${n}`) }
     }
     // Play options sheet and music stand
-    await nav(page, 'Play'); await page.waitForTimeout(400)
+    await page.locator('[data-testid=now-playing]').click(); await page.waitForTimeout(400)
     await page.locator('.song-check button:has-text("Got it")').click({ timeout: 1500 }).catch(() => {})
     await page.locator('button.opts-btn').click().catch(() => {}); await page.waitForTimeout(400); await scan(page, `${sz} Play → Options`)
     await page.keyboard.press('Escape').catch(() => {}); await page.locator('.play-opts button:has-text("Done"), .sheet button:has-text("Close")').first().click({ timeout: 800 }).catch(() => {})

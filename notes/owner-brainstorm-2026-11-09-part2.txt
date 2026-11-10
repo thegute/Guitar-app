@@ -1,0 +1,8 @@
+Owner 2026-11-09 20:31 (part 2):
+Beat Maker Full Screen Mode (⤢ in st-transport: hides the top banner, main nav and Jam sub-tabs, requests device fullscreen; compact ⤡ to exit).
+Groovebox upgrades, super clean: chord arpeggiator/strummer pills in Keyboard Chords mode (Block, Pluck Up, Pluck Down, Strum, Pulse; hold
+a chord key = plucked in time); step grid touch tricks (slide up/down on a step = its volume; hold a step = roll 2x/3x/4x or play only on the
+4th bar); XY effects pad Pin (stays where the finger left) + ● Record records finger movement; Kick Pump toggle in Volumes (keys/chords duck
+on the kick) and 1-tap Auto Bass (bassline from my chords); Warmth + Length dials for Keyboard sounds.
+Backing behind a tab: option (a button, can turn off) when playing a tab, in Game Mode or regular tab view, to have the chords or the full
+song minus my part play quieter in the background while my part is a little louder. Brainstorm it.

@@ -357,7 +357,7 @@ export const LESSONS: Lesson[] = [
   { id: 'uke-notes', chapter: 'guitar', title: 'Ukulele: tunings and how they relate to guitar', minutes: 4, blocks: [
     { p: 'A **tenor ukulele** is tuned G C E A: like the top four strings of a guitar with a capo on fret 5. **Re-entrant** (high-G) tuning puts the G string an octave up, so it\'s higher than the C string: that bright, sparkly sound. **Low-G** gives a fuller bass.' },
     { p: 'A **baritone ukulele** is tuned D G B E, exactly the top four strings of a guitar, so every guitar chord shape on those strings works with the same name. **High-D** re-entrant tuning makes it sound more like a classic uke.' },
-    { tip: 'Switch instruments in Learn → Settings. Chord shapes, scales, tabs, the tuner and quizzes all follow your instrument and tuning.' },
+    { tip: 'Switch instruments in Settings (the gear in the menu). Chord shapes, scales, tabs, the tuner and quizzes all follow your instrument and tuning.' },
   ] },
 ]
 

@@ -1,5 +1,8 @@
 // Settings: instrument (with a confirm step so you can't switch by accident), tuning, look, daily goal and reminders.
 import { fullScreen, setFullScreen } from '../theme'
+import { FloatPicker } from '../float/FloatLayer'
+import { GuideScreen } from './GuideScreen'
+import type { Go } from './path'
 import { Ico, instIcon } from '../components/Icon'
 import { Capacitor } from '@capacitor/core'
 import { usePersist } from '../components/Controls'
@@ -32,12 +35,14 @@ import { Win, WinArea } from '../components/Win'
 import { handSize, setHandSize, type HandSize } from '../hand/neck'
 
 
-export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => void }) {
+/** The gear page: everything about how the app is set up, the floating cards, and the manual. Opened from the menu's
+ *  Settings button on any screen (nav.ts openGear). Things you change while playing stay where you play. */
+export function Settings({ inst, onExit, onGo, guideSec }: { inst: Instrument; onExit: () => void; onGo?: (g: Go) => void; guideSec?: string }) {
   useProgress()
   const theme = useTheme()
   const motion = usePsyMotion()
   const dog = usePsyDog()
-  const [page, setPage] = useSubTab('settings', ['you', 'sound', 'look', 'backup'] as const)
+  const [page, setPage] = useSubTab('settings', ['you', 'sound', 'look', 'cards', 'backup', 'manual'] as const)
   const [showArt, setShowArt] = useShowArt()
   const [readySecs, setReadySecs] = useState(getReadySecs)
   const [ask, setAsk] = useState<InstrumentId | null>(null)
@@ -86,7 +91,7 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         <h1 style={{ margin: 0 }}>Settings</h1>
       </header>
       <SubTabs label="Settings" value={page} onChange={setPage} tabs={[
-        { id: 'you', label: 'You' }, { id: 'sound', label: 'Sound' }, { id: 'look', label: 'Look' }, { id: 'backup', label: 'Backup' },
+        { id: 'you', label: 'You' }, { id: 'sound', label: 'Sound' }, { id: 'look', label: 'Look' }, { id: 'cards', label: 'Cards' }, { id: 'backup', label: 'Backup' }, { id: 'manual', label: 'Manual' },
       ]} />
 
       {page === 'you' && <WinArea area="setYou">
@@ -251,6 +256,21 @@ export function Settings({ inst, onExit }: { inst: Instrument; onExit: () => voi
         <span className="muted">Notes from a recording: Basic Pitch by Spotify (Apache 2.0), running on TensorFlow.js.</span>
       </Win>
       </WinArea>}
+      {page === 'cards' && (
+        <section className="panel stack" style={{ gap: 12 }} data-testid="gear-cards">
+          <p className="small muted" style={{ margin: 0 }}>
+            Floating cards hover over everything. Pick a different set for each screen (most people use one at a time). On the screen, drag a card's bar to move it,
+            drag its corner to resize it, – shrinks it to a small bubble, × hides it.
+          </p>
+          {([['play', 'Song player'], ['songs', 'Songs'], ['learn', 'Learn'], ['jam', 'Jam'], ['tools', 'Tools']] as const).map(([id, label]) => (
+            <div key={id} className="stack" style={{ gap: 6 }}>
+              <b>{label}</b>
+              <FloatPicker screen={id} />
+            </div>
+          ))}
+        </section>
+      )}
+      {page === 'manual' && <GuideScreen key={guideSec ?? ''} initial={guideSec} onExit={onExit} onGo={g => onGo?.(g)} embedded />}
       {setup && <GearSetup onClose={() => setSetup(false)} />}
       {target && (
         <div className="sheet-backdrop" onClick={() => setAsk(null)}>

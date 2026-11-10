@@ -95,7 +95,7 @@ async function playThrough(page) {
       'kg:z2h': { phase: 1, since: 0, placed: true, ticks: [] },
     }, vp)
     // a song with trouble bars: open the example first so it exists, then seed its stats
-    await nav(page, 'Play'); await page.waitForSelector('.tab-note', { timeout: 8000 })
+    await page.locator('[data-testid=now-playing]').click(); await page.waitForSelector('.tab-note', { timeout: 8000 })
     const id = await page.evaluate(() => JSON.parse(localStorage.getItem('kg:playSong:guitar')))
     await page.evaluate(id => localStorage.setItem('kg:songStats', JSON.stringify({ [id]: { title: 'Ode', inst: 'guitar', runs: [], best: 60, lastAt: Date.now(), barMiss: { 2: 3, 3: 2 }, barHit: { 0: 5 } } })), id)
     await nav(page, 'Learn'); await sub(page, 'Today')

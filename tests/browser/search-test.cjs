@@ -175,12 +175,12 @@ async function backSection(browser) {
   if (!home) bad('back: Learn did not step back from Ear training')
   await page.goBack().catch(() => {})
   await page.waitForTimeout(300)
-  if ((await tabNow(page)) !== 'play') bad(`back: from Learn went to ${await tabNow(page)}, not Play`)
-  // sections picked in the menu: Back goes to Play
+  if ((await tabNow(page)) !== 'songs') bad(`back: from Learn went to ${await tabNow(page)}, not Songs`)
+  // sections picked in the menu: Back goes to Songs (home since Play moved into Songs)
   await nav(page, 'Jam'); await nav(page, 'Tools')
   await page.goBack().catch(() => {})
   await page.waitForTimeout(300)
-  if ((await tabNow(page)) !== 'play') bad(`back: from Tools went to ${await tabNow(page)}, not Play`)
+  if ((await tabNow(page)) !== 'songs') bad(`back: from Tools went to ${await tabNow(page)}, not Songs`)
   // a link (search) from Tools to a Learn tool: Back steps out of the tool, then returns to Tools
   await nav(page, 'Tools')
   await pick(page, 'circle of fifths', /^Circle of fifths$/)
@@ -188,19 +188,20 @@ async function backSection(browser) {
   await page.goBack().catch(() => {}); await page.waitForTimeout(300)
   if ((await tabNow(page)) !== 'tools') bad(`back: after a search link, went to ${await tabNow(page)}, not back to Tools`)
   // Play's Options sheet closes with Back
-  await nav(page, 'Play')
+  await page.locator('[data-testid=now-playing]').click()
   await page.locator('.opts-btn').click()
   await page.goBack().catch(() => {})
   await page.waitForTimeout(300)
   if (await page.locator('.play-opts').count()) bad('back: Options sheet still open')
-  // on Play with nothing open (the song check may still be open: Back closes it first): a note asks for a second press
+  // the song player → Songs; on Songs with nothing open a note asks for a second press (the song check may still be open: Back closes it first)
   let hint = 0
-  for (let i = 0; i < 3 && !hint; i++) {
+  for (let i = 0; i < 4 && !hint; i++) {
     await page.goBack().catch(() => {})
     await page.waitForTimeout(200)
     hint = await page.locator('.pedal-toast:has-text("Press Back again")').count()
   }
-  if (!hint) bad('back: no "press again" note on Play')
+  if (!hint) bad('back: no "press again" note on Songs')
+  if ((await tabNow(page)) !== 'songs') bad(`back: the player went to ${await tabNow(page)}, not Songs`)
   if (page.url().indexOf('localhost:4173') < 0) bad('back: the page was left')
   if (page.errors.length) bad('back: page errors ' + page.errors.join(' | '))
   await page.context().close()

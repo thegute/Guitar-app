@@ -236,7 +236,7 @@ More words go here too`, 'Eb song')
     }
     if (await sideways(page)) bad(`${vp.n}: Chords scrolls sideways`)
     // Play → Scales & chords → Layers
-    await nav(page, 'Play'); await page.waitForSelector('.tab-note')
+    await page.locator('[data-testid=now-playing]').click(); await page.waitForSelector('.tab-note')
     if (vp.width < 760) await page.click('.view-switch >> text=Both').catch(() => {})
     const lay = page.locator('.harmony .h-modes button:has-text("Layers")')
     if (!(await lay.count())) bad(`${vp.n}: no Layers in Scales & chords`)
@@ -362,7 +362,7 @@ More words go here too`, 'Eb song')
       await playBtn.click().catch(() => {})
     } else bad(`${vp.n}: couldn't find the Jam play button on Solo over it`)
     // Play → Scales & chords: Connect → Voice leading shapes
-    await nav(page, 'Play'); await page.waitForSelector('.tab-note')
+    await page.locator('[data-testid=now-playing]').click(); await page.waitForSelector('.tab-note')
     if (vp.width < 760) await page.click('.view-switch >> text=Both').catch(() => {})
     await page.screenshot({ path: `${DIR}/step1-voice-play-${vp.n}.png` })
     if (await page.locator('[data-testid=finger-box] button[aria-label^="Shrink"]').count()) await page.locator('[data-testid=finger-box] button[aria-label^="Shrink"]').click()

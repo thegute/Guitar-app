@@ -84,7 +84,7 @@ const only = process.argv[2]
     out.hScroll = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
 
     // Play screen: loop bars 2–3
-    await page.click('nav >> text=Play')
+    await page.click('[data-testid=now-playing]')
     await page.waitForSelector('.tab-note')
     await page.click('.tab-tools button:has-text("Loop")')
     await page.click('svg.tab-bar[data-bar="1"]')

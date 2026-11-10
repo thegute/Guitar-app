@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from 'react'
 import { IconGear } from '../components/Icons'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { countUse } from '../usage'
-import { playAction } from '../nav'
+import { playAction, openGear } from '../nav'
 import { PsyArt, PsyDog, PsyPic } from '../components/PsyArt'
 import type { DogId } from '../art/samurai'
 import { useInstrument } from '../instrument'
@@ -43,7 +43,6 @@ import { CagedExplorer } from './CagedExplorer'
 import { LessonList, LessonView, lessonsRead } from './LessonReader'
 import { ChordChanges, CircleTool, RhythmTrainer } from './Tools'
 import { ProgressView } from './ProgressView'
-import { Settings } from './Settings'
 import { GuideScreen } from './GuideScreen'
 import { LickLibrary } from './LickLibrary'
 import { LickChainer } from '../components/LickChainer'
@@ -172,7 +171,7 @@ export function LearnScreen() {
     else if ('song' in g) void getSong(g.song).then(doc => { if (doc) { openInPlay(g.loop === null ? { ...doc, loop: undefined } : g.loop ? { ...doc, loop: g.loop } : doc); if (g.speed) playAction({ speed: g.speed }) } else goTab('play') })
     else if ('songbook' in g) void openSongbook(g.songbook.song, g.songbook.part)
     else if ('songs' in g) openSongs(g.songs)
-    else if ('settings' in g) { setSubPage('settings', g.settings); push({ k: 'settings', n: Date.now() }) }
+    else if ('settings' in g) openGear(g.settings)
     else if ('jam' in g) openJam(g.jam)
     else if ('learn' in g) { setPage(g.learn); setStack([{ k: 'home' }]); document.getElementById('main')?.scrollTo({ top: 0 }) }
     else if ('technique' in g) push({ k: 'technique', id: g.technique })
@@ -220,7 +219,6 @@ export function LearnScreen() {
   if (route.k === 'licks') return <LickLibrary key={route.sel ?? ''} initial={route.sel} onExit={back} />
   if (route.k === 'circle') return <CircleTool onExit={back} onQuiz={id => push({ k: 'quiz', id })} />
   if (route.k === 'progress') return <ProgressView inst={inst} onExit={back} />
-  if (route.k === 'settings') return <Settings key={route.n ?? 0} inst={inst} onExit={back} />
   if (route.k === 'guide') return <GuideScreen key={route.sec ?? ''} initial={route.sec} onExit={back} onGo={launch} />
 
   // ---------- home ----------
@@ -290,10 +288,10 @@ export function LearnScreen() {
         <PsyPic id="march" at="50% 30%" className="screen-art" />
         <ArtThumb className="learn-art" />
         <h1 style={{ margin: 0 }}>Learn</h1>
-        <button className="btn sm inst-chip" onClick={() => push({ k: 'settings' })} aria-label={`Instrument: ${inst.label}. Change in settings`}>
+        <button className="btn sm inst-chip" onClick={() => openGear()} aria-label={`Instrument: ${inst.label}. Change in settings`}>
           {inst.short}{inst.isUke && inst.tuning.reentrant ? ' (re-entrant)' : ''}
         </button>
-        <button className="btn sm icon" onClick={() => push({ k: 'settings' })} aria-label="Settings"><IconGear /></button>
+        <button className="btn sm icon" onClick={() => openGear()} aria-label="Settings"><IconGear /></button>
       </div>
 
       <SubTabs label="Learn" value={page} onChange={setPage} tabs={[
@@ -377,7 +375,7 @@ export function LearnScreen() {
               </ul>
             </Win>
             {st.total >= 5 && (!lastBackup() || Date.now() - lastBackup()! > 14 * 864e5) && (
-              <button className="backup-nudge" onClick={() => push({ k: 'settings' })}>
+              <button className="backup-nudge" onClick={() => openGear()}>
                 <b>Back up your progress</b>
                 <span className="small muted">Last backup: {ago(lastBackup())}. Save your songs and {st.total} practice days to Google Drive in Settings.</span>
               </button>

@@ -6,18 +6,20 @@ import { ToolsScreen } from './screens/ToolsScreen'
 import { SongsScreen } from './screens/SongsScreen'
 import { LearnScreen } from './learn/LearnScreen'
 import { CelebrationLayer } from './learn/Celebration'
-import { IconLearn, IconMenu, IconProgression, IconSearch, IconSongs, IconTab, IconTools } from './components/Icons'
+import { IconGear, IconLearn, IconMenu, IconProgression, IconSearch, IconSongs, IconTools } from './components/Icons'
 import { ArtThumb } from './components/Art'
 import { PsyBackdrop } from './components/PsyArt'
 import { setNavHidden, useMedia, useUi } from './ui'
 import { usePersist } from './components/Controls'
 import { useInstrument } from './instrument'
 import { countUse, watchButtons } from './usage'
-import { isToolPage, onGo, onRemount, TAB_IDS, type Tab, type ToolPage } from './nav'
+import { isToolPage, learnGo, onGear, onGo, onRemount, TAB_IDS, type Tab, type ToolPage } from './nav'
 import { SearchSheet } from './components/SearchSheet'
 import { SessionBar } from './sessions/SessionBar'
 import { AskBubble } from './assistant/AskBubble'
 import { FloatLayer } from './float/FloatLayer'
+import { NowPlaying } from './components/NowPlaying'
+import { Settings } from './learn/Settings'
 import { setFloatScreen } from './float/bus'
 import { RigNotice } from './components/AudioSetup'
 import { watchDevices } from './audio/input'
@@ -33,7 +35,6 @@ import { ShareInbox } from './components/ShareInbox'
 import { Welcome, needsWelcome, openGuide } from './components/Welcome'
 
 const TABS: { id: Tab; label: string; icon: () => JSX.Element }[] = [
-  { id: 'play', label: 'Play', icon: IconTab },
   { id: 'songs', label: 'Songs', icon: IconSongs },
   { id: 'learn', label: 'Learn', icon: IconLearn },
   { id: 'progressions', label: 'Jam', icon: IconProgression },
@@ -60,8 +61,6 @@ export default function App() {
   // the pedal + wireless setup switches on by itself when the Pocket Master is plugged in
   useEffect(() => { watchDevices() }, [])
   useEffect(() => { countUse(tab === 'tools' ? `tool:${toolPage}` : `screen:${tab}`) }, [tab, toolPage])
-  // the floating cards follow the screen you're on (each screen has its own set)
-  useEffect(() => { setFloatScreen(tab === 'progressions' ? 'jam' : tab) }, [tab])
   useEffect(() => watchButtons(() => tabRef.current), [])
   useEffect(() => onGo(t => {
     const to: Tab = isToolPage(t) ? 'tools' : t
@@ -69,6 +68,11 @@ export default function App() {
     if (isToolPage(t)) { setToolPage(t); setTab('tools') } else setTab(t)
     document.getElementById('main')?.scrollTo({ top: 0 })
   }), [setTab, setToolPage])
+  // the gear: Settings (with the floating cards and the manual) over whatever screen you're on
+  const [gear, setGear] = useState<{ n?: number; sec?: string } | null>(null)
+  useEffect(() => onGear((_p, sec) => setGear({ n: Date.now(), sec })), [])
+  useEffect(() => onGo(() => setGear(null)), [])
+  useEffect(() => { if (gear) { setFloatScreen('settings'); document.getElementById('main')?.scrollTo({ top: 0 }) } else setFloatScreen(tab === 'progressions' ? 'jam' : tab) }, [gear, tab])
   // search: the button in the menu, or / or Ctrl+K on a keyboard
   const [search, setSearch] = useState<false | { text?: string; context?: AskContext; ask?: boolean }>(false)
   useEffect(() => onAsk(r => setSearch({ text: r.text, context: r.context, ask: r.send })), [])
@@ -88,11 +92,12 @@ export default function App() {
   const [exitHint, setExitHint] = useState(0)
   const backRef = useRef<() => void>(() => {})
   backRef.current = () => {
+    if (gear) { setGear(null); return }
     if (backInside()) return
     const from = cameFrom.current
     cameFrom.current = null
     if (from && from !== tab) { setTab(from); return }
-    if (tab !== 'play') { setTab('play'); return }
+    if (tab !== 'songs') { setTab('songs'); return }
     if (Date.now() - exitHint < 2000) { if (Capacitor.isNativePlatform()) void CapApp.exitApp(); return }
     setExitHint(Date.now())
   }
@@ -149,6 +154,8 @@ export default function App() {
         <SessionBar />
         <FloatLayer />
         <RigNotice />
+        {gear && <Settings key={gear.n ?? 0} inst={inst} guideSec={gear.sec} onExit={() => setGear(null)} onGo={g => { setGear(null); learnGo(g) }} />}
+        {!gear && <>
         {tab === 'play' && <PlayScreen key={inst.id} />}
         {tab === 'songs' && <SongsScreen key={inst.id} />}
         {tab === 'learn' && <LearnScreen key={inst.id} />}
@@ -156,14 +163,16 @@ export default function App() {
         {tab === 'progressions' && (
           <JamScreen key={jump} onOpenScale={(root, scale) => { setScaleJump({ root, scale }); setToolPage('scales'); setTab('tools') }} />
         )}
+        </>}
+        {(gear || tab !== 'play') && <NowPlaying key={`${inst.id}:${tab}`} instId={inst.id} />}
       </main>
       <nav className={`nav${drawer ? ' drawer' : ''}`} aria-label="Sections" onPointerDown={navDown} onPointerMove={navMove} onPointerUp={navUp} onPointerCancel={navUp}>
         {TABS.map(t => (
-          <button key={t.id} aria-current={tab === t.id ? 'page' : undefined} onClick={() => {
+          <button key={t.id} aria-current={tab === t.id || (t.id === 'songs' && tab === 'play' && !gear) ? 'page' : undefined} onClick={() => {
             // tapping the section you're in takes you back to its start (Learn's home, the top of the page)
             if (tab === t.id) { window.dispatchEvent(new CustomEvent('kg:navTop', { detail: t.id })); document.getElementById('main')?.scrollTo({ top: 0, behavior: 'smooth' }) }
             cameFrom.current = null
-            setTab(t.id); setDrawer(false)
+            setGear(null); setTab(t.id); setDrawer(false)
           }}>
             <span className="nav-icon">
               <t.icon />
@@ -175,6 +184,10 @@ export default function App() {
         <button className="nav-search" onClick={() => { setSearch({}); setDrawer(false) }} aria-label="Search or ask KGuitar" title="Search or ask (/)">
           <span className="nav-icon"><IconSearch /></span>
           Ask
+        </button>
+        <button className="nav-gear" aria-current={gear ? 'page' : undefined} onClick={() => { setGear(g => (g ? null : {})); setDrawer(false) }} aria-label="Settings and the manual" title="Settings, floating cards and the manual" data-testid="nav-gear">
+          <span className="nav-icon"><IconGear /></span>
+          Settings
         </button>
         <div className="nav-extra">
           {(wide || drawer) && <ArtThumb className="nav-art" />}

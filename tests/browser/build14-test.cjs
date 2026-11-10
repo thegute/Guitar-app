@@ -81,6 +81,8 @@ async function contrast(page, name) {
       if (r.width < 6 || r.height < 6 || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) continue
       const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
       if (top && !el.contains(top) && !top.contains(el)) continue   // covered by something
+      // partly under an overlay (the Now playing bar, a floating card): it's covered, not low contrast
+      if ([...document.querySelectorAll('.now-playing, .float-card, .float-bubble')].some(o => { if (o.contains(el)) return false; const q = o.getBoundingClientRect(); return r.left < q.right && r.right > q.left && r.top < q.bottom && r.bottom > q.top })) continue
       // neighbours on the same line (other words, dots, icons) would be measured as "background": only use free sides
       const prev = !!(n.previousSibling && (n.previousSibling.nodeType !== 3 || n.previousSibling.textContent.trim())) || (!n.previousSibling && el.previousElementSibling && getComputedStyle(el).display.startsWith('inline'))
       const next = !!(n.nextSibling && (n.nextSibling.nodeType !== 3 || n.nextSibling.textContent.trim())) || (!n.nextSibling && el.nextElementSibling && getComputedStyle(el).display.startsWith('inline'))

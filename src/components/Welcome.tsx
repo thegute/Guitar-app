@@ -67,14 +67,14 @@ export function Welcome({ onDone }: { onDone: (then?: 'guide' | 'play') => void 
                 {inst.tunings.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </label>
-            <p className="small muted">You can switch any time in Learn → Settings.</p>
+            <p className="small muted">You can switch any time in Settings (the gear in the menu).</p>
             <button className="btn primary big" onClick={() => setStep(2)}>Next</button>
           </>
         )}
         {step === 2 && (
           <>
             <h2>About you</h2>
-            <p className="small muted">So KGuitar can pick songs and practice at your level. You can change this any time in Learn → Settings.</p>
+            <p className="small muted">So KGuitar can pick songs and practice at your level. You can change this any time in Settings (the gear in the menu).</p>
             <ProfileForm saveLabel="Next" onSaved={() => setStep(3)} />
             <button className="btn ghost" onClick={() => setStep(3)}>Skip</button>
           </>

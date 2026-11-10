@@ -177,7 +177,7 @@ button { cursor: pointer; }
   content: ''; position: absolute; top: 0; left: 30%; right: 30%; height: 3px; border-radius: 0 0 3px 3px;
   background: var(--accent); box-shadow: 0 0 10px var(--glow);
 }
-/* bottom bar on phones: five sections, search and a small hide button */
+/* bottom bar on phones: four sections, Ask, Settings and a small hide button */
 .nav { grid-template-columns: repeat(6, minmax(0, 1fr)) 34px; touch-action: pan-x; }
 .nav-extra { display: flex; align-items: center; justify-content: center; }
 .nav .nav-hide { flex-direction: row; gap: 2px; color: var(--pearl-3); font-size: 20px; min-width: 38px; height: 100%; }
@@ -187,6 +187,7 @@ button { cursor: pointer; }
   .nav { display: flex; flex-direction: column; border-top: 0; border-right: 1px solid var(--hairline); order: -1; padding-top: calc(14px + var(--sat)); padding-bottom: calc(10px + var(--sab)); touch-action: pan-y; }
   .nav > button { height: 66px; flex: none; font-size: 12px; }
   .nav > .nav-search { height: 58px; margin-top: 6px; }
+  .nav > .nav-gear { height: 58px; }
   .nav button[aria-current='page']::before { top: 25%; bottom: 25%; left: 0; right: auto; width: 3px; height: auto; border-radius: 0 3px 3px 0; }
   .nav-extra { margin-top: auto; flex-direction: column; gap: 10px; padding: 8px 0 0; }
   .nav .nav-art { display: block; }
@@ -1490,7 +1491,7 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 /* ===================================================================================================== */
 /* Search (build 18): the menu button and the search sheet */
 .nav .nav-hide { min-width: 34px; }
-.nav-search .nav-icon svg { width: 22px; height: 22px; }
+.nav-search .nav-icon svg, .nav-gear .nav-icon svg { width: 22px; height: 22px; }
 .search-backdrop { align-items: flex-start; }
 .search-sheet {
   width: min(640px, 100%); max-height: min(92vh, 100%); margin-top: calc(var(--sat) + 0px); border-radius: 0 0 var(--r-lg) var(--r-lg);
@@ -2319,7 +2320,8 @@ video.mirrored { transform: scaleX(-1); }
 .tap-pad { min-width: 96px; min-height: 56px; font-size: 18px; font-weight: 700; touch-action: manipulation; }
 /* the floating finger box stays over the tab and the music stand, but steps aside while a sheet, the menu drawer
    or a full-screen card is open (it would sit on top of their buttons) */
-body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-ready) :is(.finger-box, .finger-chip, .float-card, .float-bubble) { visibility: hidden; }
+/* floating cards step aside for sheets, the menu drawer, celebrations and while a run's report card is up */
+body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-ready, .report-card) :is(.finger-box, .finger-chip, .float-card, .float-bubble) { visibility: hidden; }
 
 /* Riff Scanner */
 .scan-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); }
@@ -2526,3 +2528,12 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .fc-needle::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--ink-3); }
 .fc-video { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: var(--r-sm); background: #000; pointer-events: auto; }
 .float-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ---------- Now playing (components/NowPlaying.tsx): back to your song from any screen ---------- */
+.now-playing { position: sticky; bottom: 8px; z-index: 31; display: flex; align-items: center; gap: 10px; width: min(560px, 100%); margin: 14px auto 0; padding: 8px 10px 8px 8px;
+  border-radius: var(--r-lg); border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 96%, transparent); color: var(--ink); box-shadow: var(--shadow); text-align: left; min-height: 52px; }
+[data-theme='psy'] .now-playing { background: rgba(28, 6, 65, .96); border-color: rgba(0, 229, 255, .45); }
+.np-icon { width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); }
+.np-text { display: grid; min-width: 0; flex: 1; line-height: 1.2; }
+.np-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.np-go { font: 700 13px var(--ui); color: var(--ink); padding: 0 6px; text-decoration: underline; text-underline-offset: 3px; }

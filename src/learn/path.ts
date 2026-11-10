@@ -15,7 +15,7 @@ export type Go =
   | { song: string; loop?: { from: number; to: number } | null; speed?: number }
   | { songbook: { song: string; part: string } }
   | { songs: 'songbook' | 'mine' | 'practice' | 'add' }
-  | { settings: 'you' | 'sound' | 'look' | 'backup' }
+  | { settings: 'you' | 'sound' | 'look' | 'cards' | 'backup' | 'manual' }
   | { jam: 'jam' | 'solo' | 'tab' | 'find' | 'beats' | 'loop' }
   | { learn: 'today' | 'course' | 'explore' }
   | { technique: string }

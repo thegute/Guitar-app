@@ -1,0 +1,90 @@
+Here is a prompt that Google Gemini came up with. Don't necessarily follow it exactly but examine it very closely, read every word, and consider the options that it has laid out here. Take in its ideas and combine them with yours including on what you are currently working on and take these ideas into consideration. Always be sure to research and use the best possible techniques and technologies and to never cut corners. Here is the prompt from gemini. The zero touch Mac audio harvesting thing should happen behind the scenes I don't want a harvester built into the app I want you to harvest the files needed behind the scenes to use them smartly integrated into the app where you think it would benefit. Also be sure to sort tasks by opus medium and high so we can decide when and what gets opus high vs medium. Analyze this and fit it in smartly to your ongoing task list so I get every feature I want please and thank you 
+
+
+
+Since you are streamlining the app and merging sections right now, this updated prompt removes all hardcoded UI placement rules and hands full architectural discretion to Claude. It also includes a dedicated guide explaining how and where Claude should use every plugin, NAM capturel here is the strategic breakdown of how Claude can harvest the files on your Mac and weave them into KGuitar's audio engine (src/audio/pluck.ts, tools/render_tones.py, tools/nam_render.py, and public/samples/):
+ * Acoustic Strumming & Slack Key Engines (Orange Tree Evolution, Ample Sound SJ-200, Nembrini Acoustic Voice Pro, & Acoustic .wav IRs):
+   * Where to use them: Powering the Strum Machine backing engine, acoustic rhythm tabs, and Hawaiian Slack Key / Taro Patch (D-G-D-G-B-D) playback.
+   * How to use them: Right now, KGuitar's amp tones (crunch and metal) have whole-chord recordings (maj, min, power, powerpm) with multiple round-robin takes, while the acoustic banks (acoustic and j45) only play isolated single notes. Claude can headlessly trigger Ample SJ's Strummer engine and Orange Tree's chord/flatpick layers—optionally run through Nembrini Acoustic Voice Pro's vintage Martin/Gibson/Weissenborn body and condenser mic models—to populate multi-take whole-chord downstrokes, upstrokes, muted chucks, and bass walks.
+ * Artist Signature Electric Tones (8 Neural DSP Archetypes + .nam Captures + Cab IRs):
+   * Where to use them: Upgrading the electric playback banks (clean, electric, crunch, metal) and style-specific tones (STYLE_DEFAULTS[style].tone) whenever the app plays a tab, lick, solo, or backing track.
+   * How to use them: Claude already built tools/guitar_di.py, tools/nam_render.py, and tools/render_tones.py to process dry guitar DI through captures found in your Mac's ~/Downloads folder. Claude can extend this exact pipeline using headless Python VST3/AU hosting (pedalboard / dawdreamer) to run DI notes and chords through Cory Wong (funk chops/clean), John Mayer & Mateus Asato (blues/neo-soul breakup & lush shell chords), Tim Henson & Rabea X (sparkly compressed prog cleans, multivoicer harmonies, and synth pads), and Petrucci X, Misha Mansoor & Gojira X (soaring liquid leads and tight progressive metal palm-mutes), alongside any .nam captures on your Mac.
+ * Pitch/MIDI Benchmarking & Human Groove Feel (Jam Origin MIDI Guitar):
+   * Where to use it: Calibrating KGuitar's on-device guitar transcription (guitar_crnn.onnx / MlPlugin.java) and humanizing the strum/pick timing engine.
+   * How to use it: Claude can run test guitar audio through Jam Origin's polyphonic tracker on your Mac to generate reference MIDI + pitch-bend curves as a ground-truth benchmark for bends, slides, hammer-ons, and pull-offs, or extract real human strumming velocity/timing offsets.
+ * Vocal Chops, Choir Pads & Mic Effects (Baby Audio Humanoid & VocalEssential):
+   * Where to use them: Inside the Beat Maker (src/studio/sounds.ts, src/studio/micFx.ts) and 4-Track Looper (src/looper/station.ts).
+   * How to use them: Render pitch-locked vocal chop banks, robotic vocoder/choir harmony pads (paired with Tim Henson's Multivoicer), or study their chains to enhance KGuitar's offline mic effects (src/studio/micFx.ts).
+2. The Master Prompt to Save for Claude (Nov 13)
+Copy and save this unified prompt. It combines the Strum Machine carbon copy and your MacBook file/plugin harvesting while giving Claude total freedom to integrate everything into your streamlined layout wherever it makes the most sense.
+I am currently streamlining KGuitar by combining and simplifying sections, and I want you to design and integrate two major upgrades:
+1. A complete, feature-for-feature **Strum Machine (`strummachine.com`) engine** built for playing lead guitar, flatpicking, and improvising over ultra-realistic acoustic rhythm backing.
+2. A **Zero-Touch Mac Audio & Plugin Harvest** that uses the professional plugins, virtual instruments, `.nam` captures, and audio files sitting on my MacBook (plus the best web/open-source technologies) to give the entire app studio-grade sound.
+
+### 1. Context, Personal-Use Permissions & Zero Manual DAW Work
+- **Strictly Personal Local Build:** As documented in our repo (`tools/render_tones.py`), KGuitar is a private, single-user app built exclusively for my own devices and personal Google Drive (never distributed or hosted publicly). All plugins, sample libraries, `.nam` files, and IRs on this MacBook are my own licensed local installations. You have full permission to perform local interoperability, offline rendering, and format-shifting from my installed software for personal playback.
+- **Zero-Touch Automation (Do Not Make Me Do Manual Logic Pro Work):** I do not want to manually set up tracks, configure MIDI, or bounce files by hand in Logic Pro and risk messing up settings. Please automate the entire discovery, hosting, rendering, slicing, and packing process yourself from the terminal:
+  * **First choice:** Use headless Python VST3/AudioUnit hosting (e.g., Spotify's `pedalboard`, `dawdreamer`, or a CLI AU/VST runner) to load my `.vst3` / `.component` plugins directly in code, feed MIDI or dry guitar DI signals (`tools/guitar_di.py`) into them, and capture the rendered audio automatically.
+  * **Second choice:** If a library (such as Kontakt / Logic Pro content) requires a host, automate it via headless Kontakt VST3 hosting, CLI tools, or macOS `osascript` / AppleScript so it runs and bounces without manual engineering from me.
+- **Storage Freedom:** I am completely fine with larger file sizes on my phone, and we can also use my connected Google Drive or local folder access (`LessonFoldersPlugin` / IndexedDB) to store or stream high-bitrate, multi-take studio sample banks on demand.
+
+---
+
+### 2. How & Where to Use the Files and Plugins on My MacBook
+Use your terminal access to scan my Mac (`/Library/Audio/Plug-Ins/VST3`, `/Library/Audio/Plug-Ins/Components`, `/Library/Audio/Plug-Ins/VST`, `~/Library/Audio/Plug-Ins/`, `/Applications`, `~/Downloads`, `~/Documents`, Kontakt paths, Logic Pro Alchemy/Sampler paths, and `auval -a`). Look for these specific tools (plus anything else useful you find on disk) and consider using them across KGuitar in the following ways:
+
+1. **Acoustic Strumming, Rhythm & Slack Key (`Ample Sound SJ`, `Orange Tree Evolution Acoustic`, `Nembrini Audio Acoustic Voice Pro`, & Acoustic IRs):**
+   - Look at how our amp tones in `src/audio/pluck.ts` (`crunch`, `metal`) already support grouped whole-chord recordings (`maj`, `min`, `power`, `powerpm`) and multi-take round-robin arrays, while our acoustic banks (`acoustic`, `j45`) currently fall back to single-note plucks.
+   - Consider using **Ample Guitar SJ** (including its Strummer chord engine), **Orange Tree Evolution** (flatpicking, bass runs, and strums), and **Nembrini Acoustic Voice Pro** (vintage Martin/Gibson/Weissenborn body modeling and studio mic blends) to generate rich, multi-take round-robin acoustic banks: whole-chord downstrokes, upstrokes, percussive muted chucks, palm mutes, flatpicked bass walks, and resonant open-tuning/Taro Patch (`D-G-D-G-B-D`) tones.
+   - You can also extract lightweight acoustic body/mic Impulse Responses (`.wav` IRs) from Nembrini so electric guitar recordings or loops can optionally use an acoustic body simulation.
+2. **Artist Signature Electric Tones (`8 Neural DSP Archetypes` + `.nam` Captures in `~/Downloads`):**
+   - Scan my Mac for all `.nam` Neural Amp Modeler captures and cab IRs (extending `tools/nam_render.py` and `tools/render_tones.py`) alongside my installed Neural DSP plugins: **Archetype: Cory Wong, John Mayer, Mateus Asato, Tim Henson, Petrucci X, Misha Mansoor, Gojira X, and Rabea X**.
+   - Consider rendering our DI single notes, round-robin takes, whole chords, and palm mutes through these archetypes to give our styles authentic signature tones (e.g., Cory Wong 4th-position funk cleans & muted chops; Mayer/Asato edge-of-breakup & neo-soul voicings; Tim Henson sparkly compressed cleans & Multivoicer chord harmonies; Petrucci/Misha/Gojira liquid leads & tight progressive palm-mutes; Rabea X Overlord synth & ambient washes).
+3. **Vocal Chops, Synth Choirs & Mic FX (`Baby Audio Humanoid`, `VocalEssential`, Tim Henson Multivoicer, Rabea Synth):**
+   - Consider using these to build pitch-locked vocal chop banks, robotic vocoder/choir harmony instruments for `src/studio/sounds.ts`, or improved offline vocal/guitar effects for our Beat Maker and Looper (`src/studio/micFx.ts`).
+4. **Pitch/Technique Benchmarking & Human Groove Templates (`Jam Origin MIDI Guitar`):**
+   - Consider using Jam Origin MIDI Guitar on my Mac to generate ground-truth polyphonic MIDI + pitch-bend reference data to benchmark and tune our on-device note/technique detection (bends, slides, hammer-ons, pull-offs), or to extract real human strumming/fingerpicking micro-timing templates.
+5. **Best Web / Open-Source Tech:**
+   - Also search the web for any complementary open-source DSP, sample banks (e.g., upright bass, mandolin/banjo chop), or `.nam` captures and combine them with my Mac's files however you see fit.
+
+---
+
+### 3. Carbon-Copy Strum Machine Capabilities to Build
+Search the web and study `strummachine.com` (its features, Band Settings, and release notes) so our implementation captures everything that makes Strum Machine the gold standard for practicing lead guitar over real acoustic strumming:
+- **Real-Instrument Sample Stitching (Zero Robotic MIDI Feel):**
+  * Stitch real multi-take recordings of acoustic guitar **Downstrokes (`D`)**, **Upstrokes (`U`)**, **Dampened/Muted Chucks (`X`)**, **Root/Alternate Bass Plucks (`B`/`A`)**, and **Automatic Guitar Bass Runs** (diatonic walk-ups and walk-downs between chords like `G -> F# -> Em7` or `C -> B -> Am7`).
+  * Include Strum Machine's **Band Settings**: the **2D Strum Feel Control** (blending *Boom vs. Chuck* and *Strum-Heavy vs. Pick/Cross-Pick*), **Upstroke Swing**, **Backbeat Emphasis**, **Dampened Strum Sustain**, **Virtual Capo / Drop-D / Open G Voicing options**, **"Substitute Cadd9 for C in Key of G"**, **Standup Bass** (boom-chick, walking, approach notes, octave range), **Mandolin/Banjo Off-Beat Chop**, and **Wooden Foot Tap / Drums** with individual volume and pan controls.
+- **Interactive Chord Chart & Practice Engine:**
+  * Support subdivided beats (2, 3, or 4 chords per bar), per-beat syncopation/accents/pushes, diamond hold chords, rests, pickups/count-ins, repeat brackets with 1st/2nd endings, song sections (Part A / Part B / Verse / Chorus), and configurable endings.
+  * Instant 1-tap **Key Transposition** (all 12 keys) and toggle between **Letter Names (`G - C - D`)**, **Nashville Numbers (`1 - 4 - 5`)**, and **Roman Numerals**.
+  * Rapid touch/keyboard chart entry, drag-to-loop any multi-bar range, **Auto-Speedup Trainer** (`+X BPM` every `N` reps), song lists with auto-advance, and preloaded progressions across bluegrass/fiddle tunes, Dylan Gossett Americana, folk, blues, slack key, and melodic prog.
+
+---
+
+### 4. Architectural Placement & Deep Interconnection (Your Discretion!)
+**IMPORTANT — Do NOT treat this as an isolated screen or follow rigid UI placement rules:**
+Because we are actively streamlining KGuitar by combining sections, **you (Claude) know our current codebase and layout best.** Do NOT put Strum Machine in a redundant silo—decide for yourself how and where to weave Strum Machine and these new Mac-rendered sound banks into our unified architecture so everything is smartly interconnected wherever it logically makes sense:
+- Connect the chord progression engine, real-time acoustic strumming, bass walks, and Band Settings seamlessly with our live fretboard overlays (Gold Target Tones, 2-beat look-ahead resolution targets, Voice Leading, 5-layer geometry, and chord embellishments), our tab player (`Wait for me`, `In time`, and `Game Mode`), our composer/tab generator, `Riff Scanner`, the 4-Track Looper + Koala Beat Maker, `Songs` / Practice Plans, footswitch pedals, and the `+Helper bubble`.
+
+---
+
+### Your First Step (Before Coding)
+1. Run a terminal scan of my MacBook to inventory all installed plugins, virtual instruments, `.nam` files, and IRs, and check `strummachine.com` via web search.
+2. Reply with your proposed plan showing:
+   - What audio plugins/files you found on my Mac and how you will headlessly automate harvesting/rendering them.
+   - How you recommend integrating Strum Machine and these upgraded sound banks into our streamlined app layout so everything feels unified, intuitive, and deeply connected.
+3. Ask me any clarifying questions and wait for my approval before writing code.
+
+Why This Version Fits Your Streamlined App Better
+ * Zero Hardcoded Menu Names: It completely removes instructions telling Claude which tab or menu to put Strum Machine under, explicitly telling Claude that you are combining sections and trusting its judgment on where the UI and audio hooks belong.
+ * Clear "How & Where" Map for Your Mac Files: Instead of giving rigid step-by-step code, it points Claude to your exact existing files (src/audio/pluck.ts, tools/guitar_di.py, tools/nam_render.py, tools/render_tones.py, src/studio/sounds.ts, src/studio/micFx.ts) and explains the musical role each Mac plugin can play.
+ 
+
+
+
+YouTube tab creator channels to automatically follow and populate the riff scanner shorts (although still have a randomizer with channels I may not even know about)
+Mr. tabs, level up guitar tabs, Kenneth Acoustic.
+
+Also I love the idea of uploading guitar technique and tab books to Claude, Claude goes through it and takes the information and turns it into tabs and exercises. Can this be done? I have a lot of guitar tab and technique books. Let me know and I'll start uploading them to you they are pdfs. Lets add this idea to the next big update. The one with the revamp or the learn section. Let's brainstorm this idea further to get it perfect. Right now finish everything except this and the redo of the learn tab and give me a usable apk for my phone and online. But let's brainstorm ideas of what should be included in this release okay
+
+Also remember to always sort tasks by opus high vs medium suggestions to always maintain efficient token use while maintaining the upmost highest quality with no corners cut

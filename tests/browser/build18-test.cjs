@@ -166,14 +166,16 @@ async function web(browser) {
     await page.goto('http://localhost:4173/')
     await page.waitForSelector('nav.nav')
     for (const t of ['Play', 'Songs', 'Learn', 'Jam', 'Tools']) {
-      await nav(page, t)
+      // the song player has no menu button any more: Now playing opens it
+      if (t === 'Play') await page.locator('[data-testid=now-playing]').click().catch(async () => { await nav(page, 'Songs'); await page.locator('[data-testid=now-playing]').click() })
+      else await nav(page, t)
       await page.waitForTimeout(500)
       const ov = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
       if (ov) bad(`web ${size}: sideways overflow on ${t}`)
       await page.screenshot({ path: path.join(DIR, `web-${size}-${t.toLowerCase()}.png`) })
     }
     // computer wording for the input
-    await nav(page, 'Play')
+    await page.locator('[data-testid=now-playing]').click()
     const close = page.locator('.song-check button:has-text("Got it")')
     if (await close.count()) await close.first().click()
     await page.locator('.play .input-btn').first().click()

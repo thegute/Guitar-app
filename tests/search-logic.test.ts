@@ -34,7 +34,7 @@ const CASES: [string, RegExp, number?][] = [
   ['quiz', /Practice course/, 1], ['speed trainer', /Speed trainer/, 1], ['drum beat for practice', /Metronome|drum/i, 3], ['play along with drums', /band|drums/i, 3],
   ['learn the fretboard', /fretboard|Practice course/i, 3], ['hear how the tab sounds', /Hear it/, 1], ['which tuning is this song in', /Song check|tuning/i, 2],
   ['footpedal', /footswitch/, 1], ['make a backing track', /backing track|progression/i, 2], ['improvise', /Solo over it|soloing/, 2],
-  ['how to use the app', /Help: how to use KGuitar/, 1], ['where do i start', /Help|five sections/, 2], ['delete a song', /My songs/, 2],
+  ['how to use the app', /Help: how to use KGuitar/, 1], ['where do i start', /Help|The menu/, 2], ['delete a song', /My songs/, 2],
   ['youtube', /YouTube video/, 1], ['count in', /Click|In time/, 3], ['fingerpicking pattern', /Make a tab|Travis/, 2],
   ['songs for beginners', /Songbook/, 2], ['light mode', /Day, Night or Psychedelic/, 1], ['animations', /Moving colours/, 1],
   ['exercises', /Exercises/, 1], ['marco cirillo', /Melodic fingerstyle/, 1], ['beautiful fingerstyle', /Melodic fingerstyle/, 2],
