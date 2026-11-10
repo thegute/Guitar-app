@@ -83,6 +83,9 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ##   play), tip card with Show me / Got it / No more tips here; tips from guide.ts (offline), picked by moment (first visit, struggling in a bar,
 ##   better way, never-used features from usage.ts), smarter with Gemini using progress; max 1 per visit + a few a day, dismissed never return,
 ##   Settings: Tips On / Only when I ask / Off. ANSWER (10:42): the GLOWING DOT, plus a setting to ALWAYS SHOW tips (Tips: Dot / Always show / Only when I ask / Off). Guitar-advice question unanswered.
+## 2026-11-09 20:37 ANSWERS: sound packs from Mac plugins live in a PHONE / GOOGLE DRIVE folder, never in the public repo. Band behind me:
+##   Songsterr/GP tracks + chord band first. Carry on ALL medium tasks; DO NOT make a test APK without asking him first (he may add more
+##   medium tasks). The full plan with status + [M]/[H] is notes/MASTER-PLAN.md (keep it current).
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar

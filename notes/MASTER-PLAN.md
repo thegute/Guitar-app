@@ -1,0 +1,74 @@
+# KGuitar master plan (updated 2026-11-09)
+Everything the owner has asked for, in one place. [M] = Opus medium is fine, [H] = needs Opus high.
+✅ done on `big-update` (not yet in a test build) · 🔨 in progress · ⏳ queued. Nothing ships without "ship it";
+**no test APK without asking the owner first**. Each item is its own checkpoint so it can be undone.
+
+## A. Done since test-40 (waiting for the next test build)
+- ✅ Game Mode: Yousician-style bouncing ball (tab slides, ball stays on the line, lands on each note on the beat, never leaves the screen).
+- ✅ Hear it in Game: the tab scrolls and the ball bounces while the song plays itself (no scoring).
+- ✅ Floating cards: Hand, Chord now & next, Mini neck, What you played, Bar & beat, Tempo, Quick tuner, Mini video, Practice timer.
+  One or several, chosen per screen, × hides, – shrinks to a bubble, always on top, place themselves where they cover least.
+- ✅ Menu: Play merged into Songs (opening a song shows the song player), **Now playing** bar on every other screen,
+  **Settings** in the menu (You, Sound, Look, Cards, Backup, Manual). Gear sits in the menu, not a corner (a corner button would cover Play's buttons).
+- ✅ (test-40) Riff Scanner marks hammer-ons, pull-offs, slides, bends and vibrato on clean guitar; fast runs kept.
+
+## B. Medium batch: now, in this order
+1. 🔨 Finish the menu change's browser tests (build18, build30). [M]
+2. ⏳ **Tidy-grid windows**: every window resizable in width and height and movable, except Learn; windows snap side by side on big screens,
+   one column on the Fold cover; content rearranges to fit. [M]
+3. ⏳ **Exercises move into Learn** and get tidied: For you · Technique · Fretboard · Rhythm · Fingerstyle · Make your own; the floating hand
+   replaces the windowed hand diagram. [M]
+4. ⏳ **Jam simplified** to three choices: Play with a band · Make a beat · Loop myself. Solo over it becomes floating cards; Find chords moves to
+   Add a song; Make a tab moves to Learn's exercise library. Jam feeds its chords and tempo to the floating cards. [M]
+5. ⏳ **Tips**: a glowing dot on the Ask bubble when there's a tip for this screen, plus an "always show tips" option (Tips: Dot / Always show /
+   Only when I ask / Off). Tips come from the manual, picked for the moment (first visit, struggling in a bar, a better way, features never
+   opened); Show me / Got it / No more tips here; never nags. Smarter with Gemini. [M]
+6. ⏳ **Beat maker** (Koala-like plus more), **mockup first for the owner to review**, then: fixed pro layout (transport bar, 4×4 pads,
+   Pads/Steps/Keys/Mix/FX views, parts A–D, hold a pad = editor, Sounds drawer, ⋯ menu); its zones are resizable windows (transport pinned);
+   **full screen ⤢/⤡** (hides banner, menu and Jam tabs); voice **"record this"** with a count-in (voice on the phone mic, recording from the
+   chosen input incl. the USB pedal; footswitch backup); style starters + Variation + Fill; Swing + Humanise; riff → pads; **chord pads that
+   follow the progression**; Practice over this; save kits + send to looper/library/recordings; **groovebox upgrades**: arpeggio/strum pills
+   (Block, Pluck up, Pluck down, Strum, Pulse), slide a step = volume, hold a step = roll 2×/3×/4× or "only on bar 4", effects pad Pin +
+   record finger movements, Kick Pump, Auto Bass, Warmth + Length dials. [M]
+7. ⏳ **Band behind me**: one button in the song player and Game Mode; the other tracks of a Songsterr/Guitar Pro song, or a chord-based band
+   for chord songs, play quieter while your part is a little louder; a "band vs my part" slider. [M]
+8. ⏳ **Shorts**: follow Mr. Tabs, Level Up Guitar Tabs and Kenneth Acoustic by default, keep the random mix of new channels. [M]
+9. ⏳ **One Songs library**: My songs + Songbook in one list with search and filter chips (style, level, mine/built-in, learning, learned,
+   review due); built-in songs' versions (easy/full/fingerstyle) inside the song. [M] (the automatic style/level guess is [H], in C)
+10. ⏳ **Add a song in one box**: song name, link, file, screenshot or record, all from one place. [M]
+11. ⏳ **Manual as a file to send** (PDF) + Quick Start, with real Day Mode screenshots made by the browser tests. [M]
+→ Then ASK the owner before making a test APK / updating the web app.
+
+## C. Opus high batch
+- **Riff Scanner from video** (the owner's #1 need): read the tab off the video frames, separate the guitar from the mix, slower guitar model,
+  combine sound timing + picture frets, scan an A–B section, mark unsure notes; test on the Billy Strings Short; Jam Origin MIDI Guitar on the
+  Mac as an answer key. [H]
+- **Realistic acoustic sound**: free CC0 Meta guitar recordings + a strum engine (down/up, chop, boom-chuck, bass runs, timing spread, noise);
+  **sound packs rendered on the Mac** from the owner's plugins (Ample SJ strummer, Orange Tree, Nembrini, Neural DSP Archetypes, .nam
+  captures, Humanoid vocal chops), by script, no Logic work; packs live in a phone / Google Drive folder, **never in the public repo**;
+  swappable packs (own recordings or licensed packs with written permission). Needs the Mac linked. [H]
+- **Strum Machine Band mode** in Jam: strums D/U/X, bass B/A + walk-ups, strum feel controls, upstroke swing, backbeat, damped sustain,
+  capo/drop D/open G, Cadd9 for C, standup bass, mandolin/banjo chop, foot tap; chart with 2–4 chords a bar, pushes, holds, rests, pickups,
+  repeats + 1st/2nd endings, sections; 1-tap transpose; letters / Nashville / Roman; quick entry; drag to loop; auto speed-up; song lists.
+  Chords drive the floating cards, overlays and lessons. Engine sound [H], chart screens [M].
+- **300 songs, bluegrass first** (then old-time, folk, country, blues, Hawaiian, reggae, gospel), public-domain/traditional/original only. [H]
+- **Automatic style and level** for every song added. [H]
+- **Track mode**: a YouTube or audio backing; key, tempo and chords found automatically; overlays work on it. [H]
+- **Band behind me from the real recording** (guitar removed, synced to the tab). [H]
+- **Pull sounds from a song or YouTube into pads** (stems). [H]
+
+## D. Next big update: the Learn revamp [H]
+- Pro-level course like Pickup Music: 6 grades (Grade 2 first, then 3–6; Grade 1 deepened from Zero to Hero); every lesson Learn → Practice →
+  Jam → Check (the app grades); graduation gig per grade graded by the app; placement test; "you are here" map; 5-minute lessons; theory checked
+  by a second reviewer. Research: notes/research-pickup.md.
+- **Your tab and technique books (PDFs) → tabs, exercises and practice plans**, kept private (never in the public repo), lessons in our own
+  words with book + page. Brainstorm first.
+- Older ideas to fold in: Progressive Melodic Metal + Dylan Gossett courses (blueprint).
+
+## E. Still to discuss
+- Tips: should they include guitar advice too, or only how to use the app?
+- Brainstorm the books feature and the Learn revamp.
+- Game Mode extras from the blueprint: YouTube backing minus the guitar, clean full-screen game; looper "start when I play".
+
+## The owner's to-do while waiting (notes/WEEK.md)
+Test test-40's Riff Scanner on your own playing and the Staged Right video; note bugs and ideas in WEEK.md.
