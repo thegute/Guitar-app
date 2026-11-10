@@ -30,9 +30,10 @@ export function autoPlace(w: number, h: number, skip: number, self?: Element | n
   // and anywhere on the screen, for when the edges are full
   for (let fy = 0.04; fy < 0.9; fy += 0.1) for (let fx = 0.1; fx < 0.9; fx += 0.15) spots.push({ left: W * fx, top: H * fy })
   // what it shouldn't cover: buttons, the notes, and (much more) the other floating cards
+  // a control under a card can't be tapped, so it counts far more than a note of the tab
   const things = [...document.querySelectorAll('button, [role=tab], input, select, a, .tab-note, .tab-cursor')]
     .filter(el => !el.closest('[data-self]'))
-    .map(el => ({ r: el.getBoundingClientRect(), wt: 1 }))
+    .map(el => ({ r: el.getBoundingClientRect(), wt: el.matches('.tab-note, .tab-cursor') ? 1 : 6 }))
   for (const el of document.querySelectorAll('.float-card, .float-bubble')) if (el !== self) things.push({ r: el.getBoundingClientRect(), wt: 60 })
   const cur = document.querySelector('.tab-cursor')
   if (cur) things.push({ r: cur.getBoundingClientRect(), wt: 25 })
@@ -102,30 +103,40 @@ function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width =
     }, 350 + order * 160)
     return () => clearTimeout(t)
   }, [id, where, place.min, cls.current]) // eslint-disable-line react-hooks/exhaustive-deps
-  // a card you haven't moved yourself that grows into another card (its chord shape appears, the song changes) finds a free spot again
+  // a card you haven't moved yourself keeps clear: if it grows into another card (its chord shape appears) or the page shifts
+  // under it so a button ends up beneath it (a report card closes, a panel opens), it finds a free spot again
   useEffect(() => {
     const el = box.current
-    if (!el || typeof ResizeObserver === 'undefined') return
+    if (!el) return
+    const covers = (a: DOMRect, b: DOMRect) => b.width > 0 && b.height > 0 && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+    const check = () => {
+      const me = box.current
+      if (!me || stored(id, where) || getComputedStyle(me).visibility === 'hidden') return
+      const a = me.getBoundingClientRect()
+      const onCard = [...document.querySelectorAll('.float-card, .float-bubble')].some(o => o !== me && covers(a, o.getBoundingClientRect()))
+      // a control mostly under the card (half or more of it) can't be tapped
+      const onControl = [...document.querySelectorAll('button, [role=tab], input, select, a')].some(c => {
+        if (c.closest('[data-self]')) return false
+        const b = c.getBoundingClientRect()
+        if (!covers(a, b)) return false
+        const ix = Math.min(a.right, b.right) - Math.max(a.left, b.left), iy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
+        return ix * iy >= 0.5 * b.width * b.height
+      })
+      if (!onCard && !onControl) return
+      const sp = autoPlace(me.offsetWidth, me.offsetHeight, order, me)
+      if (sp) setPlace(p => (Math.abs(p.x - sp.x) < 0.005 && Math.abs(p.y - sp.y) < 0.005 ? p : { ...p, ...sp }))
+    }
     let t = 0
-    const ro = new ResizeObserver(() => {
-      clearTimeout(t)
-      t = window.setTimeout(() => {
-        if (stored(id, where) || !box.current) return
-        const a = box.current.getBoundingClientRect()
-        const hit = [...document.querySelectorAll('.float-card, .float-bubble')].some(o => {
-          if (o === box.current) return false
-          const b = o.getBoundingClientRect()
-          return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
-        })
-        if (!hit) return
-        const sp = autoPlace(box.current.offsetWidth, box.current.offsetHeight, order, box.current)
-        if (sp) setPlace(p => ({ ...p, ...sp }))
-      }, 200)
-    })
-    ro.observe(el)
-    return () => { ro.disconnect(); clearTimeout(t) }
+    const soon = () => { clearTimeout(t); t = window.setTimeout(check, 200) }
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(soon) : null
+    ro?.observe(el)
+    const main = document.getElementById('main')
+    if (main && ro) ro.observe(main)
+    // the page changing under it doesn't resize anything: look again every second and a half
+    const iv = window.setInterval(check, 1500)
+    return () => { ro?.disconnect(); clearTimeout(t); clearInterval(iv) }
   }, [id, where, order, place.min])
-  const save =(pl: Place) => { setPlace(pl); try { localStorage.setItem(KEY(id, where), JSON.stringify(pl)) } catch { /* full */ } }
+  const save = (pl: Place) => { setPlace(pl); try { localStorage.setItem(KEY(id, where), JSON.stringify(pl)) } catch { /* full */ } }
   // fade (but keep taking taps) while it sits over the note you're on; a tap makes it solid for a while
   const [dodge, setDodge] = useState(false)
   const awake = useRef(0)

@@ -22,7 +22,8 @@ Everything the owner has asked for, in one place. [M] = Opus medium is fine, [H]
    Add a song; Make a tab moves to Learn's exercise library. Jam feeds its chords and tempo to the floating cards. [M]
 5. ⏳ **Tips**: a glowing dot on the Ask bubble when there's a tip for this screen, plus an "always show tips" option (Tips: Dot / Always show /
    Only when I ask / Off). Tips come from the manual, picked for the moment (first visit, struggling in a bar, a better way, features never
-   opened); Show me / Got it / No more tips here; never nags. Smarter with Gemini. [M]
+   opened); Show me / Got it / No more tips here; never nags. Smarter with Gemini. Tips ALSO give guitar advice (owner 20:44), with its own
+   on/off switch in Settings. [M]
 6. ⏳ **Beat maker** (Koala-like plus more), **mockup first for the owner to review**, then: fixed pro layout (transport bar, 4×4 pads,
    Pads/Steps/Keys/Mix/FX views, parts A–D, hold a pad = editor, Sounds drawer, ⋯ menu); its zones are resizable windows (transport pinned);
    **full screen ⤢/⤡** (hides banner, menu and Jam tabs); voice **"record this"** with a count-in (voice on the phone mic, recording from the
@@ -37,7 +38,9 @@ Everything the owner has asked for, in one place. [M] = Opus medium is fine, [H]
    review due); built-in songs' versions (easy/full/fingerstyle) inside the song. [M] (the automatic style/level guess is [H], in C)
 10. ⏳ **Add a song in one box**: song name, link, file, screenshot or record, all from one place. [M]
 11. ⏳ **Manual as a file to send** (PDF) + Quick Start, with real Day Mode screenshots made by the browser tests. [M]
-→ Then ASK the owner before making a test APK / updating the web app.
+→ Then ASK the owner before making a test APK / updating the web app. When he warns he's almost out of usage: make the test APK,
+  update the web app, and write a GEMINI HANDOFF (notes/GEMINI-HANDOFF.md) so Gemini can work on items (he backs up the repo first).
+  If usage allows after the medium batch: start the Riff Scanner (C, first item).
 
 ## C. Opus high batch
 - **Riff Scanner from video** (the owner's #1 need): read the tab off the video frames, separate the guitar from the mix, slower guitar model,
@@ -66,7 +69,6 @@ Everything the owner has asked for, in one place. [M] = Opus medium is fine, [H]
 - Older ideas to fold in: Progressive Melodic Metal + Dylan Gossett courses (blueprint).
 
 ## E. Still to discuss
-- Tips: should they include guitar advice too, or only how to use the app?
 - Brainstorm the books feature and the Learn revamp.
 - Game Mode extras from the blueprint: YouTube backing minus the guitar, clean full-screen game; looper "start when I play".
 

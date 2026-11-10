@@ -65,7 +65,8 @@ async function newPage(browser, vp, seed = {}) {
   await page.waitForTimeout(800)
   return page
 }
-const nav = (page, label) => page.locator(`nav.nav button:has-text("${label}")`).first().click()
+// Play has no menu button any more (songs open in the song player): the Now playing bar goes back to it
+const nav = (page, label) => label === 'Play' ? page.locator('[data-testid=now-playing]').count().then(c => (c ? page.locator('[data-testid=now-playing]').click() : null)) : page.locator(`nav.nav button:has-text("${label}")`).first().click()
 const subs = async page => page.locator('.subtabs [role=tab]').allTextContents()
 const sub = (page, label) => page.locator(`.subtabs [role=tab]:has-text("${label}")`).first().click()
 

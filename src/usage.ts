@@ -43,7 +43,7 @@ export interface UseRow { id: string; label: string; n: number; last: number }
 
 /** The screens, pages and Learn tools there are, with names you'd recognise. */
 export const KNOWN: Record<string, string> = {
-  'screen:play': 'Play', 'screen:songs': 'Songs', 'screen:learn': 'Learn', 'screen:progressions': 'Jam',
+  'screen:play': 'Song player', 'screen:songs': 'Songs', 'screen:learn': 'Learn', 'screen:progressions': 'Jam',
   'tool:tuner': 'Tuner', 'tool:metronome': 'Tempo', 'tool:chords': 'Chords', 'tool:scales': 'Scales',
   'page:songs:mine': 'Songs → My songs', 'page:songs:songbook': 'Songs → Songbook', 'page:songs:practice': 'Songs → Practice',
   'page:songs:add': 'Songs → Add a song',
@@ -53,7 +53,7 @@ export const KNOWN: Record<string, string> = {
   'learn:ear': 'Ear trainer', 'learn:caged': 'CAGED', 'learn:changes': 'Chord changes', 'learn:rhythm': 'Rhythm trainer',
   'learn:circle': 'Circle of fifths', 'learn:progress': 'Progress', 'learn:lessons': 'Lessons', 'learn:techniques': 'Technique',
   'learn:bends': 'Bends & vibrato', 'learn:licks': 'Licks', 'learn:videos': 'Video lessons', 'learn:recordings': 'My recordings',
-  'learn:chainer': 'Lick chainer', 'learn:guide': 'How to use KGuitar', 'learn:quiz': 'Quizzes', 'learn:settings': 'Settings',
+  'learn:chainer': 'Lick chainer', 'learn:guide': 'How to use KGuitar', 'learn:quiz': 'Quizzes', 'learn:settings': 'Settings', 'screen:settings': 'Settings',
   'play:hear': 'Play → Hear it', 'play:loop': 'Play → Loop', 'play:intime': 'Play → In time', 'play:stand': 'Play → Music stand',
   'play:video': 'Play → Video', 'play:band': 'Play → Band', 'play:record': 'Play → Record yourself', 'play:options': 'Play → Options',
   'play:remote': 'Play → Remote', 'play:report': 'Play → Report card', 'practice:start': 'Practice button', 'ask:open': 'Ask / helper',

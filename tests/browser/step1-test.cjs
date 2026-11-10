@@ -24,7 +24,8 @@ async function newPage(browser, viewport, seed = {}) {
   await page.waitForSelector('nav.nav')
   return page
 }
-const nav = (page, l) => page.locator(`nav.nav button:has-text("${l}")`).first().click()
+// Play has no menu button any more (songs open in the song player): the Now playing bar goes back to it
+const nav = (page, l) => l === 'Play' ? page.locator('[data-testid=now-playing]').count().then(c => (c ? page.locator('[data-testid=now-playing]').click() : null)) : page.locator(`nav.nav button:has-text("${l}")`).first().click()
 const sub = (page, l) => page.locator(`.subtabs [role=tab]:has-text("${l}")`).first().click()
 const sideways = page => page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || [...document.querySelectorAll('.main')].some(m => m.scrollWidth > m.clientWidth + 1))
 async function drag(page, loc, dx, dy) {

@@ -72,6 +72,7 @@ export default function App() {
   const [gear, setGear] = useState<{ n?: number; sec?: string } | null>(null)
   useEffect(() => onGear((_p, sec) => setGear({ n: Date.now(), sec })), [])
   useEffect(() => onGo(() => setGear(null)), [])
+  useEffect(() => { if (gear) countUse('screen:settings') }, [gear])
   useEffect(() => { if (gear) { setFloatScreen('settings'); document.getElementById('main')?.scrollTo({ top: 0 }) } else setFloatScreen(tab === 'progressions' ? 'jam' : tab) }, [gear, tab])
   // search: the button in the menu, or / or Ctrl+K on a keyboard
   const [search, setSearch] = useState<false | { text?: string; context?: AskContext; ask?: boolean }>(false)
