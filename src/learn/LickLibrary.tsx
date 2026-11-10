@@ -107,7 +107,7 @@ function LickDetail({ lick, onBack, wantKey }: { lick: LickDef; onBack: () => vo
         {doc && <Preview doc={doc} minor={minor} />}
         {doc && <button className="btn primary" onClick={() => openInPlay(doc)}>Play along (it listens to you)</button>}
         {(lick.meter ?? 4) === 4 && <button className="btn sm" onClick={() => { addToChain(lick.id, key); setChained(n => n + 1) }}>{chained ? `✓ Added to your lick chain${chained > 1 ? ` (×${chained})` : ''}` : '＋ Add to my lick chain'}</button>}
-        {chained > 0 && <span className="small muted">Find it in Learn → Explore → Lick chainer, or Songs → Exercises.</span>}
+        {chained > 0 && <span className="small muted">Find it in Learn → Explore → Lick chainer, or Learn → Exercises → Make your own.</span>}
       </Win>
       {b && (
         <>

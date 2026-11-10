@@ -51,21 +51,23 @@ export function setSubPage(screen: 'songs' | 'learn' | 'jam' | 'settings', page:
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('kg-subpage', { detail: { screen, page } }))
 }
 export function openSongs(section: 'mine' | 'songbook' | 'practice' | 'add' = 'songbook') {
+  // the exercise library moved to Learn → Exercises (old links still say 'practice')
+  if (section === 'practice') { learnGo({ learn: 'exercises' }); return }
   setSubPage('songs', section)
   go('songs')
 }
-// ---- one exercise from the exercise library (Songs → Exercises)
+// ---- one exercise from the exercise library (Learn → Exercises)
 let pendingExercise: string | null = null
 const exerciseListeners = new Set<(code: string) => void>()
 export function onOpenExercise(f: (code: string) => void) {
   exerciseListeners.add(f)
   return () => { exerciseListeners.delete(f) }
 }
-/** Show one exercise (by code, e.g. "SC-12") in Songs → Exercises. */
+/** Show one exercise (by code, e.g. "SC-12") in Learn → Exercises. */
 export function openExercise(code: string) {
   pendingExercise = code
   exerciseListeners.forEach(f => f(code))
-  openSongs('practice')
+  learnGo({ learn: 'exercises' })
 }
 export function takePendingExercise(): string | null {
   const c = pendingExercise

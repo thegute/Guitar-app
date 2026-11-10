@@ -1,4 +1,4 @@
-// Build 19 in the browser: the exercise library (Songs → Exercises).
+// Build 19 in the browser: the exercise library (Learn → Exercises; it was in Songs).
 //   exercises  700+ exercises; difficulty / type / technique filters; ‹ › and the list; favourites; key, sound, tempo;
 //              Play with a count-in, metronome, loop; the tab and the neck follow; tap a note; Play along opens Play
 //   videos     Your video lessons with a stand-in for the phone: pick a folder, chapters in natural order, a lesson
@@ -43,7 +43,7 @@ const total = async page => Number(((await countText(page)).match(/of (\d+)/) ??
 const overflow = page => page.evaluate(() => document.scrollingElement.scrollWidth - window.innerWidth)
 
 async function exercises(browser) {
-  const page = await newPage(browser, { 'kg:tab2': 'songs', 'kg:sub:songs': 'practice' })
+  const page = await newPage(browser, { 'kg:tab2': 'learn', 'kg:sub:learn': 'exercises' })
   await page.waitForSelector('.ex-browser')
   const n = await total(page)
   console.log(`  exercises: ${await countText(page)}`)
@@ -198,7 +198,7 @@ async function videos(browser) {
 
 async function looks(browser) {
   for (const [theme, size] of [['psy', 'phone'], ['psy', 'cover'], ['day', 'inner'], ['night', 'cover'], ['day', 'desktop']]) {
-    const page = await newPage(browser, { 'kg:theme': theme, 'kg:tab2': 'songs', 'kg:sub:songs': 'practice' }, SIZES[size])
+    const page = await newPage(browser, { 'kg:theme': theme, 'kg:tab2': 'learn', 'kg:sub:learn': 'exercises' }, SIZES[size])
     await page.waitForSelector('.ex-browser')
     await page.waitForTimeout(400)
     const o = await overflow(page)

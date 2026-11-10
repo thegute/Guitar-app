@@ -35,7 +35,7 @@ const bad = m => { problems.push(m); console.log('  PROBLEM', m) }
   await page.locator('.session-bar button:has-text("Stop the session")').click()
   if (await page.locator('.session-bar').count()) bad('session: did not stop')
   // hand guide under an exercise
-  await page.evaluate(() => { localStorage.setItem('kg:tab2', '"songs"'); localStorage.setItem('kg:sub:songs', '"practice"') })
+  await page.evaluate(() => { localStorage.setItem('kg:tab2', '"learn"'); localStorage.setItem('kg:sub:learn', '"exercises"') })
   await page.reload(); await page.waitForSelector('.ex-browser')
   if (!(await page.locator('.hand-guide .hg-card').count())) bad('hand guide: no hand cards under the exercise')
   // exercise boxes fold up and open again by tapping their name

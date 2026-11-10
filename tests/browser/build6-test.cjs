@@ -98,9 +98,10 @@ async function overflow(page) {
   const sound = await page.evaluate(async () => { const r = await fetch('samples/acoustic/index.json'); return r.ok ? Object.keys(await r.json()).length : 0 })
   if (sound < 8) problems.push('acoustic samples missing: ' + sound)
   // strum-along: open the Amazing Grace chord sheet
-  await page.click('nav.nav button:has-text("Songs")')
+  await page.click('nav.nav button:has-text("Learn")')
   await page.click('.subtabs [role=tab]:has-text("Exercises")')
-  await page.click('.songs-screen >> text=Amazing Grace')
+  await page.click('[data-testid=ex-sections] button:has-text("Make your own")')
+  await page.click('.ex-page >> text=Amazing Grace')
   await page.waitForTimeout(500)
   const lyric = await page.$$eval('.tab-lyric', els => els.map(e => e.textContent).join(' | '))
   if (!/Amazing grace/.test(lyric)) problems.push('chord sheet lyrics missing: ' + lyric.slice(0, 80))

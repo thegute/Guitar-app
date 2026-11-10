@@ -68,7 +68,7 @@ export const CARDS: { id: CardId; title: string; icon: 'hand' | 'music' | 'layer
   { id: 'timer', title: 'Practice timer', icon: 'timer', hint: 'Your practice session’s step and time left, or a stopwatch' },
 ]
 const KEY = (screen: string) => `kg:floatCards:${screen}`
-const DEFAULTS: Record<string, CardId[]> = { play: ['hand'], scan: ['hand'] }
+const DEFAULTS: Record<string, CardId[]> = { play: ['hand'], scan: ['hand'], learn: ['hand'] }
 
 export function shownCards(screen: string): CardId[] {
   try {

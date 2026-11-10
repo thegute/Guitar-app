@@ -1,7 +1,10 @@
 // The exercise library on screen: filter by difficulty, type and technique, step through with ‹ ›, star favourites,
 // pick a key, sound and tempo, and hear it with a count-in, a click and a loop. The neck shows every note in the order
 // you play it (roots in red), the tab follows the playhead, and "Play along" opens it in Play so the app listens.
-import { HandGuide } from '../components/HandGuide'
+import { FingerBox } from '../components/FingerBox'
+import { groupAt, handGroups } from '../play/handShape'
+import { toggleCard, useShownCards } from '../float/bus'
+import { pcName } from '../theory/notes'
 import { Ico } from '../components/Icon'
 import { Win } from '../components/Win'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -12,7 +15,7 @@ import { TabView } from '../components/TabView'
 import { TabPlayer } from '../audio/tabPlayer'
 import { audio } from '../audio/engine'
 import { SOUNDS, activeSound, loadSound, playNote, soundForProgram, type SoundId } from '../audio/pluck'
-import { flatten, type Song, type SongNote } from '../tabs/model'
+import { flatten, type FlatStep, type Song, type SongNote, type SongTrack } from '../tabs/model'
 import { saveSong, type SongDoc } from '../tabs/library'
 import { learnGo, onOpenExercise, openInPlay, takePendingExercise } from '../nav'
 import { keyPrefersFlats, pc } from '../theory/notes'
@@ -32,7 +35,8 @@ function moveChord(name: string, from: string, to: string) {
   return name.replace(/([A-G][#b]?)/g, (m: string) => spell(pc(m) + d, to))
 }
 
-export function ExerciseBrowser() {
+/** The exercise library. `group` keeps it to one section (Technique, Theory on the neck, …); `suggest` shows today's picks on top. */
+export function ExerciseBrowser({ group, suggest = true }: { group?: string; suggest?: boolean } = {}) {
   const inst = useInstrument()
   const all = useMemo(() => exerciseCatalog(inst), [inst])
   const [f, setF] = usePersist<Filters>('exFilter', NO_FILTER)
@@ -59,11 +63,15 @@ export function ExerciseBrowser() {
     return onOpenExercise(show)
   }, [all]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const inGroup = (type: string) => !group || EX_TYPES.find(t => t.id === type)?.group === group
+  // a type picked in another section doesn't empty this one
+  const type = f.type !== 'all' && f.type !== 'start' && !inGroup(f.type) ? 'all' : f.type
   const list = useMemo(() => all.filter(e =>
+    inGroup(e.type) &&
     (f.level === 'all' || e.level === f.level) &&
-    (f.type === 'all' || (f.type === 'start' ? !!e.start : e.type === f.type)) &&
+    (type === 'all' || (type === 'start' ? !!e.start : e.type === type)) &&
     (f.tech === 'all' || e.tech.includes(f.tech)) &&
-    (!f.fav || favs.includes(e.code))), [all, f, favs])
+    (!f.fav || favs.includes(e.code))), [all, f, favs, group, type]) // eslint-disable-line react-hooks/exhaustive-deps
   const idx = Math.max(0, list.findIndex(e => e.code === code))
   const ex: Exercise | undefined = list[idx]
   useEffect(() => { if (ex && ex.code !== code) setCode(ex.code) }, [ex, code, setCode])
@@ -74,7 +82,7 @@ export function ExerciseBrowser() {
     return m
   }, [all])
   const techsHere = useMemo(() => TECHS.filter(t => all.some(e => e.tech.includes(t.id))), [all])
-  const groups = useMemo(() => [...new Set(EX_TYPES.map(t => t.group))].map(g => ({ g, types: EX_TYPES.filter(t => t.group === g && typeCounts.has(t.id)) })), [typeCounts])
+  const groups = useMemo(() => [...new Set(EX_TYPES.map(t => t.group))].filter(g => !group || g === group).map(g => ({ g, types: EX_TYPES.filter(t => t.group === g && typeCounts.has(t.id)) })), [typeCounts, group])
 
   const sugg = useMemo(() => suggestExercises(all, inst.id === 'guitar'), [all, inst.id])
   const showSugg = (c: string) => {
@@ -92,7 +100,7 @@ export function ExerciseBrowser() {
           </button>
         ))}
       </div>
-      <span className="small muted">Or find any of the {all.length} exercises below.</span>
+      <span className="small muted">Or pick a section above, or find any of the {all.length} exercises below.</span>
     </Win>
   )
   if (!ex) {
@@ -135,7 +143,7 @@ export function ExerciseBrowser() {
   )
   return (
     <div className="stack ex-browser" style={{ gap: 10 }}>
-      <ExerciseView key={ex.code + inst.id + inst.tuning.id} ex={ex} controls={controls} filters={filters} top={suggWin}
+      <ExerciseView key={ex.code + inst.id + inst.tuning.id} ex={ex} controls={controls} filters={filters} top={suggest ? suggWin : null}
         root={keys[ex.code] ?? ex.key ?? 'C'} setRoot={k => setKeys({ ...keys, [ex.code]: k })}
         bpm={tempos[ex.code] ?? ex.bpm} setBpm={b => setTempos({ ...tempos, [ex.code]: b })}
         soundPick={soundPick} setSoundPick={setSoundPick}
@@ -355,7 +363,25 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
           </>
         ) : misfit}
       </Win>
-      {song && track && <Win id="ex-hand" title="Left hand" className="panel"><HandGuide track={track} cursor={at} /></Win>}
+      {song && track && <ExerciseHand track={track} flat={flat} at={at} />}
     </>
   )
+}
+
+/** The floating hand card over an exercise (Learn → Exercises): where your fingers go for the note you're on, and the next shift. */
+function ExerciseHand({ track, flat, at }: { track: SongTrack; flat: FlatStep[]; at: number }) {
+  const inst = useInstrument()
+  const shown = useShownCards('learn')
+  const names = useMemo(() => track.tuning.map((t, i) => {
+    const n = pcName(t % 12, false)
+    return i === track.tuning.length - 1 && track.tuning.filter(x => x % 12 === t % 12).length > 1 ? n.toLowerCase() : n
+  }), [track.tuning])
+  const hands = useMemo(() => handGroups(flat, { inst: inst.id, stringNames: names }), [flat, inst.id, names])
+  if (!shown.includes('hand')) return null
+  const hg = groupAt(hands, Math.max(0, at))
+  const hand = hg >= 0 ? hands[hg] : null
+  if (!hand) return null
+  const next = hands[hg + 1] ?? null
+  const beatsToShift = next ? flat.slice(Math.max(0, at), next.from).reduce((t, f) => t + f.step.dur, 0) : Infinity
+  return <FingerBox where="learn" group={hand} next={next} beatsToShift={beatsToShift} expected={flat[at]?.step.notes ?? []} nStr={track.tuning.length} stringNames={names} onHide={() => toggleCard('learn', 'hand')} />
 }

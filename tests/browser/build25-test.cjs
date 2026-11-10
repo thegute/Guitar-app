@@ -260,7 +260,7 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
     await page.locator('.practice-go').click()
     await page.waitForSelector('.session-bar, [class*=session]', { timeout: 4000 }).catch(() => bad('Practice session did not start'))
     await page.locator('.session-bar button:has-text("Stop"), button:has-text("Stop session")').first().click({ timeout: 1500 }).catch(() => {})
-    await nav(page, 'Songs')
+    await nav(page, 'Learn')
     await sub(page, 'Exercises')
     const cards = await page.locator('.ex-sugg-card').count()
     if (cards !== 3) bad(`suggested cards: ${cards}`)

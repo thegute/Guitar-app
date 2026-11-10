@@ -214,8 +214,8 @@ function TimerBody() {
 }
 
 /** Choose the floating cards for a screen (Play's Options, the gear's Floating cards). */
-/** screens that know where your hand is (the hand card needs a tab) */
-const HAND_SCREENS = ['play']
+/** screens that know where your hand is (the hand card needs a tab): the song player and Learn's exercises */
+const HAND_SCREENS = ['play', 'learn']
 export function FloatPicker({ screen }: { screen: string }) {
   const shown = useShownCards(screen)
   return (

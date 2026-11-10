@@ -43,7 +43,7 @@ function blockGo(b: Extract<Block, { practice: unknown }>['practice']): Go | nul
   if (b.quiz) return { quiz: b.quiz }
   if (b.tool === 'jam') return { tab: 'progressions' }
   if (b.tool === 'play') return { tab: 'play' }
-  if (b.tool === 'practice') return { songs: 'practice' }
+  if (b.tool === 'practice') return { learn: 'exercises' }
   if (b.tool) return { tool: b.tool }
   return null
 }

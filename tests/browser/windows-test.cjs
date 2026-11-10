@@ -39,7 +39,7 @@ async function drag(page, from, toX, toY) {
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] })
   const SCREENS = [
     ['Tools', 'Tuner', 3], ['Tools', 'Tempo', 3], ['Tools', 'Chords', 4], ['Tools', 'Scales', 2],
-    ['Songs', 'My songs', 2], ['Songs', 'Songbook', 2], ['Songs', 'Exercises', 3], ['Songs', 'Add a song', 3],
+    ['Songs', 'My songs', 2], ['Songs', 'Songbook', 2], ['Learn', 'Exercises', 3], ['Songs', 'Add a song', 3],
     ['Learn', 'Today', 3], ['Learn', 'Course', 2], ['Learn', 'Explore', 3],
     ['Jam', 'Jam', 2], ['Jam', 'Solo over it', 3], ['Jam', 'Make a tab', 1], ['Jam', 'Riff Scanner', 2],
     ['Settings', 'You', 6], ['Settings', 'Sound', 4], ['Settings', 'Look', 1], ['Settings', 'Backup', 2],

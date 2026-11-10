@@ -9,6 +9,7 @@ import { MySessions } from '../sessions/MySessions'
 import { ArtThumb } from '../components/Art'
 import { useEffect, useRef, useState } from 'react'
 import { IconGear } from '../components/Icons'
+import { ExercisesPage } from '../exercises/ExercisesPage'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { countUse } from '../usage'
 import { playAction, openGear } from '../nav'
@@ -94,7 +95,7 @@ export function LearnScreen() {
     return guide ? [{ k: 'home' }, { k: 'guide' }] : [{ k: 'home' }]
   })
   const [openUnit, setOpenUnit] = useState<string | null>(null)
-  const [page, setPage] = useSubTab('learn', ['today', 'course', 'explore'] as const)
+  const [page, setPage] = useSubTab('learn', ['today', 'course', 'explore', 'exercises'] as const)
   const [allStages, setAllStages] = useState(false)
   const [awayNote, setAwayNote] = useState('')
   const [, setTick] = useState(0)
@@ -298,6 +299,7 @@ export function LearnScreen() {
         { id: 'today', label: 'Today', badge: plan.length - planDone || null },
         { id: 'course', label: 'Course' },
         { id: 'explore', label: 'Explore' },
+        { id: 'exercises', label: 'Exercises' },
       ]} />
 
       {page === 'today' && <JumpBackIn />}
@@ -452,6 +454,7 @@ export function LearnScreen() {
         </WinArea>
       )}
 
+      {page === 'exercises' && <ExercisesPage />}
       {page === 'explore' && (
         <WinArea area="learnExplore" className="explore">
           {groups.map(g => (
@@ -469,7 +472,7 @@ export function LearnScreen() {
           ))}
           <Win id="songs" title="In the Songs tab" className="panel tool-group">
           <div className="tool-grid">
-          <button className="tool songbook-link" onClick={() => openSongs('practice')}>
+          <button className="tool songbook-link" onClick={() => setPage('exercises')}>
             <ToolBadge id="exercises" />
             <b>Exercises</b>
             <span className="small muted">{exerciseCatalog(inst).length} practice pieces, beginner to expert, every technique: in the Songs tab</span>

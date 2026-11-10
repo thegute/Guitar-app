@@ -154,9 +154,9 @@ async function tour(browser, theme, sizeName, { contrastCheck = true } = {}) {
   await page.locator('.sheet-backdrop').click({ position: { x: 5, y: 5 } }).catch(() => {})
   await page.waitForTimeout(200)
   await nav(page, 'Songs')
-  for (const s of ['My songs', 'Songbook', 'Exercises', 'Add a song']) { await sub(page, s); await check(page, `${tag}-songs-${s.split(' ')[0].toLowerCase()}`, { contrastCheck }) }
+  for (const s of ['My songs', 'Songbook', 'Add a song']) { await sub(page, s); await check(page, `${tag}-songs-${s.split(' ')[0].toLowerCase()}`, { contrastCheck }) }
   await nav(page, 'Learn')
-  for (const s of ['Today', 'Course', 'Explore']) { await sub(page, s); await check(page, `${tag}-learn-${s.toLowerCase()}`, { contrastCheck }) }
+  for (const s of ['Today', 'Course', 'Explore', 'Exercises']) { await sub(page, s); await check(page, `${tag}-learn-${s.toLowerCase()}`, { contrastCheck }) }
   await sub(page, 'Today')
   await page.locator('button[aria-label=Settings]').click()
   for (const s of ['You', 'Sound', 'Look', 'Backup']) { await sub(page, s); await check(page, `${tag}-settings-${s.toLowerCase()}`, { contrastCheck }) }
@@ -215,7 +215,7 @@ async function songsSection(browser) {
   await page.waitForSelector('.songbook-page')
   await page.locator('.songbook-page .sb-part').first().click()
   try { await page.waitForSelector('.play-head', { timeout: 5000 }); console.log('  songbook → Play:', await page.locator('.song-name b').textContent()) } catch { bad('songs: songbook did not open Play') }
-  await nav(page, 'Songs')
+  await nav(page, 'Learn')
   await sub(page, 'Exercises')
   await page.locator('.ex-browser button:has-text("Play along")').first().click()
   try { await page.waitForSelector('.play-head', { timeout: 5000 }); console.log('  practice → Play:', await page.locator('.song-name b').textContent()) } catch { bad('songs: practice tab did not open Play') }

@@ -31,7 +31,7 @@ export function libraryEntries(inst: Instrument, songs: SongDoc[] = []): Entry[]
       keys: `${s.genre} songbook ${s.parts.map(p => p.label).join(' ')}`, target: { go: { songbook: { song: s.id, part: s.parts[0].id } } } })
   }
   for (const e of EXAMPLES.filter(e => e.for === 'any' || e.for === inst.id)) {
-    out.push({ id: `ex:${e.id}`, kind: 'practice', title: e.title, where: 'Songs → Exercises → Example songs', text: 'An example tab to try every feature on.', keys: 'example', target: { example: e.id } })
+    out.push({ id: `ex:${e.id}`, kind: 'practice', title: e.title, where: 'Learn → Exercises → Example songs', text: 'An example tab to try every feature on.', keys: 'example', target: { example: e.id } })
   }
   if (lessonsAvailable()) {
     out.push({ id: 'videos', kind: 'feature', title: 'Your video lessons', where: 'Learn → Explore', text: 'Watch course videos you have on the phone with slow-down, A–B loops and resume; their tabs open in Play beside the video.',
@@ -41,7 +41,7 @@ export function libraryEntries(inst: Instrument, songs: SongDoc[] = []): Entry[]
   for (const e of exerciseCatalog(inst)) {
     const type = EX_TYPES.find(t => t.id === e.type)?.label ?? ''
     const tech = e.tech.map(t => TECHS.find(x => x.id === t)?.label ?? '').join(' ')
-    out.push({ id: `xc:${e.code}`, kind: 'exercise', title: e.name, where: `Songs → Exercises (${e.code})`, text: clip(`${LEVELS[e.level]}. ${e.about}`, 140),
+    out.push({ id: `xc:${e.code}`, kind: 'exercise', title: e.name, where: `Learn → Exercises (${e.code})`, text: clip(`${LEVELS[e.level]}. ${e.about}`, 140),
       keys: `${e.code} ${e.code.replace('-', '')} ${type} ${tech} ${LEVELS[e.level]} exercise drill`, target: { exercise: e.code }, boost: -0.18 })
   }
   // must-know licks, with their breakdowns searchable

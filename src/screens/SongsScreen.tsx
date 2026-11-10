@@ -4,34 +4,27 @@
 import { stopAllSounds } from '../audio/stopAll'
 import { Win, WinArea } from '../components/Win'
 import { ScanVideo } from '../scan/RiffScanner'
-import { Fold } from '../components/Fold'
 import { Songbook } from '../components/Songbook'
-import { ProgressionTabs } from '../components/ProgressionTabs'
-import { LickChainer } from '../components/LickChainer'
 import { JumpBackIn } from '../components/JumpBackIn'
-import { TabMakerPanel } from '../components/TabMaker'
 import { SiteSearch } from '../components/SiteSearch'
 import { canImportFromSites } from '../tabs/siteImport'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { PsyDog, PsyDogCard, PsyStrip } from '../components/PsyArt'
 import { breedOf } from '../theme'
-import { STARTER_PROGS, jamProgression, starterProgression } from '../tabs/fromProgression'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { deleteSong, listSongs, refreshBuiltIn, saveSong, youtubeId, type SongDoc } from '../tabs/library'
-import { EXAMPLES, exampleDoc, exampleId } from '../tabs/examples'
+import { useEffect, useRef, useState } from 'react'
+import { deleteSong, listSongs, saveSong, youtubeId, type SongDoc } from '../tabs/library'
 import { songFromFile, songFromText } from '../tabs/importer'
 import { ago, songStats } from '../play/songStats'
 import { Clipboard } from '@capacitor/clipboard'
 import { INSTRUMENTS, useInstrument, type InstrumentId } from '../instrument'
-import { KeyPicker, Chips, usePersist } from '../components/Controls'
-import { ExerciseBrowser } from '../exercises/ExerciseBrowser'
+import { usePersist } from '../components/Controls'
 import { go, openInPlay, setSubPage } from '../nav'
 import { Ico } from '../components/Icon'
 import { TAB_SITES } from '../tabs/tabSites'
 
 const SITES = TAB_SITES
 
-const PAGES = ['mine', 'songbook', 'practice', 'add'] as const
+const PAGES = ['mine', 'songbook', 'add'] as const
 type Page = typeof PAGES[number]
 const mine = (s: SongDoc) => s.source !== 'example' && s.source !== 'lesson' && s.source !== 'songbook'
 
@@ -57,7 +50,6 @@ export function SongsScreen() {
       <SubTabs label="Songs" value={page} onChange={setPage} tabs={[
         { id: 'mine', label: 'My songs', badge: count || null },
         { id: 'songbook', label: 'Songbook' },
-        { id: 'practice', label: 'Exercises' },
         { id: 'add', label: 'Add a song' },
       ]} />
       {page === 'mine' && <WinArea area="songsMine">
@@ -65,7 +57,6 @@ export function SongsScreen() {
         <MySongs songs={songs} currentId={currentId} onOpen={open} refresh={refresh} onAdd={() => setPage('add')} onSongbook={() => setPage('songbook')} />
       </WinArea>}
       {page === 'songbook' && <Songbook currentId={currentId} onOpen={open} />}
-      {page === 'practice' && <PracticePage currentId={currentId} onOpen={open} />}
       {page === 'add' && <AddPage onOpen={open} onAdded={async () => { await refresh(); setPage('mine') }} />}
     </div>
   )
@@ -147,28 +138,6 @@ function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook }: {
       </ul>
       {!shown.length && <p className="small muted">No song matches "{filter}".</p>}
     </Win>
-  )
-}
-
-function PracticePage({ currentId, onOpen }: { currentId: string; onOpen: (d: SongDoc) => void }) {
-  const inst = useInstrument()
-  const saveOpen = async (d: SongDoc) => { await saveSong(d); onOpen(d) }
-  return (
-    <WinArea area="exercises">
-      <ExerciseBrowser />
-      <Win id="ex-picking" title="Fingerpicking patterns" className="panel"><PickingSection onOpen={saveOpen} /></Win>
-      <Win id="ex-chain" title="Lick chainer" className="panel"><LickChainer onOpen={saveOpen} /></Win>
-      <Win id="ex-licks" title="Tab maker: licks, chord melodies, riffs" className="panel"><TabMakerPanel onOpen={saveOpen} jam={jamProgression()} /></Win>
-      <Win id="ex-examples" title="Example songs" className="panel">
-        <ul className="song-list">
-          {EXAMPLES.filter(e => e.for === inst.id || e.for === 'any').map(e => (
-            <li key={e.id} className={exampleId(e.id, inst.id) === currentId ? 'on' : ''}>
-              <button className="song-open" onClick={() => void refreshBuiltIn(exampleDoc(e.id, inst.tuning.notes)).then(onOpen)}><b>{e.title}</b></button>
-            </li>
-          ))}
-        </ul>
-      </Win>
-    </WinArea>
   )
 }
 
@@ -285,25 +254,3 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
   )
 }
 
-/** Fingerpicking (Travis / arpeggio) and chord melody tabs from your Jam progression or a starter progression. */
-function PickingSection({ onOpen }: { onOpen: (d: SongDoc) => void }) {
-  const jam = useMemo(() => jamProgression(), [])
-  const [src, setSrc] = usePersist('pickSource', jam ? 'jam' : 'pop')
-  const [key, setKey] = usePersist('pickKey', 'G')
-  const useJam = src === 'jam' && !!jam
-  const prog = useMemo(() => (useJam ? { mode: jam!.mode, chords: jam!.chords } : starterProgression(src === 'jam' ? 'pop' : src, key)), [useJam, jam, src, key])
-  return (
-    <Fold id="songsPicking" title="Fingerpicking" summary="over a progression"
-      hint="Travis picking, arpeggios, slack key, classical and more over a progression: the one you made in Jam, or a classic one.">
-      <label className="field">
-        <span>Progression</span>
-        <select className="select" value={useJam ? 'jam' : src === 'jam' ? 'pop' : src} onChange={e => setSrc(e.target.value)}>
-          {jam && <option value="jam">My Jam progression: {jam.chords.map(c => c.symbol).join(' – ')}</option>}
-          {STARTER_PROGS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-        </select>
-      </label>
-      {!useJam && <KeyPicker value={key} onChange={setKey} />}
-      <ProgressionTabs part="pick" chords={prog.chords} tonic={useJam ? jam!.tonic : key} mode={prog.mode} bpm={useJam ? jam!.bpm : 80} onOpen={onOpen} />
-    </Fold>
-  )
-}
