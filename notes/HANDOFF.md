@@ -86,6 +86,9 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ## 2026-11-09 20:37 ANSWERS: sound packs from Mac plugins live in a PHONE / GOOGLE DRIVE folder, never in the public repo. Band behind me:
 ##   Songsterr/GP tracks + chord band first. Carry on ALL medium tasks; DO NOT make a test APK without asking him first (he may add more
 ##   medium tasks). The full plan with status + [M]/[H] is notes/MASTER-PLAN.md (keep it current).
+## 2026-11-11: owner sent "KGuitar Master Game Plan & Implementation Roadmap" (notes/master-roadmap-2026-11-11.pdf, 7 stages, made with
+##   Gemini). Claude read all 12 pages, sent questions + concerns (order, Learn 6 grades vs 10 units, latency claims, COEP vs YouTube,
+##   which plugins he owns, phone storage budget, Mac linking). Await his answers before re-ordering MASTER-PLAN.md.
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar
