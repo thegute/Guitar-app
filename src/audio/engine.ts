@@ -57,27 +57,45 @@ export function finalOut(): AudioNode {
 }
 
 // Named buses (notes/AUDIO-ENGINE.md): features send each part to a bus, so one mixer can set the balance and the Stage 3
-// engine can take the buses over unchanged. `me` = the part you play (the guide), `band` = everything else in the song.
-export type BusName = 'me' | 'band'
-const BUS_DEFAULT: Record<BusName, number> = { me: 1, band: 1 }
+// engine can take the buses over unchanged. `me` = the part you play (the guide), `band` = everything else in the song;
+// the band's own parts (`drums`, `bass`, `other`) feed the `band` bus, so the your-part ↔ band slider moves them together
+// and the mixer card sets each one. Levels are remembered (kg:bus:<name>); mute/solo isn't (it's for right now).
+export type BusName = 'me' | 'band' | 'drums' | 'bass' | 'other'
+export const BAND_PARTS: BusName[] = ['drums', 'bass', 'other']
+const BUS_DEFAULT: Record<BusName, number> = { me: 1, band: 1, drums: 1, bass: 1, other: 1 }
 const buses = new Map<BusName, GainNode>()
+const mutedBuses = new Set<BusName>()
 export function busLevel(name: BusName): number {
   try { const v = Number(localStorage.getItem(`kg:bus:${name}`)); return localStorage.getItem(`kg:bus:${name}`) !== null && v >= 0 && v <= 1.5 ? v : BUS_DEFAULT[name] } catch { return BUS_DEFAULT[name] }
 }
+const gainOf = (name: BusName) => (mutedBuses.has(name) ? 0 : busLevel(name))
 export function bus(name: BusName): GainNode {
   const c = audio()
   let g = buses.get(name)
-  if (!g) { g = c.createGain(); g.gain.value = busLevel(name); g.connect(master!); buses.set(name, g) }
+  if (!g) {
+    g = c.createGain(); g.gain.value = gainOf(name)
+    g.connect(BAND_PARTS.includes(name) ? bus('band') : master!)
+    buses.set(name, g)
+  }
   if ((globalThis as { __kgTest?: boolean }).__kgTest) (globalThis as { __kgBuses?: unknown }).__kgBuses = buses
   return g
+}
+const busListeners = new Set<() => void>()
+export function onBuses(f: () => void) { busListeners.add(f); return () => { busListeners.delete(f) } }
+function apply(name: BusName) {
+  const g = buses.get(name)
+  if (g && ctx) g.gain.setTargetAtTime(gainOf(name), ctx.currentTime, 0.04)
+  busListeners.forEach(f => f())
 }
 /** Set a bus's level (0–1.5), smoothly, and remember it. */
 export function setBusLevel(name: BusName, v: number) {
   const x = Math.max(0, Math.min(1.5, v))
   try { localStorage.setItem(`kg:bus:${name}`, String(Math.round(x * 100) / 100)) } catch { /* private */ }
-  const g = buses.get(name)
-  if (g && ctx) g.gain.setTargetAtTime(x, ctx.currentTime, 0.04)
+  apply(name)
 }
+/** Silence a bus for now (the mixer's mute and solo), keeping its level. */
+export function setBusMuted(name: BusName, on: boolean) { if (on) mutedBuses.add(name); else mutedBuses.delete(name); apply(name) }
+export const busMuted = (name: BusName) => mutedBuses.has(name)
 
 /** Keep the screen awake while practising (tuner, metronome, playback). */
 let wakeLock: { release: () => Promise<void> } | null = null

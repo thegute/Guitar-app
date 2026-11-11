@@ -68,7 +68,9 @@ async function newPage(browser, seed = {}, viewport = SIZES.cover) {
 }
 // Play has no menu button any more (songs open in the song player): the Now playing bar goes back to it
 const nav = (page, label) => label === 'Play' ? page.locator('[data-testid=now-playing]').count().then(c => (c ? page.locator('[data-testid=now-playing]').click() : null)) : page.locator(`nav.nav button:has-text("${label}")`).first().click()
-const sub = (page, label) => page.locator(`.subtabs [role=tab]:has-text("${label}")`).first().click()
+// Jam's pages are three big choices now (+ the Riff Scanner link); old names still work here
+const JAM_ALIAS = { 'Jam': 'Play with a band', 'Looper': 'Loop myself', 'Beat maker': 'Make a beat' }
+const sub = (page, label) => label === 'Riff Scanner' ? page.locator('[data-testid=jam-scan-link]').click() : page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
 
 async function ready(browser) {
   const page = await newPage(browser, { 'kg:getReady': 3, 'kg:playMode': 'time' })

@@ -2592,3 +2592,42 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 /* Game full screen: when you size the highway bigger than the screen, it scrolls; the control bar stays at the bottom */
 .play.stand .play-tab { overflow-y: auto; }
 .play.stand .stand-bar.game { position: sticky; bottom: 0; z-index: 3; background: var(--bg); }
+
+/* Jam: three big choices (Play with a band, Make a beat, Loop myself) and the Riff Scanner link under them.
+   Doubled class so the sub-tab pill styles (.subtabs [role=tab]) don't flatten them into plain text. */
+.subtabs.jam-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); border: 0; background: none; padding: 0; overflow: visible; box-shadow: none; }
+.subtabs.jam-choices .jam-choice { display: flex; align-items: center; gap: 10px; text-align: left; min-height: 64px; padding: 10px 12px; border-radius: var(--r-lg);
+  border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; min-width: 0; white-space: normal; font: inherit; box-shadow: none; }
+.subtabs.jam-choices .jam-choice svg { flex: none; width: 26px; height: 26px; color: var(--accent); }
+.jam-choice-text { display: flex; flex-direction: column; min-width: 0; }
+.jam-choice-text b { font-size: 17px; line-height: 1.15; }
+.jam-choice-text .small { color: var(--ink-2); line-height: 1.25; font-weight: 500; }
+.subtabs.jam-choices .jam-choice.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--surface)); color: var(--ink); box-shadow: 0 0 0 1px var(--accent) inset; }
+.jam-scan-link { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; text-align: left; }
+.jam-scan-link .short { display: none; }
+@media (max-width: 560px) {
+  .subtabs.jam-choices .jam-choice { flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 8px 6px; min-height: 72px; }
+  .jam-choice-text .small { display: none; }
+  .jam-choice-text b { font-size: 15px; }
+  .jam-scan-link .long { display: none; }
+  .jam-scan-link .short { display: inline; }
+}
+
+/* tips: a glowing dot on the ✨ bubble, and the tip card (tips/TipCard.tsx) */
+.ask-bubble { overflow: visible; }
+.tip-glow { position: absolute; top: -3px; right: -3px; width: 14px; height: 14px; border-radius: 50%; background: var(--gold); border: 2px solid var(--bg);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 70%, transparent); animation: tip-pulse 2s ease-out infinite; }
+@keyframes tip-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 70%, transparent); } 70% { box-shadow: 0 0 0 10px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .tip-glow { animation: none; } }
+[data-listening] .tip-glow { animation: none; }
+.tip-card .tip-kind { margin: 0; display: flex; align-items: center; gap: 6px; color: var(--gold); font-weight: 700; text-transform: none; }
+.tip-card .tip-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
+.tip-card .tip-text { margin: 4px 0 6px; }
+
+/* the Mixer card (Band behind me) */
+.fc-mix-row { display: grid; grid-template-columns: 5.6em minmax(60px, 1fr) 30px 30px; align-items: center; gap: 6px; }
+.fc-mix-row.off .fc-mix-name, .fc-mix-row.off input { opacity: .45; }
+.fc-mix-row input[type=range] { width: 100%; accent-color: var(--accent); }
+.fc-mix-b { min-height: 30px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font-weight: 800; font-size: 13px; }
+.fc-mix-b.on { background: var(--coral); color: #fff; border-color: transparent; }
+.fc-mix-b.on.solo { background: var(--gold); color: #1a1200; }

@@ -29,6 +29,8 @@ export interface FloatCtx {
   /** the song's video, for the mini YouTube card */
   video?: string
   title?: string
+  /** Band behind me: which band parts this song has, and the chord band's style (pick another on the Mixer card) */
+  band?: { parts: ('drums' | 'bass' | 'other')[]; style?: string; styles?: { id: string; label: string }[]; setStyle?: (s: string) => void }
 }
 
 let ctx: FloatCtx = {}
@@ -55,8 +57,8 @@ export function useFloatCtx(): FloatCtx {
 }
 
 // ---------- which cards are shown, per screen ----------
-export type CardId = 'hand' | 'chord' | 'neck' | 'feedback' | 'bar' | 'tempo' | 'tuner' | 'video' | 'timer'
-export const CARDS: { id: CardId; title: string; icon: 'hand' | 'music' | 'layers' | 'ear' | 'target' | 'zap' | 'guitar' | 'film' | 'timer'; hint: string }[] = [
+export type CardId = 'hand' | 'chord' | 'neck' | 'feedback' | 'bar' | 'tempo' | 'tuner' | 'video' | 'timer' | 'mixer'
+export const CARDS: { id: CardId; title: string; icon: 'hand' | 'music' | 'layers' | 'ear' | 'target' | 'zap' | 'guitar' | 'film' | 'timer' | 'sliders'; hint: string }[] = [
   { id: 'hand', title: 'Hand', icon: 'hand', hint: 'Where your fingers go: the four frets your hand covers, each finger in colour, and the next shift' },
   { id: 'chord', title: 'Chord now & next', icon: 'music', hint: 'The chord to play now, the next one and a beat countdown to the change' },
   { id: 'neck', title: 'Mini neck', icon: 'layers', hint: 'The key’s notes around your hand, with the chord’s notes lit and its root in red' },
@@ -66,9 +68,11 @@ export const CARDS: { id: CardId; title: string; icon: 'hand' | 'music' | 'layer
   { id: 'tuner', title: 'Quick tuner', icon: 'guitar', hint: 'A small tuner needle for a quick check between songs' },
   { id: 'video', title: 'Mini video', icon: 'film', hint: 'The song’s YouTube video in a small floating player' },
   { id: 'timer', title: 'Practice timer', icon: 'timer', hint: 'Your practice session’s step and time left, or a stopwatch' },
+  { id: 'mixer', title: 'Mixer', icon: 'sliders', hint: 'Band behind me: the volume of your part, the drums, the bass and the other parts, each with mute and solo; the chord band’s style' },
 ]
 const KEY = (screen: string) => `kg:floatCards:${screen}`
-const DEFAULTS: Record<string, CardId[]> = { play: ['hand'], scan: ['hand'], learn: ['hand'] }
+// Jam: the chord and the mini neck pop up while the band plays (Jam rests its cards when nothing is playing)
+const DEFAULTS: Record<string, CardId[]> = { play: ['hand'], scan: ['hand'], learn: ['hand'], jam: ['chord', 'neck'] }
 
 export function shownCards(screen: string): CardId[] {
   try {
@@ -113,3 +117,17 @@ export function useFloatScreen(): string {
 // the card that was touched last is drawn on top of the others
 let front = 0
 export const bringToFront = () => ++front
+
+// a screen can rest its cards while nothing is going on (Jam: only while the band plays)
+const resting = new Set<string>()
+const restListeners = new Set<() => void>()
+export function setFloatResting(screen: string, on: boolean) {
+  if (on === resting.has(screen)) return
+  if (on) resting.add(screen); else resting.delete(screen)
+  restListeners.forEach(f => f())
+}
+export function useFloatResting(screen: string): boolean {
+  const [v, setV] = useState(() => resting.has(screen))
+  useEffect(() => { setV(resting.has(screen)); const f = () => setV(resting.has(screen)); restListeners.add(f); return () => { restListeners.delete(f) } }, [screen])
+  return v
+}

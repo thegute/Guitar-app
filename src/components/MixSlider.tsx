@@ -1,8 +1,8 @@
 // The play-along mix: one slider between "Your part" (the guide: the tab you're playing, played for you) and "Band" (the
 // song's other instruments). Middle = both at full. It sets the `me` and `band` buses (audio/engine.ts), so it works for
 // every feature that plays a song along with you, now and after the Stage 3 engine (notes/AUDIO-ENGINE.md).
-import { useState } from 'react'
-import { setBusLevel } from '../audio/engine'
+import { useEffect, useState } from 'react'
+import { busLevel, onBuses, setBusLevel } from '../audio/engine'
 
 /** 0 = only your part, 100 = only the band, 50 = both full. */
 export function mixLevels(v: number): { me: number; band: number } {
@@ -18,9 +18,20 @@ function readMix(): number {
   return 50
 }
 
+/** The slider position that gives these levels (the mixer card can change them too). */
+export function mixFromLevels(me: number, band: number): number {
+  if (me < 0.999) return Math.round(100 - 50 * Math.max(0, me))
+  return Math.round(50 * Math.min(1, Math.max(0, band)))
+}
+
 export function MixSlider({ band = true, compact }: { band?: boolean; compact?: boolean }) {
   const [v, setV] = useState(readMix)
   const [solo, setSolo] = useState(readSolo)
+  // follow changes made on the mixer card
+  useEffect(() => onBuses(() => {
+    if (band) { const n = mixFromLevels(busLevel('me'), busLevel('band')); setV(n); try { localStorage.setItem('kg:mix', String(n)) } catch { /* private */ } }
+    else { const n = Math.round(Math.min(1, busLevel('me')) * 100); setSolo(n); try { localStorage.setItem('kg:mixSolo', String(n)) } catch { /* private */ } }
+  }), [band])
   if (!band) {
     // no other instruments in this song: just how loud your part plays
     return (

@@ -47,7 +47,9 @@ async function newPage(browser, seed = {}, viewport = SIZES.cover) {
 }
 // Play has no menu button any more (songs open in the song player): the Now playing bar goes back to it
 const nav = (page, label) => label === 'Play' ? page.locator('[data-testid=now-playing]').count().then(c => (c ? page.locator('[data-testid=now-playing]').click() : null)) : page.locator(`nav.nav button:has-text("${label}")`).first().click()
-const sub = (page, label) => page.locator(`.subtabs [role=tab]:has-text("${label}")`).first().click()
+// Jam's pages are three big choices now (+ the Riff Scanner link); old names still work here
+const JAM_ALIAS = { 'Jam': 'Play with a band', 'Looper': 'Loop myself', 'Beat maker': 'Make a beat' }
+const sub = (page, label) => label === 'Riff Scanner' ? page.locator('[data-testid=jam-scan-link]').click() : page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
 async function overflow(page) {
   return page.evaluate(() => {
     const w = document.documentElement.clientWidth
@@ -162,7 +164,7 @@ async function tour(browser, theme, sizeName, { contrastCheck = true } = {}) {
   for (const s of ['You', 'Sound', 'Look', 'Backup']) { await sub(page, s); await check(page, `${tag}-settings-${s.toLowerCase()}`, { contrastCheck }) }
   await nav(page, 'Jam')
   await page.waitForTimeout(300)
-  for (const s of ['Jam', 'Solo over it', 'Make a tab', 'Riff Scanner']) { await sub(page, s); await check(page, `${tag}-jam-${s.split(' ')[0].toLowerCase()}`, { contrastCheck }) }
+  for (const s of ['Play with a band', 'Make a beat', 'Loop myself', 'Riff Scanner']) { await sub(page, s); await check(page, `${tag}-jam-${s.split(' ')[0].toLowerCase()}`, { contrastCheck }); if (s === 'Riff Scanner') await page.locator('[data-testid=jam-scan-back]').click() }
   await nav(page, 'Tools')
   for (const s of ['Tuner', 'Tempo', 'Chords', 'Scales']) { await sub(page, s); await check(page, `${tag}-tools-${s.toLowerCase()}`, { contrastCheck }) }
   await page.context().close()

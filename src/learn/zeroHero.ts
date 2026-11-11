@@ -281,7 +281,7 @@ export const PATHS: StylePath[] = [
     { label: 'Hammer-ons, pull-offs and sweet 6ths', target: { go: { technique: 'slack-hammer' } } },
     { label: 'Harmonics and the Hawaiian vamp', target: { go: { technique: 'slack-vamp' } } },
     { label: 'Songs from the Songbook: Hawaiian & slack key', watch: { id: 'R4xJiPvX1Ko', title: 'The Tradition of Kī Hōʻalu', who: 'Jeff Peterson' }, target: { go: { songs: 'songbook' } } },
-    { label: 'New slack key phrases: Jam → Make a tab (Hawaiian slack key)', target: { jam: { page: 'tab', style: 'slackkey', key: 'G' } } },
+    { label: 'New slack key phrases: the tab maker (Hawaiian slack key)', target: { jam: { page: 'tab', style: 'slackkey', key: 'G' } } },
     { label: 'Fingerpick a slack key progression (Slack key pattern)', target: { jam: { page: 'jam', style: 'slackkey', key: 'G' } } },
   ], gate: [
     { id: 'p-sk-thumb', label: 'Keep the alternating thumb steady through a whole piece in open G' },
@@ -292,7 +292,7 @@ export const PATHS: StylePath[] = [
     { label: 'p-i-m-a arpeggios (Giuliani pattern)', watch: { id: '99yx4Mn1NN0', title: 'P-I-M-A-M-I: Right-Hand Arpeggios' }, target: { jam: { page: 'tab', style: 'classical' } } },
     { label: 'Romanza: triplets with the melody on top', watch: { id: 'nB2WUfrzi5Y', title: 'Learn to Play Romanza (Part 1)', who: 'EliteGuitarist' }, target: { go: { songs: 'songbook' } } },
     { label: 'Greensleeves, Minuet in G, Für Elise, Canon in D', target: { go: { songs: 'songbook' } } },
-    { label: 'New classical studies: Jam → Make a tab (Classical guitar)', target: { jam: { page: 'tab', style: 'classical', key: 'E', mode: 'harmonic' } } },
+    { label: 'New classical studies: the tab maker (Classical guitar)', target: { jam: { page: 'tab', style: 'classical', key: 'E', mode: 'harmonic' } } },
   ], gate: [
     { id: 'p-cl-romanza', label: 'Play the first section of Romanza in time' },
     { id: 'p-cl-piece', label: 'Play two classical pieces from the Songbook' },

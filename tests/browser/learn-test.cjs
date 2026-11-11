@@ -25,7 +25,9 @@ async function overflow(page) {
   })
 }
 
-const sub = (page, label) => page.click(`.subtabs [role=tab]:has-text("${label}")`)
+// Jam's pages are three big choices now (+ the Riff Scanner link); old names still work here
+const JAM_ALIAS = { 'Jam': 'Play with a band', 'Looper': 'Loop myself', 'Beat maker': 'Make a beat' }
+const sub = (page, label) => label === 'Riff Scanner' ? page.locator('[data-testid=jam-scan-link]').click() : page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
 async function songsPage(page, label) {
   await page.click('nav.nav button:has-text("Songs")')
   await sub(page, label)

@@ -24,7 +24,9 @@ async function newPage(browser, viewport, seed = {}) {
 }
 // Play has no menu button any more (songs open in the song player): the Now playing bar goes back to it
 const nav = (page, l) => l === 'Play' ? page.locator('[data-testid=now-playing]').count().then(c => (c ? page.locator('[data-testid=now-playing]').click() : null)) : page.locator(`nav.nav button:has-text("${l}")`).first().click()
-const sub = (page, l) => page.locator(`.subtabs [role=tab]:has-text("${l}")`).first().click()
+// Jam's pages are three big choices now (+ the Riff Scanner link); old names still work here
+const JAM_ALIAS = { 'Jam': 'Play with a band', 'Looper': 'Loop myself', 'Beat maker': 'Make a beat' }
+const sub = (page, label) => label === 'Riff Scanner' ? page.locator('[data-testid=jam-scan-link]').click() : page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
 const sideways = page => page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || [...document.querySelectorAll('.main')].some(m => m.scrollWidth > m.clientWidth + 1))
 async function drag(page, from, toX, toY) {
   const b = await from.boundingBox()
@@ -41,7 +43,7 @@ async function drag(page, from, toX, toY) {
     ['Tools', 'Tuner', 3], ['Tools', 'Tempo', 3], ['Tools', 'Chords', 4], ['Tools', 'Scales', 2],
     ['Songs', 'My songs', 2], ['Songs', 'Songbook', 2], ['Learn', 'Exercises', 3], ['Songs', 'Add a song', 3],
     ['Learn', 'Today', 3], ['Learn', 'Course', 2], ['Learn', 'Explore', 3],
-    ['Jam', 'Jam', 2], ['Jam', 'Solo over it', 3], ['Jam', 'Make a tab', 1], ['Jam', 'Riff Scanner', 2],
+    ['Jam', 'Jam', 2], ['Jam', 'Riff Scanner', 2],
     ['Settings', 'You', 6], ['Settings', 'Sound', 4], ['Settings', 'Look', 1], ['Settings', 'Backup', 2],
   ]
   if (want('screens')) for (const vp of [{ width: 360, height: 760 }, { width: 412, height: 915 }, { width: 840, height: 757 }]) {

@@ -64,6 +64,12 @@ export function launch(t: Target) {
       put('progBpm', j.bpm ?? (j.style ? STYLE_DEFAULTS[j.style].bpm : 90))
       // an empty progression makes Jam write a new one in the new key and style
       put('jamProg', [])
+      // Make a tab lives in Learn → Exercises now: set its tab maker to the same style and key (style's own chords)
+      if (j.page === 'tab') {
+        put('tm:part', 'lead'); put('tm:useJam', false)
+        if (j.style) { put('tm:lead:style', j.style); put('tm:lead:follow', false) }
+        if (j.key) put('tm:key', j.key)
+      }
     }
     remount()
     openJam(j.page ?? 'jam')

@@ -13,13 +13,16 @@ import { youtubeId, youtubeStart } from '../tabs/library'
 import { freqToMidi, midiName } from '../theory/notes'
 import { PitchTracker } from '../audio/pitch'
 import { running as sessionNow, onSession } from '../sessions/session'
-import { CARDS, toggleCard, useFloatCtx, useFloatScreen, useShownCards, type CardId, type FloatCtx } from './bus'
+import { busLevel, onBuses, setBusLevel, type BusName } from '../audio/engine'
+import { MIX_PARTS, audible, isMuted, isSolo, onMixer, resetMixer, toggleMute, toggleSolo } from '../audio/mixer'
+import { CARDS, toggleCard, useFloatCtx, useFloatScreen, useShownCards, type CardId, type FloatCtx, useFloatResting } from './bus'
 
 export function FloatLayer() {
   const screen = useFloatScreen()
   const shown = useShownCards(screen).filter(id => id !== 'hand')
   const ctx = useFloatCtx()
-  if (!shown.length) return null
+  const resting = useFloatResting(screen)
+  if (!shown.length || resting) return null
   return (
     <>
       {shown.map((id, i) => {
@@ -27,7 +30,7 @@ export function FloatLayer() {
         const hide = () => toggleCard(screen, id)
         return (
           <FloatCard key={`${screen}:${id}`} id={id} where={screen} title={card.title} icon={card.icon} order={i + 1} onHide={hide}
-            width={id === 'video' ? 300 : id === 'neck' ? 280 : 220} minW={id === 'video' ? 200 : 150}
+            width={id === 'video' ? 300 : id === 'neck' ? 280 : id === 'mixer' ? 270 : 220} minW={id === 'video' ? 200 : 150}
             alert={id === 'chord' && ctx.beatsToChange !== undefined && ctx.beatsToChange <= 2}
             bubble={bubbleText(id, ctx)}>
             <Body id={id} ctx={ctx} />
@@ -72,12 +75,21 @@ function Body({ id, ctx: c }: { id: CardId; ctx: FloatCtx }) {
       if (!pcs && !info) return empty('Open a song: the key’s notes around your hand show here, with the chord’s notes lit.')
       const base = Math.max(0, (c.handBase ?? 1) - 1)
       const tones = new Set(info?.pcs ?? [])
+      // Play the changes: two beats before the chord changes, the next chord's root and 3rd light up (cyan) to aim for
+      const nextInfo = c.chordNext && c.beatsToChange !== undefined && c.beatsToChange <= 2 ? chordInfo(c.chordNext) : null
+      const look = new Set<number>()
+      if (nextInfo) {
+        look.add(nextInfo.root)
+        const third = nextInfo.pcs.find(p => [3, 4].includes((p - nextInfo.root + 12) % 12))
+        if (third !== undefined) look.add(third)
+      }
       return (
         <div data-testid="fc-neck">
-          <div className="small muted">{c.keyName ? `${c.keyName}` : ''}{info ? `${c.keyName ? ' · ' : ''}${c.chordNow} notes lit` : ''}</div>
+          <div className="small muted">{c.keyName ? `${c.keyName}` : ''}{info ? `${c.keyName ? ' · ' : ''}${c.chordNow} notes lit` : ''}{nextInfo ? <b className="fc-look"> · aim for {c.chordNext}</b> : null}</div>
           <Fretboard tuning={tuning} fromFret={base} toFret={base + 5} compact
             markFor={m => {
               const p = ((m % 12) + 12) % 12
+              if (look.has(p) && !(info && p === info.root)) return { label: midiName(m, !!c.flats).replace(/\d+$/, ''), role: 'look' }
               if (info && p === info.root) return { label: midiName(m, !!c.flats).replace(/\d+$/, ''), role: 'root' }
               if (tones.has(p)) return { label: midiName(m, !!c.flats).replace(/\d+$/, ''), role: 'chord' }
               if (pcs?.includes(p)) return { label: '', role: 'scale' }
@@ -109,6 +121,7 @@ function Body({ id, ctx: c }: { id: CardId; ctx: FloatCtx }) {
     case 'tuner': return <TunerBody />
     case 'video': return <VideoBody c={c} />
     case 'timer': return <TimerBody />
+    case 'mixer': return <MixerBody band={c.band} />
   }
 }
 
@@ -225,6 +238,37 @@ export function FloatPicker({ screen }: { screen: string }) {
           <Ico n={c.icon} /> {c.title}
         </button>
       ))}
+    </div>
+  )
+}
+
+/** Band behind me's mixer: a slider per part (your part, drums, bass, other parts) with mute (M) and solo (S), and the
+ *  chord band's style. Levels stay (kg:bus:*); mute and solo are for now. */
+function MixerBody({ band }: { band?: FloatCtx['band'] }) {
+  const [, bump] = useState(0)
+  useEffect(() => { const f = () => bump(n => n + 1); const a = onBuses(f), b = onMixer(f); return () => { a(); b() } }, [])
+  const parts = MIX_PARTS.filter(p => p.id === 'me' || band?.parts.includes(p.id as 'drums' | 'bass' | 'other'))
+  const anyOff = MIX_PARTS.some(p => isMuted(p.id) || isSolo(p.id))
+  return (
+    <div className="fc-mixer stack" style={{ gap: 6 }} data-testid="fc-mixer">
+      {!band && <p className="small muted" style={{ margin: 0 }}>This song has no band: only your part (the guide) plays along.</p>}
+      {parts.map(p => (
+        <div key={p.id} className={`fc-mix-row${audible(p.id) ? '' : ' off'}`}>
+          <span className="small fc-mix-name">{p.label}</span>
+          <input type="range" min={0} max={150} value={Math.round(busLevel(p.id as BusName) * 100)} aria-label={`${p.label} volume`}
+            onChange={e => setBusLevel(p.id as BusName, Number(e.target.value) / 100)} onDoubleClick={() => setBusLevel(p.id as BusName, 1)} data-testid={`mix-${p.id}`} />
+          <button className={`fc-mix-b${isMuted(p.id) ? ' on' : ''}`} aria-pressed={isMuted(p.id)} onClick={() => toggleMute(p.id)} aria-label={`Mute ${p.label}`} data-testid={`mute-${p.id}`}>M</button>
+          <button className={`fc-mix-b${isSolo(p.id) ? ' on solo' : ''}`} aria-pressed={isSolo(p.id)} onClick={() => toggleSolo(p.id)} aria-label={`Solo ${p.label}`} data-testid={`solo-${p.id}`}>S</button>
+        </div>
+      ))}
+      {band?.styles && band.setStyle && (
+        <label className="row small" style={{ gap: 6, alignItems: 'center' }}>Band style
+          <select className="select" value={band.style} onChange={e => band.setStyle!(e.target.value)} data-testid="mix-style">
+            {band.styles.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+          </select>
+        </label>
+      )}
+      {anyOff && <button className="link-btn small" style={{ alignSelf: 'flex-start' }} onClick={resetMixer}>Unmute everything</button>}
     </div>
   )
 }

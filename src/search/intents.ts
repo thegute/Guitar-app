@@ -251,7 +251,7 @@ export function intents(query: string, inst: InstrumentDef): Result[] {
     const keyLabel = key ? ` in ${key}${mode && mode !== 'major' ? ' ' + modeLabel(mode) : ''}` : ''
     const title = `Jam: ${style ? styleLabel : mode && !key ? modeLabel(mode) : 'a new'} progression${keyLabel}`.replace('Jam: a new progression in', 'Jam: a progression in')
     const extra = style ? `${STYLE_DEFAULTS[style].bpm} bpm, ${STYLES.find(s => s.id === style)!.label} drums, bass and guitar` : 'drums and bass'
-    add({ kind: 'jam', title, where: page === 'solo' ? 'Jam → Solo over it' : 'Jam', text: `Makes a new chord progression to play over, with ${extra}. Tap Play loop to start.`, target: { jam: { key, mode, style, bpm, page } }, score: jamCtx ? 94 : style ? 72 : 60 })
+    add({ kind: 'jam', title, where: 'Jam → Play with a band', text: `Makes a new chord progression to play over, with ${extra}. Tap Play loop to start.`, target: { jam: { key, mode, style, bpm, page } }, score: jamCtx ? 94 : style ? 72 : 60 })
   }
   return out
 }

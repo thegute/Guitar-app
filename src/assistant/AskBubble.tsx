@@ -20,6 +20,7 @@ import { playAction } from '../nav'
 import { applyBeatChange } from '../studio/beat'
 import { launch } from '../search/launch'
 import { startSession } from '../sessions/session'
+import { TipCard, useTip } from '../tips/TipCard'
 
 type Phase = 'idle' | 'listening' | 'thinking' | 'answer' | 'error'
 const SORRY: Record<string, string> = {
@@ -118,9 +119,31 @@ export function AskBubble({ context }: { context: AskContext }) {
   const top = `calc(${Math.round(y * 100)}% - 28px)`
   const placeSide = x !== null ? { left: x - 26, right: 'auto' } : side === 'left' ? { left: 10, right: 'auto' } : {}
   const busy = phase === 'listening' || phase === 'thinking'
+  // tips: a glowing dot when there's one here; tap ✨ to read it ("always": it opens by itself, never while you play)
+  const { tip, mode: tipMode, screen } = useTip()
+  const [tipOpen, setTipOpen] = useState(false)
+  const autoShown = useRef<Set<string>>(new Set())
+  useEffect(() => { if (!tip) setTipOpen(false) }, [tip])
+  // the helper's "A tip for this screen" (and "Only when I ask" mode)
+  const [noTip, setNoTip] = useState(false)
+  useEffect(() => {
+    const f = () => { if (tipRef.current) setTipOpen(true); else { setNoTip(true); setTimeout(() => setNoTip(false), 3500) } }
+    addEventListener('kg-show-tip', f); return () => removeEventListener('kg-show-tip', f)
+  }, [])
+  const tipRef = useRef(tip); tipRef.current = tip
+  useEffect(() => {
+    if (tipMode !== 'always' || !tip || tipOpen || phase !== 'idle' || autoShown.current.has(tip.id)) return
+    const t = setTimeout(() => {
+      if (document.documentElement.dataset.listening) return
+      autoShown.current.add(tip.id); setTipOpen(true)
+    }, 2500)
+    return () => clearTimeout(t)
+  }, [tip, tipMode, tipOpen, phase])
+  const tipReady = !!tip && (tipMode === 'dot' || tipMode === 'always')
+  const cardTop = y >= 0.45 ? `max(8px, calc(${Math.round(y * 100)}% - 40px - min(60vh, 340px)))` : `calc(${Math.round(y * 100)}% + 30px)`
   return (
     <>
-      <button className="ask-bubble" style={{ top, ...placeSide }} aria-label="Open the helper (chat and search)"
+      <button className={`ask-bubble${tipReady ? ' has-tip' : ''}`} style={{ top, ...placeSide }} aria-label={tipReady ? 'A tip for this screen (and the helper)' : 'Open the helper (chat and search)'} data-testid="ask-bubble"
         onPointerDown={e => { drag.current = { x0: e.clientX, y0px: e.clientY, y0: y, moved: false }; try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* fine */ } }}
         onPointerMove={e => {
           const d = drag.current
@@ -133,9 +156,12 @@ export function AskBubble({ context }: { context: AskContext }) {
         onPointerCancel={() => { drag.current = null; setX(null) }}
         // open on the click (not on finger-up): opening on finger-up let the same tap land on the helper's dark
         // background a moment later and close it again, which is why it sometimes didn't open
-        onClick={() => { if (dragged.current) { dragged.current = false; return } askAssistant('', context, false) }}>
+        onClick={() => { if (dragged.current) { dragged.current = false; return } if (tipReady && !tipOpen) { setTipOpen(true); return } setTipOpen(false); askAssistant('', context, false) }}>
         <Ico n="sparkles" />
+        {tipReady && <span className="tip-glow" aria-hidden data-testid="tip-dot" />}
       </button>
+      {noTip && <div className="talk-card tip-card" style={{ top: cardTop, ...(side === 'left' ? { left: 10 } : { right: 10 }) }} role="status" data-testid="tip-none"><p className="talk-a">No new tips for this screen right now. Come back later, or ask me anything.</p></div>}
+      {tipOpen && tip && phase === 'idle' && <TipCard tip={tip} screen={screen} from={side === 'left' && x === null ? 'left' : 'right'} style={{ top: cardTop }} onClose={() => setTipOpen(false)} />}
       {talkOk && (
         <button className={`talk-btn${busy ? ' on' : ''}`} style={{ top: `calc(${Math.round(y * 100)}% - 25px)`, ...(x !== null ? { left: x - 70, right: 'auto' } : side === 'left' ? { left: 60, right: 'auto' } : { right: 60 }) }}
           onClick={() => void talk()} aria-label={phase === 'listening' ? 'Stop listening' : 'Talk to the helper'} aria-pressed={busy} data-testid="talk-btn">

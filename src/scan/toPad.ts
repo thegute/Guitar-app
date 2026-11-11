@@ -47,5 +47,5 @@ export async function riffToPad(doc: SongDoc, sound?: { x: Float32Array; sr: num
   const id = `scan-${Date.now().toString(36)}`
   await saveSample(id, data, sr)
   pushBeat({ ...beat, pads: { ...beat.pads, [free]: { src: 'rec', sample: id, start: 0, end: data.length / sr, root: detectRoot(data, sr) ?? undefined, name: doc.title.slice(0, 18), mode: 'oneshot' } } })
-  return `It's on pad ${padName(free)} of Your pads (Jam → Beat maker).`
+  return `It's on pad ${padName(free)} of Your pads (Jam → Make a beat).`
 }

@@ -36,6 +36,7 @@ import { useFoldPosture } from '../play/fold'
 import { nextSpeed, timeline as inTimeTimeline, videoTimeOf, type VideoApi } from '../play/inTime'
 import { GameView } from '../components/GameView'
 import { MixSlider, applyMix } from '../components/MixSlider'
+import { noteStuck } from '../tips/tips'
 import { setBusLevel } from '../audio/engine'
 import { exampleDoc } from '../tabs/examples'
 import { playNote, strum, SOUNDS, activeSound, onSoundChange, setSoundChoice, soundChoice, soundForProgram, soundInfo, loadSound, soundLoaded, type SoundId } from '../audio/pluck'
@@ -51,7 +52,7 @@ import { LayoutHint } from '../components/Win'
 import { onLeavePage } from '../audio/stopAll'
 import { FingerBox } from '../components/FingerBox'
 import { FloatPicker } from '../float/FloatLayer'
-import { clearFloat, publishFloat, toggleCard, useShownCards } from '../float/bus'
+import { clearFloat, publishFloat, shownCards, toggleCard, useShownCards } from '../float/bus'
 import { groupAt, handGroups } from '../play/handShape'
 import { easierTrack, editKey, fixedFingers, otherSpots, withMoves } from '../hand/edits'
 import { adaptTrack } from '../hand/adapt'
@@ -65,7 +66,8 @@ import { TakeRecorder, saveTake } from '../audio/takeRecorder'
 import { keepRecording } from '../audio/recordings'
 import { offerTake, setThenNowOn, thenNowFor, thenNowOn, type ThenNowPair } from '../audio/thenNow'
 import { ThenVsNow } from '../components/ThenVsNow'
-import { bandByStep, bandEvents, hasBand } from '../audio/band'
+import { bandByStep, bandEvents, bandStyleLabel, chordBandSong, guessBandStyle, hasBand, CHORD_BAND_STYLES } from '../audio/band'
+import type { Style } from '../theory/progressions'
 import { SongCheckCard, RetuneNotice } from '../components/SongCheckCard'
 import { profile } from '../learn/profile'
 import { Zoomable } from '../components/Zoomable'
@@ -264,6 +266,7 @@ export function PlayScreen() {
   const [live, setLive] = useState<number | null>(null)
   const [input, setInput] = useState<{ label: string; external: boolean } | null>(null)
   const [feedback, setFeedback] = useState<Feedback | null>(null)
+  const missRun = useRef({ bar: -1, n: 0, t0: 0 })
   const lastMiss = useRef<{ heard: number; want: number[]; bar: number; chordText?: string } | null>(null)
   const [inspect, setInspect] = useState<SongNote | null>(null)
   const [inspectAt, setInspectAt] = useState(-1)
@@ -553,6 +556,12 @@ export function PlayScreen() {
     if (fi !== undefined && states.current[fi] === 0) states.current[fi] = 3
     const fs = fi !== undefined ? ref.current.flat[fi] : undefined
     lastMiss.current = { heard, want: fs ? playable(fs.step).map(n => n.midi) : [], bar: fs ? fs.bar : -1, chordText }
+    // the same bar going wrong again and again (4 misses within 2 minutes): tips offers help for that spot first
+    if (fs) {
+      const m = missRun.current, now = Date.now()
+      if (m.bar !== fs.bar || now - m.t0 > 120_000) { m.bar = fs.bar; m.n = 0; m.t0 = now }
+      if (++m.n === 4) noteStuck(fs.bar)
+    }
     setFeedback({ ok: false, heard, chordText, chordHelp: help })
     setPulse(p => ({ ok: false, key: (p?.key ?? 0) + 1 }))
     setVersion(v => v + 1)
@@ -732,9 +741,22 @@ export function PlayScreen() {
   }, [track, meter])
   // the band: a Guitar Pro file's other parts, or drums and bass from the chords (songbook)
   const [bandOn, setBandOn] = usePersist('playBand', true)
-  const bandAvail = !!doc && !!track && hasBand(doc.song, trackIdx)
-  const bandEv = useMemo(() => (doc && bandAvail ? bandEvents(doc.song, trackIdx) : []), [doc?.song, trackIdx, bandAvail]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Band behind me: the song's own band (other tracks, drums, songbook backing), or a chord band (drums + bass following
+  // the chord names) in a style guessed from the song, which you can change on the Mixer card (kept per song)
+  const [bandStylePick, setBandStylePick] = useState<Style | null>(null)
+  useEffect(() => { try { const v = doc ? localStorage.getItem(`kg:bandStyle:${doc.id}`) : null; setBandStylePick(v ? (JSON.parse(v) as Style) : null) } catch { setBandStylePick(null) } }, [doc?.id])
+  const bandStyleGuess = useMemo(() => (doc ? guessBandStyle(doc.song, doc.title, doc.song.artist) : 'acoustic'), [doc?.song]) // eslint-disable-line react-hooks/exhaustive-deps
+  const bandStyle: Style = bandStylePick ?? bandStyleGuess
+  const setBandStyle = (st: Style) => { setBandStylePick(st); try { if (doc) localStorage.setItem(`kg:bandStyle:${doc.id}`, JSON.stringify(st)) } catch { /* private */ } }
+  const chordBand = useMemo(() => (doc && track ? chordBandSong(doc.song, trackIdx, bandStyle) : null), [doc?.song, trackIdx, bandStyle]) // eslint-disable-line react-hooks/exhaustive-deps
+  const bandSong = chordBand ?? doc?.song
+  const bandAvail = !!doc && !!track && !!bandSong && hasBand(bandSong, trackIdx)
+  const bandEv = useMemo(() => (bandSong && bandAvail ? bandEvents(bandSong, trackIdx) : []), [bandSong, trackIdx, bandAvail])
   const bandSteps = useMemo(() => bandByStep(bandEv, flat), [bandEv, flat])
+  const bandParts = useMemo(() => {
+    const k = new Set(bandEv.map(e => e.kind))
+    return (['drums', 'bass', 'other'] as const).filter(p => (p === 'drums' ? k.has('drum') : p === 'bass' ? k.has('bass') : k.has('gtr')))
+  }, [bandEv])
   const withBand = bandOn && bandAvail
   const inTime = useInTime({
     band: withBand ? bandEv : undefined,
@@ -1046,6 +1068,10 @@ export function PlayScreen() {
       bar: flat[at] ? flat[at].bar + 1 : undefined, bars: track.bars.length,
       loop: loop ? (loop.from === loop.to ? `bar ${loop.from + 1}` : `bars ${loop.from + 1}–${loop.to + 1}`) : undefined,
       bpm: songBpm, speed, setSpeed,
+      band: withBand ? {
+        parts: bandParts,
+        ...(chordBand ? { style: bandStyle, styles: CHORD_BAND_STYLES.map(id => ({ id, label: bandStyleLabel(id) })), setStyle: (st: string) => setBandStyle(st as Style) } : {}),
+      } : undefined,
     })
   }) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -1259,8 +1285,13 @@ export function PlayScreen() {
           {bandAvail && (
             <label className="opt-row opt-check" data-find="band">
               <input type="checkbox" checked={bandOn} onChange={() => { setBandOn(!bandOn); if (playAt >= 0) stopPreview() }} />
-              <span><b><Ico n="drum" /> Play with the band</b><span className="small muted">{doc.song.backing ? 'Drums and bass from the chords' : 'The drums, bass and other parts of this song'}, with Hear it and In time.</span></span>
+              <span><b><Ico n="drum" /> Play with the band</b><span className="small muted">{chordBand ? `A ${bandStyleLabel(bandStyle).toLowerCase()} band (drums and bass) following the chords` : doc.song.backing ? 'Drums and bass from the chords' : 'The drums, bass and other parts of this song'}, with Hear it and In time.</span></span>
             </label>
+          )}
+          {bandAvail && bandOn && (
+            <div className="opt-row" data-find="mixer">
+              <button className="btn sm" onClick={() => { const on = shownCards('play').includes('mixer'); if (!on) toggleCard('play', 'mixer'); setOpts(false) }} data-testid="open-mixer"><Ico n="sliders" /> Mixer: each part's volume, mute and solo{chordBand ? ', band style' : ''}</button>
+            </div>
           )}
           {mode === 'time' && (
             <>

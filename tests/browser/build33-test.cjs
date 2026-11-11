@@ -31,7 +31,9 @@ async function newPage(browser, seed = {}, viewport = { width: 840, height: 757 
 }
 // Play has no menu button any more (songs open in the song player): the Now playing bar goes back to it
 const nav = (page, label) => label === 'Play' ? page.locator('[data-testid=now-playing]').count().then(c => (c ? page.locator('[data-testid=now-playing]').click() : null)) : page.locator(`nav.nav button:has-text("${label}")`).click()
-const sub = (page, label) => page.locator(`.subtabs [role=tab]:has-text("${label}")`).first().click()
+// Jam's pages are three big choices now (+ the Riff Scanner link); old names still work here
+const JAM_ALIAS = { 'Jam': 'Play with a band', 'Looper': 'Loop myself', 'Beat maker': 'Make a beat' }
+const sub = (page, label) => label === 'Riff Scanner' ? page.locator('[data-testid=jam-scan-link]').click() : page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
 const errs = (page, where) => { if (page.errors.length) bad(`${where} page errors: ${page.errors.join(' | ')}`); page.errors = [] }
 
 ;(async () => {
@@ -84,9 +86,12 @@ const errs = (page, where) => { if (page.errors.length) bad(`${where} page error
   }
   if (want('maketab')) {
     for (const vp of [{ width: 840, height: 757 }, { width: 412, height: 915 }]) {
-      const page = await newPage(browser, { 'kg:tab2': 'jam', 'kg:sub:jam': 'tab' }, vp)
-      await nav(page, 'Jam')
-      await sub(page, 'Make a tab').catch(() => {})
+      // the tab maker lives in Learn → Exercises → Make your own now (Jam's "Make a tab from these chords" opens it)
+      const page = await newPage(browser, { 'kg:tab2': 'progressions', 'kg:sub:jam': 'jam' }, vp)
+      await page.waitForSelector('.prog-card')
+      await page.locator('.win-chip:has-text("Make a tab")').click()
+      await page.locator('[data-testid=jam-make-tab]').click()
+      await page.waitForSelector('[data-win="ex-licks"], [data-testid^=tm-]', { timeout: 6000 }).catch(() => bad(`${vp.width}: Make a tab from these chords didn't open the tab maker`))
       for (const [label, part] of [['Licks & solos', 'lead'], ['Chord melody', 'melody'], ['Riffs', 'riff']]) {
         await page.locator(`.seg button:has-text("${label}")`).click()
         const box = page.locator(`[data-testid=tm-${part}]`)

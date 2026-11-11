@@ -1,5 +1,6 @@
 // Search: type what you want in your own words ("slow it down", "G7", "drop D", "blues jam in A", "it doesn't hear
 // me") and tap a result to go straight there, already set up.
+import { tipsMode } from '../tips/tips'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Ico } from './Icon'
 import { useInstrument } from '../instrument'
@@ -124,6 +125,7 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
         {seen && <p className="ask-sees small" data-testid="ask-sees"><Ico n="eye" /> I can see: {seen.label}. {seen.play ? 'Ask about it ("why is this bar hard?", "loop this bar slower").' : 'Ask about it.'}</p>}
         {!q.trim() && !turns.length && (
           <div className="search-start stack">
+            {tipsMode() !== 'off' && <div className="row"><button className="btn sm" onClick={() => { onClose(); dispatchEvent(new Event('kg-show-tip')) }} data-testid="ask-tip"><Ico n="sparkle" /> A tip for this screen</button></div>}
             <p className="small muted" style={{ margin: 0 }}>Tip: tap the microphone on your phone's keyboard to say it instead of typing. Search or ask in your own words. Ask for a practice session ("triads today"), a beat, a chord or scale, or help with a problem: it finds it and sets it up.</p>
             {past.length > 0 && (
               <div className="stack" style={{ gap: 6 }}>

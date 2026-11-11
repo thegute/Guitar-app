@@ -31,7 +31,9 @@ async function newPage(browser, seed = {}, viewport = { width: 840, height: 757 
 }
 // Play has no menu button any more (songs open in the song player): the Now playing bar goes back to it
 const nav = (page, label) => label === 'Play' ? page.locator('[data-testid=now-playing]').count().then(c => (c ? page.locator('[data-testid=now-playing]').click() : null)) : page.locator(`nav.nav button:has-text("${label}")`).click()
-const sub = (page, label) => page.locator(`.subtabs [role=tab]:has-text("${label}")`).first().click()
+// Jam's pages are three big choices now (+ the Riff Scanner link); old names still work here
+const JAM_ALIAS = { 'Jam': 'Play with a band', 'Looper': 'Loop myself', 'Beat maker': 'Make a beat' }
+const sub = (page, label) => label === 'Riff Scanner' ? page.locator('[data-testid=jam-scan-link]').click() : page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
 const sideways = page => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
 const errs = (page, where) => { if (page.errors.length) bad(`${where} page errors: ${page.errors.join(' | ')}`); page.errors = [] }
 
@@ -240,7 +242,7 @@ async function playThrough(page) {
     await page.waitForSelector('.tab-note', { timeout: 8000 })
     const emoji = /[\u{1F300}-\u{1FAFF}\u{23E9}-\u{23FA}\u2728]/u
     const seen = []
-    for (const [tab, subs] of [['Play', []], ['Songs', ['My songs', 'Songbook', 'Add a song']], ['Learn', ['Today', 'Course', 'Explore', 'Exercises']], ['Jam', ['Jam', 'Solo over it', 'Make a tab', 'Riff Scanner', 'Beat maker']], ['Tools', []]]) {
+    for (const [tab, subs] of [['Play', []], ['Songs', ['My songs', 'Songbook', 'Add a song']], ['Learn', ['Today', 'Course', 'Explore', 'Exercises']], ['Jam', ['Play with a band', 'Make a beat', 'Loop myself', 'Riff Scanner']], ['Tools', []]]) {
       await nav(page, tab); await page.waitForTimeout(400)
       for (const s of subs.length ? subs : [null]) {
         if (s) { await sub(page, s); await page.waitForTimeout(350) }

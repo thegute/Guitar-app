@@ -29,7 +29,9 @@ async function newPage(browser, viewport, seed = {}) {
 }
 // Play has no menu button any more (songs open in the song player): the Now playing bar goes back to it
 const nav = (page, l) => l === 'Play' ? page.locator('[data-testid=now-playing]').count().then(c => (c ? page.locator('[data-testid=now-playing]').click() : null)) : page.locator(`nav.nav button:has-text("${l}")`).first().click()
-const sub = (page, l) => page.locator(`.subtabs [role=tab]:has-text("${l}")`).first().click()
+// Jam's pages are three big choices now (+ the Riff Scanner link); old names still work here
+const JAM_ALIAS = { 'Jam': 'Play with a band', 'Looper': 'Loop myself', 'Beat maker': 'Make a beat' }
+const sub = (page, label) => label === 'Riff Scanner' ? page.locator('[data-testid=jam-scan-link]').click() : page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
 const sideways = page => page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || [...document.querySelectorAll('.main')].some(m => m.scrollWidth > m.clientWidth + 1))
 async function drag(page, loc, dx, dy) {
   const b = await loc.boundingBox()
@@ -335,6 +337,7 @@ E|-3---------|-----------|`
     if (await sideways(page)) bad(`${vp.n}: sideways overflow with the notice`)
     // Jam's input button (on the Looper page, where Jam records you) says mono; its sheet has the setup
     await nav(page, 'Jam'); await sub(page, 'Looper')
+    await page.waitForSelector('.input-btn', { timeout: 6000 }).catch(() => {})
     const btn = page.locator('.input-btn').first()
     if (await btn.count()) {
       const t = await btn.innerText()

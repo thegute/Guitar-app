@@ -72,7 +72,7 @@ export function BounceSave({ t, beat, setBeat, loops, play, stop }: { t: StudioT
           const before = beat
           const mutes = Object.fromEntries(loops.layers.map(l => [l.id, !!l.mute]))
           const id = await loops.addRaw(mono, beat.bars)
-          if (!id) { setMsg('All four looper tracks are full: clear one (Jam → Looper), then bounce.'); setBusy(null); return }
+          if (!id) { setMsg('All four looper tracks are full: clear one (Jam → Loop myself), then bounce.'); setBusy(null); return }
           loops.setMutes(Object.fromEntries(loops.layers.map(l => [l.id, true])))
           setBeat(b => ({ ...b, rows: b.rows.map(r => ({ ...r, mute: true })), layers: (b.layers ?? []).map(l => ({ ...l, mute: true })), tracks: b.tracks.map(x => ({ ...x, mute: true })) }))
           setUndoB({ loop: id, beat: before, mutes })

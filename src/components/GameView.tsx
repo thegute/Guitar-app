@@ -7,6 +7,7 @@ import type { HandGroup } from '../play/handShape'
 import { highway, loadBest, mergeBest, saveBest, sectionResults, sectionsOf, toPerfect, Scorer, type NoteResult, type Section, type SectionResult } from '../play/game'
 import { GameHighway, type GameFeedback } from './GameHighway'
 import { MixSlider } from './MixSlider'
+import { shownCards, toggleCard } from '../float/bus'
 import { Ico } from './Icon'
 
 export interface GameViewProps {
@@ -135,6 +136,7 @@ export function GameView(p: GameViewProps) {
           <b>Song plays along</b>{p.mode !== 'time' && !p.along && <span className="muted"> (in time)</span>}
         </label>
         {p.along && <MixSlider band={p.bandAvail} compact />}
+        {p.along && p.bandAvail && <button className="btn sm" onClick={() => { if (!shownCards('play').includes('mixer')) toggleCard('play', 'mixer') }} data-testid="game-mixer" title="Each part's volume, mute and solo"><Ico n="sliders" /> Mixer</button>}
       </div>
       <GameHighway items={items} sections={sections} barBeats={barBeats} stringNames={p.stringNames} beatNow={p.beatNow} cursorBeat={cursorBeat}
         spb={p.spb} states={p.states} feedback={fb} sectionStars={live} onTap={(f, n) => p.onPlayFor(f, n)} />

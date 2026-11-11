@@ -11,6 +11,7 @@ import { ShortsSetup } from '../scan/ShortsFeed'
 import { GET_READY_CHOICES, getReadySecs, setGetReadySecs } from '../components/GetReady'
 import { useEffect, useState } from 'react'
 import { Chips } from '../components/Controls'
+import { adviceOn, onTips, setAdviceOn, setTipsMode, tipsMode, unmuteAllTips, type TipMode } from '../tips/tips'
 import { INSTRUMENTS, setInstrument, setTuning, type Instrument, type InstrumentId } from '../instrument'
 import { motionAllowed, setPsyMotion, setTheme, usePsyMotion, useTheme, usePsyDog, setPsyDog, type ThemeChoice } from '../theme'
 import { SubTabs, useSubTab } from '../components/SubTabs'
@@ -98,6 +99,9 @@ export function Settings({ inst, onExit, onGo, guideSec }: { inst: Instrument; o
       <Win id="ai" title="AI helper" bodyClass="stack" bodyStyle={{ gap: 10 }}>
         <BubbleSwitch />
         <AiSetup />
+      </Win>
+      <Win id="tips" title="Tips" bodyClass="stack" bodyStyle={{ gap: 10 }}>
+        <TipsSettings />
       </Win>
       <Win id="ytkey" title="YouTube key (Shorts)" bodyClass="stack" bodyStyle={{ gap: 10 }}>
         <ShortsSetup inSettings onDone={() => {}} />
@@ -371,6 +375,31 @@ function HandSizePick() {
     <>
       <Chips<HandSize> label="Hand size" items={[{ id: 'small', label: 'Small' }, { id: 'medium', label: 'Medium' }, { id: 'large', label: 'Large' }]} value={size} onChange={v => { setSize(v); setHandSize(v) }} />
       <span className="small muted">{size === 'small' ? 'Short stretches; the hand moves more often.' : size === 'large' ? 'Four-fret stretches are fine even at frets 1 to 4.' : 'Four frets comfortably from about fret 3 up; lower down the hand shifts instead.'}</span>
+    </>
+  )
+}
+
+/** Settings → You → Tips: how tips show (the glowing dot on ✨, always, only when asked, off) and the guitar-advice switch. */
+function TipsSettings() {
+  const [mode, setMode] = useState<TipMode>(tipsMode)
+  const [advice, setAdvice] = useState(adviceOn)
+  const [reset, setReset] = useState(false)
+  useEffect(() => onTips(() => { setMode(tipsMode()); setAdvice(adviceOn()) }), [])
+  return (
+    <>
+      <Chips label="How tips show" items={[{ id: 'dot', label: 'Glowing dot' }, { id: 'always', label: 'Always show' }, { id: 'ask', label: 'Only when I ask' }, { id: 'off', label: 'Off' }]}
+        value={mode} onChange={v => setTipsMode(v as TipMode)} />
+      <p className="small muted" style={{ margin: 0 }}>
+        {mode === 'dot' ? 'A gold dot glows on the ✨ bubble when there\'s a tip for the screen you\'re on: tap ✨ to read it.'
+          : mode === 'always' ? 'The tip card opens by itself a moment after there\'s a new one (never while you\'re playing).'
+            : mode === 'ask' ? 'No dot: ask the helper (✨) for a tip whenever you want one.'
+              : 'No tips.'}
+      </p>
+      <label className="row small" style={{ gap: 8, alignItems: 'center' }}>
+        <input type="checkbox" checked={advice} onChange={e => setAdviceOn(e.target.checked)} data-testid="tips-advice" />
+        <span><b>Guitar advice</b> too: technique, timing and practice tips, not just how to use the app</span>
+      </label>
+      <div className="row"><button className="btn sm" onClick={() => { unmuteAllTips(); setReset(true) }}>Show every tip again</button>{reset && <span className="small muted" role="status">Done: tips you dismissed will come back.</span>}</div>
     </>
   )
 }

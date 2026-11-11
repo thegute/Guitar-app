@@ -58,7 +58,7 @@ export function LooperPanel() {
   useScreenCommands('looper', cmd)
   useScreenInfo('looper', {
     label: `Looper: ${[0, 1, 2, 3].filter(i => st.loopOf(i)).length} of 4 tracks, part ${st.s.part}`,
-    summary: `In Jam → Looper (4-track looper on the beat "${t.beat.name}", ${Math.round(t.beat.bpm)} BPM, ${t.beat.bars} bar beat, ${st.playing ? 'playing' : 'stopped'}, part ${st.s.part}). Tracks: ${st.s.tracks.map((tr, i) => `${i + 1} ${ROLES.find(r => r.role === tr.role)?.label}: ${st.lengthOf(i) ? `${st.lengthOf(i)} bars, ${tr.parts[st.s.part]?.takes.length} take(s)${tr.mute ? ', muted' : ''}` : 'empty'}`).join('; ')}. The person can say "record track 2", "overdub", "stop", "undo", "chorus", "mute track 1".`,
+    summary: `In Jam → Loop myself (4-track looper on the beat "${t.beat.name}", ${Math.round(t.beat.bpm)} BPM, ${t.beat.bars} bar beat, ${st.playing ? 'playing' : 'stopped'}, part ${st.s.part}). Tracks: ${st.s.tracks.map((tr, i) => `${i + 1} ${ROLES.find(r => r.role === tr.role)?.label}: ${st.lengthOf(i) ? `${st.lengthOf(i)} bars, ${tr.parts[st.s.part]?.takes.length} take(s)${tr.mute ? ', muted' : ''}` : 'empty'}`).join('; ')}. The person can say "record track 2", "overdub", "stop", "undo", "chorus", "mute track 1".`,
   })
   // the mic stays open while the looper is on screen (if it's already allowed), so a press a hair late still starts on the beat
   useEffect(() => {

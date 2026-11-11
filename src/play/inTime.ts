@@ -106,7 +106,7 @@ export class InternalClock implements Clock {
   private guideNext = 0
   private bandNext = 0
   // the song's other parts on the `band` bus, the guide (your part) on the `me` bus: the Game / Play mix slider sets them
-  private voices = new BandVoices(1, bus('band'))
+  private voices = new BandVoices(1, 'buses')
   private stopped = false
   passes = 0
   constructor(

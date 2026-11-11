@@ -282,7 +282,7 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
         <div ref={pictures} />
         {scanned && <p className="notice small" style={{ margin: 0 }}>The tab in "{scanned.name}" is pictures (a scan, or printed as images), so the AI reads it: the pages are below. Tap <b>Read the tab</b>.</p>}
         <ScanVideo key={scanned?.name ?? ''} youtube={link} initialPics={scanned?.pics.map(p => ({ name: p.name, url: p.url }))} />
-        <p className="small muted" style={{ margin: 0 }}>The full Riff Scanner (Jam → Riff Scanner) also scans YouTube links and Shorts, and listens.</p>
+        <p className="small muted" style={{ margin: 0 }}>The full Riff Scanner (Full scanner, or the link under Jam's three buttons) also scans YouTube links and Shorts, and listens.</p>
       </Win>
     </WinArea>
   )

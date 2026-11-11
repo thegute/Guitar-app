@@ -7,7 +7,7 @@ import type { ModeId, Style } from '../theory/progressions'
 export type PlayFocus =
   | 'speed' | 'sound' | 'band' | 'click' | 'guide' | 'trainer' | 'record' | 'numbers' | 'count' | 'hand' | 'size' | 'split'
   | 'octave' | 'sensitivity' | 'setup' | 'restart' | 'listen' | 'mode' | 'loop' | 'hear' | 'opts' | 'video' | 'full' | 'view' | 'input' | 'check' | 'stand' | 'tidy'
-  | 'fingering' | 'panels' | 'capo' | 'nocapo' | 'game'
+  | 'fingering' | 'panels' | 'capo' | 'nocapo' | 'game' | 'mixer' | 'mix'
 export interface PlayAction {
   mode?: 'wait' | 'time'
   /** open the Options sheet, the video, the song check, start picking loop bars, or show Scales & chords */

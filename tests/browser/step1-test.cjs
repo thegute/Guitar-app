@@ -26,7 +26,9 @@ async function newPage(browser, viewport, seed = {}) {
 }
 // Play has no menu button any more (songs open in the song player): the Now playing bar goes back to it
 const nav = (page, l) => l === 'Play' ? page.locator('[data-testid=now-playing]').count().then(c => (c ? page.locator('[data-testid=now-playing]').click() : null)) : page.locator(`nav.nav button:has-text("${l}")`).first().click()
-const sub = (page, l) => page.locator(`.subtabs [role=tab]:has-text("${l}")`).first().click()
+// Jam's pages are three big choices now (+ the Riff Scanner link); old names still work here
+const JAM_ALIAS = { 'Jam': 'Play with a band', 'Looper': 'Loop myself', 'Beat maker': 'Make a beat' }
+const sub = (page, label) => label === 'Riff Scanner' ? page.locator('[data-testid=jam-scan-link]').click() : page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
 const sideways = page => page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || [...document.querySelectorAll('.main')].some(m => m.scrollWidth > m.clientWidth + 1))
 async function drag(page, loc, dx, dy) {
   const b = await loc.boundingBox()
@@ -345,23 +347,23 @@ More words go here too`, 'Eb song')
       console.log(`${vp.n}: drill opened "${title}"`)
       if (!/Chord changes/.test(title)) bad(`${vp.n}: Practise the changes didn't open the drill (${title})`)
     }
-    // Jam → Solo over it: play the changes + voice leading
+    // Jam → Play with a band: voice leading (in the tray) + Play the changes on the Mini neck card while the band plays
     await nav(page, 'Jam'); await sub(page, 'Jam'); await page.waitForTimeout(300)
     if (!(await page.locator('.prog-card').count())) { const roll = page.locator('button:has-text("New progression"), button:has-text("Roll")').first(); if (await roll.count()) await roll.click() }
-    await sub(page, 'Solo over it'); await page.waitForTimeout(400)
-    if (!(await page.locator('[data-testid=targets-toggle]').count())) bad(`${vp.n}: no Play the changes on the Jam neck`)
-    if (!(await page.locator('.win[data-win="voice"] [data-testid=voice-lead]').count())) bad(`${vp.n}: no voice leading in Jam → Solo over it`)
-    // start the loop and catch the cyan look-ahead
-    const playBtn = page.locator('.win[data-win="scales"] button:has-text("Play"), .win[data-win="scales"] button:has-text("Start")').first()
+    const vlChip = page.locator('.win-chip:has-text("Voice leading")')
+    if (await vlChip.count()) await vlChip.click()
+    await page.waitForTimeout(300)
+    if (!(await page.locator('.win[data-win="voice"] [data-testid=voice-lead]').count())) bad(`${vp.n}: no voice leading in Jam → Play with a band`)
+    const playBtn = page.locator('button:has-text("Play loop")').first()
     if (await playBtn.count()) {
       await playBtn.click()
       let sawLook = false
-      for (let i = 0; i < 40 && !sawLook; i++) { await page.waitForTimeout(250); sawLook = (await page.locator('.win[data-win="neck"] .note-dot.role-look').count()) > 0 }
-      console.log(`${vp.n}: Jam look-ahead ${sawLook ? 'seen' : 'not seen'}`)
-      if (!sawLook) bad(`${vp.n}: no cyan look-ahead notes while the Jam loop plays`)
+      for (let i = 0; i < 48 && !sawLook; i++) { await page.waitForTimeout(250); sawLook = (await page.locator('[data-testid=fc-neck] .note-dot.role-look').count()) > 0 }
+      console.log(`${vp.n}: Jam look-ahead on the Mini neck card ${sawLook ? 'seen' : 'not seen'}`)
+      if (!sawLook) bad(`${vp.n}: no cyan look-ahead notes on the Mini neck card while the Jam loop plays`)
       await page.screenshot({ path: `${DIR}/step1-changes-jam-${vp.n}.png` })
-      await playBtn.click().catch(() => {})
-    } else bad(`${vp.n}: couldn't find the Jam play button on Solo over it`)
+      await page.locator('button:has-text("Stop")').first().click().catch(() => {})
+    } else bad(`${vp.n}: couldn't find Play loop in Jam`)
     // Play → Scales & chords: Connect → Voice leading shapes
     await page.locator('[data-testid=now-playing]').click(); await page.waitForSelector('.tab-note')
     if (vp.width < 760) await page.click('.view-switch >> text=Both').catch(() => {})

@@ -126,3 +126,121 @@ export async function channelShorts(chs = followed(), signal?: AbortSignal): Pro
   }))
   return out
 }
+
+// ---------- channels followed from the start (owner 2026-11-11), found by name ----------
+// Their exact YouTube handles aren't known for sure, so each is looked up: with the key, a channel search by name (the
+// best match); without it, on the phone, the likely @handles. Found ones join the follow list (he can remove any);
+// one he removed is never added back. State: kg:shortsDefaults = { name: 'added' | 'removed' | number (tries) }.
+export const DEFAULT_FOLLOWS: { name: string; query: string; handles: string[] }[] = [
+  { name: 'Mr. Tabs', query: 'Mr. Tabs guitar', handles: ['@MrTabs', '@mrtabsguitar'] },
+  { name: 'Level Up Guitar Tabs', query: 'Level Up Guitar Tabs', handles: ['@LevelUpGuitarTabs', '@levelupguitartabs'] },
+  { name: 'Kenneth Acoustic', query: 'Kenneth Acoustic guitar', handles: ['@KennethAcoustic', '@kennethacoustic'] },
+]
+const DEF_KEY = 'kg:shortsDefaults'
+type DefState = Record<string, 'added' | 'removed' | number>
+const defState = (): DefState => { try { return JSON.parse(localStorage.getItem(DEF_KEY) ?? '{}') as DefState } catch { return {} } }
+const setDefState = (s: DefState) => { try { localStorage.setItem(DEF_KEY, JSON.stringify(s)) } catch { /* storage */ } }
+/** Stop following a channel; a starting one he removed stays removed. */
+export function unfollow(id: string) {
+  const ch = followed().find(c => c.id === id)
+  setFollowed(followed().filter(c => c.id !== id))
+  const def = ch && DEFAULT_FOLLOWS.find(d => d.name.toLowerCase() === ch.name.toLowerCase() || ch.name.toLowerCase().includes(d.name.toLowerCase()))
+  if (def) { const s = defState(); s[def.name] = 'removed'; setDefState(s) }
+}
+/** The starting channels still to find (not added, not removed, fewer than 4 tries). */
+export const defaultsPending = () => DEFAULT_FOLLOWS.filter(d => { const v = defState()[d.name]; return v !== 'added' && v !== 'removed' && (typeof v !== 'number' || v < 4) })
+
+/** One channel by name with the key (search.list type=channel: 100 units). */
+export async function channelByName(q: string, key = youtubeKey(), signal?: AbortSignal): Promise<Channel | null> {
+  if (!key) return null
+  const r = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&maxResults=3&q=${encodeURIComponent(q)}&key=${encodeURIComponent(key)}`, { signal })
+  const j = await r.json().catch(() => ({})) as { items?: { id: { channelId: string }; snippet: { title: string } }[]; error?: { errors?: { reason: string }[] } }
+  if (!r.ok || j.error) { if (r.status === 403) throw new QuotaError('quota'); return null }
+  const it = j.items?.[0]
+  return it ? { id: it.id.channelId, name: decode(it.snippet.title) } : null
+}
+
+/** Find and follow the starting channels not added yet. Returns the ones added this time. */
+export async function ensureDefaultFollows(signal?: AbortSignal): Promise<Channel[]> {
+  const added: Channel[] = []
+  for (const d of defaultsPending()) {
+    const s = defState()
+    let ch: Channel | null = null
+    try {
+      if (youtubeKey()) ch = await channelByName(d.query, youtubeKey(), signal)
+      if (!ch && Capacitor.isNativePlatform()) for (const h of d.handles) { try { ch = await channelFrom(h, signal); break } catch { /* next guess */ } }
+    } catch { /* quota or offline: try again another time */ }
+    if (ch) {
+      if (!followed().some(c => c.id === ch!.id)) setFollowed([...followed(), ch])
+      s[d.name] = 'added'; added.push(ch)
+    } else s[d.name] = (typeof s[d.name] === 'number' ? (s[d.name] as number) : 0) + 1
+    setDefState(s)
+  }
+  return added
+}
+
+// ---------- "Find channels for me": channels whose Shorts show a tab, in his styles ----------
+export interface ChannelPick { id: string; name: string; shorts: number; styles: string[]; sample: string; checked: number; withTab: number; score: number }
+
+/** Rank channels from a pile of Shorts (and how many of their frames showed a tab, when checked). Pure: tested. */
+export function rankTabChannels(shorts: Short[], tabs: Map<string, { checked: number; withTab: number }>, skip: Set<string>): ChannelPick[] {
+  const by = new Map<string, Short[]>()
+  for (const s of shorts) if (!skip.has(s.channelId) && !NOT.test(s.title)) by.set(s.channelId, [...(by.get(s.channelId) ?? []), s])
+  const out: ChannelPick[] = []
+  for (const [id, list] of by) {
+    const uniq = [...new Map(list.map(s => [s.id, s])).values()]
+    const t = tabs.get(id) ?? { checked: 0, withTab: 0 }
+    const tabWords = uniq.filter(s => /\btabs?\b|#guitartabs|tablature/i.test(s.title)).length / uniq.length
+    // a checked channel lives or dies by its frames; otherwise its titles and how often it came up
+    const tabShare = t.checked ? t.withTab / t.checked : tabWords * 0.6
+    if (t.checked >= 2 && t.withTab === 0) continue
+    const score = tabShare * 3 + Math.min(uniq.length, 6) * 0.35 + new Set(uniq.map(s => s.style).filter(Boolean)).size * 0.2
+    out.push({ id, name: uniq[0].channel, shorts: uniq.length, styles: [...new Set(uniq.map(s => s.style).filter((x): x is string => !!x))], sample: uniq[0].title, checked: t.checked, withTab: t.withTab, score })
+  }
+  return out.filter(p => p.shorts >= 2 || p.withTab > 0).sort((a, b) => b.score - a.score)
+}
+
+/** A frame from the middle of a Short (YouTube's own hq2 still) as an image we can read the pixels of. */
+async function frameOf(id: string): Promise<HTMLImageElement | null> {
+  const url = `https://i.ytimg.com/vi/${id}/hq2.jpg`
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const r = await CapacitorHttp.get({ url, responseType: 'blob' })
+      if (r.status >= 400) return null
+      const img = new Image(); img.src = `data:image/jpeg;base64,${String(r.data)}`
+      await img.decode(); return img
+    }
+    const img = new Image(); img.crossOrigin = 'anonymous'; img.src = url
+    await img.decode(); return img
+  } catch { return null }
+}
+
+/** Search his styles, check a few frames of the likeliest channels for a tab on screen, and rank them. */
+export async function findTabChannels(onStep: (msg: string) => void, signal?: AbortSignal): Promise<ChannelPick[]> {
+  const key = youtubeKey()
+  if (!key) throw new QuotaError('no key')
+  const all: Short[] = []
+  for (const st of SHORT_STYLES) {
+    if (signal?.aborted) break
+    onStep(`Looking through ${st.label} Shorts…`)
+    try { all.push(...(await searchShorts(st, key, signal)).list) } catch (e) { if (e instanceof QuotaError) break }
+  }
+  const skip = new Set(followed().map(c => c.id))
+  const first = rankTabChannels(all, new Map(), skip).slice(0, 14)
+  const tabs = new Map<string, { checked: number; withTab: number }>()
+  const { tabBoxes } = await import('./pictures')
+  let readable = true
+  for (const p of first) {
+    if (signal?.aborted || !readable) break
+    onStep(`Checking ${p.name} for tabs on screen…`)
+    const ids = all.filter(s => s.channelId === p.id).slice(0, 3).map(s => s.id)
+    const t = { checked: 0, withTab: 0 }
+    for (const id of ids) {
+      const img = await frameOf(id)
+      if (!img) continue
+      try { t.checked++; if (tabBoxes(img).length) t.withTab++ } catch { readable = false; t.checked--; break } // the web can't read YouTube's pictures: titles only
+    }
+    tabs.set(p.id, t)
+  }
+  return rankTabChannels(all, tabs, skip).slice(0, 10)
+}

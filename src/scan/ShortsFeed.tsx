@@ -7,7 +7,7 @@ import { usePersist } from '../components/Controls'
 import { usePedals } from '../controls/pedals'
 import { loadApi, type YTPlayer } from '../components/YouTubePlayer'
 import { ScanVideo } from './RiffScanner'
-import { SHORT_STYLES, QuotaError, channelFrom, channelShorts, curate, followed, searchShorts, setFollowed, setYoutubeKey, youtubeKey, type Short } from './shorts'
+import { SHORT_STYLES, QuotaError, channelFrom, channelShorts, curate, defaultsPending, ensureDefaultFollows, findTabChannels, followed, searchShorts, setFollowed, setYoutubeKey, unfollow, youtubeKey, type ChannelPick, type Short } from './shorts'
 
 const FEED_KEY = 'kg:shortsFeed'
 const QUOTA_KEY = 'kg:shortsQuota'
@@ -59,6 +59,8 @@ export function ShortsFeed({ onListen, onUseInJam }: { onListen: () => void; onU
     setBusy(false)
   }
   useEffect(() => { if (!feed.length && (hasKey || chs.length)) void load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // the channels followed from the start (Mr. Tabs, Level Up Guitar Tabs, Kenneth Acoustic): found by name once
+  useEffect(() => { if (defaultsPending().length) void ensureDefaultFollows().then(a => { if (a.length) bump(n => n + 1) }) }, [])
 
   const go = (d: number) => {
     setScan(false)
@@ -150,6 +152,15 @@ export function ShortsSetup({ onDone, inSettings = false }: { onDone: () => void
   const [add, setAdd] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
+  const [picks, setPicks] = useState<ChannelPick[] | null>(null)
+  const [step, setStep] = useState('')
+  useEffect(() => { if (defaultsPending().length) void ensureDefaultFollows().then(a => { if (a.length) setChs(followed()) }) }, [])
+  const find = async () => {
+    setBusy(true); setPicks(null); setMsg('')
+    try { const r = await findTabChannels(setStep); setPicks(r); if (!r.length) setMsg('No new tab channels turned up in your styles today: try again another day.') }
+    catch (e) { setMsg(e instanceof QuotaError ? "Finding channels needs your YouTube key (and some of today's searches)." : `That didn't work: ${e instanceof Error ? e.message : 'error'}`) }
+    setStep(''); setBusy(false)
+  }
   const test = async () => {
     setBusy(true); setMsg('Checking the key…')
     try {
@@ -181,7 +192,22 @@ export function ShortsSetup({ onDone, inSettings = false }: { onDone: () => void
       </div>
       {chs.length > 0 && (
         <ul className="plain small">
-          {chs.map(c => <li key={c.id} className="row" style={{ gap: 6, alignItems: 'center' }}>{c.name}<button className="btn sm ghost" onClick={() => { const n = chs.filter(x => x.id !== c.id); setChs(n); setFollowed(n) }} aria-label={`Stop following ${c.name}`}>✕</button></li>)}
+          {chs.map(c => <li key={c.id} className="row" style={{ gap: 6, alignItems: 'center' }}>{c.name}<button className="btn sm ghost" onClick={() => { unfollow(c.id); setChs(followed()) }} aria-label={`Stop following ${c.name}`}>✕</button></li>)}
+        </ul>
+      )}
+      {defaultsPending().length > 0 && <p className="small muted" style={{ margin: 0 }}>Still finding: {defaultsPending().map(d => d.name).join(', ')} ({youtubeKey() ? 'with your key' : 'in the phone app, or add your key'}).</p>}
+      <h3 style={{ margin: '6px 0 0' }}>Find channels for me</h3>
+      <p className="small muted" style={{ margin: 0 }}>Searches new Shorts in your styles and checks a few frames of each channel for a tab on screen, then lists the channels that really post tabs (uses about 5 of today's searches).</p>
+      <div className="row"><button className="btn" onClick={() => void find()} disabled={busy || !youtubeKey()} data-testid="shorts-find">{busy && step ? step : 'Find channels for me'}</button></div>
+      {picks && picks.length > 0 && (
+        <ul className="plain stack shorts-picks" style={{ gap: 8 }} data-testid="shorts-picks">
+          {picks.map(p => (
+            <li key={p.id} className="row" style={{ gap: 8, alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ minWidth: 0 }}><b>{p.name}</b><span className="small muted"> · {p.shorts} Shorts{p.styles.length ? ` · ${p.styles.map(x => SHORT_STYLES.find(st => st.id === x)?.label ?? x).join(', ')}` : ''}{p.checked ? ` · tab on screen in ${p.withTab} of ${p.checked}` : ''}</span><br /><span className="small muted">“{p.sample.slice(0, 70)}”</span></span>
+              {chs.some(c => c.id === p.id) ? <span className="small">Following</span>
+                : <button className="btn sm" onClick={() => { const n = [...followed().filter(c => c.id !== p.id), { id: p.id, name: p.name }]; setFollowed(n); setChs(n) }}>Follow</button>}
+            </li>
+          ))}
         </ul>
       )}
       {msg && <p className="small" role="status" style={{ margin: 0 }}>{msg}</p>}

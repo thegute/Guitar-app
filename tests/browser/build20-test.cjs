@@ -10,7 +10,7 @@ const bad = m => { problems.push(m); console.log('  PROBLEM', m) }
   const page = await ctx.newPage()
   const errs = []
   page.on('pageerror', e => errs.push(e.message))
-  await page.addInitScript(() => { if (sessionStorage.getItem('s')) return; localStorage.clear(); localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:getReady', '0'); sessionStorage.setItem('s', '1') })
+  await page.addInitScript(() => { if (sessionStorage.getItem('s')) return; localStorage.clear(); localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:getReady', '0'); localStorage.setItem('kg:tipsMode', '"off"'); sessionStorage.setItem('s', '1') })
   await page.goto('http://localhost:4173/')
   await page.waitForSelector('nav.nav')
   // Ask: a practice session from the built-in planner

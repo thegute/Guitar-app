@@ -53,7 +53,9 @@ async function playHasTab(page) {
   await page.waitForFunction(() => document.querySelectorAll('.tab-note').length > 0 || document.querySelectorAll('.tab-chord').length > 0, null, { timeout: 6000 })
   return page.evaluate(() => ({ title: document.querySelector('.song-name b')?.textContent ?? '', notes: document.querySelectorAll('.tab-note').length, chords: document.querySelectorAll('.tab-chord').length }))
 }
-const sub = (page, label) => page.locator(`.subtabs [role=tab]:has-text("${label}")`).first().click()
+// Jam's pages are three big choices now (+ the Riff Scanner link); old names still work here
+const JAM_ALIAS = { 'Jam': 'Play with a band', 'Looper': 'Loop myself', 'Beat maker': 'Make a beat' }
+const sub = (page, label) => label === 'Riff Scanner' ? page.locator('[data-testid=jam-scan-link]').click() : page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
 async function openLearnTool(page, label) {
   await nav(page, 'Learn')
   await page.waitForSelector('.learn-head')

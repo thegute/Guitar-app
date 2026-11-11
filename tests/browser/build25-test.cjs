@@ -17,7 +17,7 @@ async function newPage(browser, seed = {}, viewport = { width: 840, height: 757 
     window.__kgTest = true
     try { if (window.top !== window || sessionStorage.getItem('seeded')) return } catch { return }
     localStorage.clear()
-    localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:askBubble', 'false'); localStorage.setItem('kg:getReady', '0')
+    localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:askBubble', 'false'); localStorage.setItem('kg:getReady', '0'); localStorage.setItem('kg:tipsMode', '"off"')
     for (const [k, v] of Object.entries(s)) localStorage.setItem(k, JSON.stringify(v))
     sessionStorage.setItem('seeded', '1')
   }, seed)
@@ -26,7 +26,9 @@ async function newPage(browser, seed = {}, viewport = { width: 840, height: 757 
 }
 // Play has no menu button any more (songs open in the song player): the Now playing bar goes back to it
 const nav = (page, label) => label === 'Play' ? page.locator('[data-testid=now-playing]').count().then(c => (c ? page.locator('[data-testid=now-playing]').click() : null)) : page.locator(`nav.nav button:has-text("${label}")`).click()
-const sub = (page, label) => page.locator(`.subtabs [role=tab]:has-text("${label}")`).first().click()
+// Jam's pages are three big choices now (+ the Riff Scanner link); old names still work here
+const JAM_ALIAS = { 'Jam': 'Play with a band', 'Looper': 'Loop myself', 'Beat maker': 'Make a beat' }
+const sub = (page, label) => label === 'Riff Scanner' ? page.locator('[data-testid=jam-scan-link]').click() : page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
 const sideways = page => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
 
 ;(async () => {

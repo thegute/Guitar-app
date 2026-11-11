@@ -52,7 +52,13 @@ const only = process.argv[2]
     const lit = new Set()
     for (let i = 0; i < 14; i++) { await page.waitForTimeout(500); lit.add(await page.evaluate(() => [...document.querySelectorAll('.prog-card')].findIndex(e => e.classList.contains('on')))) }
     out.litCards = [...lit].join(',')
+    // Solo over it = floating cards while the band plays: Chord now & next and the Mini neck, then they rest when it stops
+    out.cardsPlaying = await page.$$eval('.float-card, .float-bubble', e => e.map(x => (x.getAttribute('data-card') || x.getAttribute('aria-label') || x.textContent || '').slice(0, 40)))
+    out.chordCard = (await page.locator('.float-card').filter({ hasText: /→|Next|next/ }).first().textContent().catch(() => '')).slice(0, 60)
+    if (out.cardsPlaying.length < 2) errors.push(`band playing: expected the chord and mini neck cards, saw ${JSON.stringify(out.cardsPlaying)}`)
     await page.click('button:has-text("Stop")')
+    await page.waitForTimeout(300)
+    if (await page.locator('.float-card').count()) errors.push('the Jam cards stayed after the band stopped')
     // back to a short loop for recording: pop, 4 chords, fast tempo
     await page.click('button:has-text("Options")')
     await page.click('.jam-options >> text=Pop')
@@ -67,20 +73,25 @@ const only = process.argv[2]
     await page.waitForSelector('[data-testid=looper]', { timeout: 8000 }).catch(() => errors.push('Loop over this progression did not open the looper'))
     out.looperChords = (await page.$$eval('.lp-chords .chip', e => e.map(x => x.textContent))).join(' ')
     await page.screenshot({ path: `${DIR}/jam-${vp.name}-4-looper.png` })
-    await page.click('.subtabs [role=tab]:has-text("Jam")')
-    // circle of fifths (on the Solo over it page): pick D
-    await page.click('.subtabs [role=tab]:has-text("Solo over it")')
+    await page.click('.subtabs [role=tab]:has-text("Play with a band")')
+    // circle of fifths (in the band page's tray now): bring it out, pick D
+    await page.locator('.win-chip:has-text("Circle")').click().catch(e => errors.push('no Circle in the tray ' + e.message.slice(0, 60)))
     await page.waitForSelector('.cof-cell')
     await page.locator('.cof-cell', { has: page.locator('text', { hasText: /^D$/ }) }).first().locator('path').click().catch(e => errors.push('circle click ' + e.message.slice(0, 80)))
     await page.waitForTimeout(200)
-    out.afterCircle = await page.textContent('.jam .small.muted')
+    out.afterCircle = await page.textContent('[data-win="circle"] .win-title').catch(() => '')
+    if (!/\bD\b/.test(out.afterCircle)) errors.push('the circle did not switch Jam to D: ' + out.afterCircle)
     await page.screenshot({ path: `${DIR}/jam-${vp.name}-5-circle.png`, fullPage: true })
     // timing check (fake mic: just make sure it finishes) now lives in the looper's settings
-    await page.click('.subtabs [role=tab]:has-text("Looper")')
+    await page.click('.subtabs [role=tab]:has-text("Loop myself")')
     await page.locator('[data-testid=timing-check] button:has-text("Timing check")').click().catch(() => errors.push('no timing check in the looper'))
     await page.waitForTimeout(7500)
     out.timing = (await page.textContent('[data-testid=timing-check] .notice').catch(() => ''))?.slice(0, 90)
-    await page.click('.subtabs [role=tab]:has-text("Jam")')
+    await page.click('.subtabs [role=tab]:has-text("Play with a band")')
+    // the Riff Scanner link under the three choices, and back
+    await page.click('[data-testid=jam-scan-link]')
+    await page.waitForSelector('[data-testid=jam-scan-back]', { timeout: 4000 }).catch(() => errors.push('the Riff Scanner link did not open the scanner'))
+    await page.click('[data-testid=jam-scan-back]')
     out.hScroll = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
 
     // Play screen: loop bars 2–3

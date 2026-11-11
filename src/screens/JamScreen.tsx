@@ -4,21 +4,19 @@ import { Ico } from '../components/Icon'
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MODES, STYLES, FLAVORS, ENDINGS, SPICE, STYLE_DEFAULTS, FN_LABEL,
-  randomProgression, swapChord, spell, suggestions, scalesForProgression, scaleForChord, progChordPcs, resolveFlavor, typeTones,
+  randomProgression, swapChord, spell, suggestions, scalesForProgression, resolveFlavor, typeTones,
   type ModeId, type Style, type Flavor, type Ending, type ProgChord,
 } from '../theory/progressions'
 import type { Voicing } from '../theory/chords'
-import { chordShapes, useInstrument, type Instrument } from '../instrument'
+import { useInstrument, type Instrument } from '../instrument'
 import { scaleById, scaleInfo } from '../theory/scales'
 import { ChordDiagram } from '../components/ChordDiagram'
-import { Fretboard } from '../components/Fretboard'
 import { CircleOfFifths } from '../components/CircleOfFifths'
 import { Chips, Field, KeyPicker, usePersist } from '../components/Controls'
 import { IconDice, IconLock, IconPlay, IconStop, IconPencil } from '../components/Icons'
-import { Fold, useHint } from '../components/Fold'
+import { useHint } from '../components/Fold'
 import { Win, WinArea } from '../components/Win'
 import { chordInfo as readChord } from '../tabs/harmony'
-import { targetView } from '../theory/targets'
 import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
 import { strum as strumNotes, preload, SOUNDS, soundInfo, loadSound, loadBank, bankLoaded, type SoundId } from '../audio/pluck'
 import { BASSLINES } from '../audio/bass'
@@ -30,17 +28,15 @@ import { usePedals } from '../controls/pedals'
 import { STRUMS } from '../audio/strums'
 import { GROOVES, GROOVE_GROUPS, KITS, grooveOf, kitInfo, loadKit, kitLoaded, type KitId } from '../audio/drums'
 import { shapesFor as shapesForChord } from '../theory/shapes'
-import { ProgressionTabs } from '../components/ProgressionTabs'
-import { TabMaker } from '../components/TabMaker'
 import { Transcriber } from '../components/Transcriber'
-import { patternForStrum } from '../tabs/picking'
 import { saveSong } from '../tabs/library'
-import { openInPlay } from '../nav'
+import { go, openInPlay, setSubPage } from '../nav'
+import { clearFloat, publishFloat, setFloatResting } from '../float/bus'
 import { SongFinder } from '../components/SongFinder'
 import { RiffScanner } from '../scan/RiffScanner'
 import type { Quality } from '../audio/chordFinder'
 import { Zoomable } from '../components/Zoomable'
-import { SubTabs, useSubTab } from '../components/SubTabs'
+import { useSubTab } from '../components/SubTabs'
 import { PsyPic } from '../components/PsyArt'
 import { pc } from '../theory/notes'
 import { useScreenInfo } from '../assistant/screen'
@@ -74,7 +70,8 @@ function rank(list: Voicing[], pref: string, near: number): number {
 let tuning: number[] = []
 const midisOf = (v: Voicing | undefined) => (v ? v.frets.map((f, s) => (f < 0 ? -1 : tuning[s] + f)).filter(m => m > 0) : [])
 
-export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale: string) => void }) {
+// onOpenScale: kept for App's link to Tools → Scales (the old Solo over it page used it)
+export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) => void }) {
   const inst = useInstrument()
   tuning = inst.midis
   // ---------- options ----------
@@ -101,10 +98,10 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [bassId, setBassId] = usePersist('jamBass', 'auto')
   const [bassOn, setBassOn] = usePersist('jamBassOn', true)
   const [bandOpen, setBandOpen] = useState(false)
-  const [tabPartRaw, setTabPart] = usePersist<'pick' | 'melody' | 'licks' | 'lead' | 'riff'>('jamTabPart', 'pick')
-  const tabPart = tabPartRaw === 'licks' ? 'lead' : tabPartRaw
   const [optionsOpen, setOptionsOpen] = usePersist('jamOptionsOpen', false)
-  const [page, setPage] = useSubTab('jam', ['jam', 'solo', 'tab', 'find', 'beats', 'loop'] as const)
+  // Jam is three choices (Play with a band, Make a beat, Loop myself) plus the Riff Scanner behind a small link. Solo over it
+  // became floating cards (chord now & next + mini neck while the band plays); Make a tab moved to Learn → Exercises.
+  const [page, setPage] = useSubTab('jam', ['jam', 'beats', 'loop', 'find'] as const)
   const [prog, setProg] = usePersist<ProgChord[]>('jamProg', [])
   useScreenInfo('jam', { label: `Jam: ${prog.map(c => c.symbol).join(' ') || 'no chords yet'} in ${tonic} ${mode}`, summary: `In Jam with a ${style === 'any' ? '' : style + ' '}progression in ${tonic} ${mode}: ${prog.map(c => `${c.symbol} (${c.roman})`).join(', ') || 'none yet'}, at ${bpm} BPM.` })
   const [shapeIdx, setShapeIdx] = useState<number[]>([])
@@ -112,7 +109,6 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const [selected, setSelected] = useState(0)
   const [tipIdx, setTipIdx] = useState(0)
   const [playing, setPlaying] = useState(false)
-  const [targetsOn, setTargetsOn] = usePersist('jamTargets', true)
   const [pos, setPos] = useState({ chord: -1, countIn: 0, beat: -1 })
 
   const setStyle = (s: Style) => { setStyleRaw(s); setBpm(STYLE_DEFAULTS[s].bpm) }
@@ -157,10 +153,7 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
   const tip = tips[Math.min(tipIdx, tips.length - 1)]
   const active = pos.chord >= 0 ? pos.chord : selected
   const cur = prog[active]
-  const chordTip = cur ? scaleForChord(tonic, mode, cur) : null
   const info = tip ? scaleInfo(tip.root, tip.scale) : null
-  const chordSet = new Set(cur ? progChordPcs(tonic, cur) : [])
-  const chordRoot = cur ? pc(cur.root) : -1
   const sugg = useMemo(() => suggestions(tonic, mode, style, resolvedFlavor), [tonic, mode, style, resolvedFlavor])
   const totalBars = prog.reduce((a, c) => a + (c.beats ?? 4), 0) / 4
   const minorKey = ['minor', 'dorian', 'phrygian', 'harmonic'].includes(mode)
@@ -429,57 +422,27 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     </div>
   )
 
-  const scalesPanel = (
-    <div className="stack">
-      <div className="stack" style={{ gap: 6 }}>
-        {tips.map((t, i) => (
-          <button key={i} onClick={() => setTipIdx(i)} aria-pressed={i === tipIdx} className={`tip-btn${i === tipIdx ? ' on' : ''}`}>
-            <div style={{ fontWeight: 600 }}>{t.root} {scaleById(t.scale).label}</div>
-            <div className="small muted">{t.why}</div>
-          </button>
-        ))}
-      </div>
-      {chordTip && (
-        <div className="notice small">
-          <b>Over {cur!.symbol}:</b> {chordTip.why}{' '}
-          {onOpenScale && <button className="chip" style={{ minHeight: 30, marginLeft: 4 }} onClick={() => onOpenScale(chordTip.root, chordTip.scale)}>Open in Scales</button>}
-        </div>
-      )}
-    </div>
-  )
-
   // Play the changes: gold chord tones, faint scale, and the next chord's 3rd and root in cyan two beats early
-  const curInfo = cur ? readChord(cur.symbol) : null
   const nextIdx = prog.length ? (active + 1) % prog.length : -1
-  const nextInfo = nextIdx >= 0 ? readChord(prog[nextIdx].symbol) : null
   const loopBeats = prog.reduce((t, c) => t + (c.beats ?? 4), 0)
   const startOf = (i: number) => prog.slice(0, i).reduce((t, c) => t + (c.beats ?? 4), 0)
   const beatsLeft = playing && pos.chord >= 0 && loopBeats ? ((startOf(active) + (cur?.beats ?? 4) - (pos.beat % loopBeats)) + loopBeats) % loopBeats : 99
-  const tv = targetsOn && curInfo && info ? targetView({ cur: curInfo, next: nextInfo, scalePcs: info.pcs, beatsLeft, tuning: inst.midis }) : null
-  const neck = info && tip && (
-    <div>
-      <div className="row" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-        <h3 style={{ margin: 0 }}>{tip.root} {scaleById(tip.scale).label}{cur ? <span className="muted"> · {cur.symbol} notes in {tv ? 'gold' : 'amber'}</span> : null}</h3>
-        <button className="chip" aria-pressed={targetsOn} onClick={() => setTargetsOn(!targetsOn)} data-testid="targets-toggle" title="Gold chord tones, and the next chord's 3rd and root in cyan two beats before it comes">Play the changes</button>
-      </div>
-      {tv && <p className="small muted" style={{ margin: '4px 0' }} role="status">{tv.lookAhead && nextInfo ? `Coming up: ${nextInfo.name}. Aim for the cyan notes (its 3rd and root) as it changes.` : `Gold = ${curInfo!.name}'s chord tones: land on them on the strong beats. Faint = the rest of the scale.`}</p>}
-      <Fretboard
-        tuning={inst.midis}
-        arrows={tv?.arrows}
-        markFor={tv ? tv.markFor : midi => {
-          const q = midi % 12
-          const inScale = info.pcs.includes(q)
-          const inChord = chordSet.has(q)
-          if (!inScale && !inChord) return null
-          const label = info.labels.get(q) ?? ''
-          if (inChord) return { label: label || '•', role: q === chordRoot ? 'root' : 'chord' }
-          return { label, role: 'scale' }
-        }}
-        onTap={midi => strum([midi])}
-      />
-    </div>
-  )
 
+  // Solo over it = floating cards: while the band plays, the chord now & next (with a countdown) and the mini neck with the
+  // best scale to solo with over this progression (the old Solo over it page's pick), at the band's tempo
+  useEffect(() => {
+    const on = playing && page === 'jam'
+    setFloatResting('jam', !on)
+    if (!on) return
+    publishFloat('jam', {
+      title: 'Jam', tuning: inst.midis,
+      chordNow: pos.chord >= 0 ? cur?.symbol : undefined, chordNext: pos.chord >= 0 && nextIdx >= 0 ? prog[nextIdx].symbol : undefined,
+      beatsToChange: beatsLeft < 99 ? beatsLeft : undefined,
+      keyPcs: info ? info.pcs : undefined, keyName: tip ? `${tip.root} ${scaleById(tip.scale).label}` : undefined,
+      bpm, speed: 1,
+    })
+  })
+  useEffect(() => () => { setFloatResting('jam', true); clearFloat('jam') }, [])
   const circle = (
     <div className="cof-panel">
       {(
@@ -499,16 +462,6 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
     </div>
   )
 
-  const miniTransport = (
-    <div className="row jam-mini">
-      <button className={`btn${playing ? '' : ' primary'}`} disabled={loadingSounds} onClick={() => (playing ? stopAll() : void playWhenReady())} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        {playing ? <IconStop /> : <IconPlay />} {playing ? 'Stop' : 'Play loop'}
-      </button>
-      <span className="readout jam-now">{cur ? cur.symbol : prog.map(c => c.symbol).join(' ')}</span>
-      {pos.countIn > 0 && <span className="count-in readout">{pos.countIn}</span>}
-    </div>
-  )
-
   // chords found by listening or scanning → this Jam progression
   const takeFound = (root: string, minor: boolean, chords: { root: string; q: Quality }[]) => {
     const m: ModeId = minor ? 'minor' : 'major'
@@ -524,19 +477,21 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
         <h1>Jam{inst.isUke ? <span className="muted small"> · {inst.short}</span> : null}</h1>
         {page === 'jam' && <button className="btn sm" onClick={() => setOptionsOpen(!optionsOpen)} aria-expanded={optionsOpen}>{optionsOpen ? 'Hide options' : 'Options'}</button>}
       </header>
-      <SubTabs label="Jam" value={page} onChange={setPage} tabs={[
-        { id: 'jam', label: 'Jam' },
-        { id: 'solo', label: 'Solo over it' },
-        { id: 'tab', label: 'Make a tab' },
-        { id: 'find', label: 'Riff Scanner' },
-        { id: 'beats', label: 'Beat maker' },
-        { id: 'loop', label: 'Looper' },
-      ]} />
+      <div className="subtabs jam-choices" role="tablist" aria-label="Jam">
+        {([['jam', 'drum', 'Play with a band', 'Chords, strums, bass and drums to play over'], ['beats', 'zap', 'Make a beat', 'Pads, steps, keys and your own samples'], ['loop', 'loop', 'Loop myself', 'Record layers over a beat, four tracks']] as const).map(([id, icon, label, sub]) => (
+          <button key={id} role="tab" aria-selected={page === id} className={`jam-choice${page === id ? ' on' : ''}`} onClick={() => setPage(id)} data-testid={`jam-${id}`}>
+            <Ico n={icon} /><span className="jam-choice-text"><b>{label}</b><span className="small">{sub}</span></span>
+          </button>
+        ))}
+      </div>
+      {page === 'find'
+        ? <button className="link-btn small jam-scan-link" onClick={() => setPage('jam')} data-testid="jam-scan-back">‹ Back to Jam</button>
+        : <button className="link-btn small jam-scan-link" onClick={() => setPage('find')} data-testid="jam-scan-link"><Ico n="scan" /> <span className="long">Riff Scanner: get a riff or a whole song from a video, a picture or a recording</span><span className="short">Riff Scanner: a song from a video or picture</span></button>}
 
       {page === 'jam' && (
         <>
           {optionsOpen && options}
-          <WinArea area="jam">
+          <WinArea area="jam" defaultHidden={['voice', 'circle', 'maketab']}>
           <Win id="gen" title="Progression" className="panel" bodyClass="stack">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <span className="row" style={{ gap: 6, minWidth: 0 }}><span className="small muted">{summary}</span>{cardsHint}</span>
@@ -548,6 +503,19 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
             {cards}
             {chordInfo}
             {transportRow}
+          </Win>
+          {prog.length >= 2 && (
+            <Win id="voice" title="Voice leading: chord shapes that barely move" className="panel" hint="Each chord in a shape close to the last one: gold rings are notes both chords share (keep that finger down), gold arrows are the 3rds and 7ths moving a fret or two. It follows the loop while it plays. Practise the changes opens it as a tab in Play.">
+              <VoiceLeadNeck chords={prog.map(c => c.symbol)} at={playing && pos.chord >= 0 ? active : undefined} tuning={inst.midis} where="jam" bpm={bpm} />
+            </Win>
+          )}
+          <Win id="circle" title={`Circle of fifths · ${tonic} ${minorKey ? 'minor' : 'major'}`} className="panel" bodyClass="stack">
+            <p className="small muted" style={{ margin: 0 }}>The shaded slice is your key: its chords sit next to each other. Teal rings are the chords in this progression; the amber one is playing. Tap a key to switch.</p>
+            {circle}
+          </Win>
+          <Win id="maketab" title="Make a tab from these chords" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+            <p className="small muted" style={{ margin: 0 }}>Fingerpicking, licks and solos, chord melody or riffs over <b>{prog.map(c => c.symbol).join(' – ')}</b>: the tab maker is in Learn → Exercises → Make your own, and it uses this progression.</p>
+            <div className="row"><button className="btn" onClick={() => { try { localStorage.setItem('kg:exSection', JSON.stringify('make')); localStorage.setItem('kg:tm:useJam', 'true') } catch { /* private */ } setSubPage('learn', 'exercises'); go('learn'); setTimeout(() => document.querySelector('[data-win="ex-licks"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400) }} data-testid="jam-make-tab"><Ico n="file" /> Open the tab maker</button></div>
           </Win>
           <Win id="looper" title="Loop over it" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
             <p className="small muted" style={{ margin: 0 }}>Turns this progression into a beat (drums, keys and bass on these chords, at {bpm} BPM) and opens the 4-track looper on it: record rhythm, embellishments, a bassline and a lead over it.</p>
@@ -571,46 +539,6 @@ export function JamScreen({ onOpenScale }: { onOpenScale?: (root: string, scale:
           </Win>
           </WinArea>
         </>
-      )}
-
-      {page === 'solo' && (
-        <>
-          <WinArea area="jamSolo">
-          <Win id="scales" title="Loop and scales" className="panel" bodyClass="stack">
-            {miniTransport}
-            <p className="small muted" style={{ margin: 0 }}>Start the loop, then solo with a scale below. Land on the amber notes when each chord starts: that's how a solo follows the changes.</p>
-            {scalesPanel}
-          </Win>
-          <Win id="neck" title="Neck" className="panel">{neck}</Win>
-          {prog.length >= 2 && (
-            <Win id="voice" title="Voice leading: chord shapes that barely move" className="panel" hint="Each chord in a shape close to the last one: gold rings are notes both chords share (keep that finger down), gold arrows are the 3rds and 7ths moving a fret or two. It follows the loop while it plays. Practise the changes opens it as a tab in Play.">
-              <VoiceLeadNeck chords={prog.map(c => c.symbol)} at={playing && pos.chord >= 0 ? active : undefined} tuning={inst.midis} where="jam" bpm={bpm} />
-            </Win>
-          )}
-          <Win id="circle" title={`Circle of fifths · ${tonic} ${minorKey ? 'minor' : 'major'}`} className="panel" bodyClass="stack">
-            <p className="small muted" style={{ margin: 0 }}>The shaded slice is your key: its chords sit next to each other. Teal rings are the chords in this progression; the amber one is playing. Tap a key to switch.</p>
-            {circle}
-          </Win>
-          </WinArea>
-        </>
-      )}
-
-      {page === 'tab' && (
-        <WinArea area="jamTab">
-        <Win id="make" title="Make a tab from this progression" className="panel" bodyClass="stack">
-          <p className="small muted" style={{ margin: 0 }}>Turn <b>{prog.map(c => c.symbol).join(' – ')}</b> into a tab to play along with in Play: the mic follows you note by note.</p>
-          <div className="seg" role="group" aria-label="What to make">
-            {([['pick', 'Fingerpicking'], ['lead', 'Licks & solos'], ['melody', 'Chord melody'], ['riff', 'Riffs']] as const).map(([id, label]) => (
-              <button key={id} aria-pressed={tabPart === id} onClick={() => setTabPart(id)}>{label}</button>
-            ))}
-          </div>
-          {tabPart === 'pick'
-            ? <ProgressionTabs part="pick" chords={prog} voicings={chosen} tonic={tonic} mode={mode} bpm={bpm} suggest={patternForStrum(strumKind)}
-              onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
-            : <TabMaker key={tabPart} part={tabPart} chords={prog} tonic={tonic} mode={mode} bpm={bpm} jamStyle={style}
-              onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />}
-        </Win>
-        </WinArea>
       )}
 
       {page === 'loop' && <Suspense fallback={<p className="muted">Loading the looper…</p>}><LooperPanel /></Suspense>}

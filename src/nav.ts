@@ -74,8 +74,16 @@ export function takePendingExercise(): string | null {
   pendingExercise = null
   return c
 }
+/** Open a Jam page. Jam is Play with a band ('jam'), Make a beat ('beats'), Loop myself ('loop') and the Riff Scanner ('find').
+ *  Older links: 'solo' (Solo over it, now floating cards over the band) opens the band; 'tab' (Make a tab) opens the tab maker
+ *  in Learn → Exercises → Make your own, which uses the Jam progression. */
 export function openJam(page: 'jam' | 'solo' | 'tab' | 'find' | 'beats' | 'loop' = 'jam') {
-  setSubPage('jam', page)
+  if (page === 'tab') {
+    try { localStorage.setItem('kg:exSection', JSON.stringify('make')) } catch { /* private */ }
+    learnGo({ learn: 'exercises' })
+    return
+  }
+  setSubPage('jam', page === 'solo' ? 'jam' : page)
   go('progressions')
 }
 

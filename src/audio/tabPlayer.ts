@@ -31,7 +31,8 @@ export class TabPlayer {
   part = true
   /** chord sheets: play each chord with this strum pattern; offs = each step's start inside its bar */
   strum?: { hits: [number, string][]; offs: number[] }
-  private voices = new BandVoices()
+  // the band on its buses (the mixer card sets each part); the tab itself plays on the main output so Hear it is always heard
+  private voices = new BandVoices(1, 'buses')
   /** beats of clicks before the first note (the first play only, not each loop) */
   countIn = 0
   /** a click on every beat while it plays */

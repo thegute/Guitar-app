@@ -1,12 +1,13 @@
 // "Play with the band": the other parts of a song under the one you're playing. A Guitar Pro file's drums, bass
 // and other guitars, or (for songbook songs and anything with chord names) drums and bass made from the chords.
 // Events are in beats from the start of the song, laid out on the same timeline as the tab you're playing.
+import { bus } from './engine'
 import { playDrum, grooveOf, type KitSel, type Voice } from './drums'
 import { bassLine, bassMidi } from './bass'
 import { playBass, playNote, strum, soundForProgram, type Handle, type SoundId } from './pluck'
 import { parseSymbol } from '../theory/chords'
 import { pc } from '../theory/notes'
-import { typeTones } from '../theory/progressions'
+import { STYLE_DEFAULTS, STYLES, typeTones, type Style } from '../theory/progressions'
 import { trackPickup, type FlatStep, type Song, type SongTrack } from '../tabs/model'
 
 export interface DrumHit { beat: number; voice: Voice; vel: number }
@@ -136,10 +137,11 @@ export function bandByStep(events: BandEvent[], flat: FlatStep[]): { off: number
 export class BandVoices {
   private bass: Handle | null = null
   private all: Handle[] = []
-  /** `dest`: where the band plays (the `band` bus in play-along; the main output when not given) */
-  constructor(public level = 1, public dest?: AudioNode) {}
+  /** `dest`: where the band plays: 'buses' = each part on its own bus (drums, bass, other: the mixer); a node; or the
+   *  main output when not given */
+  constructor(public level = 1, public dest?: AudioNode | 'buses') {}
   play(e: BandEvent, t: number, spb: number) {
-    const dest = this.dest
+    const dest = this.dest === 'buses' ? bus(e.kind === 'drum' ? 'drums' : e.kind === 'bass' ? 'bass' : 'other') : this.dest
     if (e.kind === 'drum') { playDrum(e.voice!, t, e.level * this.level, dest, e.kit ?? {}); return }
     const end = t + Math.max(0.08, e.dur * spb * 0.95)
     if (e.kind === 'bass') {
@@ -164,4 +166,40 @@ export class BandVoices {
     this.all = []
     this.bass = null
   }
+}
+
+// ---------- the chord band (Band behind me for chord sheets and tabs with chords but no other parts) ----------
+/** The band styles offered for a chord band: the ones with drums and bass that suit songs he plays. */
+export const CHORD_BAND_STYLES: Style[] = ['acoustic', 'bluegrass', 'country', 'pop', 'rock', 'reggae', 'blues', 'popballad', 'gospel', 'island']
+export const bandStyleLabel = (s: Style) => STYLES.find(x => x.id === s)?.label ?? s
+
+/** A style for the band from the song: words in its title / artist, its tempo and meter. He can change it. */
+export function guessBandStyle(song: Song, title = '', artist = ''): Style {
+  const words = `${title} ${artist} ${song.title ?? ''} ${song.artist ?? ''}`
+  const bpm = song.tempo ?? 100
+  if (/reggae|marley|ska\b|dub\b|rocksteady/i.test(words)) return 'reggae'
+  if (/hawaii|aloha|slack key|kalena|mele/i.test(words)) return 'island'
+  if (/bluegrass|breakdown|banjo|flatpick|foggy mountain|billy strings|bill monroe|stanley/i.test(words)) return 'bluegrass'
+  if (/gospel|amazing grace|hymn|glory|jesus|lord|swing low/i.test(words)) return 'gospel'
+  if (/blues/i.test(words)) return 'blues'
+  if (/country|hank williams|johnny cash|waylon|willie nelson|honky/i.test(words)) return 'country'
+  if (/rock|punk|metal/i.test(words)) return 'rock'
+  if ((song.meter ?? 4) === 4 && bpm >= 130) return 'bluegrass'
+  if (bpm <= 74) return 'popballad'
+  return 'acoustic'
+}
+
+/** Does the song already have a real band (other tracks, drums, or songbook backing)? */
+export const hasRealBand = (song: Song, main: number) => hasBand(song, main)
+
+/** The song with a chord band added (drums + bass in `style`, following its chord names), or null when it has a real
+ *  band already or too few chords to follow. */
+export function chordBandSong(song: Song, main: number, style: Style): Song | null {
+  if (hasBand(song, main)) return null
+  const t = song.tracks[main]
+  if (!t) return null
+  const names = new Set(t.bars.flatMap(b => b.steps.map(s => s.chord).filter(Boolean)))
+  if (names.size < 2) return null
+  const d = STYLE_DEFAULTS[style] ?? STYLE_DEFAULTS.acoustic
+  return { ...song, backing: { groove: d.drums === 'off' ? 'brushfolk' : d.drums, bass: d.bass === 'off' ? 'country' : d.bass } }
 }
