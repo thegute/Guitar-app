@@ -89,6 +89,10 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ## 2026-11-11: owner sent "KGuitar Master Game Plan & Implementation Roadmap" (notes/master-roadmap-2026-11-11.pdf, 7 stages, made with
 ##   Gemini). Claude read all 12 pages, sent questions + concerns (order, Learn 6 grades vs 10 units, latency claims, COEP vs YouTube,
 ##   which plugins he owns, phone storage budget, Mac linking). Await his answers before re-ordering MASTER-PLAN.md.
+## 2026-11-11 ANSWERS: order = Stage 1 → 2 → 4 (Riff Scanner) → 3 (audio engine + Mac harvest) → 5 (Strum Machine) → 6 (Beat maker) →
+##   7 (Learn). Learn = BOTH: 6 Pickup-style grades for the path AND the PDF's 10 deep-dive units as a deep-dive library. Sound packs may use
+##   2 GB+ of phone storage. Stompbox = ADD ON TOP of the Pocket Master (looper, synth, backing), don't replace its tones. Still open: which
+##   plugins/electric DI library he owns; linking the Mac at Stage 3. Now doing Stage 1 (build25 + windows-test fixes).
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar
