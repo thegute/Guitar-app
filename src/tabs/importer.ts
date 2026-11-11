@@ -25,19 +25,23 @@ export function songFromText(text: string, title: string, inst: Instrument, yout
 const looksText = (name: string, bytes: Uint8Array) =>
   /\.(txt|tab|text|crd|chopro|cho|pro)$/i.test(name) || bytes.slice(0, 200).every(b => b === 9 || b === 10 || b === 13 || (b >= 32 && b < 127) || b >= 0xc2)
 
-const isPdf = (name: string, bytes: Uint8Array) => /\.pdf$/i.test(name) || (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46)
+export const isPdf = (name: string, bytes: Uint8Array) => /\.pdf$/i.test(name) || (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46)
 /** string names, highest first (e B G D A E), the way text tabs write them */
 export const stringNames = (inst: Instrument) => [...inst.tuning.notes].reverse().map((n, i, a) => { const x = n.replace(/-?\d+$/, ''); return i === 0 && a.length === 6 && x === 'E' ? 'e' : x })
 
-/** A tab or chord sheet from a PDF. Throws ScannedPdf when the pages are only pictures (the AI reader can read those). */
-export async function songFromPdf(name: string, bytes: Uint8Array, inst: Instrument, youtube?: string): Promise<SongDoc> {
+/** A tab or chord sheet from a PDF (pages `from`…`to` of a book). Throws ScannedPdf when the tab on those pages is
+ *  pictures (a scanned book, or tab printed as an image next to real text): the AI picture reader can read those. */
+export async function songFromPdf(name: string, bytes: Uint8Array, inst: Instrument, youtube?: string, range?: { from: number; to: number }): Promise<SongDoc> {
   const { readPdf, pdfTabText, ScannedPdf } = await import('./pdfTab')
-  const pages = await readPdf(bytes)
-  const title = name.replace(/\.[^.]+$/, '')
+  const pages = await readPdf(bytes, range?.from ?? 1, range?.to)
+  const base = name.replace(/\.[^.]+$/, '')
+  const title = range ? `${base} p.${range.from}${range.to > range.from ? `–${range.to}` : ''}` : base
   const { staff, text } = pdfTabText(pages, stringNames(inst))
   const doc = (staff && songFromText(staff, title, inst, youtube)) || songFromText(text, title, inst, youtube)
   if (doc) return { ...doc, source: doc.source === 'chords' ? 'chords' : 'text' }
-  if (pages.reduce((a, p) => a + p.texts.filter(t => t.str.trim()).length, 0) < 8) throw new ScannedPdf(bytes)
+  const words = pages.reduce((a, p) => a + p.texts.filter(t => t.str.trim()).length, 0)
+  const pictured = pages.some(p => (p.pictures ?? 0) >= 0.12)
+  if (words < 8 * Math.max(1, pages.length) || pictured) throw new ScannedPdf(bytes, range?.from ?? 1, Math.min(6, pages.length || 6))
   throw new Error('no tab lines or chords found in the PDF')
 }
 

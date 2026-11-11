@@ -1468,6 +1468,17 @@ export function PlayScreen() {
         ) : <TabView track={track} mode={labelMode} flats={flats} cursor={inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0 || inTime.running} states={states.current}
           flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} zoom={stand ? standZoom : tabZoom} onZoom={stand ? setStandZoom : setTabZoom}
           meter={meter} counts={counts} strum={strumPat} marks={report?.bars} />}
+        {/* the tab's zoom, right on the tab (pinch works too; Options → Size has the same) */}
+        {gameView !== 'game' && (() => {
+          const z = stand ? standZoom : tabZoom, setZ = stand ? setStandZoom : setTabZoom
+          return (
+            <div className="tab-zoom-ctl" role="group" aria-label="Tab size">
+              <button className="gh-btn" onClick={() => setZ(Math.max(0.7, Math.round((z - 0.1) * 10) / 10))} aria-label="Smaller tab" data-testid="tab-zoom-out">−</button>
+              <span className="gh-secs tabular">{Math.round(z * 100)}%</span>
+              <button className="gh-btn" onClick={() => setZ(Math.min(2.4, Math.round((z + 0.1) * 10) / 10))} aria-label="Bigger tab" data-testid="tab-zoom-in">+</button>
+            </div>
+          )
+        })()}
         {peek.bubble}
         {fingerBox}
         {inTime.running && inTime.countIn > 0 && <div className="count-big" key={inTime.countIn} role="status" aria-live="assertive" data-testid="count-big">{inTime.countIn}</div>}

@@ -98,6 +98,17 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ##   Jam Origin MIDI Guitar. Riff Scanner must handle ALL video kinds: tab channels, lessons, players with no tab, full band songs.
 ## 2026-11-11 Jam decisions: Riff Scanner lives in BOTH Songs → Add a song (a big "Scan a video or recording" card) AND a Jam shortcut.
 ##   "Solo over it" = floating cards only (mini neck + chord cards over the band; the full Scales tool stays in Tools).
+## 2026-11-11 09:43 owner: TAB lines must fill the full width (no blank space on the right before the next line; justify like printed tab);
+##   the tab window and GAME MODE resizable + zoomable; Game Mode scrollable to look ahead (snaps back); the song plays in Game Mode while he
+##   plays + scores: a guide with BOTH his part and the other instruments, with a SLIDER (09:45).
+## 2026-11-11 09:51 owner: leave room + an upgrade plan for the NEW AUDIO ENGINE used by ALL features → notes/AUDIO-ENGINE.md (the
+##   contract: parts not samples, swappable packs, named buses me/band/drums/bass/click/fx/input, one clock, rules for code written before
+##   Stage 3, and the per-feature checklist). The Game guide slider = `me` vs `band` bus volume.
+## 2026-11-11 10:03 owner uploaded 20 PDF books (tabs, theory, flatpicking, Celtic, slack key, fretboard, improvising, harmony; list in
+##   the private Project doc, NOT in the repo). Rules: never copy their text, pictures or tabs into the app or repo; use ideas to shape
+##   Stage 7 lessons in our own words; tabs from them only go into his own phone library through the PDF reader. Done now: PDF books ask
+##   which pages (components/PdfPages.tsx, `kg:pdfPage:<name>`), tab printed as pictures goes to the picture reader (`PdfPage.pictures`).
+##   Asked him: which book is his main path?
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar

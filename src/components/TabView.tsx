@@ -380,6 +380,48 @@ export function TabView({ track, mode, flats, cursor, playing, states, version, 
     return { runs, runOf }
   }, [track, chordsByBar])
 
+  // Full lines: the bars are packed into lines exactly as the box wraps them, and every line but the last is stretched to the
+  // box's full width (its spare room shared out over its notes, in proportion to how wide each step already is), so a line
+  // never stops early with a blank space on the right. Rest blocks keep their size.
+  const rowW = boxW > 0 ? Math.floor((boxW - 8) / (zoom || 1)) - 1 : 0
+  const fitted = useMemo(() => {
+    const out = new Map<string, number[]>()
+    if (!rowW) return out
+    type Item = { key: string | null; natural: number; widths: number[] }
+    const items: Item[] = []
+    track.bars.forEach((_, i) => {
+      const run = runOf[i] >= 0 ? runs[runOf[i]] : null
+      if (run) { if (run.from === i) items.push({ key: null, natural: 112, widths: [] }); return }
+      pieces[i].forEach((p, j) => items.push({ key: `${i}.${j}`, natural: Math.max(44, PAD_L + p.widths.reduce((a, b) => a + b, 0) + PAD_R), widths: p.widths }))
+    })
+    const stretch = (line: Item[]) => {
+      const used = line.reduce((a, it) => a + it.natural, 0)
+      const spare = rowW - used
+      const grow = line.filter(it => it.key && it.widths.length)
+      const base = grow.reduce((a, it) => a + it.widths.reduce((x, y) => x + y, 0), 0)
+      if (spare <= 0 || !base) return
+      let given = 0
+      grow.forEach((it, k) => {
+        const own = it.widths.reduce((x, y) => x + y, 0)
+        // whole pixels; the last bar of the line takes what's left so the line ends exactly at the edge
+        const share = k === grow.length - 1 ? spare - given : Math.floor((spare * own) / base)
+        given += share
+        // a bar drawn wider than its notes need (the 44px minimum) already has some of that room
+        const room = it.natural - (PAD_L + own + PAD_R)
+        const add = Math.max(0, share + room)
+        let left = add
+        const ws = it.widths.map((w, q) => { const a = q === it.widths.length - 1 ? left : Math.floor((add * w) / own); left -= a; return w + a })
+        out.set(it.key!, ws)
+      })
+    }
+    let line: Item[] = [], lineW = 0
+    for (const it of items) {
+      if (line.length && lineW + it.natural > rowW) { stretch(line); line = []; lineW = 0 }
+      line.push(it); lineW += it.natural
+    }
+    return out
+  }, [track, pieces, runs, runOf, rowW])
+
   let cursorBar = 0
   while (cursorBar + 1 < starts.length && starts[cursorBar + 1] <= cursor) cursorBar++
   const scrollBar = runOf[cursorBar] >= 0 ? runs[runOf[cursorBar]].from : cursorBar
@@ -440,7 +482,7 @@ export function TabView({ track, mode, flats, cursor, playing, states, version, 
                 cursor={cur}
                 states={st}
                 chords={p.chords}
-                widths={p.widths}
+                widths={fitted.get(`${i}.${j}`) ?? p.widths}
                 first={first}
                 final={final}
                 last={final && i === track.bars.length - 1}

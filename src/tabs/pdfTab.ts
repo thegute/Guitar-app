@@ -8,7 +8,8 @@
 export interface PdfText { str: string; x: number; y: number; w: number; h: number }
 /** a drawn line: horizontal (y1 = y2) or vertical (x1 = x2), in page units, y up */
 export interface PdfLine { x1: number; y1: number; x2: number; y2: number }
-export interface PdfPage { texts: PdfText[]; lines: PdfLine[]; width: number; height: number }
+/** `pictures`: how much of the page is covered by pictures (0–1): a scanned book, or tab printed as an image. */
+export interface PdfPage { texts: PdfText[]; lines: PdfLine[]; width: number; height: number; pictures?: number }
 
 const median = (a: number[]) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)] }
 
@@ -141,12 +142,14 @@ async function pdfjs() {
 }
 
 /** Text and drawn lines of every page (up to 30 pages). */
-export async function readPdf(bytes: Uint8Array): Promise<PdfPage[]> {
+/** Read pages `from`…`to` (a book: only the pages you picked; at most 30 at a time). */
+export async function readPdf(bytes: Uint8Array, from = 1, to = from + 29): Promise<PdfPage[]> {
   const lib = await pdfjs()
   const doc = await lib.getDocument({ data: bytes.slice(), isEvalSupported: false, disableFontFace: true }).promise
   const out: PdfPage[] = []
   const OPS = lib.OPS
-  for (let i = 1; i <= Math.min(doc.numPages, 30); i++) {
+  const first = Math.max(1, Math.min(doc.numPages, Math.round(from)))
+  for (let i = first; i <= Math.min(doc.numPages, Math.round(to), first + 29); i++) {
     const page = await doc.getPage(i)
     const view = page.view as number[]
     const tc = await page.getTextContent()
@@ -157,6 +160,7 @@ export async function readPdf(bytes: Uint8Array): Promise<PdfPage[]> {
       texts.push({ str: it.str, x: it.transform[4], y: it.transform[5], w: it.width ?? 0, h })
     }
     const lines: PdfLine[] = []
+    let pictures = 0
     try {
       const ol = await page.getOperatorList()
       let ctm: M = [1, 0, 0, 1, 0, 0]
@@ -166,6 +170,10 @@ export async function readPdf(bytes: Uint8Array): Promise<PdfPage[]> {
         if (fn === OPS.save) stack.push(ctm)
         else if (fn === OPS.restore) ctm = stack.pop() ?? ctm
         else if (fn === OPS.transform) ctm = mul(ctm, args as M)
+        else if (fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject || fn === OPS.paintImageMaskXObject) {
+          // an image fills the unit square under the current transform: its area on the page
+          pictures += Math.abs(ctm[0] * ctm[3] - ctm[1] * ctm[2]) / Math.max(1, (view[2] - view[0]) * (view[3] - view[1]))
+        }
         else if (fn === OPS.constructPath) {
           const ops = args[0] as number[], co = args[1] as number[]
           let j = 0, cx = 0, cy = 0
@@ -186,19 +194,20 @@ export async function readPdf(bytes: Uint8Array): Promise<PdfPage[]> {
         }
       }
     } catch { /* no drawings: text only */ }
-    out.push({ texts, lines, width: view[2] - view[0], height: view[3] - view[1] })
+    out.push({ texts, lines, width: view[2] - view[0], height: view[3] - view[1], pictures: Math.min(1, pictures) })
   }
   return out
 }
 
 /** Pages as pictures (PNG, base64) for the AI tab reader: for scanned PDFs. */
-export async function pdfPictures(bytes: Uint8Array, max = 6): Promise<{ name: string; mime: string; b64: string; url: string }[]> {
+export async function pdfPictures(bytes: Uint8Array, max = 6, from = 1, scale = 2): Promise<{ name: string; mime: string; b64: string; url: string }[]> {
   const lib = await pdfjs()
   const doc = await lib.getDocument({ data: bytes.slice(), isEvalSupported: false }).promise
   const out: { name: string; mime: string; b64: string; url: string }[] = []
-  for (let i = 1; i <= Math.min(doc.numPages, max); i++) {
+  const first = Math.max(1, Math.min(doc.numPages, Math.round(from)))
+  for (let i = first; i <= Math.min(doc.numPages, first + max - 1); i++) {
     const page = await doc.getPage(i)
-    const vp = page.getViewport({ scale: 2 })
+    const vp = page.getViewport({ scale })
     const c = document.createElement('canvas')
     c.width = Math.round(vp.width); c.height = Math.round(vp.height)
     const ctx = c.getContext('2d')!
@@ -210,7 +219,15 @@ export async function pdfPictures(bytes: Uint8Array, max = 6): Promise<{ name: s
   return out
 }
 
-export class ScannedPdf extends Error { constructor(public bytes: Uint8Array) { super('This PDF is scanned pictures, not text') } }
+/** How many pages (a book asks which pages to read). */
+export async function pdfPageCount(bytes: Uint8Array): Promise<number> {
+  const lib = await pdfjs()
+  const doc = await lib.getDocument({ data: bytes.slice(), isEvalSupported: false }).promise
+  return doc.numPages
+}
+
+/** The tab on these pages is pictures (a scan, or tab printed as an image): the picture reader reads it, from page `from`. */
+export class ScannedPdf extends Error { constructor(public bytes: Uint8Array, public from = 1, public count = 6) { super('This PDF is scanned pictures, not text') } }
 
 /** The text to read a tab or chord sheet from: Guitar Pro style staves first, then the page text as laid out. */
 export function pdfTabText(pages: PdfPage[], names: string[]): { staff: string; text: string } {

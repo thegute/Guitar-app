@@ -7,6 +7,22 @@ import { usePersist } from './Controls'
  * Two-finger pinch (and ctrl + wheel / trackpad pinch on a computer) on `ref`'s element. Calls `set` with the new
  * scale and keeps the point between the fingers where it was. `scroller`: the element that scrolls (default: ref).
  */
+// Everything that can be pinched, so a floating card lying over it can pass a two-finger pinch through (FloatCard).
+interface PinchTarget { el: HTMLElement; start: (e: TouchEvent) => void; move: (e: TouchEvent) => void; end: (e: TouchEvent) => void }
+const PINCH_TARGETS = new Set<PinchTarget>()
+/** The pinchable thing under a point (the smallest one, when they nest), or null. */
+export function pinchTargetAt(x: number, y: number): PinchTarget | null {
+  let best: PinchTarget | null = null, area = Infinity
+  for (const t of PINCH_TARGETS) {
+    if (!t.el.isConnected) continue
+    const r = t.el.getBoundingClientRect()
+    if (x < r.left || x > r.right || y < r.top || y > r.bottom || r.width === 0) continue
+    const a = r.width * r.height
+    if (a < area) { area = a; best = t }
+  }
+  return best
+}
+
 export function usePinch(ref: RefObject<HTMLElement | null>, get: () => number, set: (z: number) => void, opts: { min?: number; max?: number; scroller?: RefObject<HTMLElement | null> } = {}) {
   const min = opts.min ?? 1, max = opts.max ?? 3
   const live = useRef({ get, set })
@@ -46,6 +62,8 @@ export function usePinch(ref: RefObject<HTMLElement | null>, get: () => number, 
       if (anchor.current) anchor.current.z = z
       live.current.set(Math.round(z * 100) / 100)
     }
+    const me: PinchTarget = { el, start: onStart, move: onMove, end: onEnd }
+    PINCH_TARGETS.add(me)
     el.addEventListener('touchstart', onStart, { passive: true })
     el.addEventListener('touchmove', onMove, { passive: false })
     el.addEventListener('touchend', onEnd)
@@ -57,6 +75,7 @@ export function usePinch(ref: RefObject<HTMLElement | null>, get: () => number, 
       el.removeEventListener('touchend', onEnd)
       el.removeEventListener('touchcancel', onEnd)
       el.removeEventListener('wheel', onWheel)
+      PINCH_TARGETS.delete(me)
     }
   }, [ref, min, max, opts.scroller])
   /** call after the new scale has been drawn: scrolls so the pinched point stays under the fingers */

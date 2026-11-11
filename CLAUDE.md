@@ -331,6 +331,10 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   voiceIsolation are asked off and read back (`filtersStillOn`). UI `components/AudioSetup.tsx` (AudioSetup in the input sheet and
   Settings → Sound, RigChip in the beat maker, RigNotice when it switches). Tests `tests/rig-logic.test.ts`, step2-test `rig`.
 
+## Audio engine (Stage 3, planned)
+- `notes/AUDIO-ENGINE.md` is the contract for the new engine every feature will use (parts, packs, buses, one clock). New sound code
+  follows its "rules for code written before Stage 3" and adds itself to its checklist.
+
 ## Ideas not done yet
 Left-handed mode, automatic tempo detection from the video, per-note polyphonic transcription (chords are judged by chroma only), cloud sync between devices.
 

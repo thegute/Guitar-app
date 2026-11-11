@@ -13,7 +13,8 @@ import { PsyDog, PsyDogCard, PsyStrip } from '../components/PsyArt'
 import { breedOf } from '../theme'
 import { useEffect, useRef, useState } from 'react'
 import { deleteSong, listSongs, saveSong, youtubeId, type SongDoc } from '../tabs/library'
-import { songFromFile, songFromText } from '../tabs/importer'
+import { isPdf, songFromFile, songFromPdf, songFromText } from '../tabs/importer'
+import { BOOK_PAGES, PdfPages } from '../components/PdfPages'
 import { ago, songStats } from '../play/songStats'
 import { Clipboard } from '@capacitor/clipboard'
 import { INSTRUMENTS, useInstrument, type InstrumentId } from '../instrument'
@@ -148,6 +149,8 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
   const [yt, setYt] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // a PDF book: pick its pages first
+  const [book, setBook] = useState<{ name: string; bytes: Uint8Array; pages: number } | null>(null)
   const [scanned, setScanned] = useState<{ name: string; pics: { name: string; mime: string; b64: string; url: string }[] } | null>(null)
   const pictures = useRef<HTMLDivElement | null>(null)
   const [query, setQuery] = useState('')
@@ -170,8 +173,30 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
   }
 
   /** Import one or many files (from the phone or straight from Google Drive). One file opens right away. */
+  /** A scanned PDF (or tab printed as pictures): hand its pages to the picture reader below. */
+  async function toPictures(name: string, e: unknown): Promise<boolean> {
+    if (!(e instanceof Error && e.name === 'Error' && /scanned/.test(e.message) && 'bytes' in e)) return false
+    const sc = e as Error & { bytes: Uint8Array; from?: number; count?: number }
+    const { pdfPictures } = await import('../tabs/pdfTab')
+    try {
+      setScanned({ name, pics: await pdfPictures(sc.bytes, sc.count ?? 6, sc.from ?? 1) })
+      setTimeout(() => pictures.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+      return true
+    } catch { return false }
+  }
+
   async function openFiles(files: File[]) {
     setError('')
+    setBook(null)
+    // one PDF book: ask which pages first
+    if (files.length === 1) {
+      const bytes = new Uint8Array(await files[0].arrayBuffer())
+      if (isPdf(files[0].name, bytes)) {
+        const { pdfPageCount } = await import('../tabs/pdfTab')
+        const pages = await pdfPageCount(bytes).catch(() => 0)
+        if (pages > BOOK_PAGES) { setBook({ name: files[0].name, bytes, pages }); return }
+      }
+    }
     setBusy(true)
     const ok: SongDoc[] = []
     const failed: string[] = []
@@ -179,15 +204,7 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
       try {
         ok.push(await songFromFile(f.name, new Uint8Array(await f.arrayBuffer()), inst, link))
       } catch (e) {
-        // a scanned PDF (pages are pictures): hand the pages to the picture reader below
-        if (e instanceof Error && e.name === 'Error' && /scanned/.test(e.message) && 'bytes' in e) {
-          const { pdfPictures } = await import('../tabs/pdfTab')
-          try {
-            setScanned({ name: f.name, pics: await pdfPictures((e as Error & { bytes: Uint8Array }).bytes) })
-            setTimeout(() => pictures.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
-            continue
-          } catch { /* fall through */ }
-        }
+        if (await toPictures(f.name, e)) continue
         failed.push(f.name)
       }
     }
@@ -195,6 +212,22 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
     if (failed.length) setError(`Couldn't read ${failed.length === 1 ? `"${failed[0]}"` : `${failed.length} files (${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''})`}. KGuitar opens Guitar Pro files (.gp, .gp5, .gpx, .gp4, .gp3), PDFs and text tabs.`)
     if (files.length === 1 && ok.length === 1) { onOpen(ok[0]); return }
     if (ok.length && !failed.length) await onAdded()
+  }
+
+  /** Read the pages picked from a PDF book. */
+  async function readBook(from: number, to: number) {
+    if (!book) return
+    setError(''); setBusy(true)
+    try {
+      const doc = await songFromPdf(book.name, book.bytes, inst, link, { from, to })
+      await saveSong(doc)
+      setBook(null); setBusy(false)
+      onOpen(doc)
+    } catch (e) {
+      setBusy(false)
+      if (await toPictures(`${book.name.replace(/\.[^.]+$/, '')} p.${from}–${to}`, e)) return
+      setError(`No tab or chords found on pages ${from}–${to}. Try the pages either side (‹ ›): the book's page numbers can be a few off from the PDF's.`)
+    }
   }
 
   async function loadText() {
@@ -224,7 +257,7 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
         </div>
       </Win>
 
-      <Win id="bring" title="2. Bring it in" bodyClass="stack" bodyStyle={{ gap: 10 }} hint={<>Guitar Pro (.gp .gp5 .gpx .gp4 .gp3), PDF tabs and chord sheets, or text tabs (.txt). A PDF that's only scanned pictures goes to the picture reader below. <b>From Google Drive:</b> in the picker, tap ☰ and choose Drive (or your Google account), then open your tabs folder. Long-press a file to select several and import them all at once.</>}>
+      <Win id="bring" title="2. Bring it in" bodyClass="stack" bodyStyle={{ gap: 10 }} hint={<>Guitar Pro (.gp .gp5 .gpx .gp4 .gp3), PDF tabs and chord sheets, or text tabs (.txt). A PDF book asks which pages to read. Tab that's printed as pictures (a scanned book) goes to the picture reader below. <b>From Google Drive:</b> in the picker, tap ☰ and choose Drive (or your Google account), then open your tabs folder. Long-press a file to select several and import them all at once.</>}>
         <div className="row">
           <button className="btn primary" disabled={busy} onClick={() => file.current?.click()}>{busy ? 'Importing…' : 'Upload tab files'}</button>
           <button className="btn" onClick={() => void pasteClipboard()}>Paste from clipboard</button>
@@ -239,6 +272,7 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
           <input className="input" style={{ flex: '2 1 220px' }} placeholder="YouTube link (optional)" inputMode="url" value={yt} onChange={e => setYt(e.target.value)} aria-label="YouTube link" />
           <button className="btn primary" disabled={!text.trim()} onClick={() => void loadText()}>Load tab</button>
         </div>
+        {book && <PdfPages name={book.name} bytes={book.bytes} pages={book.pages} busy={busy} onRead={(a, b) => void readBook(a, b)} onCancel={() => setBook(null)} />}
         {clipNote && <span className="small muted" role="status">{clipNote}</span>}
         {yt.trim() && !link && <span className="small" style={{ color: 'var(--coral)' }}>That YouTube link doesn't look right.</span>}
         {error && <p className="notice small" role="alert">{error}</p>}
@@ -246,7 +280,7 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
       <Win id="picture" title="Riff Scanner: a tab on screen, a photo or a scanned PDF" bodyClass="stack" bodyStyle={{ gap: 8 }}
         extra={<button className="btn sm" onClick={() => { setSubPage('jam', 'find'); go('progressions') }} data-testid="open-scanner"><Ico n="scan" /> Full scanner</button>}>
         <div ref={pictures} />
-        {scanned && <p className="notice small" style={{ margin: 0 }}>"{scanned.name}" is scanned pages (pictures, no text), so the AI reads them: its pages are below. Tap <b>Read the tab</b>.</p>}
+        {scanned && <p className="notice small" style={{ margin: 0 }}>The tab in "{scanned.name}" is pictures (a scan, or printed as images), so the AI reads it: the pages are below. Tap <b>Read the tab</b>.</p>}
         <ScanVideo key={scanned?.name ?? ''} youtube={link} initialPics={scanned?.pics.map(p => ({ name: p.name, url: p.url }))} />
         <p className="small muted" style={{ margin: 0 }}>The full Riff Scanner (Jam → Riff Scanner) also scans YouTube links and Shorts, and listens.</p>
       </Win>

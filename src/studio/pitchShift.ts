@@ -49,8 +49,7 @@ function trim() {
 
 const energy = (x: Float32Array) => { let e = 0; for (let i = 0; i < x.length; i += 7) e += x[i] * x[i]; return e }
 
-/** The engine's first run in a session can start before its code is ready (an offline render runs faster than real
- *  time), giving silence: then it's simply done again. */
+/** If a render still comes back silent (the engine wasn't ready), it's simply done again, up to 3 times. */
 async function render(buf: AudioBuffer, a: number, b: number, semis: number, natural: boolean, rate = 1): Promise<AudioBuffer | null> {
   const want = energy(buf.getChannelData(0).subarray(Math.floor(a * buf.sampleRate), Math.ceil(b * buf.sampleRate))) / rate
   for (let k = 0; k < 3; k++) {
@@ -71,7 +70,8 @@ async function renderOnce(buf: AudioBuffer, a: number, b: number, semis: number,
   const ctx = new OfflineAudioContext(chans.length, len + Math.ceil((lead + 0.3) * sr), sr)
   const node = await SignalsmithStretch(ctx, { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [chans.length] })
   await node.addBuffers(chans)
-  node.schedule({ output: lead, active: true, input: 0, rate, semitones: semis, formantCompensation: natural, ...(natural ? { formantBaseHz: 0 } : {}) })
+  // wait for the engine to take the plan before rendering: an offline render can otherwise finish before the message lands (silence)
+  await node.schedule({ output: lead, active: true, input: 0, rate, semitones: semis, formantCompensation: natural, ...(natural ? { formantBaseHz: 0 } : {}) })
   node.connect(ctx.destination)
   const out = await ctx.startRendering()
   const res = new AudioBuffer({ length: len, numberOfChannels: chans.length, sampleRate: sr })

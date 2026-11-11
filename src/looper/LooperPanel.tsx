@@ -15,6 +15,7 @@ import { BeatLight } from '../studio/BeatLight'
 import { FxPad } from '../studio/FxPad'
 import { MicFxPicker } from '../studio/MicFxPicker'
 import { TimingCheck } from './TimingCheck'
+import { InputPicker } from '../components/InputPicker'
 import { beatInPart, type PartId } from '../studio/beat'
 import { beatChords } from '../studio/practice'
 import { openJam } from '../nav'
@@ -126,6 +127,8 @@ export function LooperPanel() {
                 </button>
               ))}
             </span>
+            {/* what the looper records: the phone mic or the USB pedal (its sheet has the full audio setup) */}
+            <InputPicker />
             <label className="lp-toggle"><input type="checkbox" checked={st.s.beatOn} onChange={e => st.set({ beatOn: e.target.checked })} /> Beat</label>
             <label className="lp-toggle"><input type="checkbox" checked={st.s.click} onChange={e => st.set({ click: e.target.checked })} /> Click</label>
           </div>

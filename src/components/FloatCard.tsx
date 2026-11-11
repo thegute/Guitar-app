@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type PointerEvent as RPE, type ReactNode }
 import { createPortal } from 'react-dom'
 import { bringToFront } from '../float/bus'
 import { Ico, type IconName } from './Icon'
+import { pinchTargetAt } from './Zoomable'
 
 /** what a card must not sit on: anything you tap or drag */
 const CONTROLS = 'button, [role=tab], [role=separator], .split, .win-size, input, select, textarea, a'
@@ -149,6 +150,24 @@ function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width =
     return () => { ro?.disconnect(); mo?.disconnect(); clearTimeout(t); clearInterval(iv) }
   }, [id, where, order, place.min])
   const save = (pl: Place) => { setPlace(pl); try { localStorage.setItem(KEY(id, where), JSON.stringify(pl)) } catch { /* full */ } }
+  // a two-finger pinch on the card zooms what's under it (the tab, a neck): one finger still moves and taps the card
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    let target: ReturnType<typeof pinchTargetAt> = null
+    const start = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return
+      target = pinchTargetAt((e.touches[0].clientX + e.touches[1].clientX) / 2, (e.touches[0].clientY + e.touches[1].clientY) / 2)
+      target?.start(e)
+    }
+    const move = (e: TouchEvent) => { if (target) target.move(e) }
+    const end = (e: TouchEvent) => { if (target) { target.end(e); if (e.touches.length < 2) target = null } }
+    el.addEventListener('touchstart', start, { passive: true })
+    el.addEventListener('touchmove', move, { passive: false })
+    el.addEventListener('touchend', end)
+    el.addEventListener('touchcancel', end)
+    return () => { el.removeEventListener('touchstart', start); el.removeEventListener('touchmove', move); el.removeEventListener('touchend', end); el.removeEventListener('touchcancel', end) }
+  }, [place.min])
   // fade (but keep taking taps) while it sits over the note you're on; a tap makes it solid for a while
   const [dodge, setDodge] = useState(false)
   const awake = useRef(0)

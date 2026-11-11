@@ -37,7 +37,8 @@ const bad = m => { problems.push(m); console.log('  PROBLEM', m) }
   // hand guide under an exercise
   await page.evaluate(() => { localStorage.setItem('kg:tab2', '"learn"'); localStorage.setItem('kg:sub:learn', '"exercises"') })
   await page.reload(); await page.waitForSelector('.ex-browser')
-  if (!(await page.locator('.hand-guide .hg-card').count())) bad('hand guide: no hand cards under the exercise')
+  // the floating hand card follows the exercise (it replaced the row of hand cards under it)
+  await page.waitForSelector('[data-testid=finger-box], [data-testid=finger-chip]', { timeout: 4000 }).catch(() => bad('hand guide: no floating hand card on the exercise'))
   // exercise boxes fold up and open again by tapping their name
   await page.locator('[data-win="ex-neck"] .win-title').click()
   if (await page.locator('[data-win="ex-neck"] .fretboard, [data-win="ex-neck"] svg').count()) bad('exercises: the neck box did not fold up')

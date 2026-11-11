@@ -2395,7 +2395,13 @@ body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-re
 @media (max-width: 759px) { .shorts-stage.scanning .short-frame { height: min(42vh, 400px); } }
 
 /* Play → Game: the note highway */
-.game-highway { width: 100%; border-radius: var(--r-lg); overflow: hidden; touch-action: manipulation; }
+.game-highway { width: 100%; border-radius: var(--r-lg); overflow: hidden; touch-action: pan-y; position: relative; }
+/* zoom and look-ahead controls on the highway, and the resize handle under it */
+.gh-zoom { position: absolute; top: 6px; right: 6px; display: flex; align-items: center; gap: 4px; }
+.gh-btn { min-width: 34px; min-height: 32px; border-radius: var(--r-sm); border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 88%, transparent); color: var(--ink); font-weight: 700; }
+.gh-btn.now { padding: 0 10px; background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.gh-secs { font: 600 12px var(--ui); color: var(--ink); background: color-mix(in srgb, var(--surface) 80%, transparent); border-radius: var(--r-sm); padding: 2px 6px; }
+.gh-size { height: 18px; display: grid; place-items: center; color: var(--ink-3); cursor: ns-resize; touch-action: none; font-size: 12px; }
 .game-highway canvas { display: block; }
 .game-hud { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .game-score b { font: 700 1.5rem var(--font-display, inherit); }
@@ -2557,3 +2563,15 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .ex-hint { margin: 0; color: var(--ink-2); }
 /* over the moving art: a dark chip behind the words (like the other loose labels) */
 [data-theme='psy'] .ex-hint { width: fit-content; padding: 4px 10px; border-radius: var(--r-pill); background: rgba(10, 0, 30, .82); color: #fff; }
+
+/* the tab's own zoom control (PlayScreen): top-right of the tab, out of the way of the first notes */
+.play-tab { position: relative; }
+.tab-zoom-ctl { position: absolute; right: 10px; bottom: 8px; z-index: 4; display: flex; align-items: center; gap: 4px; opacity: .85; }
+.tab-zoom-ctl:hover, .tab-zoom-ctl:focus-within { opacity: 1; }
+.play.playing .tab-zoom-ctl { opacity: .45; }
+
+/* PDF book: pick the pages (Songs → Add a song) */
+.pdf-thumbs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; min-height: 60px; }
+.pdf-thumb { margin: 0; flex: 0 0 auto; text-align: center; }
+.pdf-thumb img { display: block; height: 150px; width: auto; border-radius: var(--r-sm); background: #fff; box-shadow: 0 1px 4px rgb(0 0 0 / .25); }
+.pdf-thumb figcaption { margin-top: 2px; }

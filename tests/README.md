@@ -13,6 +13,7 @@ npm run build && npx vite preview --port 4173 &
 node tests/browser/gen-ode.cjs                          # makes tests/browser/out/ode.wav
 npx -y esbuild@0.25 tests/make-gp.ts --bundle --platform=node --format=esm --outfile=tests/browser/out/make-gp.mjs
 node tests/browser/out/make-gp.mjs tests/browser/out/riff.gp
+python3 tests/browser/gen-gs-mix.py                     # makes tests/browser/out/gs-mix.wav (getsound-test)
 npm i --no-save playwright && node tests/browser/play-test.cjs cover
 ```
 Screenshots land in `tests/browser/out/`. Sizes: `cover` (Fold cover screen), `small`, `inner-portrait`, `inner-landscape`.

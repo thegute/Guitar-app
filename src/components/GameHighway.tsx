@@ -3,7 +3,11 @@
 // open white), with their length, slides / hammer-ons / pull-offs / bends / vibrato / dead notes drawn on them and chord
 // boxes for strums. A big ball bounces from note to note on the hit line (Yousician-style) so you see the timing coming;
 // it follows In time's clock or Hear it's playhead. Drawn on a canvas each frame.
-import { useEffect, useRef } from 'react'
+// Zoom: pinch sideways (or − / +) shows fewer or more seconds ahead (1.5–8 s, kg:gameSecs). Size: drag the handle under it for
+// taller or shorter strings (kg:gameGap). Look ahead: drag it sideways with one finger; let go and it glides back to now
+// (straight away while the music moves, after a moment when stopped). A tap without dragging still plays the note.
+import { useEffect, useRef, useState } from 'react'
+import { usePinch } from './Zoomable'
 import { FINGER_COLORS, type HighwayItem, type Section, type SectionResult } from '../play/game'
 
 export interface GameFeedback { key: number; text: string; kind: 'perfect' | 'good' | 'early' | 'late' | 'miss' | 'wrong' | 'ok' }
@@ -38,19 +42,53 @@ export function GameHighway(p: Props) {
   const bursts = useRef<{ x: number; y: number; at: number; c: string }[]>([])
   const lastFb = useRef(0)
   const lay = useRef({ W: 600, H: 260, hitX: 120, ppb: 120, top: 34, gap: 30 })
+  // how many seconds of music fit between the hit line and the right edge, and the string spacing you chose
+  const [secs, setSecs] = useState(() => { const v = Number(localStorage.getItem('kg:gameSecs')); return v >= 1.5 && v <= 8 ? v : 3.5 })
+  const [gapPick, setGapPick] = useState(() => { const v = Number(localStorage.getItem('kg:gameGap')); return v >= 18 && v <= 60 ? v : 0 })
+  const view = useRef({ secs, gapPick })
+  view.current = { secs, gapPick }
+  const saveSecs = (v: number) => { const z = Math.round(Math.max(1.5, Math.min(8, v)) * 10) / 10; setSecs(z); try { localStorage.setItem('kg:gameSecs', String(z)) } catch { /* full */ } }
+  // pinch: zoom 1 = 3.5 s; spreading the fingers shows fewer seconds (bigger notes)
+  usePinch(wrap, () => 3.5 / view.current.secs, z => saveSecs(3.5 / z), { min: 3.5 / 8, max: 3.5 / 1.5 })
+  // looking ahead (or back): beats the view is moved from now; it glides back when you let go
+  const look = useRef({ off: 0, dragging: false, from: 0, off0: 0, moved: false, back: 0, fingers: 0 })
+  const [looking, setLooking] = useState(false)
+  const resize = useRef<() => void>(() => {})
+  useEffect(() => { resize.current() }, [gapPick])
 
   useEffect(() => {
     const c = cv.current, w = wrap.current
     if (!c || !w) return
     let raf = 0
+    resize.current = () => size()
     const ro = new ResizeObserver(() => size())
     ro.observe(w)
+    // the box it sits in (Play's tab box has its own height, set by the bars between boxes): fit what's left of it
+    const host = w.closest('.play-tab') as HTMLElement | null
+    const watched = new Set<Element>()
+    const watch = () => { if (!host) return; for (const el of [host, ...host.children]) if (!watched.has(el)) { watched.add(el); ro.observe(el) } }
+    watch()
+    const mo = host ? new MutationObserver(() => { watch(); size() }) : null
+    mo?.observe(host!, { childList: true })
+    function fitGap(n0: number): number {
+      const fallback = Math.max(22, Math.min(34, Math.round((window.innerHeight * 0.32) / Math.max(1, n0 - 1))))
+      if (!host || getComputedStyle(host).overflowY === 'visible') return fallback
+      // how tall everything else in the box is (its content, not its scroll height, which never drops below the box)
+      const hr = host.getBoundingClientRect()
+      let bottom = 0
+      for (const el of host.children) { const r = el.getBoundingClientRect(); if (r.height) bottom = Math.max(bottom, r.bottom - hr.top + host.scrollTop) }
+      const pad = parseFloat(getComputedStyle(host).paddingBottom || '0')
+      const others = bottom + pad - c!.offsetHeight
+      const free = host.clientHeight - others - 4
+      return Math.max(22, Math.min(48, Math.floor((free - 74) / Math.max(1, n0 - 1))))
+    }
     function size() {
       const dpr = Math.min(2, window.devicePixelRatio || 1)
       const n0 = props.current.stringNames.length
-      // a string every 22–34 px (whatever fits a third of the screen's height)
-      const gap0 = Math.max(22, Math.min(34, Math.round((window.innerHeight * 0.32) / Math.max(1, n0 - 1))))
+      // the strings' spacing: your pick (⇕), else whatever fits the box (22–48 px)
+      const gap0 = view.current.gapPick || fitGap(n0)
       const W = Math.max(280, w!.clientWidth), H = props.current.height ?? 54 + 20 + gap0 * Math.max(1, n0 - 1)
+      if (Math.abs(W - lay.current.W) < 1 && Math.abs(H - lay.current.H) < 1 && c!.width === Math.round(W * dpr)) return
       c!.width = W * dpr; c!.height = H * dpr
       c!.style.width = `${W}px`; c!.style.height = `${H}px`
       c!.getContext('2d')!.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -67,15 +105,19 @@ export function GameHighway(p: Props) {
       const L = lay.current
       const { W, H, hitX, top, gap } = L
       const nStr = P.stringNames.length
-      // ~3.5 s of music between the hit line and the right edge
-      const ppb = Math.max(60, ((W - hitX) * P.spb) / 3.5)
+      // the chosen seconds of music between the hit line and the right edge
+      const ppb = Math.max(30, ((W - hitX) * P.spb) / view.current.secs)
       L.ppb = ppb
       const live = P.beatNow()
       const target = live ?? P.cursorBeat
       // the cursor glides to the next note; the clock is followed exactly
       shown.current = live !== null || shown.current === null ? target : shown.current + (target - shown.current) * 0.18
       const now = shown.current
-      const xOf = (beat: number) => hitX + (beat - now) * ppb
+      // looking ahead: the view moves, the music doesn't; let go and it glides back to now
+      const lk = look.current
+      if (!lk.dragging && lk.off !== 0 && (live !== null || t > lk.back)) { lk.off *= 0.86; if (Math.abs(lk.off) < 0.02) { lk.off = 0; setLooking(false) } }
+      const viewAt = now + lk.off
+      const xOf = (beat: number) => hitX + (beat - viewAt) * ppb
       const yOf = (s: number) => top + (nStr - 1 - s) * gap
       const ink = css(c, '--ink', '#eee'), ink3 = css(c, '--ink-3', '#999'), accent = css(c, '--accent', '#f0a'), gold = css(c, '--gold', '#fc3')
       g.clearRect(0, 0, W, H)
@@ -195,7 +237,8 @@ export function GameHighway(p: Props) {
       } else if (prev >= 0 && now - P.items[prev].beat < 0.6) {
         ballY = landY(prev)
       }
-      if (ballY !== null) {
+      // (while you look ahead the ball waits at now, off this view)
+      if (ballY !== null && Math.abs(lk.off) < 0.05) {
         // its shadow on the line below it, then the ball with a soft glow
         g.globalAlpha = 0.25; g.fillStyle = '#000'
         g.beginPath(); g.ellipse(hitX, top + gap * (nStr - 1) + 8, R * 0.9, R * 0.28, 0, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1
@@ -231,8 +274,51 @@ export function GameHighway(p: Props) {
       g.globalAlpha = 1
     }
     raf = requestAnimationFrame(draw)
-    return () => { cancelAnimationFrame(raf); ro.disconnect() }
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); mo?.disconnect() }
   }, [])
+
+  // one finger: a tap plays the note under it; a sideways drag looks ahead (or back)
+  const down = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    const lk = look.current
+    lk.fingers++
+    // a second finger means a pinch (zoom): no look-ahead drag, and the view goes back where it was
+    if (lk.fingers > 1) { if (lk.dragging) { lk.dragging = false; lk.off = lk.off0; lk.moved = true } return }
+    lk.dragging = true; lk.moved = false; lk.from = e.clientX; lk.off0 = lk.off
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }
+  const move = (e: React.PointerEvent) => {
+    const lk = look.current
+    if (!lk.dragging) return
+    const dx = e.clientX - lk.from
+    if (!lk.moved && Math.abs(dx) < 8) return
+    if (!lk.moved) { lk.moved = true; setLooking(true) }
+    // drag left = further ahead; up to 64 beats either way
+    lk.off = Math.max(-64, Math.min(64, lk.off0 - dx / Math.max(1, lay.current.ppb)))
+  }
+  const up = (e: React.PointerEvent) => {
+    const lk = look.current
+    lk.fingers = Math.max(0, lk.fingers - 1)
+    if (!lk.dragging) return
+    lk.dragging = false
+    // stopped: stay a moment so you can read it, then glide back
+    lk.back = performance.now() + 1500
+    if (!lk.moved) tap(e)
+  }
+  const backToNow = () => { look.current.off = 0; look.current.back = 0; setLooking(false) }
+  // double tap the handle: back to fitting the box
+  const fitBox = () => { setGapPick(0); try { localStorage.removeItem('kg:gameGap') } catch { /* private */ } }
+  // the handle under the highway: drag down for taller strings
+  const sizeDrag = (e: React.PointerEvent) => {
+    e.preventDefault()
+    const y0 = e.clientY, g0 = lay.current.gap, n = Math.max(1, props.current.stringNames.length - 1)
+    const mv = (ev: PointerEvent) => setGapPick(Math.round(Math.max(18, Math.min(60, g0 + (ev.clientY - y0) / n))))
+    const done = () => {
+      removeEventListener('pointermove', mv); removeEventListener('pointerup', done); removeEventListener('pointercancel', done)
+      setGapPick(g => { try { localStorage.setItem('kg:gameGap', String(g)) } catch { /* full */ } return g })
+    }
+    addEventListener('pointermove', mv); addEventListener('pointerup', done); addEventListener('pointercancel', done)
+  }
 
   // tap a note: hear it (Play for me)
   const tap = (e: React.PointerEvent) => {
@@ -240,7 +326,7 @@ export function GameHighway(p: Props) {
     if (!c) return
     const r = c.getBoundingClientRect()
     const x = e.clientX - r.left, y = e.clientY - r.top
-    const now = shown.current ?? P.cursorBeat
+    const now = (shown.current ?? P.cursorBeat) + look.current.off
     const nStr = P.stringNames.length
     let best: { flat: number; note: number; d: number } | null = null
     for (const it of P.items) {
@@ -252,7 +338,15 @@ export function GameHighway(p: Props) {
   }
   return (
     <div ref={wrap} className="game-highway" data-testid="game-highway">
-      <canvas ref={cv} onPointerDown={tap} role="img" aria-label="Note highway: notes slide to the line on the left; play each one as it reaches the line" />
+      <canvas ref={cv} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} role="img"
+        aria-label="Note highway: notes slide to the line on the left; play each one as it reaches the line. Drag sideways to look ahead, pinch to zoom." />
+      <div className="gh-zoom" role="group" aria-label="Highway zoom">
+        {looking && <button className="gh-btn now" onClick={backToNow} data-testid="game-now">⟲ Now</button>}
+        <button className="gh-btn" onClick={() => saveSecs(secs * 1.25)} aria-label="Zoom out: see further ahead" data-testid="game-zoom-out">−</button>
+        <span className="gh-secs tabular" title="Seconds of music on screen">{secs.toFixed(1)} s</span>
+        <button className="gh-btn" onClick={() => saveSecs(secs / 1.25)} aria-label="Zoom in: bigger notes" data-testid="game-zoom-in">+</button>
+      </div>
+      <div className="gh-size" onPointerDown={sizeDrag} onDoubleClick={fitBox} role="separator" aria-label="Drag to make the highway taller or shorter; double tap to fit the box again" title="Drag to resize · double tap: fit the box" data-testid="game-size">⇕</div>
     </div>
   )
 }

@@ -333,8 +333,8 @@ E|-3---------|-----------|`
     if (!/mono/.test(note)) bad(`${vp.n}: notice should say mono: "${note}"`)
     await page.screenshot({ path: `${DIR}/step2-rig-notice-${vp.n}.png` })
     if (await sideways(page)) bad(`${vp.n}: sideways overflow with the notice`)
-    // Jam's input button says mono; its sheet has the setup
-    await nav(page, 'Jam')
+    // Jam's input button (on the Looper page, where Jam records you) says mono; its sheet has the setup
+    await nav(page, 'Jam'); await sub(page, 'Looper')
     const btn = page.locator('.input-btn').first()
     if (await btn.count()) {
       const t = await btn.innerText()

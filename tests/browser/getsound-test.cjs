@@ -58,7 +58,9 @@ async function openGetSound(page) {
     const info = await page.locator('[data-testid=clip-editor] p.small').first().innerText().catch(() => '')
     if (!/12\.0 s in all/.test(info)) bad(`${vp.n}: clip length should be 12.0 s: "${info}"`)
     // drag the right handle from 4 s to about 6 s (the view shows 0–12 s)
-    const box = await page.locator('[data-testid=clip-wave]').boundingBox()
+    // wait until the sheet has stopped moving (it slides in), then drag on the wave
+    let box = null
+    for (let k = 0; k < 20; k++) { const nb = await page.locator('[data-testid=clip-wave]').boundingBox(); if (box && nb && Math.abs(nb.y - box.y) < 0.5 && Math.abs(nb.x - box.x) < 0.5) break; box = nb; await page.waitForTimeout(120) }
     const xAt = t => box.x + (t / 12) * box.width
     await page.mouse.move(xAt(4), box.y + box.height / 2); await page.mouse.down(); await page.mouse.move(xAt(6), box.y + box.height / 2, { steps: 6 }); await page.mouse.up()
     // a tap near 1 s moves the left handle there

@@ -5,6 +5,8 @@ const { chromium } = require('playwright')
 const path = require('path')
 const DIR = path.join(__dirname)
 const FIX = path.join(DIR, '..', 'fixtures')
+const OUT = path.join(DIR, 'out')
+const sideways = page => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
 const only = process.argv[2] ? process.argv[2].split(',') : null
 const want = p => !only || only.includes(p)
 const problems = []
@@ -41,8 +43,9 @@ const errs = (page, where) => { if (page.errors.length) bad(`${where} page error
       const input = page.locator('input[type=file][multiple]:not([accept])')
       await input.setInputFiles(path.join(FIX, file))
       if (check === 'scanned') {
-        await page.waitForSelector('.pic-strip img', { timeout: 15000 }).catch(() => bad('scanned PDF: pages not shown in the picture reader'))
-        const n = await page.locator('.pic-strip img').count()
+        // the pages land in the scanner's crop box with its Read the tab button (the old picture strip was redesigned)
+        await page.waitForSelector('.scan-video [data-testid=scan-read]', { timeout: 15000 }).catch(() => bad('scanned PDF: pages not shown in the picture reader'))
+        const n = Number(((await page.locator('.scan-video .small.muted:has-text("picture")').first().innerText().catch(() => '0')).match(/\d+/) ?? ['0'])[0])
         console.log(`${file}: ${n} page picture(s) in the reader`)
       } else {
         await page.waitForSelector('.play-head', { timeout: 15000 }).catch(() => bad(`${file}: didn't open in Play`))
@@ -52,6 +55,30 @@ const errs = (page, where) => { if (page.errors.length) bad(`${where} page error
         if (!notes) bad(`${file}: empty tab`)
       }
       errs(page, file)
+      await page.context().close()
+    }
+    // a PDF book (10 pages): pick the pages; page 5 is a text tab, page 2 is a scan
+    for (const vp of [{ width: 412, height: 915 }, { width: 840, height: 757 }]) {
+      const page = await newPage(browser, {}, vp)
+      await nav(page, 'Songs'); await sub(page, 'Add a song')
+      await page.locator('input[type=file][multiple]:not([accept])').setInputFiles(path.join(FIX, 'book.pdf'))
+      await page.waitForSelector('[data-testid=pdf-pages]', { timeout: 10000 }).catch(() => bad(`${vp.width} book: no page picker`))
+      await page.waitForSelector('.pdf-thumb img', { timeout: 10000 }).catch(() => bad(`${vp.width} book: no page pictures`))
+      if (await sideways(page)) bad(`${vp.width} book: sideways overflow in the page picker`)
+      await page.screenshot({ path: path.join(OUT, `pdf-book-${vp.width}.png`) })
+      await page.locator('[data-testid=pdf-from]').fill('2'); await page.locator('[data-testid=pdf-to]').fill('2')
+      await page.locator('[data-testid=pdf-read]').click()
+      await page.waitForSelector('.scan-video [data-testid=scan-read]', { timeout: 15000 }).catch(() => bad(`${vp.width} book: the scanned page didn't go to the picture reader`))
+      await page.locator('input[type=file][multiple]:not([accept])').setInputFiles(path.join(FIX, 'book.pdf'))
+      await page.waitForSelector('[data-testid=pdf-pages]', { timeout: 10000 })
+      if ((await page.locator('[data-testid=pdf-from]').inputValue()) !== '2') bad(`${vp.width} book: the last page read wasn't remembered`)
+      await page.locator('[data-testid=pdf-from]').fill('5'); await page.locator('[data-testid=pdf-to]').fill('5')
+      await page.locator('[data-testid=pdf-read]').click()
+      await page.waitForSelector('.play-head', { timeout: 15000 }).catch(() => bad(`${vp.width} book: page 5's tab didn't open in Play`))
+      const title = (await page.locator('.play-head').innerText().catch(() => '')).split('\n')[0]
+      if (!/p\.5/.test(title)) bad(`${vp.width} book: title should say the page: "${title}"`)
+      console.log(`book ${vp.width}: page picker, scan → picture reader, page 5 → Play ("${title}")`)
+      errs(page, 'book')
       await page.context().close()
     }
   }
