@@ -335,7 +335,8 @@ async function guideSection(browser) {
       const title = (await btn.locator('xpath=ancestor::li').locator('b').first().textContent().catch(() => '?')).trim()
       await btn.click()
       try {
-        await page.waitForFunction(() => !document.querySelector('.guide'), null, { timeout: 4000 })
+        // the manual's own sections (not any '.guide' class: the fretboard's guide-tone arrowheads use that name)
+        await page.waitForFunction(() => !document.querySelector('.guide-sec'), null, { timeout: 4000 })
         const where = await page.evaluate(() => document.querySelector('nav.nav button[aria-current=page]')?.textContent.trim() + ' / ' + (document.querySelector('.subtabs [aria-selected=true]')?.textContent.trim() ?? '') + ' / ' + (document.querySelector('h1, h2')?.textContent.trim().slice(0, 30) ?? ''))
         console.log(`  ${title} → ${where}`)
         links++

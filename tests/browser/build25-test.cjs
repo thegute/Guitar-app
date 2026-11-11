@@ -268,7 +268,8 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
     await page.waitForTimeout(300)
     const picked = await page.locator('.ex-sugg-card.on').count()
     if (!picked) bad('tapping a suggestion did not load it')
-    // chainer
+    // chainer: it lives in Learn → Exercises → Make your own
+    await page.locator('[data-testid=ex-sections] button:has-text("Make your own")').click()
     await page.locator('.chain-pick-add').first().click()
     await page.locator('.chain-pick-add').nth(1).click()
     await page.locator('.chain-add').click()

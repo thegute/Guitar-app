@@ -93,6 +93,11 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ##   7 (Learn). Learn = BOTH: 6 Pickup-style grades for the path AND the PDF's 10 deep-dive units as a deep-dive library. Sound packs may use
 ##   2 GB+ of phone storage. Stompbox = ADD ON TOP of the Pocket Master (looper, synth, backing), don't replace its tones. Still open: which
 ##   plugins/electric DI library he owns; linking the Mac at Stage 3. Now doing Stage 1 (build25 + windows-test fixes).
+## 2026-11-11 OWNS (installed on the Mac): Orange Tree Evolution (acoustic, Kontakt) + Orange Tree Evolution ELECTRIC (the electric DI
+##   library), Ample Sound SJ-200 (Strummer), Nembrini Acoustic Voice Pro, Neural DSP Archetypes (the 8), Baby Audio Humanoid, VocalEssential,
+##   Jam Origin MIDI Guitar. Riff Scanner must handle ALL video kinds: tab channels, lessons, players with no tab, full band songs.
+## 2026-11-11 Jam decisions: Riff Scanner lives in BOTH Songs → Add a song (a big "Scan a video or recording" card) AND a Jam shortcut.
+##   "Solo over it" = floating cards only (mini neck + chord cards over the band; the full Scales tool stays in Tools).
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar

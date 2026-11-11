@@ -8,6 +8,9 @@ import { createPortal } from 'react-dom'
 import { bringToFront } from '../float/bus'
 import { Ico, type IconName } from './Icon'
 
+/** what a card must not sit on: anything you tap or drag */
+const CONTROLS = 'button, [role=tab], [role=separator], .split, .win-size, input, select, textarea, a'
+
 interface Place { x: number; y: number; w: number; h?: number; min: boolean }
 const sizeClass = () => (typeof innerWidth === 'number' && innerWidth < 600 ? 'narrow' : 'wide')
 // the hand card keeps the finger box's old remembered places
@@ -31,7 +34,8 @@ export function autoPlace(w: number, h: number, skip: number, self?: Element | n
   for (let fy = 0.04; fy < 0.9; fy += 0.1) for (let fx = 0.1; fx < 0.9; fx += 0.15) spots.push({ left: W * fx, top: H * fy })
   // what it shouldn't cover: buttons, the notes, and (much more) the other floating cards
   // a control under a card can't be tapped, so it counts far more than a note of the tab
-  const things = [...document.querySelectorAll('button, [role=tab], input, select, a, .tab-note, .tab-cursor')]
+  // controls include the panels' resize bars (Play's splitters, windows' handles): a card on one blocks it
+  const things = [...document.querySelectorAll(`${CONTROLS}, .tab-note, .tab-cursor`)]
     .filter(el => !el.closest('[data-self]'))
     .map(el => ({ r: el.getBoundingClientRect(), wt: el.matches('.tab-note, .tab-cursor') ? 1 : 6 }))
   for (const el of document.querySelectorAll('.float-card, .float-bubble')) if (el !== self) things.push({ r: el.getBoundingClientRect(), wt: 60 })
@@ -114,27 +118,35 @@ function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width =
       if (!me || stored(id, where) || getComputedStyle(me).visibility === 'hidden') return
       const a = me.getBoundingClientRect()
       const onCard = [...document.querySelectorAll('.float-card, .float-bubble')].some(o => o !== me && covers(a, o.getBoundingClientRect()))
-      // a control mostly under the card (half or more of it) can't be tapped
-      const onControl = [...document.querySelectorAll('button, [role=tab], input, select, a')].some(c => {
+      // a control a third or more under the card is hard to tap
+      const onControl = [...document.querySelectorAll(CONTROLS)].some(c => {
         if (c.closest('[data-self]')) return false
         const b = c.getBoundingClientRect()
         if (!covers(a, b)) return false
         const ix = Math.min(a.right, b.right) - Math.max(a.left, b.left), iy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
-        return ix * iy >= 0.5 * b.width * b.height
+        return ix * iy >= 0.33 * b.width * b.height
       })
       if (!onCard && !onControl) return
       const sp = autoPlace(me.offsetWidth, me.offsetHeight, order, me)
       if (sp) setPlace(p => (Math.abs(p.x - sp.x) < 0.005 && Math.abs(p.y - sp.y) < 0.005 ? p : { ...p, ...sp }))
     }
+    // at most one look every quarter second, however busy the page is (a playing tab changes it constantly)
     let t = 0
-    const soon = () => { clearTimeout(t); t = window.setTimeout(check, 200) }
+    const soon = () => { if (!t) t = window.setTimeout(() => { t = 0; check() }, 250) }
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(soon) : null
     ro?.observe(el)
     const main = document.getElementById('main')
     if (main && ro) ro.observe(main)
-    // the page changing under it doesn't resize anything: look again every second and a half
+    // panels rearranged, opened or closed (Play's ☰ Move, a report card closing): the layout's style or classes change
+    // (changes inside the tab, the game highway, drawings or the cards themselves happen every note while playing: ignored)
+    const busy = '.tab-view, .game-highway, svg, canvas, .float-card, .float-bubble, .readout'
+    const mo = typeof MutationObserver !== 'undefined' && main ? new MutationObserver(recs => {
+      if (recs.some(r => !(r.target instanceof Element) || !r.target.closest(busy))) soon()
+    }) : null
+    mo?.observe(main!, { attributes: true, attributeFilter: ['style', 'class'], subtree: true, childList: true })
+    // and a slow look in case something moved without either
     const iv = window.setInterval(check, 1500)
-    return () => { ro?.disconnect(); clearTimeout(t); clearInterval(iv) }
+    return () => { ro?.disconnect(); mo?.disconnect(); clearTimeout(t); clearInterval(iv) }
   }, [id, where, order, place.min])
   const save = (pl: Place) => { setPlace(pl); try { localStorage.setItem(KEY(id, where), JSON.stringify(pl)) } catch { /* full */ } }
   // fade (but keep taking taps) while it sits over the note you're on; a tap makes it solid for a while

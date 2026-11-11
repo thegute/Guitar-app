@@ -2554,3 +2554,6 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .ex-sections .chip { flex: 0 0 auto; min-height: var(--h-sm); white-space: nowrap; }
 .ex-sections .chip[aria-selected='true'] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 @media (min-width: 760px) { .ex-sections { flex-wrap: wrap; overflow: visible; } }
+.ex-hint { margin: 0; color: var(--ink-2); }
+/* over the moving art: a dark chip behind the words (like the other loose labels) */
+[data-theme='psy'] .ex-hint { width: fit-content; padding: 4px 10px; border-radius: var(--r-pill); background: rgba(10, 0, 30, .82); color: #fff; }

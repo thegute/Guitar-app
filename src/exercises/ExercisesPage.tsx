@@ -47,7 +47,7 @@ export function ExercisesPage() {
           <button key={s.id} role="tab" className="chip" aria-selected={s.id === cur.id} aria-pressed={s.id === cur.id} title={s.hint} onClick={() => setSec(s.id)}>{s.label}</button>
         ))}
       </div>
-      <p className="small muted" style={{ margin: 0 }}>{cur.hint}.</p>
+      <p className="small ex-hint">{cur.hint}.</p>
       {cur.id !== 'make' ? (
         <WinArea area={`ex-${cur.id}`}>
           <ExerciseBrowser key={cur.id} group={cur.group} suggest={cur.id === 'foryou'} />
