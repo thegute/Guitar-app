@@ -119,6 +119,12 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ##   (note choice over chords, later), a Teacher floating card per screen. Audio never sent in the background.
 ## 2026-11-11 10:59 Game full screen: NOT stretched; starts comfortable (fit, ≤56 px strings), he sizes it with the ◢ corner (height +
 ##   width, centred), scrolls when bigger than the screen, bar sticky at the bottom; double tap fits. Done (tabfit-test).
+## 2026-11-11 11:08 STAGE 2 ANSWERS (then test APK + Gemini handoff when Stage 2 is done, then the AI teacher):
+##   Jam = 3 big buttons (Play with a band · Make a beat · Loop myself) + Riff Scanner as a SMALL LINK underneath. Band starts → cards
+##   Chord now & next + Mini neck by default. Tips: MORE OFTEN (a new tip whenever there's a good one, still Got it / No more here),
+##   guitar-advice tips ON by default. Stem mixer = FLOATING CARD. YouTube band minus guitar = Stage 4. Library opens LEARNING NOW
+##   first (in progress + reviews due, then everything). Add a song: a YouTube link asks Find a tab / Scan it / Just save. Quick Start =
+##   for his brother (new to the app). Chord band guesses its style from the song, changeable. Shorts: he'll type more channels (asked).
 ## Brainstorm round 2026-11-09: see the chat summary appended below in "Brainstorm 2026-11-09".
 
 ## TOP PRIORITY FOR THE NEXT BUILD (owner 2026-11-07 13:04): seriously beef up and REDO the Learn tabs: a full, in-depth course on guitar
