@@ -56,6 +56,29 @@ export function finalOut(): AudioNode {
   return finalIn!
 }
 
+// Named buses (notes/AUDIO-ENGINE.md): features send each part to a bus, so one mixer can set the balance and the Stage 3
+// engine can take the buses over unchanged. `me` = the part you play (the guide), `band` = everything else in the song.
+export type BusName = 'me' | 'band'
+const BUS_DEFAULT: Record<BusName, number> = { me: 1, band: 1 }
+const buses = new Map<BusName, GainNode>()
+export function busLevel(name: BusName): number {
+  try { const v = Number(localStorage.getItem(`kg:bus:${name}`)); return localStorage.getItem(`kg:bus:${name}`) !== null && v >= 0 && v <= 1.5 ? v : BUS_DEFAULT[name] } catch { return BUS_DEFAULT[name] }
+}
+export function bus(name: BusName): GainNode {
+  const c = audio()
+  let g = buses.get(name)
+  if (!g) { g = c.createGain(); g.gain.value = busLevel(name); g.connect(master!); buses.set(name, g) }
+  if ((globalThis as { __kgTest?: boolean }).__kgTest) (globalThis as { __kgBuses?: unknown }).__kgBuses = buses
+  return g
+}
+/** Set a bus's level (0–1.5), smoothly, and remember it. */
+export function setBusLevel(name: BusName, v: number) {
+  const x = Math.max(0, Math.min(1.5, v))
+  try { localStorage.setItem(`kg:bus:${name}`, String(Math.round(x * 100) / 100)) } catch { /* private */ }
+  const g = buses.get(name)
+  if (g && ctx) g.gain.setTargetAtTime(x, ctx.currentTime, 0.04)
+}
+
 /** Keep the screen awake while practising (tuner, metronome, playback). */
 let wakeLock: { release: () => Promise<void> } | null = null
 export async function keepAwake(on: boolean) {

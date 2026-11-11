@@ -35,6 +35,8 @@ import { chordEase, forgetTaught, meantNote, taughtAlias, taughtCount, teachChor
 import { useFoldPosture } from '../play/fold'
 import { nextSpeed, timeline as inTimeTimeline, videoTimeOf, type VideoApi } from '../play/inTime'
 import { GameView } from '../components/GameView'
+import { MixSlider, applyMix } from '../components/MixSlider'
+import { setBusLevel } from '../audio/engine'
 import { exampleDoc } from '../tabs/examples'
 import { playNote, strum, SOUNDS, activeSound, onSoundChange, setSoundChoice, soundChoice, soundForProgram, soundInfo, loadSound, soundLoaded, type SoundId } from '../audio/pluck'
 import { audio, keepAwake } from '../audio/engine'
@@ -139,6 +141,18 @@ function keyFromTrack(track: SongTrack): { guesses: KeyGuess[]; weights: number[
 const noteName = (m: number, flats: boolean) => pcName(m % 12, flats)
 const octave = (m: number) => Math.floor(m / 12) - 1
 
+/** Game Mode used to share its saved setting with the phone's Tab / Scales & chords / Both switch, so turning Game on left
+ *  that switch on a value it doesn't know (the boxes drew on top of each other). Move it to its own setting, once. */
+function migrateGameView() {
+  try {
+    if (localStorage.getItem('kg:playView') === '"game"') {
+      localStorage.setItem('kg:playGame', '"game"')
+      localStorage.setItem('kg:playView', '"tab"')
+    }
+  } catch { /* private */ }
+  return 0
+}
+
 export function PlayScreen() {
   const inst = useInstrument()
   // each instrument remembers its own last song (guitar and ukulele tabs are kept apart)
@@ -146,6 +160,7 @@ export function PlayScreen() {
   const [doc, setDoc] = useState<SongDoc | null>(null)
   /** the Options panel (everything that isn't Wait/In time, Loop and Hear it) */
   const [opts, setOpts] = useState(false)
+  useState(migrateGameView)
   const [view, setView] = usePersist<View>('playView', 'tab')
   const [labelMode, setLabelMode] = usePersist<LabelMode>('playLabels', 'both')
   const [strict, setStrict] = usePersist('playStrict', false)
@@ -212,14 +227,15 @@ export function PlayScreen() {
   // Music stand: only the tab (much bigger) and one row of big buttons. Tidy: while you play, the other panels fold away.
   const [stand, setStand] = useState(false)
   /** Play → Game: the note highway instead of the tab */
-  const [gameView, setGameView] = usePersist<'tab' | 'game'>('playView', 'tab')
+  const [gameView, setGameView] = usePersist<'tab' | 'game'>('playGame', 'tab')
   const [gameDone, setGameDone] = useState(0)
   const [standZoom, setStandZoom] = usePersist('standZoom', 1.6)
   // the music stand's big view (remote): on narrow screens (the Fold's cover screen) unless you pick the tab
   const [standView, setStandView] = useState<'auto' | 'tab' | 'big'>('auto')
   useEffect(() => { if (!stand) setStandView('auto') }, [stand])
   const narrow = useMedia('(max-width: 480px)')
-  const bigView = stand && (standView === 'big' || (standView === 'auto' && narrow))
+  // Game full screen = the stand layout showing the game (never the big note view)
+  const bigView = stand && gameView !== 'game' && (standView === 'big' || (standView === 'auto' && narrow))
   const [tidy, setTidy] = usePersist('playTidy', true)
   const lastOnset = useRef(0)
   const [listening, setListening] = useState(false)
@@ -767,6 +783,12 @@ export function PlayScreen() {
   useEffect(() => { if (passes.n > 0) setLoopBlink(b => ({ k: (b?.k ?? 0) + 1, text: `⟲ Again${passes.last !== null ? ` · last time ${passes.last}%` : ''}` })) }, [passes.n]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (inTime.wraps > 0 && inTime.running) setLoopBlink(b => ({ k: (b?.k ?? 0) + 1, text: `⟲ Again${inTime.pass.last ? ` · last time ${inTime.pass.last.score}%` : ''}` })) }, [inTime.wraps]) // eslint-disable-line react-hooks/exhaustive-deps
   // In time: playing = the run (the mic can stay open after Stop); Wait for me: listening
+  // the play-along mix: your part (guide) vs the band, on the `me` / `band` buses (notes/AUDIO-ENGINE.md)
+  useEffect(() => {
+    if (!inTime.running) return
+    if (guide) applyMix(withBand)
+    else setBusLevel('band', 1)
+  }, [inTime.running]) // eslint-disable-line react-hooks/exhaustive-deps
   const playingNow = mode === 'time' ? inTime.running || ready.counting : listening
   const tidyNow = tidy && playingNow && !stand && !focus
   const videoShown = !!(showVideo && doc?.youtube)
@@ -1243,7 +1265,8 @@ export function PlayScreen() {
           {mode === 'time' && (
             <>
               <label className="opt-row opt-check" data-find="click"><input type="checkbox" checked={click} onChange={() => setClick(!click)} /><span><b>Click</b><span className="small muted">A metronome click while you play in time.</span></span></label>
-              <label className="opt-row opt-check" data-find="guide"><input type="checkbox" checked={guide} onChange={() => setGuide(!guide)} /><span><b>Hear the tab too</b><span className="small muted">The tab plays quietly along with you.</span></span></label>
+              <label className="opt-row opt-check" data-find="guide"><input type="checkbox" checked={guide} onChange={() => setGuide(!guide)} /><span><b>Hear the tab too</b><span className="small muted">Your part plays along with you{withBand ? ', with the band' : ''}.</span></span></label>
+              {guide && <div className="opt-row" data-find="mix"><MixSlider band={withBand} /></div>}
               {loop && <label className="opt-row opt-check" data-find="trainer"><input type="checkbox" checked={trainer.on} onChange={() => setTrainer({ ...trainer, on: !trainer.on })} /><span><b>Speed trainer</b><span className="small muted">Starts at {Math.round(trainer.start * 100)}% and speeds up {Math.round(trainer.step * 100)}% after each pass of {trainer.pass}% or better.</span></span></label>}
             </>
           )}
@@ -1360,7 +1383,9 @@ export function PlayScreen() {
           {focus ? <IconShrink /> : <IconExpand />}
         </button>
         <button className="btn sm" data-find="game" aria-pressed={gameView === 'game'} onClick={() => setGameView(gameView === 'game' ? 'tab' : 'game')} title="Game: notes slide toward you on a highway, with points and stars" data-testid="game-toggle"><Ico n="game" /><span className="stand-label"> Game</span></button>
-        <button className="btn sm stand-btn" data-find="stand" onClick={() => setStand(true)} aria-label="Music stand: just the tab, big, with big buttons" title="Music stand"><Ico n="music" /><span className="stand-label"> Stand</span></button>
+        {gameView === 'game'
+          ? <button className="btn sm stand-btn" data-find="stand" onClick={() => setStand(true)} aria-label="Game full screen: only the game, with one bar of controls" title="Full screen" data-testid="game-full"><Ico n="expand" /><span className="stand-label"> Full screen</span></button>
+          : <button className="btn sm stand-btn" data-find="stand" onClick={() => setStand(true)} aria-label="Music stand: just the tab, big, with big buttons" title="Music stand"><Ico n="music" /><span className="stand-label"> Stand</span></button>}
         <button className="btn sm" data-find="video" aria-pressed={doc.youtube ? showVideo : videoAsk} onClick={() => (doc.youtube ? setShowVideo(!showVideo) : setVideoAsk(!videoAsk))}>Video</button>
         {mode === 'time' ? (
           <button className={`btn listen${inTime.running ? ' on' : ''}`} data-find="listen" onClick={() => void toggleRun()} aria-pressed={inTime.running}>
@@ -1455,7 +1480,7 @@ export function PlayScreen() {
             <button className="btn sm" onClick={() => setSelecting(null)}>Cancel</button>
           </div>
         )}
-        {gameView === 'game' && !stand ? (
+        {gameView === 'game' ? (
           <GameView songId={doc.id} flat={flat} beatOf={gameBeats} hands={hands} stringNames={handNames} chordAt={gameChordAt}
             mode={mode} running={inTime.running} beatNow={gameBeatNow} timeFb={inTime.feedback} finished={gameDone}
             cursorFlat={cursorFlat} listening={listening} waitFb={gameWaitFb} states={states.current} version={version}
@@ -1464,13 +1489,15 @@ export function PlayScreen() {
             onAutoSpeed={on => setTrainer(on ? { on: true, start: Math.min(1, speed), step: 0.05, target: 1.25, pass: 90, down: 60, min: 0.25 } : { on: false, start: 0.6, step: 0.05, target: 1, pass: 90 })}
             onPlayFor={playFor}
             onPerfect={sec => { setLoop({ from: sec.fromBar, to: sec.toBar }); setMode('time'); setTrainer({ on: true, start: Math.min(1, Math.max(0.5, speed - 0.1)), step: 0.05, target: 1.25, pass: 90, down: 60, min: 0.25 }); setLoopBlink(b => ({ k: (b?.k ?? 0) + 1, text: `Perfect it: ${sec.name}. Press Start` })) }}
-            onAgain={() => { restart(); if (mode === 'time') void toggleRun() }} />
+            onAgain={() => { restart(); if (mode === 'time') void toggleRun() }}
+            along={mode === 'time' && (guide || withBand)} bandAvail={bandAvail}
+            onAlong={on => { if (inTime.running) inTime.stop(); setGuide(on); if (bandAvail) setBandOn(on); if (on && mode !== 'time') setMode('time') }} />
         ) : <TabView track={track} mode={labelMode} flats={flats} cursor={inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0 || inTime.running} states={states.current}
           flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} zoom={stand ? standZoom : tabZoom} onZoom={stand ? setStandZoom : setTabZoom}
           meter={meter} counts={counts} strum={strumPat} marks={report?.bars} />}
         {/* the tab's zoom, right on the tab (pinch works too; Options → Size has the same) */}
-        {gameView !== 'game' && (() => {
-          const z = stand ? standZoom : tabZoom, setZ = stand ? setStandZoom : setTabZoom
+        {gameView !== 'game' && !stand && (() => {
+          const z = tabZoom, setZ = setTabZoom
           return (
             <div className="tab-zoom-ctl" role="group" aria-label="Tab size">
               <button className="gh-btn" onClick={() => setZ(Math.max(0.7, Math.round((z - 0.1) * 10) / 10))} aria-label="Smaller tab" data-testid="tab-zoom-out">−</button>
@@ -1538,7 +1565,7 @@ export function PlayScreen() {
           )
         })()}
         {stand && !bigView && (
-          <div className="stand-bar" role="toolbar" aria-label="Music stand controls" data-testid="stand-bar">
+          <div className={`stand-bar${gameView === 'game' ? ' game' : ''}`} role="toolbar" aria-label={gameView === 'game' ? 'Game controls' : 'Music stand controls'} data-testid="stand-bar">
             {mode === 'time' ? (
               <button className={`stand-go${inTime.running || ready.counting ? ' on' : ''}`} onClick={() => void toggleRun()} aria-pressed={inTime.running}>{inTime.running || ready.counting ? <><Ico n="stop" fill /> Stop</> : <><Ico n="play" fill /> Start</>}</button>
             ) : (
@@ -1551,9 +1578,15 @@ export function PlayScreen() {
               <b>{Math.round(speed * 100)}%</b>
               <button className="stand-b" onClick={() => { setSpeed(Math.min(1.5, Math.round((speed + 0.05) * 20) / 20)); if (playAt >= 0) stopPreview() }} aria-label="Faster">+</button>
             </span>
-            <button className="stand-b" onClick={() => (inTime.running ? (inTime.stop(), inTime.start()) : restart())} aria-label="Back to the start"><Ico n="back" /></button>
-            <button className="stand-b" onClick={() => setStandView('big')} aria-label="Big view: the note or chord, huge">Big</button>
-            <button className="stand-b stand-x" onClick={() => setStand(false)} aria-label="Leave music stand">✕</button>
+            <button className="stand-b stand-back" onClick={() => (inTime.running ? (inTime.stop(), inTime.start()) : restart())} aria-label="Back to the start"><Ico n="back" /></button>
+            {gameView === 'game' ? (
+              <>
+                <button className="stand-b" onClick={() => setMode(mode === 'time' ? 'wait' : 'time')} disabled={inTime.running || listening}
+                  aria-label={mode === 'time' ? 'In time: switch to Wait for me' : 'Wait for me: switch to In time'} data-testid="game-full-mode">{mode === 'time' ? 'In time' : 'Wait'}</button>
+                <button className="stand-b" onClick={() => setOpts(true)} aria-label="Options: speed, sound, song plays along, click" data-testid="game-full-opts"><IconSliders /></button>
+              </>
+            ) : <button className="stand-b" onClick={() => setStandView('big')} aria-label="Big view: the note or chord, huge">Big</button>}
+            <button className="stand-b stand-x" onClick={() => setStand(false)} aria-label={gameView === 'game' ? 'Leave full screen' : 'Leave music stand'}>✕</button>
           </div>
         )}
         {track.capo > 0 && <p className="small muted cap">Capo on fret {track.capo}: frets are counted from the capo.</p>}

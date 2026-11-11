@@ -5,6 +5,7 @@
 //   plan       every step of today's plan and every goal on the path goes somewhere
 //   play       song check, retune warning, 1 & 2 & counts, strum arrows, rests, record yourself, chord help, pinch zoom
 //   intime     a songbook strum-along In time with the band: the count-in, the playhead, strums marked, a score
+//   along      Game → Song plays along: your part and the band both sound, the slider sets the me / band buses
 //   finder     Jam → Find the chords listens to strummed chords (fake mic) and writes them down; Use in Jam
 //   melody     the same in Notes mode with a plucked melody (Ode to Joy) as the mic, then Open as a tab
 //   learnmisc  bends trainer, About you, Progress with skill trends, the wrong-string hint in a quiz
@@ -17,7 +18,7 @@ const path = require('path')
 const fs = require('fs')
 const DIR = path.join(__dirname, 'out')
 fs.mkdirSync(DIR, { recursive: true })
-const ALL = ['lessons', 'technique', 'songbook', 'plan', 'play', 'intime', 'finder', 'melody', 'learnmisc', 'sizes']
+const ALL = ['lessons', 'technique', 'songbook', 'plan', 'play', 'intime', 'along', 'finder', 'melody', 'learnmisc', 'sizes']
 const want = process.argv.slice(2).length ? process.argv.slice(2) : ALL
 const problems = []
 const bad = (m) => { problems.push(m); console.log('  PROBLEM', m) }
@@ -512,6 +513,60 @@ async function intime(browser) {
   await page.context().close()
 }
 
+// ---------------------------------------------------------------- along (Game: the song plays along, your part ↔ band slider)
+async function along(browser) {
+  const page = await newPage(browser, { 'kg:tab2': 'play', 'kg:playBand': true, 'kg:sbGenre': 'reggae', 'kg:sbLevel': 0, 'kg:playView': 'game', 'kg:playMode': 'wait', 'kg:floatCards:play': [] })
+  await page.waitForSelector('.play-head')
+  await openSongbook(page)
+  await page.locator('.sb-part:has-text("Words")').first().click()
+  await page.locator('.song-check button:has-text("Got it")').click({ timeout: 3000 }).catch(() => {})
+  await page.waitForSelector('[data-testid=game-along-toggle]', { timeout: 6000 })
+  if (await page.locator('[data-testid=game-along-toggle]').isChecked()) bad('along: ticked in Wait for me, where nothing plays along')
+  // an old phone that saved Game in the view switch's setting: moved to its own, and the boxes don't overlap
+  const lay = await page.evaluate(() => { const r = e => document.querySelector(e)?.getBoundingClientRect(); const t = r('.play-tab'), so = r('.play-solo'); return { view: localStorage.getItem('kg:playView'), game: localStorage.getItem('kg:playGame'), overlap: !!(t && so && so.height > 0 && t.height > 0 && so.top < t.bottom - 2 && t.top < so.bottom - 2) } })
+  if (lay.view !== '"tab"' || lay.game !== '"game"') bad(`along: old Game setting not moved: ${JSON.stringify(lay)}`)
+  if (lay.overlap) bad('along: Scales & chords is drawn over the tab box')
+  if (process.env.DBG) { await page.locator('[data-testid=game-along-toggle]').scrollIntoViewIfNeeded(); await shot(page, 'along-dbg'); console.log(JSON.stringify(await page.evaluate(() => { const r = e => { const b = document.querySelector(e)?.getBoundingClientRect(); return b && [Math.round(b.top), Math.round(b.bottom)] }; return { tab: r('.play-tab'), solo: r('.play-solo'), along: r('[data-testid=game-along]'), hw: r('[data-testid=game-highway]') } }))) }
+  await page.locator('[data-testid=game-along-toggle]').click()
+  await page.waitForTimeout(500)
+  if ((await page.evaluate(() => localStorage.getItem('kg:playMode'))) !== '"time"') bad('along: ticking it did not switch to In time')
+  const setMix = v => page.locator('[data-testid=mix-range]').evaluate((el, v) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, String(v)); el.dispatchEvent(new Event('input', { bubbles: true })) }, v)
+  await setMix(20)
+  await page.locator('button.listen').click()
+  await page.waitForTimeout(4500) // count-in + a few beats
+  // listen on both buses: is sound really coming through each one?
+  const meas = () => page.evaluate(async () => {
+    const B = window.__kgBuses
+    if (!B) return null
+    const out = {}
+    for (const n of ['me', 'band']) {
+      const g = B.get(n); if (!g) { out[n] = { gain: null, rms: 0 }; continue }
+      const a = g.context.createAnalyser(); a.fftSize = 2048; g.connect(a)
+      let peak = 0; const buf = new Float32Array(2048)
+      for (let i = 0; i < 25; i++) { await new Promise(r => setTimeout(r, 80)); a.getFloatTimeDomainData(buf); let s = 0; for (const x of buf) s += x * x; peak = Math.max(peak, Math.sqrt(s / buf.length)) }
+      g.disconnect(a)
+      out[n] = { gain: Math.round(g.gain.value * 100) / 100, rms: Math.round(peak * 1000) / 1000 }
+    }
+    return out
+  })
+  const m1 = await meas()
+  await setMix(80)
+  await page.waitForTimeout(400)
+  const m2 = await meas()
+  await shot(page, 'along')
+  await page.locator('button.listen').click()
+  console.log(`along: mix 20 ${JSON.stringify(m1)} · mix 80 ${JSON.stringify(m2)}`)
+  if (!m1) bad('along: no buses (nothing played)')
+  else {
+    if (!(m1.me.rms > 0.002)) bad('along: your part (guide) is silent')
+    if (!(m1.band.rms > 0.002)) bad('along: the band is silent')
+    if (Math.abs(m1.me.gain - 1) > 0.05 || Math.abs(m1.band.gain - 0.4) > 0.05) bad(`along: mix 20 should be me 1, band 0.4: ${JSON.stringify(m1)}`)
+    if (Math.abs(m2.me.gain - 0.4) > 0.05 || Math.abs(m2.band.gain - 1) > 0.05) bad(`along: mix 80 should be me 0.4, band 1: ${JSON.stringify(m2)}`)
+  }
+  if (page.errors.length) bad('along page errors: ' + page.errors.join(' | '))
+  await page.context().close()
+}
+
 // ---------------------------------------------------------------- melody
 async function melody() {
   const browser = await launch('ode.wav')
@@ -539,8 +594,8 @@ async function melody() {
 
 ;(async () => {
   const browser = await launch()
-  const fns = { lessons, technique, songbook, plan, play, intime, finder, melody, learnmisc, sizes }
-  await Promise.all(want.map(w => fns[w](browser).catch(e => bad(`${w}: crashed: ${e.message.split('\n')[0]}`))))
+  const fns = { lessons, technique, songbook, plan, play, intime, along, finder, melody, learnmisc, sizes }
+  await Promise.all(want.map(w => fns[w](browser).catch(e => bad(`${w}: crashed: ${(process.env.DBG ? e.message : e.message.split('\n')[0])}`))))
   await browser.close()
   console.log(problems.length ? `${problems.length} problems` : 'build 13: all good')
   process.exit(problems.length ? 1 : 0)

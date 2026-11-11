@@ -136,21 +136,23 @@ export function bandByStep(events: BandEvent[], flat: FlatStep[]): { off: number
 export class BandVoices {
   private bass: Handle | null = null
   private all: Handle[] = []
-  constructor(public level = 1) {}
+  /** `dest`: where the band plays (the `band` bus in play-along; the main output when not given) */
+  constructor(public level = 1, public dest?: AudioNode) {}
   play(e: BandEvent, t: number, spb: number) {
-    if (e.kind === 'drum') { playDrum(e.voice!, t, e.level * this.level, undefined, e.kit ?? {}); return }
+    const dest = this.dest
+    if (e.kind === 'drum') { playDrum(e.voice!, t, e.level * this.level, dest, e.kit ?? {}); return }
     const end = t + Math.max(0.08, e.dur * spb * 0.95)
     if (e.kind === 'bass') {
       this.bass?.stop(t)
-      const h = playBass(e.midis![0], t, e.level * 0.8 * this.level)
+      const h = playBass(e.midis![0], t, e.level * 0.8 * this.level, dest)
       h.stop(end)
       this.bass = h
       this.all.push(h)
       return
     }
     const ms = e.midis!
-    const h = ms.length >= 3 ? strum(ms, t, { gain: e.level * this.level, sound: e.sound, spread: 0.01 }) : (() => {
-      const hs = ms.map(m => playNote(m, t, e.level * this.level, undefined, { sound: e.sound }))
+    const h = ms.length >= 3 ? strum(ms, t, { gain: e.level * this.level, sound: e.sound, spread: 0.01, dest }) : (() => {
+      const hs = ms.map(m => playNote(m, t, e.level * this.level, dest, { sound: e.sound }))
       return { stop: (at?: number) => hs.forEach(x => x.stop(at)) }
     })()
     h.stop(end)

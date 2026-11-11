@@ -1,7 +1,7 @@
 // "Play in time": the tab scrolls at tempo (with a click, or following a synced YouTube video) and every note
 // you play is judged early / on time / late. Includes the speed trainer for looped sections.
 import { TempoMap } from './tempoMap'
-import { audio } from '../audio/engine'
+import { audio, bus } from '../audio/engine'
 import { playClick } from '../audio/metronome'
 import { playNote, type SoundId } from '../audio/pluck'
 import { pickupShift, playable, type FlatStep } from '../tabs/model'
@@ -105,7 +105,8 @@ export class InternalClock implements Clock {
   private nextClick = 0
   private guideNext = 0
   private bandNext = 0
-  private voices = new BandVoices()
+  // the song's other parts on the `band` bus, the guide (your part) on the `me` bus: the Game / Play mix slider sets them
+  private voices = new BandVoices(1, bus('band'))
   private stopped = false
   passes = 0
   constructor(
@@ -168,7 +169,7 @@ export class InternalClock implements Clock {
       while (this.guideNext < inRange.length && this.timeOf(inRange[this.guideNext].beat) <= horizon) {
         const s = inRange[this.guideNext]
         const t = this.timeOf(s.beat)
-        if (t >= ctx.currentTime - 0.01) s.midis.forEach((m, k) => playNote(m, t + (s.chord ? k * 0.012 : 0), s.chord ? 0.3 : 0.4, undefined, { sound: g.sound }))
+        if (t >= ctx.currentTime - 0.01) s.midis.forEach((m, k) => playNote(m, t + (s.chord ? k * 0.012 : 0), s.chord ? 0.3 : 0.4, bus('me'), { sound: g.sound }))
         this.guideNext++
       }
     }

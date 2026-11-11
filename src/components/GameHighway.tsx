@@ -44,7 +44,9 @@ export function GameHighway(p: Props) {
   const lay = useRef({ W: 600, H: 260, hitX: 120, ppb: 120, top: 34, gap: 30 })
   // how many seconds of music fit between the hit line and the right edge, and the string spacing you chose
   const [secs, setSecs] = useState(() => { const v = Number(localStorage.getItem('kg:gameSecs')); return v >= 1.5 && v <= 8 ? v : 3.5 })
-  const [gapPick, setGapPick] = useState(() => { const v = Number(localStorage.getItem('kg:gameGap')); return v >= 18 && v <= 60 ? v : 0 })
+  const [gapPick, setGapPick] = useState(() => { const v = Number(localStorage.getItem('kg:gameGap')); return v >= 18 && v <= 160 ? v : 0 })
+  // how wide (a share of the space it has; 0 = all of it): drag the corner sideways. Remembered (kg:gameW).
+  const [widthPick, setWidthPick] = useState(() => { const v = Number(localStorage.getItem('kg:gameW')); return v >= 0.35 && v < 1 ? v : 0 })
   const view = useRef({ secs, gapPick })
   view.current = { secs, gapPick }
   const saveSecs = (v: number) => { const z = Math.round(Math.max(1.5, Math.min(8, v)) * 10) / 10; setSecs(z); try { localStorage.setItem('kg:gameSecs', String(z)) } catch { /* full */ } }
@@ -54,7 +56,7 @@ export function GameHighway(p: Props) {
   const look = useRef({ off: 0, dragging: false, from: 0, off0: 0, moved: false, back: 0, fingers: 0 })
   const [looking, setLooking] = useState(false)
   const resize = useRef<() => void>(() => {})
-  useEffect(() => { resize.current() }, [gapPick])
+  useEffect(() => { resize.current() }, [gapPick, widthPick])
 
   useEffect(() => {
     const c = cv.current, w = wrap.current
@@ -73,19 +75,23 @@ export function GameHighway(p: Props) {
     function fitGap(n0: number): number {
       const fallback = Math.max(22, Math.min(34, Math.round((window.innerHeight * 0.32) / Math.max(1, n0 - 1))))
       if (!host || getComputedStyle(host).overflowY === 'visible') return fallback
-      // how tall everything else in the box is (its content, not its scroll height, which never drops below the box)
-      const hr = host.getBoundingClientRect()
-      let bottom = 0
-      for (const el of host.children) { const r = el.getBoundingClientRect(); if (r.height) bottom = Math.max(bottom, r.bottom - hr.top + host.scrollTop) }
-      const pad = parseFloat(getComputedStyle(host).paddingBottom || '0')
-      const others = bottom + pad - c!.offsetHeight
+      // how tall everything else in the box is: the heights of its parts (not where they sit: in full screen the control
+      // bar is pushed to the bottom, which would count the free space as taken)
+      const cs = getComputedStyle(host)
+      const gapY = parseFloat(cs.rowGap || '0') || 0
+      let sum = 0, n = 0
+      for (const el of host.children) { const r = el.getBoundingClientRect(); if (r.height) { sum += r.height; n++ } }
+      const pads = parseFloat(cs.paddingTop || '0') + parseFloat(cs.paddingBottom || '0')
+      const others = sum + gapY * Math.max(0, n - 1) + pads - c!.offsetHeight
       const free = host.clientHeight - others - 4
-      return Math.max(22, Math.min(48, Math.floor((free - 74) / Math.max(1, n0 - 1))))
+      // fit the box, up to a comfortable spacing: bigger is your call (drag the corner), never stretched for you
+      const most = host.closest('.play.stand') ? 56 : 48
+      return Math.max(22, Math.min(most, Math.floor((free - 74) / Math.max(1, n0 - 1))))
     }
     function size() {
       const dpr = Math.min(2, window.devicePixelRatio || 1)
       const n0 = props.current.stringNames.length
-      // the strings' spacing: your pick (⇕), else whatever fits the box (22–48 px)
+      // the strings' spacing: your pick (⇕), else whatever fits the box (22–96 px)
       const gap0 = view.current.gapPick || fitGap(n0)
       const W = Math.max(280, w!.clientWidth), H = props.current.height ?? 54 + 20 + gap0 * Math.max(1, n0 - 1)
       if (Math.abs(W - lay.current.W) < 1 && Math.abs(H - lay.current.H) < 1 && c!.width === Math.round(W * dpr)) return
@@ -148,7 +154,8 @@ export function GameHighway(p: Props) {
         if (st) { g.fillStyle = st.gold ? gold : accent; g.fillText('★'.repeat(st.stars) + '☆'.repeat(3 - st.stars), Math.max(4, x) + g.measureText(sec.name).width + 6, 14) }
       }
       // notes
-      const head = Math.min(30, Math.max(20, gap * 0.95))
+      // note size follows the string spacing (bigger in full screen), but stays narrow enough that quick notes don't overlap
+      const head = Math.max(20, Math.min(48, gap <= 32 ? gap * 0.95 : 30 + (gap - 32) * 0.3, Math.max(20, ppb * 0.42)))
       for (let k = 0; k < P.items.length; k++) {
         const it = P.items[k]
         const x = xOf(it.beat)
@@ -306,16 +313,32 @@ export function GameHighway(p: Props) {
     if (!lk.moved) tap(e)
   }
   const backToNow = () => { look.current.off = 0; look.current.back = 0; setLooking(false) }
-  // double tap the handle: back to fitting the box
-  const fitBox = () => { setGapPick(0); try { localStorage.removeItem('kg:gameGap') } catch { /* private */ } }
-  // the handle under the highway: drag down for taller strings
+  // double tap the handle: back to fitting the box (full width, string spacing to fit)
+  const fitBox = () => {
+    setGapPick(0); setWidthPick(0)
+    try { localStorage.removeItem('kg:gameGap'); localStorage.removeItem('kg:gameW') } catch { /* private */ }
+  }
+  // the handle under the highway: drag down for taller strings, sideways for wider or narrower (it stays centred, so
+  // the edge follows your finger)
   const sizeDrag = (e: React.PointerEvent) => {
     e.preventDefault()
-    const y0 = e.clientY, g0 = lay.current.gap, n = Math.max(1, props.current.stringNames.length - 1)
-    const mv = (ev: PointerEvent) => setGapPick(Math.round(Math.max(18, Math.min(60, g0 + (ev.clientY - y0) / n))))
+    const w = wrap.current, room = w?.parentElement?.clientWidth || 0
+    const x0 = e.clientX, y0 = e.clientY, g0 = lay.current.gap, n = Math.max(1, props.current.stringNames.length - 1)
+    const w0 = w?.offsetWidth || room
+    let gap = g0, frac = widthPick, sideways = false
+    const mv = (ev: PointerEvent) => {
+      const dx = ev.clientX - x0, dy = ev.clientY - y0
+      if (Math.abs(dy) > 4 || !sideways) { gap = Math.round(Math.max(18, Math.min(160, g0 + dy / n))); setGapPick(gap) }
+      if (room > 0 && (sideways || Math.abs(dx) > 10)) {
+        sideways = true
+        const f = Math.max(0.35, Math.min(1, (w0 + 2 * dx) / room))
+        frac = f >= 0.985 ? 0 : Math.round(f * 1000) / 1000
+        setWidthPick(frac)
+      }
+    }
     const done = () => {
       removeEventListener('pointermove', mv); removeEventListener('pointerup', done); removeEventListener('pointercancel', done)
-      setGapPick(g => { try { localStorage.setItem('kg:gameGap', String(g)) } catch { /* full */ } return g })
+      try { localStorage.setItem('kg:gameGap', String(gap)); if (frac) localStorage.setItem('kg:gameW', String(frac)); else localStorage.removeItem('kg:gameW') } catch { /* full */ }
     }
     addEventListener('pointermove', mv); addEventListener('pointerup', done); addEventListener('pointercancel', done)
   }
@@ -337,7 +360,7 @@ export function GameHighway(p: Props) {
     if (best) P.onTap((best as { flat: number }).flat, (best as { note: number }).note)
   }
   return (
-    <div ref={wrap} className="game-highway" data-testid="game-highway">
+    <div ref={wrap} className="game-highway" data-testid="game-highway" style={widthPick ? { width: `${widthPick * 100}%` } : undefined}>
       <canvas ref={cv} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} role="img"
         aria-label="Note highway: notes slide to the line on the left; play each one as it reaches the line. Drag sideways to look ahead, pinch to zoom." />
       <div className="gh-zoom" role="group" aria-label="Highway zoom">
@@ -346,7 +369,7 @@ export function GameHighway(p: Props) {
         <span className="gh-secs tabular" title="Seconds of music on screen">{secs.toFixed(1)} s</span>
         <button className="gh-btn" onClick={() => saveSecs(secs / 1.25)} aria-label="Zoom in: bigger notes" data-testid="game-zoom-in">+</button>
       </div>
-      <div className="gh-size" onPointerDown={sizeDrag} onDoubleClick={fitBox} role="separator" aria-label="Drag to make the highway taller or shorter; double tap to fit the box again" title="Drag to resize · double tap: fit the box" data-testid="game-size">⇕</div>
+      <div className="gh-size" onPointerDown={sizeDrag} onDoubleClick={fitBox} role="separator" aria-label="Drag down or up for taller or shorter strings, sideways for wider or narrower; double tap to fit the box again" title="Drag to resize (up/down and sideways) · double tap: fit the box" data-testid="game-size"><span aria-hidden>⇕</span><span className="gh-grip" aria-hidden>◢</span></div>
     </div>
   )
 }

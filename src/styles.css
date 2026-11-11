@@ -2395,13 +2395,14 @@ body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-re
 @media (max-width: 759px) { .shorts-stage.scanning .short-frame { height: min(42vh, 400px); } }
 
 /* Play → Game: the note highway */
-.game-highway { width: 100%; border-radius: var(--r-lg); overflow: hidden; touch-action: pan-y; position: relative; }
+.game-highway { width: 100%; margin-inline: auto; border-radius: var(--r-lg); overflow: hidden; touch-action: pan-y; position: relative; }
 /* zoom and look-ahead controls on the highway, and the resize handle under it */
 .gh-zoom { position: absolute; top: 6px; right: 6px; display: flex; align-items: center; gap: 4px; }
 .gh-btn { min-width: 34px; min-height: 32px; border-radius: var(--r-sm); border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 88%, transparent); color: var(--ink); font-weight: 700; }
 .gh-btn.now { padding: 0 10px; background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .gh-secs { font: 600 12px var(--ui); color: var(--ink); background: color-mix(in srgb, var(--surface) 80%, transparent); border-radius: var(--r-sm); padding: 2px 6px; }
-.gh-size { height: 18px; display: grid; place-items: center; color: var(--ink-3); cursor: ns-resize; touch-action: none; font-size: 12px; }
+.gh-size { height: 22px; display: grid; place-items: center; position: relative; color: var(--ink-3); cursor: move; touch-action: none; font-size: 12px; }
+.gh-grip { position: absolute; right: 4px; bottom: 2px; font-size: 14px; line-height: 1; color: var(--ink-2); }
 .game-highway canvas { display: block; }
 .game-hud { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .game-score b { font: 700 1.5rem var(--font-display, inherit); }
@@ -2575,3 +2576,19 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .pdf-thumb { margin: 0; flex: 0 0 auto; text-align: center; }
 .pdf-thumb img { display: block; height: 150px; width: auto; border-radius: var(--r-sm); background: #fff; box-shadow: 0 1px 4px rgb(0 0 0 / .25); }
 .pdf-thumb figcaption { margin-top: 2px; }
+
+/* play-along mix: your part ↔ band (components/MixSlider.tsx) */
+.mix-slider { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 220px; }
+.mix-slider input[type=range] { flex: 1 1 auto; min-width: 80px; accent-color: var(--accent); }
+.mix-slider .mix-val { min-width: 7.5em; }
+.mix-slider.compact .mix-val { min-width: 0; }
+.game-along { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* Game full screen (the stand layout showing the game): the bar sits at the bottom; on narrow screens speed and back
+   to the start live in ⚙ Options so Start, Loop, mode, ⚙ and ✕ always fit */
+.play.stand .stand-bar { margin-top: auto; }
+@media (max-width: 480px) { .stand-bar.game .stand-speed, .stand-bar.game .stand-back { display: none; } .stand-bar.game { justify-content: space-between; } }
+
+/* Game full screen: when you size the highway bigger than the screen, it scrolls; the control bar stays at the bottom */
+.play.stand .play-tab { overflow-y: auto; }
+.play.stand .stand-bar.game { position: sticky; bottom: 0; z-index: 3; background: var(--bg); }

@@ -6,6 +6,7 @@ import type { FlatStep } from '../tabs/model'
 import type { HandGroup } from '../play/handShape'
 import { highway, loadBest, mergeBest, saveBest, sectionResults, sectionsOf, toPerfect, Scorer, type NoteResult, type Section, type SectionResult } from '../play/game'
 import { GameHighway, type GameFeedback } from './GameHighway'
+import { MixSlider } from './MixSlider'
 import { Ico } from './Icon'
 
 export interface GameViewProps {
@@ -34,6 +35,10 @@ export interface GameViewProps {
   onPlayFor: (flat: number, note?: number) => void
   onPerfect: (sec: Section) => void
   onAgain: () => void
+  /** the song plays along with you (In time): your part (the guide) and the band, mixed with one slider */
+  along: boolean
+  bandAvail: boolean
+  onAlong: (on: boolean) => void
 }
 
 export function GameView(p: GameViewProps) {
@@ -123,6 +128,13 @@ export function GameView(p: GameViewProps) {
         <label className="row small" style={{ gap: 4, alignItems: 'center' }} title="Each loop: 90% or better speeds up 5%, under 60% slows down 5% (25–125%)">
           <input type="checkbox" checked={p.autoSpeed} onChange={e => p.onAutoSpeed(e.target.checked)} data-testid="game-auto" /> Auto speed {p.autoSpeed && <b className="tabular">{p.speedPct}%</b>}
         </label>
+      </div>
+      <div className="game-along" data-testid="game-along">
+        <label className="row small" style={{ gap: 6, alignItems: 'center' }} title="The song plays while you play: your part and the other instruments, in time, scored as you go">
+          <input type="checkbox" checked={p.along} onChange={e => p.onAlong(e.target.checked)} data-testid="game-along-toggle" />
+          <b>Song plays along</b>{p.mode !== 'time' && !p.along && <span className="muted"> (in time)</span>}
+        </label>
+        {p.along && <MixSlider band={p.bandAvail} compact />}
       </div>
       <GameHighway items={items} sections={sections} barBeats={barBeats} stringNames={p.stringNames} beatNow={p.beatNow} cursorBeat={cursorBeat}
         spb={p.spb} states={p.states} feedback={fb} sectionStars={live} onTap={(f, n) => p.onPlayFor(f, n)} />
