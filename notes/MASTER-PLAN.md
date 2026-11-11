@@ -74,3 +74,14 @@ Everything the owner has asked for, in one place. [M] = Opus medium is fine, [H]
 
 ## The owner's to-do while waiting (notes/WEEK.md)
 Test test-40's Riff Scanner on your own playing and the Staged Right video; note bugs and ideas in WEEK.md.
+
+
+## AI TEACHER (owner 2026-11-11 10:57; runs right after Stage 2, before Stage 4)
+The ✨ helper grows into a teacher that listens to him play and coaches him. KGuitar's own measurements are the facts (notes, timing in
+ms, trouble bars, trends, recordings); Gemini also hears a short clip of the run for tone / buzz / muting / feel (labelled as opinion).
+- Talks spoken between passes + a text card; strictness is his setting (several levels); clips go to Gemini only when the teacher listens.
+- Places: Play + Game (after runs and loop passes: one fix, a drill it sets up, re-listen), Learn (teaches lessons and Zero to Hero steps,
+  grades gates, daily check-in using trends), technique trainers (bends, vibrato, chord changes, rhythm), Jam / looper solos (later),
+  and a Teacher floating card on any screen.
+- Memory of past lessons (what he was told, whether it improved) on the phone; works with the free Gemini key, falls back to the
+  built-in coach (report card + rules) without a key.
