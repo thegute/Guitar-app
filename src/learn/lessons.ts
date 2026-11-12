@@ -11,6 +11,8 @@ export type Block =
   | { prog: { label: string; chords: number[][]; gap?: number } }
   | { neck: { root: string; ivs: number[]; labels?: 'int' | 'note'; to?: number } }
   | { circle: { tonic: string; minor?: boolean } }
+  /** marks at exact places on the neck, worked out for the instrument's tuning (octave shapes, "every G", …) */
+  | { spots: { caption?: string; from?: number; to?: number; marks: (midis: number[]) => { s: number; f: number; label: string; role: 'root' | 'chord' | 'scale' | 'target' | 'next' }[] } }
   | { rhythm: { label: string; beats: number[]; bpm?: number } }
   | { practice: { label: string; quiz?: string; tool?: 'ear' | 'caged' | 'changes' | 'rhythm' | 'circle' | 'jam' | 'play' | 'practice' } }
 

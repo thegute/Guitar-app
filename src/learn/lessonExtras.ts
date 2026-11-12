@@ -9,7 +9,7 @@ export type LessonEx = { label: string } & (
   | { spec: ExerciseSpec }
   | { songbook: { song: string; part: string } }
   | { drill: string }
-  | { tab: 'alphabetA' | 'alphabetE' | 'octaves' | 'durations' | 'intervals' | 'counting' | 'shuffle' }
+  | { tab: 'alphabetA' | 'alphabetE' | 'octaves' | 'durations' | 'intervals' | 'counting' | 'shuffle' | 'octaveWalk' | 'octaveDyads' | 'octaveCross' }
   | { tool: 'ear' | 'circle' | 'caged' | 'changes' | 'bends' | 'jam' }
   | { example: string }
 )
@@ -127,6 +127,37 @@ function line(title: string, tuning: number[], midis: (number | null)[], durs: n
 }
 
 const NATURAL = [0, 2, 4, 5, 7, 9, 11]
+
+type Pos = { s: number; f: number }
+/** A tab from exact places (a step can be one note, notes played together, or a rest). */
+function posLine(title: string, tuning: number[], steps: (Pos | Pos[] | null)[], dur: number, bpm: number, perBar = 4): Song {
+  const bars: SongBar[] = []
+  let cur: SongBar = { steps: [] }, used = 0
+  for (const st of steps) {
+    const ps = st === null ? [] : Array.isArray(st) ? st : [st]
+    cur.steps.push({ dur, notes: ps.map(p => ({ string: p.s, fret: p.f, midi: tuning[p.s] + p.f })) })
+    used += dur
+    if (used >= perBar - 1e-6) { bars.push(cur); cur = { steps: [] }; used = 0 }
+  }
+  if (cur.steps.length) bars.push(cur)
+  return { title, tempo: bpm, tracks: [{ name: title, tuning, capo: 0, bars, program: 25 }] }
+}
+/** Octave shapes this tuning has: from string s to a higher-sounding string t, the fret moves by `move` (12 − the gap). */
+export function octaveShapes(tuning: number[]): { s: number; t: number; move: number }[] {
+  const out: { s: number; t: number; move: number }[] = []
+  for (let s = 0; s < tuning.length; s++) for (let t = 0; t < tuning.length; t++) {
+    if (t === s) continue
+    const move = 12 - (tuning[t] - tuning[s])
+    if (move >= -4 && move <= 5) out.push({ s, t, move })
+  }
+  return out
+}
+/** Where the note at (s, f) sounds an octave higher, frets 0–15 (12 frets up on the same string included). */
+export function octaveAbove(tuning: number[], s: number, f: number): Pos[] {
+  const m = tuning[s] + f + 12
+  return tuning.map((o, t) => ({ s: t, f: m - o })).filter(p => p.f >= 0 && p.f <= 15)
+}
+
 /** The lesson tab: built for this instrument's tuning. */
 export function lessonTab(id: string, tuning: number[]): Song {
   const low = 0
@@ -147,6 +178,34 @@ export function lessonTab(id: string, tuning: number[]): Song {
       seq.push(...ms, ...ms.slice(0, -1).reverse())
     }
     return line('Octaves: the same note, higher and lower', tuning, seq, 1, 70)
+  }
+  if (id === 'octaveWalk') {
+    // one note on every string, low to high and back (the same pitch class wherever it first appears, frets 0–11)
+    const pcv = (Math.min(...tuning) + 5) % 12
+    const order = tuning.map((_, i) => i).sort((a, b) => tuning[a] - tuning[b])
+    const up = order.map(s2 => ({ s: s2, f: ((pcv - tuning[s2]) % 12 + 12) % 12 }))
+    return posLine('One note on every string, up and back', tuning, [...up, ...up.slice(0, -1).reverse(), null], 1, 60)
+  }
+  if (id === 'octaveDyads' || id === 'octaveCross') {
+    // octave pairs played together, walking up the natural notes. Dyads: from the lowest strings (two strings up, two
+    // frets up on guitar); Cross: the pairs that cross the B string (three frets up on guitar)
+    const shapes = octaveShapes(tuning).filter(x => x.move >= 0)
+    const cross = shapes.filter(x => x.move === 3 && x.t - x.s === 2)
+    const plain = shapes.filter(x => x.move === 2 && x.t - x.s === 2)
+    const use = (id === 'octaveCross' ? (cross.length ? cross : shapes) : (plain.length ? plain : shapes))
+    const pick = use.length ? use.reduce((a, b) => (tuning[b.s] < tuning[a.s] ? b : a)) : null
+    if (!pick) {
+      // no two-string octave on this tuning: 12 frets up the same string
+      const s2 = 0
+      const steps = [0, 2, 3].flatMap(f => [{ s: s2, f }, { s: s2, f: f + 12 }])
+      return posLine('Octaves: 12 frets up', tuning, steps, 1, 66)
+    }
+    const steps: (Pos | Pos[] | null)[] = []
+    for (let f = 0; f <= 12 - pick.move && steps.length < 9; f++) {
+      if (!NATURAL.includes((tuning[pick.s] + f) % 12) || f + pick.move < 0) continue
+      steps.push([{ s: pick.s, f }, { s: pick.t, f: f + pick.move }])
+    }
+    return posLine(id === 'octaveCross' ? 'Octave pairs across the B string' : 'Octave pairs up the neck', tuning, [...steps, ...steps.slice(0, -1).reverse(), null], 1, 66)
   }
   if (id === 'durations') {
     const m = tuning[Math.min(2, tuning.length - 1)] + 2

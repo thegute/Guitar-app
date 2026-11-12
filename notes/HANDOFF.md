@@ -5,6 +5,8 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 `notes/blueprint-decisions.md` and `notes/blueprint-part1.txt` / `part2.txt` (the owner's master blueprint, full text).
 **Also read `notes/WEEK.md` first: the owner's test notes, quick ideas and bugs from the week.** Nothing important lives only in the old chat: if a detail isn't in these files or the code, it doesn't exist yet.
 
+**THE FULL LIST OF EVERYTHING PROMISED: `notes/MASTER-CHECKLIST.md` (every item of his Master Game Plan PDF + later asks, with status). Keep it current.**
+
 ## OWNER RULES FOR THEORY, BOOKS AND THE COURSE (2026-11-11, "don't forget any of these instructions")
 - Use his PDF books inside the app, not just their tabs, wherever it helps. He owns them, the app is only for him: use all of them
   when appropriate. BUT the repo is public: book text and pages stay in his PRIVATE book pack (phone / Drive), never in the repo;

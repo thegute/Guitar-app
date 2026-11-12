@@ -99,3 +99,11 @@ pentatonic · 5 Passing, approach and chromatic notes · 6 Phrasing: motifs, cal
 8 What to play over any chord · 9 Triad pairs and upper structures · Final mastery check
 
 About 66 lessons + 8 checks. The 12 No Bull lessons already written fold into Levels 1–3.
+
+## From the Gemini roadmap PDF (Stage 7, owner's upload 2026-11-11): fold these in
+Its 10 deep-dive units map onto the levels: CAGED connection (L4), close and spread triads on all string sets (L4), the 7
+modes and modal mixture (L8, L7), intervals and melodic ear training (all levels), shell, drop-2 and extended voicings (L5,
+add shells and drop-2 explicitly), voice leading and guide tones (L5–L6), playing the changes (L6), and the style units
+(progressive melodic metal, Dylan Gossett acoustic storytelling, Hawaiian slack key) as style paths that use the levels.
+Its daily 15-minute micro-routine (see it + video → targeted drill with an automatic speed ramp, +3% after 2 clean passes →
+jam over a backing → check-in recorded in Then vs Now) is the shape of each practice day.

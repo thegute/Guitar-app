@@ -31,6 +31,21 @@ Everything the owner has asked for, in one place. [M] = Opus medium is fine, [H]
    follow the progression**; Practice over this; save kits + send to looper/library/recordings; **groovebox upgrades**: arpeggio/strum pills
    (Block, Pluck up, Pluck down, Strum, Pulse), slide a step = volume, hold a step = roll 2×/3×/4× or "only on bar 4", effects pad Pin +
    record finger movements, Kick Pump, Auto Bass, Warmth + Length dials. [M]
+   **Owner 2026-11-11: "important to me": ALSO everything in Stage 6 of the Gemini roadmap PDF (notes/master-roadmap-2026-11-11.pdf):**
+   - Posture-aware cockpit: unfolded Fold / tablet = 4 quadrants with no scrolling (pads with live mini-waveforms + playheads |
+     step grid + drum layers | keys/piano roll + chord motion pills + XY FX | 4-track looper rings + docked target-tone fretboard);
+     half-folded tabletop = grid, looper rings and fretboard on the top half, a giant 16-pad deck + footswitch bar on the bottom;
+     ⤢ full screen starts the transport at pixel 0 with a small ⤡ exit.
+   - "Match a Song's Vibe": a song file or YouTube link → BPM, meter, swing %, groove DNA (prog-metal double kick, reggae
+     one-drop, Gossett boom-chuck…), key and chord colour → a similar-but-different starter beat ("How close?" slider,
+     Reroll variation), a cousin chord progression, and "Extract drum one-shots from the song" (cleanest kick, snare, hat
+     from the drum stem onto pads).
+   - "Guitarcatcher": play your real guitar (plucks, bends, slides) to play the beat maker's synths, choirs, 808 bass or
+     sliced pads live (needs the Stage 3 pitch-contour engine; target under 12 ms), recording into the piano roll.
+   - Hardware-on-glass: MPC-style "16 Levels" (spread one pad over 16 by scale-locked pitch, velocity, filter warmth or
+     decay), Tidy pads; step grid gestures (drag = velocity, swipe = 2×/3×/4× ratchets, hold = a wheel for fills on bar 4,
+     probability %, pitch lock, per-row step length for 5/4, 7/8, 6/8 and polyrhythms); 1-tap Auto-Bass, Kick Pump,
+     latched (pinned) XY FX trails, Auto-build song (parts A–D), Track mute mode.
 7. ⏳ **Band behind me**: one button in the song player and Game Mode; the other tracks of a Songsterr/Guitar Pro song, or a chord-based band
    for chord songs, play quieter while your part is a little louder; a "band vs my part" slider. [M]
 8. ⏳ **Shorts**: follow Mr. Tabs, Level Up Guitar Tabs and Kenneth Acoustic by default, keep the random mix of new channels. [M]

@@ -102,7 +102,7 @@ function RhythmBlock({ label, beats, bpm = 80 }: { label: string; beats: number[
   )
 }
 
-function BlockView({ b, inst, onGo }: { b: Block; inst: Instrument; onGo: (g: Go) => void }) {
+export function BlockView({ b, inst, onGo }: { b: Block; inst: Instrument; onGo: (g: Go) => void }) {
   if ('p' in b) return <p>{rich(b.p)}</p>
   if ('list' in b) return <ul className="lesson-list">{b.list.map((x, i) => <li key={i}>{rich(x)}</li>)}</ul>
   if ('tip' in b) return <p className="notice small">{rich(b.tip)}</p>
@@ -117,6 +117,19 @@ function BlockView({ b, inst, onGo }: { b: Block; inst: Instrument; onGo: (g: Go
           playExample([], [r, r + (minor ? 3 : 4), r + 7, r + 12])
         }} />
       </div>
+    )
+  }
+  if ('spots' in b) {
+    const marks = b.spots.marks(inst.midis)
+    const at = new Map(marks.map(m => [`${m.s}:${m.f}`, m]))
+    const to = b.spots.to ?? Math.min(15, Math.max(5, ...marks.map(m => m.f + 2)))
+    return (
+      <figure className="lesson-spots">
+        <Fretboard tuning={inst.midis} fromFret={b.spots.from ?? 0} toFret={to} compact
+          markFor={(_m, s, f) => { const x = at.get(`${s}:${f}`); return x ? { label: x.label, role: x.role } : null }}
+          onTap={m => playNote(m, 0, 0.8)} />
+        {b.spots.caption && <figcaption className="small muted">{b.spots.caption}</figcaption>}
+      </figure>
     )
   }
   if ('neck' in b) {
