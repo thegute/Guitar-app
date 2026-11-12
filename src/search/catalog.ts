@@ -307,7 +307,7 @@ export const FEATURES: Entry[] = [
     keys: 'theory lessons music theory learn theory explain chapters read watch video offtonic understand music intervals keys harmony' }),
   f({ id: 'course', title: 'The theory course', where: 'Learn → Explore → Theory lessons', guide: 'The theory course', target: { go: { tool: 'lessons' } },
     text: 'Eight levels of deep lessons, taught the No Bull way: learn it, hear it, a practice week, use it, check it. Level 1: notes on the neck.',
-    keys: 'theory course levels level 1 notes on the neck octave shapes tones semitones sharps flats landmarks reading tab chord boxes rhythm counting tuning by ear mastery check deep lessons no bull' }),
+    keys: 'theory course levels level 1 notes on the neck octave shapes tones semitones sharps flats landmarks reading tab chord boxes rhythm counting tuning by ear mastery check deep lessons no bull level 2 major scale triads intervals chord names keys chords of a key roman numerals nashville numbers key signatures circle of fifths strumming ties pushes' }),
   f({ id: 'books', title: 'My books', where: 'Learn → Explore → My books', guide: 'My books', target: { go: { books: {} } },
     text: 'Your own guitar books on this phone: search every page, read them, play a page\'s tab, ask the teacher about a page.',
     keys: 'my books book pdf books read my book book pack library shelf pages chapter in your books' }),

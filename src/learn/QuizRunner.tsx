@@ -86,6 +86,17 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
     let t = ctx.currentTime + 0.05
     if (question.audio.seq) { question.audio.seq.forEach((m, i) => playNote(m, t + i * 0.42, 0.75)); t += question.audio.seq.length * 0.42 + 0.2 }
     if (question.audio.chord) strum(question.audio.chord, t, { spread: 0.03, gain: 0.7 })
+    // a progression: one strum per chord, a little longer on the last
+    if (question.audio.chords) question.audio.chords.forEach((c, i) => strum(c, t + i * 1.0, { spread: 0.03, gain: 0.7 }))
+    // a rhythm: four count-in clicks, then a quiet click on every beat under the strums (negative = rest)
+    if (question.audio.rhythm) {
+      const { beats, bpm } = question.audio.rhythm
+      const sp = 60 / bpm
+      const total = Math.round(beats.reduce((a, b) => a + Math.abs(b), 0))
+      for (let k = 0; k < 4 + total; k++) playNote(k < 4 ? 91 : 88, t + k * sp, k < 4 ? 0.3 : 0.12)
+      let at = t + 4 * sp
+      for (const b of beats) { if (b > 0) strum([40, 47, 52, 56], at, { spread: 0.012, gain: 0.6 }); at += Math.abs(b) * sp }
+    }
   }
 
   function answer(a: Answer, heard?: string) {

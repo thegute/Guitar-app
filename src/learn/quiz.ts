@@ -31,7 +31,7 @@ export interface Question {
   neck?: { from: number; to: number; marks: Mark[] }
   diagram?: Voicing
   /** sounds that play when the question appears (ear questions) */
-  audio?: { seq?: number[]; chord?: number[] }
+  audio?: { seq?: number[]; chord?: number[]; chords?: number[][]; rhythm?: { beats: number[]; bpm: number } }
   input: Input
   check: (a: Answer) => boolean
   /** what to play in mic mode, or undefined if the question can't be played */
