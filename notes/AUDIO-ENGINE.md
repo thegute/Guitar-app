@@ -40,6 +40,42 @@ Learn (lesson examples, ear training), Tuner drones, Riff Scanner preview.
    already in `studio/pitchShift.ts`). Measured with the existing capture tools (`tests/browser/sound-capture.cjs`,
    `tools/analyse-capture.py`) and a blind A/B with the owner.
 
+## Baseline measured (2026-11-12, `tests/browser/sound-lab.cjs before` → `tools/sound-report.py`)
+Owner: "All the sounds seem fake to me." The numbers agree:
+- **Mono.** L/R correlation 1.00 on everything except double-tracked metal/rock (0.6–0.7): no stereo image, no room.
+- **Squashed.** Strums sit at −0.7 dBTP with a peak-to-loudness ratio of 9–10 dB: the soft-clip ceiling flattens every strum
+  attack (a real acoustic strum has PLR 14–18).
+- **Dull.** Acoustic strums: presence −26 dB, air −38 dB of the total (a real miked acoustic is roughly −15 / −22): the tonejs MP3
+  banks are band-limited and few notes are stretched to cover the rest.
+- **Uneven.** Loudness from −9 LUFS (metal notes) to −20 (Hear it, drums): every feature levels itself.
+- **No body, no room, one take per note, strums = separate notes, no string behaviour.**
+
+## Research decisions (2026-11-12; owner: "absolute best sounding, highest quality, no corners cut")
+1. **Content first.** Realism comes from deeply sampled instruments, which is what his plugins are (Orange Tree Evolution: velocity
+   layers with dynamic morphing, release samples, pick noise that depends on the last string, automatic fret/position noises,
+   legato hammer/pull/slide samples, monophonic strings with legato, a strum engine with per-strum speed/humanise/string range,
+   string + body resonance, mic/room options). The harvest renders these through pedalboard (VST3/AU host; Kontakt instruments
+   are loaded once in the plugin's own editor, `show_editor()`, and the state saved with `raw_state` so every later render is
+   headless), DawDreamer as the fallback host.
+2. **Our engine reproduces what those engines do at play time**, because a pack only holds recordings: per-string voices (one note
+   per string, 12 ms finger-lift damping, legato within a string), velocity layers with crossfade ("dynamic morphing"), round
+   robins that never repeat back-to-back, release samples on note-off, pick noise and fret/position-change noise as separate
+   layers, strum engine (per-string onset spread from strum speed, direction, string range, velocity decay down the strum,
+   humanised speed/velocity/strings), string + body resonance (sympathetic open strings driven by what's played).
+3. **Sampler in an AudioWorklet** (one per engine, voices in the audio thread): sample-accurate starts/stops/crossfades, voice
+   stealing without clicks, no main-thread jitter or garbage. Sample data is decoded once on the main thread and transferred
+   (no SharedArrayBuffer needed, so no COOP/COEP headers in the Android web view).
+4. **Formats.** Packs: 48 kHz (the phone's native rate; the AudioContext is opened at 48 kHz so nothing is resampled twice),
+   FLAC 24-bit for the harvested packs (lossless transients; decodeAudioData handles FLAC in Chrome / the Android web view),
+   Opus for big ambience beds only. Built-in free banks re-encoded from their best source.
+5. **Stereo and space.** Real stereo (mic pairs from the plugins), double-tracked rhythm parts as two different takes panned, a
+   shared room (convolution, true-stereo IR) + plate + tape delay as sends; mono-safe for the pedal rig (corr checked).
+6. **Master.** An AudioWorklet chain: 90 Hz side-chain-high-passed glue compressor (2:1, 30 ms attack, programme-dependent
+   release) → true-peak look-ahead limiter (4× polyphase oversampled detection, 1.5 ms look-ahead, −1 dBTP ceiling) replacing the
+   waveshaper ceiling that squashes strums today. Targets: −16 LUFS for practice playback, TP ≤ −1 dBTP, PLR ≥ 12 on strums.
+7. **Measured, not guessed.** Every step re-runs the sound lab: loudness, true peak, PLR, stereo correlation, band balance; then
+   a blind A/B with the owner on his phone and on the pedal rig.
+
 ## Rules for code written before Stage 3 (keep the seam clean)
 - New sound-making code calls the existing high-level functions (`playNote`, `strum`, drums/bass helpers, JamTransport, `band.ts`),
   never builds sample players of its own. Where a feature needs volumes for parts, route through a named bus (`me`, `band`, …) so the

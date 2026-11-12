@@ -21,6 +21,9 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 // things shared into KGuitar from other apps (after the UI is up)
 setTimeout(startShareIn, 300)
 
+// the sound lab (Stage 3 measurements): test builds only, its own lazy chunk
+if ((window as { __kgTest?: boolean }).__kgTest) void import('./lab/soundLab').then(m => { (window as unknown as { __kgLab: unknown }).__kgLab = m })
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

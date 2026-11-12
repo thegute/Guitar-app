@@ -1,7 +1,8 @@
 # KGuitar master checklist (2026-11-11): EVERY item, one place
 Built line by line from the owner's "KGuitar Master Game Plan & Implementation Roadmap" PDF (notes/master-roadmap-2026-11-11.pdf,
-made with Gemini, all 12 pages) + notes/MASTER-PLAN.md + the owner's later additions. Agreed order: Stage 1 → 2 → AI teacher →
-4 → 3 → 5 → 6 → 7 (owner 2026-11-11; the PDF had 3 before 4). Theory course runs alongside (owner: "now, then the book pack").
+made with Gemini, all 12 pages) + notes/MASTER-PLAN.md + the owner's later additions. Agreed order: Stage 1 → 2 → 3 (sound engine, started
+2026-11-12; owner: "do the sound engine… best possible techniques… don't cut any corners… professional studio grade"; Mac harvest moved
+up right after the engine core + packs) → AI teacher → 4 → 5 → 6 → 7. Theory course runs alongside (owner: "now, then the book pack").
 ✅ done · 🔨 in progress · ⏳ queued · ➡ moved (where). Keep this file current; nothing here may be dropped without asking him.
 
 ## Golden rules (PDF page 1 + owner)
@@ -112,6 +113,8 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
   Jam Origin ground truth for the scanner + human strum/fingerpick timing templates for strums.ts.
 
 ## Stage 5: Strum Machine carbon copy + multi-genre rhythm engine
+- ⏳ Owner 2026-11-12: "looking forward to Strum Machine"; it must have ELECTRIC tones too (his Archetypes packs from the harvest),
+  and every idea in the Gemini PDF's Strum Machine section (re-read notes/master-roadmap-2026-11-11.pdf before starting Stage 5).
 - ⏳ Real-instrument stitching: Orange Tree dreadnought, Ample SJ-200, Weissenborn slack key, Dual-acoustic (boom-chick + runs 25% L,
   lush strums 25% R); electric mode with the same chart: prog-metal chugs + extended arpeggios, Cory Wong funk, Mayer/Asato neo-soul,
   reggae skanks.
