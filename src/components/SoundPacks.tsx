@@ -13,6 +13,7 @@ export function SoundPacks() {
   const [busy, setBusy] = useState('')
   const [, bump] = useState(0)
   const input = useRef<HTMLInputElement>(null)
+  const file = useRef<HTMLInputElement>(null)
   const refresh = () => { void privatePacks().then(setPacks) }
   useEffect(refresh, [])
   useEffect(() => { input.current?.setAttribute('webkitdirectory', ''); input.current?.setAttribute('directory', '') }, [])
@@ -58,10 +59,12 @@ export function SoundPacks() {
     <div className="stack" data-testid="sound-packs">
       <p className="small muted" style={{ margin: 0 }}>
         Sound packs rendered from your own instruments (Orange Tree, Ample, Archetypes …) make every guitar in KGuitar sound real.
-        They stay on this phone only. Pick the pack's folder (the one with <b>pack.json</b> in it).
+        They stay on this phone only. Bring in the pack's <b>.kgpack</b> file (one file, made on your Mac), or on a computer its folder (the one with <b>pack.json</b>).
       </p>
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <button className="btn" onClick={() => input.current?.click()}>Bring in a sound pack…</button>
+        <button className="btn" onClick={() => file.current?.click()} data-testid="pack-file">Bring in a .kgpack file…</button>
+        <button className="btn ghost" onClick={() => input.current?.click()}>…or a pack folder</button>
+        <input ref={file} type="file" accept=".kgpack,.zip" hidden onChange={e => { void onFiles(e.target.files); e.target.value = '' }} />
         <input ref={input} type="file" multiple hidden onChange={e => { void onFiles(e.target.files); e.target.value = '' }} />
       </div>
       {busy && <p className="small" role="status" style={{ margin: 0 }}>{busy}</p>}

@@ -28,7 +28,9 @@ const bad = m => { problems.push(m); console.log('  PROBLEM', m) }
     await page.locator('[role=tab]:has-text("Sound")').first().click()
     const box = page.locator('[data-testid=sound-packs]')
     await box.waitFor({ timeout: 8000 }).catch(() => bad(`${vp.n}: My sound packs isn't in Settings → Sound`))
-    await box.locator('input[type=file]').setInputFiles(path.join(__dirname, '..', 'fixtures', 'pack-test'))
+    // the phone way (one .kgpack file) on the cover screen, the computer way (a folder) on the inner screen
+    if (vp.n === 'cover') await box.locator('input[type=file][accept*=kgpack]').setInputFiles(path.join(__dirname, '..', 'fixtures', 'pack-test.kgpack'))
+    else await box.locator('input[type=file]:not([accept])').setInputFiles(path.join(__dirname, '..', 'fixtures', 'pack-test'))
     await page.locator('[data-testid=sound-pack]:has-text("Test sines")').waitFor({ timeout: 10000 }).catch(() => bad(`${vp.n}: the imported pack isn't listed`))
     await page.locator('[data-testid=sound-pack] select').selectOption('acoustic')
     if ((await page.evaluate(() => localStorage.getItem('kg:pack:acoustic'))) !== '"test-sines"') bad(`${vp.n}: choosing it for Acoustic wasn't saved`)

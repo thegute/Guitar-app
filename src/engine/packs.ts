@@ -5,6 +5,7 @@
 // Built-in packs come from the app (public/packs/<id>/); private ones (rendered from the owner's plugins) from the phone,
 // stored in IndexedDB 'kg-packs' (never in the repo or a backup).
 import { audio, route } from '../audio/engine'
+import { zipEntries, entryBlob } from './kgpack'
 import { isPack, layersFor, normGain, RoundRobin, takeTrim, zoneFor, chordZoneFor, filesFor, stemsFor, stemPath, rateFor, type Articulation, type Pack, type ZonePick } from './packLogic'
 import { monoOut } from '../audio/rig'
 
@@ -42,6 +43,25 @@ async function idb<T>(store: string, mode: IDBTransactionMode, f: (s: IDBObjectS
 }
 /** Import a pack from files the owner picked (a folder with pack.json and its audio). Returns the pack. */
 export async function importPack(files: File[], onProgress?: (done: number, total: number) => void): Promise<Pack> {
+  // one .kgpack file (phones can't pick a folder): a stored zip with pack.json and the recordings
+  const one = files.length === 1 && /\.(kgpack|zip)$/i.test(files[0].name) ? files[0] : null
+  if (one) {
+    const entries = (await zipEntries(one)).filter(e => !e.name.endsWith('/'))
+    const metaE = entries.find(e => e.name === 'pack.json' || e.name.endsWith('/pack.json'))
+    if (!metaE) throw new Error('No pack.json in that .kgpack')
+    const pack = JSON.parse(await entryBlob(one, metaE).text())
+    if (!isPack(pack)) throw new Error('That .kgpack is not a KGuitar sound pack')
+    const root = metaE.name.replace(/pack\.json$/, '')
+    let done = 0
+    const rest = entries.filter(e => e !== metaE && e.name.startsWith(root))
+    for (const e of rest) {
+      await idb('files', 'readwrite', s => s.put(entryBlob(one, e), `${pack.id}/${e.name.slice(root.length)}`))
+      onProgress?.(++done, rest.length)
+    }
+    await idb('packs', 'readwrite', s => s.put(pack, pack.id))
+    sources.delete(pack.id)
+    return pack
+  }
   const meta = files.find(f => f.name === 'pack.json')
   if (!meta) throw new Error('No pack.json in that folder')
   const pack = JSON.parse(await meta.text())

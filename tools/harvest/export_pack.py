@@ -82,7 +82,19 @@ def main():
     with open(os.path.join(dst, 'pack.json'), 'w') as f:
         json.dump(out, f, separators=(',', ':'))
     size = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(dst) for f in fs)
-    print(f'{kept} takes kept, {dropped} duplicates left out, {size / 1e6:.0f} MB in {dst}')
+    # the one-file version for the phone (its file picker can't choose a folder): a STORED zip (the audio is already
+    # Opus, compressing again gains nothing and the app reads stored entries straight out of the file)
+    import zipfile
+    kg = dst.rstrip('/') + '.kgpack'
+    with zipfile.ZipFile(kg, 'w', compression=zipfile.ZIP_STORED, allowZip64=True) as z:
+        z.write(os.path.join(dst, 'pack.json'), 'pack.json')
+        for r, _, fs in os.walk(dst):
+            for f in sorted(fs):
+                full = os.path.join(r, f)
+                rel = os.path.relpath(full, dst)
+                if rel != 'pack.json':
+                    z.write(full, rel)
+    print(f'{kept} takes kept, {dropped} duplicates left out, {size / 1e6:.0f} MB in {dst} + {os.path.basename(kg)}')
 
 
 if __name__ == '__main__':
