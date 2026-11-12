@@ -107,28 +107,29 @@ export const MAJOR_SCALE: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'Ten minutes a day. Slow, even notes with a click; say the degrees.',
-      days: [
-        { day: 'Day 1', focus: 'The recipe on one string', tasks: [
+      kind: 'practice', title: 'Practice goals', intro: 'Slow, even notes with a click; say the degrees.',
+      challenge: { label: 'G major in 3rds (1-3, 2-4 …)', ex: { label: 'G major in 3rds', spec: { kind: 'sequence', root: 'G', type: 'thirds', position: 0, scale: 'major' } }, goal: '80 BPM, even notes', why: 'The scale in a pattern: the start of melodic playing.' },
+      goals: [
+        { focus: 'The recipe on one string', tasks: [
           { label: 'C major scale (say T T S T T T S)', ex: { label: 'C major scale', spec: { kind: 'scale', root: 'C', type: 'major', position: 0 } }, minutes: 6 },
         ] },
-        { day: 'Day 2', focus: 'Spelling', tasks: [
+        { focus: 'Spelling', tasks: [
           { label: 'Major scale quiz', quiz: 'nb-major', minutes: 5, goal: '10 right' },
         ] },
-        { day: 'Day 3', focus: 'The moveable shape', tasks: [
+        { focus: 'The moveable shape', tasks: [
           { label: 'G major scale, two octaves', ex: { label: 'G major scale', spec: { kind: 'scale', root: 'G', type: 'major', position: 0 } }, minutes: 6, goal: '70 BPM, even notes' },
         ] },
-        { day: 'Day 4', focus: 'Hear it', tasks: [
+        { focus: 'Hear it', tasks: [
           { label: 'A major scale, or is something off?', quiz: 'l2-major-ear', minutes: 3 },
           { label: 'Degrees over a drone', tool: 'ear', minutes: 4 },
         ] },
-        { day: 'Day 5', focus: 'Move it', tasks: [
+        { focus: 'Move it', tasks: [
           { label: 'A major (the same shape at fret 5)', ex: { label: 'A major scale', spec: { kind: 'scale', root: 'A', type: 'major', position: 0 } }, minutes: 6 },
         ] },
-        { day: 'Day 6', focus: 'Make music', tasks: [
+        { focus: 'Make music', tasks: [
           { label: 'A major-scale melody: Oh! Susanna', ex: { label: 'Oh! Susanna (melody)', songbook: { song: 'susanna', part: 'melody' } }, minutes: 6 },
         ] },
-        { day: 'Day 7', focus: 'Improvise', tasks: [
+        { focus: 'Improvise', tasks: [
           { label: 'Make up melodies with G major over a G–C–D band in Jam', tool: 'jam', minutes: 8 },
         ] },
       ],
@@ -248,28 +249,29 @@ export const TRIADS: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'Name the root and the 3rd of every chord you play this week.',
-      days: [
-        { day: 'Day 1', focus: 'Spell them', tasks: [
+      kind: 'practice', title: 'Practice goals', intro: 'Name the root and the 3rd of every chord you play.',
+      challenge: { label: 'Name the inversion', quiz: 'tr-inv', goal: '2 stars', why: 'The same triad with a different note on the bottom: a look ahead to Level 4.' },
+      goals: [
+        { focus: 'Spell them', tasks: [
           { label: 'Spell the triad', quiz: 'tr-spell', minutes: 5 },
         ] },
-        { day: 'Day 2', focus: 'Major ↔ minor in open chords', tasks: [
+        { focus: 'Major ↔ minor in open chords', tasks: [
           { label: 'Major triad arpeggio: C (1-3-5)', ex: { label: 'C major triad', spec: { kind: 'arpeggio', root: 'C', type: 'maj', position: 0 } }, minutes: 4 },
           { label: 'Minor triad arpeggio: A (1-♭3-5)', ex: { label: 'A minor triad', spec: { kind: 'arpeggio', root: 'A', type: 'min', position: 0 } }, minutes: 4 },
         ] },
-        { day: 'Day 3', focus: 'Hear it', tasks: [
+        { focus: 'Hear it', tasks: [
           { label: 'Major or minor? (ear)', quiz: 'ch-ear', minutes: 4 },
         ] },
-        { day: 'Day 4', focus: 'Barre chords as root finders', tasks: [
+        { focus: 'Barre chords as root finders', tasks: [
           { label: 'Barre chords: where does it go?', quiz: 'ch-barre', minutes: 5 },
         ] },
-        { day: 'Day 5', focus: 'Use them', tasks: [
+        { focus: 'Use them', tasks: [
           { label: 'Major and minor chords in a song: Scarborough Fair', ex: { label: 'Scarborough Fair', songbook: { song: 'scarborough', part: 'words' } }, minutes: 6 },
         ] },
-        { day: 'Day 6', focus: 'Find the 3rds', tasks: [
+        { focus: 'Find the 3rds', tasks: [
           { label: 'See the triads across the neck (CAGED explorer)', tool: 'caged', minutes: 6 },
         ] },
-        { day: 'Day 7', focus: 'Play over them', tasks: [
+        { focus: 'Play over them', tasks: [
           { label: 'Strum major and minor barres over a band in Jam', tool: 'jam', minutes: 6 },
         ] },
       ],
@@ -377,27 +379,28 @@ export const INTERVALS: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'Sing a little every day; it\'s the fastest route to hearing intervals.',
-      days: [
-        { day: 'Day 1', focus: 'Names', tasks: [
+      kind: 'practice', title: 'Practice goals', intro: 'Sing a little each time: it\'s the fastest route to hearing intervals.',
+      challenge: { label: 'Intervals of the major scale, no mistakes', quiz: 'l2-int-ear', goal: '10 out of 10', why: 'Every interval by ear, cleanly: then sing each one before it plays.' },
+      goals: [
+        { focus: 'Names', tasks: [
           { label: 'Intervals quiz', quiz: 'nb-int', minutes: 5 },
         ] },
-        { day: 'Day 2', focus: 'Shapes', tasks: [
+        { focus: 'Shapes', tasks: [
           { label: 'Every interval from A (play the shapes)', ex: { label: 'Every interval from A', tab: 'intervals' }, minutes: 6 },
         ] },
-        { day: 'Day 3', focus: 'Hear them', tasks: [
+        { focus: 'Hear them', tasks: [
           { label: 'Intervals of the major scale (ear)', quiz: 'l2-int-ear', minutes: 4 },
         ] },
-        { day: 'Day 4', focus: 'Shapes across the B string', tasks: [
+        { focus: 'Shapes across the B string', tasks: [
           { label: 'Octave pairs across the B string (the same shift)', ex: { label: 'Octave pairs across the B string', tab: 'octaveCross' }, minutes: 5 },
         ] },
-        { day: 'Day 5', focus: 'Sus chords', tasks: [
+        { focus: 'Sus chords', tasks: [
           { label: 'Play D, Dsus2, Dsus4 and hear the 3rd replaced (Chords tool), then the ear drill', quiz: 'l2-int-ear', minutes: 5 },
         ] },
-        { day: 'Day 6', focus: 'Drone', tasks: [
+        { focus: 'Drone', tasks: [
           { label: 'Degrees over a drone', tool: 'ear', minutes: 6 },
         ] },
-        { day: 'Day 7', focus: 'Melody', tasks: [
+        { focus: 'Melody', tasks: [
           { label: 'Find the intervals in a melody: When the Saints (it opens with a major 3rd)', ex: { label: 'When the Saints Go Marching In (melody)', songbook: { song: 'saints', part: 'melody' } }, minutes: 6 },
         ] },
       ],
@@ -521,15 +524,16 @@ export const CHROMATIC: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'Every 7th chord you play this week, say its recipe.',
-      days: [
-        { day: 'Day 1', focus: 'Name them', tasks: [{ label: 'Flat and sharp intervals quiz', quiz: 'nb-chrom', minutes: 5 }] },
-        { day: 'Day 2', focus: 'Dominant 7th', tasks: [{ label: 'C7 arpeggio: 1, 3, 5, ♭7', ex: { label: 'C7 arpeggio', spec: { kind: 'arpeggio', root: 'C', type: 'dom7', position: 0 } }, minutes: 5 }] },
-        { day: 'Day 3', focus: 'Hear the difference', tasks: [{ label: 'Major, minor or perfect? (ear)', quiz: 'l2-chrom-ear', minutes: 4 }] },
-        { day: 'Day 4', focus: 'Minor 7th', tasks: [{ label: 'Am7 arpeggio: 1, ♭3, 5, ♭7', ex: { label: 'Am7 arpeggio', spec: { kind: 'arpeggio', root: 'A', type: 'm7', position: 0 } }, minutes: 5 }] },
-        { day: 'Day 5', focus: 'Major 7th', tasks: [{ label: 'Cmaj7 arpeggio: hear the 7 against C7\'s ♭7', ex: { label: 'Cmaj7 arpeggio', spec: { kind: 'arpeggio', root: 'C', type: 'maj7', position: 0 } }, minutes: 5 }] },
-        { day: 'Day 6', focus: 'Chord colours', tasks: [{ label: 'Chord colours by ear', quiz: 'ch-ear-7', minutes: 5 }] },
-        { day: 'Day 7', focus: 'Play it', tasks: [{ label: 'A blues with 7th chords in Jam: aim for the ♭7 of each chord', tool: 'jam', minutes: 8 }] },
+      kind: 'practice', title: 'Practice goals', intro: 'Every 7th chord you play, say its recipe.',
+      challenge: { label: 'Am7 arpeggio in every position', ex: { label: 'Am7 arpeggio up the neck', spec: { kind: 'arpeggio', root: 'A', type: 'm7', position: -1 } }, goal: 'a clean run', why: 'The same recipe all over the neck.' },
+      goals: [
+        { focus: 'Name them', tasks: [{ label: 'Flat and sharp intervals quiz', quiz: 'nb-chrom', minutes: 5 }] },
+        { focus: 'Dominant 7th', tasks: [{ label: 'C7 arpeggio: 1, 3, 5, ♭7', ex: { label: 'C7 arpeggio', spec: { kind: 'arpeggio', root: 'C', type: 'dom7', position: 0 } }, minutes: 5 }] },
+        { focus: 'Hear the difference', tasks: [{ label: 'Major, minor or perfect? (ear)', quiz: 'l2-chrom-ear', minutes: 4 }] },
+        { focus: 'Minor 7th', tasks: [{ label: 'Am7 arpeggio: 1, ♭3, 5, ♭7', ex: { label: 'Am7 arpeggio', spec: { kind: 'arpeggio', root: 'A', type: 'm7', position: 0 } }, minutes: 5 }] },
+        { focus: 'Major 7th', tasks: [{ label: 'Cmaj7 arpeggio: hear the 7 against C7\'s ♭7', ex: { label: 'Cmaj7 arpeggio', spec: { kind: 'arpeggio', root: 'C', type: 'maj7', position: 0 } }, minutes: 5 }] },
+        { focus: 'Chord colours', tasks: [{ label: 'Chord colours by ear', quiz: 'ch-ear-7', minutes: 5 }] },
+        { focus: 'Play it', tasks: [{ label: 'A blues with 7th chords in Jam: aim for the ♭7 of each chord', tool: 'jam', minutes: 8 }] },
       ],
     },
     {
@@ -638,15 +642,16 @@ export const KEYS: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'This week, find the key of every song you play or hear.',
-      days: [
-        { day: 'Day 1', focus: 'Find home', tasks: [{ label: 'Home, or not home yet? (ear)', quiz: 'l2-home-ear', minutes: 4 }] },
-        { day: 'Day 2', focus: 'Keys from chords', tasks: [{ label: 'Name the key from the chords', quiz: 'l2-findkey', minutes: 5 }] },
-        { day: 'Day 3', focus: 'A song in G', tasks: [{ label: 'Will the Circle Be Unbroken (G, C, D): hear V → I', ex: { label: 'Will the Circle Be Unbroken', songbook: { song: 'circle', part: 'words' } }, minutes: 6 }] },
-        { day: 'Day 4', focus: 'The parent scale', tasks: [{ label: 'D major scale (the family of D)', ex: { label: 'D major scale', spec: { kind: 'scale', root: 'D', type: 'major', position: 0 } }, minutes: 5 }] },
-        { day: 'Day 5', focus: 'Drone', tasks: [{ label: 'Degrees over a drone', tool: 'ear', minutes: 5 }] },
-        { day: 'Day 6', focus: 'Capo and transposing', tasks: [{ label: 'Red River Valley: play it, then with a capo on 2 (it sounds in A)', ex: { label: 'Red River Valley', songbook: { song: 'redriver', part: 'words' } }, minutes: 6 }] },
-        { day: 'Day 7', focus: 'Solo in a key', tasks: [{ label: 'Solo with G major over a G band in Jam; end each phrase on G', tool: 'jam', minutes: 8 }] },
+      kind: 'practice', title: 'Practice goals', intro: 'Find the key of every song you play or hear.',
+      challenge: { label: 'Keep on the Sunny Side with a capo on 4: say each chord\'s real name', ex: { label: 'Keep on the Sunny Side', songbook: { song: 'sunny', part: 'words' } }, goal: 'every chord named right', why: 'G shapes, capo 4: it sounds in B. Transposing in your head while you play.' },
+      goals: [
+        { focus: 'Find home', tasks: [{ label: 'Home, or not home yet? (ear)', quiz: 'l2-home-ear', minutes: 4 }] },
+        { focus: 'Keys from chords', tasks: [{ label: 'Name the key from the chords', quiz: 'l2-findkey', minutes: 5 }] },
+        { focus: 'A song in G', tasks: [{ label: 'Will the Circle Be Unbroken (G, C, D): hear V → I', ex: { label: 'Will the Circle Be Unbroken', songbook: { song: 'circle', part: 'words' } }, minutes: 6 }] },
+        { focus: 'The parent scale', tasks: [{ label: 'D major scale (the family of D)', ex: { label: 'D major scale', spec: { kind: 'scale', root: 'D', type: 'major', position: 0 } }, minutes: 5 }] },
+        { focus: 'Drone', tasks: [{ label: 'Degrees over a drone', tool: 'ear', minutes: 5 }] },
+        { focus: 'Capo and transposing', tasks: [{ label: 'Red River Valley: play it, then with a capo on 2 (it sounds in A)', ex: { label: 'Red River Valley', songbook: { song: 'redriver', part: 'words' } }, minutes: 6 }] },
+        { focus: 'Solo in a key', tasks: [{ label: 'Solo with G major over a G band in Jam; end each phrase on G', tool: 'jam', minutes: 8 }] },
       ],
     },
     {
@@ -732,6 +737,20 @@ export const KEY_CHORDS: CourseLesson = {
       ],
     },
     {
+      kind: 'learn', title: 'The whole key in one 5-fret window', blocks: [
+        { p: 'Barre chords move your hand all over the neck. Rhythm players often do the opposite: they play the key\'s chords as **small three-string triads** and keep them all inside **one 5-fret window**. In C major, on the **D, G and B strings**, frets 5 to 9, all seven chords fit:' },
+        { list: ['**C** (I): 5-5-5 on D-G-B (xx555x)', '**Dm** (ii): 7-7-6 (xx776x)', '**Em** (iii): 9-9-8 (xx998x)', '**F** (IV): 7-5-6 (xx756x): index finger flat across', '**G** (V): 9-7-8 (xx978x): the same shape as F, two frets up', '**Am** (vi): 7-5-5 (xx755x)', '**B°** (vii°): 9-7-6 (xx976x): a little stretch'] },
+        { spots: { caption: 'C (I): G C E, frets 5-5-5.', from: 4, to: 9, marks: midis => (G6(midis) ? [{ s: 2, f: 5, label: 'G', role: 'chord' as const }, { s: 3, f: 5, label: 'C', role: 'root' as const }, { s: 4, f: 5, label: 'E', role: 'chord' as const }] : []) } },
+        { spots: { caption: 'F (IV): A C F, frets 7-5-6.', from: 4, to: 9, marks: midis => (G6(midis) ? [{ s: 2, f: 7, label: 'A', role: 'chord' as const }, { s: 3, f: 5, label: 'C', role: 'chord' as const }, { s: 4, f: 6, label: 'F', role: 'root' as const }] : []) } },
+        { spots: { caption: 'G (V): B D G, frets 9-7-8.', from: 4, to: 9, marks: midis => (G6(midis) ? [{ s: 2, f: 9, label: 'B', role: 'chord' as const }, { s: 3, f: 7, label: 'D', role: 'chord' as const }, { s: 4, f: 8, label: 'G', role: 'root' as const }] : []) } },
+        { p: 'Why it sounds so good: from one chord to the next, each finger moves **a fret or two at most**, often not at all. Each note slides to the nearest note of the next chord. That\'s **voice leading**: the parts stay connected, the guitar sits neatly in a band above the bass and the keys, and it sounds like a record instead of a strum-along.' },
+        { prog: { label: 'C → Am → F → G in the window: hear how little moves', chords: [[55, 60, 64], [57, 60, 64], [57, 60, 65], [59, 62, 67]], gap: 1 } },
+        { p: '**Make them move**: a triad on its own can sound static. Add the **scale note just above** one of its notes and fall back, with a hammer-on, pull-off or slide: on C (G C E), the A above G, the D above C, or the F above E. That one note turns a block chord into a rhythm part.' },
+        { video: { id: 'NqSf3iV9qpg', title: 'THIS Triad System Will 13X Your RHYTHM Guitar Playing', note: 'Daniel Seriff teaches exactly this system: the seven shapes in one window, how to practise them, and the embellishments.' } },
+        { tip: 'Practise it the additive way: C → Dm until it\'s easy, then C → Dm → Em, then add one chord at a time, always over a drum beat so the changes land in time. (On ukulele the app finds the closest-moving shapes for your tuning.)' },
+      ],
+    },
+    {
       kind: 'examples', title: 'Worked examples', intro: 'Major scale first, then the pattern.', examples: [
         { q: 'List the chords of D major.', steps: ['D major: D E F# G A B C#.', 'Pattern: M m m M M m dim.'], answer: 'D Em F#m G A Bm C#°.' },
         { q: 'What is vi in A major?', steps: ['A major: A B C# D E F# G#.', '6th note: F#; vi is minor.'], answer: 'F#m.' },
@@ -761,22 +780,23 @@ export const KEY_CHORDS: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'Say the numbers out loud as you change chords.',
-      days: [
-        { day: 'Day 1', focus: 'Build the families', tasks: [{ label: 'Chords in a major key quiz', quiz: 'nb-keys', minutes: 6 }] },
-        { day: 'Day 2', focus: 'I IV V', tasks: [{ label: 'Red River Valley (G, C, D7: I, IV, V)', ex: { label: 'Red River Valley', songbook: { song: 'redriver', part: 'words' } }, minutes: 6 }] },
-        { day: 'Day 3', focus: 'Hear numbers', tasks: [{ label: 'Which chord of the key? (ear)', quiz: 'l2-num-ear', minutes: 5 }] },
-        { day: 'Day 4', focus: 'Progressions in any key', tasks: [{ label: 'Progressions in any key quiz', quiz: 'nb-prog', minutes: 5 }] },
-        { day: 'Day 5', focus: 'Changes', tasks: [{ label: 'One-minute changes: G to Em, C to D', tool: 'changes', minutes: 5 }] },
-        { day: 'Day 6', focus: 'The box', tasks: [{ label: 'Barre chords: where does it go?', quiz: 'ch-barre', minutes: 5 }] },
-        { day: 'Day 7', focus: 'Write one', tasks: [{ label: 'Build I – V – vi – IV (or your own) in Jam and play over it', tool: 'jam', minutes: 8 }] },
+      kind: 'practice', title: 'Practice goals', intro: 'Say the numbers out loud as you change chords.',
+      challenge: { label: 'The window in D: move all seven triads up two frets and name them', ex: { label: 'The key of C in one 5-fret window', tab: 'keyTriads' }, goal: 'D Em F#m G A Bm C#° up and back', why: 'The same shapes, a new key: the whole point of thinking in numbers.' },
+      goals: [
+        { focus: 'Build the families', tasks: [{ label: 'Chords in a major key quiz', quiz: 'nb-keys', minutes: 6 }] },
+        { focus: 'I IV V', tasks: [{ label: 'Red River Valley (G, C, D7: I, IV, V)', ex: { label: 'Red River Valley', songbook: { song: 'redriver', part: 'words' } }, minutes: 6 }] },
+        { focus: 'Hear numbers', tasks: [{ label: 'Which chord of the key? (ear)', quiz: 'l2-num-ear', minutes: 5 }] },
+        { focus: 'Progressions in any key', tasks: [{ label: 'Progressions in any key quiz', quiz: 'nb-prog', minutes: 5 }] },
+        { focus: 'Changes', tasks: [{ label: 'One-minute changes: G to Em, C to D', tool: 'changes', minutes: 5 }] },
+        { focus: 'One window', tasks: [{ label: 'The key of C in one 5-fret window: add one chord at a time', ex: { label: 'The key of C in one 5-fret window', tab: 'keyTriads' }, minutes: 6 }, { label: 'Barre chords: where does it go?', quiz: 'ch-barre', minutes: 4 }] },
+        { focus: 'Make it move', tasks: [{ label: 'I – vi – IV – V with embellishments', ex: { label: 'I – vi – IV – V with embellishments', tab: 'keyTriadsEmb' }, minutes: 5 }, { label: 'Build I – V – vi – IV in Jam and play it with the window triads', tool: 'jam', minutes: 8 }] },
       ],
     },
     {
       kind: 'use', title: 'Use it in music', blocks: [
-        { list: ['Working out a song: find home, then try I, IV, V and vi first. They cover most songs.', 'Writing: pick a key, pick a number pattern, then swap one chord for its relative minor.', 'Playing with others: "it\'s a 1-5-6-4 in E" is all a band needs to hear.'] },
+        { list: ['Working out a song: find home, then try I, IV, V and vi first. They cover most songs.', 'Writing: pick a key, pick a number pattern, then swap one chord for its relative minor.', 'Band rhythm parts: the seven window triads with a note added above, instead of big open strums.', 'Playing with others: "it\'s a 1-5-6-4 in E" is all a band needs to hear.'] },
       ],
-      tasks: [{ label: 'Make a progression in Jam', tool: 'jam' }],
+      tasks: [{ label: 'I – vi – IV – V with embellishments', ex: { label: 'I – vi – IV – V with embellishments', tab: 'keyTriadsEmb' } }, { label: 'Make a progression in Jam', tool: 'jam' }],
     },
     {
       kind: 'check', title: 'Check your understanding', intro: 'Use it, hear it, play it, then explain it back.',
@@ -876,15 +896,16 @@ export const CIRCLE: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'Rebuild the circle from memory once a day: say it, then write it.',
-      days: [
-        { day: 'Day 1', focus: 'Signatures', tasks: [{ label: 'Key signatures quiz', quiz: 'cof-sig', minutes: 5 }] },
-        { day: 'Day 2', focus: 'Explore the circle', tasks: [{ label: 'Circle of fifths tool: tap each key, read its chords', tool: 'circle', minutes: 6 }] },
-        { day: 'Day 3', focus: 'Neighbours', tasks: [{ label: 'IV and V: the neighbours', quiz: 'cof-neighbours', minutes: 5 }] },
-        { day: 'Day 4', focus: 'Hear IV and V', tasks: [{ label: 'Which chord of the key? (ear)', quiz: 'l2-num-ear', minutes: 4 }] },
-        { day: 'Day 5', focus: 'One sharp more', tasks: [{ label: 'G major scale, then D major: find the one new note (C#)', ex: { label: 'D major scale', spec: { kind: 'scale', root: 'D', type: 'major', position: 0 } }, minutes: 5 }] },
-        { day: 'Day 6', focus: 'Chords in a key', tasks: [{ label: 'Chords in a key (circle quiz)', quiz: 'cof-chords', minutes: 5 }] },
-        { day: 'Day 7', focus: 'Neighbours in a song', tasks: [{ label: 'Oh! Susanna: C, F and G, neighbours on the circle', ex: { label: 'Oh! Susanna', songbook: { song: 'susanna', part: 'words' } }, minutes: 6 }] },
+      kind: 'practice', title: 'Practice goals', intro: 'Rebuild the circle from memory each time: say it, then write it.',
+      challenge: { label: 'Relative minors and majors', quiz: 'cof-relative', goal: '2 stars', why: 'The inner ring of the circle: a head start on Level 3.' },
+      goals: [
+        { focus: 'Signatures', tasks: [{ label: 'Key signatures quiz', quiz: 'cof-sig', minutes: 5 }] },
+        { focus: 'Explore the circle', tasks: [{ label: 'Circle of fifths tool: tap each key, read its chords', tool: 'circle', minutes: 6 }] },
+        { focus: 'Neighbours', tasks: [{ label: 'IV and V: the neighbours', quiz: 'cof-neighbours', minutes: 5 }] },
+        { focus: 'Hear IV and V', tasks: [{ label: 'Which chord of the key? (ear)', quiz: 'l2-num-ear', minutes: 4 }] },
+        { focus: 'One sharp more', tasks: [{ label: 'G major scale, then D major: find the one new note (C#)', ex: { label: 'D major scale', spec: { kind: 'scale', root: 'D', type: 'major', position: 0 } }, minutes: 5 }] },
+        { focus: 'Chords in a key', tasks: [{ label: 'Chords in a key (circle quiz)', quiz: 'cof-chords', minutes: 5 }] },
+        { focus: 'Neighbours in a song', tasks: [{ label: 'Oh! Susanna: C, F and G, neighbours on the circle', ex: { label: 'Oh! Susanna', songbook: { song: 'susanna', part: 'words' } }, minutes: 6 }] },
       ],
     },
     {
@@ -998,15 +1019,16 @@ export const RHYTHM2: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'Use a click (Tools → Tempo) at 60–70 BPM; count out loud.',
-      days: [
-        { day: 'Day 1', focus: 'The pendulum', tasks: [{ label: 'Rhythm trainer', tool: 'rhythm', minutes: 6 }] },
-        { day: 'Day 2', focus: 'Old faithful', tasks: [{ label: 'Red River Valley with D DU UDU (In time: each strum is judged)', ex: { label: 'Red River Valley', songbook: { song: 'redriver', part: 'words' } }, minutes: 6 }] },
-        { day: 'Day 3', focus: 'Hear it', tasks: [{ label: 'Which rhythm? (ear)', quiz: 'l2-rhythm-ear', minutes: 4 }] },
-        { day: 'Day 4', focus: 'Changes on time', tasks: [{ label: 'One-minute changes with old faithful: G to C', tool: 'changes', minutes: 5 }] },
-        { day: 'Day 5', focus: '3/4', tasks: [{ label: 'Scarborough Fair in 3/4 (D DU DU)', ex: { label: 'Scarborough Fair', songbook: { song: 'scarborough', part: 'words' } }, minutes: 6 }] },
-        { day: 'Day 6', focus: 'Pushes', tasks: [{ label: 'Will the Circle Be Unbroken: push each chord change onto the & of 4', ex: { label: 'Will the Circle Be Unbroken', songbook: { song: 'circle', part: 'words' } }, minutes: 6 }] },
-        { day: 'Day 7', focus: 'Groove with a band', tasks: [{ label: 'Strum your own pattern over a Jam band', tool: 'jam', minutes: 8 }] },
+      kind: 'practice', title: 'Practice goals', intro: 'Use a click (Tools → Tempo) at 60–70 BPM; count out loud.',
+      challenge: { label: 'Rhythm trainer at a faster tempo', tool: 'rhythm', goal: 'most taps green at 100 BPM', why: 'The same patterns with less time to think.' },
+      goals: [
+        { focus: 'The pendulum', tasks: [{ label: 'Rhythm trainer', tool: 'rhythm', minutes: 6 }] },
+        { focus: 'Old faithful', tasks: [{ label: 'Red River Valley with D DU UDU (In time: each strum is judged)', ex: { label: 'Red River Valley', songbook: { song: 'redriver', part: 'words' } }, minutes: 6 }] },
+        { focus: 'Hear it', tasks: [{ label: 'Which rhythm? (ear)', quiz: 'l2-rhythm-ear', minutes: 4 }] },
+        { focus: 'Changes on time', tasks: [{ label: 'One-minute changes with old faithful: G to C', tool: 'changes', minutes: 5 }] },
+        { focus: '3/4', tasks: [{ label: 'Scarborough Fair in 3/4 (D DU DU)', ex: { label: 'Scarborough Fair', songbook: { song: 'scarborough', part: 'words' } }, minutes: 6 }] },
+        { focus: 'Pushes', tasks: [{ label: 'Will the Circle Be Unbroken: push each chord change onto the & of 4', ex: { label: 'Will the Circle Be Unbroken', songbook: { song: 'circle', part: 'words' } }, minutes: 6 }] },
+        { focus: 'Groove with a band', tasks: [{ label: 'Strum your own pattern over a Jam band', tool: 'jam', minutes: 8 }] },
       ],
     },
     {
@@ -1046,7 +1068,7 @@ export const LEVEL2_CHECK: CourseLesson = {
     {
       kind: 'why', title: 'Before Level 3', blocks: [
         { p: 'This check covers all of Level 2. It\'s **strongly suggested** before Level 3 (progressions, pentatonics and minor keys all stand on the major scale, its chords and its keys), but never required: you can move on and come back.' },
-        { list: ['Take it when the practice weeks feel easy.', 'Anything you miss points back to the right lesson.', 'Pass it and the Level 2 badge is yours; it also comes back as a review later.'] },
+        { list: ['Take it when the practice goals feel easy.', 'Anything you miss points back to the right lesson.', 'Pass it and the Level 2 badge is yours; it also comes back as a review later.'] },
       ],
     },
     {

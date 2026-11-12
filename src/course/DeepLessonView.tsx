@@ -16,6 +16,7 @@ import { REVIEW_DAYS, finishLesson, lessonProgress, nextReviewAt, reviewDone, re
 import { Fretboard } from '../components/Fretboard'
 import { playNote } from '../audio/pluck'
 import { InYourBooks } from '../books/InYourBooks'
+import { COURSE } from './index'
 import { useBooks } from '../books/useBooks'
 
 const KIND_ICON: Record<Step['kind'], Parameters<typeof Ico>[0]['n']> = {
@@ -34,7 +35,8 @@ function taskGo(t: Task): Go | null {
   return null
 }
 
-function TaskButton({ t, onGo, onExercise, done }: { t: Task; onGo: (g: Go) => void; onExercise: (ex: LessonEx) => void; done?: boolean }) {
+function TaskButton({ t, onGo, onExercise, done, defGoal }: { t: Task; onGo: (g: Go) => void; onExercise: (ex: LessonEx) => void; done?: boolean; defGoal?: boolean }) {
+  const goal = t.goal ?? (defGoal ? ('quiz' in t ? '2 stars' : 'ex' in t ? 'a clean run with the mic' : '') : '')
   const icon = 'quiz' in t ? (t.how === 'play' ? 'mic' : 'puzzle') : 'tool' in t ? (t.tool === 'jam' ? 'drum' : t.tool === 'tuner' ? 'ear' : 'sparkle') : 'play'
   return (
     <button className={`deep-task${done ? ' done' : ''}`} data-testid="deep-task"
@@ -43,7 +45,7 @@ function TaskButton({ t, onGo, onExercise, done }: { t: Task; onGo: (g: Go) => v
       <span className="deep-task-text">
         <b>{t.label}</b>
         <span className="small muted">
-          {[t.minutes ? `${t.minutes} min` : '', 'ex' in t ? 'opens in Play, the mic follows you' : 'quiz' in t ? (t.how === 'play' ? 'answer by playing' : 'quiz') : 'tool' in t && t.tool === 'jam' ? 'Jam band' : '', t.goal ? `goal: ${t.goal}` : ''].filter(Boolean).join(' · ')}
+          {[t.minutes ? `${t.minutes} min` : '', 'ex' in t ? 'opens in Play, the mic follows you' : 'quiz' in t ? (t.how === 'play' ? 'answer by playing' : 'quiz') : 'tool' in t && t.tool === 'jam' ? 'Jam band' : '', goal ? `goal: ${goal}` : ''].filter(Boolean).join(' · ')}
         </span>
       </span>
     </button>
@@ -102,23 +104,7 @@ function StepBody({ step, inst, lesson, onGo, onExercise }: { step: Step; inst: 
         ))}
       </ul>
     )
-    case 'practice': return (
-      <div className="stack">
-        <p style={{ margin: 0 }}>{step.intro}</p>
-        {step.days.map((d, i) => {
-          const done = p.steps.includes('day:' + i)
-          return (
-            <section key={i} className={`deep-day${done ? ' done' : ''}`}>
-              <header className="deep-day-head">
-                <b>{d.day}</b><span className="muted"> · {d.focus}</span>
-                <label className="deep-day-tick"><input type="checkbox" checked={done} onChange={() => toggleDay(lesson.id, i)} /> Done</label>
-              </header>
-              {tasks(d.tasks)}
-            </section>
-          )
-        })}
-      </div>
-    )
+    case 'practice': return <PracticeStep step={step} lesson={lesson} done={p.steps} onGo={onGo} onExercise={onExercise} />
     case 'use': return <div className="stack">{blocks(step.blocks)}{tasks(step.tasks)}</div>
     case 'check': return <CheckStep step={step} onGo={onGo} onExercise={onExercise} />
     case 'deeper': return (
@@ -133,6 +119,49 @@ function StepBody({ step, inst, lesson, onGo, onExercise }: { step: Step; inst: 
       </div>
     )
   }
+}
+
+/** Practice goals (not days): reach them in one sitting or several, then move on. Quiz goals tick themselves at 2 stars.
+ *  A 2–3 minute warm-up carries over from the lesson before; an optional challenge round sits on top. */
+function PracticeStep({ step, lesson, done, onGo, onExercise }: { step: Extract<Step, { kind: 'practice' }>; lesson: CourseLesson; done: string[]; onGo: (g: Go) => void; onExercise: (ex: LessonEx) => void }) {
+  const st = stars()
+  const passed = (t: Task) => 'quiz' in t && (st[t.quiz] ?? 0) >= 2
+  const i = COURSE.findIndex(l => l.id === lesson.id)
+  const prev = i > 0 ? COURSE[i - 1] : null
+  const prevCheck = prev?.steps.find(x => x.kind === 'check')
+  const warm = prevCheck && prevCheck.kind === 'check' ? (prevCheck.tasks.find(t => t.skill === 'Play') ?? prevCheck.tasks[0]) : null
+  return (
+    <div className="stack">
+      <p style={{ margin: 0 }}>Reach these goals in one sitting or over a few, then move on. Quiz goals tick themselves when you pass them.</p>
+      <p className="small muted" style={{ margin: 0 }}>{rich(step.intro)}</p>
+      {warm && prev && (
+        <section className="deep-day deep-warm" data-testid="deep-warmup">
+          <header className="deep-day-head"><b>Warm-up</b><span className="muted"> · 2–3 minutes from {prev.title}</span></header>
+          <TaskButton t={warm} onGo={onGo} onExercise={onExercise} done={passed(warm)} />
+        </section>
+      )}
+      {step.goals.map((g, k) => {
+        const auto = g.tasks.length > 0 && g.tasks.every(t => 'quiz' in t) && g.tasks.every(passed)
+        const ok = auto || done.includes('day:' + k)
+        return (
+          <section key={k} className={`deep-day${ok ? ' done' : ''}`} data-testid="deep-goal">
+            <header className="deep-day-head">
+              <b>Goal {k + 1}</b><span className="muted"> · {g.focus}</span>
+              <label className="deep-day-tick"><input type="checkbox" checked={ok} disabled={auto} onChange={() => toggleDay(lesson.id, k)} /> Reached</label>
+            </header>
+            <div className="deep-tasks">{g.tasks.map((t, j) => <TaskButton key={j} t={t} onGo={onGo} onExercise={onExercise} done={passed(t)} defGoal />)}</div>
+          </section>
+        )
+      })}
+      {step.challenge && (
+        <section className="deep-day deep-challenge" data-testid="deep-challenge">
+          <header className="deep-day-head"><b><Ico n="zap" /> Challenge round</b><span className="muted"> · optional, for when it feels easy</span></header>
+          <p className="small" style={{ margin: 0 }}>{rich(step.challenge.why)}</p>
+          <TaskButton t={step.challenge} onGo={onGo} onExercise={onExercise} done={passed(step.challenge)} defGoal />
+        </section>
+      )}
+    </div>
+  )
 }
 
 function CheckStep({ step, onGo, onExercise }: { step: Extract<Step, { kind: 'check' }>; onGo: (g: Go) => void; onExercise: (ex: LessonEx) => void }) {
@@ -210,7 +239,7 @@ export function DeepLessonView({ lesson, inst, onExit, onGo, onExercise }: { les
           <Ico n="target" />
           <span>
             <b>By the end:</b> {lesson.goal}
-            <span className="deep-goal-meta">About {lesson.minutes} minutes to read and listen, then a 7-day practice plan.{lesson.builds?.length ? ` Builds on: ${lesson.builds.join(', ')}.` : ''}</span>
+            <span className="deep-goal-meta">About {lesson.minutes} minutes to read and listen, then a few practice goals (one sitting or several).{lesson.builds?.length ? ` Builds on: ${lesson.builds.join(', ')}.` : ''}</span>
           </span>
         </div>
         {inst.id !== 'guitar' && <p className="notice small" style={{ margin: 0 }}>The pictures, tabs and quizzes follow your {inst.label.toLowerCase()}'s tuning; the string names in the text are the guitar's.</p>}
@@ -242,7 +271,7 @@ export function DeepLessonView({ lesson, inst, onExit, onGo, onExercise }: { les
           {justDone && (
             <div className="deep-done" data-testid="deep-done">
               <b>Lesson finished. Nice work.</b>
-              <span className="small">It comes back for short reviews in {REVIEW_DAYS.join(', ')} days so it sticks. Keep going with the practice week.</span>
+              <span className="small">It comes back for short reviews in {REVIEW_DAYS.join(', ')} days so it sticks. Keep going with the practice goals.</span>
             </div>
           )}
         </section>

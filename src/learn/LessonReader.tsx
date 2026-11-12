@@ -113,6 +113,7 @@ export function BlockView({ b, inst, onGo }: { b: Block; inst: Instrument; onGo:
   if ('play' in b) return <button className="btn sm lesson-play" onClick={() => playExample(b.play.seq, b.play.chord, b.play.gap)}>▶ {b.play.label}</button>
   if ('prog' in b) return <button className="btn sm lesson-play" onClick={() => playProg(b.prog.chords, b.prog.gap)}>▶ {b.prog.label}</button>
   if ('rhythm' in b) return <RhythmBlock {...b.rhythm} />
+  if ('video' in b) return <div className="stack" style={{ gap: 4 }}>{b.video.note && <p className="small muted" style={{ margin: 0 }}>{rich(b.video.note)}</p>}<LessonVideoCard video={b.video} /></div>
   if ('circle' in b) {
     return (
       <div className="cof-wrap">

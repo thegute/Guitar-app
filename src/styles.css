@@ -2709,6 +2709,9 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .deep-day.done { border-color: color-mix(in srgb, var(--mint) 60%, var(--line)); }
 .deep-day-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .deep-day-tick { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; min-height: var(--h-sm); }
+.deep-warm { border-style: dashed; }
+.deep-challenge { border-color: color-mix(in srgb, var(--gold) 55%, var(--line)); background: color-mix(in srgb, var(--gold) 7%, transparent); }
+.deep-challenge .deep-day-head b { display: inline-flex; align-items: center; gap: 6px; }
 .deep-checks { display: grid; gap: 8px; }
 @media (min-width: 640px) { .deep-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .deep-check { display: grid; gap: 4px; }

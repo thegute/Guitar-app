@@ -9,7 +9,7 @@ export type LessonEx = { label: string } & (
   | { spec: ExerciseSpec }
   | { songbook: { song: string; part: string } }
   | { drill: string }
-  | { tab: 'alphabetA' | 'alphabetE' | 'octaves' | 'durations' | 'intervals' | 'counting' | 'shuffle' | 'octaveWalk' | 'octaveDyads' | 'octaveCross' }
+  | { tab: 'alphabetA' | 'alphabetE' | 'octaves' | 'durations' | 'intervals' | 'counting' | 'shuffle' | 'octaveWalk' | 'octaveDyads' | 'octaveCross' | 'keyTriads' | 'keyTriadsEmb' }
   | { tool: 'ear' | 'circle' | 'caged' | 'changes' | 'bends' | 'jam' }
   | { example: string }
 )
@@ -244,10 +244,83 @@ export function lessonTab(id: string, tuning: number[]): Song {
     const bars = [i, i, i, i, iv, iv, i, i].map(bar)
     return { title: 'Shuffle riff (play the eighths long-short)', tempo: 84, tracks: [{ name: 'Shuffle', tuning, capo: 0, bars, program: 25 }] }
   }
+  if (id === 'keyTriads' || id === 'keyTriadsEmb') return keyTriadTab(id === 'keyTriadsEmb', tuning)
   // intervals: A up to each interval and back, an octave of steps
   let a = Math.min(...tuning)
   while (a % 12 !== 9) a++
   const ms: (number | null)[] = []
   for (let i = 1; i <= 12; i++) ms.push(a, a + i)
   return line('Intervals from A: minor 2nd to octave', tuning, ms, 1, 66)
+}
+
+// ---- the whole key in one 5-fret window (Daniel Seriff's triad system: C major on the D, G and B strings, frets 5–9) ----
+const KEY_C = [0, 2, 4, 5, 7, 9, 11]
+const TRIAD_NAMES = ['C', 'Dm', 'Em', 'F', 'G', 'Am', 'B°']
+/** Voice-led triads of C major on three neighbouring middle strings: each chord the closest shape to the one before,
+ *  kept inside a 5-fret window where it can be (on guitar this gives xx555x xx776x xx998x xx756x xx978x xx755x xx976x). */
+export function keyTriadShapes(tuning: number[]): { name: string; deg: number; frets: number[]; strings: number[] }[] {
+  const strings = tuning.length >= 6 ? [2, 3, 4] : tuning.length >= 4 ? [1, 2, 3] : [0, 1, 2].filter(i => i < tuning.length)
+  const tones = (d: number) => [0, 2, 4].map(k => KEY_C[(d + k) % 7])
+  const voicings = (d: number) => {
+    const want = tones(d), out: number[][] = []
+    const opts = strings.map(st => Array.from({ length: 13 }, (_, f) => f).filter(f => want.includes((tuning[st] + f) % 12)))
+    for (const a of opts[0]) for (const b of opts[1] ?? [0]) for (const c of opts[2] ?? [0]) {
+      const fs = [a, b, c].slice(0, strings.length)
+      const pcs = new Set(fs.map((f, i) => (tuning[strings[i]] + f) % 12))
+      if (pcs.size === Math.min(3, strings.length) && Math.max(...fs) - Math.min(...fs) <= 4) out.push(fs)
+    }
+    return out
+  }
+  // the window: the highest start (≤ 5) where the I chord fits entirely
+  let w = 5
+  while (w > 0 && !voicings(0).some(v => v.every(f => f >= w && f <= w + 4))) w--
+  const pen = (v: number[]) => v.reduce((a, f) => a + (f < w ? w - f : f > w + 4 ? f - w - 4 : 0) * 3, 0)
+  const first = voicings(0).filter(v => v.every(f => f >= w && f <= w + 4)).sort((x, y) => Math.max(...x) - Math.max(...y))[0] ?? voicings(0)[0]
+  const out = [{ name: TRIAD_NAMES[0], deg: 0, frets: first, strings }]
+  for (let d = 1; d < 7; d++) {
+    const prev = out[out.length - 1].frets
+    const best = voicings(d).map(v => ({ v, cost: v.reduce((a, f, i) => a + Math.abs(f - prev[i]), 0) + pen(v) })).sort((x, y) => x.cost - y.cost)[0]
+    out.push({ name: TRIAD_NAMES[d], deg: d, frets: best ? best.v : prev, strings })
+  }
+  return out
+}
+function keyTriadTab(emb: boolean, tuning: number[]): Song {
+  const shapes = keyTriadShapes(tuning)
+  const note = (st: number, f: number) => ({ string: st, fret: f, midi: tuning[st] + f })
+  const chord = (i: number) => shapes[i].strings.map((st, k) => note(st, shapes[i].frets[k]))
+  const bars: SongBar[] = []
+  if (!emb) {
+    // up the key and back, two beats a chord, then home
+    const order = [0, 1, 2, 3, 4, 5, 6, 0, 6, 5, 4, 3, 2, 1, 0, 0]
+    for (let b = 0; b < order.length; b += 2) bars.push({ steps: order.slice(b, b + 2).map(i => ({ dur: 2, notes: chord(i), chord: shapes[i].name })) })
+    return { title: 'The key of C in one 5-fret window', tempo: 72, tracks: [{ name: 'Triads', tuning, capo: 0, bars, program: 25 }] }
+  }
+  // I – vi – IV – V with embellishments: the chord, then the scale note above its top note (a hammer-on), back down,
+  // then the scale note above its middle note, twice round
+  const top = (i: number) => {
+    const sh = shapes[i], k = sh.strings.length - 1, st = sh.strings[k], f = sh.frets[k]
+    const m = tuning[st] + f
+    let up = 1
+    while (!KEY_C.includes((m + up) % 12)) up++
+    return { st, f, up }
+  }
+  const mid = (i: number) => {
+    const sh = shapes[i], k = Math.max(0, sh.strings.length - 2), st = sh.strings[k], f = sh.frets[k]
+    let up = 1
+    while (!KEY_C.includes((tuning[st] + f + up) % 12)) up++
+    return { st, f, up }
+  }
+  for (const i of [0, 5, 3, 4, 0, 5, 3, 4]) {
+    const c = chord(i), t = top(i), m = mid(i)
+    const withTop = c.map(n => (n.string === t.st ? note(t.st, t.f + t.up) : n))
+    bars.push({ steps: [
+      { dur: 1, notes: c, chord: shapes[i].name },
+      { dur: 0.5, notes: [note(t.st, t.f)] },
+      { dur: 0.5, notes: [note(t.st, t.f + t.up)] },
+      { dur: 1, notes: withTop },
+      { dur: 0.5, notes: [note(m.st, m.f + m.up)] },
+      { dur: 0.5, notes: [note(m.st, m.f)] },
+    ] })
+  }
+  return { title: 'I – vi – IV – V with embellishments (the note above)', tempo: 76, tracks: [{ name: 'Triads', tuning, capo: 0, bars, program: 25 }] }
 }

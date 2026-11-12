@@ -14,6 +14,8 @@ export type Block =
   /** marks at exact places on the neck, worked out for the instrument's tuning (octave shapes, "every G", …) */
   | { spots: { caption?: string; from?: number; to?: number; marks: (midis: number[]) => { s: number; f: number; label: string; role: 'root' | 'chord' | 'scale' | 'target' | 'next' }[] } }
   | { rhythm: { label: string; beats: number[]; bpm?: number } }
+  /** a video inside a lesson step (the step's own teacher), with a line on what to watch for */
+  | { video: { id: string; title: string; note?: string } }
   | { practice: { label: string; quiz?: string; tool?: 'ear' | 'caged' | 'changes' | 'rhythm' | 'circle' | 'jam' | 'play' | 'practice' } }
 
 export interface Lesson {

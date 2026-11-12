@@ -446,6 +446,139 @@ export const THEORY_QUIZZES: QuizDef[] = [
         `${ans}: its chords are ${ch.join(' ')}. ${ch[0]}, ${ch[3]} and ${ch[4]} (I, IV and V) are its three major chords, and only ${k} major has all three.`, rnd)
     },
   },
+  // ---------- Level 3 ear drills ----------
+  {
+    id: 'l3-prog-ear', unit: 'Guitar theory', title: 'Hear it: which progression?', ear: true,
+    desc: 'Four chords in a key: which number pattern is it? The progressions that run through thousands of songs.', length: 10, mic: false,
+    items: () => ['145', '1564', '1645', '6415', '251', '1564', '145', '1645', '6415', '1564'].map((k, i) => `l3-prog-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const root = 43 + Math.floor(rnd() * 7)
+      const tri = (deg: number, minor: boolean) => { const b = root + [0, 2, 4, 5, 7, 9, 11][deg]; return [b, b + 7, b + 12, b + (minor ? 15 : 16)] }
+      const C: Record<string, number[]> = { I: tri(0, false), ii: tri(1, true), IV: tri(3, false), V: tri(4, false), vi: tri(5, true) }
+      const P: Record<string, [string, string[], string]> = {
+        '145': ['I – IV – V – I', ['I', 'IV', 'V', 'I'], 'the folk, country and rock\'n\'roll backbone: away (IV), tension (V), home.'],
+        '1564': ['I – V – vi – IV', ['I', 'V', 'vi', 'IV'], 'the pop progression: home, lean, the sad vi, then the lift of IV.'],
+        '1645': ['I – vi – IV – V', ['I', 'vi', 'IV', 'V'], 'the 1950s doo-wop progression: the minor chord comes second.'],
+        '6415': ['vi – IV – I – V', ['vi', 'IV', 'I', 'V'], 'the pop four starting on the minor chord, so it feels darker.'],
+        '251': ['ii – V – I', ['ii', 'V', 'I'], 'jazz\'s favourite way home: minor ii, tense V, rest on I.'],
+      }
+      const [ans, seq, why] = P[k]
+      return choose(item, 'Which progression?', ans, Object.values(P).map(p => p[0]), `${ans}: ${why}`, rnd, { audio: { chords: seq.map(n => C[n]) }, sub: 'Is the first chord major or minor? Where does the minor chord come?' })
+    },
+  },
+  {
+    id: 'l3-cadence-ear', unit: 'Guitar theory', title: 'Hear it: how does it end?', ear: true,
+    desc: 'The last two chords of a phrase: a strong homecoming, a gentle "amen", left hanging, or a surprise? (Level 7 gives them their official names.)', length: 10, mic: false,
+    items: () => ['VI', 'IVI', 'half', 'VI', 'dec', 'IVI', 'half', 'VI', 'dec', 'half'].map((k, i) => `l3-cadence-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const root = 43 + Math.floor(rnd() * 7)
+      const tri = (deg: number, minor: boolean) => { const b = root + [0, 2, 4, 5, 7, 9, 11][deg]; return [b, b + 7, b + 12, b + (minor ? 15 : 16)] }
+      const I = tri(0, false), IV = tri(3, false), V = tri(4, false), vi = tri(5, true), ii = tri(1, true)
+      const E: Record<string, [string, number[][], string]> = {
+        VI: ['Home: V → I', [I, IV, V, I], 'V to I: the strongest homecoming (the 7th of the scale rises to home).'],
+        IVI: ['Amen: IV → I', [I, V, IV, I], 'IV to I: a softer, warmer way home, the "A-men" at the end of hymns.'],
+        half: ['Left hanging: stops on V', [I, ii, IV, V], 'It stops on V: a question waiting for its answer.'],
+        dec: ['Surprise: V → vi', [I, IV, V, vi], 'V goes to vi instead of I: you expected home and got its sad twin.'],
+      }
+      const [ans, seq, why] = E[k]
+      return choose(item, 'How does the phrase end?', ans, Object.values(E).map(e => e[0]), `${ans}. ${why}`, rnd, { audio: { chords: seq }, sub: 'Listen to the last two chords: does it land, and where?' })
+    },
+  },
+  {
+    id: 'l3-scale-ear', unit: 'Guitar theory', title: 'Hear it: which scale?', ear: true,
+    desc: 'A scale played up from its root: major, natural minor, minor pentatonic, major pentatonic or the blues scale?', length: 10, mic: false,
+    items: () => ['mp', 'Mp', 'blues', 'nat', 'maj', 'mp', 'blues', 'Mp', 'nat', 'mp'].map((k, i) => `l3-scale-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const S: Record<string, [string, number[], string]> = {
+        maj: ['Major scale', [0, 2, 4, 5, 7, 9, 11, 12], 'seven notes, bright: do re mi.'],
+        nat: ['Natural minor', [0, 2, 3, 5, 7, 8, 10, 12], 'seven notes with ♭3, ♭6 and ♭7: sad, serious.'],
+        mp: ['Minor pentatonic', [0, 3, 5, 7, 10, 12], 'five notes, 1 ♭3 4 5 ♭7: the rock and blues sound, with gaps.'],
+        Mp: ['Major pentatonic', [0, 2, 4, 7, 9, 12], 'five notes, 1 2 3 5 6: sweet, open, country and folk.'],
+        blues: ['Blues scale', [0, 3, 5, 6, 7, 10, 12], 'the minor pentatonic plus the ♭5 "blue note" squeezed between 4 and 5.'],
+      }
+      const [ans, ivs, why] = S[k]
+      const root = 45 + Math.floor(rnd() * 8)
+      return choose(item, 'Which scale?', ans, Object.values(S).map(x => x[0]), `${ans}: ${why}`, rnd, { audio: { seq: ivs.map(i => root + i) }, sub: 'Count the notes (five or seven?), then listen for the 3rd.' })
+    },
+  },
+  {
+    id: 'l3-mood-ear', unit: 'Guitar theory', title: 'Hear it: major key or minor key?', ear: true,
+    desc: 'A short progression: is home a major chord or a minor one? The first thing to hear when you work out a song.', length: 10, mic: false,
+    items: () => ['M1', 'm1', 'M2', 'm2', 'm3', 'M3', 'm1', 'M2', 'm3', 'M1'].map((k, i) => `l3-mood-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const root = 43 + Math.floor(rnd() * 7)
+      const ch = (semi: number, minor: boolean) => { const b = root + semi; return [b, b + 7, b + 12, b + (minor ? 15 : 16)] }
+      const P: Record<string, number[][]> = {
+        M1: [ch(0, false), ch(9, true), ch(5, false), ch(7, false), ch(0, false)],
+        M2: [ch(0, false), ch(5, false), ch(7, false), ch(0, false)],
+        M3: [ch(0, false), ch(7, false), ch(9, true), ch(5, false), ch(0, false)],
+        m1: [ch(0, true), ch(8, false), ch(10, false), ch(0, true)],
+        m2: [ch(0, true), ch(5, true), ch(7, true), ch(0, true)],
+        m3: [ch(0, true), ch(5, true), ch(7, false), ch(0, true)],
+      }
+      const minor = k.startsWith('m')
+      const ans = minor ? 'Minor key' : 'Major key'
+      const why = minor ? 'Home is a minor chord (i): the music rests on the darker sound.' : 'Home is a major chord (I): even with a minor chord on the way, it rests on the bright one.'
+      return {
+        item, prompt: 'Major key or minor key?', sub: 'Listen to the first and last chord: that\'s home.',
+        audio: { chords: P[k] },
+        input: { type: 'choices', options: ['Major key', 'Minor key'].map(o => ({ id: o, label: o })) },
+        check: x => 'choice' in x && x.choice === ans, explain: `${ans}. ${why}`,
+      }
+    },
+  },
+  {
+    id: 'l3-blues-ear', unit: 'Guitar theory', title: 'Hear it: where is the blues going?', ear: true,
+    desc: 'A blues on the I7 chord, then a change: up to the IV7, up to the V7, or staying on I7?', length: 10, mic: false,
+    items: () => ['IV', 'V', 'I', 'IV', 'V', 'IV', 'I', 'V', 'IV', 'V'].map((k, i) => `l3-blues-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const root = 40 + Math.floor(rnd() * 6)
+      const d7 = (semi: number) => { const b = root + semi; return [b, b + 7, b + 10, b + 16] }
+      const to: Record<string, number> = { I: 0, IV: 5, V: 7 }
+      const ans = `${k}7`
+      const why: Record<string, string> = { I: 'It stayed on I7: home, but restless (the ♭7 keeps it moving).', IV: 'IV7: a lift away from home, the change in bar 5 (and bar 2 in a quick change).', V: 'V7: the high point of the blues, bar 9, before falling back home.' }
+      return choose(item, 'I7, then…?', ans, ['I7', 'IV7', 'V7'], `${ans}. ${why[k]}`, rnd, { audio: { chords: [d7(0), d7(0), d7(to[k])] }, sub: 'Does the bass go up a little (IV) or further (V)?' })
+    },
+  },
+  {
+    id: 'l3-feel-ear', unit: 'Guitar theory', title: 'Hear it: straight, swung or triplets?', ear: true,
+    desc: 'A bar of strums over a click: straight eighths, swung (shuffle) eighths, triplets, or quarter notes?', length: 8, mic: false,
+    items: () => ['swing', 'straight', 'trip', 'swing', 'q', 'trip', 'straight', 'swing'].map((k, i) => `l3-feel-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const t = 1 / 3
+      const R: Record<string, [string, number[], string]> = {
+        straight: ['Straight eighths', Array(8).fill(0.5), 'two even strums per beat: 1 & 2 &.'],
+        swing: ['Swung eighths (shuffle)', [2 * t, t, 2 * t, t, 2 * t, t, 2 * t, t], 'long-short pairs: the & comes late, on the last third of the beat ("doo-ba doo-ba").'],
+        trip: ['Triplets', Array(12).fill(t), 'three even strums per beat: "trip-uh-let".'],
+        q: ['Quarter notes', [1, 1, 1, 1], 'one strum per beat.'],
+      }
+      const [ans, beats, why] = R[k]
+      return choose(item, 'What\'s the feel?', ans, Object.values(R).map(r => r[0]), `${ans}: ${why}`, rnd, { audio: { rhythm: { beats, bpm: 84 } }, sub: 'Count "1 & 2 &" along: do the &s land halfway, or late?' })
+    },
+  },
+  {
+    id: 'l3-12bar', unit: 'Guitar theory', title: 'The 12-bar blues: which chord?',
+    desc: 'A 12-bar blues in a key: which chord is in this bar? Standard form, or the quick change (IV in bar 2).', length: 10, mic: false,
+    items: () => [['A', 5], ['E', 9], ['G', 2], ['A', 2, 'q'], ['E', 10], ['D', 12], ['A', 7], ['C', 4], ['E', 2, 'q'], ['G', 11]].map(([k, b, q], i) => `l3-12bar:${k}:${b}:${q ?? 's'}:${i}`),
+    make: (item, _inst, rnd) => {
+      const [, k, bs, form] = item.split(':')
+      const bar = Number(bs)
+      const quick = form === 'q'
+      const form12 = ['I', quick ? 'IV' : 'I', 'I', 'I', 'IV', 'IV', 'I', 'I', 'V', 'IV', 'I', 'V']
+      const sc = spellScale(k)
+      const name: Record<string, string> = { I: `${sc[0]}7`, IV: `${sc[3]}7`, V: `${sc[4]}7` }
+      const deg = form12[bar - 1]
+      const ans = `${name[deg]} (${deg}7)`
+      const why = `${ans}. The 12 bars: I I I I · IV IV I I · V IV I V${quick ? ' (quick change: IV in bar 2)' : ''}; in ${k} that's ${name.I}, ${name.IV} and ${name.V}.`
+      return choose(item, `A ${quick ? 'quick-change ' : ''}12-bar blues in ${k}: which chord is bar ${bar}?`, ans, ['I', 'IV', 'V'].map(d => `${name[d]} (${d}7)`), why, rnd)
+    },
+  },
 ]
 /** [question, answer, wrong answers, why] */
 const READ: [string, string, string[], string][] = [

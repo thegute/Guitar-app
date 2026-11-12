@@ -106,11 +106,11 @@ async function openLesson(page) {
     console.log(`${inst}: walked ${ids.length} course lessons`)
     await page.context().close()
   }
-  // an exercise from the practice week opens in Play; a quiz opens
+  // an exercise from the practice goals opens in Play; a quiz opens
   {
     const page = await newPage(browser, { width: 840, height: 757 }, {})
     await openLesson(page)
-    await page.locator('.deep-rail-step:has-text("Practice week")').click()
+    await page.locator('.deep-rail-step:has-text("Practice goals")').click()
     await page.locator('[data-testid=deep-task]:has-text("Octave pairs up the neck")').first().click()
     await page.waitForSelector('.tab-note', { timeout: 8000 }).catch(() => bad('the octave pairs exercise did not open in Play'))
     const notes = await page.locator('.tab-note').count()

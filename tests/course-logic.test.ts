@@ -1,5 +1,5 @@
 // The theory course's content checks: every lesson is complete (all nine step kinds, a three-skill check, an explain-it-back
-// prompt, a practice week of 5–7 days), lesson numbers run in order, every quiz / songbook song / tab it links to exists, and every
+// prompt, practice goals with a challenge round), lesson numbers run in order, every quiz / songbook song / tab it links to exists, and every
 // neck picture is right: marks inside the drawn frets (Fretboard's fromFret is the nut line, so a mark ON fromFret is hidden),
 // on real strings, and any mark labelled with a note name really is that note (guitar, standard tuning).
 import './test-env'
@@ -37,7 +37,7 @@ function tasksOf(l: CourseLesson): Task[] {
   for (const st of l.steps) {
     if (st.kind === 'hear') out.push(...st.drills)
     if (st.kind === 'use' || st.kind === 'check') out.push(...st.tasks)
-    if (st.kind === 'practice') for (const d of st.days) out.push(...d.tasks)
+    if (st.kind === 'practice') { for (const d of st.goals) out.push(...d.tasks); if (st.challenge) out.push(st.challenge) }
   }
   return out
 }
@@ -56,7 +56,8 @@ for (const l of COURSE) {
     if (/check$/.test(l.id)) { assert.ok(kinds.has('check')); return }
     for (const k of ['why', 'learn', 'examples', 'hear', 'mistakes', 'practice', 'use', 'check', 'deeper']) assert.ok(kinds.has(k as never), `missing ${k}`)
     const pr = l.steps.find(s => s.kind === 'practice')
-    assert.ok(pr && pr.kind === 'practice' && pr.days.length >= 5, 'practice week has under 5 days')
+    assert.ok(pr && pr.kind === 'practice' && pr.goals.length >= 4, 'fewer than 4 practice goals')
+    assert.ok(pr.challenge && pr.challenge.why, 'no challenge round')
     const ck = l.steps.find(s => s.kind === 'check')
     assert.ok(ck && ck.kind === 'check')
     for (const sk of ['Apply', 'Hear', 'Play']) assert.ok(ck.tasks.some(t => t.skill === sk) || (sk === 'Apply' && ck.tasks.some(t => t.skill === 'Recall')), `check has no ${sk}`)

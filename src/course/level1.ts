@@ -168,33 +168,34 @@ export const OCTAVE_SHAPES: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'About 10 minutes a day for a week. Each day builds on the one before. Slow and correct beats fast and sloppy: the mic shows you each note.',
-      days: [
-        { day: 'Day 1', focus: 'Shape 1 only', tasks: [
+      kind: 'practice', title: 'Practice goals', intro: 'Hit the goals in one sitting or a few short ones. Slow and correct beats fast and sloppy: the mic shows you each note.',
+      challenge: { label: 'Octave shapes on every string pair, answered by playing', quiz: 'oc-move', how: 'play', goal: '10 in a row', why: 'Every octave shape on the whole neck, found and played without looking anything up.' },
+      goals: [
+        { focus: 'Shape 1 only', tasks: [
           { label: 'Octave pairs up the neck (shape 1)', ex: { label: 'Octave pairs up the neck', tab: 'octaveDyads' }, minutes: 5, goal: 'Every pair clean, the middle string silent' },
           { label: 'Octave shapes quiz', quiz: 'oc-move', minutes: 4, goal: '10 right in a row' },
         ] },
-        { day: 'Day 2', focus: 'Crossing the B string', tasks: [
+        { focus: 'Crossing the B string', tasks: [
           { label: 'Octave pairs across the B string (shape 2)', ex: { label: 'Octave pairs across the B string', tab: 'octaveCross' }, minutes: 5 },
           { label: 'Octave or not? (ear)', quiz: 'oc-hear', minutes: 3 },
         ] },
-        { day: 'Day 3', focus: 'Shape 3 and two octaves', tasks: [
+        { focus: 'Shape 3 and two octaves', tasks: [
           { label: 'The same note in every octave', ex: { label: 'Octaves: the same note, higher and lower', tab: 'octaves' }, minutes: 4 },
-          { label: 'Octave pairs up the neck, faster', ex: { label: 'Octave pairs up the neck', tab: 'octaveDyads' }, minutes: 5, goal: 'A little faster than Day 1, still clean' },
+          { label: 'Octave pairs up the neck, faster', ex: { label: 'Octave pairs up the neck', tab: 'octaveDyads' }, minutes: 5, goal: 'a little faster than goal 1, still clean' },
         ] },
-        { day: 'Day 4', focus: 'One note everywhere', tasks: [
+        { focus: 'One note everywhere', tasks: [
           { label: 'One note on every string, up and back (a new note each day)', ex: { label: 'One note on every string', tab: 'octaveWalk' }, minutes: 5, goal: 'At 60 BPM, then 80' },
           { label: 'Find every one', quiz: 'fb-find-all', minutes: 4, goal: 'Under 20 seconds a note' },
         ] },
-        { day: 'Day 5', focus: 'Play it (mic)', tasks: [
+        { focus: 'Play it (mic)', tasks: [
           { label: 'Play the octave you see and hear', quiz: 'fb-octave', how: 'play', minutes: 5, goal: 'Answer by playing, not tapping' },
           { label: 'Octave pairs across the B string', ex: { label: 'Octave pairs across the B string', tab: 'octaveCross' }, minutes: 4 },
         ] },
-        { day: 'Day 6', focus: 'Make music with it', tasks: [
+        { focus: 'Make music with it', tasks: [
           { label: 'Octave lead: Roots Melody (slow)', ex: { label: 'Octave lead: Roots Melody', songbook: { song: 'roots', part: 'octaves' } }, minutes: 6 },
           { label: 'Improvise octaves over a band in Jam', tool: 'jam', minutes: 4 },
         ] },
-        { day: 'Day 7', focus: 'Check yourself', tasks: [
+        { focus: 'Check yourself', tasks: [
           { label: 'Do the Check step of this lesson', quiz: 'oc-move', minutes: 8 },
         ] },
       ],
@@ -224,7 +225,7 @@ export const OCTAVE_SHAPES: CourseLesson = {
       kind: 'deeper', title: 'Go deeper', video: { id: 'lJYF_Bm7g_w', title: 'Memorize Guitar Notes - Octave Shapes' },
       books: [
         { book: 'Guitar Fretboard Mastery', where: 'Part 1, Step 4: using octaves to find the notes on the D, G, B and e strings', why: 'The same four shapes, with photos of the grip and the muting.' },
-        { book: 'Music Theory for Guitarists', where: 'Chapter 1: The Fretboard', why: 'His daily warm-up: one note on every string and back, a new note each day (Day 4 of your practice week).' },
+        { book: 'Music Theory for Guitarists', where: 'Chapter 1: The Fretboard', why: 'His daily warm-up: one note on every string and back, a new note each day (one of your practice goals here).' },
         { book: 'Guitar Fretboard Workbook', where: 'The note-name chapters', why: 'Drawing and saying the shapes out loud: his way of making them stick fast.' },
       ],
       blocks: [
@@ -325,23 +326,24 @@ export const STRINGS_ALPHABET: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'Five minutes a day is plenty. Say every note out loud.',
-      days: [
-        { day: 'Day 1', focus: 'The open strings', tasks: [
+      kind: 'practice', title: 'Practice goals', intro: 'Say every note out loud as you play it.',
+      challenge: { label: 'Every note, every string', quiz: 'fb-all', goal: '2 stars', why: 'Sharps and flats on all six strings, not just the naturals.' },
+      goals: [
+        { focus: 'The open strings', tasks: [
           { label: 'Open strings, one at a time (say each name)', ex: { label: 'Open strings, one at a time', drill: 'openstrings' }, minutes: 4 },
           { label: 'The musical alphabet', quiz: 'nb-alpha', minutes: 4, goal: 'No mistakes' },
         ] },
-        { day: 'Day 2', focus: 'The alphabet both ways', tasks: [
+        { focus: 'The alphabet both ways', tasks: [
           { label: 'The alphabet along the low E string (say each note)', ex: { label: 'The alphabet along the low E string', tab: 'alphabetE' }, minutes: 5 },
         ] },
-        { day: 'Day 3', focus: 'The A string', tasks: [
+        { focus: 'The A string', tasks: [
           { label: 'The alphabet along the A string', ex: { label: 'The alphabet along the A string', tab: 'alphabetA' }, minutes: 5 },
           { label: 'Higher, lower or the same? (ear)', quiz: 'l1-pitch', minutes: 3 },
         ] },
-        { day: 'Day 4', focus: 'Find them fast', tasks: [
+        { focus: 'Find them fast', tasks: [
           { label: 'Natural notes on the low E string', quiz: 'fb-nat-0', minutes: 5, goal: 'Under 3 seconds a note' },
         ] },
-        { day: 'Day 5', focus: 'Play a melody from the letters', tasks: [
+        { focus: 'Play a melody from the letters', tasks: [
           { label: 'A melody on the natural notes: Oh! Susanna', ex: { label: 'Oh! Susanna (melody)', songbook: { song: 'susanna', part: 'melody' } }, minutes: 6 },
         ] },
       ],
@@ -454,22 +456,23 @@ export const STEPS_SHARPS: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'A few minutes a day; finish each day by naming 5 random frets on the low E, sharps and flats included.',
-      days: [
-        { day: 'Day 1', focus: 'Semitones under your fingers', tasks: [
+      kind: 'practice', title: 'Practice goals', intro: 'Finish each sitting by naming 5 random frets on the low E, sharps and flats included.',
+      challenge: { label: 'Sharps and flats on the two lowest strings, answered by playing', quiz: 'fb-low-all', how: 'play', goal: '2 stars', why: 'Find each one on the guitar instead of tapping it.' },
+      goals: [
+        { focus: 'Semitones under your fingers', tasks: [
           { label: 'The spider: one fret at a time (say the names)', ex: { label: 'The spider: one fret at a time', spec: { kind: 'warmup', root: 'A', type: 'spider', position: 0 } }, minutes: 5 },
         ] },
-        { day: 'Day 2', focus: 'Tones and semitones', tasks: [
+        { focus: 'Tones and semitones', tasks: [
           { label: 'Tones and semitones', quiz: 'nb-steps', minutes: 4, goal: '10 right' },
           { label: 'Semitone or tone? (ear)', quiz: 'l1-step-ear', minutes: 3 },
         ] },
-        { day: 'Day 3', focus: 'All 12 notes on the low strings', tasks: [
+        { focus: 'All 12 notes on the low strings', tasks: [
           { label: 'Sharps and flats on the two lowest strings', quiz: 'fb-low-all', minutes: 5 },
         ] },
-        { day: 'Day 4', focus: 'Measure with your ears', tasks: [
+        { focus: 'Measure with your ears', tasks: [
           { label: 'Octaves: the same note, higher and lower', ex: { label: 'Octaves: the same note, higher and lower', tab: 'octaves' }, minutes: 5 },
         ] },
-        { day: 'Day 5', focus: 'Use it in a scale', tasks: [
+        { focus: 'Use it in a scale', tasks: [
           { label: 'C major along one string: T T S T T T S', ex: { label: 'C major scale', spec: { kind: 'scale', root: 'C', type: 'major', position: 0 } }, minutes: 6 },
         ] },
       ],
@@ -568,23 +571,24 @@ export const LANDMARKS: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'Short daily bursts. The goal: about two seconds a note.',
-      days: [
-        { day: 'Day 1', focus: 'The landmarks', tasks: [
+      kind: 'practice', title: 'Practice goals', intro: 'Short bursts work best. The target: about two seconds a note.',
+      challenge: { label: 'Find every one', quiz: 'fb-find-all', goal: '2 stars', why: 'Every place a note lives, fast: the skill that makes the whole neck yours.' },
+      goals: [
+        { focus: 'The landmarks', tasks: [
           { label: 'Natural notes on the low E', quiz: 'fb-nat-0', minutes: 4 },
           { label: 'The alphabet along the low E', ex: { label: 'The alphabet along the low E string', tab: 'alphabetE' }, minutes: 3 },
         ] },
-        { day: 'Day 2', focus: 'The A string', tasks: [
+        { focus: 'The A string', tasks: [
           { label: 'Natural notes on the A string', quiz: 'fb-nat-1', minutes: 4 },
           { label: 'The alphabet along the A string', ex: { label: 'The alphabet along the A string', tab: 'alphabetA' }, minutes: 3 },
         ] },
-        { day: 'Day 3', focus: 'Sharps and flats', tasks: [
+        { focus: 'Sharps and flats', tasks: [
           { label: 'Sharps and flats on the two lowest strings', quiz: 'fb-low-all', minutes: 5, goal: 'Under 3 seconds a note' },
         ] },
-        { day: 'Day 4', focus: 'Roots for real chords', tasks: [
+        { focus: 'Roots for real chords', tasks: [
           { label: 'Barre chords: where does it go?', quiz: 'ch-barre', minutes: 5 },
         ] },
-        { day: 'Day 5', focus: 'Play it', tasks: [
+        { focus: 'Play it', tasks: [
           { label: 'Power-chord roots in a reggae-rock riff in Jam (name every root)', tool: 'jam', minutes: 6 },
         ] },
       ],
@@ -694,23 +698,24 @@ export const READING: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'Read something every day. Hear it first, then play.',
-      days: [
-        { day: 'Day 1', focus: 'Tab basics', tasks: [
+      kind: 'practice', title: 'Practice goals', intro: 'Hear each tab first, then play it.',
+      challenge: { label: 'Read a fiddle tune: Old Joe Clark', ex: { label: 'Old Joe Clark (melody)', songbook: { song: 'joeclark', part: 'melody' } }, goal: 'a clean run at full speed', why: 'Faster notes across more strings than Clementine.' },
+      goals: [
+        { focus: 'Tab basics', tasks: [
           { label: 'Reading tab and chord boxes', quiz: 'l1-read', minutes: 4 },
           { label: 'Open strings, one at a time (read the tab)', ex: { label: 'Open strings, one at a time', drill: 'openstrings' }, minutes: 3 },
         ] },
-        { day: 'Day 2', focus: 'A melody from tab', tasks: [
+        { focus: 'A melody from tab', tasks: [
           { label: 'Read a melody tab: Clementine', ex: { label: 'Read a melody tab: Clementine', songbook: { song: 'clementine', part: 'melody' } }, minutes: 6 },
         ] },
-        { day: 'Day 3', focus: 'Chord boxes', tasks: [
+        { focus: 'Chord boxes', tasks: [
           { label: 'Name that chord shape', quiz: 'ch-name', minutes: 5 },
         ] },
-        { day: 'Day 4', focus: 'Symbols in action', tasks: [
+        { focus: 'Symbols in action', tasks: [
           { label: 'Hammer-ons and pull-offs (read the h and p)', ex: { label: 'Hammer-ons and pull-offs', drill: 'legato' }, minutes: 5 },
           { label: 'Slides (read the / and \\)', ex: { label: 'Slides', drill: 'slides' }, minutes: 4 },
         ] },
-        { day: 'Day 5', focus: 'A real song', tasks: [
+        { focus: 'A real song', tasks: [
           { label: 'Chords and words: Red River Valley (read the chord boxes)', ex: { label: 'Red River Valley', songbook: { song: 'redriver', part: 'words' } }, minutes: 6 },
         ] },
       ],
@@ -820,21 +825,22 @@ export const RHYTHM1: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'Use the metronome (Tools → Tempo) every day.',
-      days: [
-        { day: 'Day 1', focus: 'Quarter notes', tasks: [
+      kind: 'practice', title: 'Practice goals', intro: 'Use the metronome (Tools → Tempo) for every goal.',
+      challenge: { label: 'Count it out loud at 100 BPM', ex: { label: 'Count out loud: 1 2 3 4, 1 & 2 &', tab: 'counting' }, goal: '100 BPM, every note in the green', why: 'The same counting, faster: where steady time gets tested.' },
+      goals: [
+        { focus: 'Quarter notes', tasks: [
           { label: 'Counting: quarter notes and eighths (count out loud)', ex: { label: 'Counting 1 & 2 &', tab: 'counting' }, minutes: 5 },
         ] },
-        { day: 'Day 2', focus: 'Eighths and the pendulum', tasks: [
+        { focus: 'Eighths and the pendulum', tasks: [
           { label: 'Rhythm trainer', tool: 'rhythm', minutes: 5 },
         ] },
-        { day: 'Day 3', focus: 'Note lengths', tasks: [
+        { focus: 'Note lengths', tasks: [
           { label: 'Whole, half, quarter and eighth notes', ex: { label: 'Note lengths', tab: 'durations' }, minutes: 5 },
         ] },
-        { day: 'Day 4', focus: 'Three in a bar', tasks: [
+        { focus: 'Three in a bar', tasks: [
           { label: 'Waltz time: Down in the Valley', ex: { label: 'Down in the Valley', songbook: { song: 'valley', part: 'words' } }, minutes: 6 },
         ] },
-        { day: 'Day 5', focus: 'Keep time with a band', tasks: [
+        { focus: 'Keep time with a band', tasks: [
           { label: 'Strum quarters, then eighths, over a band in Jam', tool: 'jam', minutes: 6 },
         ] },
       ],
@@ -937,21 +943,22 @@ export const TUNING: CourseLesson = {
       ],
     },
     {
-      kind: 'practice', title: 'Your practice week', intro: 'Tune by ear every day before you play; check with the tuner afterwards.',
-      days: [
-        { day: 'Day 1', focus: 'The 5th-fret method', tasks: [
+      kind: 'practice', title: 'Practice goals', intro: 'Tune by ear before you play; check with the tuner afterwards.',
+      challenge: { label: 'Tune all six strings by ear, then check with the tuner', tool: 'tuner', goal: 'every string within 10 cents', why: 'No tuner until the end: your ear does all the work.' },
+      goals: [
+        { focus: 'The 5th-fret method', tasks: [
           { label: 'Tune by ear, then check on the tuner', tool: 'tuner', minutes: 5 },
         ] },
-        { day: 'Day 2', focus: 'The wobble', tasks: [
+        { focus: 'The wobble', tasks: [
           { label: 'In tune or out of tune? (ear)', quiz: 'l1-tune-ear', minutes: 4 },
         ] },
-        { day: 'Day 3', focus: 'Octaves to check', tasks: [
+        { focus: 'Octaves to check', tasks: [
           { label: 'Octave pairs: they should sound perfectly smooth', ex: { label: 'Octave pairs up the neck', tab: 'octaveDyads' }, minutes: 5 },
         ] },
-        { day: 'Day 4', focus: 'The whole guitar', tasks: [
+        { focus: 'The whole guitar', tasks: [
           { label: 'One note on every string (unisons and octaves must blend)', ex: { label: 'One note on every string', tab: 'octaveWalk' }, minutes: 5 },
         ] },
-        { day: 'Day 5', focus: 'Level 1 review', tasks: [
+        { focus: 'Level 1 review', tasks: [
           { label: 'Natural notes everywhere', quiz: 'fb-all-nat', minutes: 6 },
         ] },
       ],
@@ -996,7 +1003,7 @@ export const LEVEL1_CHECK: CourseLesson = {
     {
       kind: 'why', title: 'Before Level 2', blocks: [
         { p: 'This check covers all of Level 1. It\'s **strongly suggested** before Level 2 (scales, chords and keys build directly on the notes of the neck), but never required: you can move on and come back.' },
-        { list: ['Take it when the practice weeks feel easy.', 'Anything you miss sends you back to the right lesson.', 'Pass it and the Level 1 badge is yours; it also comes back as a review later so the neck stays yours.'] },
+        { list: ['Take it when the practice goals feel easy.', 'Anything you miss sends you back to the right lesson.', 'Pass it and the Level 1 badge is yours; it also comes back as a review later so the neck stays yours.'] },
       ],
     },
     {
