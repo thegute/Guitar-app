@@ -248,7 +248,7 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   and every button press by label (one capture listener). Use it with the owner after a month to trim.
 - Tests: `tests/build30-logic.test.ts`, `tests/browser/build30-test.cjs [report,practice,right,tvn,remote,usage]`.
 
-## Builds 32–33 (on `big-update`, not shipped; change list with checkpoints in notes/next-build.md items 16–35)
+## Builds 32–33 (shipped in build-43; change list with checkpoints in notes/next-build.md items 16–35)
 - Beat maker (Koala-style): `studio/pads.ts` (PadDef: kit / rec / file / note / chord, pitch, vol, reverse, mode, fades, choke; `u1..u16` Your pads),
   `padSamples.ts` (IndexedDB kg-pad-samples), `padPlay.ts`, `PadEditor.tsx` (hold a pad to record = Sample mode), `ChopSheet.tsx` (riff → pads),
   `fx.ts` (PerformFx XY: filter/echo/reverb/stutter/crush/gate), parts A–D + song chain (beat.ts), `BounceSave.tsx` + `audio/tap.ts`
@@ -277,7 +277,7 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   (Basic Pitch 1.0.1, model in public/models/basic-pitch, tfjs lazy chunk): Jam → Find chords → Notes from a recording.
 - Tests: `tests/build33-logic.test.ts`, `tests/pdf-tab.test.ts` (+ fixtures), `tests/browser/build33-test.cjs [pdf, maketab, transcribe, z2h]`.
 
-## Big update, Steps 2–3 (on `big-update`, test builds test-38 / test-39; items 47–57 in notes/next-build.md)
+## Big update, Steps 2–3 (shipped in build-43 on 2026-11-11; items 47–71 in notes/next-build.md)
 - **New chat? Read `notes/HANDOFF.md` first**: state, owner rules, the agreed work queue (Riff Scanner accuracy, Game Mode upgrades with
   YouTube backing minus the guitar, floating finger diagrams everywhere, looper "start when I play", the two courses, brainstorm).
 - Riff Scanner sound path: `scan/soundScan.ts` (passes), `audio/transcribe.ts` (Basic Pitch through ONNX Runtime, `ml/models.ts`
@@ -322,7 +322,7 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
    (Settings → Pages → Source: GitHub Actions) for the web version.
    Owner rules still hold: only "Brandy" is named on screen; never invent names or titles for the art or the dogs.
 
-## Stage 2 finish + theory course + books (2026-11-11, on `big-update`)
+## Stage 2 finish + theory course + books (2026-11-11, shipped in build-43)
 - **Every item promised, with status: `notes/MASTER-CHECKLIST.md`** (the owner's Master Game Plan PDF line by line + later asks).
 - Theory course (`notes/THEORY-COURSE.md`: 8 levels beginner → expert, No Bull = spine of L1–3, Kolb + Alexander + his other books
   for depth, ear training and rhythm in every level, CAGED woven in from L1, optional notation track; lesson standard = MORE depth,

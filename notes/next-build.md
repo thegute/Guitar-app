@@ -134,6 +134,9 @@ Test builds for him (pre-releases, main untouched): test-38 (everything up to 55
     course lesson. Lessons the course hasn't reached yet stay under "Earlier lessons". Ask: anything you miss from the old ones?
 71. **Shorts: GuitarZero2Hero Express** (ca3bb18) followed from the start.
 
+**SHIPPED 2026-11-11 (owner: "do the ship it merge"): big-update fast-forwarded into main at 4887f08 = release build-43**
+(test APK test-42 first). Everything above on big-update is now in main. Ask him about items 16–71 as he tries them.
+
 
 Checks: npm test (build32/build33 logic, pdf-tab), browser: build33-test [pdf, maketab, transcribe, z2h], beatmaker-test,
 windows-test [screens, drag, play], and the older suites.
