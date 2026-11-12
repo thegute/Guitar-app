@@ -67,3 +67,37 @@ Integration plan:
 5. FX worth adding to studio/fx.ts: Lofi (crush, degrade, ambience bed), Choral (70s chorus), Tape, Modstep ducker.
 6. "Playbox your own sound": a sample you record (voice, a guitar note, a noise) spread across a chord's notes with the
    pitch shifter, like Playbox's user slots (beat maker → Get a sound).
+
+## Second pass (2026-11-12, owner: "go over it again with a fine tooth comb")
+Changes:
+- Mono-safe packs: the pedal rig folds everything to mono, and spaced stereo mics (Ample AB pair, piano) comb-filter in
+  mono. Render a close-mic stem + a stereo stem; stereo setups blend both, the pedal rig plays mostly the close one.
+  sound-report checks every pack folded to mono.
+- No reverb / delay / doubler baked into any note (Archetype FX off, Flatpick "enhanced" only if it has no reverb,
+  Ample reverb off): a new note on a string cuts the old one, which would chop a baked tail. Spaces stay live (console).
+- DI level calibrated to a real pickup's level before re-amping, or the amps distort the wrong amount.
+- Each recording's pitch measured; only clear intonation errors (> 5 cents) corrected, natural variation kept.
+- Alternate tunings: open strings rendered in Drop D, D standard, Eb standard, open G (slack key), DADGAD — a pitched-down
+  open string doesn't sound like a real one.
+- Stratosphere: render 3–4 pickup positions (neck, 4 = neck+middle, 2 = bridge+middle, bridge), not one.
+- Packs stay in a phone folder read in place (like the video lessons: LessonFoldersPlugin + byte-range server) instead
+  of being copied into IndexedDB: no doubled storage, instant import.
+- Listening test in music, not single notes: the same tab phrase / strum through the real KGuitar engine per candidate.
+- Sustained sounds (organ, pads, strings) get crossfade loop points; piano gets its release (damper) recordings.
+Left out before:
+- Muted strum "chucks" (Strum Machine), fret / slide / pick noises, harmonics at 5/7/12, body percussion for the
+  percussive fingerstyle style.
+- Logic Studio Horns (reggae / ska / Motown / country Jam), Studio Strings, Vintage Clav (funk / reggae), and Logic's
+  percussion (shaker, tambourine, congas, bongos, cajon, cowbell, claves, timbales, guiro-type) for Jam styles.
+- A table of which pack every sound in the app uses (Hear it, tap a note, chord peek, tuner reference, Chords / Scales
+  tools, quizzes and ear training, course "hear" blocks, Jam, beat maker, looper, Game band, songbook band, metronome,
+  Strum Machine, rhythm / bend trainers) and Guitar Pro GM programs (piano, organ, strings, brass, sax…).
+New ideas:
+- Logic Drummer → real drummer performances (feel, ghost notes, fills) exported as MIDI grooves for Jam / beat maker /
+  Game band; Logic Session Players (Bass / Keyboard Player, if his Logic is 11+) → human basslines and comping as data.
+- Apple Loops (2.6 GB) as a private loop library for the beat maker and looper.
+- TONE3000 plugin: thousands of community NAM amp captures for live amps, not only Archetype captures.
+- Capture his Pocket Master's amp tones (if it can re-amp over USB) so "Hear it" matches what he hears from his pedal.
+- Optional later: "sample your own guitar" wizard (his own J-45, note by note).
+Gaps nothing on the Mac covers well: nylon / classical (Logic's is basic), ukulele + baritone, banjo, mandolin, lap /
+pedal steel (Hawaiian), jazz archtop, a humbucker (Les Paul) guitar for classic rock / blues.
