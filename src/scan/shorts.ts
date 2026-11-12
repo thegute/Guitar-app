@@ -131,10 +131,12 @@ export async function channelShorts(chs = followed(), signal?: AbortSignal): Pro
 // Their exact YouTube handles aren't known for sure, so each is looked up: with the key, a channel search by name (the
 // best match); without it, on the phone, the likely @handles. Found ones join the follow list (he can remove any);
 // one he removed is never added back. State: kg:shortsDefaults = { name: 'added' | 'removed' | number (tries) }.
-export const DEFAULT_FOLLOWS: { name: string; query: string; handles: string[] }[] = [
+export const DEFAULT_FOLLOWS: { name: string; query: string; handles: string[]; id?: string }[] = [
   { name: 'Mr. Tabs', query: 'Mr. Tabs guitar', handles: ['@MrTabs', '@mrtabsguitar'] },
   { name: 'Level Up Guitar Tabs', query: 'Level Up Guitar Tabs', handles: ['@LevelUpGuitarTabs', '@levelupguitartabs'] },
   { name: 'Kenneth Acoustic', query: 'Kenneth Acoustic guitar', handles: ['@KennethAcoustic', '@kennethacoustic'] },
+  // owner 2026-11-11: tab Shorts and full song tab tutorials (handle and channel id checked on YouTube)
+  { name: 'GuitarZero2Hero Express', query: 'GuitarZero2Hero Express', handles: ['@guitarzero2heroexpress'], id: 'UC57CDvpwqAxHrJvVkZbaBxA' },
 ]
 const DEF_KEY = 'kg:shortsDefaults'
 type DefState = Record<string, 'added' | 'removed' | number>
@@ -167,7 +169,8 @@ export async function ensureDefaultFollows(signal?: AbortSignal): Promise<Channe
     const s = defState()
     let ch: Channel | null = null
     try {
-      if (youtubeKey()) ch = await channelByName(d.query, youtubeKey(), signal)
+      if (d.id) ch = { id: d.id, name: d.name }
+      if (!ch && youtubeKey()) ch = await channelByName(d.query, youtubeKey(), signal)
       if (!ch && Capacitor.isNativePlatform()) for (const h of d.handles) { try { ch = await channelFrom(h, signal); break } catch { /* next guess */ } }
     } catch { /* quota or offline: try again another time */ }
     if (ch) {

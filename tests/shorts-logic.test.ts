@@ -54,6 +54,7 @@ ok(c.slice(0, 3).filter(s => s.style).length >= 2 && styled >= 5, `his styles co
   localStorage.setItem('kg:shortsChannels', JSON.stringify([{ id: 'UCx', name: 'Mr. Tabs' }]))
   unfollow('UCx')
   ok(!defaultsPending().some(d => d.name === 'Mr. Tabs'), 'removing Mr. Tabs means it is not looked up again')
-  ok(defaultsPending().length === 2, 'the other two are still to find')
+  ok(defaultsPending().length === 3, 'the other three are still to find')
+  ok(defaultsPending().some(d => d.id === 'UC57CDvpwqAxHrJvVkZbaBxA'), 'GuitarZero2Hero Express is followed by its channel id')
 }
 console.log(`shorts feed: ${checks} checks, 0 failed`)
