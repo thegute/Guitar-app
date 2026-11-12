@@ -30,8 +30,8 @@ Hear it drives it · 9 floating cards + resizable tidy-grid windows · Exercises
 - ✅ PDF library pills: Practice plan, Scanned (Riff Scanner + recordings), Backing tracks, Style and Tuning pickers.
 - ✅ One "Add a song" box: YouTube/Shorts link (Find a tab / Scan it / Just save), song name → tab search, GP/audio/video files, screenshots.
 - ✅ Shorts: Mr. Tabs, Level Up Guitar Tabs, Kenneth Acoustic pre-followed + "Find channels for me".
-- 🔨 Manual: **1-tap Export manual as PDF**, a **2-minute Quick-Start tour** (for his brother), an **in-depth illustrated manual**
-  (how, why and when for every feature) with Day Mode screenshots from the browser tests. (tonight)
+- ✅ Manual: 1-tap "Save the manual (PDF)" in How to use KGuitar: a 2-minute Quick Start with Day Mode screenshots + every guide
+  section with why, when and how (tools/make-manual.cjs → public/manual/KGuitar-manual.pdf; re-run when the guide changes).
 - ✅ (owner extras) Game Mode: zoom, look-ahead, sized his way, full screen with cards + settings, song plays along with a slider;
   tab lines fill the width.
 
@@ -45,8 +45,9 @@ Hear it drives it · 9 floating cards + resizable tidy-grid windows · Exercises
 - 🔨 Replaces the old theory lessons: 8 levels, beginner → expert, No Bull is the spine of Levels 1–3, Kolb + his other books after;
   deep lessons (why, ground-up idea, worked examples, hear it, mistakes, practice week, use it, check, go deeper, spaced review);
   ear training woven into every level; optional notation track; rhythm in every level; ukes adapted; open with a suggested path,
-  mastery checks strongly suggested, never required. Plan: notes/THEORY-COURSE.md. Sample lesson (octave shapes) tonight.
-- 🔨 Book pack (private) + My books: shelf, reader, "In your books" links, Play this page, book courses, helper grounding, search.
+  mastery checks strongly suggested, never required. Plan: notes/THEORY-COURSE.md. ✅ Level 1 complete (7 deep lessons + mastery
+  check, 2026-11-11); ⏳ Levels 2–8, then the old lessons go.
+- ✅ Book pack (private) + My books: shelf, reader, "In your books" links, Play this page, book courses, helper grounding, search.
 
 ## Stage 4: Riff Scanner "three-sense" overhaul
 Video tab reading:

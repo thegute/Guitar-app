@@ -114,9 +114,9 @@ Test builds for him (pre-releases, main untouched): test-38 (everything up to 55
 62. **Shorts** (1b4cdb5). Mr. Tabs, Level Up Guitar Tabs, Kenneth Acoustic pre-followed + Find channels for me.
 63. **One Songs library + one Add a song box** (6734268, 91a1976). Learning now first, search, chips (incl. Practice plan, Scanned,
     Backing tracks), Style and Tuning pickers, Saved for later; YouTube link asks Find a tab / Scan it / Just save.
-64. **Theory: 12 No Bull-order essentials + the sample deep lesson** (3de79ae, f84cfe0, d3a5efb). Learn → Explore → Theory: the dashed
-    card is the sample (Octave shapes). Ask: depth, step order, practice week, checks, explain it back. The rest of the course is built to
-    this standard after his verdict, and it then REPLACES the old Offtonic lessons.
+64. **Theory course Level 1** (f84cfe0, d3a5efb, 43392f3). Learn → Explore → Theory: Continue + Level 1 (7 deep lessons + the mastery
+    check), built to his verdict on the sample (more depth, fewer quizzes). Ask: depth, order, practice weeks, ear drills, checks, explain it
+    back. Levels 2–8 follow, then the course REPLACES the old lessons (the 12 essentials + Offtonic ones still show under it for now).
 65. **My books** (d18fd67). Learn → Explore → My books: import kguitar-books.json (sent in the chat; keep it in a phone/Drive folder),
     add the PDFs, search, read, Read this page's tab into Play, Ask the teacher; In your books next to lessons, CAGED, techniques, Scales.
 66. **Manual PDF** (this build). How to use KGuitar → Save the manual (PDF): Quick Start with screenshots + every feature (why, when, how).
