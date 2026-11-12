@@ -1,0 +1,19 @@
+{
+ "name": "Grand piano (Logic Studio Piano)",
+ "kind": "keys",
+ "patch": "Studio Piano (Steinway), default mics",
+ "range": [
+  21,
+  108
+ ],
+ "velocities": [
+  35,
+  65,
+  95,
+  122
+ ],
+ "rr": 1,
+ "hold": 3.0,
+ "tail": 2.5,
+ "id": "studio-piano"
+}

@@ -1,0 +1,33 @@
+{
+ "name": "Studio drum kit (Logic Drum Kit Designer)",
+ "kind": "drums",
+ "patch": "Drum Kit Designer \u2192 SoCal (or Studio Kit)",
+ "velocities": [
+  25,
+  45,
+  65,
+  85,
+  105,
+  127
+ ],
+ "rr": 4,
+ "hold": 0.3,
+ "tail": 2.0,
+ "drums": {
+  "kick": 36,
+  "snare": 38,
+  "rim": 40,
+  "sidestick": 37,
+  "hhclosed": 42,
+  "hhpedal": 44,
+  "hhopen": 46,
+  "tomlow": 41,
+  "tommid": 45,
+  "tomhigh": 48,
+  "crash": 49,
+  "crash2": 57,
+  "ride": 51,
+  "ridebell": 53
+ },
+ "id": "dkd-studio"
+}

@@ -12,3 +12,4 @@ tests/browser/out
 art/preview
 __pycache__
 review/out/
+tools/harvest/logic/out/

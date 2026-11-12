@@ -1,0 +1,18 @@
+{
+ "name": "Session bass (Logic Studio Bass)",
+ "kind": "bass",
+ "patch": "Studio Bass \u2192 Session Bass (fingers)",
+ "range": [
+  28,
+  60
+ ],
+ "velocities": [
+  45,
+  82,
+  115
+ ],
+ "rr": 2,
+ "hold": 2.5,
+ "tail": 1.0,
+ "id": "studiobass-session"
+}
