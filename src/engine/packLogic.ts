@@ -7,7 +7,18 @@ export type Articulation =
   | 'sustain' | 'pm' | 'mute' | 'harmonic' | 'hammer' | 'pull' | 'slideUp' | 'slideDown'
   | 'strumDown' | 'strumUp' | 'chuck' | 'release' | 'fret' | 'pick'
 
-export interface PackLayer { velocity: number; rr: string[]; /** each take's K-weighted mean square (loudness) */ ms?: number[] }
+export interface PackLayer {
+  velocity: number
+  rr: string[]
+  /** each take's K-weighted mean square (loudness) */
+  ms?: number[]
+  /** each take's tuning fix in cents (only clear intonation errors are fixed at render time; 0 / missing = as recorded) */
+  tune?: number[]
+}
+/** Mic stems (HARVEST-PLAN: mono-safe packs): the same takes recorded from more than one mic, in parallel folders.
+ *  `dir` '' = the main files; a stem with `mono` is the one that folds to mono cleanly (the close mic): through the pedal
+ *  rig (mono) only mono stems play, in stereo all of them, each at its gain. */
+export interface PackStem { dir: string; gain: number; mono?: boolean }
 export interface PackZone {
   key: string
   /** guitars: which string (0 = lowest) and fret; other instruments leave them out */
@@ -32,6 +43,7 @@ export interface Pack {
   sampleRate: number
   tuning?: number[]
   loudness?: { lufs: number }
+  stems?: PackStem[]
   articulations: Partial<Record<Articulation, { zones: PackZone[] }>>
 }
 
@@ -124,7 +136,20 @@ export function filesFor(p: Pack, art: Articulation, notes: { midi: number; stri
   const out = new Set<string>()
   for (const n of notes) {
     const z = zoneFor(p, art, n.midi, n.string)
-    if (z) for (const l of z.zone.layers) for (const f of l.rr) out.add(f)
+    if (z) for (const l of z.zone.layers) for (const f of l.rr) for (const st of stemsFor(p, false)) out.add(stemPath(st, f))
   }
   return [...out]
 }
+
+/** The stems to play: all of them in stereo, only the mono-safe ones (or the first) when the output is mono. */
+export function stemsFor(p: Pack, mono: boolean): PackStem[] {
+  const all = p.stems?.length ? p.stems : [{ dir: '', gain: 1, mono: true }]
+  if (!mono) return all
+  const safe = all.filter(s => s.mono)
+  // a mono-safe stem alone carries the whole sound: make up the level the other stems gave
+  const lost = all.reduce((a, s) => a + s.gain, 0) / Math.max(1e-6, safe.reduce((a, s) => a + s.gain, 0) || all[0].gain)
+  return (safe.length ? safe : [all[0]]).map(s => ({ ...s, gain: s.gain * Math.min(2, Math.sqrt(lost)) }))
+}
+export const stemPath = (st: PackStem, rel: string) => (st.dir ? `${st.dir}/${rel}` : rel)
+/** A take's playback rate: the zone shift plus the take's own tuning fix. */
+export const rateFor = (shift: number, cents = 0) => Math.pow(2, (shift * 100 + cents) / 1200)

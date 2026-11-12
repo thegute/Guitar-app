@@ -5,7 +5,8 @@
 // Built-in packs come from the app (public/packs/<id>/); private ones (rendered from the owner's plugins) from the phone,
 // stored in IndexedDB 'kg-packs' (never in the repo or a backup).
 import { audio, route } from '../audio/engine'
-import { isPack, layersFor, normGain, RoundRobin, takeTrim, zoneFor, filesFor, type Articulation, type Pack } from './packLogic'
+import { isPack, layersFor, normGain, RoundRobin, takeTrim, zoneFor, filesFor, stemsFor, stemPath, rateFor, type Articulation, type Pack } from './packLogic'
+import { monoOut } from '../audio/rig'
 
 // ---- where the files come from -------------------------------------------------------------------------------------
 export interface PackSource { pack: Pack; read: (rel: string) => Promise<ArrayBuffer> }
@@ -155,20 +156,26 @@ export function playPack(packId: string, n: PackNote): PackHandle | null {
   const out = n.dest ?? route('any', src.pack.kind === 'bass' ? 'bass' : src.pack.kind === 'drums' ? 'drums' : src.pack.kind === 'keys' ? 'keys' : 'guitar')
   const norm = normGain(src.pack)
   const parts: { s: AudioBufferSourceNode; g: GainNode }[] = []
+  const stems = stemsFor(src.pack, monoOut())
   for (const { layer, weight } of layers) {
     const k = rr.pick(`${packId}/${art}/${pick.zone.key}/${layer.velocity}`, layer.rr.length)
-    const buf = touch(`${packId}/${layer.rr[k]}`)
-    if (!buf) { void decode(packId, layer.rr[k]); continue }
-    const s = ctx.createBufferSource()
-    s.buffer = buf
-    if (pick.shift) s.playbackRate.value = Math.pow(2, pick.shift / 12)
-    const g = ctx.createGain()
-    g.gain.value = weight * norm * takeTrim(layer, k)
-    let node: AudioNode = s.connect(g)
-    if (n.pan !== undefined && typeof ctx.createStereoPanner === 'function') { const p = ctx.createStereoPanner(); p.pan.value = n.pan; node = node.connect(p) }
-    node.connect(out)
-    s.start(t)
-    parts.push({ s, g })
+    // every mic stem of the same take starts on the same sample, so they add up like the real mics did
+    for (const st of stems) {
+      const file = stemPath(st, layer.rr[k])
+      const buf = touch(`${packId}/${file}`)
+      if (!buf) { void decode(packId, file); continue }
+      const s = ctx.createBufferSource()
+      s.buffer = buf
+      const rate = rateFor(pick.shift, layer.tune?.[k] ?? 0)
+      if (rate !== 1) s.playbackRate.value = rate
+      const g = ctx.createGain()
+      g.gain.value = weight * norm * takeTrim(layer, k) * st.gain
+      let node: AudioNode = s.connect(g)
+      if (n.pan !== undefined && typeof ctx.createStereoPanner === 'function') { const p = ctx.createStereoPanner(); p.pan.value = n.pan; node = node.connect(p) }
+      node.connect(out)
+      s.start(t)
+      parts.push({ s, g })
+    }
   }
   if (!parts.length) return null
   if ((globalThis as { __kgTest?: boolean }).__kgTest) (globalThis as { __kgPackPlays?: number }).__kgPackPlays = ((globalThis as { __kgPackPlays?: number }).__kgPackPlays ?? 0) + 1

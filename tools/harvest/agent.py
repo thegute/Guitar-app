@@ -16,6 +16,7 @@ Actions:
   midi     play MIDI events through an instrument (+ optional effect chain) and write a WAV (trials, phrases, strums)
   process  run a WAV through an effect chain (re-amping DI through an amp) and write a WAV
   render   run render.py on a plan (a whole sound pack)
+  abpage   the blind listening page from trials/*/<phrase>.wav (loudness-matched, shuffled letters)
   stop     end the agent
 """
 import json
@@ -202,7 +203,16 @@ def act_render(job):
     return {'code': r.returncode, 'stdout': r.stdout[-4000:], 'stderr': r.stderr[-4000:]}
 
 
-ACTIONS = {'ping': act_ping, 'probe': act_probe, 'capture': act_capture, 'midi': act_midi, 'process': act_process, 'render': act_render}
+def act_abpage(job):
+    src = in_path(job.get('trials', 'trials'))
+    out = os.path.dirname(out_path(os.path.join(job.get('out', 'trials/ab'), '.keep')))
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'ab_page.py'), src, out], capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError(r.stderr[-2000:])
+    return {'page': os.path.join(out, 'index.html'), 'stdout': r.stdout[-1000:]}
+
+
+ACTIONS = {'abpage': act_abpage, 'ping': act_ping, 'probe': act_probe, 'capture': act_capture, 'midi': act_midi, 'process': act_process, 'render': act_render}
 
 
 def main():
