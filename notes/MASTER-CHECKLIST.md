@@ -35,6 +35,14 @@ Hear it drives it · 9 floating cards + resizable tidy-grid windows · Exercises
 - ✅ (owner extras) Game Mode: zoom, look-ahead, sized his way, full screen with cards + settings, song plays along with a slider;
   tab lines fill the width.
 
+## Owner notes after build-43 (2026-11-11 21:15: "add them to the list", not fixed yet)
+- ⏳ Now playing bar: an ✕ to close it (it overlays parts of some pages). Proposal to agree: ✕ hides it until the next song is
+  opened (or until he taps Play again); a long-press / Settings option to keep it hidden; it never covers buttons (pages pad for it).
+- ⏳ Game Mode ball must feel EXACTLY like Yousician's. Now it sometimes "bounces too much" / floats to the next long note. Before
+  fixing: study Yousician's ball (videos, frame by frame): one hop per note onset, landing exactly on the onset, hop height and
+  shape vs the gap, what it does on long notes, rests, chords and fast runs, and how it leads the eye to the NEXT note. Then match
+  it, check with him on the phone. Its job: help him time the next note.
+
 ## AI teacher (owner 2026-11-11, right after Stage 2)
 - ⏳ Listens to him play and coaches: spoken + text card; strictness is his setting; KGuitar's measurements are the facts, Gemini
   hears a short clip only while the teacher listens; in Play, Game, Learn (lessons, Zero to Hero, gates, check-ins), technique
