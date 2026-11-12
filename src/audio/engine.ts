@@ -13,7 +13,6 @@
 //   limiter (DynamicsCompressor set as a brickwall) stands in.
 // - The live guitar (interface setup, rig.ts) joins at `finalOut()`: after the master, before the mono fold.
 import { monoOut, onRig } from './rig'
-import masterWorkletUrl from '../engine/worklets/master.worklet.js?url'
 import { busChain, makeReturns, SEND_DEFAULTS, type Returns, type Send } from '../engine/console'
 
 let ctx: AudioContext | null = null
@@ -38,7 +37,8 @@ export const masterMeter = { glue: 0, limit: 0, ready: false }
 
 function loadMaster(c: AudioContext) {
   if (!c.audioWorklet || typeof AudioWorkletNode === 'undefined') return
-  c.audioWorklet.addModule(masterWorkletUrl).then(() => {
+  // new URL(…, import.meta.url): Vite ships the file as is; the Node test bundles leave it alone (a ?url import broke them)
+  c.audioWorklet.addModule(new URL('../engine/worklets/master.worklet.js', import.meta.url).href).then(() => {
     if (!masterIn || !finalIn || masterNode) return
     const node = new AudioWorkletNode(c, 'kg-master', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: 'explicit', channelInterpretation: 'speakers' })
     node.port.onmessage = e => { masterMeter.glue = e.data.glue; masterMeter.limit = e.data.limit }

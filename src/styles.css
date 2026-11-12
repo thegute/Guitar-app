@@ -558,6 +558,16 @@ a.btn.disabled { opacity: 0.4; pointer-events: none; }
 .prog-card .diagram { background: transparent; border: 0; padding: 0; width: 100%; display: flex; justify-content: center; }
 .pc-foot { display: flex; justify-content: space-between; align-items: center; }
 .chord-why { margin: 0; color: var(--pearl-2); }
+/* Jam → Inspire me (chord sets, Playbox style) */
+.inspire-chords { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2); }
+@media (max-width: 559px) { .inspire-chords { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.inspire-chord { display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: var(--r-sm); background: var(--rosewood-3); border: 1px solid var(--hairline); min-width: 0; }
+.inspire-chord.locked { border-color: var(--amber); }
+.inspire-hear { background: none; border: 0; color: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: var(--h-md); cursor: pointer; padding: 4px; }
+.inspire-hear .readout { font-size: 24px; overflow-wrap: anywhere; text-align: center; }
+.inspire-mini { min-height: var(--h-xs); min-width: 40px; font-size: 18px; }
+.inspire-mini[aria-pressed='true'] { color: var(--gold-text); border-color: var(--amber); }
+
 .count-in { font-size: 44px; color: var(--gold-text); }
 .tip-btn { text-align: left; background: transparent; border: 1px solid var(--hairline); border-radius: var(--r-sm); padding: 8px 10px; }
 .tip-btn.on { background: var(--rosewood-3); border-color: var(--amber); }

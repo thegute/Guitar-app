@@ -6,6 +6,7 @@ import { importPack, privatePacks, deletePack, loadPrivatePack, ensure, playPack
 import type { Pack } from '../engine/packLogic'
 import { SOUNDS, packFor, setPackFor, type SoundId } from '../audio/pluck'
 import { audio } from '../audio/engine'
+import { parseChordSets, savePrivateSets } from '../theory/chordSets'
 
 export function SoundPacks() {
   const [packs, setPacks] = useState<Pack[]>([])
@@ -18,6 +19,12 @@ export function SoundPacks() {
 
   const onFiles = async (fl: FileList | null) => {
     if (!fl?.length) return
+    // a chord sets file (Playbox's chords, for Jam → Inspire me) can come in the same way
+    const cs = [...fl].find(f => f.name === 'chordsets.json')
+    if (cs) {
+      try { const sets = parseChordSets(JSON.parse(await cs.text())); savePrivateSets(sets); setBusy(`${sets.length} chord sets are ready in Jam → Inspire me.`) } catch (e) { setBusy(String((e as Error).message ?? e)) }
+      if (![...fl].some(f => f.name === 'pack.json')) return
+    }
     try {
       setBusy('Bringing the pack in…')
       const p = await importPack([...fl], (d, t) => setBusy(`Bringing the pack in… ${d} of ${t} recordings`))

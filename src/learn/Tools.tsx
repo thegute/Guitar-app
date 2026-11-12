@@ -517,7 +517,7 @@ export function CircleTool({ onExit, onQuiz }: { onExit: () => void; onQuiz: (id
             <p className="small" style={{ margin: 0 }}>Key signature: <b>{keySignature(tonic, minor)}</b>. Relative {minor ? 'major' : 'minor'}: <b>{rel}</b>. Neighbour keys: <b>{nb[0]}</b> and <b>{nb[1]}</b>{minor ? ' (major)' : ''}.</p>
             <div className="circle-chords">
               {chords.map(c => (
-                <button key={c.roman} className="prog-chip" onClick={() => { sound(c.root, c.q); setActive({ root: c.root, minor: c.q === 'm', dim: c.q === 'dim' }) }}>
+                <button key={c.roman} className="prog-chip" data-chord={c.root + (c.q === 'dim' ? 'dim' : c.q)} onClick={() => { sound(c.root, c.q); setActive({ root: c.root, minor: c.q === 'm', dim: c.q === 'dim' }) }}>
                   <span>{c.root}{c.q === 'dim' ? '°' : c.q}</span><small>{c.roman}</small>
                 </button>
               ))}

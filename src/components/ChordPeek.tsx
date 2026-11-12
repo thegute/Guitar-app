@@ -42,7 +42,7 @@ interface Shown { name: string; voicing: Voicing; fromTab: boolean; x: number; y
  * Watch `root` for presses on anything with data-chord (and data-flat = the tab step it starts on).
  * `frets(flat)` gives the tab's frets at that step. Returns the bubble to render.
  */
-export function useChordPeek(root: RefObject<HTMLElement | null>, inst: Instrument, frets: (flat: number) => number[] | null, on = true) {
+export function useChordPeek(root: RefObject<HTMLElement | null>, inst: Instrument, frets: (flat: number) => number[] | null, on = true, ignoreInside?: string) {
   const [shown, setShown] = useState<Shown | null>(null)
   const [fading, setFading] = useState(false)
   // Pin open: the peek stays (with the 5-layer neck for that chord) until you close it
@@ -66,6 +66,7 @@ export function useChordPeek(root: RefObject<HTMLElement | null>, inst: Instrume
     const down = (e: PointerEvent) => {
       const t = (e.target as Element | null)?.closest?.('[data-chord]') as HTMLElement | SVGElement | null
       if (!t || !el.contains(t)) return
+      if (ignoreInside && t.closest(ignoreInside)) return
       const name = t.getAttribute('data-chord') ?? ''
       const flat = Number(t.getAttribute('data-flat') ?? -1)
       const pv = peekVoicing(name, args.current.inst, flat >= 0 ? args.current.frets(flat) : null)
@@ -118,4 +119,12 @@ export function useChordPeek(root: RefObject<HTMLElement | null>, inst: Instrume
     )
   ) : null
   return { bubble, shown: !!shown }
+}
+
+/** The chord peek for the whole app: press any chord name (anything with data-chord) on any screen and its finger
+ *  diagram pops up. Play has its own (it knows the tab's exact shape), so presses inside [data-peek-own] are left to it. */
+export function GlobalChordPeek({ inst }: { inst: Instrument }) {
+  const body = useRef<HTMLElement | null>(typeof document !== 'undefined' ? document.body : null)
+  const { bubble } = useChordPeek(body, inst, () => null, true, '[data-peek-own]')
+  return bubble
 }

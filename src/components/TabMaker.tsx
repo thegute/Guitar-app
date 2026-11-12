@@ -12,6 +12,7 @@ import type { SongDoc } from '../tabs/library'
 import { Chips, KeyPicker, usePersist } from './Controls'
 import { Preview } from './ProgressionTabs'
 import { haptic } from '../audio/tapFeel'
+import { ChordList } from './ChordName'
 
 /** Jam's style → the composer style that fits it */
 export function composerStyleFor(jamStyle: string): StyleId {
@@ -78,7 +79,7 @@ export function TabMaker({ chords, tonic: fixedTonic, mode: fixedMode, bpm, jamS
           ? <Chips label="Arrangement" items={[{ id: 'melody', label: 'Melody only' }, { id: 'bass', label: 'Melody + bass' }, { id: 'full', label: 'Full' }] as { id: ArrLevel; label: string }[]} value={arr} onChange={setArr} />
           : <Chips label="Level" items={[{ id: 1, label: 'Easy' }, { id: 2, label: 'Medium' }, { id: 3, label: 'Hard' }]} value={level} onChange={setLevel} />}
       </div>
-      <p className="small muted" style={{ margin: 0 }}>Over {hasProg ? <>your chords: <b>{chords!.map(c => c.symbol).join(' – ')}</b></> : <>the style's own chords in {tonic}</>}. A new one every time: an idea, its answer, and an ending that lands home.</p>
+      <p className="small muted" style={{ margin: 0 }}>Over {hasProg ? <>your chords: <b><ChordList names={chords!.map(c => c.symbol)} /></b></> : <>the style's own chords in {tonic}</>}. A new one every time: an idea, its answer, and an ending that lands home.</p>
       <div className="row">
         <button className="btn" onClick={() => make(true)} data-testid="tm-make"><Ico n="dice" /> {made ? `Another ${what}` : `Make a ${what}`}</button>
         {doc && <button className="btn primary" onClick={() => onOpen(doc)}>Open in Play</button>}

@@ -60,8 +60,8 @@ function Body({ id, ctx: c }: { id: CardId; ctx: FloatCtx }) {
       return (
         <div className="stack" style={{ gap: 4 }} data-testid="fc-chord">
           <div className="fc-row">
-            <span className="fc-big">{c.chordNow}</span>
-            {c.chordNext && c.chordNext !== c.chordNow && <span className="fc-next">then <b>{c.chordNext}</b></span>}
+            <span className="fc-big" data-chord={c.chordNow}>{c.chordNow}</span>
+            {c.chordNext && c.chordNext !== c.chordNow && <span className="fc-next">then <b data-chord={c.chordNext}>{c.chordNext}</b></span>}
             {c.beatsToChange !== undefined && c.beatsToChange <= 4 && c.chordNext && <span className="fc-count">{Math.max(1, Math.ceil(c.beatsToChange))}</span>}
           </div>
           <ChordShape name={c.chordNow} />

@@ -18,6 +18,7 @@ import { SearchSheet } from './components/SearchSheet'
 import { SessionBar } from './sessions/SessionBar'
 import { AskBubble } from './assistant/AskBubble'
 import { FloatLayer } from './float/FloatLayer'
+import { GlobalChordPeek } from './components/ChordPeek'
 import { NowPlaying } from './components/NowPlaying'
 import { Settings } from './learn/Settings'
 import { setFloatScreen } from './float/bus'
@@ -154,6 +155,7 @@ export default function App() {
       <main className={`main${tab === 'play' ? ' main-play' : ''}`} id="main">
         <SessionBar />
         <FloatLayer />
+        <GlobalChordPeek inst={inst} />
         <RigNotice />
         {gear && <Settings key={gear.n ?? 0} inst={inst} guideSec={gear.sec} onExit={() => setGear(null)} onGo={g => { setGear(null); learnGo(g) }} />}
         {!gear && <>

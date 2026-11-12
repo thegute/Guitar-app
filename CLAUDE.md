@@ -344,6 +344,19 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
   screenshots + every guide section with why/when/how); "Save the manual (PDF)" in How to use KGuitar (`learn/manualFile.ts`).
   Re-run it whenever the guide changes. Guide sections have `why` / `when`.
 
+## Stage 3 harvest + Inspire me (2026-11-12, on big-update)
+- Real instruments from the owner's Mac: role-by-role picks and quality rules in `notes/HARVEST-PLAN.md` (private packs only;
+  Mac tools in ~/KGuitar-harvest/tools, copied from `tools/harvest/`; he runs Terminal commands himself, Terminal is
+  click-only for computer use). Nylon (Orange Tree Modern Nylon), Ample Guitar M and Session Guitarist Strummed Acoustic 2
+  arrive later: do the steps that need them last, switch to other work while waiting.
+- Jam → Inspire me (`components/InspireMe.tsx`, `theory/chordSets.ts`): chord palettes (Playbox idea: 8 chords, any order),
+  mood / colour, lock, shuffle, your order → Jam. Playbox's 224 chord sets come from `tools/harvest/playbox_chords.py`
+  (reads Playbox's plain-text .nka arrays; MODES 1 = major) as a PRIVATE chordsets.json, imported on the phone
+  (Inspire me "Bring it in…" or the sound-pack folder); stored as `kgx:chordsets` (never backed up). Built-in sets from TEMPLATES.
+- Chord names anywhere: `data-chord` (or `components/ChordName.tsx` ChordName / ChordList) → `GlobalChordPeek` (App) pops up the
+  finger diagram; Play keeps its own peek (`data-peek-own`). Tests `tests/chordsets-logic.test.ts`, `tests/browser/inspire-test.cjs`.
+- engine.ts loads the master worklet with `new URL(…, import.meta.url)` (a `?url` import broke the Node test bundles).
+
 ## Audio setups (rig.ts, 2026-11-06)
 - Pocket Master over USB + Spark NEO wireless in its 1/4" out (TS plug = LEFT only). `audio/rig.ts`: 'pedal' (auto when the pedal is in
   the device list: everything mono via the `fold` node at the end of engine.ts, `double` takes skipped, no playback of the guitar),

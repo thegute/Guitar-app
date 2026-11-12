@@ -1211,7 +1211,7 @@ export function PlayScreen() {
             {wantChord ? (
               <span className="next-notes next-chord">
                 {chordVoicing && <Zoomable id="readoutChord" max={3}><ChordDiagram voicing={chordVoicing} size={0.5} onClick={hearNext} /></Zoomable>}
-                <span className="nn"><b className="amber chord-big">{chordName ?? 'Chord'}</b> strum it and let it ring</span>
+                <span className="nn"><b className="amber chord-big" data-chord={chordName || undefined}>{chordName ?? 'Chord'}</b> strum it and let it ring</span>
                 <button className="btn sm ghost" onClick={hearNext} aria-label="Hear the chord"><Ico n="play" fill /></button>
               </span>
             ) : (
@@ -1408,7 +1408,7 @@ export function PlayScreen() {
     } : {})
     : order.join() !== ORDER0.join() ? (() => { const g = phoneGrid(order, view); return { gridTemplateRows: g.rows, gridTemplateAreas: g.areas } })() : {}
   return (
-    <div ref={playRef} className={cls}
+    <div ref={playRef} data-peek-own className={cls}
       style={{
         ...gridStyle,
         ['--tab-zoom' as string]: tabZoom, ['--side-w' as string]: `${lay.sideW}px`, ['--solo-h' as string]: `${lay.soloH}px`,
@@ -1592,7 +1592,7 @@ export function PlayScreen() {
                   </> : <b className="remote-chord">{done ? '✓' : '–'}</b>}
                 {fb && <span className={`remote-fb ${fb.ok ? 'ok' : 'bad'}`}>{fb.text}</span>}
               </div>
-              {(chordNow || chordNext) && !isChord && <div className="remote-chords">{chordNow && <span>Chord <b>{chordNow}</b></span>}{chordNext && <span>next <b>{chordNext}</b></span>}</div>}
+              {(chordNow || chordNext) && !isChord && <div className="remote-chords">{chordNow && <span>Chord <b data-chord={chordNow}>{chordNow}</b></span>}{chordNext && <span>next <b data-chord={chordNext}>{chordNext}</b></span>}</div>}
               {isChord && chordNext && <div className="remote-chords"><span>next <b>{chordNext}</b></span></div>}
               <div className="remote-btns">
                 {mode === 'time' ? (

@@ -33,6 +33,8 @@ import { saveSong } from '../tabs/library'
 import { go, openInPlay, setSubPage } from '../nav'
 import { clearFloat, publishFloat, setFloatResting } from '../float/bus'
 import { SongFinder } from '../components/SongFinder'
+import { InspireMe } from '../components/InspireMe'
+import { ChordList } from '../components/ChordName'
 import { RiffScanner } from '../scan/RiffScanner'
 import type { Quality } from '../audio/chordFinder'
 import { Zoomable } from '../components/Zoomable'
@@ -325,7 +327,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
             onClick={() => hear(i)} role="button" tabIndex={0} aria-label={`Play ${c.symbol}`} onKeyDown={e => { if (e.key === 'Enter') hear(i) }}>
             <div className="pc-head">
               <div>
-                <div className="readout pc-name">{c.symbol}</div>
+                <div className="readout pc-name" data-chord={c.symbol}>{c.symbol}</div>
                 <div className="small pc-roman">{c.roman}{c.beats && c.beats !== 4 ? ` · ${c.beats === 2 ? '½ bar' : '2 bars'}` : ''}</div>
               </div>
               <button className="pc-lock" onClick={e => { e.stopPropagation(); const l = [...locks]; l[i] = !l[i]; setLocks(l) }} aria-pressed={!!locks[i]} aria-label={locks[i] ? `Unlock ${c.symbol}` : `Keep ${c.symbol} when rolling`}>
@@ -350,7 +352,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
 
   const chordInfo = cur && (
     <p className="small chord-why">
-      <b>{cur.symbol}</b> <span className="muted">({cur.roman})</span>{cur.fn ? ` · ${FN_LABEL[cur.fn]}` : ''}{cur.why ? `. ${cur.why}` : cur.borrowed ? '. From outside the key.' : ''}
+      <b data-chord={cur.symbol}>{cur.symbol}</b> <span className="muted">({cur.roman})</span>{cur.fn ? ` · ${FN_LABEL[cur.fn]}` : ''}{cur.why ? `. ${cur.why}` : cur.borrowed ? '. From outside the key.' : ''}
     </p>
   )
 
@@ -504,6 +506,11 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
             {chordInfo}
             {transportRow}
           </Win>
+          <Win id="inspire" title="Inspire me: chords that sound good together" className="panel" hint="A set of up to 8 chords that work together, like keys on Playbox: play them in any order. Roll by mood and colour, keep the ones you like with the lock, add them to your own order with +, then play it with the band. Each chord shows its number in the key, so you learn why it works.">
+            <InspireMe tonic={tonic}
+              onHear={c => { void audio().resume(); const sh = shapesFor(c, inst); strum(midisOf(sh[rank(sh, shapePref, 1)] ?? sh[0])) }}
+              onUse={(cs, m) => { setMode(m); load(cs.map(({ midis: _m, ...c }) => ({ ...c, beats: rate }))); document.querySelector('[data-win="gen"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }} />
+          </Win>
           {prog.length >= 2 && (
             <Win id="voice" title="Voice leading: chord shapes that barely move" className="panel" hint="Each chord in a shape close to the last one: gold rings are notes both chords share (keep that finger down), gold arrows are the 3rds and 7ths moving a fret or two. It follows the loop while it plays. Practise the changes opens it as a tab in Play.">
               <VoiceLeadNeck chords={prog.map(c => c.symbol)} at={playing && pos.chord >= 0 ? active : undefined} tuning={inst.midis} where="jam" bpm={bpm} />
@@ -514,7 +521,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
             {circle}
           </Win>
           <Win id="maketab" title="Make a tab from these chords" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
-            <p className="small muted" style={{ margin: 0 }}>Fingerpicking, licks and solos, chord melody or riffs over <b>{prog.map(c => c.symbol).join(' – ')}</b>: the tab maker is in Learn → Exercises → Make your own, and it uses this progression.</p>
+            <p className="small muted" style={{ margin: 0 }}>Fingerpicking, licks and solos, chord melody or riffs over <b><ChordList names={prog.map(c => c.symbol)} /></b>: the tab maker is in Learn → Exercises → Make your own, and it uses this progression.</p>
             <div className="row"><button className="btn" onClick={() => { try { localStorage.setItem('kg:exSection', JSON.stringify('make')); localStorage.setItem('kg:tm:useJam', 'true') } catch { /* private */ } setSubPage('learn', 'exercises'); go('learn'); setTimeout(() => document.querySelector('[data-win="ex-licks"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400) }} data-testid="jam-make-tab"><Ico n="file" /> Open the tab maker</button></div>
           </Win>
           <Win id="looper" title="Loop over it" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
@@ -529,7 +536,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
                 <div key={i} className="row" style={{ justifyContent: 'space-between', borderTop: i ? '1px solid var(--hairline)' : 'none', paddingTop: i ? 8 : 0 }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: 600 }}>{s.name}</div>
-                    <div className="readout" style={{ fontSize: 20, fontWeight: 600, color: 'var(--pearl-2)', overflowWrap: 'anywhere' }}>{s.chords.map(c => c.symbol).join('  ')}</div>
+                    <div className="readout" style={{ fontSize: 20, fontWeight: 600, color: 'var(--pearl-2)', overflowWrap: 'anywhere' }}><ChordList names={s.chords.map(c => c.symbol)} sep={'\u2002'} /></div>
                     {s.note && <div className="small muted">{s.note}</div>}
                   </div>
                   <button className="btn" onClick={() => load(s.chords)}>Use this</button>

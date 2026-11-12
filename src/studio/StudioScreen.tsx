@@ -1081,7 +1081,7 @@ function Practice({ t, beat, flats }: { t: StudioTransport; beat: Beat; flats: b
     <Win id="practice" title="Practise over it" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }}>
       <p className="small muted" style={{ margin: 0 }}>Press ▶ and solo along. The neck shows {scaleById(scaleId).label.toLowerCase()} in {beat.key}{beat.minor ? ' minor' : ''}; the gold notes are the chord playing now, so land on them when it changes.</p>
       <div className="st-chords" aria-label="Chords in the beat">
-        {chords.map((c, i) => <span key={i} className={`chip${i === bar && step >= 0 ? ' on' : ''}`}>{c?.name ?? '–'}</span>)}
+        {chords.map((c, i) => <span key={i} className={`chip${i === bar && step >= 0 ? ' on' : ''}`} data-chord={c?.name || undefined}>{c?.name ?? '–'}</span>)}
       </div>
       <label className="field st-field" style={{ maxWidth: 300 }}><span>Scale</span>
         <select className="select" value={scaleId} onChange={e => setScaleId(e.target.value)}>

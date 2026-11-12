@@ -122,7 +122,7 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
             {chords.map((c, i) => (
               <span key={i} className="chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <span className="muted small">{['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'][i]}</span>
-                <b style={{ fontFamily: 'var(--display)', fontSize: 18 }}>{c}</b>
+                <b style={{ fontFamily: 'var(--display)', fontSize: 18 }} data-chord={c}>{c}</b>
               </span>
             ))}
           </div>
