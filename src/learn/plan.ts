@@ -3,7 +3,7 @@ import type { Instrument } from '../instrument'
 import { dayKey, itemStats, stars, todayLog, type DayLog } from './progress'
 import { dueReviews, songStats, troubleBars } from '../play/songStats'
 import { course } from './quiz'
-import { LESSONS } from './lessons'
+import { LESSONS, lessonsFor } from './lessons'
 import type { Go } from './path'
 import { profile, type Goal } from './profile'
 import { SONGBOOK, songbookId, type PartKind, type SongbookPart, type SongbookSong } from '../tabs/songbook'
@@ -100,7 +100,7 @@ function goalSteps(inst: Instrument, d: DayLog, day: number, goals: Goal[]): Pla
     if (g === 'rhythm') out.push(songbookStep(inst, day + 4, 'timing', t => `In time: "${t}"`, 'Switch Play to In time and aim for green "perfect" hits.', 6, kinds('rhythm', 'words')))
     if (g === 'theory') {
       const read = lessonsRead()
-      const lesson = LESSONS.find(l => !read.has(l.id)) ?? LESSONS[0]
+      const lesson = lessonsFor(inst.id).find(l => !read.has(l.id)) ?? lessonsFor(inst.id)[0]
       out.push({ id: 'lesson', title: lesson.title, detail: `Theory lesson, ${lesson.minutes} minutes.`, minutes: lesson.minutes, go: { lesson: lesson.id }, done: cnt(d, 'lessonsRead') >= 1 })
     }
   }
@@ -112,7 +112,7 @@ export function todaysPlan(inst: Instrument, away: boolean, d = todayLog()): Pla
   const q = weak?.q ?? nextQuiz(inst)
   const quizDetail = weak ? `Brush up the ${weak.n} you keep missing.` : null
   const read = lessonsRead()
-  const lesson = LESSONS.find(l => !read.has(l.id)) ?? LESSONS[0]
+  const lesson = lessonsFor(inst.id).find(l => !read.has(l.id)) ?? lessonsFor(inst.id)[0]
   const day = Number(dayKey().replace(/-/g, ''))
   const n = inst.noun
   if (away) {

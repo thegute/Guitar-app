@@ -52,3 +52,50 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+def vocab_from(out):
+    """Words seen in the clean (text-layer, not OCR) pages of all books read so far: a home-made word list."""
+    from collections import Counter
+    c = Counter()
+    for d in os.listdir(out):
+        f = os.path.join(out, d, 'pages.json')
+        if not os.path.exists(f):
+            continue
+        for p in json.load(open(f))['pages']:
+            if not p['ocr']:
+                c.update(w.lower() for w in re.findall(r'[A-Za-z]{4,}', p['text']))
+    return {w for w, n in c.items() if n >= 3}
+
+
+def junk_share(text, vocab):
+    words = [w.lower() for w in re.findall(r'[A-Za-z]{4,}', text)]
+    return 1.0 if not words else 1 - sum(w in vocab for w in words) / len(words)
+
+
+def reocr_junk(out, pdf_dir_map, limit=0.45):
+    """Pages whose text layer is mostly not words (a bad scan-OCR layer) are read again with tesseract."""
+    vocab = vocab_from(out)
+    for d in sorted(os.listdir(out)):
+        f = os.path.join(out, d, 'pages.json')
+        if not os.path.exists(f):
+            continue
+        book = json.load(open(f))
+        pdf = pdf_dir_map.get(book['file'])
+        if not pdf:
+            continue
+        bad = [p for p in book['pages'] if not p['ocr'] and len(re.findall(r'[A-Za-z]{4,}', p['text'])) >= 8 and junk_share(p['text'], vocab) > limit]
+        if not bad:
+            continue
+        def again(p):
+            with tempfile.TemporaryDirectory() as t:
+                subprocess.run(['pdftoppm', '-f', str(p['n']), '-l', str(p['n']), '-r', '200', '-gray', '-png', pdf, os.path.join(t, 'p')], check=True)
+                png = [x for x in os.listdir(t) if x.endswith('.png')][0]
+                return subprocess.run(['tesseract', os.path.join(t, png), '-', '--psm', '3'], capture_output=True, text=True).stdout
+        with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as ex:
+            texts = list(ex.map(again, bad))
+        for p, t in zip(bad, texts):
+            if junk_share(t, vocab) < junk_share(p['text'], vocab):
+                p['text'], p['ocr'] = t, True
+        json.dump(book, open(f, 'w'))
+        print(d, len(bad), 'garbled pages read again', flush=True)

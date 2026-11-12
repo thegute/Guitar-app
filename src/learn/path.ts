@@ -3,7 +3,7 @@
 import type { Instrument } from '../instrument'
 import { allLogs, stars, streak, dayCounts } from './progress'
 import { course, learningOrder } from './quiz'
-import { LESSONS } from './lessons'
+import { lessonsFor } from './lessons'
 
 export type Go =
   | { quiz: string }
@@ -138,7 +138,7 @@ function buildPath(inst: Instrument, st: ReturnType<typeof pathStats>): Stage[] 
         g('Pass every ear-training level', st.ear >= 10, { tool: 'ear' }),
         g('Finish 10 tabs in play-along', st.songs >= 10, { tab: 'play' }, true),
         g('3 stars on 10 quizzes', Object.values(st.stars).filter(x => x >= 3).length >= 10, { tool: 'lessons' }),
-        g('Read every theory lesson', LESSONS.every(l => st.lessons.has(l.id)), { tool: 'lessons' }),
+        g('Read every theory lesson', lessonsFor(inst.id).every(l => st.lessons.has(l.id)), { tool: 'lessons' }),
         g('100 hours of practice', st.hours >= 100, { tab: 'play' }, true),
       ],
     },

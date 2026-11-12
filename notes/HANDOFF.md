@@ -5,6 +5,18 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 `notes/blueprint-decisions.md` and `notes/blueprint-part1.txt` / `part2.txt` (the owner's master blueprint, full text).
 **Also read `notes/WEEK.md` first: the owner's test notes, quick ideas and bugs from the week.** Nothing important lives only in the old chat: if a detail isn't in these files or the code, it doesn't exist yet.
 
+## OWNER RULES FOR THEORY, BOOKS AND THE COURSE (2026-11-11, "don't forget any of these instructions")
+- Use his PDF books inside the app, not just their tabs, wherever it helps. He owns them, the app is only for him: use all of them
+  when appropriate. BUT the repo is public: book text and pages stay in his PRIVATE book pack (phone / Drive), never in the repo;
+  the app's own words are always original.
+- Theory is TAUGHT the No Bull way: No Bull Music Theory for Guitarists (James Shipway) is the main spine (its order and approach).
+  Tom Kolb's Music Theory for Guitarists and the others (triads, CAGED, fretboard, modes, etc.) supply extra material to craft lessons.
+- Every lesson has a video, exercises, and links into the app's features (Play, Jam, CAGED, circle, ear trainer, quizzes, books).
+- The AI helper/teacher reads the books (from the private pack) so it teaches better.
+- A FULL COURSE comes later (with the Stage 7 Learn work): it must build step by step, be very intuitive, top-tier UX and feel.
+  Keep everything gathered from the books for that.
+- Stage 2 is not finished until he hears so; NO test APK and NO Gemini handoff until he says.
+
 ## Where things stand
 - Repo github.com/thegute/Guitar-app, local clone /home/claude/guitar-app. Work branch **`big-update`** (everything since build-31).
   `main` = build-31 (what's installed as the normal release). **Never push to `main` until the owner says "ship it".**

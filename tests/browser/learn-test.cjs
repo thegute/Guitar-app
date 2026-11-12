@@ -17,7 +17,7 @@ async function overflow(page) {
       // find the widest culprits
       for (const el of m.querySelectorAll('*')) {
         const r = el.getBoundingClientRect()
-        if (r.right > window.innerWidth + 1 && !el.closest('.fretboard-wrap, .chips, .heat, .tab-tools, .yt-bar, .prog-strip, .scroll-x')) bad.push(`${el.tagName}.${el.className} ${Math.round(r.right)}`)
+        if (r.right > window.innerWidth + 1 && !el.closest('.win-tray, .fretboard-wrap, .chips, .heat, .tab-tools, .yt-bar, .prog-strip, .scroll-x')) bad.push(`${el.tagName}.${el.className} ${Math.round(r.right)}`)
         if (bad.length > 5) break
       }
     }

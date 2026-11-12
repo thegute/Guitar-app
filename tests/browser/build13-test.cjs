@@ -451,7 +451,7 @@ async function overflow(page) {
     if (document.documentElement.scrollWidth > innerWidth + 1) out.push('page ' + document.documentElement.scrollWidth)
     for (const el of document.querySelectorAll('#main *, .sheet *')) {
       const r = el.getBoundingClientRect()
-      if (r.width && r.right > innerWidth + 1 && !el.closest('.fretboard-wrap, .chips, .heat, .tab-tools, .yt-bar, .prog-strip, .scroll-x, .tab-view, .tools-switch, .zoomable, .hand-scroll, .cof-scroll')) { out.push(`${el.tagName}.${String(el.className).slice(0, 40)} ${Math.round(r.right)}`); if (out.length > 4) break }
+      if (r.width && r.right > innerWidth + 1 && !el.closest('.win-tray, .fretboard-wrap, .chips, .heat, .tab-tools, .yt-bar, .prog-strip, .scroll-x, .tab-view, .tools-switch, .zoomable, .hand-scroll, .cof-scroll')) { out.push(`${el.tagName}.${String(el.className).slice(0, 40)} ${Math.round(r.right)}`); if (out.length > 4) break }
     }
     return out
   })

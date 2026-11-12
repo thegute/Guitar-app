@@ -7,7 +7,8 @@ import { playClick } from '../audio/metronome'
 import { audio } from '../audio/engine'
 import { INTERVAL_LABELS, SHARPS, FLATS, pc } from '../theory/notes'
 import type { Instrument } from '../instrument'
-import { CHAPTERS, LESSONS, lessonById, type Block, type Lesson } from './lessons'
+import { CHAPTERS, LESSONS, chaptersFor, lessonById, lessonsFor, type Block, type Lesson } from './lessons'
+import { Ico } from '../components/Icon'
 import { addXp, bump, logDone, usePracticeTimer } from './progress'
 import type { Go } from './path'
 import { LESSON_EXTRAS, lessonVideo, videoThumb, videoUrl, type LessonEx, type LessonVideo } from './lessonExtras'
@@ -29,9 +30,10 @@ function markRead(id: string) {
   logDone('lesson:' + id)
   return first
 }
-export function nextLesson(): Lesson {
+export function nextLesson(instId?: string): Lesson {
   const r = new Set(lessonsRead())
-  return LESSONS.find(l => !r.has(l.id)) ?? LESSONS[0]
+  const list = lessonsFor(instId)
+  return list.find(l => !r.has(l.id)) ?? list[0]
 }
 
 /** **bold** inside lesson text */
@@ -168,9 +170,10 @@ export function LessonView({ id, inst, onExit, onOpen, onGo, onExercise }: { id:
   const [first, setFirst] = useState(false)
   usePracticeTimer('theory', true, false)
   useEffect(() => { setDone(lessonsRead().includes(lesson.id)); setFirst(false); document.getElementById('main')?.scrollTo({ top: 0 }) }, [lesson.id])
-  const i = LESSONS.indexOf(lesson)
-  const next = LESSONS[i + 1]
-  const prev = LESSONS[i - 1]
+  const all = lessonsFor(inst.id)
+  const i = all.indexOf(lesson)
+  const next = i < 0 ? undefined : all[i + 1]
+  const prev = i < 0 ? undefined : all[i - 1]
   const chapter = CHAPTERS.find(c => c.id === lesson.chapter)
   const extra = LESSON_EXTRAS[lesson.id]
   const video = lessonVideo(lesson.id, inst.id)
@@ -178,7 +181,7 @@ export function LessonView({ id, inst, onExit, onOpen, onGo, onExercise }: { id:
   const lessonText = lesson.blocks.map(b => ('p' in b ? b.p : 'list' in b ? b.list.map(x => `- ${x}`).join(' ') : 'tip' in b ? `Tip: ${b.tip}` : 'play' in b ? `[sound example: ${b.play.label}]` : 'prog' in b ? `[chord example: ${b.prog.label}]` : 'practice' in b ? `[practice: ${b.practice.label}]` : '')).filter(Boolean).join(' ').replace(/\s+/g, ' ')
   useScreenInfo('lesson', {
     label: `Theory lesson "${lesson.title}"`,
-    summary: `Reading the theory lesson "${lesson.title}" (chapter: ${chapter?.title ?? lesson.chapter}, lesson ${i + 1} of ${LESSONS.length}, about ${lesson.minutes} min${done ? ', marked as read' : ''}). What the lesson says: ${lessonText.slice(0, 1800)}${lessonText.length > 1800 ? '…' : ''}${next ? ` Next lesson: "${next.title}".` : ''}`,
+    summary: `Reading the theory lesson "${lesson.title}" (chapter: ${chapter?.title ?? lesson.chapter}, lesson ${i + 1} of ${all.length}${lesson.bookRef ? `, follows ${lesson.bookRef.chapter} of the owner's book "${lesson.bookRef.book}"` : ''}, about ${lesson.minutes} min${done ? ', marked as read' : ''}). What the lesson says: ${lessonText.slice(0, 1800)}${lessonText.length > 1800 ? '…' : ''}${next ? ` Next lesson: "${next.title}".` : ''}`,
   })
   return (
     <article className="lesson stack">
@@ -214,6 +217,11 @@ export function LessonView({ id, inst, onExit, onOpen, onGo, onExercise }: { id:
           </div>
         </section>
       )}
+      {lesson.bookRef && (
+        <p className="lesson-source small" data-testid="lesson-book">
+          <Ico n="book" /> In your book: <b>{lesson.bookRef.book}</b>, {lesson.bookRef.chapter}
+        </p>
+      )}
       {lesson.offtonic && (
         <a className="lesson-source" href={lesson.offtonic} target="_blank" rel="noreferrer">
           Read the full chapter on Offtonic Theory
@@ -234,28 +242,30 @@ export function LessonView({ id, inst, onExit, onOpen, onGo, onExercise }: { id:
   )
 }
 
-export function LessonList({ onOpen, onExit }: { onOpen: (id: string) => void; onExit: () => void }) {
+export function LessonList({ onOpen, onExit, instId }: { onOpen: (id: string) => void; onExit: () => void; instId?: string }) {
   const read = useMemo(() => new Set(lessonsRead()), [])
-  const nxt = nextLesson()
+  const all = lessonsFor(instId)
+  const nxt = nextLesson(instId)
   let part = ''
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <button className="btn sm" onClick={onExit}>← Back</button>
-        <span className="small muted">{read.size} of {LESSONS.length} read</span>
+        <span className="small muted">{all.filter(l => read.has(l.id)).length} of {all.length} read</span>
       </div>
       <h1 style={{ margin: 0 }}>Theory</h1>
       <p className="small muted" style={{ margin: 0 }}>
-        Short lessons written for guitar and ukulele, following the chapters of Offtonic Theory, a free online textbook (each lesson links to
-        its chapter if you want the full version). Every lesson has sounds to tap and something to try.
+        {instId === 'guitar' || !instId
+          ? 'Start with the 12 essentials: they follow the chapters of your theory book, one lesson each, with something to play and a quiz. The deeper lessons after them follow Offtonic Theory, a free online textbook.'
+          : 'Short lessons written for guitar and ukulele, following the chapters of Offtonic Theory, a free online textbook (each lesson links to its chapter if you want the full version). Every lesson has sounds to tap and something to try.'}
       </p>
       <button className="continue-card" onClick={() => onOpen(nxt.id)}>
         <span className="small muted">{read.size ? 'Continue with' : 'Start with'}</span>
         <b>{nxt.title}</b>
         <span className="small muted">{CHAPTERS.find(c => c.id === nxt.chapter)?.title} · {nxt.minutes} min</span>
       </button>
-      {CHAPTERS.map(ch => {
-        const list = LESSONS.filter(l => l.chapter === ch.id)
+      {chaptersFor(instId).map(ch => {
+        const list = all.filter(l => l.chapter === ch.id)
         const head = ch.part !== part
         part = ch.part
         const n = list.filter(l => read.has(l.id)).length

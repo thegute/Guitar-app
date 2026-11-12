@@ -6,6 +6,7 @@ import type { MarkRole } from '../components/Fretboard'
 import { FLATS, SHARPS, pc } from '../theory/notes'
 import { CIRCLE_MAJOR, CIRCLE_MINOR, circleIndex, keySignature } from '../components/CircleOfFifths'
 import { cagedShapes } from './caged'
+import { THEORY_QUIZZES } from './theoryQuizzes'
 
 export type Answer =
   | { pc: number }
@@ -522,6 +523,8 @@ export const QUIZZES: QuizDef[] = [
       }
     },
   },
+  // Guitar theory (the theory essentials course, in the order of the owner's theory book)
+  ...THEORY_QUIZZES,
 ]
 
 // titles for generated quizzes

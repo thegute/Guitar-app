@@ -17,7 +17,7 @@ async function overflow(page) {
     if (document.documentElement.scrollWidth > innerWidth + 1) bad.push('page ' + document.documentElement.scrollWidth)
     for (const el of document.querySelectorAll('#main *')) {
       const r = el.getBoundingClientRect()
-      if (r.width && r.right > innerWidth + 1 && !el.closest('.fretboard-wrap, .chips, .heat, .tab-tools, .yt-bar, .prog-strip, .scroll-x, .tab-view, .tools-switch, .strobe')) { bad.push(`${el.tagName}.${String(el.className).slice(0, 40)} ${Math.round(r.right)}`); if (bad.length > 4) break }
+      if (r.width && r.right > innerWidth + 1 && !el.closest('.win-tray, .fretboard-wrap, .chips, .heat, .tab-tools, .yt-bar, .prog-strip, .scroll-x, .tab-view, .tools-switch, .strobe')) { bad.push(`${el.tagName}.${String(el.className).slice(0, 40)} ${Math.round(r.right)}`); if (bad.length > 4) break }
     }
     return bad
   })

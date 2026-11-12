@@ -52,7 +52,7 @@ export function libraryEntries(inst: Instrument, songs: SongDoc[] = []): Entry[]
   }
   for (const l of LESSONS) {
     const paras = l.blocks.flatMap(b => ('p' in b ? [b.p] : 'tip' in b ? [b.tip] : 'list' in b ? b.list : []))
-    out.push({ id: `ls:${l.id}`, kind: 'lesson', title: l.title, where: 'Learn → Lessons', text: clip(paras[0] ?? '', 140), keys: 'lesson theory', boost: -0.1,
+    out.push({ id: `ls:${l.id}`, kind: 'lesson', title: l.title, where: l.chapter === 'essentials' ? 'Learn → Theory essentials' : 'Learn → Lessons', text: clip(paras[0] ?? '', 140), keys: l.chapter === 'essentials' ? 'lesson theory essentials basics beginner' : 'lesson theory', boost: -0.1,
       body: clip(paras.join(' '), 1500), target: { go: { lesson: l.id } } })
   }
   for (const t of TECHNIQUES) {

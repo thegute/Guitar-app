@@ -115,12 +115,7 @@ export function AskBubble({ context }: { context: AskContext }) {
     if (secs > 0) hideLater(secs * 1000)
   }
 
-  if (!show) return null
-  const talkOk = canListen()
-  const top = `calc(${Math.round(y * 100)}% - 28px)`
-  const placeSide = x !== null ? { left: x - 26, right: 'auto' } : side === 'left' ? { left: 10, right: 'auto' } : {}
-  const busy = phase === 'listening' || phase === 'thinking'
-  // tips: a glowing dot when there's one here; tap ✨ to read it ("always": it opens by itself, never while you play)
+  // tips (hooks stay above the early return: turning the bubble on in Settings must not change the hook count)
   const { tip, mode: tipMode, screen } = useTip()
   const [tipOpen, setTipOpen] = useState(false)
   const autoShown = useRef<Set<string>>(new Set())
@@ -142,6 +137,12 @@ export function AskBubble({ context }: { context: AskContext }) {
     }, 2500)
     return () => clearTimeout(t)
   }, [tip, tipMode, tipOpen, phase])
+  if (!show) return null
+  const talkOk = canListen()
+  const top = `calc(${Math.round(y * 100)}% - 28px)`
+  const placeSide = x !== null ? { left: x - 26, right: 'auto' } : side === 'left' ? { left: 10, right: 'auto' } : {}
+  const busy = phase === 'listening' || phase === 'thinking'
+  // tips: a glowing dot when there's one here; tap ✨ to read it ("always": it opens by itself, never while you play)
   const tipReady = !!tip && (tipMode === 'dot' || tipMode === 'always')
   const cardTop = y >= 0.45 ? `max(8px, calc(${Math.round(y * 100)}% - 40px - min(60vh, 340px)))` : `calc(${Math.round(y * 100)}% + 30px)`
   return (

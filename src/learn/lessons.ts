@@ -1,6 +1,7 @@
 // Theory lessons. The chapter outline follows Offtonic Theory (https://www.offtonic.com/theory/) so you can read the
 // full chapters there; the explanations here are written for this app, aimed at guitar and ukulele players,
 // with examples you can hear and see on the neck. Plus guitar-specific chapters at the end.
+import { THEORY_LESSONS } from './theoryCourse'
 
 export type Block =
   | { p: string }
@@ -19,6 +20,10 @@ export interface Lesson {
   title: string
   /** the matching Offtonic chapter, if any */
   offtonic?: string
+  /** the chapter of the owner's theory book this lesson follows (opened from his private book pack) */
+  bookRef?: { book: string; chapter: string }
+  /** topic ids (books/topics.ts) for "In your books" */
+  topics?: string[]
   minutes: number
   blocks: Block[]
 }
@@ -30,7 +35,8 @@ const scale = (root: number, ivs: number[]) => ivs.map(i => root + i)
 const MAJOR = [0, 2, 4, 5, 7, 9, 11, 12]
 const NAT_MINOR = [0, 2, 3, 5, 7, 8, 10, 12]
 
-export const CHAPTERS: { id: string; title: string; part: string }[] = [
+export const CHAPTERS: { id: string; title: string; part: string; guitarOnly?: boolean }[] = [
+  { id: 'essentials', title: 'Guitar theory: the essentials', part: 'Start here · 12 lessons', guitarOnly: true },
   { id: 'start', title: 'Start here', part: 'Preface' },
   { id: 'basics', title: 'The basics', part: 'Part I · Preliminaries' },
   { id: 'rhythm', title: 'Rhythm', part: 'Part I · Preliminaries' },
@@ -44,7 +50,7 @@ export const CHAPTERS: { id: string; title: string; part: string }[] = [
   { id: 'guitar', title: 'Guitar mastery', part: 'Extra · For your instrument' },
 ]
 
-export const LESSONS: Lesson[] = [
+const OFFTONIC_LESSONS: Lesson[] = [
   // ---------------- Preface ----------------
   { id: 'intro', chapter: 'start', title: 'How to use these lessons', offtonic: O('intro.html'), minutes: 3, blocks: [
     { p: 'Music theory is a set of names for things you can already hear. It does not make you play better on its own, but it makes everything faster: learning songs, finding notes, writing parts, soloing over changes and talking to other musicians.' },
@@ -360,6 +366,13 @@ export const LESSONS: Lesson[] = [
     { tip: 'Switch instruments in Settings (the gear in the menu). Chord shapes, scales, tabs, the tuner and quizzes all follow your instrument and tuning.' },
   ] },
 ]
+
+export const LESSONS: Lesson[] = [...THEORY_LESSONS, ...OFFTONIC_LESSONS]
+
+const GUITAR_ONLY = new Set(CHAPTERS.filter(c => c.guitarOnly).map(c => c.id))
+/** The lessons for an instrument: the guitar essentials (they talk about guitar strings) are left out on ukuleles. */
+export const lessonsFor = (instId?: string) => !instId || instId === 'guitar' ? LESSONS : LESSONS.filter(l => !GUITAR_ONLY.has(l.chapter))
+export const chaptersFor = (instId?: string) => !instId || instId === 'guitar' ? CHAPTERS : CHAPTERS.filter(c => !c.guitarOnly)
 
 export function lessonById(id: string) {
   return LESSONS.find(l => l.id === id)

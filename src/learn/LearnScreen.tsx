@@ -48,7 +48,7 @@ import { GuideScreen } from './GuideScreen'
 import { LickLibrary } from './LickLibrary'
 import { LickChainer } from '../components/LickChainer'
 import { JumpBackIn } from '../components/JumpBackIn'
-import { LESSONS } from './lessons'
+import { LESSONS, lessonsFor } from './lessons'
 import { lastBackup } from '../backup'
 import { ago } from '../components/BackupPanel'
 
@@ -201,7 +201,7 @@ export function LearnScreen() {
   }
   if (route.k === 'ear') return <EarTrainer inst={inst} onExit={back} />
   if (route.k === 'caged') return <CagedExplorer inst={inst} onExit={back} onQuiz={id => push({ k: 'quiz', id })} />
-  if (route.k === 'lessons') return <LessonList onOpen={id => push({ k: 'lesson', id })} onExit={back} />
+  if (route.k === 'lessons') return <LessonList instId={inst.id} onOpen={id => push({ k: 'lesson', id })} onExit={back} />
   if (route.k === 'lesson') return <LessonView id={route.id} inst={inst} onExit={back} onOpen={id => replace({ k: 'lesson', id })} onGo={launch} onExercise={runLessonEx} />
   if (route.k === 'changes') return <ChordChanges inst={inst} onExit={back} />
   if (route.k === 'bends') return <BendTrainer inst={inst} onExit={back} />
@@ -271,7 +271,7 @@ export function LearnScreen() {
     ] },
     ...(lessonsAvailable() ? [{ title: 'Your lessons', tools: [{ id: 'videos' as const, title: 'Your video lessons', sub: 'Course videos and tabs from your phone' }] }] : []),
     { title: 'Ears and theory', tools: [
-      { id: 'lessons', title: 'Theory lessons', sub: `${read} of ${LESSONS.length} read` },
+      { id: 'lessons', title: 'Theory lessons', sub: `${read} of ${lessonsFor(inst.id).length} read` },
       { id: 'ear', title: 'Ear training', sub: 'Drone-based, by feel' },
       { id: 'caged', title: `${inst.shapeSystem.join('')} explorer`, sub: 'Five shapes, whole neck' },
       { id: 'circle', title: 'Circle of fifths', sub: 'Keys and their chords' },
