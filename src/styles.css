@@ -2722,3 +2722,5 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .deep-preview { border-style: dashed; }
 [data-theme='psy'] .deep-step, [data-theme='psy'] .deep-goal, [data-theme='psy'] .deep-rail-step { background: rgba(20, 0, 43, 0.94); }
 [data-theme='psy'] .deep-task, [data-theme='psy'] .deep-example, [data-theme='psy'] .deep-mistakes li { background: rgba(10, 0, 26, 0.9); }
+.lib-picker { display: grid; gap: 2px; flex: 1 1 150px; max-width: 260px; }
+.lib-picker select { min-height: var(--h-sm); }

@@ -151,7 +151,7 @@ export function ScanResult({ out, live, onUseInJam, onAgain }: { out: ScanOut; l
   }, [base, userSong, title, adapt, otherTuning, inst.midis])
   const chords = useMemo(() => scanChords(doc), [doc])
   const uniq = useMemo(() => chords.filter((c, i) => c !== chords[i - 1]).slice(0, 8), [chords])
-  const keep = async () => { await saveSong(doc); return doc }
+  const keep = async () => { const d: SongDoc = { ...doc, origin: 'scan' }; await saveSong(d); return d }
   const play = async (mode: 'wait' | 'time') => {
     try { localStorage.setItem('kg:playMode', JSON.stringify(mode)) } catch { /* storage */ }
     openInPlay(await keep())

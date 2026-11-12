@@ -7,6 +7,9 @@ export interface SongDoc {
   title: string
   artist?: string
   source: 'gp' | 'text' | 'chords' | 'example' | 'lesson' | 'jam' | 'songbook'
+  /** how it came in, when that matters for the Library's filters: scanned by the Riff Scanner (video, picture, sound), worked out
+   *  from a recording (Find the chords / Notes from a recording), or read from one of his PDF books */
+  origin?: 'scan' | 'recording' | 'book'
   /** which bank the song lives in: the instrument mode it was added in */
   inst?: InstrumentId
   song: Song

@@ -104,6 +104,46 @@ const stats = {
     if (page.errors.length) bad(`${vp.n}: page errors: ${page.errors.join(' | ')}`)
     await page.context().close()
   }
+  // the PDF's filters: Practice plan, Scanned, Backing tracks, Style and Tuning
+  {
+    const page = await newPage(browser, { width: 412, height: 915 }, { 'kg:theme': '"psy"' })
+    await page.evaluate(async () => {
+      const track = (tuning, title) => ({ name: title, tuning, capo: 0, program: 25, bars: [{ steps: [{ dur: 1, notes: [{ string: 0, fret: 3, midi: tuning[0] + 3 }] }] }] })
+      const std = [40, 45, 50, 55, 59, 64], dropd = [38, 45, 50, 55, 59, 64]
+      const docs = [
+        { id: 't-scan', title: 'Scanned riff A', source: 'text', origin: 'scan', inst: 'guitar', updated: Date.now(), song: { title: 'Scanned riff A', tempo: 100, tracks: [track(std, 'g')] } },
+        { id: 't-video', title: 'Video song B', source: 'chords', inst: 'guitar', youtube: 'https://youtu.be/abcdefghijk', updated: Date.now(), song: { title: 'Video song B', tempo: 140, tracks: [track(std, 'g')] } },
+        { id: 't-dropd', title: 'Drop D riff C', source: 'gp', inst: 'guitar', updated: Date.now(), song: { title: 'Drop D riff C', tempo: 70, tracks: [track(dropd, 'g')] } },
+      ]
+      await new Promise((res, rej) => { const r = indexedDB.open('kguitar', 1); r.onupgradeneeded = () => r.result.createObjectStore('songs', { keyPath: 'id' }); r.onsuccess = () => { const tx = r.result.transaction('songs', 'readwrite'); docs.forEach(d => tx.objectStore('songs').put(d)); tx.oncomplete = res; tx.onerror = rej }; r.onerror = rej })
+    })
+    await page.reload()
+    await page.waitForSelector('.songs-screen')
+    const listed = async () => (await page.locator('[data-win="list"] .song-open b, .song-list .song-open b').allInnerTexts()).filter(t => /riff|song B/.test(t))
+    await page.locator('[data-testid=lib-scanned]').click()
+    let names = await listed()
+    if (names.join() !== 'Scanned riff A') bad(`Scanned shows ${names.join(', ') || 'nothing'}`)
+    await page.locator('[data-testid=lib-backing]').click()
+    names = await listed()
+    if (names.join() !== 'Video song B') bad(`Backing tracks shows ${names.join(', ') || 'nothing'}`)
+    await page.locator('[data-testid=lib-mine]').click()
+    const tun = page.locator('[data-testid=lib-tuning]')
+    if (!(await tun.count())) bad('no Tuning picker with songs in two tunings')
+    else {
+      await tun.selectOption('Drop D')
+      names = await listed()
+      if (names.join() !== 'Drop D riff C') bad(`Tuning Drop D shows ${names.join(', ') || 'nothing'}`)
+      await tun.selectOption('')
+    }
+    const sty = page.locator('[data-testid=lib-style]')
+    if (!(await sty.count())) bad('no Style picker with songs in different styles')
+    await page.locator('[data-testid=lib-plan]').click()
+    await page.screenshot({ path: path.join(OUT, 'songs-filters.png'), fullPage: true })
+    if (await sideways(page)) bad('filters: sideways overflow')
+    if (page.errors.length) bad(`filters: page errors: ${page.errors.join(' | ')}`)
+    console.log('filters: scanned, backing, tuning, style, plan checked')
+    await page.context().close()
+  }
   await browser.close()
   console.log(problems.length ? `${problems.length} problem(s)` : 'songs: all good')
   process.exit(problems.length ? 1 : 0)

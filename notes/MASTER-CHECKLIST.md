@@ -27,7 +27,7 @@ Hear it drives it · 9 floating cards + resizable tidy-grid windows · Exercises
 - ➡ Stage 4: stems from a YouTube video or song file (htdemucs_6s) saved in IndexedDB as faders in Play AND Game Mode
   (original guitar at 0% = you are the guitar, 15% = quiet guide, solo to study it). Owner: "YouTube band-minus-guitar is Stage 4".
 - ✅ One Songs library (Learning first, search, chips All / Learning / My songs / Songbook / Learned, Saved for later).
-- 🔨 PDF's library pills still missing: **Scanned**, **Backing tracks**, **Practice plan**, **By style / tuning**. (tonight)
+- ✅ PDF library pills: Practice plan, Scanned (Riff Scanner + recordings), Backing tracks, Style and Tuning pickers.
 - ✅ One "Add a song" box: YouTube/Shorts link (Find a tab / Scan it / Just save), song name → tab search, GP/audio/video files, screenshots.
 - ✅ Shorts: Mr. Tabs, Level Up Guitar Tabs, Kenneth Acoustic pre-followed + "Find channels for me".
 - 🔨 Manual: **1-tap Export manual as PDF**, a **2-minute Quick-Start tour** (for his brother), an **in-depth illustrated manual**

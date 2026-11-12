@@ -556,10 +556,10 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
           }}
           listen={<WinArea area="jamFind">
             <Win id="listen" title="Listen for the chords" className="panel" bodyClass="stack">
-              <SongFinder onUseInJam={takeFound} onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
+              <SongFinder onUseInJam={takeFound} onOpen={d0 => { const doc = { ...d0, origin: 'recording' as const }; void saveSong(doc).then(() => openInPlay(doc)) }} />
             </Win>
             <Win id="notes" title="Notes from a recording (accurate)" className="panel" bodyClass="stack">
-              <Transcriber onOpen={doc => void saveSong(doc).then(() => openInPlay(doc))} />
+              <Transcriber onOpen={d0 => { const doc = { ...d0, origin: 'recording' as const }; void saveSong(doc).then(() => openInPlay(doc)) }} />
             </Win>
           </WinArea>} />
       )}
