@@ -163,7 +163,10 @@ def main():
                         rel = f'{art}/s{s}f{f:02d}v{v:03d}r{k}.flac'
                         paths = [os.path.join(out_dir, st['dir'], rel) if st['dir'] else os.path.join(out_dir, rel) for st in stems]
                         done = all(os.path.exists(pth) for pth in paths) and rel in layer['rr']
-                        ch = s if plan.get('stringChannels') else 0
+                        # channel-based strings: MIDI channel 1 = the LOWEST string ('low-first'), or the highest (Orange Tree: 'high-first')
+                        ch = 0
+                        if plan.get('stringChannels'):
+                            ch = (len(tuning) - 1 - s) if plan.get('stringChannels') == 'high-first' else s
                         msgs = []
                         t0 = 0.1
                         if spec.get('keyswitch') is not None:
