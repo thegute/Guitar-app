@@ -1,7 +1,7 @@
 // Read answers aloud: the phone's own voice in the app (SpeakPlugin.java), the browser's voice on the web.
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { aiSettings, post, ttsModel } from './providers'
-import { audio } from '../audio/engine'
+import { audio, route } from '../audio/engine'
 
 interface SpeakNative { speak(o: { text: string; rate?: number }): Promise<void>; stop(): Promise<void>; addListener(e: 'done', f: () => void): Promise<{ remove: () => void }> }
 const native = registerPlugin<SpeakNative>('Speak')
@@ -99,7 +99,7 @@ function playBuf(buf: AudioBuffer, my: number): Promise<void> {
     src?.stop()
     const s = ctx.createBufferSource()
     s.buffer = buf
-    s.connect(ctx.destination)
+    s.connect(route('any', 'voice'))
     s.onended = () => { if (src === s) src = null; res() }
     src = s
     s.start()

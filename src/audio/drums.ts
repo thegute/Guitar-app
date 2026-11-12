@@ -3,7 +3,7 @@
 // 60s/70s or a dusty lo-fi chain, and two drum machines synthesized here in the style of the classic 808 and 909.
 // Hand percussion (congas, bongos, cajón, claves, guiro, brushes, finger snaps) is synthesized too. Grooves pick a
 // kit; Jam can swap it. A small live-synthesized kit plays until a kit is ready (and if the recordings can't load).
-import { audio, out } from './engine'
+import { audio, route } from './engine'
 
 export type Voice = 'kick' | 'snare' | 'hat' | 'open' | 'rim' | 'ride' | 'ghost' | 'clap' | 'pedal' | 'bell' | 'crash'
   | 'tom1' | 'tom2' | 'tom3' | 'tamb' | 'cowbell' | 'shaker' | 'roto1' | 'roto2' | 'roto3'
@@ -406,7 +406,7 @@ export function kitBuffer(voice: Voice, sel: KitSel | KitId = {}): { buf: AudioB
 }
 
 export function playDrum(voice: Voice, when: number, level = 1, dest?: AudioNode, sel: KitSel | KitId = {}, mix = 1) {
-  const d = dest ?? out()
+  const d = dest ?? route('any', 'drums')
   const s: KitSel = typeof sel === 'string' ? { kit: sel } : sel
   const id = s.kit ?? 'studio'
   const isPerc = PERC.has(voice)

@@ -5,7 +5,7 @@ import type { SongDoc } from '../tabs/library'
 import { flatten } from '../tabs/model'
 import { TabPlayer } from '../audio/tabPlayer'
 import { TapRecorder } from '../audio/tap'
-import { audio, out } from '../audio/engine'
+import { audio, masterInput } from '../audio/engine'
 import { activeSound, soundForProgram } from '../audio/pluck'
 import { saveSample } from '../studio/padSamples'
 import { detectRoot, padName, trimSilence, USER_PADS } from '../studio/pads'
@@ -27,7 +27,7 @@ export async function riffToPad(doc: SongDoc, sound?: { x: Float32Array; sr: num
     const secs = Math.min(MAX, flat.reduce((t, f) => t + f.step.dur, 0) * (60 / bpm) + 0.8)
     const ctx = audio(); await ctx.resume()
     const rec = new TapRecorder()
-    await rec.start(out())
+    await rec.start(masterInput()) // everything KGuitar plays, before the master
     const p = new TabPlayer()
     p.sound = activeSound(soundForProgram(track.program))
     const t0 = ctx.currentTime + 0.15

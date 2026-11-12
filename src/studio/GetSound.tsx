@@ -6,7 +6,7 @@
 // Then the clip editor: zoom into the wave, drag the two handles round the bit you want, hear it, take the voice out or
 // keep only the voice (voice isolation, a one-time model download), and put it on the next free pad or chop it across pads.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { audio } from '../audio/engine'
+import { audio, route } from '../audio/engine'
 import { useBack } from '../back'
 import { Ico } from '../components/Icon'
 import { YouTubePlayer } from '../components/YouTubePlayer'
@@ -153,7 +153,7 @@ function ClipEditor({ clip, beat, setBeat, onAgain, onDone }: { clip: Clip; beat
     const ctx = audio(); void ctx.resume()
     const buf = ctx.createBuffer(p.chans.length, p.chans[0].length, p.sr)
     p.chans.forEach((c, i) => buf.getChannelData(i).set(c))
-    const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start()
+    const src = ctx.createBufferSource(); src.buffer = buf; src.connect(route('any', 'loops')); src.start()
     playing.current = src
   }
   const runIso = async (want: Part) => {

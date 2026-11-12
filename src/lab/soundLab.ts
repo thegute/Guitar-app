@@ -1,7 +1,7 @@
 // The sound lab (Stage 3, notes/AUDIO-ENGINE.md): fixed musical scenes played through the app's real sound code, so the
 // engine can be recorded and measured the same way before and after every change (tests/browser/sound-lab.cjs →
 // tools/sound-report.py). Test builds only: main.tsx loads this lazily when window.__kgTest is set.
-import { audio } from '../audio/engine'
+import { audio, masterMeter } from '../audio/engine'
 import { strum, playNote, loadSound, type SoundId } from '../audio/pluck'
 import { loadKit, playGrooveBar } from '../audio/drums'
 import { JamTransport } from '../audio/jam'
@@ -105,3 +105,6 @@ export async function runScene(id: string): Promise<{ seconds: number }> {
   return { seconds: s.seconds }
 }
 export const sceneIds = () => SCENES.map(s => s.id)
+
+/** the master's state: is the worklet master in, and its last gain reduction */
+export const master = () => ({ ...masterMeter, rate: audio().sampleRate, baseLatency: audio().baseLatency })

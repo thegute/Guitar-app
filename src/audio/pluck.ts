@@ -1,7 +1,7 @@
 // Guitar sounds: recorded and amp-rendered sample banks (public/samples/<id>/), with a Karplus–Strong synth as the
 // instant fallback while a bank loads. The amp tones were rendered offline from the owner's own amp captures and cab /
 // body impulse responses (tools/render_tones.py); only the finished notes ship. Live guitar input is never processed here.
-import { audio, out } from './engine'
+import { audio, out, route } from './engine'
 import { monoOut } from './rig'
 import { midiToFreq } from '../theory/notes'
 
@@ -373,10 +373,10 @@ export function playBass(midi: number, when: number, gain: number, dest?: AudioN
   if (bank) {
     const g = bank.groups.notes!
     const k = nearest(g, midi)
-    return playSample(take(g, k).s, Math.pow(2, (midi - k) / 12), t, gain * 1.3, dest)
+    return playSample(take(g, k).s, Math.pow(2, (midi - k) / 12), t, gain * 1.3, dest ?? route('any', 'bass'))
   }
   void loadBank('bass')
-  return synthNote(midi, t, gain * 0.9, dest)
+  return synthNote(midi, t, gain * 0.9, dest ?? route('any', 'bass'))
 }
 
 /** A note from any bank (the beat maker's instruments: 'gm/piano', 'gm/strings' …). `release` is how long it takes
@@ -385,7 +385,8 @@ export function playFromBank(id: string, midi: number, when: number, gain: numbe
   const bank = banks.get(id)
   const ctx = audio()
   const t = Math.max(when || ctx.currentTime, ctx.currentTime)
-  if (!bank?.groups.notes) { void loadBank(id); return synthNote(midi, t, gain * 0.7, dest) }
+  const to = dest ?? route('any', 'keys')
+  if (!bank?.groups.notes) { void loadBank(id); return synthNote(midi, t, gain * 0.7, to) }
   const g = bank.groups.notes
   const k = nearest(g, midi)
   const s = take(g, k).s
@@ -394,7 +395,7 @@ export function playFromBank(id: string, midi: number, when: number, gain: numbe
   src.playbackRate.value = Math.pow(2, (midi - k) / 12)
   const v = ctx.createGain()
   v.gain.value = gain
-  src.connect(v).connect(dest ?? out())
+  src.connect(v).connect(to)
   src.start(t, s.off)
   return { stop: (at?: number) => { const e = Math.max(at ?? ctx.currentTime, t); try { v.gain.setTargetAtTime(0, e, release / 3); src.stop(e + release * 2 + 0.05) } catch { /* noop */ } } }
 }

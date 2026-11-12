@@ -1,7 +1,7 @@
 // The Jam backing track: chords (strummed or picked) in a chosen guitar sound, bass, drums and click, plus your
 // recorded loop layers, all locked to one clock so recordings line up with the progression.
 import { liveSound, quietSound } from './stopAll'
-import { audio, out } from './engine'
+import { audio, route, type Category } from './engine'
 import { playClick } from './metronome'
 import { playGrooveBar, loadKit, grooveOf, type KitId } from './drums'
 import { playHit, strumPattern, type Handle } from './strums'
@@ -58,12 +58,13 @@ export class JamTransport {
 
   constructor() {
     const ctx = audio()
-    const bus = () => { const g = ctx.createGain(); g.connect(out()); return g }
-    this.chordsBus = bus()
-    this.drumsBus = bus()
-    this.clickBus = bus()
-    this.loopBus = bus()
-    this.bassBus = bus()
+    // each part on its own console bus (Jam keeps its own on/off switches, so no "your part / band" role)
+    const bus = (cat: Category) => { const g = ctx.createGain(); g.connect(route('any', cat)); return g }
+    this.chordsBus = bus('guitar')
+    this.drumsBus = bus('drums')
+    this.clickBus = bus('click')
+    this.loopBus = bus('loops')
+    this.bassBus = bus('bass')
     // bass grit: bassBus feeds a clean path and a driven one (soft clipping, then the fizz rolled off)
     this.bassBus.disconnect()
     this.bassDry = ctx.createGain()
@@ -79,8 +80,8 @@ export class JamTransport {
     lp.frequency.value = 2600
     const pre = ctx.createGain()
     pre.gain.value = 2.5
-    this.bassBus.connect(this.bassDry).connect(out())
-    this.bassBus.connect(pre).connect(shaper).connect(lp).connect(this.bassWet).connect(out())
+    this.bassBus.connect(this.bassDry).connect(route('any', 'bass'))
+    this.bassBus.connect(pre).connect(shaper).connect(lp).connect(this.bassWet).connect(route('any', 'bass'))
   }
 
   get spb() { return 60 / this.bpm }

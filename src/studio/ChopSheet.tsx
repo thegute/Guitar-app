@@ -3,7 +3,7 @@
 // down the keyboard (Keyboard → Sound → Your pads).
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { haptic, quietForMic } from '../audio/tapFeel'
-import { audio } from '../audio/engine'
+import { audio, route } from '../audio/engine'
 import { InputRecorder } from '../audio/looper'
 import { kindOf, latencyMs } from '../audio/gear'
 import { useBack } from '../back'
@@ -70,7 +70,7 @@ export function ChopSheet({ setBeat, onClose, onDone }: { setBeat: (f: (b: Beat)
     buf.getChannelData(0).set(take.data)
     const src = ctx.createBufferSource()
     src.buffer = buf
-    src.connect(ctx.destination)
+    src.connect(route('any', 'loops'))
     const s = i < 0 ? { start: 0, end: take.data.length / take.sr } : slices[i]
     src.start(0, s.start, s.end - s.start)
   }

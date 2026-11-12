@@ -1,6 +1,6 @@
 // A soft, slowly breathing drone on the tonic (root + fifth + octave), the backdrop for ear training.
 import { liveSound, quietSound } from './stopAll'
-import { audio, out } from './engine'
+import { audio, route } from './engine'
 import { midiToFreq } from '../theory/notes'
 
 export class Drone {
@@ -33,7 +33,7 @@ export class Drone {
     lfoGain.gain.value = 260
     lfo.connect(lfoGain).connect(filter.frequency)
     lfo.start()
-    filter.connect(master).connect(out())
+    filter.connect(master).connect(route('any', 'click'))
     const voices: [number, OscillatorType, number, number][] = [
       // semitones above tonic, wave, level, detune (cents)
       [0, 'sawtooth', 0.32, -6], [0, 'sawtooth', 0.32, 6], [12, 'triangle', 0.22, 0], [7, 'triangle', 0.12, 2], [-12, 'sine', 0.35, 0],

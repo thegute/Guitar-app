@@ -1,7 +1,7 @@
 // Plays a beat: drums, instrument tracks and recorded loops on one clock, looping. Schedules a little ahead on the
 // audio clock (so timing is exact even when the screen is busy) and tells the screen where the playhead is.
 import { liveSound, quietSound } from '../audio/stopAll'
-import { audio, out } from '../audio/engine'
+import { audio, masterInput } from '../audio/engine'
 import { playDrum, prepareKit, type Voice } from '../audio/drums'
 import { playClick } from '../audio/metronome'
 import type { Handle } from '../audio/pluck'
@@ -81,7 +81,8 @@ export class StudioTransport {
     this.beat = beat
     const ctx = audio()
     this.master = ctx.createGain()
-    this.fx = new PerformFx(out(), () => ({ stepDur: this.stepDur, t0: this.t0, playing: this.playing }))
+    // the beat maker is its own mix (pads, keys, FX), so it goes to the master as one finished stem
+    this.fx = new PerformFx(masterInput(), () => ({ stepDur: this.stepDur, t0: this.t0, playing: this.playing }))
     this.master.connect(this.fx.input)
     this.reverb = makeReverb(ctx)
     this.reverbIn = ctx.createGain()

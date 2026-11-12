@@ -2,7 +2,7 @@
 // Used where you tap a rhythm on the screen (Rhythm trainer), so you know each tap landed.
 import { Capacitor } from '@capacitor/core'
 import { Haptics, ImpactStyle } from '@capacitor/haptics'
-import { audio } from './engine'
+import { audio, route } from './engine'
 
 import { NotificationType } from '@capacitor/haptics'
 
@@ -46,6 +46,6 @@ export function tick(level = 0.35) {
   f.type = 'bandpass'; f.frequency.value = 3200; f.Q.value = 1.4
   const g = ctx.createGain()
   g.gain.value = level
-  s.connect(f).connect(g).connect(ctx.destination)
+  s.connect(f).connect(g).connect(route('any', 'click'))
   s.start()
 }

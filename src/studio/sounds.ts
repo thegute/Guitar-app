@@ -1,7 +1,7 @@
 // The beat maker's instruments: sampled ones (Salamander grand, the VSCO 2 orchestra, MusyngKite keys and voices, the
 // app's own guitars and bass) and synths built here (supersaw, plucks, pads, leads, an 808 sub, a tonewheel organ).
 // Every note returns a handle that fades out when stopped, so held keys and piano-roll notes last as long as they should.
-import { audio, out } from '../audio/engine'
+import { audio, route } from '../audio/engine'
 import { loadBank, playBass, playFromBank, playNote, type Handle, type SoundId } from '../audio/pluck'
 
 export type SynthKind = 'supersaw' | 'pluck' | 'warmpad' | 'ambient' | 'sawlead' | 'squarelead' | 'sub808' | 'synthbass' | 'organ'
@@ -208,7 +208,7 @@ export interface PlayOpts { dest?: AudioNode; /** seconds to hold (piano roll); 
 /** Play one note on an instrument. */
 export function playInstr(id: string, midi: number, when: number, vel = 0.8, o: PlayOpts = {}): Handle {
   const d = instr(id)
-  const dest = o.dest ?? out()
+  const dest = o.dest ?? route('any', 'keys')
   const gain = vel * d.gain
   let h: Handle
   if (d.synth) h = synth(d.synth, midi, when, gain, dest, d.synth === 'sub808' ? o.from : undefined)

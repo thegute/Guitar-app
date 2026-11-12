@@ -1,6 +1,6 @@
 // Sample-accurate metronome: a lookahead scheduler on the AudioContext clock.
 import { liveSound, quietSound } from './stopAll'
-import { audio, out } from './engine'
+import { audio, route } from './engine'
 import { playDrum, playGrooveBar, loadKit } from './drums'
 
 export type Accent = 0 | 1 | 2 // muted, normal, accented
@@ -115,7 +115,7 @@ export function playClick(when: number, sound: ClickSound, kind: 'accent' | 'bea
   }
   const ctx = audio()
   const g = ctx.createGain()
-  g.connect(dest ?? out())
+  g.connect(dest ?? route('any', 'click'))
   const pitch = { accent: 1, beat: 0.75, sub: 0.6 }[kind]
   if (sound === 'beep') {
     const o = ctx.createOscillator()

@@ -544,16 +544,20 @@ async function along(browser) {
   await page.waitForTimeout(4500) // count-in + a few beats
   // listen on both buses: is sound really coming through each one?
   const meas = () => page.evaluate(async () => {
-    const B = window.__kgBuses
+    // the engine's role stages (Stage 3): your part = 'me:guitar'; the band = every 'band:<category>' stage
+    const B = window.__kgRoutes
     if (!B) return null
     const out = {}
     for (const n of ['me', 'band']) {
-      const g = B.get(n); if (!g) { out[n] = { gain: null, rms: 0 }; continue }
-      const a = g.context.createAnalyser(); a.fftSize = 2048; g.connect(a)
+      const gs = [...B.entries()].filter(([k]) => k.startsWith(n + ':')).map(([, g]) => g)
+      if (!gs.length) { out[n] = { gain: null, rms: 0 }; continue }
+      const ctx = gs[0].context
+      const a = ctx.createAnalyser(); a.fftSize = 2048
+      for (const g of gs) g.connect(a)
       let peak = 0; const buf = new Float32Array(2048)
       for (let i = 0; i < 25; i++) { await new Promise(r => setTimeout(r, 80)); a.getFloatTimeDomainData(buf); let s = 0; for (const x of buf) s += x * x; peak = Math.max(peak, Math.sqrt(s / buf.length)) }
-      g.disconnect(a)
-      out[n] = { gain: Math.round(g.gain.value * 100) / 100, rms: Math.round(peak * 1000) / 1000 }
+      for (const g of gs) g.disconnect(a)
+      out[n] = { gain: Math.round(Math.max(...gs.map(g => g.gain.value)) * 100) / 100, rms: Math.round(peak * 1000) / 1000 }
     }
     return out
   })

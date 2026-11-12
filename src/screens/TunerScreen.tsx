@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { usePracticeTimer } from '../learn/progress'
 import { PitchTracker } from '../audio/pitch'
 import { TunerSmoother, type Steady } from '../audio/tunerPitch'
-import { keepAwake, audio, out } from '../audio/engine'
+import { keepAwake, audio, route } from '../audio/engine'
 import { midiName, midiToFreq } from '../theory/notes'
 import { setTuning, useInstrument } from '../instrument'
 import { Field, usePersist } from '../components/Controls'
@@ -144,7 +144,7 @@ export function TunerScreen() {
     g.gain.setValueAtTime(0, ctx.currentTime)
     g.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.02)
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 2.2)
-    o.connect(g).connect(out())
+    o.connect(g).connect(route('any', 'click'))
     o.start()
     o.stop(ctx.currentTime + 2.3)
   }

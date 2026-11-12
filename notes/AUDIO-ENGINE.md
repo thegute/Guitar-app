@@ -76,6 +76,35 @@ Owner: "All the sounds seem fake to me." The numbers agree:
 7. **Measured, not guessed.** Every step re-runs the sound lab: loudness, true peak, PLR, stereo correlation, band balance; then
    a blind A/B with the owner on his phone and on the pedal rig.
 
+## Step 1 done (2026-11-12): the console and the master
+- `audio/engine.ts`: source → role stage (`me` / `band` / `any`; the Play/Game slider and the mixer card's parts keep working:
+  `bus()`, `busLevel`, `setBusLevel`, mute/solo unchanged) → category bus (`guitar bass drums keys loops click voice fx`, each
+  with an input → [processing slot, Step 4] → output trim) → master in → **`kg-master` AudioWorklet**
+  (`engine/worklets/master.worklet.js`: 90 Hz 24 dB/oct side-chain HP RMS glue, 2:1, soft knee, 30 ms attack, auto release;
+  true-peak look-ahead limiter, 4× 16-tap polyphase detection, L+1 running min + L box, −1 dBTP with 0.25 dB margin) → final
+  (live guitar joins here, rig.ts) → mono fold → speakers. A brickwall DynamicsCompressor stands in until the worklet loads.
+- Every live sound now goes through it: pluck (guitar), bass, keys banks, drums, metronome/drone/tuner tone (click), Jam
+  (guitar, drums, click, loops, bass), beat maker (a finished stem into the master), speech (voice), previews (loops).
+- Measured (step1a vs before): strums keep their attack (PLR 9–10 → 11–14 dB, TP −0.7 → −1.7…−4 dBTP), no clipping; stress test
+  +9 dB hot: TP held at −1.08 dBTP (16× measured). Loudness still differs by feature: Step 2 normalises each pack to a measured
+  reference (pack.json `loudness`), not per-feature fudge factors.
+
+## Step 2 plan: sound packs
+`pack.json` (+ audio files beside it; built-ins under `public/packs/<id>/`, private ones imported on the phone like the books):
+```
+{ format: 'kguitar-pack', version: 1, id, name, kind: 'guitar'|'bass'|'drums'|'keys'|'vocal'|'fx', private: bool, licence, credit,
+  sampleRate: 48000, tuning: [midi per string, low→high] (guitars), loudness: { lufs, at: 'mf' },
+  articulations: {
+    sustain | pm | mute | harmonic | hammer | pull | slideUp | slideDown | strumDown | strumUp | chuck | release | fret | pick: {
+      zones: [ { string?, lo, hi, root, chord?: 'maj'|'min'|'7'|…, layers: [ { vel: [lo, hi], rr: [file, …], gainDb? } ],
+                 loop?: [start, end], tail?: file } ] } },
+  noises: { fret: [...], pick: [...], position: [...] } }
+```
+Engine side: zone by string + pitch (the nearest recorded root, never stretched more than ±2 semitones), velocity layers
+crossfaded, round robin without back-to-back repeats, release / fret / pick layers on their own gain, loudness normalised from
+`loudness`. Loader: pack.json first, audio per zone on demand (`ensure(range)` for a song before it plays), decoded at the context
+rate, kept in an LRU within a memory budget; a quality setting picks layers/RR depth on small phones.
+
 ## Rules for code written before Stage 3 (keep the seam clean)
 - New sound-making code calls the existing high-level functions (`playNote`, `strum`, drums/bass helpers, JamTransport, `band.ts`),
   never builds sample players of its own. Where a feature needs volumes for parts, route through a named bus (`me`, `band`, …) so the
