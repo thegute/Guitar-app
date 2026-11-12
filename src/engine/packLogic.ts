@@ -29,6 +29,8 @@ export interface PackZone {
   hi: number
   /** whole-chord recordings (strums): the chord kind ('maj', 'min', '7' …) */
   chord?: string
+  /** whole-chord recordings: the shape played (frets low → high string, −1 = not played) */
+  frets?: number[]
   layers: PackLayer[]
 }
 export interface Pack {
@@ -153,3 +155,30 @@ export function stemsFor(p: Pack, mono: boolean): PackStem[] {
 export const stemPath = (st: PackStem, rel: string) => (st.dir ? `${st.dir}/${rel}` : rel)
 /** A take's playback rate: the zone shift plus the take's own tuning fix. */
 export const rateFor = (shift: number, cents = 0) => Math.pow(2, (shift * 100 + cents) / 1200)
+
+/** The notes of a whole-chord recording (its shape on the pack's tuning), low → high. */
+export function chordMidis(p: Pack, z: PackZone): number[] {
+  if (!z.frets || !p.tuning) return []
+  return z.frets.map((f, s) => (f >= 0 ? p.tuning![s] + f : -1)).filter(m => m >= 0)
+}
+/** A whole-chord recording that sounds this chord: the same intervals stacked the same way, its lowest note within
+ *  MAX_SHIFT semitones (re-pitched by the difference). Real recorded chords beat chords built from notes on driven
+ *  tones: the amp distorted those strings together. */
+export function chordZoneFor(p: Pack, up: boolean, midis: number[]): ZonePick | null {
+  const zs = p.articulations[up ? 'strumUp' : 'strumDown']?.zones
+  if (!zs?.length || !midis.length) return null
+  const want = [...midis].sort((a, b) => a - b)
+  const shape = (ms: number[]) => ms.map(m => m - ms[0]).join(',')
+  const ws = shape(want)
+  let best: ZonePick | null = null
+  for (const z of zs) {
+    const ms = chordMidis(p, z)
+    if (!ms.length) continue
+    const zs2 = up ? shape([...ms].sort((a, b) => a - b)) : shape(ms)
+    if (zs2 !== ws) continue
+    const shift = want[0] - ms[0]
+    if (Math.abs(shift) > MAX_SHIFT) continue
+    if (!best || Math.abs(shift) < Math.abs(best.shift)) best = { zone: z, shift }
+  }
+  return best
+}

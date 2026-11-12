@@ -3,7 +3,7 @@
 // body impulse responses (tools/render_tones.py); only the finished notes ship. Live guitar input is never processed here.
 import { audio, out, route } from './engine'
 import { monoOut } from './rig'
-import { playPack, packLoaded, loadPrivatePack } from '../engine/packs'
+import { playPack, packLoaded, loadPrivatePack, playPackChord } from '../engine/packs'
 import { strumNotes } from '../engine/strumLogic'
 import { midiToFreq } from '../theory/notes'
 
@@ -356,6 +356,19 @@ export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: 
   const id = opts.sound ?? activeSound()
   const bank = banks.get(id)
   const gain = (opts.gain ?? 0.7) * (opts.up ? 0.75 : 1)
+  // a pack with whole recorded chords (an amp tone re-amped from DI chords): play the real chord when it has this one
+  const pk = packFor(id)
+  if (pk && packLoaded(pk) && !opts.pm) {
+    const vel = velOf(gain)
+    if (opts.double) {
+      const a = playPackChord(pk, midis, { up: opts.up, vel, when: t0, dest: opts.dest, pan: -0.85 })
+      const b = a && playPackChord(pk, midis, { up: opts.up, vel: Math.max(1, vel - 6), when: t0 + 0.009 + Math.random() * 0.008, dest: opts.dest, pan: 0.85 })
+      if (a) return { stop: (at?: number) => { a.stop(at); b?.stop(at) } }
+    } else {
+      const a = playPackChord(pk, midis, { up: opts.up, vel, when: t0, dest: opts.dest })
+      if (a) return a
+    }
+  }
   if (bank && isPowerChord(midis)) {
     const g = opts.pm ? bank.groups.powerpm : bank.groups.power
     if (g) {

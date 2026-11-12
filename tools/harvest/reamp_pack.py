@@ -101,8 +101,11 @@ def main(tone_path, di_dir, out_root):
                         os.makedirs(os.path.dirname(pth), exist_ok=True)
                         sf.write(pth, t.astype(np.float32), sr, subtype='PCM_24')
                     lo = min(di['tuning'][s] + f for s, f in strings)
+                    played = {s for s, _ in strings}
+                    # the shape as recorded (an upstroke only catches the top four strings)
+                    rec = [f if s in played else -1 for s, f in enumerate(frets)]
                     cz.append({'key': key, 'chord': name, 'root': lo, 'lo': lo, 'hi': lo, 'up': not down,
-                               'frets': frets, 'layers': [{'velocity': layer_v, 'rr': [rel]}]})
+                               'frets': rec, 'layers': [{'velocity': layer_v, 'rr': [rel]}]})
         pack['articulations']['strumDown'] = {'zones': [z for z in cz if not z['up']]}
         pack['articulations']['strumUp'] = {'zones': [z for z in cz if z['up']]}
     mss = [m for a in pack['articulations'].values() for z in a['zones'] for l in z['layers'] for m in l.get('ms', [])]

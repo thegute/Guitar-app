@@ -95,6 +95,9 @@ def act_probe(job):
     for name, prm in list(p.parameters.items())[: job.get('maxParams', 400)]:
         try:
             params[name] = {'value': str(getattr(p, name)), 'range': [str(prm.min_value), str(prm.max_value)] if hasattr(prm, 'min_value') else None}
+            vv = getattr(prm, 'valid_values', None)
+            if vv and len(vv) <= 40 and job.get('values'):
+                params[name]['values'] = [str(v) for v in vv]
         except Exception as e:  # some parameters can't be read
             params[name] = {'error': str(e)}
     return {'name': getattr(p, 'name', ''), 'instrument': bool(getattr(p, 'is_instrument', False)),

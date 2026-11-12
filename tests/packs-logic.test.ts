@@ -1,6 +1,6 @@
 // Sound packs (Stage 3 step 2): picking the zone, velocity layers, round robins, loudness.
 import { strict as assert } from 'node:assert'
-import { zoneFor, layersFor, RoundRobin, normGain, takeTrim, filesFor, isPack, REF_LUFS, stemsFor, stemPath, rateFor, type Pack } from '../src/engine/packLogic'
+import { zoneFor, layersFor, RoundRobin, normGain, takeTrim, filesFor, isPack, REF_LUFS, stemsFor, stemPath, rateFor, chordZoneFor, chordMidis, type Pack } from '../src/engine/packLogic'
 
 let n = 0
 const ok = (c: unknown, m: string) => { n++; assert.ok(c, m) }
@@ -50,4 +50,18 @@ ok(stemsFor(pack, true).length === 1 && stemsFor(pack, false)[0].gain === 1, 'a 
 ok(stemPath({ dir: 'ab', gain: 1 }, 'sustain/x.flac') === 'ab/sustain/x.flac', 'stem files sit in parallel folders')
 ok(filesFor(stemmed, 'sustain', [{ midi: 40, string: 0 }]).length === 2 * 3 * 4, 'a song decodes every stem of its notes')
 ok(Math.abs(rateFor(0, 0) - 1) < 1e-12 && Math.abs(rateFor(12) - 2) < 1e-12 && Math.abs(rateFor(0, -6) - Math.pow(2, -6 / 1200)) < 1e-12, 'take tuning fixes and zone shifts add up')
+// whole recorded chords (re-amped strums)
+const chordPack: Pack = { ...pack, tuning: [40, 45, 50, 55, 59, 64], articulations: { ...pack.articulations,
+  strumDown: { zones: [
+    { key: '5E3d', root: 43, lo: 43, hi: 43, frets: [3, 5, 5, -1, -1, -1], layers: [{ velocity: 100, rr: ['chord/5E3dv100.flac'] }] },
+    { key: 'Gd', root: 43, lo: 43, hi: 43, frets: [3, 2, 0, 0, 0, 3], layers: [{ velocity: 100, rr: ['chord/Gd.flac'] }] },
+  ] },
+  strumUp: { zones: [{ key: 'Gu', root: 55, lo: 55, hi: 55, frets: [3, 2, 0, 0, 0, 3], layers: [{ velocity: 100, rr: ['chord/Gu.flac'] }] }] } } }
+ok(chordMidis(chordPack, chordPack.articulations.strumDown!.zones[0]).join() === '43,50,55', 'a chord zone knows its notes from its shape')
+const p5 = chordZoneFor(chordPack, false, [45, 52, 57])
+ok(p5?.zone.key === '5E3d' && p5.shift === 2, 'an A5 power chord = the G5 recording two semitones up')
+ok(chordZoneFor(chordPack, false, [47, 54, 59]) === null, 'too far from any recording: built from notes instead')
+ok(chordZoneFor(chordPack, false, [43, 47, 50, 55, 59, 67])?.zone.key === 'Gd', 'the open G shape')
+ok(chordZoneFor(chordPack, false, [43, 46, 50]) === null, 'a different chord (G minor triad) is not a G5')
+ok(chordZoneFor(chordPack, true, [43, 47, 50, 55, 59, 67])?.zone.key === 'Gu', 'upstrokes use the up recordings')
 console.log(`packs logic: ${n} checks, 0 failed`)

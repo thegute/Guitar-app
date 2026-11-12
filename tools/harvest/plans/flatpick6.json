@@ -1,0 +1,36 @@
+{
+  "id": "flatpick6",
+  "name": "Flatpick 6 acoustic (Orange Tree)",
+  "kind": "guitar",
+  "plugin": "/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3",
+  "state": "../../states/flatpick6.state",
+  "warmup": 15,
+  "sampleRate": 44100,
+  "tuning": [
+    40,
+    45,
+    50,
+    55,
+    59,
+    64
+  ],
+  "stringChannels": "high-first",
+  "frets": [
+    0,
+    15
+  ],
+  "tuneOver": 5,
+  "articulations": {
+    "sustain": {
+      "velocities": [
+        45,
+        82,
+        115
+      ],
+      "rr": 4,
+      "tail": 1.4
+    }
+  },
+  "_notes": "Evolution Flatpick 6 1.3.5: Channel-Based Strings = MIDI Guitar (channel 1 = high e), stomp boxes off, no built-in reverb (checked: notes stop dead after release). 4 real round robins \u00d7 3 velocities. pace 0.5 (Kontakt streams from disk). The owner's pick for KGuitar's main acoustic (blind test 2026-11-12).",
+  "pace": 0.5
+}

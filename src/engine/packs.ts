@@ -5,7 +5,7 @@
 // Built-in packs come from the app (public/packs/<id>/); private ones (rendered from the owner's plugins) from the phone,
 // stored in IndexedDB 'kg-packs' (never in the repo or a backup).
 import { audio, route } from '../audio/engine'
-import { isPack, layersFor, normGain, RoundRobin, takeTrim, zoneFor, filesFor, stemsFor, stemPath, rateFor, type Articulation, type Pack } from './packLogic'
+import { isPack, layersFor, normGain, RoundRobin, takeTrim, zoneFor, chordZoneFor, filesFor, stemsFor, stemPath, rateFor, type Articulation, type Pack, type ZonePick } from './packLogic'
 import { monoOut } from '../audio/rig'
 
 // ---- where the files come from -------------------------------------------------------------------------------------
@@ -143,6 +143,15 @@ export async function deletePack(id: string) {
   for (const k of [...cache.keys()]) if (k.startsWith(id + '/')) { used -= cache.get(k)!.bytes; cache.delete(k) }
 }
 
+/** Play a whole recorded chord (a strum through an amp), if the pack has one for these notes. */
+export function playPackChord(packId: string, midis: number[], o: { up?: boolean; vel?: number; when?: number; dest?: AudioNode; pan?: number }): PackHandle | null {
+  const src = sources.get(packId)
+  if (!src) return null
+  const pick = chordZoneFor(src.pack, !!o.up, midis)
+  if (!pick) return null
+  return playPick(packId, src.pack, o.up ? 'strumUp' : 'strumDown', pick, { midi: midis[0], vel: o.vel, when: o.when, dest: o.dest, pan: o.pan })
+}
+
 /** Play a note from a pack. Returns null if the pack or its recording isn't ready (the caller can fall back). */
 export function playPack(packId: string, n: PackNote): PackHandle | null {
   const src = sources.get(packId)
@@ -150,6 +159,11 @@ export function playPack(packId: string, n: PackNote): PackHandle | null {
   const art = n.art ?? 'sustain'
   const pick = zoneFor(src.pack, art, n.midi, n.string)
   if (!pick) return null
+  return playPick(packId, src.pack, art, pick, n)
+}
+
+function playPick(packId: string, pack: Pack, art: Articulation, pick: ZonePick, n: PackNote): PackHandle | null {
+  const src = { pack }
   const ctx = audio()
   const t = Math.max(n.when ?? ctx.currentTime, ctx.currentTime)
   const layers = layersFor(pick.zone, n.vel ?? 90)
