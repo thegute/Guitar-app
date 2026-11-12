@@ -109,3 +109,10 @@ pedal steel (Hawaiian), jazz archtop, a humbucker (Les Paul) guitar for classic 
   doesn't list it, so check its Pickup control). The Evolution engine's "Alternate Tuning" renders real drop / open
   tunings, and its Strum section + Multitracking + release / legato controls are all usable for the harvest.
 - Still open: ukulele + baritone, banjo, mandolin, lap / pedal steel, jazz archtop.
+- Also downloading NI **Session Guitarist – Strummed Acoustic 2** 1.1: 163 strumming patterns PLAYED by session players to
+  drums (not built from single notes) on a 1934 Martin 0-17 and a Guild F-412 12-string, 2 mics each, plus arpeggios,
+  power chords and separate bass patterns, 34 song presets. Use: the Strum Machine's sound.
+  Harvest: (1) for each chord (12 roots × the chord types the app uses), record a few dense patterns (eighths and
+  sixteenths, down / up / muted) and slice them into single real strokes labelled down / up / accent / mute, so KGuitar's
+  Strum Machine plays real strokes in ANY pattern at any tempo; (2) the ~20 most useful patterns recorded whole at a few
+  tempos for the exact groove. The 12-string becomes a new KGuitar sound (folk / rock jangle).
