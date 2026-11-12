@@ -210,6 +210,16 @@ def act_export(job):
     return {'out': dst, 'stdout': r.stdout[-1000:]}
 
 
-ACTIONS = {'export': act_export, 'abpage': act_abpage, 'ping': act_ping, 'probe': act_probe, 'capture': act_capture, 'midi': act_midi, 'process': act_process, 'render': act_render}
+def act_reamp(job):
+    tone = in_path(job['tone'])
+    di = in_path(job['di'])
+    out = os.path.dirname(out_path(os.path.join(job.get('out', 'packs'), '.keep')))
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'reamp_pack.py'), tone, di, out], capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError(r.stderr[-2000:])
+    return {'stdout': r.stdout[-1500:]}
+
+
+ACTIONS = {'reamp': act_reamp, 'export': act_export, 'abpage': act_abpage, 'ping': act_ping, 'probe': act_probe, 'capture': act_capture, 'midi': act_midi, 'process': act_process, 'render': act_render}
 
 

@@ -1,0 +1,17 @@
+{
+  "id": "strat-di",
+  "name": "Strat, bridge + middle (DI, for the amps)",
+  "kind": "guitar",
+  "plugin": "/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3",
+  "state": "../../states/stratosphere.state",
+  "warmup": 15,
+  "sampleRate": 44100,
+  "tuning": [40, 45, 50, 55, 59, 64],
+  "stringChannels": "high-first",
+  "frets": [0, 17],
+  "tuneOver": 5,
+  "articulations": {
+    "sustain": { "velocities": [45, 82, 115], "rr": 4, "tail": 1.0 }
+  },
+  "_notes": "Evolution Stratosphere 1.3.5: Channel-Based Strings = MIDI Guitar (channel 1 = high e), Guitar Pickup Bridge + Middle (locked in this version), stomp boxes off: the dry pickup signal (DI) that the Archetypes re-amp. Velocity is the only articulation control by default (half / full palm mute, mute, squeal are unmapped on PLAY): those need keyswitches mapped later."
+}
