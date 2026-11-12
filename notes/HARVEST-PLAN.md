@@ -120,3 +120,19 @@ pedal steel (Hawaiian), jazz archtop, a humbucker (Les Paul) guitar for classic 
   Ukulele (G C E A) = those strings 5 frets up (no capo needed: fretted notes); the high re-entrant G4 comes from the G
   string at fret 12 (unwound nylon, like a uke string), low-G tuning from the D string at fret 5. Then an offline "uke
   body" pass (less low end, shorter decay) for a ukulele variant pack. A stand-in until a real ukulele library.
+
+## Where the harvest stands (2026-11-12 08:35, owner near his usage limit)
+- Mac: ~/KGuitar-harvest/.venv has pedalboard 0.9.17; tools in ~/KGuitar-harvest/tools (setup.sh, agent.py, render.py,
+  capture_state.py, trials.py's jobs, playbox_chords.py). Agent: `~/KGuitar-harvest/.venv/bin/python ~/KGuitar-harvest/tools/agent.py`
+  (job files → jobs/inbox, results → jobs/outbox, log jobs/agent.log; `touch jobs/close` closes a capture window).
+- Probes OK: Kontakt 8 VST3 (no automatable params until a state is set), AGSJ VST3 (120 params: m_mic_1/2/3_vol = body /
+  neck / AB, fx_bypassed, m_doubling_tog, play_mode, sound_mode, str_N_tuner, capo…), Archetype John Mayer X (173 params:
+  every pedal / amp / cab / reverb settable by name). AGML2 (Martin Lite AU) won't load in pedalboard: skip (Ample M coming).
+- AGSJ trial renders came out SILENT: Ample doesn't know its library path (SJ library still in Downloads/VST/…/Library;
+  no AGSJ plist in ~/Library/Application Support/Ample Sound). The capture window (python process) did NOT appear on
+  his screen. Next: set the library path with Ample's own standalone host (ASHost, com.amplesound.ASHost: computer use can
+  drive it) or have him open AGSJ once in Logic; then re-run trials 210–212. Kontakt: Orange Tree .nki must be loaded in
+  the plug-in window (drag the .nki in), reverb off, then save state — needs a visible plug-in window (try a Logic project,
+  or check why pedalboard's show_editor window doesn't show: maybe it opened behind / off-space).
+- Ample SJ: String keyswitches G0–C1 = strings 6→1 (check octave naming), C0 sustain, C#0 harmonic, D0 palm mute,
+  D#0 slide in/out, E0 legato slide, F0 hammer/pull; velocity 127 = pop.
