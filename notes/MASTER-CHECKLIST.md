@@ -84,12 +84,19 @@ Engine core:
 - ⏳ One sample-accurate master clock for Jam, Strum Machine, Play, Game, looper, beat maker.
 - ⏳ Continuous pitch-contour spine (midiFloat, bend, RMS, pick flux at ~90 Hz) for scanner, Game bend arches, Guitarcatcher.
 Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
+- ⏳ FIRST (owner 2026-11-11, "not now but later"): a FULL SCAN of his Mac (when linked) for everything usable: the 8 Archetypes,
+  Ample guitars, Orange Tree samples, Nembrini, Humanoid, VocalEssential, Jam Origin, .nam / IRs, AND Native Instruments **Playbox**
+  (Kontakt: chord/sample-based instrument; render its sounds/chord sets into packs headlessly like the others, if its licence
+  allows personal use), then a report of what each can give KGuitar and how. Ask before deleting anything on his computer.
 - ⏳ Batch 1 acoustic: Orange Tree through Nembrini bodies + mic blend, 3–4 round robins, notes 38–84, boom/alt bass, palm mutes,
   bass walks · Ample SJ-200 Strummer D/U/P/X chords (maj, min, 7, m7, maj7, sus2, sus4, add9, 5) in 12 keys · slack key bank
   (Taro patch, Wahine, Mauna Loa, harmonics 5/7/12) · 10 Nembrini body IRs + a 1-tap "Make my electric sound acoustic" switch.
 - ⏳ Batch 2 electric: real sampled DI (Orange Tree Evolution Electric) through the 8 Archetypes + .nam: Cory Wong funk chucks/stabs,
   Mayer clean + double stops, Asato shells + legato, Henson sparkly clean + Multivoicer chord bank, Petrucci lead + doubler,
   Misha chugs + odd groupings, Gojira heavy + scrapes + whammy FX, Rabea Overlord pads/drones (for Jam, beat maker, looper).
+- ⏳ Playbox (with the Mac scan): render its chord sets to chord data / MIDI for Jam + beat maker chord libraries (keeping its
+  6-note voicings) and bounce playbox-pads / playbox-chords banks (ambient beds for Ichika / Plini / neo-soul / lo-fi), private
+  pack only (NI licence: personal use, never redistributed, never in the repo).
 - ⏳ Batch 3: Humanoid choir + Multivoicer instrument, 2–3 vocal-chop pad banks (VocalEssential + Humanoid), hum-to-tab and
   hum-to-synth (hum a melody → lead/synth/chop + a playable tab), spoken count-ins and chord callouts through VocalEssential,
   Jam Origin ground truth for the scanner + human strum/fingerpick timing templates for strums.ts.
@@ -115,6 +122,12 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
 - ⏳ Match a Song's Vibe (BPM, meter, swing, groove DNA, key/colour → similar-but-different beat, "How close?", Reroll,
   cousin progression, extract one-shots).
 - ⏳ Guitarcatcher (guitar → synths/choirs/808/pads live, <12 ms, into the piano roll).
+- ⏳ **Playbox Mode** (owner 2026-11-11: has NI Playbox, wants it in the app; Gemini's notes in the chat): a chord as a 6-layer stack,
+  one sound per string/chord note (e.g. 808 sub on the root, acoustic pluck, clean Archetype note, Humanoid choir, vocal chop,
+  shimmer bell), from his packs or his own pads; Motion modes Strum (Down / Up / Zig-zag / Outside-in at strum speed), Arp (on the
+  grid) and Grain (granular clouds from pads or guitar loops); 🎲 Roll samples with 🔒 locks (Chords / Samples / FX); a dropped or
+  recorded sample is pitch-detected and slotted into the stack; Guitarcatcher strums play the stack. In the beat maker chord pads
+  and Jam's backing pad.
 - ⏳ 16 Levels, Tidy pads, step gestures (velocity, ratchets, hold wheel: fills, probability, pitch lock, per-row lengths /
   polyrhythms), latched XY trails, Auto-build song A–D, Track mute mode.
 

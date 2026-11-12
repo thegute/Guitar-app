@@ -262,7 +262,7 @@ async function psySection(browser) {
   // Jam beat pulse only while playing
   await nav(page, 'Jam'); await sub(page, 'Jam')
   const idle = await page.evaluate(() => getComputedStyle(document.querySelector('.beat-art')).animationName)
-  await page.locator('.jam button:has-text("Play")').first().click()
+  await page.locator('.jam button:has-text("Play loop")').first().click()
   await page.waitForTimeout(1500)
   const playing = await page.evaluate(() => ({ anim: getComputedStyle(document.querySelector('.beat-art')).animationName, beat: getComputedStyle(document.querySelector('.jam')).getPropertyValue('--beat') }))
   console.log('  beat pulse idle/playing:', idle, JSON.stringify(playing))

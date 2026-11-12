@@ -103,6 +103,25 @@ Each item is its own checkpoint, so any one can be undone with `git revert <chec
 
 Test builds for him (pre-releases, main untouched): test-38 (everything up to 55), test-39 (+ 56, 57).
 
+### 2026-11-11 test build (Stage 1 + 2 + theory sample + My books + manual): ask him about each one
+58. **Game Mode, your way** (efca609, 30104f9). Zoom (pinch / − +), drag to look ahead (⟲ Now), size the highway by its corner (double
+    tap fits), full screen Game with cards + settings, Song plays along (your part + the band, one slider); tab lines fill the width.
+59. **Jam as three choices** (1b4cdb5). Play with a band · Make a beat · Loop myself + a small Riff Scanner link; when the band starts the
+    Chord now & next and Mini neck cards pop up.
+60. **Tips** (1b4cdb5). Glowing dot on ✨, Always show / Dot / Only when I ask / Off, guitar advice on by default (Settings → You → Tips).
+61. **Band behind me + Mixer card** (1b4cdb5). Chord band for chord-only songs (style guessed, changeable), Mixer floating card with
+    mute/solo per part in Play and Game.
+62. **Shorts** (1b4cdb5). Mr. Tabs, Level Up Guitar Tabs, Kenneth Acoustic pre-followed + Find channels for me.
+63. **One Songs library + one Add a song box** (6734268, 91a1976). Learning now first, search, chips (incl. Practice plan, Scanned,
+    Backing tracks), Style and Tuning pickers, Saved for later; YouTube link asks Find a tab / Scan it / Just save.
+64. **Theory: 12 No Bull-order essentials + the sample deep lesson** (3de79ae, f84cfe0, d3a5efb). Learn → Explore → Theory: the dashed
+    card is the sample (Octave shapes). Ask: depth, step order, practice week, checks, explain it back. The rest of the course is built to
+    this standard after his verdict, and it then REPLACES the old Offtonic lessons.
+65. **My books** (d18fd67). Learn → Explore → My books: import kguitar-books.json (sent in the chat; keep it in a phone/Drive folder),
+    add the PDFs, search, read, Read this page's tab into Play, Ask the teacher; In your books next to lessons, CAGED, techniques, Scales.
+66. **Manual PDF** (this build). How to use KGuitar → Save the manual (PDF): Quick Start with screenshots + every feature (why, when, how).
+
+
 Checks: npm test (build32/build33 logic, pdf-tab), browser: build33-test [pdf, maketab, transcribe, z2h], beatmaker-test,
 windows-test [screens, drag, play], and the older suites.
 

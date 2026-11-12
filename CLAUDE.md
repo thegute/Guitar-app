@@ -322,6 +322,23 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
    (Settings → Pages → Source: GitHub Actions) for the web version.
    Owner rules still hold: only "Brandy" is named on screen; never invent names or titles for the art or the dogs.
 
+## Stage 2 finish + theory course + books (2026-11-11, on `big-update`)
+- **Every item promised, with status: `notes/MASTER-CHECKLIST.md`** (the owner's Master Game Plan PDF line by line + later asks).
+- Theory course (`notes/THEORY-COURSE.md`: 8 levels beginner → expert, No Bull = spine of L1–3, Kolb + Alexander + his other books
+  for depth, ear training and rhythm in every level, CAGED woven in from L1, optional notation track; lesson standard = MORE depth,
+  ≤ ~5 quiz links a practice week + 3 checks + Explain it back). `src/course/`: `types.ts` (steps why/learn/examples/hear/mistakes/
+  practice/use/check/deeper), `progress.ts` (`kg:course`, reviews 1/3/7/30 days → Today plan), `level1.ts` (sample lesson
+  c1-octaves, the model for all lessons), `DeepLessonView.tsx`. Old Offtonic lessons get REPLACED by the course (owner); the 12
+  essentials (`learn/theoryCourse.ts`, quizzes `learn/theoryQuizzes.ts` + `theory/spell.ts`) fold into Levels 1–3.
+- My books (`src/books/`): private book pack from `tools/make_book_pack.py` (cover titles, no authors; NEVER in the repo; the
+  owner imports it on the phone), `store.ts` (IndexedDB kg-books: meta, page text, PDFs, topic index; searchBooks, topicPages,
+  findRef, matchPdf), `BooksPage.tsx` (Learn → Explore → My books), `InYourBooks.tsx` / `BooksWin.tsx` (lessons, course, CAGED,
+  techniques, Scales), helper grounding in `assistant/plan.ts`, books in search. Tests use the made-up `tests/fixtures/book-pack.json`.
+- Library chips Practice plan / Scanned / Backing tracks + Style and Tuning pickers (`SongDoc.origin` scan|recording|book).
+- Manual PDF: `node tools/make-manual.cjs` (preview server running) → `public/manual/KGuitar-manual.pdf` (Quick Start with Day Mode
+  screenshots + every guide section with why/when/how); "Save the manual (PDF)" in How to use KGuitar (`learn/manualFile.ts`).
+  Re-run it whenever the guide changes. Guide sections have `why` / `when`.
+
 ## Audio setups (rig.ts, 2026-11-06)
 - Pocket Master over USB + Spark NEO wireless in its 1/4" out (TS plug = LEFT only). `audio/rig.ts`: 'pedal' (auto when the pedal is in
   the device list: everything mono via the `fold` node at the end of engine.ts, `double` takes skipped, no playback of the guitar),

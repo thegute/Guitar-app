@@ -3,11 +3,13 @@
 import type { Go } from './path'
 
 export interface GuideItem { title: string; text: string; go?: Go; tip?: string; /** only in the phone app */ phoneOnly?: boolean }
-export interface GuideSection { id: string; title: string; intro: string; items: GuideItem[] }
+export interface GuideSection { id: string; title: string; intro: string; items: GuideItem[]; /** why it's worth using */ why?: string; /** when to reach for it */ when?: string }
 
 export const GUIDE: GuideSection[] = [
   {
     id: 'start', title: 'Start here', intro: 'KGuitar listens while you play a tab and lights up every note you get right. Around that it teaches you, trains your ear and keeps you practising every day. It works for guitar and ukulele.',
+    why: 'Practice works best when every minute counts: the app hears what you play, so you get feedback a teacher would give, every day, without waiting for a lesson.',
+    when: 'Start every session from Learn → Today (or the big Practice button in Songs) and let it plan the next 10–30 minutes.',
     items: [
       { title: 'Ask: search and the assistant in one', text: 'Tap Ask in the menu and type what you want in your own words. Short things ("G7", "drop D", "slow it down") open straight away. Bigger requests ("I want to practise triads today", "chord tones and soloing in A", "make me a trap beat at 140") make a practice session or set things up for you. It knows what\'s on your screen (the song, bar, loop, speed and chord in Play; the exercise, lick or Jam progression you have open), so you can ask "why is this bar hard?" or say "loop this bar slower" and tap the button it gives you. Spoken questions get short answers; typed questions get a fuller explanation (up to a few paragraphs) that stays until you close it. Answers from Gemini are read aloud in a natural Google voice you pick in Settings → You → AI helper (Gemini\'s voice); the built-in helper keeps the phone\'s own voice, so you can tell which one answered. If Google is busy it tries again, then a lighter Gemini model, then your other free key. It works without the internet; with a free AI key (Settings → You → AI helper) its answers get smarter and it can read pictures.', go: { settings: 'you' } },
       { title: 'Practice sessions', text: 'A session is a few timed steps, like "4 min warm-up, 10 min triads, 8 min triads over a beat". Each step opens the right screen, already set up. A bar at the top shows the step and the time left: ⏸ pauses, Next moves on, tap the bar for the step list, a tip, +2 min or Stop. Save sessions you like: they wait in Learn → Today → My practice sessions.', go: { learn: 'today' } },
@@ -25,8 +27,10 @@ export const GUIDE: GuideSection[] = [
   },
   {
     id: 'play', title: 'Play: playing along with tabs', intro: 'The heart of the app. Load a tab, tap Listen, and play. Each right note turns green and the cursor moves on.',
+    why: 'Playing real music with instant feedback is the fastest way to get good: green notes show what\'s right, the loop and speed controls turn a hard bar into an easy one, and In time teaches you to stay with the beat.',
+    when: 'Whenever you learn a song or a tab: Wait for me first (accuracy), then In time at a slower speed, then full speed with the band or the video.',
     items: [
-      { title: 'Open a song', text: 'Tap Songs in the menu. It has two pages. Library: everything you can play in one place, your own songs and the songbook together. Learning now comes first (songs you\'ve started, with reviews due on top), then Saved for later, Your songs and the Songbook. One search box finds any of them; the chips show one kind at a time (All, Learning now, Mine, Songbook, Learned). Add a song: one box for everything (see Add a song). Tap a song and it opens in the song player. The exercises and the tab maker are in Learn → Exercises.', go: { songs: 'library' } },
+      { title: 'Open a song', text: 'Tap Songs in the menu. It has two pages. Library: everything you can play in one place, your own songs and the songbook together. Learning now comes first (songs you\'ve started, with reviews due on top), then Saved for later, Your songs and the Songbook. One search box finds any of them; the chips show one kind at a time (All, Learning now, Practice plan: reviews due, songs with a trouble spot and what you\'re learning; Mine, Songbook, Learned, Scanned: songs the Riff Scanner read from a video, picture or recording; Backing tracks: songs with a band or a video to play along with). With songs in different styles or tunings, a Style and a Tuning picker narrow the list. Add a song: one box for everything (see Add a song). Tap a song and it opens in the song player. The exercises and the tab maker are in Learn → Exercises.', go: { songs: 'library' } },
       { title: 'Add a song', text: 'Songs → Add a song has one box. Type a song name and it searches Songsterr and Ultimate Guitar (straight in on the phone; on the web the site buttons open them). Paste a YouTube link and choose Find a tab (searched by the video\'s title, the video attached to the tab you pick), Scan it (the Riff Scanner works the tab out from the video) or Save for later. Paste a Songsterr or Ultimate Guitar page and it comes straight in (phone). Paste a tab or chord sheet, give it a title and tap Load tab. Choose a file: Guitar Pro, PDF (a whole book asks which pages), text, a picture or screenshot of a tab (the Riff Scanner reads it) or a recording (the Riff Scanner listens). Saved for later shows in Library with Find a tab.', go: { songs: 'add' } },
       { title: 'Share straight into KGuitar', text: 'In a browser or tab site, select the tab text (or a whole chord sheet), tap Share, then KGuitar. Guitar Pro files from Drive or Downloads can be shared to KGuitar the same way ("Send a copy" in Drive). Sharing a YouTube link adds that video to the song you have open.' },
       { title: 'Listen: wait for me', text: 'Tap Listen and play. The app waits for each note, so go as slowly as you like. A wrong note shows what you played and what the tab wants. If you know you played it right and the app misheard you, tap "I played it right" (or a pedal set to it): it moves on, and from then on it counts that same sound as the right note on that input (phone mic and USB amp learn separately; Options → Learned shows how many and can forget them). The box at the top shows the next note and where it is. Under it, one row of controls: Wait for me / In time, Loop, Hear it, and Options (the sliders button) for everything else.', go: { tab: 'play' } },
@@ -66,6 +70,8 @@ export const GUIDE: GuideSection[] = [
   },
   {
     id: 'exercises', title: 'Exercises: the practice library', intro: 'About 800 short exercises, like a teacher\'s workbook: every technique and a lot of theory, from your first warm-up to sweep picking. Learn → Exercises.',
+    why: 'Songs show you what you can\'t do yet; exercises fix it. Short, focused drills build one skill at a time, with the mic checking every note.',
+    when: 'When a song keeps tripping you up in the same place (a stretch, a bend, a fast run), or for a 5-minute warm-up before songs.',
     items: [
       { title: 'Where your left hand goes', text: 'The floating Hand card shows where your fingers go for the note you\'re on: the four frets your hand covers ("Index on fret 5"), every note in its finger\'s colour (1 index, 2 middle, 3 ring, 4 pinky), and two beats before the hand has to move, where it goes next. It floats over the exercise like it does in the song player: drag it anywhere, – shrinks it to a bubble, × hides it (Settings → Cards brings it back). Generated tabs (Jam, the tab maker) still show the row of small hand necks underneath.', go: { learn: 'exercises' } },
       { title: 'Find an exercise', text: 'Learn → Exercises opens with a row of sections: For you (today\'s picks, then every exercise), Technique, Fretboard, Chords & rhythm, Fingerstyle, Licks and Make your own (fingerpicking patterns, the lick chainer, the tab maker and the example songs). Inside a section, three menus filter the list: Difficulty (Beginner to Expert), Type (warm-ups, picking, legato, bends, scales, arpeggios, chord changes, strumming, fingerstyle, every style of lick …) and Technique (alternate picking, hammer-ons, sweeps, palm muting …). Type → Start here shows the essentials to learn first. "Exercise 12 of 787" says where you are; ‹ and › step through, the long menu jumps anywhere, 🎲 Random picks one, ↺ Clear resets the filters. Tap ☆ to keep an exercise in your favourites and tick Favourites only to see just those.', go: { learn: 'exercises' } },
@@ -77,6 +83,8 @@ export const GUIDE: GuideSection[] = [
   },
   {
     id: 'learn', title: 'Learn: your daily practice', intro: 'Open Learn every day. It shows what to practise, keeps your streak and tracks everything.',
+    why: 'Little and often beats long and rare. Learn keeps the habit going (streak, plan, reminders), teaches the theory that makes everything make sense, and brings back what you\'re about to forget.',
+    when: 'Every day, first thing: the Today plan; the theory course a lesson a few days at a time; quizzes on days away from the guitar.',
     items: [
       { title: 'Zero to Hero (guitar)', text: 'Learn → Course follows your Zero to Hero plan: five phases, each ending in a gate (a short skill check) before the next. Tick what you can already do and it starts you at the right week. "Today\'s routine" runs the five daily blocks (warm-up, chords and rhythm, your current skill, fretboard and ear, songs) as a session in 20, 45 or 60 minutes; Saturday is song day. Gate items the app can measure tick themselves; tap "I can do it" for the rest. Each phase links to the free JustinGuitar lessons that go with it.', go: { learn: 'course' } },
       { title: 'Style paths', text: 'Learn → Course → Zero to Hero → Style paths: go deep on one style next to the main plan (bluegrass flatpicking, acoustic songwriting, reggae rock, blues-rock, pop and soul, melodic prog and metal, Hawaiian slack key, classical guitar, fingerstyle). Tap Follow and that path\'s next step joins today\'s routine. Each step opens the right licks, exercises, songbook songs or Jam style; tap ✓ when you\'ve got it. Everything in a path is also open on its own any time.', go: { learn: 'course' } },
@@ -110,6 +118,8 @@ export const GUIDE: GuideSection[] = [
   },
   {
     id: 'jam', title: 'Jam: progressions and looping', intro: 'Make chord progressions to play over, with strumming and drums, and record yourself as a loop.',
+    why: 'Playing over a band is where theory turns into music: you hear how scales sound over chords, practise timing with a groove and build your own ideas.',
+    when: 'After learning a scale or a lick, to use it for real; to write your own progressions and songs; to loop yourself and solo over it.',
     items: [
       { title: 'Beat maker', text: 'Jam → Make a beat. Drum on the pads with several fingers at once: kick, snare and hi-hat are the three big ones, and hitting nearer the top of a pad is louder. Pick a style under "Start from", or build it yourself. Pads Small/Medium/Big changes their size.', go: { jam: 'beats' } },
       { title: 'Sample mode: record onto a pad', text: 'Beat maker → Pads → Sample (or Your pads): hold a pad and make a sound (your voice, a guitar hit, a knock on the body); let go and it\'s on the pad, trimmed. A quick tap opens the pad\'s settings: pitch, volume, play backwards, one shot / only while held / loops while held, fades, and a choke group (a pad that cuts off the others, like a hi-hat). Pads can also play an instrument note or a whole chord, or a file from your phone. Your pads has 32 of your own, in Bank A (1–16) and Bank B (17–32); a dot shows a bank that has sounds on it.', go: { jam: 'beats' } },
@@ -142,6 +152,8 @@ export const GUIDE: GuideSection[] = [
   },
   {
     id: 'tools', title: 'Tools', intro: 'Everyday helpers.',
+    why: 'The everyday basics, always one tap away: an accurate tuner, a metronome, chord and scale finders.',
+    when: 'Before every session (tune up), whenever you practise with a click, and when you need a chord shape or scale on the spot.',
     items: [
       { title: 'Tuner', text: 'Open it and it starts listening straight away: no Start button. Pluck one string and let it ring. The big needle and the cents number (to a tenth of a cent) show how far off you are, the frequency is underneath, and the advice says which way to turn. The string it hears lights up; tap a string to tune just that one, or leave it on Auto. The reading holds steady while the note rings, so you can turn the peg slowly. Standard and alternate tunings, plus reference tones to tune by ear. Pick a tuning other than Standard and "What this tuning changes" says it in plain words: which strings move, what that does to the shapes you know, and what an open tuning gives you (one finger across = a chord, the drone strings).', go: { tab: 'tuner' } },
       { title: 'Tempo (metronome)', text: 'Accents, subdivisions, odd time signatures, tap tempo and a speed trainer. Sounds include a real cross-stick, cowbell and hi-hat, and Drum beat swaps the click for a recorded drummer (rock, metal, reggae, swing …) at any tempo, with a fill every 8 bars.' },
@@ -151,6 +163,8 @@ export const GUIDE: GuideSection[] = [
   },
   {
     id: 'gear', title: 'Your gear', intro: 'KGuitar works with the phone mic for acoustic instruments and with a USB amp or audio interface for electric.',
+    why: 'Good input = accurate feedback. Setting up your mic, USB pedal or interface once makes note detection and timing reliable.',
+    when: 'The first time you play, when you change how you plug in (phone mic, Pocket Master, interface), or if notes are being missed.',
     items: [
       { title: 'Acoustic: the phone mic', text: 'Hold or prop the phone 30–50 cm from the soundhole. Quiet rooms work best. Use headphones for videos and backing so the mic hears only you.' },
       { title: 'Electric: USB amp or interface', text: 'Plug a USB multi-effects pedal, headphone amp or audio interface (for example the Sonicake Pocket Master) into the phone\'s or tablet\'s USB-C port. Automatic input picks it up when it\'s plugged in. Use a clean or lightly driven sound while learning; heavy effects make notes harder to tell apart.' },
@@ -163,6 +177,8 @@ export const GUIDE: GuideSection[] = [
   },
   {
     id: 'menu', title: 'The menu and the poster', intro: 'Small things that make the screen yours.',
+    why: 'A screen set up your way keeps you playing instead of hunting for buttons.',
+    when: 'Whenever something is in the way: hide the menu, move windows, pick your look.',
     items: [
       { title: 'Full screen', text: 'In the phone app, Settings → Look → Full screen hides the phone\'s own buttons, status bar and the Samsung taskbar, so nothing covers the bottom of the app. Swipe up from the bottom middle and they come back for a few seconds, then tuck away again. Without it, the app keeps its buttons clear of them by itself.', go: { settings: 'look' }, phoneOnly: true },
       { title: 'Tabs across the top, folds and the i buttons', text: 'Songs, Learn, Jam, Tools and Settings split into a few pages with a row of tabs across the top. Inside a page, extra parts fold into one line each (Looper, Famous progressions, Build your own practice tab …): tap the line to open or close it, and the app remembers. A small i next to a heading shows what it does.' },
@@ -173,6 +189,8 @@ export const GUIDE: GuideSection[] = [
   },
   {
     id: 'keep', title: 'Keeping your progress', intro: 'Everything is stored on your phone or tablet.',
+    why: 'Your progress is your history: streaks, songs, recordings and settings. A backup means a new phone or a reset never loses it.',
+    when: 'Once a week (the app reminds you), and always before changing phones.',
     items: [
       { title: 'Back up', text: 'Settings → Backup → Back up now, then pick Google Drive in the share menu. Restore from that file on a new phone or tablet to bring back your songs, streak and progress.', go: { settings: 'backup' } },
       { title: 'Reminders', text: 'Settings → You → Reminders sends a daily reminder at the time you choose, plus an optional late "streak saver". Days you\'ve already practised are skipped.', go: { settings: 'you' } },
@@ -182,6 +200,8 @@ export const GUIDE: GuideSection[] = [
   },
   {
     id: 'tips', title: 'Tips for getting good', intro: 'What actually makes you better, fastest.',
+    why: 'Knowing how to practise matters as much as what you practise.',
+    when: 'Read them once, then come back whenever progress feels slow.',
     items: [
       { title: 'Little and often', text: '15 minutes every day beats 2 hours once a week. The streak and reminders are there to help with exactly that.' },
       { title: 'Slow and clean first', text: 'Play it right slowly, then speed up a little at a time. Use the speed trainer on the hard bars.' },

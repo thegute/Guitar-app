@@ -65,7 +65,8 @@ const explore = page => page.locator('.subtabs [role=tab]:has-text("Explore")').
     await page.locator('.search-sheet button[aria-label*="lose"], .search-sheet .sheet-close').first().click({ timeout: 2000 }).catch(() => {})
     // add the PDF (matched by its name) and show the real page
     await page.locator('button:has-text("← All books")').click()
-    await page.locator('.books-manage summary').click()
+    await page.locator('[data-testid=books-search]').fill('')
+    await page.locator('.books-manage > summary').click()
     await page.locator('input[type=file][accept*=pdf]').setInputFiles(PDF)
     await page.waitForSelector('text=1 PDF added', { timeout: 5000 }).catch(() => bad(`${vp.n}: the PDF wasn't matched to its book`))
     await page.locator('[data-testid=book-row]').first().click()

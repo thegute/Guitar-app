@@ -4,8 +4,10 @@ import { GUIDE } from './guide'
 import { lessonsAvailable } from '../lessons/folders'
 import type { Go } from './path'
 import { resetWelcome } from '../components/Welcome'
+import { saveManual } from './manualFile'
 
 export function GuideScreen({ onExit, onGo, initial, embedded }: { onExit: () => void; onGo: (g: Go) => void; initial?: string; /** inside Settings → Manual: no Back button of its own */ embedded?: boolean }) {
+  const [saved, setSaved] = useState('')
   const [open, setOpen] = useState<string>(initial && GUIDE.some(s => s.id === initial) ? initial : 'start')
   // opened at a section (from search): bring it into view
   useEffect(() => {
@@ -17,13 +19,17 @@ export function GuideScreen({ onExit, onGo, initial, embedded }: { onExit: () =>
     <div className="stack guide">
       <div className="row" style={{ justifyContent: embedded ? 'flex-end' : 'space-between' }}>
         {!embedded && <button className="btn sm" onClick={onExit}>← Back</button>}
-        <button className="btn sm ghost" onClick={() => { resetWelcome(); location.reload() }}>Replay the welcome</button>
+        <span className="row" style={{ gap: 6 }}>
+          <button className="btn sm" onClick={() => void saveManual().then(setSaved, () => setSaved('The manual file isn\'t in this build yet.'))} data-testid="save-manual">Save the manual (PDF)</button>
+          <button className="btn sm ghost" onClick={() => { resetWelcome(); location.reload() }}>Replay the welcome</button>
+        </span>
       </div>
       <div className="guide-title">
         <img src="art.jpg" alt="" />
         <h1>How to use KGuitar</h1>
       </div>
-      <p className="small muted" style={{ margin: 0 }}>Tap a section to open it. "Show me" takes you straight to that feature.</p>
+      <p className="small muted" style={{ margin: 0 }}>Tap a section to open it. "Show me" takes you straight to that feature. The PDF manual (a 2-minute Quick Start with pictures, then all of this) is good to send to someone who's new.</p>
+      {saved && <p className="small" role="status">{saved}</p>}
       {GUIDE.map((sec, n) => {
         const isOpen = open === sec.id
         return (
@@ -34,6 +40,12 @@ export function GuideScreen({ onExit, onGo, initial, embedded }: { onExit: () =>
             </button>
             {isOpen && (
               <ul className="guide-items">
+                {(sec.why || sec.when) && (
+                  <li className="guide-ww">
+                    {sec.why && <p className="small"><b>Why:</b> {sec.why}</p>}
+                    {sec.when && <p className="small"><b>When:</b> {sec.when}</p>}
+                  </li>
+                )}
                 {sec.items.filter(it => !it.phoneOnly || lessonsAvailable()).map(it => (
                   <li key={it.title}>
                     <b>{it.title}</b>
