@@ -31,6 +31,7 @@ import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, instrumen
 import { audio } from '../audio/engine'
 import { gear, isSetUp, latencyMs, useGear } from '../audio/gear'
 import { AudioSetup } from '../components/AudioSetup'
+import { SoundPacks } from '../components/SoundPacks'
 import { enableReminders, reminderSettings, remindersAvailable, updateReminderSettings, type ReminderSettings } from './reminders'
 import { Win, WinArea } from '../components/Win'
 import { handSize, setHandSize, type HandSize } from '../hand/neck'
@@ -186,6 +187,7 @@ export function Settings({ inst, onExit, onGo, guideSec }: { inst: Instrument; o
         <button className="btn" onClick={() => setSetup(true)}>Set up an input</button>
       </Win>
 
+      <Win id="packs" title="My sound packs" hint="Real recordings of your own instruments, rendered from your plugins on your Mac. Choose which KGuitar sound each pack replaces; everything that plays that sound (Hear it, Jam, Game, lessons) uses it."><SoundPacks /></Win>
       <Win id="rig" title="Audio setup" hint="How KGuitar's sound reaches your ears. With the Pocket Master plugged in, everything is mono so your wireless (which only hears the left side) gets all of it, and KGuitar never plays your guitar back (the pedal does that with no delay). Each setup keeps its own timing correction."><AudioSetup /></Win>
 
       <Win id="pedals" title="Hands-free (footswitch)"><PedalSettings /></Win>

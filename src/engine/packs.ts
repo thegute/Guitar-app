@@ -124,6 +124,22 @@ export interface PackNote {
   dur?: number
   dest?: AudioNode
   pan?: number
+  /** separate one-note-per-string groups (a double-tracked part's left and right takes) */
+  group?: string
+}
+export const packLoaded = (id: string) => sources.has(id)
+/** Remove a private pack and all its files from the phone. */
+export async function deletePack(id: string) {
+  const d = await db()
+  await new Promise<void>((ok, no) => {
+    const tx = d.transaction(['packs', 'files'], 'readwrite')
+    tx.objectStore('packs').delete(id)
+    const fs = tx.objectStore('files')
+    fs.openCursor(IDBKeyRange.bound(`${id}/`, `${id}/\uffff`)).onsuccess = e => { const c = (e.target as IDBRequest<IDBCursorWithValue | null>).result; if (c) { c.delete(); c.continue() } }
+    tx.oncomplete = () => ok(); tx.onerror = () => no(tx.error)
+  })
+  sources.delete(id)
+  for (const k of [...cache.keys()]) if (k.startsWith(id + '/')) { used -= cache.get(k)!.bytes; cache.delete(k) }
 }
 
 /** Play a note from a pack. Returns null if the pack or its recording isn't ready (the caller can fall back). */
@@ -155,6 +171,7 @@ export function playPack(packId: string, n: PackNote): PackHandle | null {
     parts.push({ s, g })
   }
   if (!parts.length) return null
+  if ((globalThis as { __kgTest?: boolean }).__kgTest) (globalThis as { __kgPackPlays?: number }).__kgPackPlays = ((globalThis as { __kgPackPlays?: number }).__kgPackPlays ?? 0) + 1
   const stopAt = (at: number, fast = false) => {
     // a finger lifted off the string: 12 ms; a let-go note: a natural 60 ms fade
     const tc = fast ? 0.004 : 0.02
@@ -164,7 +181,7 @@ export function playPack(packId: string, n: PackNote): PackHandle | null {
   }
   const voice: Voice = { stop: stopAt, end: Infinity }
   if (n.string !== undefined) {
-    const key = `${packId}:${n.string}`
+    const key = `${packId}:${n.group ?? ''}:${n.string}`
     const prev = strings.get(key)
     if (prev) prev.stop(t, true)
     strings.set(key, voice)

@@ -3,6 +3,7 @@
 // body impulse responses (tools/render_tones.py); only the finished notes ship. Live guitar input is never processed here.
 import { audio, out, route } from './engine'
 import { monoOut } from './rig'
+import { playPack, packLoaded, loadPrivatePack } from '../engine/packs'
 import { midiToFreq } from '../theory/notes'
 
 const cache = new Map<string, AudioBuffer>()
@@ -256,6 +257,33 @@ export interface NoteOpts {
   bendTime?: number
   prebent?: boolean
   release?: boolean
+  /** which string (0 = lowest), when known: a sound pack plays that string's own recording */
+  string?: number
+}
+
+// ---- sound packs (Stage 3): a pack the owner chose for a sound plays instead of its built-in bank ----
+/** the pack chosen for a sound (Settings → Sound → My sound packs), remembered as kg:pack:<sound> */
+export function packFor(id: SoundId): string | null {
+  try { const v = localStorage.getItem(`kg:pack:${id}`); return v ? JSON.parse(v) : null } catch { return null }
+}
+export function setPackFor(id: SoundId, packId: string | null) {
+  try { if (packId) localStorage.setItem(`kg:pack:${id}`, JSON.stringify(packId)); else localStorage.removeItem(`kg:pack:${id}`) } catch { /* private */ }
+  soundListeners.forEach(f => f())
+}
+/** gain (0–1+) → MIDI velocity: how hard a note is picked */
+const velOf = (gain: number) => Math.max(20, Math.min(127, Math.round(30 + 90 * Math.min(1.1, gain))))
+function packNote(id: SoundId, midi: number, t: number, gain: number, dest: AudioNode | undefined, opts: NoteOpts): Handle | null {
+  const pk = packFor(id)
+  if (!pk) return null
+  if (!packLoaded(pk)) { void loadPrivatePack(pk); return null }
+  const art = opts.pm ? 'pm' : 'sustain'
+  if (opts.double) {
+    const a = playPack(pk, { art, midi, string: opts.string, vel: velOf(gain), when: t, dest, pan: -0.8, group: 'L' })
+    const b = playPack(pk, { art, midi, string: opts.string, vel: velOf(gain), when: t + 0.009 + Math.random() * 0.008, dest, pan: 0.8, group: 'R' })
+    if (!a && !b) return null
+    return { stop: (at?: number) => { a?.stop(at); b?.stop(at) } }
+  }
+  return playPack(pk, { art, midi, string: opts.string, vel: velOf(gain), when: t, dest })
 }
 
 export function playNote(midi: number, when = 0, gain = 0.8, dest?: AudioNode, opts: NoteOpts = {}): Handle {
@@ -264,6 +292,8 @@ export function playNote(midi: number, when = 0, gain = 0.8, dest?: AudioNode, o
   const id = opts.sound ?? activeSound()
   const bank = banks.get(id)
   const t = when || audio().currentTime
+  const fromPack = packNote(id, midi, t, gain, dest, opts)
+  if (fromPack) return fromPack
   if (bank) {
     const pmGroup = opts.pm ? bank.groups.pm : undefined
     const g = pmGroup ?? bank.groups.notes!
@@ -362,7 +392,10 @@ export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: 
   const spread = opts.spread ?? 0.018
   // an amp squashes six strings into roughly the level of one, so big chords don't blast
   const amp = soundInfo(id).amp ? Math.min(1, 1.7 / Math.sqrt(Math.max(1, midis.length))) : 1
-  const notes = order.map((m, i) => playNote(m, t0 + i * spread, gain * amp, opts.dest, { sound: id, pm: opts.pm, double: opts.double }))
+  // which string each note is on (a chord's notes sit low to high on neighbouring strings, ending on the top one)
+  const sorted = [...midis].sort((a, b) => a - b)
+  const strOf = (m: number) => Math.max(0, 6 - sorted.length + sorted.indexOf(m))
+  const notes = order.map((m, i) => playNote(m, t0 + i * spread, gain * amp, opts.dest, { sound: id, pm: opts.pm, double: opts.double, string: strOf(m) }))
   return { stop: (at?: number) => notes.forEach(n => n.stop(at)) }
 }
 

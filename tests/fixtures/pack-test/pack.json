@@ -1,0 +1,171 @@
+{
+ "format": "kguitar-pack",
+ "version": 1,
+ "id": "test-sines",
+ "name": "Test sines",
+ "kind": "guitar",
+ "private": true,
+ "licence": "made up for tests",
+ "sampleRate": 24000,
+ "tuning": [
+  40,
+  45,
+  50,
+  55,
+  59,
+  64
+ ],
+ "loudness": {
+  "lufs": -20
+ },
+ "articulations": {
+  "sustain": {
+   "zones": [
+    {
+     "key": "s0f0",
+     "string": 0,
+     "fret": 0,
+     "root": 40,
+     "lo": 40,
+     "hi": 40,
+     "layers": [
+      {
+       "velocity": 60,
+       "rr": [
+        "sustain/s0f00v060r0.wav",
+        "sustain/s0f00v060r1.wav"
+       ]
+      },
+      {
+       "velocity": 110,
+       "rr": [
+        "sustain/s0f00v110r0.wav",
+        "sustain/s0f00v110r1.wav"
+       ]
+      }
+     ]
+    },
+    {
+     "key": "s1f0",
+     "string": 1,
+     "fret": 0,
+     "root": 45,
+     "lo": 45,
+     "hi": 45,
+     "layers": [
+      {
+       "velocity": 60,
+       "rr": [
+        "sustain/s1f00v060r0.wav",
+        "sustain/s1f00v060r1.wav"
+       ]
+      },
+      {
+       "velocity": 110,
+       "rr": [
+        "sustain/s1f00v110r0.wav",
+        "sustain/s1f00v110r1.wav"
+       ]
+      }
+     ]
+    },
+    {
+     "key": "s2f0",
+     "string": 2,
+     "fret": 0,
+     "root": 50,
+     "lo": 50,
+     "hi": 50,
+     "layers": [
+      {
+       "velocity": 60,
+       "rr": [
+        "sustain/s2f00v060r0.wav",
+        "sustain/s2f00v060r1.wav"
+       ]
+      },
+      {
+       "velocity": 110,
+       "rr": [
+        "sustain/s2f00v110r0.wav",
+        "sustain/s2f00v110r1.wav"
+       ]
+      }
+     ]
+    },
+    {
+     "key": "s3f0",
+     "string": 3,
+     "fret": 0,
+     "root": 55,
+     "lo": 55,
+     "hi": 55,
+     "layers": [
+      {
+       "velocity": 60,
+       "rr": [
+        "sustain/s3f00v060r0.wav",
+        "sustain/s3f00v060r1.wav"
+       ]
+      },
+      {
+       "velocity": 110,
+       "rr": [
+        "sustain/s3f00v110r0.wav",
+        "sustain/s3f00v110r1.wav"
+       ]
+      }
+     ]
+    },
+    {
+     "key": "s4f0",
+     "string": 4,
+     "fret": 0,
+     "root": 59,
+     "lo": 59,
+     "hi": 59,
+     "layers": [
+      {
+       "velocity": 60,
+       "rr": [
+        "sustain/s4f00v060r0.wav",
+        "sustain/s4f00v060r1.wav"
+       ]
+      },
+      {
+       "velocity": 110,
+       "rr": [
+        "sustain/s4f00v110r0.wav",
+        "sustain/s4f00v110r1.wav"
+       ]
+      }
+     ]
+    },
+    {
+     "key": "s5f0",
+     "string": 5,
+     "fret": 0,
+     "root": 64,
+     "lo": 64,
+     "hi": 64,
+     "layers": [
+      {
+       "velocity": 60,
+       "rr": [
+        "sustain/s5f00v060r0.wav",
+        "sustain/s5f00v060r1.wav"
+       ]
+      },
+      {
+       "velocity": 110,
+       "rr": [
+        "sustain/s5f00v110r0.wav",
+        "sustain/s5f00v110r1.wav"
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

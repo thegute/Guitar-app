@@ -121,7 +121,7 @@ export class TabPlayer {
             const at = t + (ns.length > 2 ? k * 0.012 : 0)
             const b = bendOf(n.tech)
             const h = playNote(n.midi, at, (ns.length > 2 ? 0.55 : 0.75) * this.level, undefined, {
-              sound: this.sound, pm: n.tech === 'PM',
+              sound: this.sound, pm: n.tech === 'PM', string: n.string,
               ...(b ? { bend: b, prebent: n.tech?.startsWith('pb'), release: isRelease(n.tech), bendTime: Math.min(0.25, st.dur * spb * 0.5) } : {}),
             })
             this.ringing.set(n.string, h)
