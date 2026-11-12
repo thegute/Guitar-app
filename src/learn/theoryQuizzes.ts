@@ -217,4 +217,86 @@ export const THEORY_QUIZZES: QuizDef[] = [
         })
     },
   },
+  // ---------------- Theory course, Level 1: hearing pitch, steps and tuning; reading tab and chord boxes ----------------
+  {
+    id: 'l1-pitch', unit: 'Guitar theory', title: 'Hear it: higher, lower or the same?', ear: true,
+    desc: 'Two notes: is the second higher, lower or the same? The first skill of every musical ear.', length: 10, mic: false,
+    items: () => ['up', 'down', 'same', 'up-small', 'down-small', 'up', 'down', 'same', 'up-small', 'down-small'].map((k, i) => `l1-pitch:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const kind = item.split(':')[1]
+      const a = 45 + Math.floor(rnd() * 15)
+      const step = kind.endsWith('small') ? 1 + Math.floor(rnd() * 2) : 3 + Math.floor(rnd() * 8)
+      const b = kind === 'same' ? a : kind.startsWith('up') ? a + step : a - step
+      const ans = kind === 'same' ? 'The same' : kind.startsWith('up') ? 'Higher' : 'Lower'
+      const why = kind === 'same' ? 'Both notes are exactly the same pitch.' : `The second note is ${step} fret${step > 1 ? 's' : ''} ${kind.startsWith('up') ? 'higher' : 'lower'}.${step <= 2 ? ' Small steps are the hardest to hear: sing both notes and feel whether your voice goes up or down.' : ''}`
+      return {
+        item, prompt: 'Is the second note higher, lower or the same?', sub: 'Tap ▶ to hear them again. Try humming both.',
+        audio: { seq: [a, b] },
+        input: { type: 'choices', options: ['Higher', 'Lower', 'The same'].map(o => ({ id: o, label: o })) },
+        check: x => 'choice' in x && x.choice === ans, explain: `${ans}. ${why}`,
+      }
+    },
+  },
+  {
+    id: 'l1-step-ear', unit: 'Guitar theory', title: 'Hear it: semitone or tone?', ear: true,
+    desc: 'One fret (a semitone) sounds tight and close; two frets (a tone) sounds like the first steps of do-re-mi.', length: 10, mic: false,
+    items: () => ['semi', 'tone', 'semi', 'tone', 'bigger', 'semi', 'tone', 'semi', 'tone', 'bigger'].map((k, i) => `l1-step-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const kind = item.split(':')[1]
+      const a = 45 + Math.floor(rnd() * 15)
+      const n = kind === 'semi' ? 1 : kind === 'tone' ? 2 : 3 + Math.floor(rnd() * 2)
+      const down = rnd() < 0.3
+      const ans = kind === 'semi' ? 'A semitone (1 fret)' : kind === 'tone' ? 'A tone (2 frets)' : 'Bigger than a tone'
+      const why = kind === 'semi' ? 'One fret apart: the tightest step there is (like the "Jaws" theme, or ti to do).' : kind === 'tone' ? 'Two frets apart: the step from do to re.' : `${n} frets apart: a bigger jump than a tone.`
+      return {
+        item, prompt: `How far apart are these two notes?${down ? ' (the second is lower)' : ''}`, sub: 'Tap ▶ to hear them again.',
+        audio: { seq: down ? [a + n, a] : [a, a + n] },
+        input: { type: 'choices', options: ['A semitone (1 fret)', 'A tone (2 frets)', 'Bigger than a tone'].map(o => ({ id: o, label: o })) },
+        check: x => 'choice' in x && x.choice === ans, explain: `${ans}. ${why}`,
+      }
+    },
+  },
+  {
+    id: 'l1-tune-ear', unit: 'Guitar theory', title: 'Hear it: in tune or out of tune?', ear: true,
+    desc: 'Two strings playing the same note: in tune they blend into one steady sound; out of tune you hear a wobble (beats).', length: 10, mic: false,
+    items: () => ['in', 'out1', 'in', 'out2', 'out3', 'in', 'out1', 'out2', 'in', 'out3'].map((k, i) => `l1-tune-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const kind = item.split(':')[1]
+      const a = 50 + Math.floor(rnd() * 12)
+      const off = { in: 0, out1: 0.3, out2: 0.18, out3: 0.1 }[kind] ?? 0
+      const sign = rnd() < 0.5 ? -1 : 1
+      const ans = kind === 'in' ? 'In tune (steady)' : 'Out of tune (it wobbles)'
+      const why = kind === 'in' ? 'The two notes match exactly, so they blend into one smooth, steady sound.' : `One note is ${Math.round(off * 100)} cents ${sign > 0 ? 'sharp' : 'flat'}: the two waves drift in and out of step, which you hear as a slow wobble. The slower the wobble, the closer you are; when it stops, you're in tune.`
+      return {
+        item, prompt: 'Same note on two strings: in tune or out of tune?', sub: 'Listen for a wobble (a slow wah-wah-wah). Tap ▶ to hear it again.',
+        audio: { chord: [a, a + sign * off] },
+        input: { type: 'choices', options: ['In tune (steady)', 'Out of tune (it wobbles)'].map(o => ({ id: o, label: o })) },
+        check: x => 'choice' in x && x.choice === ans, explain: `${ans}. ${why}`,
+      }
+    },
+  },
+  {
+    id: 'l1-read', unit: 'Guitar theory', title: 'Reading tab and chord boxes',
+    desc: 'The signs on tabs, chord boxes and neck pictures: what each one tells your hands.', length: 10, mic: false,
+    items: () => READ.map((_, i) => `l1-read:${i}`),
+    make: (item, _inst, rnd) => {
+      const r = READ[Number(item.split(':')[1])]
+      return choose(item, r[0], r[1], r[2], `${r[1]}. ${r[3]}`, rnd)
+    },
+  },
+]
+/** [question, answer, wrong answers, why] */
+const READ: [string, string, string[], string][] = [
+  ['In tab, the TOP line is…', 'The high e string (the thinnest)', ['The low E string (the thickest)', 'The A string', 'The B string'], 'Tab is drawn as if you looked down at the guitar on your lap: the thinnest, highest string is on top.'],
+  ['A 0 on a tab line means…', 'Play that string open', ['Don\'t play that string', 'Play fret 10', 'Mute that string'], 'Numbers are frets; 0 means no fret: let the open string ring.'],
+  ['Numbers stacked straight on top of each other in tab mean…', 'Play them together (a chord)', ['Play them one after another', 'Slide between them', 'Pick either one'], 'Notes in the same column sound at the same time; notes further right come later.'],
+  ['An x on a tab line means…', 'A muted, dead note (a scratch)', ['Play it open', 'A harmonic', 'Fret 10'], 'x is a percussive "chuck": the string is touched but not pressed down, so no pitch rings.'],
+  ['"5h7" in tab means…', 'Pick fret 5, then hammer on to fret 7', ['Pick fret 5, then pull off to fret 7', 'Slide from 5 to 7', 'Play 5 and 7 together'], 'h = hammer-on: only the first note is picked; a fretting finger slams down for the second.'],
+  ['"7p5" in tab means…', 'Pick fret 7, then pull off to fret 5', ['Pick 7, then hammer on to 5', 'Slide down from 7 to 5', 'Pick both notes'], 'p = pull-off: flick the finger off fret 7 so fret 5 (already held down) sounds.'],
+  ['"5/7" in tab means…', 'Slide up from fret 5 to fret 7', ['Hammer on from 5 to 7', 'Bend fret 5 up to sound like 7', 'Play fret 5 or 7'], '/ is a slide up, \\ a slide down: keep the finger pressed and glide.'],
+  ['"7b9" in tab means…', 'Pick fret 7 and bend it up until it sounds like fret 9', ['Slide from 7 to 9', 'Hammer on from 7 to 9', 'Play 7 then 9'], 'b = bend: push the string sideways until the pitch rises to the target (here a whole tone).'],
+  ['In a chord box, the vertical lines are…', 'The strings, low E on the left', ['The frets', 'The strings, high e on the left', 'Your fingers'], 'A chord box is the neck standing upright facing you: strings run down, low E on the left; the thick line on top is the nut.'],
+  ['In a chord box, an o above a string means…', 'Play that string open', ['Don\'t play that string', 'Use your first finger', 'Fret 1'], 'o = open string, x = don\'t play it.'],
+  ['In a chord box, the numbers on (or under) the dots are…', 'Which finger to use', ['Which fret to press', 'Which string it is', 'The order to strum'], '1 = index, 2 = middle, 3 = ring, 4 = little finger (T = thumb).'],
+  ['In KGuitar\'s neck pictures, the bottom line is…', 'The low E string, like looking down at your guitar', ['The high e string', 'The nut', 'Fret 12'], 'The neck lies on its side with the low E nearest you at the bottom, the same way round as tab.'],
 ]

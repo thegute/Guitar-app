@@ -28,7 +28,7 @@ async function newPage(browser, vp, seed) {
 async function openLesson(page) {
   await page.locator('.subtabs [role=tab]:has-text("Explore")').first().click()
   await page.click('.tool:has-text("Theory")')
-  await page.locator('[data-testid=deep-preview]').click()
+  await page.locator('[data-testid=course-lesson-c1-octaves]').click()
   await page.waitForSelector('[data-testid=deep-step]', { timeout: 5000 })
 }
 
@@ -73,6 +73,35 @@ async function openLesson(page) {
     if (!done?.done) bad(`${vp.n}: the lesson wasn't saved as finished`)
     if (page.errors.length) bad(`${vp.n}: page errors: ${page.errors.join(' | ')}`)
     console.log(`${vp.n} ${theme}: ${n} steps walked, examples, teacher, finish`)
+    await page.context().close()
+  }
+  // every Level 1 lesson: walk all steps (cover psy + ukulele), pictures have notes, examples open, no overflow / errors
+  for (const [inst, seed] of [['guitar', {}], ['ukulele', { 'kg:instrument': JSON.stringify({ id: 'tenor', tuning: {} }) }]]) {
+    const page = await newPage(browser, { width: 412, height: 915 }, { 'kg:theme': '"psy"', ...seed })
+    await page.locator('.subtabs [role=tab]:has-text("Explore")').first().click()
+    await page.click('.tool:has-text("Theory")')
+    const ids = await page.$$eval('[data-testid^=course-lesson-]', bs => bs.map(b => b.dataset.testid.replace('course-lesson-', '')))
+    if (inst === 'guitar' && ids.length !== 8) bad(`Level 1 lists ${ids.length} lessons, want 8`)
+    for (const id of ids) {
+      await page.locator(`[data-testid=course-lesson-${id}]`).click()
+      await page.waitForSelector('[data-testid=deep-step]')
+      const n = await page.locator('.deep-rail-step').count()
+      for (let i = 0; i < n; i++) {
+        if (await sideways(page)) bad(`${inst} ${id} step ${i + 1}: sideways overflow`)
+        const shows = page.locator('[data-testid=deep-show]')
+        while (await shows.count()) await shows.first().click()
+        if (inst === 'guitar') {
+          const figs = page.locator('[data-testid=deep-step] .lesson-spots, [data-testid=deep-step] .deep-example .fretboard-wrap')
+          for (let k = 0; k < await figs.count(); k++) if (!(await figs.nth(k).locator('.fb-mark, circle, [class*=mark]').count())) bad(`${id} step ${i + 1}: a neck picture has no notes`)
+        }
+        if (i < n - 1) await page.locator('[data-testid=deep-next]').click()
+      }
+      if (inst === 'guitar' && id === 'c1-rhythm') { await page.locator('.deep-rail-step').nth(4).click(); await page.screenshot({ path: path.join(OUT, `course-rhythm.png`), fullPage: true }) }
+      await page.locator('.deep button:has-text("← Back")').first().click()
+      await page.waitForSelector('[data-testid=course-lesson-c1-strings]')
+    }
+    if (page.errors.length) bad(`${inst} Level 1 walk: page errors: ${page.errors.join(' | ')}`)
+    console.log(`${inst}: walked ${ids.length} Level 1 lessons`)
     await page.context().close()
   }
   // an exercise from the practice week opens in Play; a quiz opens

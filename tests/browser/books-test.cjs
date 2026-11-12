@@ -84,7 +84,7 @@ const explore = page => page.locator('.subtabs [role=tab]:has-text("Explore")').
     await page.locator('button:has-text("← Back")').first().click()
     await explore(page)
     await page.click('.tool:has-text("Theory")')
-    await page.locator('[data-testid=deep-preview]').click()
+    await page.locator('[data-testid=course-lesson-c1-octaves]').click()
     await page.locator('.deep-rail-step:has-text("Go deeper")').click()
     await page.waitForSelector('[data-testid=in-books]', { timeout: 5000 }).catch(() => bad(`${vp.n}: the lesson's Go deeper has no "In your books"`))
     await page.locator('[data-testid=in-books] button').first().click()

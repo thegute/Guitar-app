@@ -30,12 +30,12 @@ function useCourseProgress(id: string) {
 
 function taskGo(t: Task): Go | null {
   if ('quiz' in t) return { quiz: t.quiz }
-  if ('tool' in t) return t.tool === 'jam' ? { tab: 'progressions' } : { tool: t.tool }
+  if ('tool' in t) return t.tool === 'jam' ? { tab: 'progressions' } : t.tool === 'tuner' ? { tab: 'tuner' } : { tool: t.tool }
   return null
 }
 
 function TaskButton({ t, onGo, onExercise, done }: { t: Task; onGo: (g: Go) => void; onExercise: (ex: LessonEx) => void; done?: boolean }) {
-  const icon = 'quiz' in t ? (t.how === 'play' ? 'mic' : 'puzzle') : 'tool' in t ? (t.tool === 'jam' ? 'drum' : 'sparkle') : 'play'
+  const icon = 'quiz' in t ? (t.how === 'play' ? 'mic' : 'puzzle') : 'tool' in t ? (t.tool === 'jam' ? 'drum' : t.tool === 'tuner' ? 'ear' : 'sparkle') : 'play'
   return (
     <button className={`deep-task${done ? ' done' : ''}`} data-testid="deep-task"
       onClick={() => { if ('ex' in t) onExercise(t.ex); else { const g = taskGo(t); if (g) onGo(g) } }}>

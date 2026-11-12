@@ -2748,3 +2748,6 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .in-books-head { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 16px; }
 .in-books-head:empty { display: none; }
 [data-theme='psy'] .books-row, [data-theme='psy'] .books-hits button, [data-theme='psy'] .in-books button, [data-theme='psy'] .books-page, [data-theme='psy'] .books-toc { background: rgba(20, 0, 43, 0.94); }
+.course-levels { padding: var(--sp-3); border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--surface); }
+.course-earlier { margin: var(--sp-3) 0 0; font-size: 20px; }
+[data-theme='psy'] .course-levels { background: rgba(20, 0, 43, 0.94); }

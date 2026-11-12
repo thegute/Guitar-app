@@ -10,6 +10,7 @@ import type { Instrument } from '../instrument'
 import { CHAPTERS, LESSONS, chaptersFor, lessonById, lessonsFor, type Block, type Lesson } from './lessons'
 import { Ico } from '../components/Icon'
 import { COURSE } from '../course'
+import { lessonProgress } from '../course/progress'
 import { InYourBooks } from '../books/InYourBooks'
 import { addXp, bump, logDone, usePracticeTimer } from './progress'
 import type { Go } from './path'
@@ -69,11 +70,12 @@ function playProg(chords: number[][], gap = 0.9) {
   chords.forEach((c, i) => strum(c, t + i * gap, { spread: 0.025 }))
 }
 
+/** beats: note lengths in beats; a negative length is a rest (silent, drawn as a gap) */
 function RhythmBlock({ label, beats, bpm = 80 }: { label: string; beats: number[]; bpm?: number }) {
   const [at, setAt] = useState(-1)
   const raf = useRef(0)
   useEffect(() => () => cancelAnimationFrame(raf.current), [])
-  const total = beats.reduce((a, b) => a + b, 0)
+  const total = beats.reduce((a, b) => a + Math.abs(b), 0)
   function play() {
     cancelAnimationFrame(raf.current)
     const spb = 60 / bpm
@@ -82,7 +84,7 @@ function RhythmBlock({ label, beats, bpm = 80 }: { label: string; beats: number[
     for (let b = 0; b < Math.ceil(total); b++) playClick(t0 + b * spb, 'wood', b % 4 === 0 ? 'accent' : 'beat', 0.45)
     const onsets: number[] = []
     let x = 0
-    for (const b of beats) { onsets.push(x); playNote(57, t0 + x * spb, 0.8); x += b }
+    for (const b of beats) { onsets.push(x); if (b > 0) playNote(57, t0 + x * spb, 0.8); x += Math.abs(b) }
     const ctx = audio()
     const tick = () => {
       const beat = (ctx.currentTime - t0) / spb
@@ -98,7 +100,7 @@ function RhythmBlock({ label, beats, bpm = 80 }: { label: string; beats: number[
     <div className="lesson-rhythm">
       <button className="btn sm" onClick={play}>▶ {label}</button>
       <div className="rhythm-strip" aria-hidden>
-        {beats.map((b, i) => <span key={i} className={i === at ? 'on' : ''} style={{ flexGrow: b }} />)}
+        {beats.map((b, i) => <span key={i} className={`${i === at ? 'on' : ''}${b < 0 ? ' rest' : ''}`} style={{ flexGrow: Math.abs(b) }} />)}
       </div>
     </div>
   )
@@ -259,6 +261,54 @@ export function LessonView({ id, inst, onExit, onOpen, onGo, onExercise }: { id:
   )
 }
 
+const LEVEL_NAMES = ['Notes on the neck', 'Scales, chords and keys', 'Progressions, pentatonics and minor keys', 'Mapping the fretboard', 'Chords in depth', 'Chord tones, melody and soloing', 'Harmony in depth', 'Modes and beyond']
+
+/** The theory course: Continue (the next lesson not finished), each level's lessons with progress, the levels still to come. */
+function CourseLevels({ onOpen }: { onOpen: (id: string) => void }) {
+  const [, setTick] = useState(0)
+  useEffect(() => { const f = () => setTick(t => t + 1); addEventListener('kg-course', f); return () => removeEventListener('kg-course', f) }, [])
+  const prog = (id: string) => lessonProgress(id)
+  const next = COURSE.find(l => !prog(l.id).done) ?? COURSE[0]
+  const np = prog(next.id)
+  const levels = [...new Set(COURSE.map(l => l.level))]
+  return (
+    <section className="course-levels stack" style={{ gap: 10 }}>
+      <h2 style={{ margin: 0 }}>The theory course</h2>
+      <p className="small muted" style={{ margin: 0 }}>Eight levels, from the first notes to modes and beyond, taught the No Bull way with your other books for depth. Every lesson: learn it deeply, hear it, practise it for a week, use it in music, check it. Level {Math.max(...levels)} is ready; the next levels are on the way.</p>
+      <button className="continue-card deep-preview" data-testid="deep-preview" onClick={() => onOpen(next.id)}>
+        <span className="small muted">{np.steps.length ? 'Continue' : COURSE.some(l => prog(l.id).done) ? 'Next lesson' : 'Start the course'} · Level {next.level}, lesson {next.n}</span>
+        <b>{next.title}</b>
+        <span className="small muted">{next.goal}</span>
+      </button>
+      {levels.map(lv => {
+        const ls = COURSE.filter(l => l.level === lv)
+        const done = ls.filter(l => prog(l.id).done).length
+        return (
+          <section key={lv} className="chapter">
+            <h3 style={{ margin: '4px 0' }}>Level {lv} · {LEVEL_NAMES[lv - 1]} <span className="small muted">{done}/{ls.length}</span></h3>
+            <ul className="lesson-index">
+              {ls.map(l => {
+                const p = prog(l.id)
+                const pct = Math.round((p.steps.filter(x => !x.startsWith('day:')).length / l.steps.length) * 100)
+                return (
+                  <li key={l.id}>
+                    <button onClick={() => onOpen(l.id)} className={p.done ? 'read' : ''} data-testid={`course-lesson-${l.id}`}>
+                      <span className="tick" aria-label={p.done ? 'finished' : 'not finished'}>{p.done ? '✓' : ''}</span>
+                      <span>{l.n}. {l.title}</span>
+                      <span className="small muted">{p.done ? 'done' : pct ? `${pct}%` : `${l.minutes} min`}</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )
+      })}
+      <p className="small muted" style={{ margin: 0 }}>Coming next: {LEVEL_NAMES.slice(Math.max(...levels)).map((n, i) => `Level ${Math.max(...levels) + i + 1} · ${n}`).join(' · ')}</p>
+    </section>
+  )
+}
+
 export function LessonList({ onOpen, onExit, instId }: { onOpen: (id: string) => void; onExit: () => void; instId?: string }) {
   const read = useMemo(() => new Set(lessonsRead()), [])
   const all = lessonsFor(instId)
@@ -273,16 +323,11 @@ export function LessonList({ onOpen, onExit, instId }: { onOpen: (id: string) =>
       <h1 style={{ margin: 0 }}>Theory</h1>
       <p className="small muted" style={{ margin: 0 }}>
         {instId === 'guitar' || !instId
-          ? 'Start with the 12 essentials: they follow the chapters of your theory book, one lesson each, with something to play and a quiz. The deeper lessons after them follow Offtonic Theory, a free online textbook.'
+          ? 'The new theory course comes first. Below it are the earlier lessons (12 short essentials in No Bull\'s order, then lessons following Offtonic Theory, a free online textbook) until the course replaces them.'
           : 'Short lessons written for guitar and ukulele, following the chapters of Offtonic Theory, a free online textbook (each lesson links to its chapter if you want the full version). Every lesson has sounds to tap and something to try.'}
       </p>
-      {COURSE.length > 0 && (
-        <button className="continue-card deep-preview" data-testid="deep-preview" onClick={() => onOpen(COURSE[0].id)}>
-          <span className="small muted">New theory course · sample lesson to try</span>
-          <b>{COURSE[0].title}</b>
-          <span className="small muted">Level {COURSE[0].level} · deep lesson: learn, hear it, practice week, check, your books</span>
-        </button>
-      )}
+      {COURSE.length > 0 && <CourseLevels onOpen={onOpen} />}
+      <h2 className="course-earlier">Earlier lessons <span className="small muted">(being replaced by the course, level by level)</span></h2>
       <button className="continue-card" onClick={() => onOpen(nxt.id)}>
         <span className="small muted">{read.size ? 'Continue with' : 'Start with'}</span>
         <b>{nxt.title}</b>

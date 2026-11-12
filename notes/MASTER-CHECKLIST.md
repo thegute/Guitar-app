@@ -128,6 +128,14 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
   grid) and Grain (granular clouds from pads or guitar loops); 🎲 Roll samples with 🔒 locks (Chords / Samples / FX); a dropped or
   recorded sample is pitch-detected and slotted into the stack; Guitarcatcher strums play the stack. In the beat maker chord pads
   and Jam's backing pad.
+- ⏳ **Playbox around the app** (owner picked ALL of these 2026-11-11; build them once the Playbox packs exist):
+  1 voice-leading lessons with each chord voice its own sound (follow the 3rd into the next 7th) · 2 chord-tone ear drills ("which
+  sound moved?", "which one is the 9th?") · 3 mode / key beds in Scales, the modes lessons and the Ear trainer drone · 4 Playbox chord
+  sets turned into playable guitar voicings (Chords tool, Level 5 voicing lessons) · 5 ambient texture backing in Play for chord-sheet
+  songs · 6 ambient follower: a pad that follows the chord you play · 7 one-tap Playbox stack as looper track 1 (Grain motion) ·
+  9 re-voice found chords (Find the chords / Riff Scanner) and send them to Jam or Tab maker · 10 Playbox chord sets as style-tagged
+  Jam starters with the Composer writing over them · 11 a Playbox bed under My recordings / Then vs Now takes · 12 the AI teacher
+  plays a voicing in its chat card. 8 an optional chord swell as a Game Mode reward when you hit a chord well (owner: "add that as an option"; a setting, off by default unless he says otherwise).
 - ⏳ 16 Levels, Tidy pads, step gestures (velocity, ratchets, hold wheel: fills, probability, pitch lock, per-row lengths /
   polyrhythms), latched XY trails, Auto-build song A–D, Track mute mode.
 

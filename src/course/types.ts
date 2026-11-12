@@ -9,7 +9,7 @@ import type { LessonEx, LessonVideo } from '../learn/lessonExtras'
 export type Task =
   | { label: string; ex: LessonEx; minutes?: number; goal?: string }
   | { label: string; quiz: string; minutes?: number; goal?: string; how?: 'tap' | 'play' }
-  | { label: string; tool: 'ear' | 'caged' | 'circle' | 'jam' | 'rhythm' | 'changes'; minutes?: number; goal?: string }
+  | { label: string; tool: 'ear' | 'caged' | 'circle' | 'jam' | 'rhythm' | 'changes' | 'tuner'; minutes?: number; goal?: string }
 
 export interface WorkedExample {
   /** the question, e.g. "Find C on the D string" */
