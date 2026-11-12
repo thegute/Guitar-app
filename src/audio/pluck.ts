@@ -4,6 +4,7 @@
 import { audio, out, route } from './engine'
 import { monoOut } from './rig'
 import { playPack, packLoaded, loadPrivatePack } from '../engine/packs'
+import { strumNotes } from '../engine/strumLogic'
 import { midiToFreq } from '../theory/notes'
 
 const cache = new Map<string, AudioBuffer>()
@@ -388,14 +389,13 @@ export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: 
       return playSample(take(cg, k).s, rate, t0, gain * 1.4, opts.dest)
     }
   }
-  const order = opts.up ? [...midis].reverse() : midis
-  const spread = opts.spread ?? 0.018
   // an amp squashes six strings into roughly the level of one, so big chords don't blast
   const amp = soundInfo(id).amp ? Math.min(1, 1.7 / Math.sqrt(Math.max(1, midis.length))) : 1
-  // which string each note is on (a chord's notes sit low to high on neighbouring strings, ending on the top one)
-  const sorted = [...midis].sort((a, b) => a - b)
-  const strOf = (m: number) => Math.max(0, 6 - sorted.length + sorted.indexOf(m))
-  const notes = order.map((m, i) => playNote(m, t0 + i * spread, gain * amp, opts.dest, { sound: id, pm: opts.pm, double: opts.double, string: strOf(m) }))
+  // a real hand (engine/strumLogic.ts): the pick's speed from how hard, accelerating across the strings, the first strings
+  // loudest, and every strum a little different; an explicit spread sets the speed (fast chucks, slow rakes)
+  const vel = velOf(gain * amp)
+  const notes = strumNotes(midis, { up: opts.up, vel, speed: opts.spread !== undefined ? opts.spread * Math.max(1, midis.length - 1) : undefined })
+    .map(x => playNote(x.midi, t0 + x.offset, gain * amp * (x.vel / vel), opts.dest, { sound: id, pm: opts.pm, double: opts.double, string: x.string }))
   return { stop: (at?: number) => notes.forEach(n => n.stop(at)) }
 }
 

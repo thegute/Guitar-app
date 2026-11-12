@@ -14,6 +14,7 @@
 // - The live guitar (interface setup, rig.ts) joins at `finalOut()`: after the master, before the mono fold.
 import { monoOut, onRig } from './rig'
 import masterWorkletUrl from '../engine/worklets/master.worklet.js?url'
+import { busChain, makeReturns, SEND_DEFAULTS, type Returns, type Send } from '../engine/console'
 
 let ctx: AudioContext | null = null
 /** what features call "the output": the master's input */
@@ -93,9 +94,11 @@ export type Category = 'guitar' | 'bass' | 'drums' | 'keys' | 'loops' | 'click' 
 export const CATEGORIES: Category[] = ['guitar', 'bass', 'drums', 'keys', 'loops', 'click', 'voice', 'fx']
 /** Calibrated levels (Step 1): each category's sounds land near the same loudness at the master (sound lab measured). */
 const CAT_TRIM: Record<Category, number> = { guitar: 1, bass: 1, drums: 1, keys: 1, loops: 1, click: 1, voice: 1, fx: 1 }
-interface CatBus { input: GainNode; output: GainNode }
+interface CatBus { input: GainNode; output: GainNode; sends: Partial<Record<Send, GainNode>> }
 const cats = new Map<Category, CatBus>()
-/** A category bus: its input (where sounds arrive) → [its processing, Step 4] → its output → the master. */
+let returns: Returns | null = null
+/** A category bus: its input (where sounds arrive) → its processing (engine/console.ts) → its output trim → the master,
+ *  plus post-fader sends to the shared room, plate and tape delay. */
 export function catBus(cat: Category): CatBus {
   const c = audio()
   let b = cats.get(cat)
@@ -103,12 +106,36 @@ export function catBus(cat: Category): CatBus {
     const input = c.createGain()
     const output = c.createGain()
     output.gain.value = CAT_TRIM[cat]
-    input.connect(output).connect(masterIn!)
-    b = { input, output }
+    const [cin, cout] = busChain(c, cat)
+    input.connect(cin); cout.connect(output).connect(masterIn!)
+    returns ??= makeReturns(c, masterIn!)
+    const sends: CatBus['sends'] = {}
+    for (const sd of ['room', 'plate', 'delay'] as Send[]) {
+      const g = c.createGain()
+      g.gain.value = sendLevel(cat, sd)
+      output.connect(g).connect(returns[sd])
+      sends[sd] = g
+    }
+    b = { input, output, sends }
     cats.set(cat, b)
   }
   return b
 }
+/** How much of a category goes to a shared space (0–1): remembered as kg:send:<cat>:<send>, else the mix default. */
+export function sendLevel(cat: Category, sd: Send): number {
+  try { const v = localStorage.getItem(`kg:send:${cat}:${sd}`); if (v !== null) return Math.max(0, Math.min(1, Number(v))) } catch { /* private */ }
+  return (SEND_DEFAULTS[cat][sd] ?? 0) * spaceAmount()
+}
+/** The whole room's amount (Settings → Sound "Room"): 0 = dry, 1 = the default mix, up to 1.6. */
+export function spaceAmount(): number {
+  try { const v = localStorage.getItem('kg:space'); return v === null ? 1 : Math.max(0, Math.min(1.6, Number(v))) } catch { return 1 }
+}
+export function setSpaceAmount(v: number) {
+  try { localStorage.setItem('kg:space', String(Math.round(v * 100) / 100)) } catch { /* private */ }
+  if (ctx) for (const [cat, b] of cats) for (const sd of ['room', 'plate', 'delay'] as Send[]) b.sends[sd]?.gain.setTargetAtTime(sendLevel(cat, sd), ctx.currentTime, 0.05)
+}
+/** Lock the tape delay to a tempo (Jam, the beat maker and Play call this as their tempo changes). */
+export function setDelayTempo(bpm: number) { audio(); returns?.setTempo(bpm) }
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Roles: your part vs the band, and the band's parts (levels remembered as kg:bus:<name>, mute/solo for right now)

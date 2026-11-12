@@ -89,6 +89,19 @@ Owner: "All the sounds seem fake to me." The numbers agree:
   +9 dB hot: TP held at −1.08 dBTP (16× measured). Loudness still differs by feature: Step 2 normalises each pack to a measured
   reference (pack.json `loudness`), not per-feature fudge factors.
 
+## Steps 3–4 started (2026-11-12, while the Mac was off)
+- Strum engine `engine/strumLogic.ts` (every strum in pluck.ts): strum time from how hard (soft 46 ms → hard 22 ms for six
+  strings), the pick accelerating across the strings (pos^0.9), first strings loudest down to ~78%, the bass accented on a
+  downstroke, ±12% speed / ±7% level / small per-string timing wobble, the far string now and then barely caught; an
+  explicit spread still sets the speed (fast chucks). tests/strum-logic.test.ts.
+- Console `engine/console.ts`: bass = 28 Hz 24 dB/oct subsonic + LR4 110 Hz split with the lows summed to mono; drums = 15%
+  parallel tanh saturation; guitars = 60 Hz rumble filter. Shared sends (post-fader): a generated true-stereo wood room
+  (early reflections + 4-band tail, RT 0.8/0.7/0.55/0.35 s), a plate (RT ~1.7 s, 250 Hz HP), a dotted-eighth stereo tape
+  delay (ping-pong, darker each repeat, wow); defaults guitar 0.22 room, drums 0.16, keys 0.2 + 0.1 plate, bass 0.04,
+  voice 0.05, click none. `kg:space` (0–1.6) scales the whole space; `kg:send:<cat>:<send>` overrides; `setDelayTempo(bpm)`.
+- Measured (step3a vs before): L/R correlation 1.00 → 0.95–0.98 (a room around a mono source; real stereo comes from the
+  harvested mic pairs), strum PLR 11.2 → 14.2 dB, sub rumble on acoustic −33 → −56 dB.
+
 ## Step 2 plan: sound packs
 `pack.json` (+ audio files beside it; built-ins under `public/packs/<id>/`, private ones imported on the phone like the books):
 ```
