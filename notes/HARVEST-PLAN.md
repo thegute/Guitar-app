@@ -39,3 +39,31 @@ What the owner has on his Mac, role by role, and what KGuitar will use. Rendered
 3. Electric DI (Stratosphere, Dracus) → re-amped tones (Archetypes) + DI-summed chord takes.
 4. Bass (Studio Bass), 5. Drums (Drum Kit Designer + percussion), 6. Keys (Studio Piano, B3, EP), 7. Playbox chord beds,
 8. Spaces (Logic IRs, York spring) replace the generated room / plate, 9. NAM captures of the chosen Archetype presets (feeds step C).
+
+## Playbox, all of it (owner 2026-11-12: "also do its chord generation and arpeggio thing … integrate more of its technology")
+What Playbox is, from the manual and its library files: 320+ presets = a Chord Set (8 chords × up to 6 notes, 224 sets,
+each with a name, key, major/minor and mood category) + a Sample Set (a DIFFERENT sound on each note of the chord, ~900
+samples: synths, world instruments, basses, voices, noises) + an FX Set (motion: Arp / Strum / Grain; 16 audio FX; LFOs,
+Modstep step-modulator, envelopes, Humanize; XY pad, macros, Half-time). Workflow: dice to randomise any part, locks to
+keep what you like, Shuffle chord order.
+Readable on the Mac (no rendering needed): the chord sets are plain number lists in `Library Data/Chords/*.nka` with
+`Chords_NAMES / KEYS / MODES / CATEGORY.nka`; FX sets and Arp/Strum/Grain/Modstep presets are parameter lists. The
+samples live inside Kontakt's container, so sounds must be rendered through Kontakt. All of it is PRIVATE data (a pack).
+
+Integration plan:
+1. Chord sets → "Inspire me" (Jam + beat maker): pick a mood, get a Playbox chord set moved to your key; every chord named
+   with its Roman numeral, turned into a guitar shape you can play (voicing.ts), dice / lock / shuffle like Playbox.
+   Feeds Make a tab, the looper bed, Game Mode swell and the theory course ("why does this sound dreamy?").
+2. Motion engine in KGuitar's own code (works on every sound: guitar packs, piano, pads): Arp (pattern, synced rate,
+   length, swing, octaves, strike repeats), Strum patterns (zig-zag up-down, move in / out, triplets, fast up), Grain
+   (stutter, clouds, fake arp), Modstep (rhythmic gating / ducking), Humanize, Half-time, XY pad. Pattern ideas from
+   Playbox's preset names and parameters; the code is ours.
+3. Guitar tie-in: any arp/strum pattern on any chord set → a tab you can practise (picking.ts / Make a tab), and the
+   strum patterns feed the Strum Machine.
+4. Sounds: ~30 curated presets rendered note by note PER SLOT (each chord note keeps its own sound, Playbox's signature),
+   so KGuitar's motion engine plays them on any chord at any tempo; plus a few presets' own motion baked at reference
+   tempos and time-stretched (Signalsmith) for the exact Playbox feel. Rendering uses KGuitar-written user Sound / Chord
+   presets (same text format) loaded in Playbox, driven on the Mac's screen.
+5. FX worth adding to studio/fx.ts: Lofi (crush, degrade, ambience bed), Choral (70s chorus), Tape, Modstep ducker.
+6. "Playbox your own sound": a sample you record (voice, a guitar note, a noise) spread across a chord's notes with the
+   pitch shifter, like Playbox's user slots (beat maker → Get a sound).
