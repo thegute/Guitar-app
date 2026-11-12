@@ -1,0 +1,16 @@
+{
+ "id": "rabea-crunch",
+ "name": "Crunch (Rabea)",
+ "plugin": "/Library/Audio/Plug-Ins/VST3/Archetype Rabea X.vst3",
+ "params": {
+  "atlas_delay_active": false,
+  "aeons_reverb_active": false,
+  "doubler_active": false,
+  "room_l_active": false,
+  "room_r_active": false
+ },
+ "inputDb": -8,
+ "chords": true,
+ "power": true,
+ "open": true
+}

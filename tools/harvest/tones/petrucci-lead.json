@@ -1,0 +1,18 @@
+{
+ "id": "petrucci-lead",
+ "name": "Prog metal lead (Petrucci)",
+ "plugin": "/Library/Audio/Plug-Ins/VST3/Archetype Petrucci X.vst3",
+ "params": {
+  "doubler_active": false,
+  "delay_active": false,
+  "reverb_active": false,
+  "chorus_active": false,
+  "chorus_2_active": false,
+  "room_l_active": false,
+  "room_r_active": false
+ },
+ "inputDb": -8,
+ "chords": true,
+ "power": true,
+ "open": false
+}

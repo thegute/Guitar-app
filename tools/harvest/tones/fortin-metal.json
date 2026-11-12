@@ -1,0 +1,16 @@
+{
+ "id": "fortin-metal",
+ "name": "Metal (Fortin Nameless)",
+ "plugin": "/Library/Audio/Plug-Ins/VST3/Fortin Nameless Suite X.vst3",
+ "params": {
+  "delay_active": false,
+  "reverb_active": false,
+  "doubler_active": false,
+  "room_l_active": false,
+  "room_r_active": false
+ },
+ "inputDb": -8,
+ "chords": true,
+ "power": true,
+ "open": false
+}

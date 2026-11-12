@@ -1,0 +1,17 @@
+{
+ "id": "misha-djent",
+ "name": "Djent rhythm (Misha Mansoor)",
+ "plugin": "/Library/Audio/Plug-Ins/VST3/Archetype Misha Mansoor X.vst3",
+ "params": {
+  "stereo_delay_active": false,
+  "reverb_active": false,
+  "tape_echo_active": false,
+  "doubler_active": false,
+  "room_l_active": false,
+  "room_r_active": false
+ },
+ "inputDb": -8,
+ "chords": true,
+ "power": true,
+ "open": false
+}

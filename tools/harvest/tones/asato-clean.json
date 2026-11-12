@@ -1,0 +1,17 @@
+{
+ "id": "asato-clean",
+ "name": "Glassy clean (Mateus Asato)",
+ "plugin": "/Library/Audio/Plug-Ins/VST3/Archetype Mateus Asato.vst3",
+ "params": {
+  "echo_active": false,
+  "reverb_active": false,
+  "mod_active": false,
+  "doubler_active": false,
+  "room_l_active": false,
+  "room_r_active": false
+ },
+ "inputDb": -8,
+ "chords": true,
+ "power": false,
+ "open": true
+}

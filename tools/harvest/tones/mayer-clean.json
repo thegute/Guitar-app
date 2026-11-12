@@ -1,0 +1,19 @@
+{
+ "id": "mayer-clean",
+ "name": "Clean (Mayer, edge of breakup)",
+ "plugin": "/Library/Audio/Plug-Ins/VST3/Archetype John Mayer X.vst3",
+ "params": {
+  "spring_reverb_active": false,
+  "studio_verb_active": false,
+  "dream_delay_active": false,
+  "millipede_delay_active": false,
+  "harmonic_tremolo_active": false,
+  "doubler_active": false,
+  "room_l_active": false,
+  "room_r_active": false
+ },
+ "inputDb": -8,
+ "chords": true,
+ "power": false,
+ "open": true
+}

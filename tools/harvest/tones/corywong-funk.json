@@ -1,0 +1,17 @@
+{
+ "id": "corywong-funk",
+ "name": "Funk / reggae clean (Cory Wong)",
+ "plugin": "/Library/Audio/Plug-Ins/VST3/Archetype Cory Wong X.vst3",
+ "params": {
+  "delay_y_y_active": false,
+  "the_wash_active": false,
+  "the_80s_chorus_active": false,
+  "doubler_active": false,
+  "room_l_active": false,
+  "room_r_active": false
+ },
+ "inputDb": -8,
+ "chords": true,
+ "power": false,
+ "open": true
+}

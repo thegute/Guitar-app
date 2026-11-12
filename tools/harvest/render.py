@@ -180,14 +180,28 @@ def main():
                         msgs += [Message('note_on', note=midi, velocity=v, channel=ch, time=t0),
                                  Message('note_off', note=midi, velocity=0, channel=ch, time=t0 + hold)]
                         # every stem plays the take, even one already on disk, so the round robins stay in step
-                        ys = []
-                        for inst in insts:
-                            y = inst(msgs, duration=t0 + hold + tail, sample_rate=sr, num_channels=2, buffer_size=512, reset=False)
-                            y = y.T if y.shape[0] == 2 else y
-                            if chain is not None:
-                                y = chain(y.T, sr, reset=False).T
-                            inst([], duration=0.3, sample_rate=sr, num_channels=2, buffer_size=512, reset=False)
-                            ys.append(y.astype(np.float64))
+                        def play():
+                            out = []
+                            for inst in insts:
+                                y = inst(msgs, duration=t0 + hold + tail, sample_rate=sr, num_channels=2, buffer_size=512, reset=False)
+                                y = y.T if y.shape[0] == 2 else y
+                                if chain is not None:
+                                    y = chain(y.T, sr, reset=False).T
+                                inst([], duration=0.3, sample_rate=sr, num_channels=2, buffer_size=512, reset=False)
+                                out.append(y.astype(np.float64))
+                            # a streaming sampler (Kontakt DFD, "dynamic purging") reads samples from disk on its own
+                            # threads in real time: rendering faster than real time starves it and notes come out
+                            # silent. Pace the render (plan 'pace' = fraction of real time) so the disk keeps up.
+                            if plan.get('pace'):
+                                time.sleep((t0 + hold + tail + 0.3) * float(plan['pace']))
+                            return out
+                        ys = play()
+                        # silent (samples still loading)? give the sampler a moment and play it again
+                        for attempt in range(3):
+                            if np.abs(ys[0]).max() > 1e-4:
+                                break
+                            time.sleep(1.0 + attempt)
+                            ys = play()
                         if done:
                             continue
                         t, start = trim(ys[0], sr)
