@@ -116,3 +116,7 @@ pedal steel (Hawaiian), jazz archtop, a humbucker (Les Paul) guitar for classic 
   sixteenths, down / up / muted) and slice them into single real strokes labelled down / up / accent / mute, so KGuitar's
   Strum Machine plays real strokes in ANY pattern at any tempo; (2) the ~20 most useful patterns recorded whole at a few
   tempos for the exact groove. The 12-string becomes a new KGuitar sound (folk / rock jangle).
+- Ukulele / baritone from Modern Nylon (owner asked 08:01): baritone uke = guitar's top 4 strings (D G B E) → near exact.
+  Ukulele (G C E A) = those strings 5 frets up (no capo needed: fretted notes); the high re-entrant G4 comes from the G
+  string at fret 12 (unwound nylon, like a uke string), low-G tuning from the D string at fret 5. Then an offline "uke
+  body" pass (less low end, shorter decay) for a ukulele variant pack. A stand-in until a real ukulele library.
