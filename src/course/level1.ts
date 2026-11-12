@@ -224,8 +224,8 @@ export const OCTAVE_SHAPES: CourseLesson = {
       kind: 'deeper', title: 'Go deeper', video: { id: 'lJYF_Bm7g_w', title: 'Memorize Guitar Notes - Octave Shapes' },
       books: [
         { book: 'Guitar Fretboard Mastery', where: 'Part 1, Step 4: using octaves to find the notes on the D, G, B and e strings', why: 'The same four shapes, with photos of the grip and the muting.' },
-        { book: 'Music Theory for Guitarists (Tom Kolb)', where: 'Chapter 1: The Fretboard', why: 'His daily warm-up: one note on every string and back, a new note each day (Day 4 of your practice week).' },
-        { book: 'Guitar Fretboard Workbook (Barrett Tagliarino)', where: 'The note-name chapters', why: 'Drawing and saying the shapes out loud: his way of making them stick fast.' },
+        { book: 'Music Theory for Guitarists', where: 'Chapter 1: The Fretboard', why: 'His daily warm-up: one note on every string and back, a new note each day (Day 4 of your practice week).' },
+        { book: 'Guitar Fretboard Workbook', where: 'The note-name chapters', why: 'Drawing and saying the shapes out loud: his way of making them stick fast.' },
       ],
       blocks: [
         { p: '**Extra credit**: octaves also live **inside chords**. In an open C chord the C on the A string (fret 3) and the C on the B string (fret 1) are an octave apart: shape 3 across the B string. Look for the octave pairs inside every chord you know.' },

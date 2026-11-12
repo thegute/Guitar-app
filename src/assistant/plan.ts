@@ -11,6 +11,7 @@ import { activeProvider, ask, AiError, lastTries } from './providers'
 import type { AskContext } from './bus'
 import { screenCommand, screenInfo, type ScreenInfo } from './screen'
 import { GUIDE } from '../learn/guide'
+import { searchBooks, shelfNow } from '../books/store'
 
 export interface BeatChange { starter?: string; bpm?: number; key?: string; minor?: boolean; patterns?: string[]; swing?: number }
 /** a change to Play: loop (0-based bars, null = stop) and/or speed; `label` is the button text */
@@ -145,11 +146,11 @@ const LENGTH: Record<AskHow, string> = {
   voice: 'LENGTH: they asked out loud, probably holding the guitar, and will hear the answer: 1-3 short sentences, short and sweet.',
   typed: 'LENGTH: they typed this to understand it properly. For a "why", "what is", "how does" or theory question, give a full explanation of up to 3 or 4 short paragraphs: start with the simple idea in everyday words, then the details and the term, then a concrete example on the guitar neck (string, fret, finger) and how it sounds, then one thing to try now. A quick "where is" or "open" request still gets one or two sentences.',
 }
-const SYSTEM = (ctx: AskContext, extra: string, results: Result[], screen: ScreenInfo | null, how: AskHow = 'typed') => `${STATIC}
+const SYSTEM = (ctx: AskContext, extra: string, results: Result[], screen: ScreenInfo | null, how: AskHow = 'typed', books = '') => `${STATIC}
 --- NOW ---
 ${LENGTH[how]}
 Today's date: ${new Date().toDateString()}.
-RESULTS (things in the app matching the request): ${results.slice(0, 12).map(r => `${r.id} = ${r.title} (${r.where})`).join('; ') || 'none'}.${ctx === 'beat' ? '\nThey are in the beat maker now. ' + extra : ''}${screen?.can?.length ? `\nYou may also add "play": {"loop": [firstBar, lastBar] as the bar numbers they see, or null to stop looping, "speed": 0.25-1.5 (1 = full speed)} to change their loop or speed in Play; only when it helps.` : ''}${screen ? `\nON THEIR SCREEN RIGHT NOW (use it: "here", "this bar", "this lesson", "this chord" mean this): ${screen.summary}` : ''}`
+RESULTS (things in the app matching the request): ${results.slice(0, 12).map(r => `${r.id} = ${r.title} (${r.where})`).join('; ') || 'none'}.${ctx === 'beat' ? '\nThey are in the beat maker now. ' + extra : ''}${screen?.can?.length ? `\nYou may also add "play": {"loop": [firstBar, lastBar] as the bar numbers they see, or null to stop looping, "speed": 0.25-1.5 (1 = full speed)} to change their loop or speed in Play; only when it helps.` : ''}${screen ? `\nON THEIR SCREEN RIGHT NOW (use it: "here", "this bar", "this lesson", "this chord" mean this): ${screen.summary}` : ''}${books}`
 
 /** for tests */
 export const systemPrompt = SYSTEM
@@ -181,9 +182,13 @@ export async function plan(q: string, results: Result[], ctx: AskContext = 'gene
   if (quick && !/\b(what|why|how|explain|tell|which|show)\b/i.test(q)) return quick
   // a command the screen on top understands (the looper: "record track 2", "chorus", "stop")
   if (!/\b(what|why|how|explain|tell|which|show)\b/i.test(q)) { const sc = screenCommand(spokenNumbers(q)); if (sc) return { reply: sc, ai: false } }
-  if (!activeProvider()) return { ...local(), note: 'Built-in helper. Add a free AI key in Settings → You → AI helper for smarter answers.' }
+  // his own books (private pack on the phone): the pages that best match the question, so the teacher can build on them
+  const fromBooks = shelfNow().length && q.trim().split(/\s+/).length >= 2 ? await searchBooks(q, 3).catch(() => []) : []
+  const booksText = shelfNow().length ? `\nHIS OWN BOOKS (on his phone): ${shelfNow().map(b => b.title).join('; ')}.${fromBooks.length ? `\nPAGES FROM HIS BOOKS THAT MATCH THIS QUESTION (scanned text, may have OCR slips; teach from them in your own words when they help, and say which book and page so he can read more): ${fromBooks.map(h => `[${h.book.title}, page ${h.page}${h.chapter ? `, ${h.chapter}` : ''}] ${h.snippet}`).join('\n')}` : ''}` : ''
+  const readMore = fromBooks.slice(0, 2).map(h => `Read more: ${h.book.title}, page ${h.page}`)
+  if (!activeProvider()) { const l = local(); return { ...l, ...(readMore.length ? { ideas: [...(l.ideas ?? []), ...readMore] } : {}), note: 'Built-in helper. Add a free AI key in Settings → You → AI helper for smarter answers.' } }
   try {
-    const raw = await ask(SYSTEM(ctx, beat ? beatSummary(beat) : '', results, screen, how), [...past.flatMap(p => [{ role: 'user' as const, text: p.q }, { role: 'assistant' as const, text: JSON.stringify({ reply: p.a }) }]), { role: 'user', text: q }], { json: true, maxTokens: how === 'voice' ? 900 : 2400, ...(onReply ? { onText: (raw: string) => { const r = partialReply(raw); if (r) onReply(r) } } : {}) })
+    const raw = await ask(SYSTEM(ctx, beat ? beatSummary(beat) : '', results, screen, how, booksText), [...past.flatMap(p => [{ role: 'user' as const, text: p.q }, { role: 'assistant' as const, text: JSON.stringify({ reply: p.a }) }]), { role: 'user', text: q }], { json: true, maxTokens: how === 'voice' ? 900 : 2400, ...(onReply ? { onText: (raw: string) => { const r = partialReply(raw); if (r) onReply(r) } } : {}) })
     const j = JSON.parse(raw.replace(/^[^{]*/, '').replace(/[^}]*$/, '')) as { reply?: string; open?: string | null; session?: { title: string; steps: { title: string; minutes: number; use: string; tip?: string }[] } | null; beat?: BeatChange | null; play?: { loop?: number[] | null; speed?: number | null } | null; ideas?: string[] | null }
     const ans: Answer = { reply: j.reply || 'Here you go.', ai: true }
     if (j.open) { const r = results.find(x => x.id === j.open); const t = r ? null : targetOf(j.open, results); ans.open = r ?? (t ? { id: j.open, kind: 'feature', title: PLACES.find(p => p[0] === j.open)?.[1] ?? j.open, where: '', text: '', target: t, score: 100 } : undefined) }
@@ -197,6 +202,7 @@ export async function plan(q: string, results: Result[], ctx: AskContext = 'gene
     }
     if (j.beat && ctx === 'beat') ans.beat = { ...j.beat, patterns: (j.beat.patterns ?? []).filter(p => PATTERNS.some(x => x.id === p)) }
     if (j.ideas?.length) ans.ideas = j.ideas.slice(0, 6)
+    if (readMore.length && how === 'typed') ans.ideas = [...(ans.ideas ?? []), ...readMore].slice(0, 7)
     if (j.play && screen?.can?.length) {
       const c: Omit<PlayChange, 'label'> = {}
       const n = screen.play?.bars ?? 999

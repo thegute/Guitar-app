@@ -66,7 +66,7 @@ async function songsPage(page, label) {
         await page.click(`.tool:has-text("${label}")`)
         await shot(name)
         if (name === 'lessons') {
-          await page.click('.continue-card')
+          await page.click('.continue-card:not(.deep-preview)')
           await shot('lesson')
           await page.click('text=← All lessons')
         }

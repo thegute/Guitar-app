@@ -471,7 +471,7 @@ async function sizes(browser) {
     await sub(page, 'Explore'); await check('learn-explore')
     await sub(page, 'Course'); await check('learn-course')
     await sub(page, 'Explore')
-    await page.locator('.tool:has-text("Theory")').click(); await page.locator('.continue-card').click(); await page.waitForSelector('article.lesson')
+    await page.locator('.tool:has-text("Theory")').click(); await page.locator('.continue-card:not(.deep-preview)').click(); await page.waitForSelector('article.lesson')
     await page.locator('.lesson-video').scrollIntoViewIfNeeded(); await check('lesson-video')
     await page.locator('.lesson-ex').first().scrollIntoViewIfNeeded(); await check('lesson-play')
     await nav(page, 'Learn'); await nav(page, 'Learn'); await page.waitForSelector('.learn-head')

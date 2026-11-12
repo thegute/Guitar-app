@@ -16,6 +16,7 @@ import { Zoomable } from '../components/Zoomable'
 import { Win, WinArea } from '../components/Win'
 import { LayerNeck } from '../components/LayerNeck'
 import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
+import { BooksWin } from '../books/BooksWin'
 
 type Overlay = 'chord' | 'arp' | 'penta' | 'scale' | 'triads'
 const IV = ['R', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7']
@@ -139,6 +140,7 @@ export function CagedExplorer({ inst, onExit, onQuiz }: { inst: Instrument; onEx
         </div>
         <p className="small muted" style={{ margin: 0 }}>Try this on your {inst.noun}: play {name} in all five shapes going up the neck, then back down. Then do it with a different chord every day.</p>
       </Win>
+      <BooksWin topics={['caged', 'triads', 'fretboard-notes']} />
       </WinArea>
     </div>
   )

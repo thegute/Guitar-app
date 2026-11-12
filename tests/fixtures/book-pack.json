@@ -1,0 +1,47 @@
+{
+ "format": "kguitar-books",
+ "version": 1,
+ "made": "2026-11-11",
+ "books": [
+  {
+   "id": "test-theory",
+   "title": "Test Theory Book",
+   "kind": "theory",
+   "main": true,
+   "file": "book.pdf",
+   "pages": 4,
+   "toc": [
+    {
+     "title": "Chapter 1: The Notes",
+     "page": 1
+    },
+    {
+     "title": "Chapter 2: CAGED",
+     "page": 3
+    },
+    {
+     "title": "Chapter 3: Pentatonic scales",
+     "page": 4
+    }
+   ],
+   "text": [
+    "Chapter 1: The Notes\nThe musical alphabet has seven letters. An octave is the same note twelve frets higher. Octave shapes help you find notes on the neck.",
+    "Octave shapes on the fretboard: two strings up and two frets up. Crossing the B string adds one fret. Practise octave shapes every day; the octave is the same note.",
+    "Chapter 2: CAGED\nThe CAGED system links five chord shapes: the C shape, A shape, G shape, E shape and D shape. CAGED shapes share their roots.",
+    "Chapter 3: Pentatonic scales\nThe minor pentatonic scale has five notes. The pentatonic box at fret 5 is the first one most players learn. Pentatonic licks."
+   ]
+  },
+  {
+   "id": "test-licks",
+   "title": "Test Licks Book",
+   "kind": "licks",
+   "file": "licks.pdf",
+   "pages": 2,
+   "toc": [],
+   "text": [
+    "Lick 1: a bend and release in A minor pentatonic. Bends need control.",
+    "Lick 2: hammer-ons and pull-offs, legato phrasing over a shuffle."
+   ]
+  }
+ ]
+}

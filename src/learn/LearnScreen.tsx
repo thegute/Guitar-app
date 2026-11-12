@@ -51,11 +51,13 @@ import { JumpBackIn } from '../components/JumpBackIn'
 import { LESSONS, lessonsFor } from './lessons'
 import { courseLesson } from '../course'
 import { DeepLessonView } from '../course/DeepLessonView'
+import { BooksPage } from '../books/BooksPage'
+import { useBooks } from '../books/useBooks'
 import { lastBackup } from '../backup'
 import { ago } from '../components/BackupPanel'
 
 type Route =
-  | { k: 'home' } | { k: 'quiz'; id: string } | { k: 'lesson'; id: string } | { k: 'deep'; id: string } | { k: 'lessons' } | { k: 'ear' } | { k: 'caged' }
+  | { k: 'home' } | { k: 'quiz'; id: string } | { k: 'lesson'; id: string } | { k: 'deep'; id: string } | { k: 'books'; id?: string; page?: number; q?: string } | { k: 'lessons' } | { k: 'ear' } | { k: 'caged' }
   | { k: 'changes' } | { k: 'rhythm' } | { k: 'circle' } | { k: 'progress' } | { k: 'settings'; n?: number } | { k: 'guide'; sec?: string }
   | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' } | { k: 'licks'; sel?: string } | { k: 'videos' } | { k: 'recordings' } | { k: 'chainer' }
 
@@ -90,6 +92,7 @@ function Stars({ n }: { n: number }) {
 export function LearnScreen() {
   useProgress()
   const inst = useInstrument()
+  const books = useBooks()
   const [stack, setStack] = useState<Route[]>(() => {
     // the welcome's "Show me around" opens the guide
     let guide = false
@@ -178,6 +181,7 @@ export function LearnScreen() {
     else if ('jam' in g) openJam(g.jam)
     else if ('learn' in g) { setPage(g.learn); setStack([{ k: 'home' }]); document.getElementById('main')?.scrollTo({ top: 0 }) }
     else if ('technique' in g) push({ k: 'technique', id: g.technique })
+    else if ('books' in g) push({ k: 'books', ...g.books })
     else if ('guide' in g) push({ k: 'guide', sec: g.guide })
     else if ('licks' in g) push({ k: 'licks', sel: g.licks })
     else void openExercise(g.exercise)
@@ -204,6 +208,7 @@ export function LearnScreen() {
   if (route.k === 'ear') return <EarTrainer inst={inst} onExit={back} />
   if (route.k === 'caged') return <CagedExplorer inst={inst} onExit={back} onQuiz={id => push({ k: 'quiz', id })} />
   if (route.k === 'lessons') return <LessonList instId={inst.id} onOpen={id => push(courseLesson(id) ? { k: 'deep', id } : { k: 'lesson', id })} onExit={back} />
+  if (route.k === 'books') return <BooksPage key={`${route.id ?? ''}:${route.page ?? ''}:${route.q ?? ''}`} openId={route.id} openPage={route.page} q={route.q} onExit={back} inst={inst} />
   if (route.k === 'deep') { const l = courseLesson(route.id); if (l) return <DeepLessonView key={l.id} lesson={l} inst={inst} onExit={back} onGo={launch} onExercise={runLessonEx} /> }
   if (route.k === 'lesson') return <LessonView id={route.id} inst={inst} onExit={back} onOpen={id => replace({ k: 'lesson', id })} onGo={launch} onExercise={runLessonEx} />
   if (route.k === 'changes') return <ChordChanges inst={inst} onExit={back} />
@@ -273,6 +278,7 @@ export function LearnScreen() {
       { id: 'recordings', title: 'My recordings', sub: 'Hear how far you\'ve come' },
     ] },
     ...(lessonsAvailable() ? [{ title: 'Your lessons', tools: [{ id: 'videos' as const, title: 'Your video lessons', sub: 'Course videos and tabs from your phone' }] }] : []),
+    { title: 'Your books', tools: [{ id: 'books' as const, title: 'My books', sub: books.length ? `${books.length} books: read, search, learn from them` : 'Import your book pack' }] },
     { title: 'Ears and theory', tools: [
       { id: 'lessons', title: 'Theory lessons', sub: `${read} of ${lessonsFor(inst.id).length} read` },
       { id: 'ear', title: 'Ear training', sub: 'Drone-based, by feel' },

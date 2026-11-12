@@ -7,6 +7,8 @@ import { lessonsFor } from './lessons'
 
 export type Go =
   | { quiz: string }
+  /** My books: the shelf, a book at a page, or a search */
+  | { books: { id?: string; page?: number; q?: string } }
   | { lesson: string }
   | { tool: 'ear' | 'caged' | 'changes' | 'rhythm' | 'circle' | 'lessons' | 'settings' | 'progress' | 'guide' | 'techniques' | 'bends' | 'videos' | 'recordings' | 'chainer' }
   | { tab: 'play' | 'progressions' | 'tuner' }

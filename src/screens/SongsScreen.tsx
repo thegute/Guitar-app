@@ -17,6 +17,7 @@ import { bandStyleLabel, guessBandStyle } from '../audio/band'
 import { TUNINGS, noteToMidi } from '../theory/notes'
 import { SONGBOOK, songbookId } from '../tabs/songbook'
 import { loadSongbookDoc } from '../tabs/songbookDocs'
+import { takePendingBookPdf } from '../books/pending'
 import { INSTRUMENTS, useInstrument, type Instrument, type InstrumentId } from '../instrument'
 import { usePersist } from '../components/Controls'
 import { go, openInPlay, setSubPage } from '../nav'
@@ -294,6 +295,12 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
   const [busy, setBusy] = useState(false)
   // a PDF book: pick its pages first
   const [book, setBook] = useState<{ name: string; bytes: Uint8Array; pages: number } | null>(null)
+  // a page of one of his books sent from My books: open the PDF at that page
+  useEffect(() => {
+    const p = takePendingBookPdf()
+    if (!p) return
+    void import('../tabs/pdfTab').then(async ({ pdfPageCount }) => setBook({ name: p.name, bytes: p.bytes, pages: await pdfPageCount(p.bytes) }))
+  }, [])
   const [scanned, setScanned] = useState<{ name: string; pics: { name: string; mime: string; b64: string; url: string }[] } | null>(null)
   const [scanLink, setScanLink] = useState<string | undefined>()
   const pictures = useRef<HTMLDivElement | null>(null)

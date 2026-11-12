@@ -113,3 +113,14 @@ jam over a backing → check-in recorded in Then vs Now) is the shape of each pr
 connects to chords and later levels, two routes to every answer), 5–6 worked examples with step-by-step reasoning (not
 quizzes), and at most ~5 quiz links across the practice week + 3 checks (Apply, Hear, Play) + Explain it back. Prefer playing
 exercises in Play over extra quizzes. The sample (src/course/level1.ts, octave shapes) is the model for every lesson.
+
+## CAGED woven into learning the notes (owner 2026-11-11: "CAGED helps with this as well, can that be ingrained")
+CAGED is not left until Level 4: it grows with the note-finding from Level 1.
+- L1: the octave shapes ARE the root shapes of the CAGED chords (the sample lesson's "Octaves inside chords" step shows it);
+  a short "five open chords, where are their roots?" step; notes on the neck lesson uses the E- and A-shape roots as landmarks.
+- L2 (triads, open and barre chords): the E-shape and A-shape barre chords as movable root finders (a chord's name = the note
+  under the root); find any note by the chord shape around it.
+- L3: the C, G and D shapes join (pentatonic box 1 sits on the E shape; the major pentatonic positions link to the shapes).
+- L4: the full CAGED system: the five shapes in order up the neck, their roots and octaves, the CAGED note map (any note found
+  from the shape around it), scales and arpeggios inside each shape. Correction: "The Practical Guide to Modes" is Joseph
+  Alexander's "Practical Guide to Modern Music Theory for Guitarists", a second full theory source for Levels 2–8.

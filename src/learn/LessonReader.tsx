@@ -10,6 +10,7 @@ import type { Instrument } from '../instrument'
 import { CHAPTERS, LESSONS, chaptersFor, lessonById, lessonsFor, type Block, type Lesson } from './lessons'
 import { Ico } from '../components/Icon'
 import { COURSE } from '../course'
+import { InYourBooks } from '../books/InYourBooks'
 import { addXp, bump, logDone, usePracticeTimer } from './progress'
 import type { Go } from './path'
 import { LESSON_EXTRAS, lessonVideo, videoThumb, videoUrl, type LessonEx, type LessonVideo } from './lessonExtras'
@@ -179,6 +180,7 @@ export function LessonVideoCard({ video, onPlay }: { video: LessonVideo; onPlay?
 }
 
 export function LessonView({ id, inst, onExit, onOpen, onGo, onExercise }: { id: string; inst: Instrument; onExit: () => void; onOpen: (id: string) => void; onGo: (g: Go) => void; onExercise?: (ex: LessonEx) => void }) {
+  const onBook = (bid: string, page?: number) => onGo({ books: { id: bid, page } })
   const lesson = lessonById(id) ?? LESSONS[0]
   const [done, setDone] = useState(() => lessonsRead().includes(lesson.id))
   const [first, setFirst] = useState(false)
@@ -236,6 +238,7 @@ export function LessonView({ id, inst, onExit, onOpen, onGo, onExercise }: { id:
           <Ico n="book" /> In your book: <b>{lesson.bookRef.book}</b>, {lesson.bookRef.chapter}
         </p>
       )}
+      <InYourBooks topics={lesson.topics ?? []} refs={lesson.bookRef ? [{ book: lesson.bookRef.book, where: lesson.bookRef.chapter }] : []} onOpen={onBook} />
       {lesson.offtonic && (
         <a className="lesson-source" href={lesson.offtonic} target="_blank" rel="noreferrer">
           Read the full chapter on Offtonic Theory

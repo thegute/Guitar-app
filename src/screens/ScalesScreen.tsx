@@ -11,6 +11,7 @@ import { useInstrument } from '../instrument'
 import { useScreenInfo } from '../assistant/screen'
 import { Win, WinArea } from '../components/Win'
 import { LayerNeck } from '../components/LayerNeck'
+import { BooksWin } from '../books/BooksWin'
 
 const POSITIONS = [
   { id: 'all', label: 'Whole neck', from: 0, to: 15 },
@@ -127,6 +128,7 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
           </div>
         </Win>
       )}
+      <BooksWin topics={/pentatonic/.test(scale) ? ['pentatonic', 'improvising'] : /dorian|phrygian|lydian|mixolydian|aeolian|locrian|ionian/.test(scale) ? ['modes', 'improvising'] : ['major-scale', 'modes']} />
       </WinArea>
     </div>
   )

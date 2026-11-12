@@ -37,12 +37,12 @@ export type Target =
 
 export type Kind =
   | 'feature' | 'setting' | 'chord' | 'scale' | 'tuning' | 'metronome' | 'jam' | 'mysong' | 'songbook' | 'practice'
-  | 'lesson' | 'technique' | 'quiz' | 'exercise' | 'lick'
+  | 'lesson' | 'technique' | 'quiz' | 'exercise' | 'lick' | 'book'
 
 export const KIND_LABEL: Record<Kind, string> = {
   feature: 'How to', setting: 'Settings', chord: 'Chord', scale: 'Scale', tuning: 'Tuning', metronome: 'Metronome', jam: 'Jam',
   mysong: 'Your song', songbook: 'Songbook', practice: 'Practice tab', lesson: 'Lesson', technique: 'Technique', quiz: 'Quiz',
-  exercise: 'Exercise', lick: 'Lick',
+  exercise: 'Exercise', lick: 'Lick', book: 'Your book',
 }
 
 /** Something search can find. `keys` are the other words people use for it; `guide` links it to a guide item. */

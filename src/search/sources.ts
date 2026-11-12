@@ -12,6 +12,7 @@ import { LICKS } from '../licks/library'
 import { lessonsAvailable } from '../lessons/folders'
 import { lickStyle } from '../licks/styles'
 import type { Entry } from './types'
+import { shelfNow } from '../books/store'
 
 const clip = (t: string, n: number) => (t.length > n ? t.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : t)
 /** Saved songs that are yours (not examples, lessons or songbook parts), as in Songs → My songs. */
@@ -19,6 +20,14 @@ export const isMine = (s: SongDoc) => s.source !== 'example' && s.source !== 'le
 
 export function libraryEntries(inst: Instrument, songs: SongDoc[] = []): Entry[] {
   const out: Entry[] = []
+  // his own books (private pack on the phone): each book, and the chapters of the theory / fretboard / improvising books
+  for (const b of shelfNow()) {
+    out.push({ id: `bk:${b.id}`, kind: 'book', title: b.title, where: 'Learn → My books', text: `${b.pages} pages. Your own book: read it and search every page.`,
+      keys: `book ${b.kind} ${b.toc.slice(0, 12).map(t => t.title).join(' ')}`, target: { go: { books: { id: b.id } } }, boost: -0.05 })
+    if (b.kind === 'theory' || b.kind === 'fretboard' || b.kind === 'improvising') for (const [i, t] of b.toc.filter(t => (t.depth ?? 0) === 0).slice(0, 40).entries()) {
+      out.push({ id: `bk:${b.id}:${i}`, kind: 'book', title: t.title, where: `${b.title}, page ${t.page}`, text: `A chapter of your book "${b.title}".`, keys: `book chapter ${b.kind}`, target: { go: { books: { id: b.id, page: t.page } } }, boost: -0.15 })
+    }
+  }
   for (const s of songs.filter(isMine)) {
     const kind = s.source === 'gp' ? 'Guitar Pro tab' : s.source === 'chords' ? 'chord sheet' : s.source === 'jam' ? 'tab made in KGuitar' : 'text tab'
     out.push({ id: `my:${s.id}`, kind: 'mysong', title: s.title, where: 'Songs → Library (yours)', text: `${s.artist ? s.artist + ', ' : ''}your ${kind}. Opens in Play where you left off.`,

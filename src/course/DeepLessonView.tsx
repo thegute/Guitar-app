@@ -15,6 +15,8 @@ import { STEP_LABEL, type CourseLesson, type Step, type Task, type WorkedExample
 import { REVIEW_DAYS, finishLesson, lessonProgress, nextReviewAt, reviewDone, reviewDue, setAt, stepDone, toggleDay } from './progress'
 import { Fretboard } from '../components/Fretboard'
 import { playNote } from '../audio/pluck'
+import { InYourBooks } from '../books/InYourBooks'
+import { useBooks } from '../books/useBooks'
 
 const KIND_ICON: Record<Step['kind'], Parameters<typeof Ico>[0]['n']> = {
   why: 'target', learn: 'book', examples: 'puzzle', hear: 'ear', mistakes: 'zap', practice: 'calendar', use: 'music', check: 'check', deeper: 'gem',
@@ -78,6 +80,7 @@ function Example({ ex, inst, n }: { ex: WorkedExample; inst: Instrument; n: numb
 
 function StepBody({ step, inst, lesson, onGo, onExercise }: { step: Step; inst: Instrument; lesson: CourseLesson; onGo: (g: Go) => void; onExercise: (ex: LessonEx) => void }) {
   const p = useCourseProgress(lesson.id)
+  const books = useBooks()
   const blocks = (bs: Extract<Step, { blocks: unknown }>['blocks']) => <div className="lesson-body">{bs.map((b, k) => <BlockView key={k} b={b} inst={inst} onGo={onGo} />)}</div>
   const tasks = (ts: Task[]) => <div className="deep-tasks">{ts.map((t, k) => <TaskButton key={k} t={t} onGo={onGo} onExercise={onExercise} />)}</div>
   switch (step.kind) {
@@ -121,7 +124,8 @@ function StepBody({ step, inst, lesson, onGo, onExercise }: { step: Step; inst: 
     case 'deeper': return (
       <div className="stack">
         {step.video && <LessonVideoCard video={step.video} />}
-        <h3 className="deep-sub">In your books</h3>
+        <InYourBooks topics={lesson.topics} refs={step.books.map(b => ({ book: b.book, where: b.where }))} max={6} onOpen={(id, page) => onGo({ books: { id, page } })} />
+        <h3 className="deep-sub">{books.length ? 'Why these pages' : 'In your books'}</h3>
         <ul className="deep-books">
           {step.books.map((b, i) => <li key={i}><Ico n="book" /> <span><b>{b.book}</b>, {b.where}. <span className="muted">{b.why}</span></span></li>)}
         </ul>
