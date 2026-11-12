@@ -6,7 +6,7 @@
   "pluginName": null,
   "state": "../../../../KGuitar-harvest/states/acoustic-main.state",
   "effects": [],
-  "sampleRate": 48000,
+  "sampleRate": 44100,
   "tuning": [40, 45, 50, 55, 59, 64],
   "stringChannels": true,
   "frets": [0, 15],

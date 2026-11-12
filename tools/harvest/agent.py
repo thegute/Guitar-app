@@ -92,7 +92,7 @@ def plugin(spec):
         t_end = time.time() + float(spec['warmup'])
         while time.time() < t_end:
             if getattr(p, 'is_instrument', False):
-                p([], duration=0.25, sample_rate=48000, num_channels=2, reset=False)
+                p([], duration=0.25, sample_rate=44100, num_channels=2, reset=False)
             time.sleep(0.25)
     return p
 
@@ -169,7 +169,7 @@ def act_midi(job):
     round robins behave as they do in a song."""
     from mido import Message
     inst = plugin(job)
-    sr = job.get('sampleRate', 48000)
+    sr = job.get('sampleRate', 44100)
     msgs = []
     for e in job['events']:
         ch = e.get('ch', 0)

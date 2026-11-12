@@ -91,7 +91,7 @@ def main():
                 evs.append({'t': max(0, e['t'] - 0.004), 'note': ks[e['string']], 'vel': 127, 'dur': 0.002, 'ch': cand.get('chan', 0)})
             evs.append({k: v for k, v in e.items() if k != 'string'} | {'ch': cand.get('chan', 0)})
         job = {'action': 'midi', 'plugin': cand['plugin'], 'out': f"trials/{cand['id']}/{name}.wav", 'events': cand.get('pre', []) + evs,
-               'duration': end + 3.0, 'sampleRate': 48000}
+               'duration': end + 3.0, 'sampleRate': 44100}
         for k in ('pluginName', 'state', 'params', 'warmup', 'effects'):
             if k in cand:
                 job[k] = cand[k]

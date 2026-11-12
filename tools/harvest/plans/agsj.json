@@ -10,7 +10,7 @@
     { "dir": "ab", "gain": 0.8, "params": { "m_mic_1_vol": 0.0, "m_mic_2_vol": 0.0, "m_mic_3_vol": 1.0 } }
   ],
   "stringKeys": [31, 32, 33, 34, 35, 36],
-  "sampleRate": 48000,
+  "sampleRate": 44100,
   "tuning": [40, 45, 50, 55, 59, 64],
   "frets": [0, 15],
   "tuneOver": 5,

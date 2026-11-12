@@ -20,7 +20,7 @@ from mido import Message
 from pedalboard import Pedalboard, load_plugin
 from scipy.signal import lfilter
 
-SR_DEFAULT = 48000
+SR_DEFAULT = 44100  # pedalboard prepares plug-ins at 44.1 kHz: no rate change (Kontakt asks for a restart on one); the libraries are 44.1 kHz too
 
 
 def kweight_ms(x, sr):

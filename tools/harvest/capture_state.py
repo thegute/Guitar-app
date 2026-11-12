@@ -42,9 +42,9 @@ def main():
             # let the instrument finish starting up (Kontakt scripts wait for audio to run), in real time
             end = _t.time() + a.warm
             while _t.time() < end:
-                p([], duration=0.25, sample_rate=48000, num_channels=2, reset=False)
+                p([], duration=0.25, sample_rate=44100, num_channels=2, reset=False)
                 _t.sleep(0.2)
-        p([], duration=0.5, sample_rate=48000, num_channels=2, reset=False) if getattr(p, 'is_instrument', False) else p(__import__('numpy').zeros((2, 4800), dtype='float32'), 48000)
+        p([], duration=0.5, sample_rate=44100, num_channels=2, reset=False) if getattr(p, 'is_instrument', False) else p(__import__('numpy').zeros((2, 4410), dtype="float32"), 44100)
     except Exception as e:
         print(f'(warm-up: {e})')
     stop = threading.Event()
@@ -52,7 +52,7 @@ def main():
         while not stop.is_set():
             try:
                 if getattr(p, 'is_instrument', False):
-                    p([], duration=0.1, sample_rate=48000, num_channels=2, reset=False)
+                    p([], duration=0.1, sample_rate=44100, num_channels=2, reset=False)
             except Exception:
                 pass
             stop.wait(0.1)

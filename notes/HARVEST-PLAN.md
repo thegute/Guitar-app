@@ -24,7 +24,7 @@ What the owner has on his Mac, role by role, and what KGuitar will use. Rendered
 | Not for KGuitar's sound | NA Acoustic Voice Pro (preamp for a piezo pickup), PastToFuture / acoustic IRs (pickup→acoustic converters: a later "make the pedal sound acoustic" idea), Mantra / Vocal suite / Humanoid (vocal processing), MIDI Guitar 3, Ozone, Replika, Supercharger, Orbital Looper, Scaler (incomplete download) | | |
 
 ## How it is rendered (quality rules)
-- 48 kHz / 24-bit FLAC masters kept on the Mac (~/KGuitar-harvest/packs); the phone gets Opus 192 kbps (transparent) to keep packs small.
+- 44.1 kHz / 24-bit FLAC masters kept on the Mac (44.1 = the libraries' own rate and the rate pedalboard prepares plug-ins at: no resampling, no Kontakt restart prompt) (~/KGuitar-harvest/packs); the phone gets Opus 192 kbps (transparent) to keep packs small.
 - Every fret on every string (0–15, + higher on the top strings), every dynamic and round robin the library really has (no fake extra layers).
 - Tails rendered to −60 dB then trimmed; onsets aligned (2 ms pre-roll) so timing is tight; release noises kept as their own recordings.
 - Legato: hammer-on / pull-off / slide recordings sliced from the moment of the transition (the library's string is monophonic, so after that point only the new note sounds).
