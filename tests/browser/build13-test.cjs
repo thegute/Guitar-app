@@ -90,11 +90,11 @@ async function lessons(browser) {
   const page = await newPage(browser, { 'kg:tab2': 'learn' })
   await page.waitForSelector('.today-card')
   await openLearnTool(page, 'Theory')
-  const n = await page.locator('.lesson-index button').count()
+  const n = await page.locator('.lesson-index button:not([data-testid^=course-lesson])').count()
   let exercises = 0
   for (let i = 0; i < n; i++) {
-    if (!(await page.locator('.lesson-index button').count())) await openLearnTool(page, 'Theory')
-    const btn = page.locator('.lesson-index button').nth(i)
+    if (!(await page.locator('.lesson-index button:not([data-testid^=course-lesson])').count())) await openLearnTool(page, 'Theory')
+    const btn = page.locator('.lesson-index button:not([data-testid^=course-lesson])').nth(i)
     const name = (await btn.textContent()).replace(/^✓/, '').trim().slice(0, 40)
     await btn.click()
     await page.waitForSelector('article.lesson')
@@ -112,7 +112,7 @@ async function lessons(browser) {
     for (let k = 0; k < exs; k++) {
       if (k > 0) {
         await openLearnTool(page, 'Theory')
-        await page.locator('.lesson-index button').nth(i).click()
+        await page.locator('.lesson-index button:not([data-testid^=course-lesson])').nth(i).click()
         await page.waitForSelector('article.lesson')
       }
       const ex = page.locator('.lesson-ex').nth(k)
