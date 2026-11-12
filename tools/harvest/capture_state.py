@@ -1,0 +1,34 @@
+"""KGuitar harvest: set up a plugin once, by hand, and save its full state for headless renders.
+
+Opens the plugin's own window (Kontakt, Ample, Neural DSP …). The owner loads the instrument / preset and sets it up
+(for guitars: one note per string and "channel-based strings" if the instrument has it, so MIDI channel 1–6 picks the
+string; reverb and doubling OFF, we add our own). Closing the window saves the state to <name>.state, which render.py
+loads so every later render is hands-free.
+
+  python tools/harvest/capture_state.py "/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" ~/KGuitar-harvest/states/otree-acoustic
+  python tools/harvest/capture_state.py "/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3" ~/KGuitar-harvest/states/playbox --name "Kontakt 8"
+"""
+import argparse
+import os
+import sys
+
+from pedalboard import load_plugin
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('plugin', help='path to a .vst3 or .component')
+    ap.add_argument('out', help='where to save the state (".state" is added)')
+    ap.add_argument('--name', help='plugin name inside a bundle with several (e.g. "Kontakt 8")')
+    a = ap.parse_args()
+    p = load_plugin(a.plugin, plugin_name=a.name) if a.name else load_plugin(a.plugin)
+    print(f'Loaded {p.name if hasattr(p, "name") else a.plugin}. Set it up in its window, then close the window to save.')
+    p.show_editor()
+    os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
+    with open(a.out + '.state', 'wb') as f:
+        f.write(p.raw_state)
+    print(f'Saved {len(p.raw_state)} bytes of state to {a.out}.state')
+
+
+if __name__ == '__main__':
+    sys.exit(main())

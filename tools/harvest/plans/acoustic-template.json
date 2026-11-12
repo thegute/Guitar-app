@@ -1,0 +1,19 @@
+{
+  "id": "acoustic-main",
+  "name": "Acoustic (from the owner's plugin: fill in after the scan)",
+  "kind": "guitar",
+  "plugin": "/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3",
+  "pluginName": null,
+  "state": "../../../../KGuitar-harvest/states/acoustic-main.state",
+  "effects": [],
+  "sampleRate": 48000,
+  "tuning": [40, 45, 50, 55, 59, 64],
+  "stringChannels": true,
+  "frets": [0, 15],
+  "articulations": {
+    "sustain": { "velocities": [40, 78, 112], "rr": 4, "tail": 1.2 },
+    "pm": { "keyswitch": null, "velocities": [60, 105], "rr": 3, "hold": 0.6, "tail": 0.4 },
+    "mute": { "keyswitch": null, "velocities": [70, 110], "rr": 3, "hold": 0.15, "tail": 0.2, "fretStep": 3 }
+  },
+  "_notes": "Keyswitches and the plugin path are set after the scan and a look at the instrument's manual. stringChannels: the instrument must be in its channel-based strings mode (MIDI channel 1-6 = low E ... high e) when the state is captured."
+}
