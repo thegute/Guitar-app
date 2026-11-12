@@ -57,8 +57,8 @@ D. Intelligence: ⏳ D1 neural listener (owner's #6: polyphonic notes, bends, sl
    → ⏳ D3 one spaced-review model for songs, licks, lessons, Game sections (#8), feeding the teacher.
 
 ## Owner notes after build-43 (2026-11-11 21:15: "add them to the list", not fixed yet)
-- ⏳ Now playing bar: an ✕ to close it (it overlays parts of some pages). Proposal to agree: ✕ hides it until the next song is
-  opened (or until he taps Play again); a long-press / Settings option to keep it hidden; it never covers buttons (pages pad for it).
+- ✅ Now playing bar ✕ (2026-11-12, big-update): hides it on every screen until another song is opened (`kg:npHidden` = the song
+  it was hidden for); test `tests/browser/np-test.cjs`.
 - ⏳ Game Mode ball must feel EXACTLY like Yousician's. Now it sometimes "bounces too much" / floats to the next long note. Before
   fixing: study Yousician's ball (videos, frame by frame): one hop per note onset, landing exactly on the onset, hop height and
   shape vs the gap, what it does on long notes, rests, chords and fast runs, and how it leads the eye to the NEXT note. Then match

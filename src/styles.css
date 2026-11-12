@@ -2564,6 +2564,9 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .np-text { display: grid; min-width: 0; flex: 1; line-height: 1.2; }
 .np-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
 .np-go { font: 700 13px var(--ui); color: var(--ink); padding: 0 6px; text-decoration: underline; text-underline-offset: 3px; }
+.now-playing .np-open { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; background: none; border: 0; color: inherit; padding: 0; text-align: left; font: inherit; cursor: pointer; min-height: 44px; }
+.now-playing .np-close { flex: none; width: var(--h-md); height: var(--h-md); min-height: 0; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; padding: 0; }
+.now-playing .np-close:hover, .now-playing .np-close:focus-visible { color: var(--ink); border-color: var(--ink-3); }
 
 /* ---------- tidy-grid windows (components/Win.tsx): narrow windows sit side by side ---------- */
 .win-area.win-grid { flex-flow: row wrap; align-items: flex-start; }
