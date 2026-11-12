@@ -107,3 +107,9 @@ add shells and drop-2 explicitly), voice leading and guide tones (L5–L6), play
 (progressive melodic metal, Dylan Gossett acoustic storytelling, Hawaiian slack key) as style paths that use the levels.
 Its daily 15-minute micro-routine (see it + video → targeted drill with an automatic speed ramp, +3% after 2 clean passes →
 jam over a backing → check-in recorded in Then vs Now) is the shape of each practice day.
+
+## Lesson standard (owner, after the sample lesson 2026-11-11)
+"More depth, same or a tiny bit less quizzes." So: rich Learn steps (the why, the physics/logic behind it, landmarks, how it
+connects to chords and later levels, two routes to every answer), 5–6 worked examples with step-by-step reasoning (not
+quizzes), and at most ~5 quiz links across the practice week + 3 checks (Apply, Hear, Play) + Explain it back. Prefer playing
+exercises in Play over extra quizzes. The sample (src/course/level1.ts, octave shapes) is the model for every lesson.
