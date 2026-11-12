@@ -292,7 +292,8 @@ const guitar = { ...INSTRUMENTS.guitar, tuning: INSTRUMENTS.guitar.tunings[0], m
       }
     }
   }
-  ok(ids.size >= 45, `${ids.size} different videos`)
+  // the lessons the theory course replaced took their videos with them (the course lessons carry their own: course-logic)
+  ok(ids.size >= 30, `${ids.size} different videos`)
   // every exercise of every lesson opens something on every instrument and tuning (nothing silently does nothing)
   for (const def of Object.values(INSTRUMENTS)) for (const tn of def.tunings) {
     const mid = tn.notes.map(noteToMidi)

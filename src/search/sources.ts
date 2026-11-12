@@ -7,6 +7,7 @@ import { EXAMPLES } from '../tabs/examples'
 import { LESSONS } from '../learn/lessons'
 import { TECHNIQUES } from '../learn/techniques'
 import { course } from '../learn/quiz'
+import { COURSE } from '../course'
 import { exerciseCatalog, EX_TYPES, LEVELS, TECHS } from '../exercises/catalog'
 import { LICKS } from '../licks/library'
 import { lessonsAvailable } from '../lessons/folders'
@@ -61,8 +62,14 @@ export function libraryEntries(inst: Instrument, songs: SongDoc[] = []): Entry[]
   }
   for (const l of LESSONS) {
     const paras = l.blocks.flatMap(b => ('p' in b ? [b.p] : 'tip' in b ? [b.tip] : 'list' in b ? b.list : []))
-    out.push({ id: `ls:${l.id}`, kind: 'lesson', title: l.title, where: l.chapter === 'essentials' ? 'Learn → Theory essentials' : 'Learn → Lessons', text: clip(paras[0] ?? '', 140), keys: l.chapter === 'essentials' ? 'lesson theory essentials basics beginner' : 'lesson theory', boost: -0.1,
+    out.push({ id: `ls:${l.id}`, kind: 'lesson', title: l.title, where: 'Learn → Lessons', text: clip(paras[0] ?? '', 140), keys: 'lesson theory', boost: -0.1,
       body: clip(paras.join(' '), 1500), target: { go: { lesson: l.id } } })
+  }
+  // the theory course's deep lessons
+  for (const l of COURSE) {
+    const paras = l.steps.flatMap(st => ('blocks' in st ? st.blocks.flatMap(b => ('p' in b ? [b.p] : 'list' in b ? b.list : [])) : []))
+    out.push({ id: `cl:${l.id}`, kind: 'lesson', title: l.title, where: `Learn → Theory course · Level ${l.level}, lesson ${l.n}`, text: clip(l.goal, 140),
+      keys: `lesson theory course level ${l.level} ${l.topics.join(' ')}`, body: clip(paras.join(' '), 2000), target: { go: { lesson: l.id } }, boost: -0.05 })
   }
   for (const t of TECHNIQUES) {
     out.push({ id: `tq:${t.id}`, kind: 'technique', title: t.title, where: 'Learn → Technique', text: t.why, keys: 'technique how to',

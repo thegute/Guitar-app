@@ -48,7 +48,7 @@ import { GuideScreen } from './GuideScreen'
 import { LickLibrary } from './LickLibrary'
 import { LickChainer } from '../components/LickChainer'
 import { JumpBackIn } from '../components/JumpBackIn'
-import { LESSONS, lessonsFor } from './lessons'
+import { LESSONS, REPLACED, lessonsFor } from './lessons'
 import { courseLesson } from '../course'
 import { DeepLessonView } from '../course/DeepLessonView'
 import { BooksPage } from '../books/BooksPage'
@@ -171,7 +171,7 @@ export function LearnScreen() {
   }
   function launch(g: Go) {
     if ('quiz' in g) push({ k: 'quiz', id: g.quiz })
-    else if ('lesson' in g) push(courseLesson(g.lesson) ? { k: 'deep', id: g.lesson } : { k: 'lesson', id: g.lesson })
+    else if ('lesson' in g) { const id = REPLACED[g.lesson] ?? g.lesson; push(courseLesson(id) ? { k: 'deep', id } : { k: 'lesson', id }) }
     else if ('tool' in g) push({ k: g.tool })
     else if ('tab' in g) goTab(g.tab)
     else if ('song' in g) void getSong(g.song).then(doc => { if (doc) { openInPlay(g.loop === null ? { ...doc, loop: undefined } : g.loop ? { ...doc, loop: g.loop } : doc); if (g.speed) playAction({ speed: g.speed }) } else goTab('play') })
@@ -210,6 +210,7 @@ export function LearnScreen() {
   if (route.k === 'lessons') return <LessonList instId={inst.id} onOpen={id => push(courseLesson(id) ? { k: 'deep', id } : { k: 'lesson', id })} onExit={back} />
   if (route.k === 'books') return <BooksPage key={`${route.id ?? ''}:${route.page ?? ''}:${route.q ?? ''}`} openId={route.id} openPage={route.page} q={route.q} onExit={back} inst={inst} />
   if (route.k === 'deep') { const l = courseLesson(route.id); if (l) return <DeepLessonView key={l.id} lesson={l} inst={inst} onExit={back} onGo={launch} onExercise={runLessonEx} /> }
+  if (route.k === 'lesson' && REPLACED[route.id]) { const l = courseLesson(REPLACED[route.id]); if (l) return <DeepLessonView key={l.id} lesson={l} inst={inst} onExit={back} onGo={launch} onExercise={runLessonEx} /> }
   if (route.k === 'lesson') return <LessonView id={route.id} inst={inst} onExit={back} onOpen={id => replace({ k: 'lesson', id })} onGo={launch} onExercise={runLessonEx} />
   if (route.k === 'changes') return <ChordChanges inst={inst} onExit={back} />
   if (route.k === 'bends') return <BendTrainer inst={inst} onExit={back} />

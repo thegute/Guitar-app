@@ -1,7 +1,6 @@
 // Theory lessons. The chapter outline follows Offtonic Theory (https://www.offtonic.com/theory/) so you can read the
 // full chapters there; the explanations here are written for this app, aimed at guitar and ukulele players,
 // with examples you can hear and see on the neck. Plus guitar-specific chapters at the end.
-import { THEORY_LESSONS } from './theoryCourse'
 
 export type Block =
   | { p: string }
@@ -40,7 +39,6 @@ const MAJOR = [0, 2, 4, 5, 7, 9, 11, 12]
 const NAT_MINOR = [0, 2, 3, 5, 7, 8, 10, 12]
 
 export const CHAPTERS: { id: string; title: string; part: string; guitarOnly?: boolean }[] = [
-  { id: 'essentials', title: 'Guitar theory: the essentials', part: 'Start here · 12 lessons', guitarOnly: true },
   { id: 'start', title: 'Start here', part: 'Preface' },
   { id: 'basics', title: 'The basics', part: 'Part I · Preliminaries' },
   { id: 'rhythm', title: 'Rhythm', part: 'Part I · Preliminaries' },
@@ -371,7 +369,18 @@ const OFFTONIC_LESSONS: Lesson[] = [
   ] },
 ]
 
-export const LESSONS: Lesson[] = [...THEORY_LESSONS, ...OFFTONIC_LESSONS]
+/** Old lessons the theory course (Levels 1–3) replaced (owner 2026-11-11): they're gone from the list, and any link to
+ *  one (plans, search, the helper, old reviews) opens its course lesson instead. The 12 No Bull "essentials" went too. */
+export const REPLACED: Record<string, string> = {
+  'tb-alphabet': 'c1-strings', 'tb-steps': 'c1-steps', 'tb-major': 'c2-major', 'tb-triads': 'c2-triads', 'tb-intervals': 'c2-intervals',
+  'tb-chromatic': 'c2-chromatic', 'tb-keys1': 'c2-keys', 'tb-keys2': 'c2-keychords', 'tb-progressions': 'c3-progressions',
+  'tb-pentatonic': 'c3-minorpent', 'tb-minor': 'c3-natminor', 'tb-minorkeys': 'c3-minorkeys',
+  reading: 'c1-reading', alphabet: 'c1-strings', pitch: 'c1-octaves', durations: 'c1-rhythm', counting: 'c1-rhythm',
+  meter: 'c3-rhythm', syncopation: 'c2-rhythm', swing: 'c3-rhythm', diatonic: 'c2-major', intervals: 'c2-intervals', keys: 'c2-keys',
+  circle: 'c2-circle', 'interval-sounds': 'c2-chromatic', 'ear-together': 'c2-keys', 'harmony-intro': 'c2-triads', triads: 'c2-keychords',
+  principal: 'c3-natminor', pentatonic: 'c3-minorpent', roman: 'c2-keychords',
+}
+export const LESSONS: Lesson[] = OFFTONIC_LESSONS.filter(l => !REPLACED[l.id])
 
 const GUITAR_ONLY = new Set(CHAPTERS.filter(c => c.guitarOnly).map(c => c.id))
 /** The lessons for an instrument: the guitar essentials (they talk about guitar strings) are left out on ukuleles. */

@@ -10,6 +10,7 @@ import type { Block } from '../src/learn/lessons'
 import { findQuiz } from '../src/learn/quiz'
 import { SONGBOOK } from '../src/tabs/songbook'
 import { INSTRUMENTS } from '../src/instrument'
+import { lessonTab } from '../src/learn/lessonExtras'
 
 let n = 0, failed = 0
 const check = (name: string, f: () => void) => { n++; try { f() } catch (e) { failed++; console.log('  FAIL', name, (e as Error).message) } }
@@ -75,6 +76,14 @@ for (const l of COURSE) {
         assert.ok(sb, `songbook ${JSON.stringify(t.ex)}`)
         assert.ok(sb.parts.some(p => p.id === (t.ex as { songbook: { part: string } }).songbook.part), `songbook part ${JSON.stringify(t.ex)}`)
       }
+    }
+  })
+  check(`${l.id}: every lesson tab builds on guitar and ukuleles`, () => {
+    for (const t of tasksOf(l)) if ('ex' in t && 'tab' in t.ex) for (const [inst, midis] of TUNINGS) {
+      const song = lessonTab((t.ex as { tab: string }).tab, midis)
+      const notes = song.tracks[0].bars.flatMap(b => b.steps.flatMap(st => st.notes))
+      assert.ok(notes.length >= 4, `${t.ex.label} (${inst}): ${notes.length} notes`)
+      for (const n of notes) assert.ok(n.fret >= 0 && n.fret <= 15 && midis[n.string] + n.fret === n.midi, `${t.ex.label} (${inst}): string ${n.string} fret ${n.fret}`)
     }
   })
   check(`${l.id}: neck pictures are drawn right`, () => {

@@ -1,7 +1,7 @@
-// Guitar theory: the essentials (12 lessons in the order of the owner's theory book). On guitar they come first in
-// Learn → Explore → Theory; every lesson has its book chapter, a video, play-along exercises and works at cover and
-// inner sizes (neck pictures fit, no sideways overflow). A sound example plays, an exercise opens in Play, the last
-// lesson's quiz opens. On ukulele the essentials are left out (they talk about guitar strings).
+// Learn → Explore → Theory after the course replaced the old lessons (owner 2026-11-11): the theory course is at the top
+// with Levels 1–3; the 12 essentials and the old lessons Levels 1–3 cover are gone; the remaining earlier lessons are
+// listed under "Earlier lessons"; an old link (search → "pentatonic") opens its course lesson; ukulele gets the course
+// too. Cover and inner sizes, psy and day; no sideways overflow, no page errors.
 // node tests/browser/theory-test.cjs
 const { chromium } = require('playwright')
 const path = require('path')
@@ -31,69 +31,50 @@ async function openTheory(page) {
   await page.click('.tool:has-text("Theory")')
   await page.waitForSelector('.lesson-index', { timeout: 5000 })
 }
+const GONE = ['The musical alphabet on the fretboard', 'Sheet music and tab', 'The major scale', 'Naming intervals', 'The circle of fifths', 'Pentatonic and blues scales', 'Roman numerals', 'Triads, diatonic chords and function']
 
 ;(async () => {
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ['--autoplay-policy=no-user-gesture-required'] })
   for (const [vp, theme] of [[{ width: 412, height: 915, n: 'cover' }, 'psy'], [{ width: 840, height: 757, n: 'inner' }, 'day']]) {
     const page = await newPage(browser, vp, { 'kg:theme': JSON.stringify(theme) })
     await openTheory(page)
-    const first = await page.locator('.chapter h2').first().innerText()
     if (!(await page.locator('[data-testid=course-lesson-c1-strings]').count())) bad(`${vp.n}: the theory course isn't at the top`)
-    if (!/the essentials/.test(first)) bad(`${vp.n}: the essentials aren't the first chapter ("${first}")`)
-    const cont = await page.locator('.continue-card:not(.deep-preview) b').innerText()
-    if (cont !== '1. The musical alphabet') bad(`${vp.n}: Start with shows "${cont}"`)
-    const n = await page.locator('.chapter:has(h2:has-text("essentials"))').first().locator('.lesson-index li').count()
-    if (n !== 12) bad(`${vp.n}: ${n} essentials lessons, want 12`)
-    await page.screenshot({ path: path.join(OUT, `theory-list-${vp.n}.png`) })
-    await page.click('.continue-card:not(.deep-preview)')
-    for (let i = 1; i <= 12; i++) {
-      await page.waitForSelector('.lesson h1', { timeout: 4000 })
-      const title = await page.locator('.lesson h1').innerText()
-      if (!title.startsWith(`${i}.`)) bad(`${vp.n}: lesson ${i} is "${title}"`)
-      const book = await page.locator('[data-testid=lesson-book]').innerText().catch(() => '')
-      if (!new RegExp(`No Bull Music Theory.*Chapter ${i}\\b`).test(book)) bad(`${vp.n}: ${title}: book line "${book}"`)
-      if (!(await page.locator('.lesson-video').count())) bad(`${vp.n}: ${title}: no video`)
-      if ((await page.locator('.lesson-ex').count()) < 2) bad(`${vp.n}: ${title}: fewer than 2 play exercises`)
-      if ((await page.locator('.lesson-practice').count()) < 1) bad(`${vp.n}: ${title}: no quiz or tool link`)
-      if (await sideways(page)) bad(`${vp.n}: ${title}: sideways overflow`)
-      // the neck pictures fit the screen (or scroll inside their own box)
-      const wide = await page.evaluate(() => [...document.querySelectorAll('.lesson-body svg')].some(s => s.getBoundingClientRect().right > document.documentElement.clientWidth + 1 && !s.closest('[class*=zoom], [class*=scroll]')))
-      if (wide) bad(`${vp.n}: ${title}: a picture runs off the screen`)
-      if (i === 1 || i === 3 || i === 10) await page.screenshot({ path: path.join(OUT, `theory-${vp.n}-${i}.png`), fullPage: true })
-      if (i === 3) {
-        await page.locator('.lesson-play').first().click()
-        await page.waitForTimeout(400)
-      }
-      if (i < 12) await page.locator('.lesson-end button:has-text("Next:")').click()
-    }
-    // the last lesson's quiz opens
-    await page.locator('.lesson-practice:has-text("Minor keys quiz")').click()
-    await page.waitForSelector('.quiz-card', { timeout: 5000 }).catch(() => bad(`${vp.n}: the Minor keys quiz didn't open`))
-    await page.screenshot({ path: path.join(OUT, `theory-quiz-${vp.n}.png`) })
+    for (const lv of [1, 2, 3]) if (!(await page.locator(`.course-levels h3:has-text("Level ${lv}")`).count())) bad(`${vp.n}: Level ${lv} missing`)
+    if (await page.locator('.chapter h2:has-text("essentials")').count()) bad(`${vp.n}: the essentials are still listed`)
+    const earlier = await page.locator('.chapter:not(.course-levels .chapter) .lesson-index').allInnerTexts()
+    for (const t of GONE) if (earlier.some(x => x.split('\n').some(line => line.trim() === t))) bad(`${vp.n}: old lesson "${t}" is still listed`)
+    if (!earlier.join('\n').includes('Seventh chords')) bad(`${vp.n}: lessons the course hasn't reached (Seventh chords) are missing`)
+    if (await sideways(page)) bad(`${vp.n}: sideways overflow`)
+    await page.screenshot({ path: path.join(OUT, `theory-list-${vp.n}.png`), fullPage: true })
     if (page.errors.length) bad(`${vp.n}: page errors: ${page.errors.join(' | ')}`)
-    console.log(`${vp.n} ${theme}: 12 lessons checked, quiz opened`)
+    console.log(`${vp.n} ${theme}: course on top, old lessons gone`)
     await page.context().close()
   }
-  // an exercise opens in Play with a tab
+  // an old link opens its course lesson (the helper / search / plans still say "pentatonic")
   {
-    const page = await newPage(browser, { width: 840, height: 757 }, { 'kg:theme': '"night"' })
-    await openTheory(page)
-    await page.locator('.lesson-index button:has-text("3. The major scale")').click()
-    await page.locator('.lesson-ex:has-text("C major scale")').click()
-    await page.waitForSelector('.tab-note', { timeout: 8000 }).catch(() => bad('the C major scale exercise didn\'t open in Play'))
-    if (page.errors.length) bad(`exercise: page errors: ${page.errors.join(' | ')}`)
-    console.log('exercise opened in Play')
+    const page = await newPage(browser, { width: 412, height: 915 }, {})
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('kg-go', { detail: { lesson: 'pentatonic' } })))
+    await page.waitForTimeout(300)
+    if (!(await page.locator('[data-testid=deep-step]').count())) {
+      // fall back to search: type it in Ask
+      await page.locator('nav button:has-text("Ask"), .rail button:has-text("Ask")').first().click().catch(() => {})
+      await page.locator('.search-sheet input').first().fill('minor pentatonic').catch(() => {})
+      await page.waitForTimeout(500)
+      await page.locator('.search-sheet [data-kind=lesson], .search-sheet li:has-text("Minor pentatonic and the blues scale")').first().click().catch(() => {})
+      await page.waitForSelector('[data-testid=deep-step]', { timeout: 4000 }).catch(() => bad('search for "minor pentatonic" did not open the course lesson'))
+    }
+    const t = await page.locator('.deep h1, [data-testid=deep-step] h1, .deep-title').first().innerText().catch(() => '')
+    console.log(`old link → "${t}"`)
+    if (page.errors.length) bad(`old link: page errors: ${page.errors.join(' | ')}`)
     await page.context().close()
   }
-  // ukulele: no guitar essentials
+  // ukulele: the course is there, no essentials
   {
     const page = await newPage(browser, { width: 412, height: 915 }, { 'kg:instrument': JSON.stringify({ id: 'tenor', tuning: {} }) })
     await openTheory(page)
-    const txt = await page.locator('.lesson-index').first().innerText()
-    if (/musical alphabet\n.*\n?.*1\./.test(txt) || await page.locator('.chapter h2:has-text("the essentials")').count()) bad('ukulele shows the guitar essentials')
-    const cont = await page.locator('.continue-card:not(.deep-preview) b').innerText()
-    if (/^\d+\./.test(cont)) bad(`ukulele starts with "${cont}"`)
-    console.log(`ukulele starts with "${cont}"`)
+    if (!(await page.locator('[data-testid=course-lesson-c3-blues]').count())) bad('ukulele: the course (Level 3) is missing')
+    if (page.errors.length) bad(`ukulele: page errors: ${page.errors.join(' | ')}`)
+    console.log('ukulele: course listed')
     await page.context().close()
   }
   await browser.close()

@@ -325,11 +325,11 @@ export function LessonList({ onOpen, onExit, instId }: { onOpen: (id: string) =>
       <h1 style={{ margin: 0 }}>Theory</h1>
       <p className="small muted" style={{ margin: 0 }}>
         {instId === 'guitar' || !instId
-          ? 'The new theory course comes first. Below it are the earlier lessons (12 short essentials in No Bull\'s order, then lessons following Offtonic Theory, a free online textbook) until the course replaces them.'
+          ? 'The theory course comes first: Levels 1–3 so far, from the notes on the neck to minor keys and the blues. Below it are the earlier short lessons on topics the course hasn\'t reached yet (they follow Offtonic Theory, a free online textbook); each goes once its course level is written.'
           : 'Short lessons written for guitar and ukulele, following the chapters of Offtonic Theory, a free online textbook (each lesson links to its chapter if you want the full version). Every lesson has sounds to tap and something to try.'}
       </p>
       {COURSE.length > 0 && <CourseLevels onOpen={onOpen} />}
-      <h2 className="course-earlier">Earlier lessons <span className="small muted">(being replaced by the course, level by level)</span></h2>
+      <h2 className="course-earlier">Earlier lessons <span className="small muted">(topics the course hasn\'t reached yet)</span></h2>
       <button className="continue-card" onClick={() => onOpen(nxt.id)}>
         <span className="small muted">{read.size ? 'Continue with' : 'Start with'}</span>
         <b>{nxt.title}</b>
