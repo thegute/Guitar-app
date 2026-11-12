@@ -43,10 +43,11 @@ Hear it drives it · 9 floating cards + resizable tidy-grid windows · Exercises
 
 ## Theory course (owner 2026-11-11, alongside)
 - 🔨 Replaces the old theory lessons: 8 levels, beginner → expert, No Bull is the spine of Levels 1–3, Kolb + his other books after;
-  deep lessons (why, ground-up idea, worked examples, hear it, mistakes, practice week, use it, check, go deeper, spaced review);
-  ear training woven into every level; optional notation track; rhythm in every level; ukes adapted; open with a suggested path,
-  mastery checks strongly suggested, never required. Plan: notes/THEORY-COURSE.md. ✅ Level 1 complete (7 deep lessons + mastery
-  check, 2026-11-11); ⏳ Levels 2–8, then the old lessons go.
+  deep lessons (why, ground-up idea, worked examples, hear it, mistakes, practice GOALS + challenge round, use it, check, go deeper,
+  spaced review); ear training woven into every level; optional notation track; rhythm in every level; ukes adapted; open with a
+  suggested path, mastery checks strongly suggested, never required. Plan: notes/THEORY-COURSE.md. ✅ Levels 1–3 complete (26 lessons
+  = all of No Bull, 2026-11-11); ✅ old lessons Levels 1–3 cover removed (old links redirect); ✅ Daniel Seriff's 5-fret triad window
+  in L2. ⏸ Levels 4–8 paused while other work goes first (owner 2026-11-11); his approach to be used for L4–L6.
 - ✅ Book pack (private) + My books: shelf, reader, "In your books" links, Play this page, book courses, helper grounding, search.
 
 ## Stage 4: Riff Scanner "three-sense" overhaul
