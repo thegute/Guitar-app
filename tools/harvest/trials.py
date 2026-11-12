@@ -59,10 +59,14 @@ def phrase_strum():
         sh = notes_of(SHAPES[ch])
         for j, (b, d, v) in enumerate(pat):
             ns = sh if d == 'D' else list(reversed(sh[-4:]))
-            # strings ring until the next strum (a real strum hand never mutes between strums)
+            # strings ring until the next strum starts (a real strum hand never mutes between strums). The note-off must
+            # come BEFORE the next strum's note-on of the same pitch: a late note-off would cut the NEW note ~30 ms in,
+            # which is exactly the "chuck / hiccup" the owner heard in the first strum test.
             nxt = pat[j + 1][0] if j + 1 < len(pat) else 4
             for (s, m), (off, vv) in zip(ns, strum_times(len(ns), d == 'U', v)):
-                ev.append({'t': round(t + b * BEAT + off, 4), 'note': m, 'vel': vv, 'dur': (nxt - b) * BEAT + 0.03, 'string': s})
+                start = t + b * BEAT + off
+                end = t + nxt * BEAT - 0.004
+                ev.append({'t': round(start, 4), 'note': m, 'vel': vv, 'dur': round(max(0.05, end - start), 4), 'string': s})
         t += 4 * BEAT
     return ev, t
 

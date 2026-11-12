@@ -136,3 +136,21 @@ pedal steel (Hawaiian), jazz archtop, a humbucker (Les Paul) guitar for classic 
   or check why pedalboard's show_editor window doesn't show: maybe it opened behind / off-space).
 - Ample SJ: String keyswitches G0–C1 = strings 6→1 (check octave naming), C0 sustain, C#0 harmonic, D0 palm mute,
   D#0 slide in/out, E0 legato slide, F0 hammer/pull; velocity 127 = pop.
+
+## Progress 2026-11-12 midday
+- Agent: plug-in windows open in a subprocess (capture_state.py: NSApplication regular policy so the window shows, warm-up
+  before the window so Kontakt finishes initialising, reopens a saved state warmed up). Computer use can SEE that window
+  but its clicks are refused there: the owner clicks. Escape closes it without saving (a "close" flag then frees the agent).
+  agent.py now reloads agent_actions.py every job (restart only once more to get it).
+- Rates: Kontakt jobs at 44.1 kHz (pedalboard prepares at 44.1; a change makes Kontakt ask for a restart). Ample at 48 kHz.
+- Ample SJ: library path fixed in ASHost (Library folder), whole pack rendered (packs/agsj: sustain 3 vel, pm, harmonics,
+  main + ab stems). Its RRs are the same recording (corr 0.9986): plan rr 1, export_pack.py drops duplicates, engine adds
+  ±2 cents / ±0.6 dB to single-take layers. String keyswitches 31–36 checked by inharmonicity.
+- Blind test (trials/ab): owner preferred Flatpick 6 on every phrase → main acoustic. Strum "chuck" was a trial bug
+  (note-off after the next note-on of the same pitch): fixed in trials.py.
+- Orange Tree SETUP (Stratosphere 1.3.5): Guitar Pickup (several positions, check for a humbucker), Multitracking, Pick
+  style / modeling / noise, Release volume, Fretting Mode (Static / Dynamic Position), Fretting Position, Prioritize open
+  strings, Dynamic morphing, Velocity curve, Alternate Tuning, strum settings, legato, bends, vibrato, Sample Purging.
+  Manual: "Channel-Based Strings" (MIDI channel 1 = highest string) and String Selection Keys force the string → to set ON
+  in each Orange Tree state before the full renders (render.py: stringChannels with channel = 5 - string).
+- Next: Stratosphere + Flatpick: Channel-Based Strings ON; pickups → one state per pickup; Dracus; then Archetype re-amps.
