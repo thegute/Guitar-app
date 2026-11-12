@@ -153,7 +153,7 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
     await page.waitForTimeout(400)
     const t = await sees()
     console.log(`sees on a lesson: ${t.slice(0, 80)}`)
-    if (!/Theory lesson ".+"/.test(t)) bad("helper doesn't see the open theory lesson")
+    if (!/Theory (course )?lesson ".+"/.test(t)) bad("helper doesn't see the open theory lesson")
     if (page.errors.length) bad('sees page errors: ' + page.errors.join(' | '))
     await page.context().close()
   }
