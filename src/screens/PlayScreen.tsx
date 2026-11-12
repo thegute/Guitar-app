@@ -913,6 +913,25 @@ export function PlayScreen() {
   }
   useEffect(() => { stopPreview() }, [flat]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Game Mode: start from a spot (a tapped "Start here", From the top, From my loop). In time starts the run from there
+  // (straight into the count-in when it was already running); Wait for me moves the cursor there and listens. A spot
+  // outside the loop drops the loop (you asked to play from there).
+  const [gameRun, setGameRun] = useState<{ n: number; direct: boolean } | null>(null)
+  function gameGoTo(k: number, keepLoop = false) {
+    const wasRunning = inTime.running
+    if (loopRange && !keepLoop && (k < loopRange.a || k > loopRange.b)) setLoop(undefined)
+    if (inTime.running) inTime.stop()
+    stopPreview()
+    restart(Math.max(0, k))
+    if (mode === 'time') setGameRun(r => ({ n: (r?.n ?? 0) + 1, direct: wasRunning }))
+    else if (!listening) void toggleListen()
+  }
+  useEffect(() => {
+    if (!gameRun || mode !== 'time') return
+    if (gameRun.direct) inTime.start(); else void toggleRun()
+  }, [gameRun]) // eslint-disable-line react-hooks/exhaustive-deps
+  const gameStartAt = (flatIdx: number) => { const k = follow.idx.findIndex(i => i >= flatIdx); gameGoTo(k < 0 ? follow.idx.length - 1 : k) }
+
   function restart(from = loopRange ? loopRange.a : 0) {
     setReport(null)
     autoCancel()
@@ -1521,6 +1540,8 @@ export function PlayScreen() {
             onPlayFor={playFor}
             onPerfect={sec => { setLoop({ from: sec.fromBar, to: sec.toBar }); setMode('time'); setTrainer({ on: true, start: Math.min(1, Math.max(0.5, speed - 0.1)), step: 0.05, target: 1.25, pass: 90, down: 60, min: 0.25 }); setLoopBlink(b => ({ k: (b?.k ?? 0) + 1, text: `Perfect it: ${sec.name}. Press Start` })) }}
             onAgain={() => { restart(); if (mode === 'time') void toggleRun() }}
+            onStartAt={gameStartAt} onTop={() => { if (loop) setLoop(undefined); gameGoTo(0, true) }}
+            onLoopStart={loopRange ? () => gameGoTo(loopRange.a, true) : undefined}
             along={mode === 'time' && (guide || withBand)} bandAvail={bandAvail}
             onAlong={on => { if (inTime.running) inTime.stop(); setGuide(on); if (bandAvail) setBandOn(on); if (on && mode !== 'time') setMode('time') }} />
         ) : <TabView track={track} mode={labelMode} flats={flats} cursor={inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0 || inTime.running} states={states.current}

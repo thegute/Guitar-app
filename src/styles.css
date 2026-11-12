@@ -2407,6 +2407,9 @@ body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-re
 .gh-zoom { position: absolute; top: 6px; right: 6px; display: flex; align-items: center; gap: 4px; }
 .gh-btn { min-width: 34px; min-height: 32px; border-radius: var(--r-sm); border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 88%, transparent); color: var(--ink); font-weight: 700; }
 .gh-btn.now { padding: 0 10px; background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.gh-start { position: absolute; transform: translate(-50%, -50%); z-index: 3; padding: 8px 14px; white-space: nowrap; border-radius: var(--r-pill); border: 2px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 15px; box-shadow: 0 4px 16px rgba(0,0,0,.35); animation: gh-pop .18s ease-out; }
+@keyframes gh-pop { from { transform: translate(-50%, -50%) scale(.7); opacity: 0 } to { transform: translate(-50%, -50%) scale(1); opacity: 1 } }
+@media (prefers-reduced-motion: reduce) { .gh-start { animation: none; } }
 .gh-secs { font: 600 12px var(--ui); color: var(--ink); background: color-mix(in srgb, var(--surface) 80%, transparent); border-radius: var(--r-sm); padding: 2px 6px; }
 .gh-size { height: 22px; display: grid; place-items: center; position: relative; color: var(--ink-3); cursor: move; touch-action: none; font-size: 12px; }
 .gh-grip { position: absolute; right: 4px; bottom: 2px; font-size: 14px; line-height: 1; color: var(--ink-2); }

@@ -36,6 +36,10 @@ export interface GameViewProps {
   onPlayFor: (flat: number, note?: number) => void
   onPerfect: (sec: Section) => void
   onAgain: () => void
+  /** start from a step / from the top / from the loop's start (the loop only when there is one) */
+  onStartAt: (flat: number) => void
+  onTop: () => void
+  onLoopStart?: () => void
   /** the song plays along with you (In time): your part (the guide) and the band, mixed with one slider */
   along: boolean
   bandAvail: boolean
@@ -125,6 +129,8 @@ export function GameView(p: GameViewProps) {
         <span className={`game-mult m${sc.mult}`} data-testid="game-mult" title="Clean notes in a row raise it (8 per step), a miss drops it back to 3×">{sc.mult}×</span>
         <span className="small">Streak <b className="tabular">{sc.streak}</b></span>
         <span className="game-spacer" />
+        <button className="btn sm" onClick={() => { reset(); p.onTop() }} title="Start over from the beginning of the song" data-testid="game-top"><Ico n="back" /> From the top</button>
+        {p.onLoopStart && <button className="btn sm" onClick={() => { reset(); p.onLoopStart!() }} title="Start over from the beginning of your loop" data-testid="game-loopstart"><Ico n="loop" /> From my loop</button>}
         <button className="btn sm" onClick={() => nextItem && p.onPlayFor(nextItem.flat)} title="Hear the next note or chord" data-testid="game-playfor"><Ico n="ear" /> Play for me</button>
         <label className="row small" style={{ gap: 4, alignItems: 'center' }} title="Each loop: 90% or better speeds up 5%, under 60% slows down 5% (25–125%)">
           <input type="checkbox" checked={p.autoSpeed} onChange={e => p.onAutoSpeed(e.target.checked)} data-testid="game-auto" /> Auto speed {p.autoSpeed && <b className="tabular">{p.speedPct}%</b>}
@@ -139,7 +145,7 @@ export function GameView(p: GameViewProps) {
         {p.along && p.bandAvail && <button className="btn sm" onClick={() => { if (!shownCards('play').includes('mixer')) toggleCard('play', 'mixer') }} data-testid="game-mixer" title="Each part's volume, mute and solo"><Ico n="sliders" /> Mixer</button>}
       </div>
       <GameHighway items={items} sections={sections} barBeats={barBeats} stringNames={p.stringNames} beatNow={p.beatNow} cursorBeat={cursorBeat}
-        spb={p.spb} states={p.states} feedback={fb} sectionStars={live} onTap={(f, n) => p.onPlayFor(f, n)} />
+        spb={p.spb} states={p.states} feedback={fb} sectionStars={live} onTap={(f, n) => p.onPlayFor(f, n)} onStartAt={f => { reset(); p.onStartAt(f) }} />
       <div className="game-legend small muted" aria-hidden>
         {['open', '1st', '2nd', '3rd', '4th'].map((n, i) => <span key={n}><i className={`fdot f${i}`} />{n === 'open' ? 'open string' : `${n} finger`}</span>)}
       </div>

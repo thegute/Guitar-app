@@ -5,7 +5,8 @@
 // it follows In time's clock or Hear it's playhead. Drawn on a canvas each frame.
 // Zoom: pinch sideways (or − / +) shows fewer or more seconds ahead (1.5–8 s, kg:gameSecs). Size: drag the handle under it for
 // taller or shorter strings (kg:gameGap). Look ahead: drag it sideways with one finger; let go and it glides back to now
-// (straight away while the music moves, after a moment when stopped). A tap without dragging still plays the note.
+// (straight away while the music moves, after a moment when stopped). A tap without dragging plays the note and shows
+// "▶ Start here": tap that to play from there (a second tap on purpose, so a stray touch mid-song never moves you).
 import { useEffect, useRef, useState } from 'react'
 import { usePinch } from './Zoomable'
 import { FINGER_COLORS, type HighwayItem, type Section, type SectionResult } from '../play/game'
@@ -27,6 +28,8 @@ interface Props {
   feedback: GameFeedback | null
   sectionStars: SectionResult[]
   onTap: (flat: number, note: number) => void
+  /** start playing from this step (the "Start here" chip a tap shows) */
+  onStartAt?: (flat: number) => void
   height?: number
 }
 
@@ -55,6 +58,10 @@ export function GameHighway(p: Props) {
   // looking ahead (or back): beats the view is moved from now; it glides back when you let go
   const look = useRef({ off: 0, dragging: false, from: 0, off0: 0, moved: false, back: 0, fingers: 0 })
   const [looking, setLooking] = useState(false)
+  // a tap shows "Start here" at that spot for a few seconds (one more tap jumps there: an accidental touch while playing
+  // never moves you)
+  const [startChip, setStartChip] = useState<{ flat: number; x: number; y: number; key: number } | null>(null)
+  useEffect(() => { if (!startChip) return; const id = setTimeout(() => setStartChip(null), 3500); return () => clearTimeout(id) }, [startChip])
   const resize = useRef<() => void>(() => {})
   useEffect(() => { resize.current() }, [gapPick, widthPick])
 
@@ -358,6 +365,12 @@ export function GameHighway(p: Props) {
       it.notes.forEach((n, ni) => { const ny = L.top + (nStr - 1 - n.string) * L.gap; const d = Math.hypot(nx - x, ny - y); if (d < 34 && (!best || d < best.d)) best = { flat: it.flat, note: ni, d } })
     }
     if (best) P.onTap((best as { flat: number }).flat, (best as { note: number }).note)
+    // where to start: the note tapped, or the first one at or after the tapped spot
+    if (P.onStartAt) {
+      const beat = now + (x - L.hitX) / Math.max(1, L.ppb)
+      const at = best ? (best as { flat: number }).flat : (P.items.find(it => it.beat >= beat - 0.25) ?? P.items[P.items.length - 1])?.flat
+      if (at !== undefined) setStartChip({ flat: at, x: Math.max(70, Math.min(r.width - 70, x)), y: Math.max(26, Math.min(r.height - 26, y)), key: Date.now() })
+    }
   }
   return (
     <div ref={wrap} className="game-highway" data-testid="game-highway" style={widthPick ? { width: `${widthPick * 100}%` } : undefined}>
@@ -369,6 +382,12 @@ export function GameHighway(p: Props) {
         <span className="gh-secs tabular" title="Seconds of music on screen">{secs.toFixed(1)} s</span>
         <button className="gh-btn" onClick={() => saveSecs(secs / 1.25)} aria-label="Zoom in: bigger notes" data-testid="game-zoom-in">+</button>
       </div>
+      {startChip && props.current.onStartAt && (
+        <button key={startChip.key} className="gh-start" style={{ left: startChip.x, top: startChip.y }} data-testid="game-start-here"
+          onClick={() => { const f = startChip.flat; setStartChip(null); backToNow(); props.current.onStartAt?.(f) }}>
+          ▶ Start here
+        </button>
+      )}
       <div className="gh-size" onPointerDown={sizeDrag} onDoubleClick={fitBox} role="separator" aria-label="Drag down or up for taller or shorter strings, sideways for wider or narrower; double tap to fit the box again" title="Drag to resize (up/down and sideways) · double tap: fit the box" data-testid="game-size"><span aria-hidden>⇕</span><span className="gh-grip" aria-hidden>◢</span></div>
     </div>
   )
