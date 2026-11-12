@@ -116,28 +116,31 @@ def act_probe(job):
 
 
 def act_capture(job):
-    p = plugin(job)
-    close = threading.Event()
+    """Open the plug-in's window in a SEPARATE process (a plug-in window can block the process that opens it), so the
+    agent itself never hangs: the window closes when jobs/close appears, the timeout passes, or the owner closes it."""
     flag = os.path.join(JOBS, 'close')
     if os.path.exists(flag):
         os.remove(flag)
-
-    def watch():
-        limit = time.time() + job.get('timeout', 3600)
-        while not close.is_set() and time.time() < limit:
+    dest = out_path(job['out'])
+    path = os.path.expanduser(job['plugin'])
+    if not inside(path, PLUGIN_DIRS):
+        raise ValueError(f'plug-ins are loaded from the plug-in folders only: {path}')
+    args = [sys.executable, os.path.join(HERE, 'capture_state.py'), path, dest[:-6] if dest.endswith('.state') else dest]
+    if job.get('pluginName'):
+        args += ['--name', job['pluginName']]
+    proc = subprocess.Popen(args)
+    limit = time.time() + job.get('timeout', 1800)
+    while proc.poll() is None:
+        if os.path.exists(flag) or time.time() > limit:
             if os.path.exists(flag):
                 os.remove(flag)
-                break
-            time.sleep(0.3)
-        close.set()
-    threading.Thread(target=watch, daemon=True).start()
-    log(f'capture: the {getattr(p, "name", "plug-in")} window is open (set it up, then close it)')
-    p.show_editor(close)
-    close.set()
-    dest = out_path(job['out'])
-    with open(dest, 'wb') as f:
-        f.write(p.raw_state)
-    return {'state': dest, 'bytes': len(p.raw_state)}
+            proc.kill()
+            proc.wait()
+            raise RuntimeError('the plug-in window was closed from outside before it saved (nothing saved)')
+        time.sleep(0.3)
+    if proc.returncode != 0:
+        raise RuntimeError(f'capture_state.py ended with code {proc.returncode}')
+    return {'state': dest, 'bytes': os.path.getsize(dest)}
 
 
 def chain_of(specs):

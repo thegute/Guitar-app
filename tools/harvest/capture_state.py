@@ -23,6 +23,15 @@ def main():
     a = ap.parse_args()
     p = load_plugin(a.plugin, plugin_name=a.name) if a.name else load_plugin(a.plugin)
     print(f'Loaded {p.name if hasattr(p, "name") else a.plugin}. Set it up in its window, then close the window to save.')
+    try:
+        # a plain python process is a background app on macOS: its windows open hidden unless it asks to be a regular,
+        # active app first (needs pyobjc-framework-Cocoa in the venv; without it the window may stay hidden)
+        from AppKit import NSApplication, NSApplicationActivationPolicyRegular
+        app = NSApplication.sharedApplication()
+        app.setActivationPolicy_(NSApplicationActivationPolicyRegular)
+        app.activateIgnoringOtherApps_(True)
+    except Exception as e:
+        print(f'(could not bring the window to the front: {e})')
     p.show_editor()
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out + '.state', 'wb') as f:
