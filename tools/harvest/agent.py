@@ -129,6 +129,10 @@ def act_capture(job):
     args = [sys.executable, os.path.join(HERE, 'capture_state.py'), path, dest[:-6] if dest.endswith('.state') else dest]
     if job.get('pluginName'):
         args += ['--name', job['pluginName']]
+    if job.get('start'):
+        args += ['--start', in_path(job['start'])]
+    if job.get('warm'):
+        args += ['--warm', str(job['warm'])]
     proc = subprocess.Popen(args)
     limit = time.time() + job.get('timeout', 1800)
     while proc.poll() is None:

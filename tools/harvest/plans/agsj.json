@@ -1,0 +1,23 @@
+{
+  "id": "agsj",
+  "name": "Super Jumbo acoustic (Ample SJ)",
+  "kind": "guitar",
+  "plugin": "/Library/Audio/Plug-Ins/VST3/AGSJ.vst3",
+  "warmup": 8,
+  "params": { "fx_bypassed": true, "m_doubling_tog": false, "s_strum_toggle": false, "play_mode": 0.0, "m_capo": 0.0 },
+  "stems": [
+    { "dir": "", "gain": 1, "mono": true, "params": { "m_mic_1_vol": 1.0, "m_mic_2_vol": 0.5, "m_mic_3_vol": 0.0 } },
+    { "dir": "ab", "gain": 0.8, "params": { "m_mic_1_vol": 0.0, "m_mic_2_vol": 0.0, "m_mic_3_vol": 1.0 } }
+  ],
+  "stringKeys": [31, 32, 33, 34, 35, 36],
+  "sampleRate": 48000,
+  "tuning": [40, 45, 50, 55, 59, 64],
+  "frets": [0, 15],
+  "tuneOver": 5,
+  "articulations": {
+    "sustain": { "keyswitch": 24, "velocities": [45, 82, 115], "rr": 4, "tail": 1.2 },
+    "pm": { "keyswitch": 26, "velocities": [60, 100], "rr": 3, "hold": 0.5, "tail": 0.4 },
+    "harmonic": { "keyswitch": 25, "velocities": [90], "rr": 2, "frets": [5, 12], "fretStep": 7, "tail": 1.5 }
+  },
+  "_notes": "Ample SJ: string keyswitches G0–C1 (31–36) = 6th → 1st string (checked: inharmonicity falls 6th → 4th). Keyswitches C0 sustain, C#0 harmonic, D0 palm mute, D#0 slide in, E0 legato slide, F0 hammer/pull. Mic 1/2/3 = body / neck / AB pair: the main stem is body + a little neck (folds to mono cleanly), the 'ab' stem is the spaced pair for width in stereo only. Harmonics at frets 5 and 12 (fretStep 7 from 5)."
+}
