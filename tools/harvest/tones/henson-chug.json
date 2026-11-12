@@ -1,0 +1,33 @@
+{
+ "id": "henson-chug",
+ "name": "Tight chug (Tim Henson style, Pink)",
+ "plugin": "/Library/Audio/Plug-Ins/VST3/Archetype Tim Henson X.vst3",
+ "params": {
+  "doubler_active": false,
+  "delay_active": false,
+  "reverb_active": false,
+  "chorus_active": false,
+  "room_l_active": false,
+  "room_r_active": false,
+  "active_multivoicer_section": false,
+  "boost_active": true,
+  "overdrive_active": false,
+  "compressor_active": false,
+  "gate_active": true,
+  "gate_threshold": -58.0,
+  "amp_type": "Pink",
+  "pink_amp_gain": 68.0,
+  "pink_amp_bass": 55.0,
+  "pink_amp_middle": 48.0,
+  "pink_amp_treble": 56.0,
+  "pink_amp_presence": 52.0,
+  "boost_gain": 0.0,
+  "boost_level": 75.0,
+  "boost_bass": 30.0,
+  "boost_treble": 55.0
+ },
+ "chords": true,
+ "power": true,
+ "open": false,
+ "inputDb": -8
+}

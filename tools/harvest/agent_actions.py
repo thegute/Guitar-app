@@ -191,8 +191,43 @@ def act_render(job):
     if job.get('test'):
         args.append('--test')
     log('render: ' + ' '.join(os.path.basename(a) for a in args[1:]))
-    r = subprocess.run(args, capture_output=True, text=True)
-    return {'code': r.returncode, 'stdout': r.stdout[-4000:], 'stderr': r.stderr[-4000:]}
+    return watched(args, job, 'render')
+
+
+def watched(args, job, name):
+    """Run a render tool with a watchdog. Samplers can freeze mid-render (Kontakt did once while Logic was bouncing):
+    the tool touches <out>/.heartbeat after every note, and if that goes quiet for `stall` seconds the process is
+    killed and started again (the renders pick up where they stopped). Its output goes to jobs/<job>.log as it runs."""
+    stall = float(job.get('stall', 240))
+    tries = int(job.get('restarts', 4))
+    plan = json.load(open(args[2])) if args[2].endswith('.json') else {}
+    beat = os.path.join(args[3], plan.get('id', ''), '.heartbeat') if plan else None
+    logf = os.path.join(JOBS, f"{job.get('_name', name)}.log")
+    res = {}
+    for attempt in range(tries + 1):
+        if beat:
+            os.makedirs(os.path.dirname(beat), exist_ok=True)
+            open(beat, 'w').close()
+        with open(logf, 'a') as lf:
+            lf.write(f'--- start {attempt} {time.strftime("%H:%M:%S")}\n')
+            lf.flush()
+            p = subprocess.Popen(args, stdout=lf, stderr=subprocess.STDOUT, text=True)
+            frozen = False
+            while p.poll() is None:
+                time.sleep(5)
+                if beat and time.time() - os.path.getmtime(beat) > stall:
+                    frozen = True
+                    p.kill()
+                    p.wait()
+                    lf.write(f'--- frozen for {stall:.0f} s: killed, starting again\n')
+                    log(f'{name}: frozen, restart {attempt + 1}')
+                    break
+        tail = open(logf).read()[-4000:]
+        res = {'code': p.returncode, 'restarts': attempt, 'stdout': tail}
+        if not frozen:
+            return res
+    res['error'] = 'kept freezing'
+    return res
 
 
 def act_abpage(job):
@@ -223,6 +258,16 @@ def act_reamp(job):
     return {'stdout': r.stdout[-1500:]}
 
 
-ACTIONS = {'reamp': act_reamp, 'export': act_export, 'abpage': act_abpage, 'ping': act_ping, 'probe': act_probe, 'capture': act_capture, 'midi': act_midi, 'process': act_process, 'render': act_render}
+def act_slice(job):
+    sched = in_path(job['sched'])
+    wav = in_path(job['wav'])
+    out = os.path.dirname(out_path(os.path.join(job.get('out', 'packs'), '.keep')))
+    r = subprocess.run([sys.executable, os.path.join(HERE, 'logic_sched.py'), 'slice', sched, wav, out], capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError(r.stderr[-2000:])
+    return {'stdout': r.stdout[-1500:]}
+
+
+ACTIONS = {'slice': act_slice, 'reamp': act_reamp, 'export': act_export, 'abpage': act_abpage, 'ping': act_ping, 'probe': act_probe, 'capture': act_capture, 'midi': act_midi, 'process': act_process, 'render': act_render}
 
 

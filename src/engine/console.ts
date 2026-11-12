@@ -26,7 +26,13 @@ export function busChain(c: Ctx, cat: Category): [AudioNode, AudioNode] {
     const sum = c.createGain()
     hp2.connect(lo1).connect(lo2).connect(mono).connect(sum)
     hp2.connect(hi1).connect(hi2).connect(sum)
-    return [hp1, sum]
+    // then the bass player's compressor: the recorded basses keep their real dynamics (soft and hard notes really differ),
+    // so the bus evens them out the way an engineer would: slow enough attack to let each pluck through, 3:1, soft knee
+    const comp = c.createDynamicsCompressor()
+    comp.threshold.value = -22; comp.ratio.value = 3; comp.knee.value = 8; comp.attack.value = 0.012; comp.release.value = 0.18
+    const makeup = c.createGain(); makeup.gain.value = 0.86  // the Web Audio compressor adds its own make-up gain: this brings the bass back to its old level (Reggae capture)
+    sum.connect(comp).connect(makeup)
+    return [hp1, makeup]
   }
   if (cat === 'drums') {
     // parallel saturation: 15% of a softly driven copy under the clean drums (weight and glue, no audible distortion)

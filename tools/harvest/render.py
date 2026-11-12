@@ -135,6 +135,7 @@ def main():
         pack['stems'] = [{'dir': s['dir'], 'gain': s.get('gain', 1), **({'mono': True} if s.get('mono') else {})} for s in stems]
     t_start = time.time()
     made = 0
+    beat = os.path.join(out_dir, '.heartbeat')  # the agent's watchdog restarts a render that stops touching this
     for art, spec in plan['articulations'].items():
         vels = spec.get('velocities', [45, 80, 112])
         rr = spec.get('rr', 4)
@@ -195,7 +196,12 @@ def main():
                             if plan.get('pace'):
                                 time.sleep((t0 + hold + tail + 0.3) * float(plan['pace']))
                             return out
+                        # one stem only: a take already on disk needn't be played again (resuming after a stop is quick);
+                        # several stems replay it so every instance's round robins stay in step
+                        if done and len(insts) == 1:
+                            continue
                         ys = play()
+                        open(beat, 'w').close()
                         # silent (samples still loading)? give the sampler a moment and play it again
                         for attempt in range(3):
                             if np.abs(ys[0]).max() > 1e-4:

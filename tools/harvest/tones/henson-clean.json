@@ -1,0 +1,31 @@
+{
+ "id": "henson-clean",
+ "name": "Sparkle clean (Tim Henson style, Roses)",
+ "plugin": "/Library/Audio/Plug-Ins/VST3/Archetype Tim Henson X.vst3",
+ "params": {
+  "doubler_active": false,
+  "delay_active": false,
+  "reverb_active": false,
+  "chorus_active": false,
+  "room_l_active": false,
+  "room_r_active": false,
+  "active_multivoicer_section": false,
+  "boost_active": false,
+  "overdrive_active": false,
+  "compressor_active": true,
+  "gate_active": false,
+  "amp_type": "Roses",
+  "roses_amp_gain": 35.0,
+  "roses_amp_bass": 45.0,
+  "roses_amp_middle": 55.0,
+  "roses_amp_treble": 62.0,
+  "roses_amp_presence": 58.0,
+  "compressor_compression": 40.0,
+  "compressor_level": 50.0,
+  "compressor_attack": "Slow"
+ },
+ "chords": true,
+ "power": false,
+ "open": true,
+ "inputDb": -8
+}
