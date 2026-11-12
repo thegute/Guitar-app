@@ -3,12 +3,26 @@ import { playNote, strum as strumNotes, isPowerChord, soundInfo, type Handle, ty
 
 /**
  * Hit kinds: D down strum, U up strum, B bass note (root), A alternate bass (next string up),
- * a1..a6 single note from the chord (low to high), X muted chuck, P palm-muted power chug, S short (staccato) chord.
+ * a1..a6 single note from the chord (low to high), o1..o6 the same an octave up, X muted chuck, P palm-muted power chug,
+ * S short (staccato) chord, R a slow rolled chord (harp-like, low to high).
  */
-type Kind = 'D' | 'U' | 'B' | 'A' | 'X' | 'P' | 'S' | `a${number}`
+type Kind = 'D' | 'U' | 'B' | 'A' | 'X' | 'P' | 'S' | 'R' | `a${number}` | `o${number}`
 type Hit = [number, Kind]
 
 const ARP: Hit[] = [[0, 'B'], [0.5, 'a3'], [1, 'a4'], [1.5, 'a5'], [2, 'a6'], [2.5, 'a5'], [3, 'a4'], [3.5, 'a3']]
+/** a sequence of chord notes on an even grid */
+const seq = (step: number, kinds: Kind[]): Hit[] => kinds.map((k, i) => [i * step, k] as Hit).filter(([b]) => b < 4 - 1e-6)
+// Playbox-style arpeggiator patterns (its Arp / Strum ideas: up, zig-zag, move in / out, triplets, octaves, strike)
+const ARPS: { id: string; label: string; hits: Hit[] }[] = [
+  { id: 'arp-up', label: 'Arp up (8ths)', hits: seq(0.5, ['a3', 'a4', 'a5', 'a6', 'a3', 'a4', 'a5', 'a6']) },
+  { id: 'arp-zigzag', label: 'Arp zig-zag up-down', hits: seq(0.5, ['a3', 'a4', 'a5', 'a6', 'a5', 'a4', 'a3', 'a4']) },
+  { id: 'arp-movein', label: 'Arp move in (outside → in)', hits: seq(0.5, ['a3', 'a6', 'a4', 'a5', 'a3', 'a6', 'a4', 'a5']) },
+  { id: 'arp-moveout', label: 'Arp move out (dotted 16ths)', hits: seq(0.75, ['a4', 'a5', 'a3', 'a6', 'a4', 'a5']) },
+  { id: 'arp-triplets', label: 'Arp triplets up-down', hits: seq(1 / 3, ['a3', 'a4', 'a5', 'a6', 'a5', 'a4', 'a3', 'a4', 'a5', 'a6', 'a5', 'a4']) },
+  { id: 'arp-octaves', label: 'Arp up two octaves', hits: seq(0.5, ['a3', 'a4', 'a5', 'a6', 'o3', 'o4', 'o5', 'o6']) },
+  { id: 'arp-strike', label: 'Arp strike (each note twice)', hits: seq(0.25, ['a3', 'a3', 'a4', 'a4', 'a5', 'a5', 'a6', 'a6', 'a5', 'a5', 'a4', 'a4', 'a3', 'a3', 'a4', 'a4']) },
+  { id: 'roll', label: 'Rolled chord (harp)', hits: [[0, 'R'], [2, 'R']] },
+]
 
 export const STRUMS: { id: string; label: string; hits: Hit[] }[] = [
   { id: 'whole', label: 'Whole notes', hits: [[0, 'D']] },
@@ -26,6 +40,7 @@ export const STRUMS: { id: string; label: string; hits: Hit[] }[] = [
   { id: 'funk', label: 'Funk 16ths', hits: [[0, 'D'], [0.25, 'X'], [0.5, 'U'], [0.75, 'X'], [1, 'X'], [1.5, 'S'], [1.75, 'U'], [2, 'X'], [2.5, 'D'], [2.75, 'X'], [3, 'X'], [3.25, 'U'], [3.5, 'S']] },
   { id: 'bossa', label: 'Bossa nova', hits: [[0, 'B'], [0.5, 'S'], [1, 'A'], [1.5, 'S'], [2, 'B'], [2.75, 'S'], [3, 'A'], [3.5, 'S']] },
   { id: 'comp', label: 'Jazz comping', hits: [[0, 'S'], [1.5, 'S'], [2 + 2 / 3, 'S']] },
+  ...ARPS,
   { id: 'rumba', label: 'Rumba / flamenco', hits: [[0, 'D'], [0.5, 'X'], [0.75, 'U'], [1, 'D'], [1.5, 'U'], [2, 'D'], [2.5, 'X'], [2.75, 'U'], [3, 'D'], [3.5, 'U']] },
 ]
 
@@ -68,6 +83,10 @@ export function playHit(kind: Kind, midis: number[], when: number, gain: number,
       hs.forEach(h => h.stop(when + (amp ? 0.2 : 0.11)))
       break
     }
+    case 'R':
+      // a slow roll: the pick (or the harp) walks up the chord over ~a quarter of a second, every note left ringing
+      chord(midis, { g: gain * 0.85, spread: 0.06 })
+      break
     case 'B':
       note(midis[0], gain * 0.95)
       break
@@ -75,10 +94,10 @@ export function playHit(kind: Kind, midis: number[], when: number, gain: number,
       note(midis[Math.min(1, midis.length - 1)], gain * 0.85)
       break
     default: {
-      // aN: the Nth note counted from the top so it works for 4, 5 or 6-string voicings
+      // aN: the Nth note counted from the top so it works for 4, 5 or 6-string voicings; oN: the same an octave up
       const n = parseInt(kind.slice(1), 10)
       const idx = Math.max(0, midis.length - (7 - n))
-      note(midis[Math.min(idx, midis.length - 1)], gain * 0.8)
+      note(midis[Math.min(idx, midis.length - 1)] + (kind[0] === 'o' ? 12 : 0), gain * (kind[0] === 'o' ? 0.7 : 0.8))
     }
   }
   return hs
