@@ -9,6 +9,7 @@ import { INTERVAL_LABELS, SHARPS, FLATS, pc } from '../theory/notes'
 import type { Instrument } from '../instrument'
 import { CHAPTERS, LESSONS, chaptersFor, lessonById, lessonsFor, type Block, type Lesson } from './lessons'
 import { Ico } from '../components/Icon'
+import { COURSE } from '../course'
 import { addXp, bump, logDone, usePracticeTimer } from './progress'
 import type { Go } from './path'
 import { LESSON_EXTRAS, lessonVideo, videoThumb, videoUrl, type LessonEx, type LessonVideo } from './lessonExtras'
@@ -37,7 +38,7 @@ export function nextLesson(instId?: string): Lesson {
 }
 
 /** **bold** inside lesson text */
-function rich(text: string): ReactNode[] {
+export function rich(text: string): ReactNode[] {
   return text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <b key={i}>{part}</b> : part))
 }
 
@@ -272,6 +273,13 @@ export function LessonList({ onOpen, onExit, instId }: { onOpen: (id: string) =>
           ? 'Start with the 12 essentials: they follow the chapters of your theory book, one lesson each, with something to play and a quiz. The deeper lessons after them follow Offtonic Theory, a free online textbook.'
           : 'Short lessons written for guitar and ukulele, following the chapters of Offtonic Theory, a free online textbook (each lesson links to its chapter if you want the full version). Every lesson has sounds to tap and something to try.'}
       </p>
+      {COURSE.length > 0 && (
+        <button className="continue-card deep-preview" data-testid="deep-preview" onClick={() => onOpen(COURSE[0].id)}>
+          <span className="small muted">New theory course · sample lesson to try</span>
+          <b>{COURSE[0].title}</b>
+          <span className="small muted">Level {COURSE[0].level} · deep lesson: learn, hear it, practice week, check, your books</span>
+        </button>
+      )}
       <button className="continue-card" onClick={() => onOpen(nxt.id)}>
         <span className="small muted">{read.size ? 'Continue with' : 'Start with'}</span>
         <b>{nxt.title}</b>

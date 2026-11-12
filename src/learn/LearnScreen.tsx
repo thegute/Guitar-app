@@ -49,11 +49,13 @@ import { LickLibrary } from './LickLibrary'
 import { LickChainer } from '../components/LickChainer'
 import { JumpBackIn } from '../components/JumpBackIn'
 import { LESSONS, lessonsFor } from './lessons'
+import { courseLesson } from '../course'
+import { DeepLessonView } from '../course/DeepLessonView'
 import { lastBackup } from '../backup'
 import { ago } from '../components/BackupPanel'
 
 type Route =
-  | { k: 'home' } | { k: 'quiz'; id: string } | { k: 'lesson'; id: string } | { k: 'lessons' } | { k: 'ear' } | { k: 'caged' }
+  | { k: 'home' } | { k: 'quiz'; id: string } | { k: 'lesson'; id: string } | { k: 'deep'; id: string } | { k: 'lessons' } | { k: 'ear' } | { k: 'caged' }
   | { k: 'changes' } | { k: 'rhythm' } | { k: 'circle' } | { k: 'progress' } | { k: 'settings'; n?: number } | { k: 'guide'; sec?: string }
   | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' } | { k: 'licks'; sel?: string } | { k: 'videos' } | { k: 'recordings' } | { k: 'chainer' }
 
@@ -166,7 +168,7 @@ export function LearnScreen() {
   }
   function launch(g: Go) {
     if ('quiz' in g) push({ k: 'quiz', id: g.quiz })
-    else if ('lesson' in g) push({ k: 'lesson', id: g.lesson })
+    else if ('lesson' in g) push(courseLesson(g.lesson) ? { k: 'deep', id: g.lesson } : { k: 'lesson', id: g.lesson })
     else if ('tool' in g) push({ k: g.tool })
     else if ('tab' in g) goTab(g.tab)
     else if ('song' in g) void getSong(g.song).then(doc => { if (doc) { openInPlay(g.loop === null ? { ...doc, loop: undefined } : g.loop ? { ...doc, loop: g.loop } : doc); if (g.speed) playAction({ speed: g.speed }) } else goTab('play') })
@@ -201,7 +203,8 @@ export function LearnScreen() {
   }
   if (route.k === 'ear') return <EarTrainer inst={inst} onExit={back} />
   if (route.k === 'caged') return <CagedExplorer inst={inst} onExit={back} onQuiz={id => push({ k: 'quiz', id })} />
-  if (route.k === 'lessons') return <LessonList instId={inst.id} onOpen={id => push({ k: 'lesson', id })} onExit={back} />
+  if (route.k === 'lessons') return <LessonList instId={inst.id} onOpen={id => push(courseLesson(id) ? { k: 'deep', id } : { k: 'lesson', id })} onExit={back} />
+  if (route.k === 'deep') { const l = courseLesson(route.id); if (l) return <DeepLessonView key={l.id} lesson={l} inst={inst} onExit={back} onGo={launch} onExercise={runLessonEx} /> }
   if (route.k === 'lesson') return <LessonView id={route.id} inst={inst} onExit={back} onOpen={id => replace({ k: 'lesson', id })} onGo={launch} onExercise={runLessonEx} />
   if (route.k === 'changes') return <ChordChanges inst={inst} onExit={back} />
   if (route.k === 'bends') return <BendTrainer inst={inst} onExit={back} />

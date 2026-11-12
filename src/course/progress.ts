@@ -60,3 +60,13 @@ export function reviewDone(id: string, now = Date.now()) {
 }
 /** Lessons with a review due now. */
 export const dueReviews = (ids: string[], now = Date.now()) => ids.filter(id => reviewDue(lessonProgress(id), now) >= 0)
+
+/** Practice-week days ticked off (kept with the steps as 'day:N'). */
+export function toggleDay(id: string, day: number) {
+  const s = load()
+  const p: LessonProgress = { steps: [], reviews: [], ...s[id] }
+  const k = 'day:' + day
+  p.steps = p.steps.includes(k) ? p.steps.filter(x => x !== k) : [...p.steps, k]
+  s[id] = p
+  save(s)
+}

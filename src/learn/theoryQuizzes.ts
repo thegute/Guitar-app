@@ -5,6 +5,8 @@
 // can also be answered by playing the note (mic mode).
 import { LETTERS, MAJOR_KEYS, MINOR_KEYS, NAT_MINOR_SEMIS, interval, keyChords, noteAt, pcOf, relativeMajor, relativeMinor, spellScale } from '../theory/spell'
 import type { Question, QuizDef } from './quiz'
+import { octaveShapes } from './lessonExtras'
+import { stringName } from '../instrument'
 
 const pick = <T,>(a: readonly T[], rnd: () => number) => a[Math.floor(rnd() * a.length)]
 function shuffle<T>(a: T[], rnd: () => number) { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [b[i], b[j]] = [b[j], b[i]] } return b }
@@ -166,5 +168,53 @@ export const THEORY_QUIZZES: QuizDef[] = [
         `${a} minor: ${chords.map(x => `${x.numeral} ${x.chord}`).join(', ')}: the same chords as ${relativeMajor(a)} major, starting from ${a}m.`, rnd)
     },
   },
+  // ---------------- Theory course, Level 1: octave shapes ----------------
+  {
+    id: 'oc-hear', unit: 'Guitar theory', title: 'Hear it: octave or not?', ear: true,
+    desc: 'Two notes: the same, an octave apart, or a different note? An octave sounds like the same note, higher.', length: 10, mic: false,
+    items: () => ['same', 'octave', 'octave', 'down', 'down', 'near7', 'near9', 'fifth'].map((k, i) => `oc-hear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const kind = item.split(':')[1]
+      const lo = 43 + Math.floor(rnd() * 12)
+      const second = { same: lo, octave: lo + 12, down: lo - 12, near7: lo + 11, near9: lo + 13, fifth: lo + 7 }[kind] ?? lo + 12
+      const ans = kind === 'same' ? 'The same note' : kind === 'octave' || kind === 'down' ? 'An octave apart' : 'A different note'
+      const why = {
+        same: 'Both notes are exactly the same pitch (a unison): no jump at all.',
+        octave: 'The second note is the same note one octave higher: it blends with the first as if it were the same note, just brighter.',
+        down: 'The second note is the same note one octave lower: same name, deeper.',
+        near7: 'Close, but one fret short of an octave (a major 7th): it sounds tense and wants to move up one more fret.',
+        near9: 'One fret past the octave (a minor 9th): it clashes. An octave never clashes.',
+        fifth: 'A 5th (the power chord sound): strong, but clearly two different notes.',
+      }[kind] ?? ''
+      return {
+        item, prompt: 'Same note, an octave apart, or a different note?', sub: 'Listen to both. Tap ▶ to hear them again.',
+        audio: { seq: [lo, second] },
+        input: { type: 'choices', options: ['The same note', 'An octave apart', 'A different note'].map(o => ({ id: o, label: o })) },
+        check: a => 'choice' in a && a.choice === ans, explain: `${ans}. ${why}`,
+      }
+    },
+  },
+  {
+    id: 'oc-move', unit: 'Guitar theory', title: 'Octave shapes on every string pair',
+    desc: 'From a note on one string, find the same note an octave higher on another string, without counting frets.', length: 12, mic: true,
+    items: inst => octaveShapes(inst.midis).filter(x => inst.midis[x.t] > inst.midis[x.s]).flatMap(x => [1, 3, 5, 7].map(f => `oc-move:${x.s}:${x.t}:${f}`)),
+    make: (item, inst, rnd) => {
+      const [, ss, tt, ff] = item.split(':')
+      const s2 = +ss, t = +tt, f0 = +ff
+      const move = 12 - (inst.midis[t] - inst.midis[s2])
+      const f = Math.max(0, Math.min(f0 + (move < 0 ? -move : 0), 15 - Math.max(0, move)))
+      const ans = f + move
+      const target = inst.midis[s2] + f + 12
+      const S = stringName(inst.midis, s2), T = stringName(inst.midis, t)
+      const wrong = [ans - 1, ans + 1, ans - 2, ans + 2, ans + 12].filter(x => x >= 0 && x <= 15 && x !== ans).map(String)
+      const way = move === 0 ? 'the same fret' : move > 0 ? `${move} fret${move > 1 ? 's' : ''} higher` : `${-move} fret${move < -1 ? 's' : ''} lower`
+      const crossesB = inst.id === 'guitar' && s2 <= 3 && t >= 4 && inst.midis[4] - inst.midis[3] === 4
+      return choose(item, `Fret ${f} on the ${S} string: where is the same note an octave higher on the ${T} string?`, String(ans), wrong,
+        `Fret ${ans} (${way}). The ${S} and ${T} strings are ${inst.midis[t] - inst.midis[s2]} frets apart in pitch, so the octave (12) lands ${way}.` +
+        (crossesB ? ' Crossing the B string adds one fret, because G to B is one fret closer than the other strings.' : ''), rnd, {
+          neck: { from: 0, to: 15, marks: [{ s: s2, f, label: '1', role: 'root' }] },
+          mic: { kind: 'note', ok: (m: number) => m === target, want: `the octave on the ${T} string` },
+        })
+    },
+  },
 ]
-

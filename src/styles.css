@@ -2645,3 +2645,80 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 
 /* the songbook inside Songs → Library: its windows take their place among the library's */
 .songbook-page.embedded { display: contents; }
+
+/* ---------- Theory course: deep lessons (src/course/DeepLessonView.tsx) ---------- */
+.deep { display: grid; gap: var(--sp-3); }
+.deep-head { display: grid; gap: 8px; }
+.deep-head h1 { margin: 0; line-height: 1.1; }
+.deep-goal { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); font-size: 15.5px; line-height: 1.45; }
+.deep-goal-meta { display: block; margin-top: 4px; font-size: 13.5px; color: var(--ink-2); }
+.deep-goal svg { flex: 0 0 auto; margin-top: 2px; color: var(--accent); }
+.deep-bar { height: 6px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--ink) 12%, transparent); overflow: hidden; }
+.deep-bar > span { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width .3s ease; }
+.deep-layout { display: grid; gap: var(--sp-3); grid-template-columns: minmax(0, 1fr); align-items: start; }
+/* the rail: a sideways strip of steps on phones … */
+.deep-rail { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 4px; scroll-snap-type: x proximity; }
+.deep-rail::-webkit-scrollbar { display: none; }
+.deep-rail-step { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding: 6px 10px; min-height: var(--h-sm); border-radius: var(--r-pill); border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); cursor: pointer; scroll-snap-align: center; font: 600 13px var(--ui); }
+.deep-rail-step .deep-rail-kind { display: none; }
+.deep-rail-step .deep-rail-title { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deep-rail-step.done { color: var(--ink); border-color: color-mix(in srgb, var(--mint) 60%, var(--line)); }
+.deep-rail-step.done .deep-rail-ico { color: var(--mint); }
+.deep-rail-step.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--ink); }
+.deep-rail-ico { display: inline-flex; }
+.deep-rail-ico svg { width: 16px; height: 16px; }
+.deep-rail-text { display: flex; flex-direction: column; text-align: left; line-height: 1.15; }
+/* … and a column beside the lesson on wide screens */
+@media (min-width: 900px) {
+  .deep-layout { grid-template-columns: 250px minmax(0, 1fr); }
+  .deep-rail { flex-direction: column; overflow: visible; position: sticky; top: 8px; }
+  .deep-rail-step { border-radius: var(--r-md); padding: 8px 10px; }
+  .deep-rail-step .deep-rail-kind { display: block; }
+  .deep-rail-step .deep-rail-title { display: block; max-width: none; white-space: normal; font-weight: 500; font-size: 13px; color: var(--ink-2); }
+  .deep-rail-step.on .deep-rail-title { color: var(--ink); }
+  .deep-rail-kind { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-3); }
+}
+.deep-step { display: grid; gap: var(--sp-3); padding: var(--sp-4); border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); min-width: 0; }
+.deep-step h2 { margin: 0; font-size: 26px; line-height: 1.15; }
+.deep-eyebrow { display: flex; align-items: center; gap: 6px; margin: 0; font: 600 12px var(--ui); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); }
+.deep-eyebrow svg { width: 15px; height: 15px; color: var(--accent); }
+.deep-sub { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; font-size: 18px; }
+.deep-nav { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding-top: var(--sp-2); border-top: 1px solid var(--line); }
+.deep-nav .btn { max-width: 100%; white-space: normal; text-align: left; }
+.deep-tasks { display: grid; gap: 8px; }
+@media (min-width: 640px) { .deep-tasks { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); } }
+.deep-task { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 10px 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; min-height: var(--h-lg); }
+.deep-task:hover { border-color: var(--accent); }
+.deep-task.done { border-color: color-mix(in srgb, var(--mint) 60%, var(--line)); }
+.deep-task-ico { display: inline-flex; padding: 6px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.deep-task.done .deep-task-ico { background: color-mix(in srgb, var(--mint) 18%, transparent); color: var(--mint); }
+.deep-task-ico svg { width: 18px; height: 18px; }
+.deep-task-text { display: grid; gap: 2px; min-width: 0; }
+.deep-example { display: grid; gap: 8px; padding: 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--bg); }
+.deep-example-q { display: flex; gap: 10px; align-items: baseline; margin: 0; font-size: 17px; font-weight: 600; }
+.deep-num { flex: 0 0 auto; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--bg); font-size: 14px; }
+.deep-example-steps { margin: 0; padding-left: 22px; display: grid; gap: 4px; font-size: 15.5px; line-height: 1.5; }
+.deep-answer { display: flex; gap: 6px; align-items: flex-start; margin: 0; font-weight: 600; }
+.deep-answer svg { color: var(--mint); flex: 0 0 auto; margin-top: 2px; }
+.deep-mistakes { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.deep-mistakes li { display: grid; gap: 4px; padding: 10px 12px; border-radius: var(--r-md); background: var(--bg); border: 1px solid var(--line); }
+.deep-mistakes p { margin: 0; line-height: 1.45; }
+.deep-wrong span { color: var(--coral); font-weight: 700; }
+.deep-right span { color: var(--mint-text, var(--mint)); font-weight: 700; }
+.deep-day { display: grid; gap: 8px; padding: 10px 12px; border-radius: var(--r-md); border: 1px solid var(--line); }
+.deep-day.done { border-color: color-mix(in srgb, var(--mint) 60%, var(--line)); }
+.deep-day-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.deep-day-tick { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; min-height: var(--h-sm); }
+.deep-checks { display: grid; gap: 8px; }
+@media (min-width: 640px) { .deep-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.deep-check { display: grid; gap: 4px; }
+.deep-skill { font: 700 11px var(--ui); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); }
+.deep-explain { display: grid; gap: 8px; padding: 12px; border-radius: var(--r-md); border: 1.5px dashed var(--accent); }
+.deep-books { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.deep-books li { display: flex; gap: 8px; align-items: flex-start; line-height: 1.45; }
+.deep-books svg { flex: 0 0 auto; margin-top: 3px; color: var(--accent); }
+.deep-review, .deep-done { display: grid; gap: 6px; padding: 12px 14px; border-radius: var(--r-md); border: 1.5px solid var(--mint); background: color-mix(in srgb, var(--mint) 10%, var(--surface)); }
+.lesson-spots { margin: 0; display: grid; gap: 4px; justify-self: stretch; }
+.deep-preview { border-style: dashed; }
+[data-theme='psy'] .deep-step, [data-theme='psy'] .deep-goal, [data-theme='psy'] .deep-rail-step { background: rgba(20, 0, 43, 0.94); }
+[data-theme='psy'] .deep-task, [data-theme='psy'] .deep-example, [data-theme='psy'] .deep-mistakes li { background: rgba(10, 0, 26, 0.9); }

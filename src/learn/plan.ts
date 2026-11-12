@@ -4,6 +4,8 @@ import { dayKey, itemStats, stars, todayLog, type DayLog } from './progress'
 import { dueReviews, songStats, troubleBars } from '../play/songStats'
 import { course } from './quiz'
 import { LESSONS, lessonsFor } from './lessons'
+import { COURSE } from '../course'
+import { dueReviews as dueCourseReviews } from '../course/progress'
 import type { Go } from './path'
 import { profile, type Goal } from './profile'
 import { SONGBOOK, songbookId, type PartKind, type SongbookPart, type SongbookSong } from '../tabs/songbook'
@@ -107,7 +109,18 @@ function goalSteps(inst: Instrument, d: DayLog, day: number, goals: Goal[]): Pla
   return out.filter((x): x is PlanStep => !!x)
 }
 
+/** A theory-course review that's due (1, 3, 7, 30 days after finishing a lesson): it goes first in today's plan. */
+function reviewStep(d = todayLog()): PlanStep[] {
+  const due = dueCourseReviews(COURSE.map(l => l.id))[0]
+  const l = due ? COURSE.find(x => x.id === due) : undefined
+  return l ? [{ id: 'review', title: `Review: ${l.title}`, detail: 'Five minutes: the ear drills and the check, so it sticks for good.', minutes: 5, go: { lesson: l.id }, done: d.done.includes('review:' + l.id) }] : []
+}
+
 export function todaysPlan(inst: Instrument, away: boolean, d = todayLog()): PlanStep[] {
+  return [...reviewStep(d), ...plainPlan(inst, away, d)]
+}
+
+function plainPlan(inst: Instrument, away: boolean, d = todayLog()): PlanStep[] {
   const weak = weakQuiz(inst)
   const q = weak?.q ?? nextQuiz(inst)
   const quizDetail = weak ? `Brush up the ${weak.n} you keep missing.` : null

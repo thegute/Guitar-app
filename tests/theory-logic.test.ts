@@ -36,7 +36,13 @@ for (const q of THEORY_QUIZZES) check(`quiz ${q.id}: every question`, () => {
     const right = opts.filter(o => qq.check({ choice: o }))
     assert.equal(right.length, 1, `${it}: ${right.length} right answers among ${opts}`)
     if (!/^(Yes|No):/.test(right[0])) assert.ok(qq.explain.includes(right[0].split(' – ')[0].split(' and ')[0].replace(/:.*/, '')), `${it}: explanation doesn't show the answer "${right[0]}": ${qq.explain}`)
-    if (qq.mic && qq.mic.kind === 'note') {
+    if (qq.mic && qq.mic.kind === 'note' && it.startsWith('oc-move:')) {
+      // the exact octave: that pitch on any string, not the note an octave lower
+      const [, ss, , ] = it.split(':')
+      const hits = [...Array(90).keys()].filter(m => qq.mic!.kind === 'note' && qq.mic!.ok(m))
+      assert.equal(hits.length, 1, `${it}: mic accepts ${hits}`)
+      assert.ok(hits[0] >= guitar.midis[+ss] + 12, `${it}: mic wants ${hits[0]}, below an octave up`)
+    } else if (qq.mic && qq.mic.kind === 'note') {
       const want = pcOf(qq.mic.want)
       assert.ok(qq.mic.ok(48 + want) && qq.mic.ok(60 + want) && !qq.mic.ok(49 + want), `${it}: mic check`)
     }
