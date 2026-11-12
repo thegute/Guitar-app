@@ -126,7 +126,8 @@ export function BlockView({ b, inst, onGo }: { b: Block; inst: Instrument; onGo:
   if ('spots' in b) {
     const marks = b.spots.marks(inst.midis)
     const at = new Map(marks.map(m => [`${m.s}:${m.f}`, m]))
-    const to = b.spots.to ?? Math.min(15, Math.max(5, ...marks.map(m => m.f + 2)))
+    // a set end fret grows to show every mark (other tunings can put an octave further up)
+    const to = Math.min(15, Math.max(b.spots.to ?? 5, ...marks.map(m => m.f + (b.spots.to ? 1 : 2))))
     return (
       <figure className="lesson-spots">
         <Fretboard tuning={inst.midis} fromFret={b.spots.from ?? 0} toFret={to} compact
@@ -274,7 +275,7 @@ function CourseLevels({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <section className="course-levels stack" style={{ gap: 10 }}>
       <h2 style={{ margin: 0 }}>The theory course</h2>
-      <p className="small muted" style={{ margin: 0 }}>Eight levels, from the first notes to modes and beyond, taught the No Bull way with your other books for depth. Every lesson: learn it deeply, hear it, practise it for a week, use it in music, check it. Level {Math.max(...levels)} is ready; the next levels are on the way.</p>
+      <p className="small muted" style={{ margin: 0 }}>Eight levels, from the first notes to modes and beyond, taught the No Bull way with your other books for depth. Every lesson: learn it deeply, hear it, practise it for a week, use it in music, check it. {levels.length > 1 ? `Levels 1–${Math.max(...levels)} are` : 'Level 1 is'} ready; the next levels are on the way.</p>
       <button className="continue-card deep-preview" data-testid="deep-preview" onClick={() => onOpen(next.id)}>
         <span className="small muted">{np.steps.length ? 'Continue' : COURSE.some(l => prog(l.id).done) ? 'Next lesson' : 'Start the course'} · Level {next.level}, lesson {next.n}</span>
         <b>{next.title}</b>

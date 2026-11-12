@@ -284,6 +284,52 @@ export const THEORY_QUIZZES: QuizDef[] = [
       return choose(item, r[0], r[1], r[2], `${r[1]}. ${r[3]}`, rnd)
     },
   },
+  // ---------------- Theory course, Level 2: hearing the major scale and its intervals ----------------
+  {
+    id: 'l2-major-ear', unit: 'Guitar theory', title: 'Hear it: a major scale, or is something off?', ear: true,
+    desc: 'A scale plays up from its root: is it the major scale, or has one step been changed?', length: 8, mic: false,
+    items: () => ['ok', 'b3', 'ok', 'b7', '#4', 'ok', 'b6', 'b2'].map((k, i) => `l2-major-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const root = 45 + Math.floor(rnd() * 8)
+      const steps = [0, 2, 4, 5, 7, 9, 11, 12]
+      const change: Record<string, [number, number]> = { b3: [2, 3], b7: [6, 10], '#4': [3, 6], b6: [5, 8], b2: [1, 1] }
+      const ch = change[k]
+      const seq = steps.map((x, i) => root + (ch && ch[0] === i ? ch[1] : x))
+      const ans = k === 'ok' ? 'The major scale' : 'Something\'s off'
+      const why = k === 'ok' ? 'Tone, tone, semitone, tone, tone, tone, semitone: the "do re mi" you know.'
+        : { b3: 'The 3rd was lowered (a b3): it sounds instantly minor and darker.', b7: 'The 7th was lowered (a b7): no pull up to the top note, a bluesy, folky sound.', '#4': 'The 4th was raised (a #4): a dreamy, floating sound (that\'s the Lydian mode).', b6: 'The 6th was lowered (a b6): a sad, exotic turn near the top.', b2: 'The 2nd was lowered (a b2): a dark, Spanish-sounding step at the start.' }[k] ?? ''
+      return {
+        item, prompt: 'Is this the major scale, or has one note been changed?', sub: 'Sing "do re mi fa so la ti do" along with it.',
+        audio: { seq },
+        input: { type: 'choices', options: ['The major scale', 'Something\'s off'].map(o => ({ id: o, label: o })) },
+        check: x => 'choice' in x && x.choice === ans, explain: `${ans}. ${why}`,
+      }
+    },
+  },
+  {
+    id: 'l2-int-ear', unit: 'Guitar theory', title: 'Hear it: intervals of the major scale', ear: true,
+    desc: 'The root, then another note of its major scale: which interval is it? Each comes with a song opening to remember it by.', length: 10, mic: false,
+    items: () => ['2', '3', '4', '5', '6', '7', '8', '3', '5', '4'].map((k, i) => `l2-int-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const semis: Record<string, number> = { '2': 2, '3': 4, '4': 5, '5': 7, '6': 9, '7': 11, '8': 12 }
+      const name: Record<string, string> = { '2': 'Major 2nd', '3': 'Major 3rd', '4': 'Perfect 4th', '5': 'Perfect 5th', '6': 'Major 6th', '7': 'Major 7th', '8': 'Octave' }
+      const tag: Record<string, string> = {
+        '2': 'the first two notes of "Happy Birthday" sung on "hap-py BIRTH"… or simply do → re.',
+        '3': 'do → mi: the first two notes of "Oh! When the Saints".',
+        '4': 'the opening leap of "Here Comes the Bride".',
+        '5': 'the leap in "Twinkle, Twinkle, Little Star" (twinkle → TWIN-kle).',
+        '6': 'the opening of "My Bonnie Lies Over the Ocean".',
+        '7': 'one fret short of the octave: tense, wanting to go up a step.',
+        '8': 'the same note higher: "Some-where" in "Somewhere Over the Rainbow".',
+      }
+      const root = 45 + Math.floor(rnd() * 10)
+      const ans = name[k]
+      const pool = Object.values(name).filter(n => n !== ans)
+      return choose(item, 'Root, then which interval?', ans, pool, `${ans}: ${tag[k]}`, rnd, { audio: { seq: [root, root + semis[k]] }, sub: 'Tap ▶ to hear it again. Sing it.' })
+    },
+  },
 ]
 /** [question, answer, wrong answers, why] */
 const READ: [string, string, string[], string][] = [

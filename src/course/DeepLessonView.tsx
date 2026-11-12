@@ -54,7 +54,7 @@ function SpotsFigure({ spots, inst }: { spots: NonNullable<WorkedExample['spots'
   const marks = spots.marks(inst.midis)
   const at = new Map(marks.map(m => [`${m.s}:${m.f}`, m]))
   return (
-    <Fretboard tuning={inst.midis} fromFret={spots.from ?? 0} toFret={spots.to ?? 12} compact
+    <Fretboard tuning={inst.midis} fromFret={spots.from ?? 0} toFret={Math.min(15, Math.max(spots.to ?? 12, ...marks.map(m => m.f + 1)))} compact
       markFor={(_m, s, f) => { const x = at.get(`${s}:${f}`); return x ? { label: x.label, role: x.role } : null }}
       onTap={m => playNote(m, 0, 0.8)} />
   )

@@ -3,10 +3,10 @@
 import type { CourseLesson } from './types'
 import { SHARPS } from '../theory/notes'
 
-type Spot = { s: number; f: number; label: string; role: 'root' | 'chord' | 'scale' | 'target' | 'next' }
-const nm = (m: number) => SHARPS[((m % 12) + 12) % 12]
+export type Spot = { s: number; f: number; label: string; role: 'root' | 'chord' | 'scale' | 'target' | 'next' }
+export const nm = (m: number) => SHARPS[((m % 12) + 12) % 12]
 /** a note at (s, f) and where its octave above lands on string t (if it fits on frets 0–15) */
-function pair(midis: number[], s: number, f: number, t: number): Spot[] {
+export function pair(midis: number[], s: number, f: number, t: number): Spot[] {
   if (s >= midis.length || t >= midis.length) return []
   const m = midis[s] + f
   const g = m + 12 - midis[t]
@@ -14,7 +14,7 @@ function pair(midis: number[], s: number, f: number, t: number): Spot[] {
   return [{ s, f, label: nm(m), role: 'root' }, { s: t, f: g, label: nm(m), role: 'target' }]
 }
 /** every place a pitch class lives between two frets */
-function every(midis: number[], pc: number, from = 0, to = 12, role: Spot['role'] = 'chord'): Spot[] {
+export function every(midis: number[], pc: number, from = 0, to = 12, role: Spot['role'] = 'chord'): Spot[] {
   const out: Spot[] = []
   midis.forEach((o, s) => { for (let f = from; f <= to; f++) if ((o + f) % 12 === pc) out.push({ s, f, label: SHARPS[pc], role }) })
   return out
@@ -240,7 +240,7 @@ export const OCTAVE_SHAPES: CourseLesson = {
 
 const STD = [40, 45, 50, 55, 59, 64]
 const openStrings = (midis: number[]): Spot[] => midis.map((m, s) => ({ s, f: 0, label: nm(m), role: 'root' as const }))
-const naturalsOn = (midis: number[], s: number, to = 12): Spot[] => {
+export const naturalsOn = (midis: number[], s: number, to = 12): Spot[] => {
   if (s >= midis.length) return []
   const out: Spot[] = []
   for (let f = 0; f <= to; f++) { const pc = (midis[s] + f) % 12; if ([0, 2, 4, 5, 7, 9, 11].includes(pc)) out.push({ s, f, label: SHARPS[pc], role: f === 0 || f === 12 ? 'root' : 'chord' }) }
