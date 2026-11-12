@@ -36,6 +36,26 @@ Hear it drives it · 9 floating cards + resizable tidy-grid windows · Exercises
 - ✅ (owner extras) Game Mode: zoom, look-ahead, sized his way, full screen with cards + settings, song plays along with a slider;
   tab lines fill the width.
 
+## THE PLAN FROM 2026-11-12 07:28 (owner: "do 1, 2, 3, 5 (use my Orange Tree and Ample), 6, 7, 8, 9 … build it so things build on
+## each other and use the technologies in harmony … don't forget my Kontakt Playbox")
+A. Real instruments (Mac harvest; tools/mac-scan.sh, tools/harvest/*)
+  - ⏳ A1 full read-only scan + report (what each plugin gives KGuitar and how)
+  - ⏳ A2 acoustic: Orange Tree (strings × frets, 3 velocity layers, 4 round robins, pm, mute, releases, fret/pick noise) +
+    Ample SJ-200 Strummer (D / U / P / X whole strums: maj min 7 m7 maj7 sus2 sus4 add9 5 × 12 keys) → private packs.
+    Bodies/rooms (owner's #5): the real body + mic sound comes from his Orange Tree / Ample recordings; IRs the scan finds
+    (Nembrini, his IR folders) rendered/used as the room and the "make my electric sound acoustic" body.
+  - ⏳ A3 Playbox: chord sets → chord data (Jam suggestions, beat maker chord pads, Playbox Mode) + pad/chord banks (Jam beds,
+    looper beds, under My recordings, Game Mode chord swell option); private packs only.
+B. One sound core (owner's #3): C++ engine "kgaudio" built twice: Android native (Oboe, JNI Capacitor plugin) and WebAssembly
+   (AudioWorklet) for the web: sampler (packs), strum engine, console (buses, glue + true-peak limiter, convolution), all ported
+   from the TS versions (which stay as the reference + fallback).
+  - ⏳ B1 core + Oboe output; B2 native input (lock-free ring, measured latency, "Start when I play", 3-min history / capture
+    last pass); B3 audio health check (owner's #9: xruns, callback timing, CPU, in Settings, logged).
+C. ⏳ Live neural amp models (owner's #2): NeuralAmpModelerCore (MIT) inside kgaudio: clean electric DI packs through any .nam /
+   Archetype-matched capture; the live guitar too in the opt-in interface setup.
+D. Intelligence: ⏳ D1 neural listener (owner's #6: polyphonic notes, bends, slides; runs in the core) → ⏳ D2 AI teacher (#7)
+   → ⏳ D3 one spaced-review model for songs, licks, lessons, Game sections (#8), feeding the teacher.
+
 ## Owner notes after build-43 (2026-11-11 21:15: "add them to the list", not fixed yet)
 - ⏳ Now playing bar: an ✕ to close it (it overlays parts of some pages). Proposal to agree: ✕ hides it until the next song is
   opened (or until he taps Play again); a long-press / Settings option to keep it hidden; it never covers buttons (pages pad for it).
