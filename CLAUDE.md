@@ -326,10 +326,15 @@ The **Play** screen (play-along) is the heart of the app. Everything else suppor
 - **Every item promised, with status: `notes/MASTER-CHECKLIST.md`** (the owner's Master Game Plan PDF line by line + later asks).
 - Theory course (`notes/THEORY-COURSE.md`: 8 levels beginner → expert, No Bull = spine of L1–3, Kolb + Alexander + his other books
   for depth, ear training and rhythm in every level, CAGED woven in from L1, optional notation track; lesson standard = MORE depth,
-  ≤ ~5 quiz links a practice week + 3 checks + Explain it back). `src/course/`: `types.ts` (steps why/learn/examples/hear/mistakes/
-  practice/use/check/deeper), `progress.ts` (`kg:course`, reviews 1/3/7/30 days → Today plan), `level1.ts` (sample lesson
-  c1-octaves, the model for all lessons), `DeepLessonView.tsx`. Old Offtonic lessons get REPLACED by the course (owner); the 12
-  essentials (`learn/theoryCourse.ts`, quizzes `learn/theoryQuizzes.ts` + `theory/spell.ts`) fold into Levels 1–3.
+  few quiz links + 3 checks + Explain it back). `src/course/`: `types.ts` (steps why/learn/examples/hear/mistakes/practice/use/
+  check/deeper; practice = GOALS not days + optional `challenge`), `progress.ts` (`kg:course`, reviews 1/3/7/30 days → Today plan),
+  `level1.ts` / `level2.ts` / `level3.ts` (26 lessons: Levels 1–3 = all of No Bull), `DeepLessonView.tsx` (PracticeStep: warm-up from
+  the lesson before, goals, challenge round). Ear drills `learn/theoryQuizzes.ts` (l1-*, l2-*, l3-*; quiz audio can play `chords`
+  and `rhythm` with a count-in). Daniel Seriff's 5-fret triad window (owner likes his teaching): `lessonExtras.ts` `keyTriadShapes`,
+  tabs keyTriads / keyTriadsEmb; use his approach for L4–L6 triads, voice leading, rhythm parts. Lesson steps can hold a `video` block.
+  Old lessons the course covers are gone (`REPLACED` in `learn/lessons.ts` sends old links to the course lesson; the 12 essentials
+  file was deleted); the rest stay under "Earlier lessons" until their level is written. `tests/course-logic.test.ts` checks every
+  lesson (complete steps, links, tabs on every tuning, neck pictures on drawn frets with true note labels).
 - My books (`src/books/`): private book pack from `tools/make_book_pack.py` (cover titles, no authors; NEVER in the repo; the
   owner imports it on the phone), `store.ts` (IndexedDB kg-books: meta, page text, PDFs, topic index; searchBooks, topicPages,
   findRef, matchPdf), `BooksPage.tsx` (Learn → Explore → My books), `InYourBooks.tsx` / `BooksWin.tsx` (lessons, course, CAGED,

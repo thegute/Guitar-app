@@ -120,6 +120,19 @@ Test builds for him (pre-releases, main untouched): test-38 (everything up to 55
 65. **My books** (d18fd67). Learn → Explore → My books: import kguitar-books.json (sent in the chat; keep it in a phone/Drive folder),
     add the PDFs, search, read, Read this page's tab into Play, Ask the teacher; In your books next to lessons, CAGED, techniques, Scales.
 66. **Manual PDF** (this build). How to use KGuitar → Save the manual (PDF): Quick Start with screenshots + every feature (why, when, how).
+67. **Theory course Levels 2 and 3** (341cc08, 6cd9dee). Level 2 Scales, chords and keys (9 lessons) and Level 3 Progressions,
+    pentatonics and minor keys (9 lessons): Levels 1–3 = all of No Bull. 11 new ear drills (one-fret intervals, is it home, which chord
+    of the key, which strum, key from chords, which progression, how it ends, which scale, major/minor key, blues changes, straight or
+    swung) and a 12-bar quiz; quizzes can play progressions and rhythms with a count-in. Ask: depth, pace, the drills.
+68. **Practice goals instead of practice weeks** (b18c124, owner: "a week is too long"). Goals you reach in one sitting or several;
+    quiz goals tick themselves; a 2–3 minute warm-up from the lesson before; an optional Challenge round per lesson.
+    Ask: the right amount per lesson? Challenges hard enough?
+69. **Daniel Seriff's 5-fret window** (b18c124). Building the chords of any key → "The whole key in one 5-fret window": the seven
+    C-major triads on D-G-B, frets 5–9, voice leading, embellishments, his video, two play-along tabs (shapes worked out per tuning).
+    Ask: more of this (Level 4 triads, Level 5 voice leading, Level 6 rhythm parts will use his approach)?
+70. **Old theory lessons replaced** (6d2d8c9). The 12 essentials and 19 old lessons Levels 1–3 cover are gone; old links open the
+    course lesson. Lessons the course hasn't reached yet stay under "Earlier lessons". Ask: anything you miss from the old ones?
+71. **Shorts: GuitarZero2Hero Express** (ca3bb18) followed from the start.
 
 
 Checks: npm test (build32/build33 logic, pdf-tab), browser: build33-test [pdf, maketab, transcribe, z2h], beatmaker-test,

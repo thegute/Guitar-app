@@ -114,6 +114,19 @@ connects to chords and later levels, two routes to every answer), 5–6 worked e
 quizzes), and at most ~5 quiz links across the practice week + 3 checks (Apply, Hear, Play) + Explain it back. Prefer playing
 exercises in Play over extra quizzes. The sample (src/course/level1.ts, octave shapes) is the model for every lesson.
 
+## Practice goals, not weeks (owner 2026-11-11: "a week is too long", "a tiny bit more advanced")
+Each lesson's practice is 4–7 goals, reached in one sitting or several, then move on (no Day 1…7). Quiz goals tick themselves at 2
+stars; tabs have a target (tempo, a clean run). A 2–3 minute warm-up carries over from the previous lesson's Play check. Every lesson
+has an optional Challenge round (harder: all positions, a new key, a faster tempo, a real piece). He wants real music sooner: songs
+and Jam backing early in the goals, not saved for the end. "Add one chord at a time" means within a sitting, never per week.
+
+## Daniel Seriff's approach (owner 2026-11-11: "I really like his instructions and teaching style")
+His "5-fret triad system": a key's seven triads on the D-G-B strings inside one 5-fret window (C major, frets 5–9: xx555x xx776x
+xx998x xx756x xx978x xx755x xx976x), voice leading (smallest moves), practise additively (C→Dm, then C→Dm→Em…), always over a
+drum beat, and embellish triads with the scale note above a chord tone (hammer-ons, pull-offs, slides). Already in L2 "Building the
+chords of any key" (step + tabs keyTriads / keyTriadsEmb, `keyTriadShapes` per tuning). Use his approach and videos (checked with
+oEmbed) for L4 triads/inversions on string sets, L5 voice leading, L6 rhythm parts and fills.
+
 ## CAGED woven into learning the notes (owner 2026-11-11: "CAGED helps with this as well, can that be ingrained")
 CAGED is not left until Level 4: it grows with the note-finding from Level 1.
 - L1: the octave shapes ARE the root shapes of the CAGED chords (the sample lesson's "Octaves inside chords" step shows it);
