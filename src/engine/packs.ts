@@ -157,6 +157,7 @@ export function playPack(packId: string, n: PackNote): PackHandle | null {
   const norm = normGain(src.pack)
   const parts: { s: AudioBufferSourceNode; g: GainNode }[] = []
   const stems = stemsFor(src.pack, monoOut())
+  const vary = { cents: (Math.random() - 0.5) * 4, gain: Math.pow(10, ((Math.random() - 0.5) * 1.2) / 20) }
   for (const { layer, weight } of layers) {
     const k = rr.pick(`${packId}/${art}/${pick.zone.key}/${layer.velocity}`, layer.rr.length)
     // every mic stem of the same take starts on the same sample, so they add up like the real mics did
@@ -166,10 +167,12 @@ export function playPack(packId: string, n: PackNote): PackHandle | null {
       if (!buf) { void decode(packId, file); continue }
       const s = ctx.createBufferSource()
       s.buffer = buf
-      const rate = rateFor(pick.shift, layer.tune?.[k] ?? 0)
+      // a layer with a single recording (Ample plays the same take every time) gets a tiny take-to-take variation, the
+      // same for every mic stem of this note: ±2 cents and ±0.6 dB, so repeated notes don't sound machine-gunned
+      const rate = rateFor(pick.shift, (layer.tune?.[k] ?? 0) + (layer.rr.length === 1 ? vary.cents : 0))
       if (rate !== 1) s.playbackRate.value = rate
       const g = ctx.createGain()
-      g.gain.value = weight * norm * takeTrim(layer, k) * st.gain
+      g.gain.value = weight * norm * takeTrim(layer, k) * st.gain * (layer.rr.length === 1 ? vary.gain : 1)
       let node: AudioNode = s.connect(g)
       if (n.pan !== undefined && typeof ctx.createStereoPanner === 'function') { const p = ctx.createStereoPanner(); p.pan.value = n.pan; node = node.connect(p) }
       node.connect(out)

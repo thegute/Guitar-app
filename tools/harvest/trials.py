@@ -57,10 +57,12 @@ def phrase_strum():
     pat = [(0, 'D', 96), (1, 'D', 88), (1.5, 'U', 70), (2.5, 'U', 72), (3, 'D', 90), (3.5, 'U', 68)]
     for ch in ['G', 'C', 'D', 'Em']:
         sh = notes_of(SHAPES[ch])
-        for b, d, v in pat:
+        for j, (b, d, v) in enumerate(pat):
             ns = sh if d == 'D' else list(reversed(sh[-4:]))
+            # strings ring until the next strum (a real strum hand never mutes between strums)
+            nxt = pat[j + 1][0] if j + 1 < len(pat) else 4
             for (s, m), (off, vv) in zip(ns, strum_times(len(ns), d == 'U', v)):
-                ev.append({'t': round(t + b * BEAT + off, 4), 'note': m, 'vel': vv, 'dur': BEAT * 0.5 + 0.02, 'string': s})
+                ev.append({'t': round(t + b * BEAT + off, 4), 'note': m, 'vel': vv, 'dur': (nxt - b) * BEAT + 0.03, 'string': s})
         t += 4 * BEAT
     return ev, t
 
@@ -96,7 +98,10 @@ def main():
             if k in cand:
                 job[k] = cand[k]
         if i > 0:
+            # the agent keeps the plug-in loaded between jobs: setting the state again would reload a sampler's
+            # samples (and need another warm-up), so only the first phrase sets it up
             job.pop('warmup', None)
+            job.pop('state', None)
         with open(os.path.join(inbox, f"{prefix}{i}-{cand['id']}-{name}.json"), 'w') as f:
             json.dump(job, f)
     print('jobs written for', cand['id'])
