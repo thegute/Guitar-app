@@ -6,6 +6,8 @@ Horns, percussion) can't be hosted by pedalboard, so they're harvested in two st
        writes <id>.mid (every note the pack needs, one after another with silence between, at 120 BPM so beat = 0.5 s)
        and <id>.sched.json (where each note starts in seconds, and which pack file it becomes)
      → in Logic: a new project at 120 BPM, one Software Instrument track with the plan's patch, import <id>.mid at bar 1,
+       METRONOME OFF (Logic bounces its click), the patch's reverbs / delays AND its dynamics (Compressor, Squash, Limiter)
+       bypassed so soft and hard notes really differ (KGuitar's bass bus compresses live),
        File → Bounce → Project or Section (PCM, 48 kHz, 24-bit, "Normalize" OFF, from bar 1 to the end) → <id>.wav
   2. slice:     python3 logic_sched.py slice <id>.sched.json <id>.wav <packs dir>
        cuts the bounce into the pack's files (onset found within ±50 ms of where it was scheduled, 2 ms pre-roll, tail to
@@ -75,6 +77,10 @@ def slice_(sched_path, wav_path, packs_dir):
     sched = json.load(open(sched_path))
     plan = sched['plan']
     x, sr = sf.read(wav_path, always_2d=True, dtype='float64')
+    # the second before the first note must be silent: anything there is the metronome (or another track) in the bounce
+    pre = np.abs(x[: int(0.9 * sr)]).max() if len(x) else 0
+    if pre > 10 ** (-60 / 20):
+        sys.exit(f'something plays before the first note ({20 * np.log10(pre):.0f} dBFS): metronome on? Bounce again with it off.')
     out_dir = os.path.join(packs_dir, plan['id'])
     pack = {'format': 'kguitar-pack', 'version': 1, 'id': plan['id'], 'name': plan['name'], 'kind': plan.get('kind', 'keys'),
             'private': True, 'licence': 'personal use only: rendered from the owner\'s Logic Pro instruments', 'sampleRate': sr,

@@ -154,3 +154,21 @@ pedal steel (Hawaiian), jazz archtop, a humbucker (Les Paul) guitar for classic 
   Manual: "Channel-Based Strings" (MIDI channel 1 = highest string) and String Selection Keys force the string → to set ON
   in each Orange Tree state before the full renders (render.py: stringChannels with channel = 5 - string).
 - Next: Stratosphere + Flatpick: Channel-Based Strings ON; pickups → one state per pickup; Dracus; then Archetype re-amps.
+
+## Progress 2026-11-12 evening
+- Strat DI (Stratosphere, bridge + middle; the pickup is locked) is complete: 6 strings × frets 0–17 × 3 velocities × 4
+  takes = 1296 files. Stratosphere only has 2 different takes per note (the other two are copies: export / reamp drop
+  them) and its top two velocity layers are about as loud (it gets brighter, not louder): the engine scales level by
+  velocity anyway.
+- Kontakt froze once mid-render while Logic was bouncing ("Not Responding", 1 % CPU). The agent now runs renders with a
+  watchdog: render.py touches <pack>/.heartbeat after every note; quiet for 240 s → killed and restarted (up to 4 times),
+  output in jobs/<job>.log. A one-stem render no longer replays takes already on disk, so a restart resumes in seconds.
+- Logic (Studio Bass etc.): the bounce must have the METRONOME OFF (Logic bounced its bar click into every file: found as
+  identical spikes every 2 s) and the patch's dynamics bypassed (Squash, Compressor, Limiter flattened soft vs hard to
+  ~1 dB; now 7–10 dB like a real bass). logic_sched.py refuses a bounce with sound before the first note. KGuitar's bass
+  bus got the compressor instead (console.ts: 3:1, 12 ms attack, level-matched).
+- Non-plug-in work (slicing Logic bounces, checks) runs in the Linux VM on the mounted folder, in parallel with the
+  agent's renders (run_slice.py stubs pedalboard / mido).
+- Tim Henson X: tones henson-clean (Roses + comp), henson-crunch (Cherubs Ch I), henson-synth (multivoicer octave up +
+  octave down, no voice delays: key-proof), henson-chug (Pink + boost + gate: waits for the Dracus humbucker DI). His nylon
+  style = the Modern Nylon pack + his patterns (later).
