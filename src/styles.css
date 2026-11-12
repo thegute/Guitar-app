@@ -2145,6 +2145,10 @@ video.mirrored { transform: scaleX(-1); }
 .st-sample.on { background: var(--coral); border-color: var(--coral); color: #fff; }
 .st-sample-bar { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-sm); border: 1px dashed var(--coral); background: color-mix(in srgb, var(--coral) 8%, var(--surface)); }
 .st-sample-bar .small { flex: 1; min-width: 0; }
+.st-editmode.on, [data-theme] .st-editmode.on, [data-theme='psy'] .btn.st-editmode[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.st-edit-bar { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.st-pads.editing .st-pad { border: 2px dashed var(--accent); }
+[data-theme='psy'] .st-pads.editing .st-pad { background: #1f0b3a; color: #fff; }
 .st-meter, .pad-meter { --lv: 0; flex: none; width: 10px; height: 28px; border-radius: 5px; background: linear-gradient(to top, var(--mint) calc(var(--lv) * 100%), var(--line) 0); }
 .pad-meter { display: inline-block; height: 20px; vertical-align: middle; margin-left: 10px; }
 .st-pads.sampling .st-pad { border: 2px solid var(--coral); background: color-mix(in srgb, var(--coral) 18%, var(--surface)); color: var(--ink); }

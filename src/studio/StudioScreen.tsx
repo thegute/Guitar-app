@@ -377,8 +377,10 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
   const held = useRef(new Map<number, Handle>())
   const rows = useRef(beat.rows)
   rows.current = beat.rows
-  // Sample mode: hold a pad to record onto it; a quick tap opens its settings
+  // Sample mode: hold a pad to record onto it (a quick tap never records). Edit pads: tap a pad to open its settings.
+  // Two separate modes on purpose (owner: telling a tap from a hold was unreliable, taps started recordings).
   const sampler = useSampler(t, beat, setBeat)
+  const [editMode, setEditMode] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
   const [chop, setChop] = useState(false)
   const [getSound, setGetSound] = useState(false)
@@ -404,6 +406,7 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
     e.preventDefault()
     lastPad.current = voice
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
+    if (editMode) { flash(e.currentTarget, 'hit'); haptic('light'); return }
     if (sampler.on) { flash(e.currentTarget, 'hit'); void sampler.down(voice); return }
     // the sound first, before anything else
     const r = e.currentTarget.getBoundingClientRect()
@@ -423,7 +426,8 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
     }
   }
   const up = (e: React.PointerEvent<HTMLButtonElement>, voice: string) => {
-    if (sampler.on) { void sampler.up(voice).then(r => { if (r === 'tap') setEditing(voice) }); return }
+    if (editMode) { setEditing(voice); return }
+    if (sampler.on) { void sampler.up(voice); return }
     const id = repeats.current.get(e.pointerId)
     if (id) { clearInterval(id); repeats.current.delete(e.pointerId) }
     const h = held.current.get(e.pointerId)
@@ -443,15 +447,26 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
             {(['A', 'B'] as const).map(k => <button key={k} aria-pressed={bank === k} onClick={() => setBank(k)} title={`Bank ${k}: pads ${k === 'A' ? '1–16' : '17–32'}`}>Bank {k}{BANKS[k].some(p => beat.pads?.[p]) ? ' •' : ''}</button>)}
           </div>
         )}
-        <button className={`btn sm st-sample${sampler.on ? ' on' : ''}`} aria-pressed={sampler.on} onClick={() => void sampler.toggle()} data-testid="sample-mode">
-          <Ico n="mic" /> {sampler.on ? 'Sampling: done' : 'Sample'}
-        </button>
+        <div className="row" style={{ gap: 6 }}>
+          <button className={`btn sm st-sample${sampler.on ? ' on' : ''}`} aria-pressed={sampler.on} onClick={() => { setEditMode(false); void sampler.toggle() }} data-testid="sample-mode">
+            <Ico n="mic" /> {sampler.on ? 'Sampling: done' : 'Sample'}
+          </button>
+          <button className={`btn sm st-editmode${editMode ? ' on' : ''}`} aria-pressed={editMode} data-testid="edit-pads"
+            onClick={() => { if (sampler.on) void sampler.toggle(); setEditMode(m => !m) }}>
+            <Ico n="sliders" /> {editMode ? 'Editing: done' : 'Edit pads'}
+          </button>
+        </div>
       </div>
       {sampler.on ? (
         <div className="st-sample-bar" role="status">
           <span className="st-meter" style={{ ['--lv' as string]: String(Math.min(1, sampler.level * 3)) }} aria-hidden />
-          <span className="small">{sampler.msg || <><b>Hold a pad</b> and make a sound, let go to stop. <b>Tap</b> a pad for its settings.</>}</span>
+          <span className="small">{sampler.msg || <><b>Hold a pad</b> and make a sound, let go to stop. A quick tap never records. To trim or change a pad, use <b>Edit pads</b>.</>}</span>
           <MicFxPicker compact />
+          {canUndo && <button className="btn sm" onClick={undo}>↶ Undo</button>}
+        </div>
+      ) : editMode ? (
+        <div className="st-sample-bar st-edit-bar" role="status">
+          <span className="small"><b>Tap a pad</b> to open its settings: trim, pitch, volume, backwards, how it plays, or put a note, chord or file on it.</span>
           {canUndo && <button className="btn sm" onClick={undo}>↶ Undo</button>}
         </div>
       ) : (
@@ -466,7 +481,7 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
           </label>
         </div>
       )}
-      <div className={`st-pads size-${size}${sampler.on ? ' sampling' : ''}`} ref={grid}>
+      <div className={`st-pads size-${size}${sampler.on ? ' sampling' : ''}${editMode ? ' editing' : ''}`} ref={grid}>
         {voices.map(v => {
           const d = beat.pads?.[v]
           const empty = isUserPad(v) && !d
@@ -474,8 +489,9 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
             <button key={v} data-voice={v} className={`st-pad${page === 'kit' && MAIN.includes(v as Voice) ? ' big' : ''}${mine.map[v as Voice] || (d && d.src !== 'kit') ? ' mine' : ''}${empty ? ' empty' : ''}${sampler.recPad === v ? ' recording' : ''}`}
               style={{ ['--h' as string]: String(PAD_HUE[v as Voice] ?? (isUserPad(v) ? (Number(v.slice(1)) * 37) % 360 : 120)) }}
               onPointerDown={e => down(e, v)} onPointerUp={e => up(e, v)} onPointerCancel={e => up(e, v)} onContextMenu={e => e.preventDefault()}
-              aria-label={`${padLabel(beat, v)}${sampler.on ? ': hold to record, tap for settings' : ''}`}>
+              aria-label={`${padLabel(beat, v)}${editMode ? ': tap for its settings' : sampler.on ? ': hold to record' : ''}`}>
               {sampler.on && <Ico n={sampler.recPad === v ? 'record' : 'mic'} fill={sampler.recPad === v} className="st-pad-mic" />}
+              {editMode && <Ico n="sliders" className="st-pad-mic" />}
               <span>{empty && !sampler.on ? '+' : padLabel(beat, v)}</span>
               {d && d.src !== 'kit' && <small className="st-pad-src">{d.src === 'rec' ? 'yours' : d.src === 'file' ? 'file' : d.src === 'chord' ? 'chord' : 'note'}</small>}
             </button>
@@ -491,7 +507,7 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
       )}
       {getSound && <GetSound beat={beat} setBeat={(f, r) => setBeat(f, r)} onClose={() => setGetSound(false)} onDone={m => { setGetSound(false); setChopMsg(m) }} />}
       {chop && <ChopSheet setBeat={(f, r) => setBeat(f, r)} onClose={() => setChop(false)} onDone={n => { setChop(false); setChopMsg(`${n} notes are on Your pads. Play them, or pick "Your pads" as the Keyboard's sound to play one up and down.`) }} />}
-      {page === 'mine' && !sampler.on && !voices.some(v => beat.pads?.[v]) && <p className="small muted" style={{ margin: 0 }}>Your own 32 pads, in banks A and B. Tap <b>Sample</b>, then hold a pad and make a sound, or tap a pad to put an instrument note or chord on it.</p>}
+      {page === 'mine' && !sampler.on && !voices.some(v => beat.pads?.[v]) && <p className="small muted" style={{ margin: 0 }}>Your own 32 pads, in banks A and B. Tap <b>Sample</b>, then hold a pad and make a sound. Or tap <b>Edit pads</b>, then a pad, to put an instrument note, chord or file on it.</p>}
       <LagNote />
       {mySoundsAvailable() && <MySoundsPanel pads={voices.filter(v => !isUserPad(v)) as Voice[]} mine={mine} setMine={setMine} />}
       {editing && (
@@ -502,7 +518,7 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
   )
 }
 
-/** Sample mode: the input stays open (nothing cut off at the start); hold = record, quick tap = settings. */
+/** Sample mode: the input stays open (nothing cut off at the start); hold = record, a quick tap does nothing. */
 function useSampler(t: StudioTransport, beat: Beat, setBeat: SetBeat) {
   const [on, setOn] = useState(false)
   const [recPad, setRecPad] = useState<string | null>(null)
@@ -545,7 +561,8 @@ function useSampler(t: StudioTransport, beat: Beat, setBeat: SetBeat) {
     if (!s || s.pad !== pad) return 'none'
     const ctx = audio()
     const held = ctx.currentTime - s.t
-    if (held < 0.32 && !force) return 'tap'
+    // a quick tap never records (and never touches what's on the pad)
+    if (held < 0.35 && !force) { setMsg('Hold the pad while you make the sound (a quick tap doesn\'t record).'); return 'tap' }
     const lat = latencyMs(kindOf(rec.current?.input?.external)) / 1000
     try {
       const pre = 0.06
@@ -567,7 +584,7 @@ function useSampler(t: StudioTransport, beat: Beat, setBeat: SetBeat) {
       const prev = beatRef.current.pads?.[pad]
       setBeat(b => ({ ...b, pads: { ...b.pads, [pad]: { src: 'rec', sample: id, start: cut.start, end: cut.end, root, name: prev?.name, choke: prev?.choke, mode: prev?.mode, vol: prev?.vol } } }))
       haptic('success')
-      setMsg(`Recorded onto ${padLabel(beatRef.current, pad)} (${(cut.end - cut.start).toFixed(1)} s). Hold another pad, or tap this one to trim it and change its pitch.`)
+      setMsg(`Recorded onto ${padLabel(beatRef.current, pad)} (${(cut.end - cut.start).toFixed(1)} s). Hold another pad, or use Edit pads to trim it and change its pitch.`)
       // hear it once
       setTimeout(() => { t.hit(pad, 0.9) }, 60)
       return 'rec'

@@ -61,9 +61,16 @@ async function hold(page, sel, ms) {
     console.log(`${vp.width}px sample: kick = ${k ? `${k.src} ${(k.end - k.start).toFixed(2)} s, root ${k.root ?? '–'}` : 'nothing'} · "${(await page.locator('.st-sample-bar').innerText()).slice(0, 70)}"`)
     if (!k || k.src !== 'rec' || !k.sample) bad('holding a pad in Sample mode did not record onto it')
     if (k && !(k.end > k.start)) bad('recording has no length after trimming')
-    // a quick tap opens its settings
+    // a quick tap in Sample mode never records over it (and doesn't open anything)
     await page.locator('.st-pad[data-voice="kick"]').click()
-    await page.waitForSelector('[data-testid=pad-editor]', { timeout: 3000 }).catch(() => bad('tapping a pad in Sample mode did not open its settings'))
+    await page.waitForTimeout(600)
+    if (JSON.stringify((await beat(page)).pads?.kick) !== JSON.stringify(k)) bad('a quick tap in Sample mode changed the pad')
+    if (await page.locator('[data-testid=pad-editor]').count()) bad('a quick tap in Sample mode opened the settings')
+    // Edit pads: a tap opens the settings (and leaves Sample mode)
+    await page.locator('[data-testid=edit-pads]').click()
+    if (await page.locator('.st-pads.sampling').count()) bad('Edit pads did not leave Sample mode')
+    await page.locator('.st-pad[data-voice="kick"]').click()
+    await page.waitForSelector('[data-testid=pad-editor]', { timeout: 3000 }).catch(() => bad('tapping a pad in Edit pads did not open its settings'))
     if (await page.locator('[data-testid=pad-wave]').count()) {
       // drag the start handle right
       const w = await page.locator('[data-testid=pad-wave]').boundingBox()
@@ -94,11 +101,13 @@ async function hold(page, sel, ms) {
     if (!sn || sn.src !== 'chord' || !sn.ivs?.length) bad('chord pad not set')
     await page.locator('.pad-editor .sheet-head button:has-text("Done")').click()
     // undo brings the snare back
-    await page.locator('.st-sample-bar button:has-text("Undo")').click()
+    await page.locator('.st-edit-bar button:has-text("Undo")').click()
     await page.waitForTimeout(200)
     b = await beat(page)
     if (b.pads?.snare?.ivs && JSON.stringify(b.pads.snare.ivs) === JSON.stringify(sn.ivs) && b.pads.snare.midi === sn.midi) bad('Undo did not take back the last pad change')
-    // Your pads page: hold an empty pad
+    // Your pads page: back to Sample mode, hold an empty pad
+    await page.locator('[data-testid=sample-mode]').click()
+    if (await page.locator('.st-pads.editing').count()) bad('Sample did not leave Edit pads')
     await page.locator('.st-padpanel .seg button:has-text("Your pads")').click()
     await hold(page, '.st-pad[data-voice="u1"]', 900)
     await page.waitForTimeout(1200)
