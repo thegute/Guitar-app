@@ -101,3 +101,11 @@ New ideas:
 - Optional later: "sample your own guitar" wizard (his own J-45, note by note).
 Gaps nothing on the Mac covers well: nylon / classical (Logic's is basic), ukulele + baritone, banjo, mandolin, lap /
 pedal steel (Hawaiian), jazz archtop, a humbucker (Les Paul) guitar for classic rock / blues.
+
+## Owner's answers (2026-11-12 07:58)
+- Buying tonight: Orange Tree **Evolution Modern Nylon** 1.3.5 (→ nylon / classical / bossa / Romanza role) and
+  **Ample Guitar M** 4.1 (full Martin D-41 → candidate for fingerstyle and strumming, replaces Martin Lite II).
+- Humbucker role (classic rock / blues): his Stratosphere's humbucker setting (confirm in the trial; Orange Tree's manual
+  doesn't list it, so check its Pickup control). The Evolution engine's "Alternate Tuning" renders real drop / open
+  tunings, and its Strum section + Multitracking + release / legato controls are all usable for the harvest.
+- Still open: ukulele + baritone, banjo, mandolin, lap / pedal steel, jazz archtop.
