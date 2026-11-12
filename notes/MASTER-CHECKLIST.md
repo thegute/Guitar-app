@@ -186,3 +186,18 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
 ## Other promises (MASTER-PLAN, handoff)
 - ✅ Tidy-grid windows · ✅ Exercises in Learn · ⏳ Game Mode extras: looper "start when I play" · ⏳ keep the brother's guide in step
   with the app · ⏳ GitHub Pages web app goes live with "ship it" (he must switch Pages on).
+
+## Saved for after the sound harvest (owner, 2026-11-12)
+- [ ] **Looper "play it, hear a real bass"**: play a bassline on the guitar, KGuitar works out each note (noteDetect / the
+      transcriber) and the looper track plays them with the recorded Studio Bass packs (velocity from the pick; bass sound
+      switchable after: fingers / sixties / modern / upright). Owner chose this over the octave-down track.
+- [ ] **Phone as a multi-effects pedal** (brainstormed, owner liked it):
+  - Live amp tones: NAM captures of HIS Archetype tones made on the Mac (test signal through each tone → train NAM, lite/
+    feather size), run live on the phone; time effects from KGuitar's own space. Private like the packs.
+  - Acoustic / nylon simulator: matching filter learned from the paired Strat DI ↔ Flatpick 6 (and J-45, Modern Nylon)
+    notes, applied live to the electric (Aura / Line 6 style).
+  - Split with the Pocket Master (gate / drive / tuner stay on the pedal); per-song snapshots on the Chocolate footswitch;
+    Henson octave synth live.
+  - FIRST: **research how to make the latency unnoticeable** (native Android audio path: AAudio / Oboe low-latency
+    exclusive mode, USB audio through the Pocket Master, buffer sizes, measured round trip on the Fold 8; what pro Android
+    amp apps achieve) and measure before building anything else. Ask him: home (headphones / speaker) or also live with the Spark.
