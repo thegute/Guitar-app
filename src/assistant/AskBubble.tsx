@@ -21,6 +21,7 @@ import { applyBeatChange } from '../studio/beat'
 import { launch } from '../search/launch'
 import { startSession } from '../sessions/session'
 import { TipCard, useTip } from '../tips/TipCard'
+import { takeTipAsk } from '../tips/tips'
 
 type Phase = 'idle' | 'listening' | 'thinking' | 'answer' | 'error'
 const SORRY: Record<string, string> = {
@@ -127,8 +128,10 @@ export function AskBubble({ context }: { context: AskContext }) {
   // the helper's "A tip for this screen" (and "Only when I ask" mode)
   const [noTip, setNoTip] = useState(false)
   useEffect(() => {
-    const f = () => { if (tipRef.current) setTipOpen(true); else { setNoTip(true); setTimeout(() => setNoTip(false), 3500) } }
-    addEventListener('kg-show-tip', f); return () => removeEventListener('kg-show-tip', f)
+    const f = () => { if (!takeTipAsk()) return; if (tipRef.current) setTipOpen(true); else { setNoTip(true); setTimeout(() => setNoTip(false), 3500) } }
+    // asked while the helper was open (this bubble wasn't on screen): answer now, once the tip has been worked out
+    const t = setTimeout(f, 150)
+    addEventListener('kg-show-tip', f); return () => { clearTimeout(t); removeEventListener('kg-show-tip', f) }
   }, [])
   const tipRef = useRef(tip); tipRef.current = tip
   useEffect(() => {

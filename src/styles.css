@@ -1619,7 +1619,10 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 @media (max-width: 520px) { .ex-filters { grid-template-columns: 1fr 1fr; } .ex-filters > :first-child { grid-column: 1 / -1; } }
 .ex-count { gap: 8px; flex-wrap: wrap; align-items: center; }
 .ex-count > span:first-child { margin-right: auto; font-size: 15px; }
-.ex-check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; min-height: var(--h-sm); }
+.ex-check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; white-space: nowrap; min-height: var(--h-sm); max-width: 100%; }
+/* long labels (a sentence, not a word) wrap instead of pushing the page sideways */
+.ex-check:has(> input + *), .win-body > .ex-check, .stack > .ex-check { white-space: normal; }
+.ex-check input { flex: none; }
 .ex-check input { width: 18px; height: 18px; accent-color: var(--accent); }
 .ex-pick { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
 .ex-pick .btn { min-width: 42px; padding: 0 10px; font-size: 18px; }
@@ -2003,7 +2006,7 @@ video.mirrored { transform: scaleX(-1); }
   background: var(--surface); color: var(--ink); font-size: 18px; display: grid; place-items: center; box-shadow: 0 3px 10px rgba(0,0,0,0.3); cursor: pointer; }
 .talk-btn.on { background: var(--coral); color: #fff; border-color: #fff; }
 .talk-level { position: absolute; inset: -6px; border-radius: 50%; border: 3px solid var(--coral); opacity: 0.6; pointer-events: none; transition: transform 80ms; }
-.talk-card { position: fixed; z-index: 46; width: min(340px, calc(100vw - 90px)); max-height: min(60vh, 340px); overflow-y: auto;
+.talk-card { position: fixed; z-index: 88; /* above the floating cards (65+): a tip or an answer is what you just asked for */  width: min(340px, calc(100vw - 90px)); max-height: min(60vh, 340px); overflow-y: auto;
   display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface);
   border: 2px solid var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
 .talk-card.from-right { right: 10px; }
@@ -2631,3 +2634,14 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .fc-mix-b { min-height: 30px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font-weight: 800; font-size: 13px; }
 .fc-mix-b.on { background: var(--coral); color: #fff; border-color: transparent; }
 .fc-mix-b.on.solo { background: var(--gold); color: #1a1200; }
+
+/* the Riff Scanner link under Jam's buttons (and ‹ Back to Jam): a readable chip over the psychedelic art */
+[data-theme="psy"] .jam-scan-link { background: rgba(14, 0, 32, .86); color: #f4ecff; padding: 5px 12px; border-radius: var(--r-pill); text-decoration: underline; text-underline-offset: 3px; }
+[data-theme="psy"] .jam-scan-link svg { color: var(--gold); }
+
+/* Songs → Library */
+.lib-shows { display: flex; flex-wrap: wrap; gap: 6px; }
+.lib-due { color: var(--coral); font-weight: 900; }
+
+/* the songbook inside Songs → Library: its windows take their place among the library's */
+.songbook-page.embedded { display: contents; }

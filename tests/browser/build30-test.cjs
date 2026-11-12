@@ -33,7 +33,13 @@ async function newPage(browser, seed = {}, viewport = { width: 840, height: 757 
 const nav = (page, label) => label === 'Play' ? page.locator('[data-testid=now-playing]').count().then(c => (c ? page.locator('[data-testid=now-playing]').click() : null)) : page.locator(`nav.nav button:has-text("${label}")`).click()
 // Jam's pages are three big choices now (+ the Riff Scanner link); old names still work here
 const JAM_ALIAS = { 'Jam': 'Play with a band', 'Looper': 'Loop myself', 'Beat maker': 'Make a beat' }
-const sub = (page, label) => label === 'Riff Scanner' ? page.locator('[data-testid=jam-scan-link]').click() : page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
+// Songs is one Library now: "My songs" and "Songbook" are its Mine / Songbook chips
+const LIB_CHIP = { 'My songs': 'mine', 'Songbook': 'songbook' }
+const sub = async (page, label) => {
+  if (label === 'Riff Scanner') return page.locator('[data-testid=jam-scan-link]').click()
+  if (LIB_CHIP[label]) { await page.locator('.subtabs [role=tab]:has-text("Library")').first().click(); return page.locator(`[data-testid=lib-${LIB_CHIP[label]}]`).click() }
+  return page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
+}
 const sideways = page => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
 const errs = (page, where) => { if (page.errors.length) bad(`${where} page errors: ${page.errors.join(' | ')}`); page.errors = [] }
 
@@ -260,7 +266,7 @@ async function playThrough(page) {
     console.log(`what you use: ${rows.slice(0, 5).join(' | ')}`)
     if (rows.length < 3) bad('What you use shows too little')
     const store = await page.evaluate(() => JSON.parse(localStorage.getItem('kg:usage') || '{}'))
-    for (const k of ['screen:progressions', 'page:jam:beats', 'page:songs:songbook', 'screen:settings']) if (!store.c?.[k]) bad(`What you use did not count ${k}`)
+    for (const k of ['screen:progressions', 'page:jam:beats', 'page:songs:library', 'screen:settings']) if (!store.c?.[k]) bad(`What you use did not count ${k}`)
     errs(page, 'usage')
     await page.context().close()
   }

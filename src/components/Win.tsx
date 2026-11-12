@@ -38,7 +38,8 @@ function load(area: string): Layout {
 }
 
 /** A screen (or page) whose sections can be moved, resized and tucked away. */
-export function WinArea({ area, children, className = '', defaultHidden = [] }: { area: string; children: ReactNode; className?: string; defaultHidden?: string[] }) {
+/** `prefer`: the order windows go in by default (some only appear later, e.g. once songs have loaded); others follow in the order they appear */
+export function WinArea({ area, children, className = '', defaultHidden = [], prefer }: { area: string; children: ReactNode; className?: string; defaultHidden?: string[]; prefer?: string[] }) {
   const first = (): Layout => { const l = load(area); return l === EMPTY ? { ...EMPTY, hidden: defaultHidden } : l }
   const [layout, setLayout] = useState<Layout>(first)
   const [titles, setTitles] = useState<Record<string, string>>({})
@@ -71,10 +72,10 @@ export function WinArea({ area, children, className = '', defaultHidden = [] }: 
     set(l => {
       if (l.order.includes(id)) return l
       if (l.moved) return { ...l, order: [...l.order, id] }
-      const at = (x: string) => { const i = regOrder.current.indexOf(x); return i < 0 ? 999 : i }
+      const at = (x: string) => { const p = prefer?.indexOf(x) ?? -1; if (p >= 0) return p; const i = regOrder.current.indexOf(x); return (prefer?.length ?? 0) + (i < 0 ? 999 : i) }
       return { ...l, order: [...l.order, id].sort((a, b) => at(a) - at(b)) }
     })
-  }, [set])
+  }, [set]) // eslint-disable-line react-hooks/exhaustive-deps
   const unregister = useCallback((id: string) => setTitles(t => { const n = { ...t }; delete n[id]; return n }), [])
   // drag a window by its ☰ grip: it swaps places with the window under your finger
   const startDrag = useCallback((id: string, e: React.PointerEvent) => {

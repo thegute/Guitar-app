@@ -159,7 +159,7 @@ export function ScanResult({ out, live, onUseInJam, onAgain }: { out: ScanOut; l
   const today = async () => {
     const d = await keep()
     try { localStorage.setItem(`kg:playSong:${inst.id}`, JSON.stringify(d.id)) } catch { /* storage */ }
-    setNote(`"${d.title}" is the song in your Practice button now (Learn → Today, Songs → My songs).`)
+    setNote(`"${d.title}" is the song in your Practice button now (Learn → Today, Songs → Library).`)
   }
   const toChain = () => {
     const w = new Array(12).fill(0)

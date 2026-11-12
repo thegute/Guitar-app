@@ -21,12 +21,12 @@ export function libraryEntries(inst: Instrument, songs: SongDoc[] = []): Entry[]
   const out: Entry[] = []
   for (const s of songs.filter(isMine)) {
     const kind = s.source === 'gp' ? 'Guitar Pro tab' : s.source === 'chords' ? 'chord sheet' : s.source === 'jam' ? 'tab made in KGuitar' : 'text tab'
-    out.push({ id: `my:${s.id}`, kind: 'mysong', title: s.title, where: 'Songs → My songs', text: `${s.artist ? s.artist + ', ' : ''}your ${kind}. Opens in Play where you left off.`,
+    out.push({ id: `my:${s.id}`, kind: 'mysong', title: s.title, where: 'Songs → Library (yours)', text: `${s.artist ? s.artist + ', ' : ''}your ${kind}. Opens in Play where you left off.`,
       keys: `${s.artist ?? ''} my song saved`, target: { go: { song: s.id } }, boost: 0.1 })
   }
   for (const s of SONGBOOK) {
     const genre = GENRES.find(g => g.id === s.genre)?.label ?? s.genre
-    out.push({ id: `sb:${s.id}`, kind: 'songbook', title: s.title, where: `Songs → Songbook (${genre})`,
+    out.push({ id: `sb:${s.id}`, kind: 'songbook', title: s.title, where: `Songs → Library → Songbook (${genre})`,
       text: `${s.credit}, key of ${s.key}${s.minor ? ' minor' : ''}. Parts: ${s.parts.map(p => p.label).join(', ')}.`,
       keys: `${s.genre} songbook ${s.parts.map(p => p.label).join(' ')}`, target: { go: { songbook: { song: s.id, part: s.parts[0].id } } } })
   }

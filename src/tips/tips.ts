@@ -176,3 +176,9 @@ export function flashFind(sel: string, delay = 120) {
   }
   setTimeout(find, delay)
 }
+
+// "A tip for this screen" from the helper: the ✨ bubble isn't on screen while the helper is open, so the ask waits
+// here until the bubble comes back and picks it up.
+let tipAsked = false
+export function askForTip() { tipAsked = true; dispatchEvent(new Event('kg-show-tip')) }
+export function takeTipAsk(): boolean { const v = tipAsked; tipAsked = false; return v }

@@ -50,10 +50,16 @@ export function setSubPage(screen: 'songs' | 'learn' | 'jam' | 'settings', page:
   // a screen that's already open switches too
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('kg-subpage', { detail: { screen, page } }))
 }
-export function openSongs(section: 'mine' | 'songbook' | 'practice' | 'add' = 'songbook') {
+export function openSongs(section: 'mine' | 'songbook' | 'practice' | 'add' | 'library' | 'learning' = 'songbook') {
   // the exercise library moved to Learn → Exercises (old links still say 'practice')
   if (section === 'practice') { learnGo({ learn: 'exercises' }); return }
-  setSubPage('songs', section)
+  // My songs and the Songbook are one Library now: older links open it showing that kind
+  if (section !== 'add') {
+    const show = section === 'library' ? 'all' : section
+    try { localStorage.setItem('kg:libShow', JSON.stringify(show)) } catch { /* private */ }
+    dispatchEvent(new CustomEvent('kg-libshow', { detail: show }))
+  }
+  setSubPage('songs', section === 'add' ? 'add' : 'library')
   go('songs')
 }
 // ---- one exercise from the exercise library (Learn → Exercises)

@@ -54,3 +54,6 @@ artwork), the chosen dog greets you on the empty My songs page, every picture lo
 - `node tests/browser/tabfit-test.cjs`: tab lines fill the full width at three zooms, the tab's − % + control, Game Mode zoom, look
   ahead (⟲ Now), fitting its box and the ⇕ size handle (cover, inner, tablet, small; day / night / psy).
 - `build33-test.cjs pdf` also opens `tests/fixtures/book.pdf` (10 pages: page 5 a text tab, the rest scans) through the page picker.
+- `node tests/browser/tips-test.cjs`: the glowing dot, the tip card (Show me / Got it / No more tips here), Always show, Off, Settings → You → Tips.
+- `node tests/browser/songs-test.cjs`: Songs → Library (Learning now first, search, chips, Saved for later) and the one Add a song box (name,
+  YouTube link → Find / Scan / Save, a chord sheet → Play with its chord band, the Mixer card: parts, style kept per song, mute, solo).

@@ -70,7 +70,13 @@ const nav = (page, label) => label === 'Play' ? page.locator('[data-testid=now-p
 const subs = async page => page.locator('.subtabs [role=tab]').allTextContents()
 // Jam's pages are three big choices now (+ the Riff Scanner link); old names still work here
 const JAM_ALIAS = { 'Jam': 'Play with a band', 'Looper': 'Loop myself', 'Beat maker': 'Make a beat' }
-const sub = (page, label) => label === 'Riff Scanner' ? page.locator('[data-testid=jam-scan-link]').click() : page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
+// Songs is one Library now: "My songs" and "Songbook" are its Mine / Songbook chips
+const LIB_CHIP = { 'My songs': 'mine', 'Songbook': 'songbook' }
+const sub = async (page, label) => {
+  if (label === 'Riff Scanner') return page.locator('[data-testid=jam-scan-link]').click()
+  if (LIB_CHIP[label]) { await page.locator('.subtabs [role=tab]:has-text("Library")').first().click(); return page.locator(`[data-testid=lib-${LIB_CHIP[label]}]`).click() }
+  return page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
+}
 
 ;(async () => {
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] })

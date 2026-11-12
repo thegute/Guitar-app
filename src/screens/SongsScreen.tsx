@@ -1,31 +1,29 @@
-// Songs: everything you can play, on four short pages: your songs, the songbook, the exercise library (with the
-// picking-tab and lick makers),
-// and adding a song (find one online, upload Guitar Pro or text files, or paste a tab or chord sheet).
+// Songs: one library (your songs and the songbook together, owner 2026-11-11: "Learning now" first, then your songs, then
+// the songbook; one search and filter chips) and Add a song (one box: a name, a link, a file, a picture or a recording).
 import { stopAllSounds } from '../audio/stopAll'
 import { Win, WinArea } from '../components/Win'
 import { ScanVideo } from '../scan/RiffScanner'
 import { Songbook } from '../components/Songbook'
 import { JumpBackIn } from '../components/JumpBackIn'
-import { SiteSearch } from '../components/SiteSearch'
-import { canImportFromSites } from '../tabs/siteImport'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { PsyDog, PsyDogCard, PsyStrip } from '../components/PsyArt'
 import { breedOf } from '../theme'
 import { useEffect, useRef, useState } from 'react'
-import { deleteSong, listSongs, saveSong, youtubeId, type SongDoc } from '../tabs/library'
-import { isPdf, songFromFile, songFromPdf, songFromText } from '../tabs/importer'
+import { deleteSong, listSongs, saveSong, type SongDoc } from '../tabs/library'
+import { isPdf, songFromFile, songFromPdf } from '../tabs/importer'
 import { BOOK_PAGES, PdfPages } from '../components/PdfPages'
-import { ago, songStats } from '../play/songStats'
-import { Clipboard } from '@capacitor/clipboard'
+import { ago, allSongStats, songStats } from '../play/songStats'
+import { SONGBOOK, songbookId } from '../tabs/songbook'
+import { loadSongbookDoc } from '../tabs/songbookDocs'
 import { INSTRUMENTS, useInstrument, type InstrumentId } from '../instrument'
 import { usePersist } from '../components/Controls'
 import { go, openInPlay, setSubPage } from '../nav'
 import { Ico } from '../components/Icon'
-import { TAB_SITES } from '../tabs/tabSites'
+import { AddBox } from '../components/AddBox'
+import { onToLearn, removeToLearn, toLearnList } from '../tabs/toLearn'
 
-const SITES = TAB_SITES
 
-const PAGES = ['mine', 'songbook', 'add'] as const
+const PAGES = ['library', 'add'] as const
 type Page = typeof PAGES[number]
 const mine = (s: SongDoc) => s.source !== 'example' && s.source !== 'lesson' && s.source !== 'songbook'
 
@@ -41,6 +39,7 @@ export function SongsScreen() {
   useEffect(() => { void listSongs(inst.id).then(setSongs) }, [inst.id])
   const open = (d: SongDoc) => openInPlay(d)
   const count = songs?.filter(mine).length ?? 0
+  const [, setLibShow] = usePersist<LibShow>('libShow', 'all')
 
   return (
     <div className="songs-screen stack">
@@ -49,34 +48,118 @@ export function SongsScreen() {
         <h1>Songs</h1>
       </header>
       <SubTabs label="Songs" value={page} onChange={setPage} tabs={[
-        { id: 'mine', label: 'My songs', badge: count || null },
-        { id: 'songbook', label: 'Songbook' },
+        { id: 'library', label: 'Library', badge: count || null },
         { id: 'add', label: 'Add a song' },
       ]} />
-      {page === 'mine' && <WinArea area="songsMine">
-        <Win id="jump" title="Practice and jump back in" className="panel" resizable={false}><JumpBackIn compact /></Win>
-        <MySongs songs={songs} currentId={currentId} onOpen={open} refresh={refresh} onAdd={() => setPage('add')} onSongbook={() => setPage('songbook')} />
-      </WinArea>}
-      {page === 'songbook' && <Songbook currentId={currentId} onOpen={open} />}
-      {page === 'add' && <AddPage onOpen={open} onAdded={async () => { await refresh(); setPage('mine') }} />}
+      {page === 'library' && <LibraryPage songs={songs} currentId={currentId} onOpen={open} refresh={refresh} onAdd={() => setPage('add')} />}
+      {page === 'add' && <AddPage onOpen={open} onAdded={async () => { await refresh(); setLibShow('mine'); setPage('library') }} />}
     </div>
   )
 }
 
-function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook }: {
-  songs: SongDoc[] | null; currentId: string; onOpen: (d: SongDoc) => void; refresh: () => Promise<void>; onAdd: () => void; onSongbook: () => void
+type LibShow = 'all' | 'learning' | 'mine' | 'songbook' | 'learned'
+const SHOWS: { id: LibShow; label: string }[] = [
+  { id: 'all', label: 'All' }, { id: 'learning', label: 'Learning now' }, { id: 'mine', label: 'Mine' }, { id: 'songbook', label: 'Songbook' }, { id: 'learned', label: 'Learned' },
+]
+
+/** One row of the progress lists: a song of yours or a songbook part you've played. */
+interface Progress { id: string; title: string; part?: string; best: number; lastAt: number; due: boolean; learned: boolean; open: () => void }
+
+/** Songs → Library: "Learning now" first (in progress and reviews due), then your songs, then the songbook. One search
+ *  for all of it; chips to show one kind. */
+function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
+  songs: SongDoc[] | null; currentId: string; onOpen: (d: SongDoc) => void; refresh: () => Promise<void>; onAdd: () => void
+}) {
+  const inst = useInstrument()
+  const [show, setShow] = usePersist<LibShow>('libShow', 'all')
+  // a link elsewhere asked for one kind (My songs, the Songbook) while this page was already open
+  useEffect(() => { const f = (e: Event) => setShow((e as CustomEvent<LibShow>).detail); addEventListener('kg-libshow', f); return () => removeEventListener('kg-libshow', f) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const [q, setQ] = useState('')
+  const now = Date.now()
+  const query = q.trim().toLowerCase()
+  const progress: Progress[] = (() => {
+    if (!songs) return []
+    const out: Progress[] = []
+    const stats = allSongStats()
+    for (const d of songs.filter(mine)) {
+      const st = stats[d.id]
+      if (!st) continue
+      out.push({ id: d.id, title: d.title, best: st.best, lastAt: st.lastAt, due: !!st.review && st.review.due <= now, learned: !!st.learnedAt, open: () => onOpen(d) })
+    }
+    for (const s of SONGBOOK) for (const p of s.parts) {
+      const id = songbookId(s.id, p.id, inst)
+      const st = stats[id]
+      if (!st) continue
+      out.push({ id, title: s.title, part: p.label, best: st.best, lastAt: st.lastAt, due: !!st.review && st.review.due <= now, learned: !!st.learnedAt,
+        open: () => { void loadSongbookDoc(s.id, p.id, inst).then(doc => { if (doc) onOpen(doc) }) } })
+    }
+    return out.filter(x => !query || `${x.title} ${x.part ?? ''}`.toLowerCase().includes(query))
+  })()
+  const learning = progress.filter(x => !x.learned || x.due).sort((a, b) => Number(b.due) - Number(a.due) || b.lastAt - a.lastAt)
+  const learned = progress.filter(x => x.learned && !x.due).sort((a, b) => b.lastAt - a.lastAt)
+  const row = (x: Progress) => (
+    <li key={x.id} className={x.id === currentId ? 'on' : ''}>
+      <button className="song-open" onClick={x.open}>
+        <PsyDog breed={breedOf(x.id)} className="song-dog" />
+        <b>{x.title}</b>
+        <span className="small muted">{[x.part, x.id.startsWith('sb:') ? 'Songbook' : 'Yours'].filter(Boolean).join(' · ')}</span>
+        <span className="small song-progress">
+          {x.best > 0 && <span>best {x.best}%</span>}
+          <span className="muted">played {ago(x.lastAt)}</span>
+          {x.due ? <span className="due">review due</span> : x.learned ? <span className="learned">✓ learned</span> : null}
+        </span>
+      </button>
+    </li>
+  )
+  return (
+    <WinArea area="songsLibrary" prefer={['jump', 'find', 'learning', 'learned', 'later', 'list', 'filters', 'songs']}>
+      <Win id="jump" title="Practice and jump back in" className="panel" resizable={false}><JumpBackIn compact /></Win>
+      <Win id="find" title="Find a song" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }} resizable={false}>
+        <input className="input" type="search" placeholder="Search your songs and the songbook" value={q} onChange={e => setQ(e.target.value)} aria-label="Search your songs and the songbook" data-testid="lib-search" />
+        <div className="chips lib-shows" role="group" aria-label="Show">
+          {SHOWS.map(o => (
+            <button key={o.id} className={`chip${show === o.id ? ' on' : ''}`} aria-pressed={show === o.id} onClick={() => setShow(o.id)} data-testid={`lib-${o.id}`}>
+              {o.label}{o.id === 'learning' && learning.some(x => x.due) ? <span className="lib-due" aria-label="reviews due"> •</span> : null}
+            </button>
+          ))}
+        </div>
+      </Win>
+      {(show === 'all' || show === 'learning') && (learning.length > 0 || show === 'learning') && (
+        <Win id="learning" title={`Learning now (${learning.length})`} className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+          {learning.length ? <ul className="song-list">{learning.slice(0, show === 'all' ? 6 : 200).map(row)}</ul>
+            : <p className="small muted" style={{ margin: 0 }}>{query ? 'Nothing you\'re learning matches.' : 'Songs you\'ve started (and reviews due on songs you learned) show here.'}</p>}
+          {show === 'all' && learning.length > 6 && <button className="link-btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setShow('learning')}>All {learning.length} you're learning</button>}
+        </Win>
+      )}
+      {show === 'learned' && (
+        <Win id="learned" title={`Learned (${learned.length})`} className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+          {learned.length ? <ul className="song-list">{learned.map(row)}</ul>
+            : <p className="small muted" style={{ margin: 0 }}>A song counts as learned after a 90%+ run all the way through at 75% speed or faster. Reviews come back after 3, 7, 14, 30 and 60 days.</p>}
+        </Win>
+      )}
+      {(show === 'all' || show === 'mine') && <SavedForLater onAdd={onAdd} />}
+      {(show === 'all' || show === 'mine') && (
+        <MySongs songs={songs} currentId={currentId} onOpen={onOpen} refresh={refresh} onAdd={onAdd} onSongbook={() => setShow('songbook')} query={q} />
+      )}
+      {(show === 'all' || show === 'songbook') && <Songbook currentId={currentId} onOpen={onOpen} query={q} embedded />}
+    </WinArea>
+  )
+}
+
+function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook, query }: {
+  songs: SongDoc[] | null; currentId: string; onOpen: (d: SongDoc) => void; refresh: () => Promise<void>; onAdd: () => void; onSongbook: () => void; query: string
 }) {
   const inst = useInstrument()
   const [confirmDel, setConfirmDel] = useState<string | null>(null)
   const [moving, setMoving] = useState<string | null>(null)
   const [moved, setMoved] = useState('')
-  const [filter, setFilter] = useState('')
+  const filter = query
   if (!songs) return null
   const list = songs.filter(mine)
   const shown = list.filter(s => !filter.trim() || `${s.title} ${s.artist ?? ''}`.toLowerCase().includes(filter.trim().toLowerCase()))
   if (!list.length) {
     return (
-      <Win id="list" title="My songs" className="panel empty-state">
+      <Win id="list" title="Your songs" className="panel empty-state">
         <PsyDogCard seed="songs-empty" className="empty-card" />
         <h2>No songs of your own yet</h2>
         <p className="small muted">{`Add a Guitar Pro file or paste a tab you found online, or start with a song from the songbook. Songs you add in ${inst.label.toLowerCase()} mode stay in ${inst.label.toLowerCase()} mode.`}</p>
@@ -89,11 +172,8 @@ function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook }: {
     )
   }
   return (
-    <Win id="list" title={`My songs (${list.length})`} className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+    <Win id="list" title={`Your songs (${filter.trim() ? `${shown.length} of ` : ''}${list.length})`} className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
       {moved && <p className="small muted" role="status">{moved}</p>}
-      {list.length > 4 && (
-        <input className="input" type="search" placeholder="Search your songs" value={filter} onChange={e => setFilter(e.target.value)} aria-label="Search your songs" />
-      )}
       <ul className="song-list">
         {shown.map(s => (
           <li key={s.id} className={s.id === currentId ? 'on' : ''}>
@@ -137,40 +217,21 @@ function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook }: {
           </li>
         ))}
       </ul>
-      {!shown.length && <p className="small muted">No song matches "{filter}".</p>}
+      {!shown.length && <p className="small muted">None of your songs match "{filter}".</p>}
     </Win>
   )
 }
 
 function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: () => Promise<void> }) {
   const inst = useInstrument()
-  const [text, setText] = useState('')
-  const [title, setTitle] = useState('')
-  const [yt, setYt] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   // a PDF book: pick its pages first
   const [book, setBook] = useState<{ name: string; bytes: Uint8Array; pages: number } | null>(null)
   const [scanned, setScanned] = useState<{ name: string; pics: { name: string; mime: string; b64: string; url: string }[] } | null>(null)
+  const [scanLink, setScanLink] = useState<string | undefined>()
   const pictures = useRef<HTMLDivElement | null>(null)
-  const [query, setQuery] = useState('')
-  const [clipNote, setClipNote] = useState('')
-  const file = useRef<HTMLInputElement>(null)
-  const link = yt.trim() && youtubeId(yt) ? yt.trim() : undefined
-
-  async function pasteClipboard() {
-    setClipNote('')
-    try {
-      const { value } = await Clipboard.read()
-      const v = (value ?? '').trim()
-      if (!v) { setClipNote('The clipboard is empty. Copy the tab on the website first.'); return }
-      if (youtubeId(v) && v.length < 200) { setYt(v); setClipNote('Pasted a YouTube link.'); return }
-      setText(v)
-      setClipNote(songFromText(v, '', inst) ? 'Pasted. Check the title, then tap Load tab.' : "Pasted, but I can't see tab lines or chords in it yet. Copy the lines that look like  e|---0---|, or a chord sheet with the chords above the words.")
-    } catch {
-      setClipNote('Could not read the clipboard here: long-press in the box below and choose Paste.')
-    }
-  }
+  const link: string | undefined = undefined
 
   /** Import one or many files (from the phone or straight from Google Drive). One file opens right away. */
   /** A scanned PDF (or tab printed as pictures): hand its pages to the picture reader below. */
@@ -186,6 +247,7 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
   }
 
   async function openFiles(files: File[]) {
+    files = [...files]
     setError('')
     setBook(null)
     // one PDF book: ask which pages first
@@ -196,6 +258,30 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
         const pages = await pdfPageCount(bytes).catch(() => 0)
         if (pages > BOOK_PAGES) { setBook({ name: files[0].name, bytes, pages }); return }
       }
+    }
+    // pictures of a tab → the picture reader; a recording → the Riff Scanner listens
+    const pics = files.filter(f => /^image\//.test(f.type) || /\.(png|jpe?g|webp|heic)$/i.test(f.name))
+    if (pics.length) {
+      const read = await Promise.all(pics.slice(0, 6).map(f => new Promise<{ name: string; mime: string; b64: string; url: string }>((res, rej) => {
+        const r = new FileReader(); r.onload = () => { const url = String(r.result); res({ name: f.name, mime: f.type || 'image/jpeg', b64: url.split(',')[1] ?? '', url }) }; r.onerror = rej; r.readAsDataURL(f)
+      }))).catch(() => [])
+      if (read.length) { setScanned({ name: pics.length === 1 ? pics[0].name : `${pics.length} pictures`, pics: read }); setTimeout(() => pictures.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }
+      files = files.filter(f => !pics.includes(f))
+      if (!files.length) return
+    }
+    const rec = files.find(f => /^(audio|video)\//.test(f.type) || /\.(mp3|wav|m4a|aac|ogg|flac|mp4|mov|webm)$/i.test(f.name))
+    if (rec && files.length === 1) {
+      setBusy(true)
+      try {
+        const { audio } = await import('../audio/engine')
+        const buf = await audio().decodeAudioData(await rec.arrayBuffer())
+        const { setPendingSound } = await import('../scan/pending')
+        const x = buf.numberOfChannels > 1 ? (() => { const a = buf.getChannelData(0), b = buf.getChannelData(1), m = new Float32Array(a.length); for (let i = 0; i < a.length; i++) m[i] = (a[i] + b[i]) / 2; return m })() : buf.getChannelData(0).slice()
+        setPendingSound({ x, sr: buf.sampleRate, title: rec.name.replace(/\.[^.]+$/, '') })
+        setBusy(false)
+        const { openJam } = await import('../nav'); openJam('find')
+      } catch { setBusy(false); setError(`Couldn't play "${rec.name}". Try an MP3, WAV or M4A file.`) }
+      return
     }
     setBusy(true)
     const ok: SongDoc[] = []
@@ -230,61 +316,48 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
     }
   }
 
-  async function loadText() {
-    setError('')
-    const doc = songFromText(text, title.trim(), inst, link)
-    if (!doc) {
-      setError(`No tab or chords found. Paste tab lines that look like  e|---0---3---|  (all ${inst.strings} strings), or a chord sheet with chord names above the lyrics.`)
-      return
-    }
-    await saveSong(doc)
-    onOpen(doc)
-  }
-
   return (
     <WinArea area="songsAdd">
-      <Win id="find" title="1. Find a tab" bodyClass="stack" bodyStyle={{ gap: 8 }} hint={<>In the phone app, <b>Search … here</b> brings a Songsterr or Ultimate Guitar tab straight in. The site buttons open the site in your browser: download the Guitar Pro file and come back to <b>Upload tab files</b>, or copy the tab text and tap <b>Paste from clipboard</b>.</>}>
-        <form className="row" style={{ flexWrap: 'nowrap' }} onSubmit={e => { e.preventDefault(); if (query.trim()) window.open(SITES[0].url(query.trim()), '_blank') }}>
-          <input className="input" type="search" placeholder="Song or artist" value={query} onChange={e => setQuery(e.target.value)} aria-label="Search for a tab" />
-        </form>
-        {canImportFromSites() && <SiteSearch query={query} youtube={link} onOpen={d => onOpen(d)} />}
-        <div className="row">
-          {SITES.map(site => (
-            <a key={site.id} className={`btn sm${query.trim() ? '' : ' disabled'}`} href={query.trim() ? site.url(query.trim()) : undefined} target="_blank" rel="noreferrer" aria-disabled={!query.trim()}>
-              {site.label} ↗
-            </a>
-          ))}
-        </div>
-      </Win>
-
-      <Win id="bring" title="2. Bring it in" bodyClass="stack" bodyStyle={{ gap: 10 }} hint={<>Guitar Pro (.gp .gp5 .gpx .gp4 .gp3), PDF tabs and chord sheets, or text tabs (.txt). A PDF book asks which pages to read. Tab that's printed as pictures (a scanned book) goes to the picture reader below. <b>From Google Drive:</b> in the picker, tap ☰ and choose Drive (or your Google account), then open your tabs folder. Long-press a file to select several and import them all at once.</>}>
-        <div className="row">
-          <button className="btn primary" disabled={busy} onClick={() => file.current?.click()}>{busy ? 'Importing…' : 'Upload tab files'}</button>
-          <button className="btn" onClick={() => void pasteClipboard()}>Paste from clipboard</button>
-          <input ref={file} type="file" multiple hidden onChange={e => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; if (fs.length) void openFiles(fs) }} />
-        </div>
-        <label className="field">
-          <span>…or paste a text tab or a chord sheet (chords above the words)</span>
-          <textarea className="input mono" rows={6} value={text} onChange={e => setText(e.target.value)} placeholder={inst.strings === 4 ? `${[...inst.tuning.notes].reverse().map(n => n[0]).join('|-----------|\n')}|-----------|` : 'e|-----0-----|\nB|---1---1---|\nG|-2-------2-|\nD|-----------|\nA|-----------|\nE|-----------|'} spellCheck={false} />
-        </label>
-        <div className="row">
-          <input className="input" style={{ flex: '1 1 160px' }} placeholder="Song title (optional)" value={title} onChange={e => setTitle(e.target.value)} aria-label="Song title" />
-          <input className="input" style={{ flex: '2 1 220px' }} placeholder="YouTube link (optional)" inputMode="url" value={yt} onChange={e => setYt(e.target.value)} aria-label="YouTube link" />
-          <button className="btn primary" disabled={!text.trim()} onClick={() => void loadText()}>Load tab</button>
-        </div>
+      <Win id="box" title="Add a song" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }} hint={<>One box for everything: a song name searches Songsterr and Ultimate Guitar (straight in on the phone); a YouTube link offers Find a tab, Scan it or Save for later; a Songsterr or Ultimate Guitar page comes straight in; a pasted tab or chord sheet loads. <b>Files</b>: Guitar Pro, PDF (a book asks which pages), text, a picture or screenshot of a tab (the Riff Scanner reads it), or a recording (the Riff Scanner listens). <b>From Google Drive:</b> in the picker, tap ☰ and choose Drive. Long-press to pick several files.</>}>
+        <AddBox onOpen={onOpen} onFiles={fs => void openFiles(fs)} onScan={url => { setScanLink(url); setTimeout(() => pictures.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }} />
+        {busy && <p className="small muted" role="status" style={{ margin: 0 }}>Importing…</p>}
         {book && <PdfPages name={book.name} bytes={book.bytes} pages={book.pages} busy={busy} onRead={(a, b) => void readBook(a, b)} onCancel={() => setBook(null)} />}
-        {clipNote && <span className="small muted" role="status">{clipNote}</span>}
-        {yt.trim() && !link && <span className="small" style={{ color: 'var(--coral)' }}>That YouTube link doesn't look right.</span>}
         {error && <p className="notice small" role="alert">{error}</p>}
       </Win>
-      <Win id="picture" title="Riff Scanner: a tab on screen, a photo or a scanned PDF" bodyClass="stack" bodyStyle={{ gap: 8 }}
+      <Win id="picture" title="Riff Scanner: a video, a picture of a tab or a scanned PDF" bodyClass="stack" bodyStyle={{ gap: 8 }}
         extra={<button className="btn sm" onClick={() => { setSubPage('jam', 'find'); go('progressions') }} data-testid="open-scanner"><Ico n="scan" /> Full scanner</button>}>
         <div ref={pictures} />
         {scanned && <p className="notice small" style={{ margin: 0 }}>The tab in "{scanned.name}" is pictures (a scan, or printed as images), so the AI reads it: the pages are below. Tap <b>Read the tab</b>.</p>}
-        <ScanVideo key={scanned?.name ?? ''} youtube={link} initialPics={scanned?.pics.map(p => ({ name: p.name, url: p.url }))} />
+        <ScanVideo key={`${scanned?.name ?? ''}|${scanLink ?? ''}`} youtube={scanLink} links initialLink={scanLink} initialPics={scanned?.pics.map(p => ({ name: p.name, url: p.url }))} />
         <p className="small muted" style={{ margin: 0 }}>The full Riff Scanner (Full scanner, or the link under Jam's three buttons) also scans YouTube links and Shorts, and listens.</p>
       </Win>
     </WinArea>
   )
 }
 
+
+/** Library → Saved for later: names and videos saved from Add a song, with Find a tab / Scan it. */
+function SavedForLater({ onAdd }: { onAdd: () => void }) {
+  const [list, setList] = useState(toLearnList)
+  useEffect(() => onToLearn(() => setList(toLearnList())), [])
+  if (!list.length) return null
+  const again = (x: { title: string; youtube?: string }) => {
+    try { sessionStorage.setItem('kg:addPrefill', x.youtube ?? x.title) } catch { /* private */ }
+    onAdd()
+  }
+  return (
+    <Win id="later" title={`Saved for later (${list.length})`} className="panel" bodyClass="stack" bodyStyle={{ gap: 6 }}>
+      <ul className="plain stack" style={{ gap: 6 }} data-testid="saved-later">
+        {list.map(x => (
+          <li key={x.id} className="row" style={{ gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ minWidth: 0 }}><b>{x.title}</b>{x.youtube && <span className="small muted"> · video</span>}</span>
+            <span className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+              <button className="btn sm" onClick={() => again(x)}>{x.youtube ? 'Find a tab or scan' : 'Find a tab'}</button>
+              <button className="btn sm ghost" onClick={() => removeToLearn(x.id)} aria-label={`Remove ${x.title}`}>✕</button>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Win>
+  )
+}

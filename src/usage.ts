@@ -45,7 +45,7 @@ export interface UseRow { id: string; label: string; n: number; last: number }
 export const KNOWN: Record<string, string> = {
   'screen:play': 'Song player', 'screen:songs': 'Songs', 'screen:learn': 'Learn', 'screen:progressions': 'Jam',
   'tool:tuner': 'Tuner', 'tool:metronome': 'Tempo', 'tool:chords': 'Chords', 'tool:scales': 'Scales',
-  'page:songs:mine': 'Songs → My songs', 'page:songs:songbook': 'Songs → Songbook', 'page:songs:practice': 'Songs → Practice',
+  'page:songs:library': 'Songs → Library', 'page:songs:mine': 'Songs → My songs (old)', 'page:songs:songbook': 'Songs → Songbook (old)', 'page:songs:practice': 'Songs → Practice (old)',
   'page:songs:add': 'Songs → Add a song',
   'page:learn:today': 'Learn → Today', 'page:learn:course': 'Learn → Course', 'page:learn:explore': 'Learn → Explore',
   'page:jam:jam': 'Jam → Play with a band', 'page:jam:solo': 'Jam → Solo over it (old)', 'page:jam:tab': 'Jam → Make a tab (old)', 'page:jam:find': 'Jam → Riff Scanner',

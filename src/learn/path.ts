@@ -14,7 +14,7 @@ export type Go =
   /** a saved song; loop null = stop looping; speed = playback speed to start at */
   | { song: string; loop?: { from: number; to: number } | null; speed?: number }
   | { songbook: { song: string; part: string } }
-  | { songs: 'songbook' | 'mine' | 'practice' | 'add' }
+  | { songs: 'songbook' | 'mine' | 'practice' | 'add' | 'library' | 'learning' }
   | { settings: 'you' | 'sound' | 'look' | 'cards' | 'backup' | 'manual' }
   | { jam: 'jam' | 'solo' | 'tab' | 'find' | 'beats' | 'loop' }
   | { learn: 'today' | 'course' | 'explore' | 'exercises' }

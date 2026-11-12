@@ -28,7 +28,13 @@ async function newPage(browser, viewport, seed = {}) {
 const nav = (page, l) => l === 'Play' ? page.locator('[data-testid=now-playing]').count().then(c => (c ? page.locator('[data-testid=now-playing]').click() : null)) : page.locator(`nav.nav button:has-text("${l}")`).first().click()
 // Jam's pages are three big choices now (+ the Riff Scanner link); old names still work here
 const JAM_ALIAS = { 'Jam': 'Play with a band', 'Looper': 'Loop myself', 'Beat maker': 'Make a beat' }
-const sub = (page, label) => label === 'Riff Scanner' ? page.locator('[data-testid=jam-scan-link]').click() : page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
+// Songs is one Library now: "My songs" and "Songbook" are its Mine / Songbook chips
+const LIB_CHIP = { 'My songs': 'mine', 'Songbook': 'songbook' }
+const sub = async (page, label) => {
+  if (label === 'Riff Scanner') return page.locator('[data-testid=jam-scan-link]').click()
+  if (LIB_CHIP[label]) { await page.locator('.subtabs [role=tab]:has-text("Library")').first().click(); return page.locator(`[data-testid=lib-${LIB_CHIP[label]}]`).click() }
+  return page.locator(`.subtabs [role=tab]:has-text("${JAM_ALIAS[label] ?? label}")`).first().click()
+}
 const sideways = page => page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1 || [...document.querySelectorAll('.main')].some(m => m.scrollWidth > m.clientWidth + 1))
 async function drag(page, loc, dx, dy) {
   const b = await loc.boundingBox()
