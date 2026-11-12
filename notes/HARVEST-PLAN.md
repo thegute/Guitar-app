@@ -172,3 +172,19 @@ pedal steel (Hawaiian), jazz archtop, a humbucker (Les Paul) guitar for classic 
 - Tim Henson X: tones henson-clean (Roses + comp), henson-crunch (Cherubs Ch I), henson-synth (multivoicer octave up +
   octave down, no voice delays: key-proof), henson-chug (Pink + boost + gate: waits for the Dracus humbucker DI). His nylon
   style = the Modern Nylon pack + his patterns (later).
+
+## RESUME HERE (paused 2026-11-12 12:55 HST, owner out of usage until 15:40)
+- Mac agent keeps running the queue on its own: 620 Flatpick 6 render (running) → 625 export agsj → 829 Henson synth check
+  (trials/henson-synth-check.wav: check the octave voices are ±12 st) → 830–832 re-amps Mayer / Cory Wong / Rabea →
+  840–842 Henson clean / crunch / synth. Read jobs/agent.log + jobs/*.log + jobs/outbox.
+- Done today: packs agsj, strat-di (1296), studiobass-session (198, clean: metronome off, dynamics bypassed, peak −8.5 dB).
+- Logic is open with track 1 = Studio Bass "Warm & Clear" (Squash / Spring Box / Compressor / Limiter bypassed, metronome
+  OFF). Next bounce: pick "Focused Sixties" in the Library (same MIDI region: studiobass-sixties.mid is identical to
+  session), bypass its reverb + dynamics, File → Bounce → Project or Section → name studiobass-sixties → then slice in the VM:
+  `python3 ~/vmtools/run_slice.py tools slice logic/<id>.sched.json logic/<id>.wav packs` (cd ~/mnt/KGuitar-harvest;
+  ~/vmtools/run_slice.py may need recreating + `pip3 install scipy soundfile numpy`). Then modern (import its own .mid,
+  range 23–60), upright, studio-piano, dkd-studio.
+- Then: Dracus humbucker DI capture (owner clicks) → henson-chug + metal tones; Orange Tree articulation keyswitches;
+  phone exports; tonight Modern Nylon / Ample M / Strummed Acoustic 2.
+- Logic via background computer use works: app_ax_find "bypass" for plug-in slots, "Metronome Click" checkbox, File menu
+  via app_menu, Bounce button at (846, 416) in the save sheet, then "Replace".
