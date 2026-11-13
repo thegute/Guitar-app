@@ -211,11 +211,35 @@ E|-3---------|-----------|`
     const msg = await page.locator('[data-testid=scan-msg]').innerText().catch(() => '')
     const how = await page.locator('[data-testid=scan-result] p.small.muted').first().innerText().catch(() => '')
     console.log(`video: ${msg || how} · strips sent ${page.sent.map(x => `${x.w}×${x.h}`).join(', ')}`)
-    if (!page.sent.length) bad(`video: no tab strips were read (${msg})`)
-    const widest = Math.max(0, ...page.sent.map(x => x.w))
-    // 12 s × 60 px/s of scrolling, enlarged: the stitched strip(s) together must be longer than one frame's strip
-    const total = page.sent.reduce((a, x) => a + x.w, 0)
-    if (total < 960 * 2 * 1.3) bad(`video: the scrolling tab wasn't stitched (total ${total} px, widest ${widest})`)
+    // with an AI reader set up the strips go to it; without one KGuitar reads the whole stitched strip(s) itself
+    const own = /KGuitar read (\d+) number/.exec(how)
+    if (own) {
+      // what it read, against what the video drew: note i on string (i*7)%6 from the top, fret (i*5)%13, in order
+      await page.locator('[data-testid=scan-result] button', { hasText: 'Fix the tab text' }).click()
+      const txt = await page.locator('[data-testid=scan-result] textarea').inputValue()
+      const rows = txt.split('\n\n').map(b => b.split('\n'))
+      const got = []
+      for (const blk of rows) {
+        const cols = new Map()
+        blk.forEach((line, r) => { const body = line.slice(3); const re = /\d+|x/g; let m; while ((m = re.exec(body))) cols.set(m.index, `${r}:${m[0]}`) })
+        ;[...cols.keys()].sort((a, b) => a - b).forEach(k => got.push(cols.get(k)))
+      }
+      const want = Array.from({ length: 60 }, (_, i) => `${(i * 7) % 6}:${(i * 5) % 13}`)
+      // how many of the notes read appear in the video's order (longest common subsequence)
+      const L = Array.from({ length: got.length + 1 }, () => new Array(want.length + 1).fill(0))
+      for (let a = 1; a <= got.length; a++) for (let b = 1; b <= want.length; b++) L[a][b] = got[a - 1] === want[b - 1] ? L[a - 1][b - 1] + 1 : Math.max(L[a - 1][b], L[a][b - 1])
+      const best = L[got.length][want.length]
+      console.log(`video: read ${got.length} notes, ${best} in the video's order: ${got.join(' ')}`)
+      if (best < got.length * 0.85) bad(`video: only ${best} of ${got.length} notes match the video in order`)
+      // 12 s × 60 px/s of scrolling: more numbers than one frame shows (about 10)
+      if (Number(own[1]) < 18) bad(`video: KGuitar read only ${own[1]} numbers: the scrolling tab wasn't stitched`)
+    } else {
+      if (!page.sent.length) bad(`video: no tab strips were read (${msg})`)
+      const widest = Math.max(0, ...page.sent.map(x => x.w))
+      // 12 s × 60 px/s of scrolling, enlarged: the stitched strip(s) together must be longer than one frame's strip
+      const total = page.sent.reduce((a, x) => a + x.w, 0)
+      if (total < 960 * 2 * 1.3) bad(`video: the scrolling tab wasn't stitched (total ${total} px, widest ${widest})`)
+    }
     await page.screenshot({ path: `${DIR}/step2-scan-video.png` })
     if (page.errors.length) bad(`video scan errors: ${page.errors.join(' | ')}`)
     await page.context().close()

@@ -138,7 +138,7 @@ function seek(v: HTMLVideoElement, t: number) {
   })
 }
 
-export interface VideoTab { pieces: Piece[]; frames: number; kept: number; scrolled: boolean; box: Box | null }
+export interface VideoTab { pieces: Piece[]; frames: number; kept: number; scrolled: boolean; box: Box | null; /** each tab strip whole (before it's cut into pieces for the AI): for KGuitar's own reader */ strips: Gray[] }
 
 /**
  * Frames in, tab strips out, one frame at a time (a long screen grab never keeps more than two frames): the tab
@@ -152,6 +152,8 @@ export class Stitcher {
   private prevProf: Float32Array | null = null
   private pano: Gray | null = null
   private out: Piece[] = []
+  /** the strips whole, before cutting (bar lines stay where they are) */
+  strips: Gray[] = []
   frames = 0
   kept = 0
   scrolled = false
@@ -194,7 +196,7 @@ export class Stitcher {
     this.kept++
     this.prev = g; this.prevProf = prof
   }
-  private flush() { if (this.pano) for (const part of cutWide(this.pano)) this.out.push(pieceOf(part)); this.pano = null }
+  private flush() { if (this.pano) { this.strips.push(this.pano); for (const part of cutWide(this.pano)) this.out.push(pieceOf(part)) } this.pano = null }
   finish(): Piece[] { this.flush(); return this.out }
 }
 
@@ -216,7 +218,7 @@ export async function tabFromVideo(file: Blob, o: { every?: number; from?: numbe
       st.add(v)
     }
     const pieces = st.finish()
-    return { pieces, frames: st.frames, kept: st.kept, scrolled: st.scrolled, box: st.box }
+    return { pieces, frames: st.frames, kept: st.kept, scrolled: st.scrolled, box: st.box, strips: st.strips }
   } finally {
     v.removeAttribute('src'); v.load()
     URL.revokeObjectURL(url)

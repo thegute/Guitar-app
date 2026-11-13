@@ -2,6 +2,7 @@
 // the sound playing inside the phone (Android 10+), with Android's permission each time (ScreenGrabPlugin.java).
 // On the web it's the browser's screen sharing (Chrome: pick this tab and tick "Share tab audio").
 // Frames go through the Stitcher one by one, so a long grab never fills the memory.
+import type { Gray } from './image'
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { Stitcher, loadPicture, type Piece } from './pictures'
 import { audio } from '../audio/engine'
@@ -17,7 +18,7 @@ const onPhone = () => Capacitor.isNativePlatform() && Capacitor.getPlatform() ==
 
 export const canGrab = () => onPhone() || (typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia)
 
-export interface Grabbed { pieces: Piece[]; frames: number; scrolled: boolean; sound: { x: Float32Array; sr: number } | null }
+export interface Grabbed { pieces: Piece[]; frames: number; scrolled: boolean; sound: { x: Float32Array; sr: number } | null; strips?: Gray[] }
 export interface GrabSession {
   /** stop and work through what was grabbed */
   stop(onProgress?: (f: number) => void): Promise<Grabbed>
@@ -53,7 +54,7 @@ async function startNative(fps: number, seconds: number): Promise<GrabSession> {
           sound = { x: buf.getChannelData(0).slice(), sr: buf.sampleRate }
         } catch { /* no sound */ }
       }
-      return { pieces: st.finish(), frames: st.frames, scrolled: st.scrolled, sound }
+      return { pieces: st.finish(), frames: st.frames, scrolled: st.scrolled, sound, strips: st.strips }
     },
   }
 }
@@ -90,7 +91,7 @@ async function startWeb(fps: number, seconds: number): Promise<GrabSession> {
       if (chunks.length) {
         try { const buf = await audio().decodeAudioData(await new Blob(chunks).arrayBuffer()); sound = { x: buf.getChannelData(0).slice(), sr: buf.sampleRate } } catch { /* no sound */ }
       }
-      return { pieces: st.finish(), frames: st.frames, scrolled: st.scrolled, sound }
+      return { pieces: st.finish(), frames: st.frames, scrolled: st.scrolled, sound, strips: st.strips }
     },
   }
 }

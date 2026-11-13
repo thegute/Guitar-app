@@ -3,6 +3,7 @@
 //   Shorts         swipe through guitar Shorts and scan or play along with one
 //   Listen         the live mic (chords or a melody as you play) and notes from a recording
 // Tabs read off the screen are the most accurate; anything worked out from the sound asks "Does this look right?".
+import type { Gray } from './image'
 import { useEffect, useRef, useState } from 'react'
 import { Ico } from '../components/Icon'
 import { usePersist } from '../components/Controls'
@@ -148,6 +149,24 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     setStages(null)
   }
 
+  /** Tab strips taken from a video (stitched across its frames), read by KGuitar itself (used when no AI reader is set up).
+   *  True when it read a tab; the video's own tempo goes on the song. */
+  async function readOwnPieces(pieces: Piece[], name: string, how: string, bpm?: number, strips?: Gray[]): Promise<boolean> {
+    const { readTabPictures, trustReading, grayOf, songTabText } = await import('./tabReadSong')
+    // the whole strips when we have them (cut pieces would split bars), else the pieces
+    const grays = strips?.length ? strips : (await Promise.all(pieces.map(pc => loadPicture(pc.url)))).map(im => grayOf(im))
+    const r = readTabPictures(grays, inst.midis, name)
+    if (!r || !(trustReading(r) || !ready)) return false
+    const song = bpm ? { ...r.song, tempo: bpm, tempoFrom: 'file' as const } : r.song
+    const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song, youtube, updated: Date.now() }
+    setOut({
+      doc, heard: false, text: songTabText(song, stringNames(inst)), reparse: t => songFromScan(t, name, inst, youtube),
+      how: `${how} KGuitar read ${r.notes} number${r.notes === 1 ? '' : 's'} itself.${r.unsure ? ` ${r.unsure} ${r.unsure === 1 ? 'has' : 'have'} an amber ring: check ${r.unsure === 1 ? 'it' : 'them'} against the video.` : ''}`,
+    })
+    setStages(null)
+    return true
+  }
+
   async function scanPictures() {
     if (!pics.length) return
     // 1 KGuitar reads the numbers itself (no AI, no key): exact strings, every number checked against the page's own font
@@ -199,9 +218,11 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     ])
     try {
       let pieces: Piece[] = []
+      let strips: Gray[] | undefined
       if (isVideo) {
         const v = await tabFromVideo(f, { signal, box, onProgress: (p, note) => step('frames', { pct: p, note }) })
         pieces = v.pieces
+        strips = v.strips
         step('frames', { state: 'done', note: pieces.length ? `${pieces.length} strip${pieces.length === 1 ? '' : 's'}${v.scrolled ? ', scrolling tab stitched' : ''}` : 'no tab on screen' })
       }
       step('sound', { state: 'run' })
@@ -209,6 +230,9 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       const a = snd ? analyse(snd.x, snd.sr) : null
       step('sound', { state: snd ? 'done' : 'skip', note: a ? `${Math.round(a.bpm)} BPM, ${a.meter.num}/${a.meter.den}` : snd ? 'no clear beat' : 'no sound track' })
       if (signal.aborted) throw new Error('Cancelled.')
+      // video frames: the AI reader first when it's set up (KGuitar's own reader still misses some numbers in small,
+      // blurry video text); KGuitar's own reader when there's no AI
+      if (pieces.length && !ready && await readOwnPieces(pieces, title, `Read from the tab on screen in "${f.name}"${a ? ', tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined, strips)) return
       if (pieces.length && ready) {
         step('notes', { state: 'skip', note: 'read from the screen instead' })
         await readOut(pieces, signal, title, `Read from the tab on screen in "${f.name}"${a ? `, tempo from its sound` : ''}.`, a ? Math.round(a.bpm) : undefined)
@@ -306,6 +330,8 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
         setPhase(null)
         return
       }
+      if (!ready && await readOwnPieces(g.pieces, 'Scanned riff', `KGuitar watched the video on screen${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined, g.strips)) { setOut(o => (o ? { ...o, doc: { ...o.doc, youtube: linkUrl || o.doc.youtube } } : o)); setPhase(null); return }
+      if (!ready) throw new Error('KGuitar couldn\'t find a tab staff with numbers in the video. Set up the free AI reader for videos like this.')
       await readOut(g.pieces, signal, 'Scanned riff', `KGuitar watched the video on screen and read the tab${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined)
       setOut(o => (o ? { ...o, doc: { ...o.doc, youtube: linkUrl || o.doc.youtube } } : o))
       setPhase(null)

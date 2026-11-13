@@ -23,6 +23,8 @@ export interface PictureReading {
 /** Read every picture (pages in order). Null when no tab staff with numbers was found on any of them. */
 export function readTabPictures(pics: Gray[], tuning: number[], title: string): PictureReading | null {
   const strings = tuning.length
+  // light lines on a dark background (a dark-mode screenshot, a video's tab strip): turn round so the ink is dark
+  pics = pics.map(g => (isDark(g) ? { w: g.w, h: g.h, px: g.px.map(v => 1 - v) } : g))
   let readings = pics.map(g => readTab(g, { strings }))
   // one time signature for the whole piece: the one most of the notes were read in (a page with few bars can't tell)
   const votes = new Map<number, number>()
