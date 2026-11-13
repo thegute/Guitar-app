@@ -201,3 +201,14 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
   - FIRST: **research how to make the latency unnoticeable** (native Android audio path: AAudio / Oboe low-latency
     exclusive mode, USB audio through the Pocket Master, buffer sizes, measured round trip on the Fold 8; what pro Android
     amp apps achieve) and measure before building anything else. Ask him: home (headphones / speaker) or also live with the Spark.
+- [ ] **Speed / power / accuracy plan (owner asked 2026-11-12 13:05; proposed, not yet approved in detail)**:
+  1. Native audio core (C++ in a Capacitor plugin: Oboe / AAudio low-latency exclusive mode, 48 kHz, small buffers, USB
+     through the Pocket Master): live effects (NAM amps, partitioned-convolution IRs, acoustic sim), sample/pack player,
+     looper recording, metronome, all sample-accurate on one native clock. WebView = UI only; the web version keeps Web Audio.
+     Target < 10 ms round trip; measure on the Fold 8 first (automatic loopback latency test per rig).
+  2. Note listener native too (onset + pitch in C++, ~2–3 ms hops): faster, steadier Play / Game / tuner / "start when I play".
+  3. ML on the phone's NPU (ONNX Runtime QNN / NNAPI execution provider): Demucs, Basic Pitch, Beat This, the guitar-note
+     model several times faster; neural polyphonic listener (D1) so chords are judged note by note, plus bends / slides / h-p.
+  4. App speed: lazy-loaded screens, PlayScreen split, tab + Game highway on canvas / OffscreenCanvas, heavy analysis in
+     workers, packs decoded once into a PCM cache (no decode hiccups), quicker start-up.
+  5. Native BLE-MIDI for the Chocolate Plus (all 4 buttons + long press, no keyboard-mode lag).
