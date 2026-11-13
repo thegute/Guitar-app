@@ -18,7 +18,7 @@ import { useHint } from '../components/Fold'
 import { Win, WinArea } from '../components/Win'
 import { chordInfo as readChord } from '../tabs/harmony'
 import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
-import { strum as strumNotes, preload, SOUNDS, soundInfo, loadSound, loadBank, bankLoaded, type SoundId } from '../audio/pluck'
+import { strum as strumNotes, preload, allSounds, soundInfo, loadSound, loadBank, bankLoaded, soundLoaded, type SoundId } from '../audio/pluck'
 import { BASSLINES } from '../audio/bass'
 import { audio, keepAwake } from '../audio/engine'
 import { JamTransport } from '../audio/jam'
@@ -223,7 +223,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   }, [tone, drums, bassLine, kit])
   const [loadingSounds, setLoadingSounds] = useState(false)
   async function playWhenReady() {
-    const ready = () => bankLoaded(tone) && (drums === 'off' || kitLoaded(kit)) && (bassLine === 'off' || bankLoaded('bass'))
+    const ready = () => soundLoaded(tone) && (drums === 'off' || kitLoaded(kit)) && (bassLine === 'off' || bankLoaded('bass'))
     if (!ready()) {
       setLoadingSounds(true)
       const all = Promise.all([loadSound(tone), drums !== 'off' ? loadKit(kit) : null, bassLine !== 'off' ? loadBank('bass') : null])
@@ -379,7 +379,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
         <Field label="Guitar sound">
           <select className="select" value={toneId} onChange={e => { const v = e.target.value as 'auto' | SoundId; setToneId(v); strumNotes(midisOf(chosen[Math.max(0, selected)]), 0, { sound: v === 'auto' ? styleTone : v }) }} title={soundInfo(tone).hint}>
             <option value="auto">Match the style ({soundInfo(styleTone).label})</option>
-            {SOUNDS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            {allSounds().map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </Field>
         <Field label="Strum">

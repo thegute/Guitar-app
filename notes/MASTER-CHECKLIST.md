@@ -236,3 +236,8 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
       Now: drawn numbers → the picture reader, and a Songsterr print offers the real song from Songsterr.
 - [ ] Stage 4: read DRAWN tab numbers ourselves (Songsterr / Guitar Pro prints): the glyph outlines are vectors, so match them
       to digit shapes (Roboto) on the string lines, and read the rhythm stems under the staff → exact tab, no AI.
+- [ ] Pedal effects to rival the Pocket Master (owner 2026-11-12): amps = NAM captures of his Archetypes; cabs + reverbs =
+      convolution with real impulse responses (his IR folder, Logic Space Designer / ChromaVerb and the Archetypes' own
+      reverbs captured as IRs, free Valhalla Supermassive optional); delays, modulation (chorus, phaser, flanger, tremolo,
+      vibrato, rotary), comp, gate, EQ, drive, octaver / harmonizer written in the native core from MIT-licensed DSP
+      (Airwindows, Signalsmith DSP, NeuralAmpModelerCore, RTNeural). No GPL code in the app.

@@ -27,7 +27,7 @@ import { ProfileForm } from '../components/ProfileForm'
 import { haptic, hapticsOn, setHapticsOn } from '../audio/tapFeel'
 import { TALK_CARD_CHOICES, setTalkCardSecs, talkCardSecs } from '../assistant/talkCard'
 import { UsagePanel } from '../components/UsagePanel'
-import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, instrumentSound, activeSound, soundInfo, SOUNDS, type SoundId } from '../audio/pluck'
+import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, instrumentSound, activeSound, soundInfo, allSounds, type SoundId } from '../audio/pluck'
 import { audio } from '../audio/engine'
 import { gear, isSetUp, latencyMs, useGear } from '../audio/gear'
 import { AudioSetup } from '../components/AudioSetup'
@@ -193,7 +193,7 @@ export function Settings({ inst, onExit, onGo, guideSec }: { inst: Instrument; o
       <Win id="pedals" title="Hands-free (footswitch)"><PedalSettings /></Win>
 
       <Win id="sound" title="Playback sound" bodyClass="stack" bodyStyle={{ gap: 10 }} hint="Used for Hear it, tapping notes and the quizzes. On Auto, a Guitar Pro tab plays in its own guitar sound (acoustic, clean, overdrive or distortion). You can also switch it next to Hear it. Jam picks a sound for each style; change it there under Band. The amp sounds were made from your own Peavey 5150 captures and cab impulse responses; your files aren't inside the app, only the finished notes. Your own playing is never sent back out of the phone: you hear it only through your amp.">
-        <Chips<'auto' | SoundId> label="Sound" items={[{ id: 'auto', label: `Auto (${inst.isUke ? 'nylon' : 'acoustic'}, or the song's own guitar)` }, ...SOUNDS.map(x => ({ id: x.id, label: x.label }))]} value={sound} onChange={v => void tryIt(v)} wrap />
+        <Chips<'auto' | SoundId> label="Sound" items={[{ id: 'auto', label: `Auto (${inst.isUke ? 'nylon' : 'acoustic'}, or the song's own guitar)` }, ...allSounds().map(x => ({ id: x.id, label: x.label }))]} value={sound} onChange={v => void tryIt(v)} wrap />
         <p className="small muted" style={{ margin: 0 }}>{soundInfo(activeSound()).hint}</p>
       </Win>
 

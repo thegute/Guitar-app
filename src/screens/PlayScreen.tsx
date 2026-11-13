@@ -39,7 +39,7 @@ import { MixSlider, applyMix } from '../components/MixSlider'
 import { noteStuck } from '../tips/tips'
 import { setBusLevel } from '../audio/engine'
 import { exampleDoc } from '../tabs/examples'
-import { playNote, strum, SOUNDS, activeSound, onSoundChange, setSoundChoice, soundChoice, soundForProgram, soundInfo, loadSound, soundLoaded, type SoundId } from '../audio/pluck'
+import { playNote, strum, allSounds, activeSound, onSoundChange, setSoundChoice, soundChoice, soundForProgram, soundInfo, loadSound, soundLoaded, type SoundId } from '../audio/pluck'
 import { audio, keepAwake } from '../audio/engine'
 import { songTempo } from '../play/tempoMap'
 import { TempoBadge, TempoSheet, withSig, withTempo } from '../components/TempoSheet'
@@ -1320,7 +1320,7 @@ export function PlayScreen() {
               if (playAt >= 0) stopPreview()
             }}>
               <option value="auto">Auto ({soundInfo(activeSound(songSound)).label})</option>
-              {SOUNDS.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
+              {allSounds().map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
             </select>
           </label>
           {bandAvail && (

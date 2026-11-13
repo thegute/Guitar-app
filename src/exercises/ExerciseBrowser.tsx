@@ -14,7 +14,7 @@ import { Fretboard, type Mark } from '../components/Fretboard'
 import { TabView } from '../components/TabView'
 import { TabPlayer } from '../audio/tabPlayer'
 import { audio } from '../audio/engine'
-import { SOUNDS, activeSound, loadSound, playNote, soundForProgram, type SoundId } from '../audio/pluck'
+import { allSounds, activeSound, loadSound, playNote, soundForProgram, type SoundId } from '../audio/pluck'
 import { flatten, type FlatStep, type Song, type SongNote, type SongTrack } from '../tabs/model'
 import { saveSong, type SongDoc } from '../tabs/library'
 import { learnGo, onOpenExercise, openInPlay, takePendingExercise } from '../nav'
@@ -322,7 +322,7 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
           <span>Guitar sound</span>
           <select className="select" value={soundPick} onChange={e => setSoundPick(e.target.value as 'auto' | SoundId)}>
             <option value="auto">Auto</option>
-            {SOUNDS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            {allSounds().map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </label>
         <label className="field ex-tempo">

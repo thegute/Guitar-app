@@ -4,6 +4,7 @@
 import { audio, out, route } from './engine'
 import { monoOut } from './rig'
 import { playPack, packLoaded, loadPrivatePack, playPackChord } from '../engine/packs'
+import { packSounds, type BuiltInSound } from './packSounds'
 import { strumNotes } from '../engine/strumLogic'
 import { midiToFreq } from '../theory/notes'
 
@@ -74,7 +75,8 @@ function bufferFor(midi: number, bright = 0.55) {
 }
 
 // ---------- the sounds ----------
-export type SoundId = 'acoustic' | 'j45' | 'nylon' | 'clean' | 'electric' | 'crunch' | 'metal' | 'synth'
+/** A built-in sound, or one of the owner's sound packs (`pack:<id>`, Settings → Sound → My sound packs) */
+export type SoundId = BuiltInSound | `pack:${string}`
 export interface SoundInfo {
   id: SoundId
   label: string
@@ -94,7 +96,17 @@ export const SOUNDS: SoundInfo[] = [
   { id: 'metal', label: 'Distorted', hint: 'Your Peavey 5150 red-channel capture with a boost, into the Mesa 4x12: real palm mutes and power chords, double-tracked left and right.', amp: true, band: 2.0 },
   { id: 'synth', label: 'Simple synth', hint: 'A light plucked-string synth. Nothing to download.' },
 ]
-export const soundInfo = (id: SoundId) => SOUNDS.find(s => s.id === id) ?? SOUNDS[0]
+/** Every sound to pick from: the built-in ones, then the owner's sound packs by name. */
+export function allSounds(): SoundInfo[] {
+  return [...SOUNDS, ...packSounds().map(p => ({ id: `pack:${p.id}` as SoundId, label: p.name, hint: `Your sound pack (recorded from your own plug-ins). Until it's loaded, ${SOUNDS.find(s => s.id === p.base)?.label ?? 'a built-in sound'} stands in.`, amp: p.amp, band: soundInfoBuiltIn(p.base).band }))]
+}
+const soundInfoBuiltIn = (id: BuiltInSound) => SOUNDS.find(s => s.id === id) ?? SOUNDS[0]
+export const soundInfo = (id: SoundId) => allSounds().find(s => s.id === id) ?? SOUNDS[0]
+/** The built-in bank a sound uses (a pack: its stand-in while its recordings load, and when a note isn't in it). */
+export function baseOf(id: SoundId): BuiltInSound {
+  if (!id.startsWith('pack:')) return id as BuiltInSound
+  return packSounds().find(p => `pack:${p.id}` === id)?.base ?? 'acoustic'
+}
 
 /** The General MIDI guitar programs Guitar Pro files carry, mapped to the closest sound. */
 export function soundForProgram(program: number | undefined): SoundId | null {
@@ -115,7 +127,7 @@ const soundListeners = new Set<() => void>()
 export function soundChoice(): 'auto' | SoundId {
   try {
     const v = JSON.parse(localStorage.getItem(SOUND_KEY) ?? '"auto"') as string
-    return v === 'auto' || SOUNDS.some(s => s.id === v) ? (v as 'auto' | SoundId) : 'auto'
+    return v === 'auto' || allSounds().some(s => s.id === v) ? (v as 'auto' | SoundId) : 'auto'
   } catch { return 'auto' }
 }
 export function setSoundChoice(c: 'auto' | SoundId) {
@@ -140,7 +152,7 @@ export function activeSound(suggested?: SoundId | null): SoundId {
   if (inst === 'nylon' && (suggested === 'acoustic' || suggested === 'j45')) return inst
   return suggested ?? inst
 }
-export function soundLoaded(id: SoundId) { return id === 'synth' || banks.has(id) }
+export function soundLoaded(id: SoundId) { const b = baseOf(id); return b === 'synth' || banks.has(b) }
 export const bankLoaded = (id: string) => id === 'synth' || banks.has(id)
 
 /** Where the pluck starts in a decoded sample (MP3 decoders add a little silence in front, differently per browser). */
@@ -185,7 +197,11 @@ export function loadBank(id: string): Promise<void> {
   }
   return p
 }
-export const loadSound = (id: SoundId) => loadBank(id)
+export const loadSound = (id: SoundId) => {
+  const pk = packFor(id)
+  if (pk && !packLoaded(pk)) void loadPrivatePack(pk)
+  return loadBank(baseOf(id))
+}
 
 export interface Handle { stop: (at?: number) => void }
 
@@ -265,6 +281,7 @@ export interface NoteOpts {
 // ---- sound packs (Stage 3): a pack the owner chose for a sound plays instead of its built-in bank ----
 /** the pack chosen for a sound (Settings → Sound → My sound packs), remembered as kg:pack:<sound> */
 export function packFor(id: SoundId): string | null {
+  if (id.startsWith('pack:')) return id.slice(5)
   try { const v = localStorage.getItem(`kg:pack:${id}`); return v ? JSON.parse(v) : null } catch { return null }
 }
 export function setPackFor(id: SoundId, packId: string | null) {
@@ -291,7 +308,7 @@ export function playNote(midi: number, when = 0, gain = 0.8, dest?: AudioNode, o
   // mono (the pedal + wireless setup): two takes added together sound hollow, so one centred take
   if (opts.double && monoOut()) opts = { ...opts, double: false }
   const id = opts.sound ?? activeSound()
-  const bank = banks.get(id)
+  const bank = banks.get(baseOf(id))
   const t = when || audio().currentTime
   const fromPack = packNote(id, midi, t, gain, dest, opts)
   if (fromPack) return fromPack
@@ -315,7 +332,7 @@ export function playNote(midi: number, when = 0, gain = 0.8, dest?: AudioNode, o
     if (opts.pm && !pmGroup) h.stop(t + 0.13)
     return h
   }
-  if (id !== 'synth') void loadSound(id)
+  if (baseOf(id) !== 'synth') void loadSound(id)
   const h = synthNote(midi, t, gain, dest, opts)
   if (opts.pm) h.stop(t + 0.12)
   return h
@@ -354,7 +371,7 @@ export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: 
   const ctx = audio()
   const t0 = when || ctx.currentTime + 0.01
   const id = opts.sound ?? activeSound()
-  const bank = banks.get(id)
+  const bank = banks.get(baseOf(id))
   const gain = (opts.gain ?? 0.7) * (opts.up ? 0.75 : 1)
   // a pack with whole recorded chords (an amp tone re-amped from DI chords): play the real chord when it has this one
   const pk = packFor(id)
@@ -449,6 +466,6 @@ export function playFromBank(id: string, midi: number, when: number, gain: numbe
 /** Warm up for a set of notes so the first strum doesn't stutter (and start loading the sound). */
 export function preload(midis: number[], sound?: SoundId) {
   const id = sound ?? activeSound()
-  if (id !== 'synth') void loadSound(id)
-  if (!banks.has(id)) for (const m of midis) bufferFor(m)
+  if (baseOf(id) !== 'synth') void loadSound(id)
+  if (!banks.has(baseOf(id))) for (const m of midis) bufferFor(m)
 }
