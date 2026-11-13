@@ -18,6 +18,7 @@ import { SearchSheet } from './components/SearchSheet'
 import { SessionBar } from './sessions/SessionBar'
 import { AskBubble } from './assistant/AskBubble'
 import { FloatLayer } from './float/FloatLayer'
+import { SoundPill } from './components/SoundPill'
 import { GlobalChordPeek } from './components/ChordPeek'
 import { NowPlaying } from './components/NowPlaying'
 import { Settings } from './learn/Settings'
@@ -207,6 +208,7 @@ export default function App() {
         <button className="nav-pull" onClick={() => setDrawer(true)} aria-label="Show the menu" title="Menu"><IconMenu /></button>
       )}
       {drawer && <div className="nav-scrim" onClick={() => setDrawer(false)} aria-hidden />}
+      <SoundPill />
       {!search && <AskBubble context={tab === 'learn' ? 'learn' : tab === 'play' ? 'play' : tab === 'progressions' ? (localStorage.getItem('kg:sub:jam') === '"beats"' ? 'beat' : 'jam') : 'general'} />}
       {search && <SearchSheet onClose={() => setSearch(false)} initial={search.text} context={search.context} autoAsk={search.ask} />}
       {exitHint > 0 && <div className="pedal-toast" role="status">Press Back again to close KGuitar</div>}

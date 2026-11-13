@@ -48,7 +48,7 @@ export class TabPlayer {
 
   /** Play steps [from, to) at the given tempo (quarter notes per minute). With `loopFrom`, it jumps back there at `to` and keeps going. */
   play(flat: FlatStep[], from: number, bpm: number, to = flat.length, loopFrom?: number) {
-    liveSound(this)
+    liveSound(this, 'Hear it')
     this.stop()
     const ctx = audio()
     void ctx.resume()

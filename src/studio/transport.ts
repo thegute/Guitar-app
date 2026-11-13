@@ -154,7 +154,7 @@ export class StudioTransport {
 
   /** Start playing (after `countIn` beats of click). Returns the audio time of the first beat. */
   start(countIn = 0): number {
-    liveSound(this)
+    liveSound(this, 'Beat / looper')
     this.stop()
     const ctx = audio()
     void ctx.resume()
@@ -185,7 +185,7 @@ export class StudioTransport {
    * loop has got to). Nothing before now is played.
    */
   startFrom(t0: number) {
-    liveSound(this)
+    liveSound(this, 'Beat / looper')
     this.stop()
     const ctx = audio()
     void ctx.resume()

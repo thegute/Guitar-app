@@ -124,7 +124,7 @@ export class JamTransport {
 
   /** Start playing. `countIn` beats of click come first; returns T0 (when the loop's first beat sounds). */
   start(countIn = 0) {
-    liveSound(this)
+    liveSound(this, 'Jam band')
     this.stop()
     const ctx = audio()
     void ctx.resume()

@@ -16,7 +16,7 @@ export class Drone {
 
   start(tonic: number, chord: number[] = this.chord) {
     this.chord = chord
-    liveSound(this)
+    liveSound(this, 'Drone')
     const ctx = audio()
     void ctx.resume()
     this.stop()

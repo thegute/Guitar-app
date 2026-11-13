@@ -2830,3 +2830,15 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 /* The "Tucked away" tray sits at the end of its page, in line with everything else (owner 2026-11-12: floating over the
    page it got in the way). Scroll to the bottom to bring a tucked-away window back. */
 .win-tray, .win-tray[class] { position: static; bottom: auto; box-shadow: none; z-index: auto; }
+
+/* "Something is playing": one Stop for every sound, on every screen */
+.sound-pill { position: fixed; left: 10px; bottom: calc(var(--nav-h) + 76px + var(--sab)); z-index: 44; display: flex; align-items: center; gap: 8px;
+  padding: 4px 4px 4px 12px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--surface) 95%, transparent); border: 1px solid var(--line);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .3); max-width: calc(100vw - 140px); font-size: 13px; }
+.sound-pill .sp-what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.sound-pill .sp-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--mint); animation: sp-pulse 1.2s ease-in-out infinite; }
+.sound-pill .sp-stop { flex: none; min-height: 34px; }
+@keyframes sp-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .sound-pill .sp-dot { animation: none; } }
+@media (min-width: 760px) { .sound-pill { left: calc(var(--rail-w, 74px) + 12px); bottom: 78px; } }
+[data-theme='psy'] .sound-pill { background: rgba(28, 6, 65, .96); border-color: rgba(0, 229, 255, .45); }

@@ -41,7 +41,7 @@ export class Metronome {
   ticks: Tick[] = []
 
   start(at?: number) {
-    liveSound(this)
+    liveSound(this, 'Metronome')
     const ctx = audio()
     this.running = true
     this.beat = 0
