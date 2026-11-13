@@ -82,7 +82,7 @@ class TabCRNN(nn.Module):
             a = int(r) - 1
             lanes.append(f[:, :, a:a + 3].mean(2))  # 3 rows round the line
         up = f[:, :, 0:9].amax(2)                    # above the staff: strokes, words
-        lo = f[:, :, 31:40].amax(2)                  # below: stems, beams, flags, dots, 3s
+        lo = f[:, :, 23:40].amax(2)                  # below: stems, beams, flags, dots, 3s (from y 92: 4-string staves end higher)
         ctx = self.tcn(self.mix(torch.cat(lanes + [up, lo], 1)))  # B, d, T
         B, _, T = ctx.shape
         frets = []

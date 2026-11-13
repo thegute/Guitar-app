@@ -83,7 +83,7 @@ def loss_of(out, y):
     L['frets'] = ce(out['frets'].permute(0, 1, 3, 2).reshape(-1, C), y['frets'].reshape(-1)) * 2
     for k in ('dur', 'dots', 'tup', 'grace', 'stroke'):
         L[k] = ce(out[k], y[k]) * (1.0 if k == 'dur' else 0.5)
-    return sum(L.values()), {k: float(v) for k, v in L.items()}
+    return sum(L.values()), {k: float(v.detach()) for k, v in L.items()}
 
 
 def decode(out, i, nstr):
@@ -107,10 +107,10 @@ def decode(out, i, nstr):
 
 
 @torch.no_grad()
-def evaluate(limit=None):
+def evaluate(limit=None, damage=False):
     """notes found / read right on the held-back pages, and note lengths"""
     model.eval()
-    fx = Fixed(a.holdout)
+    fx = Fixed(a.holdout, damage)
     idx = range(len(fx)) if not limit else range(0, len(fx), max(1, len(fx) // limit))
     tp = fp = fn = 0
     dur_ok = dur_n = 0
@@ -173,8 +173,11 @@ for x, y in dl:
         say(f'step {step}/{a.steps} loss {float(loss):.3f} ' + ' '.join(f'{k} {v:.3f}' for k, v in parts.items()) + f' | {rate:.2f} steps/s, ~{(a.steps - step) / max(rate, 1e-6) / 60:.0f} min left')
     if step % a.eval == 0 or step == a.steps:
         m = evaluate(limit=8 if a.smoke else None)
-        score = m['precision'] + m['recall'] + 0.5 * m['dur']
-        say(f'HELD-BACK PAGES at step {step}: notes precision {m["precision"]}% recall {m["recall"]}% | note lengths {m["dur"]}%')
+        md = evaluate(limit=8 if a.smoke else None, damage=True)
+        score = m['precision'] + m['recall'] + 0.5 * m['dur'] + md['precision'] + md['recall'] + 0.5 * md['dur']
+        say(f'HELD-BACK PAGES at step {step}: clean: notes precision {m["precision"]}% recall {m["recall"]}% lengths {m["dur"]}% | '
+            f'photo / video quality: precision {md["precision"]}% recall {md["recall"]}% lengths {md["dur"]}%')
+        m = {'clean': m, 'damaged': md}
         torch.save(model.state_dict(), os.path.join(a.out, 'last.pt'))
         if score > best:
             best = score

@@ -118,8 +118,8 @@ class Mixed(torch.utils.data.IterableDataset):
 class Fixed(torch.utils.data.Dataset):
     """Labelled strips read whole (for measuring): one at a time, any width."""
 
-    def __init__(self, strips_dir):
-        self.dir = strips_dir
+    def __init__(self, strips_dir, damage=False):
+        self.dir, self.damage = strips_dir, damage
         self.items = [json.loads(l) for l in open(os.path.join(strips_dir, 'labels.jsonl'))]
 
     def __len__(self):
@@ -131,4 +131,8 @@ class Fixed(torch.utils.data.Dataset):
         W = int(math.ceil(img.width / 16) * 16)
         canvas = Image.new('L', (W, 160), 255)
         canvas.paste(img, (0, 0))
+        if self.damage:  # the same damage every time for a strip: phone-photo / video quality
+            canvas = synth.degrade(canvas, random.Random(i * 7919 + 1))
+            k = 0.45 + (i % 5) * 0.08  # 7–11 px between string lines, like a video's tab
+            canvas = canvas.resize((max(16, int(W * k)), int(160 * k)), Image.BILINEAR).resize((W, 160), Image.BILINEAR)
         return torch.from_numpy(np.asarray(canvas, np.float32) / 255.0)[None], e
