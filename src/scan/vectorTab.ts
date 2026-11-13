@@ -7,10 +7,11 @@
 //   - printed time signatures (4/4 → 3/4 mid-song) set each bar's length;
 //   - the rhythm stems and beams under the staff give each column's length (rhythm.ts), the spacing only when there are none.
 // Pure functions on PdfShape lists (tabs/pdfTab.ts readPdf collects them), so they run the same in the app and in tests.
-import type { PdfShape, PdfText } from '../tabs/pdfTab'
+import type { PdfGlyph, PdfShape, PdfText } from '../tabs/pdfTab'
 import { tuningFromText, type TuningFound } from './tuningText'
 import { assemble, classify, components, normDigit, DEAD, type Num, type ReadSystem, type TabReading } from './tabRead'
 import { rhythmFromStems } from './stemRhythm'
+import { rhythmFromNotation } from './notationRhythm'
 
 /** a text item's middle height (its y is the baseline, y up) */
 const t2y = (t: PdfText) => t.y + t.h * 0.35
@@ -97,7 +98,7 @@ function restKind(sh: PdfShape): number | null {
 }
 
 /** Staves of `nStr` evenly spaced horizontal lines (strokes, or thin filled boxes), with their extent. */
-function findStaves(shapes: PdfShape[], nStr: number) {
+export function findStaves(shapes: PdfShape[], nStr: number) {
   const hs: Seg[] = []
   for (const sh of shapes) {
     const w = sh.x1 - sh.x0, h = sh.y1 - sh.y0
@@ -166,7 +167,7 @@ export interface VectorReading extends TabReading {
 }
 
 /** Read the tab on one page's shapes. Null when the page has no tab staff with numbers. */
-export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?: PdfText[]; height?: number } = {}): VectorReading | null {
+export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?: PdfText[]; height?: number; glyphs?: PdfGlyph[]; /** the time signature in force from the page before */ startMeter?: { beats: number; sig: [number, number] } } = {}): VectorReading | null {
   const nStr = opts.strings ?? 6
   // paper-coloured boxes aren't ink; a shape drawn twice in the same place (some PDFs do) counts once
   const seenAt = new Set<string>()
@@ -177,7 +178,7 @@ export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?:
     seenAt.add(k)
     return true
   })
-  const staves = findStaves(shapes, nStr)
+  let staves = findStaves(shapes, nStr)
   if (!staves.length) return null
   const fills = shapes.filter(s => s.kind === 'fill')
   // which glyph shapes sit on which staff
@@ -235,7 +236,68 @@ export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?:
     }
     nums.push({ sys: a.si, string: a.string, x: a.x * K, fret: a.d === DEAD ? 0 : a.d, sure: Math.min(a.sure, a.score - 0.5), ...(a.d === DEAD ? { dead: true } : {}) })
   }
+  // numbers printed as real text (InDesign / Finale books like the Tony Rice book): the value is known exactly, only the
+  // string comes from where it sits. Character by character when the page gives them (a text run can hold "3 4" or "10")
+  const digitGlyphs = (opts.glyphs ?? []).filter(g => (g.cp >= 0x30 && g.cp <= 0x39) || g.cp === 0x78 || g.cp === 0x58)
+  if (digitGlyphs.length) {
+    staves.forEach((st, si) => {
+      const top = st.lines[0], bot = st.lines[nStr - 1]
+      type D = { x: number; w: number; ch: string; line: number }
+      const ds: D[] = []
+      for (const g of digitGlyphs) {
+        if (g.size > st.gap * 2.2 || g.x < st.left + st.gap * 0.3 || g.x > st.right) continue
+        const cy = g.y - g.size * 0.35
+        if (cy < top - st.gap * 0.5 || cy > bot + st.gap * 0.5) continue
+        let line = -1, bd = Infinity
+        st.lines.forEach((ly, k) => { const d = Math.abs(cy - ly); if (d < bd) { bd = d; line = k } })
+        if (bd > st.gap * 0.42) continue
+        ds.push({ x: g.x, w: g.w || g.size * 0.5, ch: String.fromCodePoint(g.cp), line })
+      }
+      ds.sort((a, b) => a.line - b.line || a.x - b.x)
+      for (let i = 0; i < ds.length; i++) {
+        let txt = ds[i].ch, x1 = ds[i].x + ds[i].w
+        // digits touching on one line are one number ("10", "12")
+        while (ds[i + 1] && ds[i + 1].line === ds[i].line && ds[i + 1].x - x1 < ds[i].w * 0.35 && /\d/.test(ds[i + 1].ch) && /\d/.test(txt)) { i++; txt += ds[i].ch; x1 = ds[i].x + ds[i].w }
+        const dead = /x/i.test(txt)
+        const fret = dead ? 0 : Number(txt)
+        if (!dead && (!(fret >= 0) || fret > 30)) continue
+        const start = ds.find(q => q.line === ds[i].line && q.x + q.w <= x1 + 0.01 && q.x >= x1 - txt.length * ds[i].w - 0.5)?.x ?? ds[i].x
+        nums.push({ sys: si, string: nStr - 1 - ds[i].line, x: ((start + x1) / 2) * K, fret, sure: 1, ...(dead ? { dead: true } : {}) })
+      }
+    })
+  } else if (opts.texts && opts.height) {
+    const H = opts.height
+    staves.forEach((st, si) => {
+      const top = st.lines[0], bot = st.lines[nStr - 1]
+      for (const t of opts.texts!) {
+        const m = /^\(?(\d{1,2}|[xX])\)?$/.exec(t.str.trim())
+        if (!m || t.h > st.gap * 2.2 || t.x < st.left + st.gap * 0.5 || t.x > st.right) continue
+        // the digits' middle: a little above the baseline (about a third of the font size)
+        const cy = H - t.y - t.h * 0.33
+        if (cy < top - st.gap * 0.5 || cy > bot + st.gap * 0.5) continue
+        let line = -1, bd = Infinity
+        st.lines.forEach((ly, k) => { const d = Math.abs(cy - ly); if (d < bd) { bd = d; line = k } })
+        if (bd > st.gap * 0.42) continue
+        const dead = /x/i.test(m[1])
+        const fret = dead ? 0 : Number(m[1])
+        if (fret > 30) continue
+        const x = (t.x + (t.w || t.h * 0.5 * t.str.trim().length) / 2) * K
+        if (nums.some(n => n.sys === si && n.string === nStr - 1 - line && Math.abs(n.x - x) < st.gap * K * 0.4)) continue
+        nums.push({ sys: si, string: nStr - 1 - line, x, fret, sure: 1, ...(dead ? { dead: true } : {}) })
+      }
+    })
+  }
   if (!nums.length) return null
+  // a "staff" with no numbers on it isn't a tab staff (five notation lines plus a ledger line can look like six): drop it
+  const keep = staves.map((_, i) => nums.some(n => n.sys === i))
+  if (keep.some(k => !k)) {
+    const idx: number[] = []
+    let j = 0
+    keep.forEach((k, i) => { idx[i] = k ? j++ : -1 })
+    staves = staves.filter((_, i) => keep[i])
+    for (const n of nums) n.sys = idx[n.sys]
+    for (let i = sigs.length - 1; i >= 0; i--) { if (idx[sigs[i].si] < 0) sigs.splice(i, 1); else sigs[i].si = idx[sigs[i].si] }
+  }
   // printed time signatures: a top and a bottom digit at the same place
   const meters: VectorReading['meters'] = []
   const used = new Set<number>()
@@ -268,9 +330,23 @@ export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?:
       }
     })
   }
+  // time signatures in a notation staff above the tab (music-font digits U+E080–E089, one above the other)
+  if (opts.glyphs?.length) {
+    const ts = opts.glyphs.filter(g => g.cp >= 0xe080 && g.cp <= 0xe089)
+    staves.forEach((st, si) => {
+      const lo = si ? staves[si - 1].lines[nStr - 1] : 0
+      const mine = ts.filter(g => g.y > lo && g.y < st.lines[0])
+      for (const a of mine) {
+        const b = mine.find(q => q !== a && Math.abs(q.x - a.x) < a.size * 0.3 && q.y > a.y + a.size * 0.15 && q.y < a.y + a.size * 0.7)
+        if (!b) continue
+        const num = a.cp - 0xe080, den = b.cp - 0xe080
+        if (num > 0 && [2, 4, 8].includes(den) && !meters.some(m => m.sys === si && Math.abs(m.x - a.x * K) < st.gap * K * 2)) meters.push({ sys: si, x: a.x * K, beats: num * 4 / den, sig: [num, den] })
+      }
+    })
+  }
   meters.sort((a, b) => a.sys - b.sys || a.x - b.x)
   const meterAt = (sys: number, x: number) => {
-    let m: number | undefined
+    let m: number | undefined = opts.startMeter?.beats
     for (const t of meters) if (t.sys < sys || (t.sys === sys && t.x <= x)) m = t.beats
     return m
   }
@@ -297,13 +373,15 @@ export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?:
   })
   let rhythmRead = 0
   const r = assemble(systems, sysBars, nums, {
+    clef: false, // the TAB letters are never read as numbers here (shapes are sized, text is text)
     meterAt,
-    beats: meters.length ? meters[0].beats : undefined,
+    beats: meters.length ? meters[0].beats : opts.startMeter?.beats,
     durations: (si, xs, x0, x1) => {
       const d = rhythmFromStems(shapes, staves[si], xs.map(x => x / K), x0 / K, x1 / K, meterAt(si, (x0 + x1) / 2) ?? 4, sh => { const r = readGlyph(sh); return r.length === 1 && r[0].d === 3 && r[0].score > 0.75 }, restKind)
-      if (!d) return null
-      rhythmRead += d.durs.length
-      return { durs: d.durs, rests: d.rests.map(r => ({ x: r.x * K, dur: r.dur })) }
+      const n = d ?? (opts.glyphs?.length ? rhythmFromNotation(shapes, opts.glyphs, staves[si], si ? staves[si - 1].lines[nStr - 1] : 0, xs.map(x => x / K), x0 / K, x1 / K, meterAt(si, (x0 + x1) / 2) ?? 4) : null)
+      if (!n) return null
+      rhythmRead += n.durs.length
+      return { durs: n.durs, rests: n.rests.map(r => ({ x: r.x * K, dur: r.dur })) }
     },
   })
   const tuning = opts.texts && opts.height ? tuningFromText(opts.texts, opts.height, staves, nStr) : undefined

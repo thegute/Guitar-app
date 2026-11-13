@@ -63,7 +63,7 @@ export function tuningFromWords(text: string, strings = 6): TuningFound | undefi
   }
   if (!f.names) {
     const named: [RegExp, string[]][] = [
-      [/\bdrop\s*d\b/i, ['D', 'A', 'D', 'G', 'B', 'E']], [/\bdadgad\b/i, ['D', 'A', 'D', 'G', 'A', 'D']], [/\bopen\s*g\b/i, ['D', 'G', 'D', 'G', 'B', 'D']],
+      [/\bdrop(?:ped)?\s*d\b/i, ['D', 'A', 'D', 'G', 'B', 'E']], [/\bdadgad\b/i, ['D', 'A', 'D', 'G', 'A', 'D']], [/\bopen\s*g\b/i, ['D', 'G', 'D', 'G', 'B', 'D']],
       [/\bopen\s*d\b/i, ['D', 'A', 'D', 'F#', 'A', 'D']], [/\bdrop\s*c\b/i, ['C', 'G', 'C', 'F', 'A', 'D']],
       [/\b(half\s*step|½\s*step|semitone)\s*down\b|\be[b♭]\s*(standard|tuning)\b/i, ['Eb', 'Ab', 'Db', 'Gb', 'Bb', 'Eb']],
       [/\b(whole\s*step|full\s*step)\s*down\b|\bd\s*standard\b/i, ['D', 'G', 'C', 'F', 'A', 'D']],

@@ -532,6 +532,8 @@ export function assemble(systems: ReadSystem[], sysBars: number[][], nums: Num[]
     const given = r.steps.length ? opts.durations?.(r.si, r.steps.map(st => st.x), r.x0, r.x1) : null
     if (given && given.durs.length === r.steps.length) {
       given.durs.forEach((d, k) => { r.steps[k].dur = d })
+      // a first bar read from printed rhythm is as long as its notes and rests (a pickup, or a full bar)
+      if (r.first) { const sum = given.durs.reduce((a, b) => a + b, 0) + (given.rests ?? []).reduce((a, b) => a + b.dur, 0); beats = Math.min(opts.meterAt?.(r.si, (r.x0 + r.x1) / 2) ?? meter, Math.round(sum * 48) / 48) }
       // rests read from the page become silent steps in their place
       for (const rs of given.rests ?? []) if (rs.dur > 0) r.steps.push({ x: rs.x, notes: [], dur: rs.dur })
       r.steps.sort((a, b) => a.x - b.x)

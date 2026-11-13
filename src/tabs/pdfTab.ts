@@ -9,7 +9,12 @@ export interface PdfText { str: string; x: number; y: number; w: number; h: numb
 /** a drawn line: horizontal (y1 = y2) or vertical (x1 = x2), in page units, y up */
 export interface PdfLine { x1: number; y1: number; x2: number; y2: number }
 /** `pictures`: how much of the page is covered by pictures (0–1): a scanned book, or tab printed as an image. */
-export interface PdfPage { texts: PdfText[]; lines: PdfLine[]; width: number; height: number; pictures?: number; shapes?: PdfShape[] }
+export interface PdfPage { texts: PdfText[]; lines: PdfLine[]; width: number; height: number; pictures?: number; shapes?: PdfShape[]; glyphs?: PdfGlyph[] }
+/** One character placed on the page: music-font characters (SMuFL code points U+E000–U+F8FF: note heads, flags, rests,
+ *  dots, tuplet numbers, time signatures …) and the digits, x and brackets tabs are written with; its origin (baseline) in
+ *  page units (y DOWN) and font size. Notation software (Finale, Dorico,
+ *  MuseScore, InDesign books) writes the notes this way. */
+export interface PdfGlyph { cp: number; x: number; y: number; size: number; /** advance width (page units) */ w?: number }
 /** A drawn shape (tab software draws its numbers, rests and stems as shapes, not text): its outline as polygons (curves
  *  flattened), in page units with y DOWN (like a picture), its box, and a key that is the same for identical shapes. */
 export interface PdfShape { kind: 'fill' | 'stroke'; evenOdd?: boolean; polys: number[][]; x0: number; y0: number; x1: number; y1: number; sig: string; width?: number; /** paper-coloured (a white box behind a number that breaks the staff line): not ink */ blank?: true }
@@ -178,6 +183,7 @@ export async function readPdf(bytes: Uint8Array, from = 1, to = from + 29): Prom
     }
     const lines: PdfLine[] = []
     const shapes: PdfShape[] = []
+    const glyphs: PdfGlyph[] = []
     let lineW = 1
     let pictures = 0
     try {
@@ -187,6 +193,11 @@ export async function readPdf(bytes: Uint8Array, from = 1, to = from + 29): Prom
       const wStack: number[] = []
       const cStack: number[] = []
       let fillLum = 0
+      let tm: M = [1, 0, 0, 1, 0, 0], lm: M = [1, 0, 0, 1, 0, 0], fSize = 1, lead = 0, cSp = 0, wSp = 0, hSc = 1, rise = 0
+      // the clipping box in force (page units, y down): drawing outside it isn't on the page. Some books draw every staff
+      // line of the page several times, each copy clipped to one system.
+      let clipBox: [number, number, number, number] | null = null
+      const clipStack: ([number, number, number, number] | null)[] = []
       // a fill colour (pdf.js gives 0–255 numbers, or "#rrggbb") → how light it is, 0 black … 1 white
       const lum = (a: unknown): number => {
         const v = a as Record<number, number> | string | string[]
@@ -200,14 +211,43 @@ export async function readPdf(bytes: Uint8Array, from = 1, to = from + 29): Prom
       }
       for (let k = 0; k < ol.fnArray.length; k++) {
         const fn = ol.fnArray[k], args = ol.argsArray[k] as unknown[]
-        if (fn === OPS.save) { stack.push(ctm); wStack.push(lineW); cStack.push(fillLum) }
-        else if (fn === OPS.restore) { ctm = stack.pop() ?? ctm; lineW = wStack.pop() ?? lineW; fillLum = cStack.pop() ?? fillLum }
+        if (fn === OPS.save) { stack.push(ctm); wStack.push(lineW); cStack.push(fillLum); clipStack.push(clipBox) }
+        else if (fn === OPS.restore) { ctm = stack.pop() ?? ctm; lineW = wStack.pop() ?? lineW; fillLum = cStack.pop() ?? fillLum; clipBox = clipStack.length ? clipStack.pop()! : clipBox }
         else if (fn === OPS.setFillRGBColor) fillLum = lum(args)
         else if (fn === OPS.setFillGray) fillLum = Number((args as number[])[0] ?? 0)
         else if (fn === OPS.setFillCMYKColor) { const [c, m, y, kk] = (args as number[]).map(Number); fillLum = (1 - Math.min(1, c + kk)) * 0.3 + (1 - Math.min(1, m + kk)) * 0.59 + (1 - Math.min(1, y + kk)) * 0.11 }
         else if (fn === OPS.transform) ctm = mul(ctm, args as M)
-        else if (fn === OPS.paintFormXObjectBegin) { stack.push(ctm); wStack.push(lineW); if (Array.isArray(args[0])) ctm = mul(ctm, args[0] as M) }
-        else if (fn === OPS.paintFormXObjectEnd) { ctm = stack.pop() ?? ctm; lineW = wStack.pop() ?? lineW }
+        else if (fn === OPS.paintFormXObjectBegin) { stack.push(ctm); wStack.push(lineW); clipStack.push(clipBox); { const fm = args[0] as ArrayLike<number> | null; if (fm && fm.length === 6) ctm = mul(ctm, Array.from(fm) as M) } }
+        else if (fn === OPS.paintFormXObjectEnd) { ctm = stack.pop() ?? ctm; lineW = wStack.pop() ?? lineW; clipBox = clipStack.length ? clipStack.pop()! : clipBox }
+        // text state, to place music-font characters (note heads, flags, rests …) exactly
+        else if (fn === OPS.beginText) { tm = [1, 0, 0, 1, 0, 0]; lm = [1, 0, 0, 1, 0, 0] }
+        else if (fn === OPS.setFont) fSize = Number((args as unknown[])[1]) || 1
+        else if (fn === OPS.setTextMatrix) { tm = (args as number[]).slice(0, 6) as M; lm = tm }
+        else if (fn === OPS.moveText) { lm = mul(lm, [1, 0, 0, 1, (args as number[])[0], (args as number[])[1]]); tm = lm }
+        else if (fn === OPS.setLeadingMoveText) { lead = -(args as number[])[1]; lm = mul(lm, [1, 0, 0, 1, (args as number[])[0], (args as number[])[1]]); tm = lm }
+        else if (fn === OPS.setLeading) lead = (args as number[])[0]
+        else if (fn === OPS.nextLine) { lm = mul(lm, [1, 0, 0, 1, 0, -lead]); tm = lm }
+        else if (fn === OPS.setCharSpacing) cSp = (args as number[])[0]
+        else if (fn === OPS.setWordSpacing) wSp = (args as number[])[0]
+        else if (fn === OPS.setHScale) hSc = (args as number[])[0] / 100
+        else if (fn === OPS.setTextRise) rise = (args as number[])[0]
+        else if (fn === OPS.showText && glyphs.length < 20000) {
+          for (const gl of (args as unknown[])[0] as (number | { unicode?: string; width?: number; isSpace?: boolean })[]) {
+            if (typeof gl === 'number') { tm = mul(tm, [1, 0, 0, 1, -gl / 1000 * fSize * hSc, 0]); continue }
+            const cp = gl.unicode ? gl.unicode.codePointAt(0) ?? 0 : 0
+            // music-font characters, and the digits / x / brackets a tab writes its frets with
+            if ((cp >= 0xe000 && cp <= 0xf8ff) || (cp >= 0x30 && cp <= 0x39) || cp === 0x78 || cp === 0x58 || cp === 0x28 || cp === 0x29) {
+              const m = mul(ctm, tm)
+              const [gx, gy] = ap(m, 0, rise)
+              const gyd = view[3] - gy
+              // outside the clipping box it isn't on the page (a clipped copy of the music)
+              if (!clipBox || (gx >= clipBox[0] - 0.5 && gx <= clipBox[2] + 0.5 && gyd >= clipBox[1] - 0.5 && gyd <= clipBox[3] + fSize))
+                glyphs.push({ cp, x: gx, y: gyd, size: fSize * Math.hypot(m[2], m[3]), w: (gl.width ?? 0) / 1000 * fSize * hSc * Math.hypot(m[0], m[1]) })
+            }
+            const adv = ((gl.width ?? 0) / 1000 * fSize + cSp + (gl.isSpace ? wSp : 0)) * hSc
+            tm = mul(tm, [1, 0, 0, 1, adv, 0])
+          }
+        }
         else if (fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject || fn === OPS.paintImageMaskXObject) {
           // an image fills the unit square under the current transform: its area on the page
           pictures += Math.abs(ctm[0] * ctm[3] - ctm[1] * ctm[2]) / Math.max(1, (view[2] - view[0]) * (view[3] - view[1]))
@@ -217,6 +257,18 @@ export async function readPdf(bytes: Uint8Array, from = 1, to = from + 29): Prom
           const ops = args[0] as number[], co = args[1] as number[]
           // the shape itself (for the shape reader): what follows says whether it's filled or stroked
           const next = ol.fnArray[k + 1]
+          if (next === OPS.clip || next === OPS.eoClip) {
+            // a clipping path: its box (y down), cut down to the box already in force
+            let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity
+            const H0 = view[3]
+            let q = 0
+            const pt = (x: number, y: number) => { const [a, b] = ap(ctm, x, y); bx0 = Math.min(bx0, a); bx1 = Math.max(bx1, a); by0 = Math.min(by0, H0 - b); by1 = Math.max(by1, H0 - b) }
+            for (const op of ops) {
+              if (op === OPS.rectangle) { const [x, y, w, h] = co.slice(q, q + 4); pt(x, y); pt(x + w, y + h); q += 4 }
+              else { const n = op === OPS.moveTo || op === OPS.lineTo ? 2 : op === OPS.curveTo ? 6 : op === OPS.curveTo2 || op === OPS.curveTo3 ? 4 : 0; for (let t = 0; t < n; t += 2) pt(co[q + t], co[q + t + 1]); q += n }
+            }
+            if (bx0 <= bx1) clipBox = clipBox ? [Math.max(clipBox[0], bx0), Math.max(clipBox[1], by0), Math.min(clipBox[2], bx1), Math.min(clipBox[3], by1)] : [bx0, by0, bx1, by1]
+          }
           const fillKind = next === OPS.fill || next === OPS.eoFill || next === OPS.fillStroke || next === OPS.eoFillStroke || next === OPS.closeFillStroke || next === OPS.closeEOFillStroke
           const strokeKind = next === OPS.stroke || next === OPS.closeStroke
           if ((fillKind || strokeKind) && shapes.length < 20000) {
@@ -246,6 +298,35 @@ export async function readPdf(bytes: Uint8Array, from = 1, to = from + 29): Prom
               } else if (op === OPS.closePath) { if (cur.length > 2) { cur.push(cur[0], cur[1]); polys.push(cur) } cur = []; px = sx; py = sy }
             }
             if (cur.length > 2) polys.push(cur)
+            // cut to the clipping box: a stroke's straight pieces are trimmed, a filled shape outside it is dropped
+            if (clipBox && polys.length && !(globalThis as { __NOCLIP?: boolean }).__NOCLIP) {
+              const [cx0, cy0, cx1, cy1] = clipBox
+              if (strokeKind) {
+                const cut: number[][] = []
+                for (const pl of polys) for (let t = 0; t + 3 < pl.length; t += 2) {
+                  let ax = pl[t], ay = pl[t + 1], bx = pl[t + 2], by = pl[t + 3]
+                  // Liang–Barsky
+                  let u0 = 0, u1 = 1
+                  const dx = bx - ax, dy = by - ay
+                  const ok = ([[-dx, ax - cx0], [dx, cx1 - ax], [-dy, ay - cy0], [dy, cy1 - ay]] as [number, number][]).every(([p2, q2]) => {
+                    if (Math.abs(p2) < 1e-9) return q2 >= -0.01
+                    const r = q2 / p2
+                    if (p2 < 0) { if (r > u1) return false; if (r > u0) u0 = r } else { if (r < u0) return false; if (r < u1) u1 = r }
+                    return true
+                  })
+                  if (!ok || u1 - u0 < 1e-6) continue
+                  const nx0 = ax + dx * u0, ny0 = ay + dy * u0
+                  bx = ax + dx * u1; by = ay + dy * u1; ax = nx0; ay = ny0
+                  cut.push([ax, ay, bx, by])
+                }
+                polys.length = 0
+                polys.push(...cut)
+              } else {
+                let fx0 = Infinity, fy0 = Infinity, fx1 = -Infinity, fy1 = -Infinity
+                for (const pl of polys) for (let t = 0; t < pl.length; t += 2) { fx0 = Math.min(fx0, pl[t]); fx1 = Math.max(fx1, pl[t]); fy0 = Math.min(fy0, pl[t + 1]); fy1 = Math.max(fy1, pl[t + 1]) }
+                if (fx1 < cx0 || fx0 > cx1 || fy1 < cy0 || fy0 > cy1) polys.length = 0
+              }
+            }
             if (polys.length) {
               let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
               for (const pl of polys) for (let t = 0; t < pl.length; t += 2) { x0 = Math.min(x0, pl[t]); x1 = Math.max(x1, pl[t]); y0 = Math.min(y0, pl[t + 1]); y1 = Math.max(y1, pl[t + 1]) }
@@ -272,7 +353,7 @@ export async function readPdf(bytes: Uint8Array, from = 1, to = from + 29): Prom
         }
       }
     } catch { /* no drawings: text only */ }
-    out.push({ texts, lines, width: view[2] - view[0], height: view[3] - view[1], pictures: Math.min(1, pictures), shapes })
+    out.push({ texts, lines, width: view[2] - view[0], height: view[3] - view[1], pictures: Math.min(1, pictures), shapes, glyphs })
   }
   return out
 }

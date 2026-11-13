@@ -83,9 +83,13 @@ export function readingSong(readings: TabReading[], tuning: number[], title: str
 export function readPdfShapes(pages: PdfPage[], tuning: number[], title: string): PictureReading | null {
   const strings = tuning.length
   const rs: VectorReading[] = []
+  let startMeter: { beats: number; sig: [number, number] } | undefined
   for (const pg of pages) {
-    const r = pg.shapes?.length ? readVectorTab(pg.shapes, { strings, texts: pg.texts, height: pg.height }) : null
+    // a time signature carries on to the next page until a new one is printed
+    const r = pg.shapes?.length ? readVectorTab(pg.shapes, { strings, texts: pg.texts, height: pg.height, glyphs: pg.glyphs, startMeter }) : null
     if (r && r.notes) rs.push(r)
+    const last = r?.meters[r.meters.length - 1]
+    if (last) startMeter = { beats: last.beats, sig: last.sig }
   }
   if (!rs.length) return null
   const found = rs.find(r => r.tuning?.names)?.tuning ?? rs.find(r => r.tuning)?.tuning
