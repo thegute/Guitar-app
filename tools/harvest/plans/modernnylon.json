@@ -1,0 +1,36 @@
+{
+  "id": "modernnylon",
+  "name": "Modern Nylon (Orange Tree)",
+  "kind": "guitar",
+  "plugin": "/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3",
+  "state": "../../states/modernnylon.state",
+  "warmup": 15,
+  "sampleRate": 44100,
+  "tuning": [
+    40,
+    45,
+    50,
+    55,
+    59,
+    64
+  ],
+  "stringChannels": "high-first",
+  "frets": [
+    0,
+    19
+  ],
+  "tuneOver": 5,
+  "articulations": {
+    "sustain": {
+      "velocities": [
+        45,
+        82,
+        115
+      ],
+      "rr": 4,
+      "tail": 1.4
+    }
+  },
+  "_notes": "Evolution Modern Nylon 1.3.5: Channel-Based Strings = MIDI Guitar (channel 1 = high e), stomps off, no built-in reverb. Frets 0-19 so the ukulele (capo 5 on the top four strings, re-entrant high G = e string fret 3+) and the baritone ukulele (top four strings) can be played from it. The owner's only nylon (2026-11-13).",
+  "pace": 0.5
+}
