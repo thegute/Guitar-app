@@ -18,7 +18,7 @@ import { useHint } from '../components/Fold'
 import { Win, WinArea } from '../components/Win'
 import { chordInfo as readChord } from '../tabs/harmony'
 import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
-import { bassPacks, bassPackFor, BASS_LABEL, type BassKind } from '../audio/packSounds'
+import { bassPacks, bassPackFor, BASS_LABEL, BASS_PACK, type BassKind } from '../audio/packSounds'
 import { loadPrivatePack } from '../engine/packs'
 import { strum as strumNotes, preload, allSounds, soundInfo, loadSound, loadBank, bankLoaded, soundLoaded, type SoundId } from '../audio/pluck'
 import { BASSLINES } from '../audio/bass'
@@ -46,7 +46,7 @@ import { pc } from '../theory/notes'
 
 /** The recorded bass each Jam style suits (when the owner's Studio Bass packs are on the phone); others follow the bass line. */
 const STYLE_BASS: Partial<Record<Style, BassKind>> = {
-  bluegrass: 'upright', jazz: 'upright', bossa: 'upright', folk: 'upright', acoustic: 'upright', classical: 'upright', slackkey: 'upright', island: 'upright',
+  bluegrass: 'sixties', jazz: 'sixties', bossa: 'sixties', folk: 'sixties', acoustic: 'sixties', classical: 'sixties', slackkey: 'sixties', island: 'sixties',
   reggae: 'sixties', reggaerock: 'sixties', motown: 'sixties', neosoul: 'sixties', gospel: 'sixties', lofi: 'sixties', blues: 'sixties', afrobeat: 'sixties',
   progclean: 'modern', progmetal: 'modern', mathrock: 'modern', metal: 'modern', funk: 'modern', funkpop: 'modern', grunge: 'modern', punk: 'modern',
 }
@@ -430,7 +430,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
           <Field label="Bass sound">
             <select className="select" value={bassKindPick} onChange={e => setBassKindPick(e.target.value as 'auto' | BassKind)} data-testid="jam-bass-sound">
               <option value="auto">Match the style ({BASS_LABEL[STYLE_BASS[style] ?? bassLineKind(bassLine)].split(' (')[0]})</option>
-              {(Object.keys(BASS_LABEL) as BassKind[]).map(k => <option key={k} value={k}>{BASS_LABEL[k]}</option>)}
+              {(Object.keys(BASS_LABEL) as BassKind[]).filter(k => bassPacks().includes(BASS_PACK[k])).map(k => <option key={k} value={k}>{BASS_LABEL[k]}</option>)}
             </select>
           </Field>
         )}
