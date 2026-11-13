@@ -13,7 +13,7 @@ import { findStrips, type Gray } from './image'
 import { TEMPLATES_B64, TEMPLATE_COUNT, TEMPLATE_W as TW, TEMPLATE_H as TH } from './digitTemplates'
 
 export interface ReadNote { string: number; fret: number; x: number; sure: number; dead?: boolean }
-export interface ReadStep { x: number; notes: ReadNote[]; dur: number }
+export interface ReadStep { x: number; notes: ReadNote[]; dur: number; /** pick / strum direction printed over it */ stroke?: 'down' | 'up' }
 export interface ReadBar { steps: ReadStep[]; beats: number; x0: number; x1: number }
 export interface ReadSystem { lines: number[]; gap: number; left: number; right: number; bars: ReadBar[]; /** which part (Guitar 1, 2 …) when a system stacks several staves; 0 when there is one */ part?: number; partName?: string }
 export interface TabReading { systems: ReadSystem[]; unsure: number; notes: number; meter: number }

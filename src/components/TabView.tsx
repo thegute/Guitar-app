@@ -125,6 +125,11 @@ const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, f
           <text className={`tab-chord${c.guess ? ' guess' : ''}`} x={xs[c.at] - widths[c.at] / 2 + 2} y={24}>{c.name}</text>
         </g>
       ))}
+      {/* pick / strum direction from the page: ⊓ down, V up, just above the top string */}
+      {bar.steps.map((st, i) => st.stroke ? (
+        <path key={`pk${i}`} className={`tab-stroke ${st.stroke}`} aria-label={st.stroke === 'down' ? 'down stroke' : 'up stroke'}
+          d={st.stroke === 'down' ? `M${xs[i] - 4},${yTop - 9} v-6 h8 v6` : `M${xs[i] - 4},${yTop - 15} l4,7 l4,-7`} />
+      ) : null)}
       {/* a bar with nothing to play gets a whole-bar rest, so it doesn't look like missing tab */}
       {first && final && bar.steps.every(s => !s.notes.length) && nStr > 2 && (
         <rect className="tab-rest-mark" x={width / 2 - 7} y={y(nStr - 2)} width={14} height={6} />

@@ -469,6 +469,8 @@ body.resizing-col iframe, body.resizing-row iframe { pointer-events: none; }
 .tab-note.hit rect { fill: color-mix(in srgb, var(--mint) 16%, transparent); }
 .tab-note.hit text, .tab-note.hit .tab-notename { fill: var(--mint-text); }
 .tab-note.late text, .tab-note.late .tab-notename { fill: var(--coral); }
+/* pick / strum direction printed in the source: ⊓ down, V up */
+.tab-stroke { fill: none; stroke: var(--ink-2, currentColor); stroke-width: 1.6; stroke-linejoin: round; opacity: .85; }
 /* a number the picture reader wasn't sure of: an amber ring (check it against the page) */
 .tab-note.unsure rect { stroke: var(--gold); stroke-width: 1.6; stroke-dasharray: 3 2; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--gold) 70%, transparent)); }
 .tab-note.cur rect { fill: var(--amber); }

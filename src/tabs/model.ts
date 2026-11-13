@@ -22,6 +22,8 @@ export interface SongStep {
   /** chord sheets: the words sung over this chord, and a section name (Verse, Chorus …) starting here */
   lyric?: string
   section?: string
+  /** pick or strum direction printed on the page: down (⊓ / ↓) or up (V / ↑) */
+  stroke?: 'down' | 'up'
 }
 export interface SongBar {
   steps: SongStep[]

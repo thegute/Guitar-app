@@ -51,6 +51,7 @@ export function readingSong(readings: TabReading[], tuning: number[], title: str
         part.bars.push({
           steps: b.steps.map(st => ({
             dur: st.dur,
+            ...(st.stroke ? { stroke: st.stroke } : {}),
             notes: st.notes.filter(n => n.string < tun.length).map(n => {
               notes++
               const doubt = n.sure < 0.06

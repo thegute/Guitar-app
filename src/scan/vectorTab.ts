@@ -257,7 +257,7 @@ export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?:
       for (let i = 0; i < ds.length; i++) {
         let txt = ds[i].ch, x1 = ds[i].x + ds[i].w
         // digits touching on one line are one number ("10", "12")
-        while (ds[i + 1] && ds[i + 1].line === ds[i].line && ds[i + 1].x - x1 < ds[i].w * 0.35 && /\d/.test(ds[i + 1].ch) && /\d/.test(txt)) { i++; txt += ds[i].ch; x1 = ds[i].x + ds[i].w }
+        while (ds[i + 1] && ds[i + 1].line === ds[i].line && ds[i + 1].x - x1 < ds[i].w * 0.35 && /\d/.test(ds[i + 1].ch) && /^\d$/.test(txt) && Number(txt + ds[i + 1].ch) <= 24) { i++; txt += ds[i].ch; x1 = ds[i].x + ds[i].w }
         const dead = /x/i.test(txt)
         const fret = dead ? 0 : Number(txt)
         if (!dead && (!(fret >= 0) || fret > 30)) continue
@@ -385,5 +385,20 @@ export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?:
     },
   })
   const tuning = opts.texts && opts.height ? tuningFromText(opts.texts, opts.height, staves, nStr) : undefined
+  // pick / strum directions: ⊓ (down) and V (up) printed over or under each note (SMuFL down-bow / up-bow), each given
+  // to the nearest column of the staff below it
+  if (opts.glyphs?.length) {
+    const marks = opts.glyphs.filter(g => g.cp >= 0xe610 && g.cp <= 0xe613)
+    r.systems.forEach((s, si) => {
+      const st = staves[si], lo = si ? staves[si - 1].lines[nStr - 1] : 0
+      const steps = s.bars.flatMap(b => b.steps).filter(q => q.notes.length)
+      for (const m of marks) {
+        if (m.y <= lo || m.y > st.lines[0] + st.gap * 0.5) continue
+        const cx = (m.x + (m.w || m.size * 0.3) / 2) * K
+        const near = steps.reduce<typeof steps[number] | null>((b, q) => (Math.abs(q.x - cx) < st.gap * K * 1.2 && (!b || Math.abs(q.x - cx) < Math.abs(b.x - cx)) ? q : b), null)
+        if (near) near.stroke = m.cp === 0xe610 || m.cp === 0xe611 ? 'down' : 'up'
+      }
+    })
+  }
   return { ...r, meters, rhythmRead, ...(tuning ? { tuning } : {}) }
 }

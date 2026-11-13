@@ -111,11 +111,15 @@ export function rhythmFromNotation(shapes: PdfShape[], glyphs: PdfGlyph[], st: S
     const pl = places.find(q => Math.abs(q[0].x - h.x) < sp * 0.6)
     if (pl) pl.push(h); else places.push([h])
   }
+  // a tied note carried over from the bar before (no tab number at the bar's start): its time is kept as a held step
+  const held: { x: number; dur: number }[] = []
   for (const pl of places) {
     const cx = pl[0].x + headW / 2
     let k = -1
     xs.forEach((x, j) => { if (x < cx) k = j })
-    if (k >= 0) { const m = measure(pl); durs[k] += m.d; if (m.beam && !beamOf[k]) beamOf[k] = m.beam }
+    const m = measure(pl)
+    if (k >= 0) { durs[k] += m.d; if (m.beam && !beamOf[k]) beamOf[k] = m.beam }
+    else held.push({ x: cx, dur: m.d })
   }
   // triplets written as a plain (often italic) "3" with a bracket: horizontal lines left and right of it at its height;
   // the notes under the bracket are 2/3 (a "3" of a bar number has no bracket)
@@ -129,6 +133,8 @@ export function rhythmFromNotation(shapes: PdfShape[], glyphs: PdfGlyph[], st: S
     }
   }
   const headX = xs.map(x => x)
+  // each triplet found: which columns it covers and by how much; applied below only where the bar is too long without it
+  const tuplets: { cols: number[]; k: number }[] = []
   for (const t of glyphs.filter(g => (g.cp === 0x33 || g.cp === 0x36) && g.x > x0 - sp && g.x < x1 && g.y > yLo && g.y < top - st.gap * 0.8)) {
     const mid = t.x + (t.w || t.size * 0.5) / 2, cy = t.y - t.size * 0.35
     // the bracket's arms: short level lines on both sides, at the number's height (staff lines are far longer)
@@ -137,13 +143,27 @@ export function rhythmFromNotation(shapes: PdfShape[], glyphs: PdfGlyph[], st: S
     if (!left.length || !right.length) continue
     const a = Math.min(...left.map(l => l.a)) - sp * 0.3, b = Math.max(...right.map(l => l.b)) + sp * 0.3
     const k = t.cp === 0x36 ? 4 / 6 : 2 / 3
-    headX.forEach((x, j) => { if (x > a && x < b) durs[j] *= k })
+    const cols = headX.map((x, j) => (x > a && x < b ? j : -1)).filter(j => j >= 0)
+    if (cols.length) tuplets.push({ cols, k })
   }
   // triplets: a 3 near a beam makes the notes on that beam 2/3
   for (const t of here.filter(g => isThree(g.cp))) {
     const b = beams.find(q => t.x > q.x0 - sp && t.x < q.x1 + sp && Math.min(Math.abs(t.y - q.y0), Math.abs(t.y - q.y1)) < sp * 3)
     if (!b) continue
-    beamOf.forEach((q, k) => { if (q === b) durs[k] *= 2 / 3 })
+    const cols = beamOf.map((q, k) => (q === b ? k : -1)).filter(k => k >= 0)
+    if (cols.length) tuplets.push({ cols, k: 2 / 3 })
+  }
+  // the golden rule: a triplet only counts where the bar is too long without it, and only if it brings the bar closer
+  const restTime = here.filter(g => REST[g.cp] !== undefined && g.x > x0 && g.x < x1).reduce((a2, g) => a2 + REST[g.cp], 0) + held.reduce((a2, h) => a2 + h.dur, 0)
+  const total = () => durs.reduce((a2, b2) => a2 + b2, 0) + restTime
+  const done = new Set<string>()
+  for (const t of tuplets) {
+    const key = t.cols.join(',')
+    if (done.has(key)) continue
+    const before = total()
+    if (before <= beats + 1e-6) break
+    const after = before - t.cols.reduce((a2, j) => a2 + durs[j], 0) * (1 - t.k)
+    if (Math.abs(after - beats) < Math.abs(before - beats) - 1e-6) { t.cols.forEach(j => { durs[j] *= t.k }); done.add(key) }
   }
   // grace notes: a sixteenth taken from the next note
   for (let k = 0; k < durs.length; k++) if (grace[k]) {
@@ -158,5 +178,45 @@ export function rhythmFromNotation(shapes: PdfShape[], glyphs: PdfGlyph[], st: S
     if (here.some(g => isDot(g.cp) && g.x > r.x && g.x < r.x + sp * 3 && Math.abs(g.y - r.y) < sp * 2)) d *= 1.5
     return { x: r.x + sp * 0.6, dur: d }
   })
-  return { durs, rests }
+  // Two voices (a melody with stems up over a bass with stems down): a column's length is the time to the next note in
+  // EITHER voice. When the bar doesn't add up note by note, time each voice on its own and merge their start times.
+  const sum = durs.reduce((a2, b2) => a2 + b2, 0) + rests.reduce((a2, r) => a2 + r.dur, 0) + held.reduce((a2, h) => a2 + h.dur, 0)
+  if (Math.abs(sum - beats) > 1e-6) {
+    const voiced = twoVoices()
+    if (voiced) return voiced
+  }
+  return { durs, rests: [...held, ...rests] }
+
+  function stemDir(h: PdfGlyph): 'up' | 'down' | null {
+    if (HEADS[h.cp] > 2) return null
+    const st2 = stems.find(v => (Math.abs(v.x - (h.x + headW)) < sp * 0.5 && v.y1 > h.y - sp && v.y1 < h.y + sp * 1.5) || (Math.abs(v.x - h.x) < sp * 0.5 && v.y0 < h.y + sp && v.y0 > h.y - sp * 1.5))
+    if (!st2) return null
+    return Math.abs(st2.y0 - h.y) > Math.abs(st2.y1 - h.y) ? 'up' : 'down'
+  }
+  function twoVoices(): { durs: number[]; rests: { x: number; dur: number }[] } | null {
+    const colHeads = xs.map(x => heads.filter(h => near(h, x) && h.size >= size * 0.8))
+    const midY = [...heads].sort((a2, b2) => a2.y - b2.y)[Math.floor(heads.length / 2)].y
+    const voiceOf = (h: PdfGlyph) => stemDir(h) ?? (h.y < midY ? 'up' : 'down')
+    const onset = new Map<number, number>()
+    let complete = 0
+    for (const v of ['up', 'down'] as const) {
+      // this voice's notes and rests, left to right
+      const ev: { x: number; d: number; col?: number }[] = []
+      colHeads.forEach((hs, j) => { const mine = hs.filter(h => voiceOf(h) === v); if (mine.length) ev.push({ x: xs[j], d: measure(mine).d, col: j }) })
+      for (const r of here.filter(g => REST[g.cp] !== undefined && g.x > x0 && g.x < x1)) if ((r.y < midY) === (v === 'up')) ev.push({ x: r.x + sp * 0.6, d: REST[r.cp] })
+      if (!ev.some(e => e.col !== undefined)) continue
+      ev.sort((a2, b2) => a2.x - b2.x)
+      if (Math.abs(ev.reduce((a2, e) => a2 + e.d, 0) - beats) > 1e-6) continue
+      complete++
+      let t = 0
+      for (const e of ev) { if (e.col !== undefined && !onset.has(e.col)) onset.set(e.col, t); t += e.d }
+    }
+    if (!complete || xs.some((_, j) => !onset.has(j))) return null
+    const order = xs.map((_, j) => j).sort((a2, b2) => onset.get(a2)! - onset.get(b2)!)
+    const out = xs.map(() => 0)
+    order.forEach((j, k) => { out[j] = (k + 1 < order.length ? onset.get(order[k + 1])! : beats) - onset.get(j)! })
+    if (out.some(d => d <= 0)) return null
+    const first = onset.get(order[0])!
+    return { durs: out, rests: first > 1e-6 ? [{ x: x0 + sp, dur: first }] : [] }
+  }
 }
