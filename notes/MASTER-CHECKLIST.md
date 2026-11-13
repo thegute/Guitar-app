@@ -248,3 +248,7 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
       fonts) → rhythm from stems / the notation above → bar-length + playability checks → amber glow on unsure notes. AI only
       for text marks (H, P, sl., let ring). Same reader for Songsterr PDFs and tabs in videos. Owner's pages = first test
       (private, never committed).
+      Test pages: the owner's book PDFs are on his Mac in ~/Downloads/"Guitar books for Claude to use" (31 PDFs, readable
+      through the device bridge; stage only the pages needed, never commit them). Ground truth with no hand-checking:
+      ~/Downloads/"Sheet Happens Plini Trilogy Tabs GPX PDF" has Guitar Pro files AND their printed PDFs (render the GP, compare
+      note for note); also the Sultans Songsterr PDF and the GP files in ~/Downloads.
