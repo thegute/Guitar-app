@@ -205,11 +205,12 @@ export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?:
   for (const g of onLines) { const k = Math.round(g.h * 10); hist.set(k, (hist.get(k) ?? 0) + 1) }
   let Hd = 0, hb = 0
   for (const [k, n] of hist) if (n > hb) { hb = n; Hd = k / 10 }
-  const digits = onLines.filter(g => !Hd || (g.h >= Hd * 0.8 && g.h <= Hd * 1.12))
+  // numbers in brackets "(11)" are taller: a ghost note, or the end of a tie (sorted out below)
+  const digits = onLines.filter(g => !Hd || (g.h >= Hd * 0.8 && g.h <= Hd * 1.6))
   // read each different shape once; copies of a shape share its reading
   const cache = new Map<string, ReturnType<typeof readGlyph>>()
   const nums: Num[] = []
-  type Part = { si: number; string: number; x: number; x0: number; x1: number; d: number; score: number; sure: number }
+  type Part = { si: number; string: number; x: number; x0: number; x1: number; d: number; score: number; sure: number; paren?: boolean }
   const parts: Part[] = []
   const seen = new Set<string>()
   for (const g of digits) {
@@ -219,8 +220,13 @@ export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?:
     seen.add(at)
     let r = cache.get(g.sh.sig)
     if (!r) { r = readGlyph(g.sh); cache.set(g.sh.sig, r) }
+    // a natural harmonic "<7>" / "<12>": the angle brackets are the poor matches at both ends
+    const tall = !!Hd && g.h > Hd * 1.12
+    const ends = r.length >= 3 ? Math.max(r[0].score, r[r.length - 1].score) : 1, mid = r.length >= 3 ? Math.min(...r.slice(1, -1).map(q => q.score)) : 0
+    if (r.length >= 3 && (tall ? ends < 0.8 && ends < mid - 0.15 : r[0].score < 0.6 && r[r.length - 1].score < 0.6 && mid >= 0.75)) r = r.slice(1, -1)
+    else if (tall) continue // something taller than a number that isn't one in brackets
     const n = r.length
-    r.forEach(p => { const x = g.sh.x0 + p.x; parts.push({ si: g.si, string: g.line, x, x0: n === 1 ? g.sh.x0 : x - Hd * 0.3, x1: n === 1 ? g.sh.x1 : x + Hd * 0.3, d: p.d, score: p.score, sure: p.sure }) })
+    r.forEach(p => { const x = g.sh.x0 + p.x; parts.push({ si: g.si, string: g.line, x, x0: n === 1 ? g.sh.x0 : x - Hd * 0.3, x1: n === 1 ? g.sh.x1 : x + Hd * 0.3, d: p.d, score: p.score, sure: p.sure, ...(tall ? { paren: true } : {}) }) })
     if (r.length > 2) parts.splice(parts.length - r.length, r.length) // three digits on one string isn't a fret
   }
   // digits side by side on one string make one number (1 + 0 = 10)
@@ -230,11 +236,29 @@ export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?:
     if (a.score < 0.5) continue
     if (b && b.si === a.si && b.string === a.string && b.x0 - a.x1 < Hd * 0.45 && b.score >= 0.5 && a.d !== DEAD && b.d !== DEAD) {
       const fret = a.d * 10 + b.d
-      if (fret <= 30) nums.push({ sys: a.si, string: a.string, x: (a.x + b.x) / 2 * K, fret, sure: Math.min(a.sure, b.sure, a.score - 0.5, b.score - 0.5) })
+      if (fret <= 30) nums.push({ sys: a.si, string: a.string, x: (a.x + b.x) / 2 * K, fret, sure: Math.min(a.sure, b.sure, a.score - 0.5, b.score - 0.5), ...(a.paren ? { paren: true } : {}) })
       i++
       continue
     }
-    nums.push({ sys: a.si, string: a.string, x: a.x * K, fret: a.d === DEAD ? 0 : a.d, sure: Math.min(a.sure, a.score - 0.5), ...(a.d === DEAD ? { dead: true } : {}) })
+    nums.push({ sys: a.si, string: a.string, x: a.x * K, fret: a.d === DEAD ? 0 : a.d, sure: Math.min(a.sure, a.score - 0.5), ...(a.d === DEAD ? { dead: true } : {}), ...(a.paren ? { paren: true } : {}) })
+  }
+  // a number in brackets is the end of a tie when the note before it on that string is the same fret (it's held, not
+  // picked: left out, its stem keeps the time); otherwise it's a ghost note, played softly. At the start of a staff the
+  // note it's tied from is on the staff before: a bracket there is taken as a held note.
+  {
+    const byStr = new Map<string, Num[]>()
+    for (const n of nums) { const k = `${n.sys}:${n.string}`; (byStr.get(k) ?? byStr.set(k, []).get(k)!).push(n) }
+    const drop = new Set<Num>()
+    for (const list of byStr.values()) {
+      list.sort((a, b) => a.x - b.x)
+      list.forEach((n, i) => {
+        if (!n.paren) return
+        const prev = list[i - 1]
+        if (prev ? prev.fret === n.fret && !prev.dead : !nums.some(m => m.sys === n.sys && m.x < n.x - staves[n.sys].gap * K)) drop.add(n)
+      })
+    }
+    if (drop.size) for (let i = nums.length - 1; i >= 0; i--) if (drop.has(nums[i])) nums.splice(i, 1)
+    for (const n of nums) delete n.paren
   }
   // numbers printed as real text (InDesign / Finale books like the Tony Rice book): the value is known exactly, only the
   // string comes from where it sits. Character by character when the page gives them (a text run can hold "3 4" or "10")

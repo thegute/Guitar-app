@@ -450,7 +450,7 @@ export function readTab(g: Gray, opts: ReadOpts = {}): TabReading {
 }
 
 /** A number read on a string line: which staff, which string (0 = lowest), where across, the fret, how sure. */
-export type Num = { sys: number; string: number; x: number; fret: number; sure: number; dead?: boolean }
+export type Num = { sys: number; string: number; x: number; fret: number; sure: number; dead?: boolean; /** printed in brackets */ paren?: boolean }
 export interface AssembleOpts {
   beats?: number
   /** a printed time signature in force at this point of a staff (beats per bar, in quarter notes) */

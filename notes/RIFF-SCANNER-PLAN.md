@@ -50,3 +50,11 @@ error rate (wrong note without an amber ring).
    round the playhead found by frame differencing, accumulate per-column log-probabilities across frames);
    audio–visual fusion: playhead x(t) → each column's time (snap to Beat This!) or chroma DTW when no playhead;
    log P_fused(s,f) = log P_visual + γ log P_audio(midi(s,f)) settles 0/9, 6/8, 1/7, 3/8, 5/6.
+
+## Progress
+- 2026-11-13 Step 1 (vector PDF) done. Plini vs Guitar Pro, per song: notes precision 99.0–100%, recall 98.7–100%,
+  rhythm 97.4–100% (was 82–98%); Tony Rice bars adding up 98.2% (was 97.5%); tuning from the page = the GP tuning for all
+  10 songs (per guitar group, flats drawn as images read as ♭). Fixed: held stems with no number, grace notes (0 weight,
+  a 32nd from the step before, rakes share it, bar-opening graces borrow from the bar before), bracket tuplets, 16th flag
+  hooks above the bottom line, pages of half notes, tied heads under triplet brackets, natural harmonics <7>, ghost notes
+  (N) vs tie ends (N). Left: GP on-beat vs before-beat graces (can't be told from print), tiny slide graces, a few chords.
