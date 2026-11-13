@@ -191,6 +191,14 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
 - [ ] **Looper "play it, hear a real bass"**: play a bassline on the guitar, KGuitar works out each note (noteDetect / the
       transcriber) and the looper track plays them with the recorded Studio Bass packs (velocity from the pick; bass sound
       switchable after: fingers / sixties / modern / upright). Owner chose this over the octave-down track.
+- 2026-11-13 DECISION (owner: "I can add NAM files directly to my Sonicake Pocket Master using the Bluetooth Sonicake app"):
+  the live guitar tone stays ON THE POCKET MASTER (NAM captures of his Archetypes made on the Mac, loaded with the
+  Sonicake app: no phone latency at all). The phone does looper / backing / mixer / note listener, with a one-time
+  loopback calibration that shifts recordings and detections back by the measured USB delay. Native engine runs at the
+  pedal's own 44.1 kHz (no resampler). Do the small Oboe + Pocket Master loopback probe BEFORE building the engine.
+  Unknown: which NAM sizes the pedal accepts and how faithful it is (forum reports vary) -> capture each tone in two
+  sizes (standard + a small one) and A/B them on the pedal. Phone-hosted amps stay an option for the web / no pedal.
+  Riff Scanner first, then the native core (Claude + Gemini agree).
 - [ ] **Phone as a multi-effects pedal** (brainstormed, owner liked it):
   - Live amp tones: NAM captures of HIS Archetype tones made on the Mac (test signal through each tone → train NAM, lite/
     feather size), run live on the phone; time effects from KGuitar's own space. Private like the packs.
