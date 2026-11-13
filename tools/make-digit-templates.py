@@ -60,9 +60,10 @@ def main():
         if not os.path.exists(path):
             continue
         font = ImageFont.truetype(path, 96)
-        for d in range(10):
+        # 0–9, then 10 = a dead note's X (tab software prints a capital or small x on the string)
+        for d, ch in [(d, str(d)) for d in range(10)] + [(10, 'X'), (10, 'x')]:
             im = Image.new('L', (160, 160), 0)
-            ImageDraw.Draw(im).text((20, 10), str(d), font=font, fill=255)
+            ImageDraw.Draw(im).text((20, 10), ch, font=font, fill=255)
             a = np.asarray(im, dtype=np.float32) / 255
             # two sizes the way books print them: as drawn, and a little thinner (light print / small type)
             for erode in (False, True):
@@ -71,6 +72,16 @@ def main():
                     from PIL import ImageFilter
                     b = np.asarray(Image.fromarray((a * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(3)), dtype=np.float32) / 255
                 g = norm(b)
+                if g is not None:
+                    rows.append((d, (np.clip(g, 0, 1) * 255).astype(np.uint8)))
+        # small print (a phone photo of a book, a 150 dpi scan): the digit ~12 pixels tall, cut to ink / paper the way
+        # the reader cuts it (staircase edges, thin strokes gone thick or broken), at two sub-pixel offsets
+        for d, ch in [(d, str(d)) for d in range(10)] + [(10, 'X')]:
+            for dx in (0, 4):
+                im = Image.new('L', (160, 160), 0)
+                ImageDraw.Draw(im).text((16 + dx, 16 + dx), ch, font=font, fill=255)
+                a = np.asarray(im.resize((20, 20), Image.BOX), dtype=np.float32) / 255
+                g = norm((a > 0.45).astype(np.float32))
                 if g is not None:
                     rows.append((d, (np.clip(g, 0, 1) * 255).astype(np.uint8)))
     data = bytes([d for d, _ in rows]) + b''.join(g.tobytes() for _, g in rows)

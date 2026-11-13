@@ -403,13 +403,13 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
         {busy && book && <p className="small muted" role="status" style={{ margin: 0 }}>Getting the pages ready…</p>}
         {songsterr && (
           <div className="notice small row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }} data-testid="songsterr-offer">
-            <span>This PDF was printed from <b>Songsterr</b>: its numbers are drawn as pictures, so reading it is a guess. The song itself, with the exact notes and rhythm and every part, can come straight from Songsterr.</span>
+            <span>This PDF was printed from <b>Songsterr</b>. KGuitar reads its numbers itself (below); the song on Songsterr also has every part and the exact rhythm.</span>
             <button className="btn sm primary" onClick={() => { try { sessionStorage.setItem('kg:addPrefill', songsterr) } catch { /* private */ } setBoxKey(k => k + 1); setSongsterr('') }} data-testid="songsterr-find">Find "{songsterr}" on Songsterr</button>
           </div>
         )}
         {scanned?.fromBook && (
           <div className="stack book-scan" style={{ gap: 6 }} data-testid="book-scan">
-            <p className="notice small" style={{ margin: 0 }}>The tab on <b>{scanned.name}</b> is printed as pictures, so the AI reads it. It starts by itself; when the tab shows here, check it and tap <b>Open in Play</b>.</p>
+            <p className="notice small" style={{ margin: 0 }}>KGuitar is reading the tab on <b>{scanned.name}</b>. When it shows here, check any numbers with an amber ring against the page, then tap <b>Open in Play</b>.</p>
             <ScanVideo key={scanned.name} autoRead title={scanned.name} initialPics={scanned.pics.map(p => ({ name: p.name, url: p.url }))} />
           </div>
         )}
@@ -418,8 +418,8 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
       <Win id="picture" title="Riff Scanner: a video, a picture of a tab or a scanned PDF" bodyClass="stack" bodyStyle={{ gap: 8 }}
         extra={<button className="btn sm" onClick={() => { setSubPage('jam', 'find'); go('progressions') }} data-testid="open-scanner"><Ico n="scan" /> Full scanner</button>}>
         <div ref={pictures} />
-        {scanned && !scanned.fromBook && <p className="notice small" style={{ margin: 0 }}>The tab in "{scanned.name}" is pictures (a scan, or printed as images), so the AI reads it: the pages are below. Tap <b>Read the tab</b>.</p>}
-        <ScanVideo key={`${scanned && !scanned.fromBook ? scanned.name : ''}|${scanLink ?? ''}`} youtube={scanLink} links initialLink={scanLink} initialPics={scanned && !scanned.fromBook ? scanned.pics.map(p => ({ name: p.name, url: p.url })) : undefined} />
+        {scanned && !scanned.fromBook && <p className="notice small" style={{ margin: 0 }}>The tab in "{scanned.name}" is printed as pictures (a scan, or numbers drawn as shapes): KGuitar reads it below by itself.</p>}
+        <ScanVideo key={`${scanned && !scanned.fromBook ? scanned.name : ''}|${scanLink ?? ''}`} youtube={scanLink} links initialLink={scanLink} autoRead={!!scanned && !scanned.fromBook} title={scanned && !scanned.fromBook ? scanned.name : undefined} initialPics={scanned && !scanned.fromBook ? scanned.pics.map(p => ({ name: p.name, url: p.url })) : undefined} />
         <p className="small muted" style={{ margin: 0 }}>The full Riff Scanner (Full scanner, or the link under Jam's three buttons) also scans YouTube links and Shorts, and listens.</p>
       </Win>
     </WinArea>

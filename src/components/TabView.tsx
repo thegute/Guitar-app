@@ -140,7 +140,7 @@ const BarView = memo(function BarView({ bar, index, start, nStr, tuning, mode, f
               const dead = n.tech === 'x'
               const main = dead ? 'x' : mode === 'note' ? name : String(n.fret)
               const tw = main.length * 7.6 + (mode === 'both' && !dead ? name.length * 6 + 1 : 0)
-              const cls = `tab-note${isCur ? (state === '3' ? ' cur miss' : ' cur') : state === '1' ? ' hit' : state === '2' ? ' late' : ''}`
+              const cls = `tab-note${isCur ? (state === '3' ? ' cur miss' : ' cur') : state === '1' ? ' hit' : state === '2' ? ' late' : ''}${n.unsure ? ' unsure' : ''}`
               const cy = y(n.string)
               if (n.string >= nStr || cy === undefined) return null
               return (

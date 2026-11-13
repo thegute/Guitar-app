@@ -10,6 +10,8 @@ export interface SongNote {
   midi: number
   /** technique hint shown next to the number: h, p, /, \, b, ~, x */
   tech?: string
+  /** read off a picture and the reader wasn't sure of the number: shown with an amber ring until you check it */
+  unsure?: boolean
 }
 export interface SongStep {
   notes: SongNote[]

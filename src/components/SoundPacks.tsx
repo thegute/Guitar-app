@@ -21,13 +21,14 @@ export function SoundPacks() {
   const onFiles = async (fl: FileList | null) => {
     if (!fl?.length) return
     // a chord sets file (Playbox's chords, for Jam → Inspire me) can come in the same way
-    const cs = [...fl].find(f => f.name === 'chordsets.json')
+    const cs = [...fl].find(f => /^chordsets.*\.json$/i.test(f.name))
     if (cs) {
       try { const sets = parseChordSets(JSON.parse(await cs.text())); savePrivateSets(sets); setBusy(`${sets.length} chord sets are ready in Jam → Inspire me.`) } catch (e) { setBusy(String((e as Error).message ?? e)) }
       if (![...fl].some(f => f.name === 'pack.json')) return
     }
     // several .kgpack files picked at once come in one after another
     const kgs = [...fl].filter(f => /\.(kgpack|zip)$/i.test(f.name))
+    if (!kgs.length && !(fl.length > 1 || [...fl].some(f => f.name === 'pack.json'))) { setBusy(`"${fl[0].name}" isn't a sound pack: pick the .kgpack file.`); return }
     const groups = kgs.length ? kgs.map(f => [f]) : [[...fl]]
     const done: string[] = []
     for (const [i, g] of groups.entries()) {
@@ -72,7 +73,8 @@ export function SoundPacks() {
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <button className="btn" onClick={() => file.current?.click()} data-testid="pack-file">Bring in .kgpack files…</button>
         <button className="btn ghost" onClick={() => input.current?.click()}>…or a pack folder</button>
-        <input ref={file} type="file" accept=".kgpack,.zip" multiple hidden onChange={e => { void onFiles(e.target.files); e.target.value = '' }} />
+        {/* no "accept" filter: Android doesn't know the .kgpack type and greys the files out in the picker (owner 2026-11-13) */}
+        <input ref={file} type="file" multiple hidden onChange={e => { void onFiles(e.target.files); e.target.value = '' }} />
         <input ref={input} type="file" multiple hidden onChange={e => { void onFiles(e.target.files); e.target.value = '' }} />
       </div>
       {busy && <p className="small" role="status" style={{ margin: 0 }}>{busy}</p>}

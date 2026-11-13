@@ -213,8 +213,9 @@ export async function readPdf(bytes: Uint8Array, from = 1, to = from + 29): Prom
   return out
 }
 
-/** Pages as pictures (PNG, base64) for the AI tab reader: for scanned PDFs. */
-export async function pdfPictures(bytes: Uint8Array, max = 6, from = 1, scale = 2): Promise<{ name: string; mime: string; b64: string; url: string }[]> {
+/** Pages as pictures (PNG, base64) for the picture readers (KGuitar's own, then the AI): scanned PDFs, Songsterr prints.
+ *  Scale 3 = about 216 dpi: tab numbers come out ~20 pixels tall, which the own reader reads best. */
+export async function pdfPictures(bytes: Uint8Array, max = 6, from = 1, scale = 3): Promise<{ name: string; mime: string; b64: string; url: string }[]> {
   const lib = await pdfjs()
   const doc = await lib.getDocument({ data: bytes.slice(), isEvalSupported: false }).promise
   const out: { name: string; mime: string; b64: string; url: string }[] = []

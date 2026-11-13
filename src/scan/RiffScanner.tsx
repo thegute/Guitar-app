@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Ico } from '../components/Icon'
 import { usePersist } from '../components/Controls'
 import { useInstrument } from '../instrument'
-import { songFromText } from '../tabs/importer'
+import { songFromText, stringNames } from '../tabs/importer'
 import { newId, type SongDoc } from '../tabs/library'
 import { AiSetup } from '../assistant/AiSetup'
 import { AiError } from '../assistant/providers'
@@ -104,10 +104,10 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
   const ready = canRead()
   useEffect(() => () => abort.current?.abort(), [])
   useEffect(() => { if (initialPics?.length) void addUrls(initialPics) }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  // pages from a book: once they're loaded, read them (only when an AI reader is set up; otherwise the set-up note shows)
+  // pages from a book: once they're loaded, read them (KGuitar's own reader needs no AI)
   const autoDone = useRef(false)
   useEffect(() => {
-    if (!autoRead || autoDone.current || !ready || !initialPics?.length || pics.length < initialPics.length) return
+    if (!autoRead || autoDone.current || !initialPics?.length || pics.length < initialPics.length) return
     autoDone.current = true
     void scanPictures()
   }, [autoRead, ready, pics.length]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -150,6 +150,26 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
 
   async function scanPictures() {
     if (!pics.length) return
+    // 1 KGuitar reads the numbers itself (no AI, no key): exact strings, every number checked against the page's own font
+    const name = title || 'Scanned tab'
+    begin([{ id: 'own', label: 'Reading the numbers on the tab lines', state: 'run' }])
+    await new Promise(r => setTimeout(r, 30))
+    try {
+      const { readTabPictures, trustReading, grayOf, songTabText } = await import('./tabReadSong')
+      const r = readTabPictures(pics.map(p => grayOf(p.img)), inst.midis, name)
+      if (r && (trustReading(r) || !ready)) {
+        const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song: r.song, youtube, updated: Date.now() }
+        const names = stringNames(inst)
+        setOut({
+          doc, heard: false, text: songTabText(r.song, names), reparse: t => songFromScan(t, name, inst, youtube),
+          how: `KGuitar read ${r.notes} number${r.notes === 1 ? '' : 's'} on ${r.staves} staff${r.staves === 1 ? '' : 's'} itself${r.meter !== 4 ? ` (${r.meter}/4)` : ''}.${r.unsure ? ` ${r.unsure} ${r.unsure === 1 ? 'has' : 'have'} an amber ring: check ${r.unsure === 1 ? 'it' : 'them'} against the page.` : ''} The rhythm comes from how the notes are spaced.`,
+        })
+        setStages(null)
+        return
+      }
+      if (!ready) throw new Error("No tab staff with numbers was found in the picture. Drag the box round the tab, or set up the free AI reader for pictures like this.")
+    } catch (e) { if (!ready) { fail(e); return } }
+    // 2 the AI reader (handwriting, photos at an angle, tabs KGuitar couldn't read itself)
     const signal = begin([
       { id: 'frames', label: 'Finding the tab', state: 'run' },
       { id: 'sharpen', label: 'Enlarging and sharpening', state: 'wait' },
@@ -299,7 +319,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
   return (
     <div className="scan-video stack" style={{ gap: 10 }}>
       {!ready && (
-        <div className="notice small">Reading tabs off the screen needs a free Google Gemini key (a minute to set up, no card). Sound-only files work without it. <button className="btn sm" onClick={() => setSetup(!setup)}>{setup ? 'Close' : 'Set it up'}</button></div>
+        <div className="notice small">Printed tabs (screenshots, book pages) are read by KGuitar itself. Videos, handwriting and photos at an angle need a free Google Gemini key (a minute to set up, no card). <button className="btn sm" onClick={() => setSetup(!setup)}>{setup ? 'Close' : 'Set it up'}</button></div>
       )}
       {setup && !ready && <AiSetup compact />}
       {links && (
@@ -363,7 +383,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
           <CropBox url={pics[0].url} box={box} onBox={setBox} />
           <span className="small muted">{box ? 'The box is where the tab was found: drag it or its corners if it missed some.' : 'No staff lines found: drag the box around the tab.'}{pics.length > 1 ? ` The same box is used on all ${pics.length} pictures.` : ''}</span>
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn primary" disabled={!ready} onClick={() => void scanPictures()} data-testid="scan-read">Read the tab</button>
+            <button className="btn primary" onClick={() => void scanPictures()} data-testid="scan-read">Read the tab</button>
             <button className="btn ghost sm" onClick={again}>Clear</button>
             <span className="small muted">{pics.length} picture{pics.length === 1 ? '' : 's'}</span>
           </div>
