@@ -212,3 +212,18 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
   4. App speed: lazy-loaded screens, PlayScreen split, tab + Game highway on canvas / OffscreenCanvas, heavy analysis in
      workers, packs decoded once into a PCM cache (no decode hiccups), quicker start-up.
   5. Native BLE-MIDI for the Chocolate Plus (all 4 buttons + long press, no keyboard-mode lag).
+
+## Owner's bug list + asks (2026-11-12 15:44, from the build-43 APK)
+- [ ] Play top bar ("1 of 53 · bar 81 …", next note) flickers between texts at high speed in In time (check Wait mode,
+      Game, music stand, every readout). He saw flicker in other apps too, so check it's ours first.
+- [ ] Play: a metronome with a volume SLIDER (silence ↔ loud) on screen while playing a tab, part of the same "sounds while
+      I play" mixer as the backing track / Strum Machine (me / band / click buses).
+- [ ] Play: the highlight moves in time with the beat THROUGH RESTS too (In time: a rest gets its turn on the beat).
+- [ ] Add a song: a 2-page tab PDF came in as one 2-note chord. Redo the PDF tab reader (with the Riff Scanner overhaul).
+- [ ] My books (json book pack): tab pages unreadable (one number per line), some pages empty. Keep the page LAYOUT
+      (monospace, line positions), show the book's PICTURES in the page viewer (pack needs page images), and the new Riff
+      Scanner must read tabs printed in his books. Waiting for his screenshots.
+- Sounds: owner prefers the Ample (SJ) acoustic over Flatpick 6 after re-listening → Ample = primary acoustic, Flatpick 6
+  second. Ample Guitar M (Martin dreadnought) and Ample Guitar L (nylon → ukulele mode) arrive tonight; he prefers
+  dreadnoughts over jumbos, so Ample M is likely the new primary once rendered (blind A/B first).
+- Native sound core (#1 of the speed plan): owner said go. Phone upgrade = nothing to redo (ONNX Runtime picks the chip).

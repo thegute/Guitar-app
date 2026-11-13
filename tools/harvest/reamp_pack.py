@@ -10,6 +10,9 @@ tone.json: {"id", "name", "plugin", "params": {...}, "inputDb": -8, "chords": tr
   guitar; too hot or too quiet would change how much it distorts).
 - Each note runs through the amp on its own (reset between notes) with a 30 ms lead-in of silence, so no tail leaks.
 - Time effects (reverb, delay, doubler) must be OFF in params: KGuitar adds the room live.
+- Headroom: a first pass runs every zone's loudest take (and every chord) through the amp and measures the peak; the
+  whole pack is then scaled by ONE gain so the loudest file peaks at -1 dBFS (hot amps clipped the 24-bit files before).
+  One gain for the pack keeps soft / hard notes in their real proportion.
 """
 import json, os, sys
 
@@ -42,13 +45,51 @@ def main(tone_path, di_dir, out_root):
     gain = 10 ** (tone.get('inputDb', -8) / 20) / float(np.median(peaks))
     print(f'DI gain {20 * np.log10(gain):+.1f} dB')
 
+    out_gain = [1.0]
+
     def run(x):
         pad = np.zeros((int(LEAD * sr), x.shape[1]), dtype=np.float32)
         y = amp(np.concatenate([pad, x * gain]).T.astype(np.float32), sr, reset=True).T
-        return y[len(pad):]
+        return y[len(pad):] * out_gain[0]
+
+    zones_by = {(z['string'], z['fret']): z for z in di['articulations']['sustain']['zones']}
+    vels = sorted({l['velocity'] for z in zones_by.values() for l in z['layers']})
+    shapes = chord_shapes(tone) if tone.get('chords', True) else []
+
+    def chord_mix(frets, layer_v, vi, down):
+        strings = [(s_, f_) for s_, f_ in enumerate(frets) if f_ >= 0]
+        if not down:
+            strings = list(reversed(strings))[:4]
+        mix = None
+        for k, (s_, f_) in enumerate(strings):
+            z = zones_by.get((s_, f_))
+            if not z:
+                continue
+            l = next(l for l in z['layers'] if l['velocity'] == layer_v)
+            x, _ = sf.read(os.path.join(di_dir, l['rr'][(k + vi) % len(l['rr'])]), always_2d=True, dtype='float32')
+            off = int((0.004 + 0.007 * k) * sr * (0.85 if not down else 1))
+            x = np.concatenate([np.zeros((off, x.shape[1]), dtype=np.float32), x * (1 - 0.18 * k / max(1, len(strings) - 1))])
+            mix = x if mix is None else _add(mix, x)
+        return mix, strings
+
+    # pass 1: the loudest thing this tone will make
+    peak = 0.0
+    for art, block in di['articulations'].items():
+        for z in block['zones']:
+            top = max(z['layers'], key=lambda l: l['velocity'])
+            for rel in top['rr'][:2]:
+                x, _ = sf.read(os.path.join(di_dir, rel), always_2d=True, dtype='float32')
+                peak = max(peak, float(np.abs(run(x)).max()))
+    for name, frets in shapes:
+        for down in (True, False):
+            mix, _ = chord_mix(frets, vels[-1], 0, down)
+            if mix is not None:
+                peak = max(peak, float(np.abs(run(mix)).max()))
+    out_gain[0] = 10 ** (-1 / 20) / max(peak, 1e-6)
+    print(f'amp peak {20 * np.log10(max(peak, 1e-9)):+.1f} dBFS -> output gain {20 * np.log10(out_gain[0]):+.1f} dB', flush=True)
 
     pack = json.loads(json.dumps(di))
-    pack.update({'id': tone['id'], 'name': tone['name'], 'renderedWith': {'di': di['id'], 'amp': tone['plugin'], 'params': tone.get('params', {})}})
+    pack.update({'id': tone['id'], 'name': tone['name'], 'renderedWith': {'di': di['id'], 'amp': tone['plugin'], 'params': tone.get('params', {}), 'outputGainDb': round(20 * np.log10(out_gain[0]), 2)}})
     pack.pop('stems', None)
     made = 0
     for art, block in pack['articulations'].items():
@@ -70,40 +111,26 @@ def main(tone_path, di_dir, out_root):
         print(f'{art}: {made} notes so far', flush=True)
 
     # whole chords: DI strings added with KGuitar's strum timing, then the amp
-    if tone.get('chords', True):
-        zones = {(z['string'], z['fret']): z for z in di['articulations']['sustain']['zones']}
-        shapes = chord_shapes(tone)
+    if shapes:
         cz = []
         for name, frets in shapes:
-            for vi, layer_v in enumerate(sorted({l['velocity'] for z in zones.values() for l in z['layers']})):
+            for vi, layer_v in enumerate(vels):
                 for down in (True, False):
                     key = f'{name}{"d" if down else "u"}v{layer_v:03d}'
                     rel = f'chord/{key}.flac'
                     pth = os.path.join(out_dir, rel)
-                    strings = [(s, f) for s, f in enumerate(frets) if f >= 0]
-                    if not down:
-                        strings = list(reversed(strings))[:4]
+                    mix, strings = chord_mix(frets, layer_v, vi, down)
+                    if mix is None:
+                        continue
                     if not os.path.exists(pth):
-                        mix = None
-                        for k, (s, f) in enumerate(strings):
-                            z = zones.get((s, f))
-                            if not z:
-                                continue
-                            l = next(l for l in z['layers'] if l['velocity'] == layer_v)
-                            x, _ = sf.read(os.path.join(di_dir, l['rr'][(k + vi) % len(l['rr'])]), always_2d=True, dtype='float32')
-                            off = int((0.004 + 0.007 * k) * sr * (0.85 if not down else 1))
-                            x = np.concatenate([np.zeros((off, x.shape[1]), dtype=np.float32), x * (1 - 0.18 * k / max(1, len(strings) - 1))])
-                            mix = x if mix is None else _add(mix, x)
-                        if mix is None:
-                            continue
                         y = run(mix)
                         t, _ = trim(y.astype(np.float64), sr)
                         os.makedirs(os.path.dirname(pth), exist_ok=True)
                         sf.write(pth, t.astype(np.float32), sr, subtype='PCM_24')
-                    lo = min(di['tuning'][s] + f for s, f in strings)
-                    played = {s for s, _ in strings}
+                    lo = min(di['tuning'][s_] + f_ for s_, f_ in strings)
+                    played = {s_ for s_, _ in strings}
                     # the shape as recorded (an upstroke only catches the top four strings)
-                    rec = [f if s in played else -1 for s, f in enumerate(frets)]
+                    rec = [f_ if s_ in played else -1 for s_, f_ in enumerate(frets)]
                     cz.append({'key': key, 'chord': name, 'root': lo, 'lo': lo, 'hi': lo, 'up': not down,
                                'frets': rec, 'layers': [{'velocity': layer_v, 'rr': [rel]}]})
         pack['articulations']['strumDown'] = {'zones': [z for z in cz if not z['up']]}

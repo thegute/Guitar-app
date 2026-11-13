@@ -181,7 +181,10 @@ def act_process(job):
     gain = 10 ** (job.get('gainDb', 0) / 20)
     ch = chain_of(job['effects'])
     y = ch((x.T * gain), sr, reset=True)
-    return write_wav(job['out'], y, sr)
+    res = write_wav(job['out'], y, sr)
+    # read back what the plug-ins really took (a value a plug-in refuses can be dropped without an error)
+    res['params'] = [{k: str(getattr(p, k, '?')) for k in (spec.get('params') or {})} for p, spec in zip(ch, job['effects'])]
+    return res
 
 
 def act_render(job):
