@@ -252,3 +252,7 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
       through the device bridge; stage only the pages needed, never commit them). Ground truth with no hand-checking:
       ~/Downloads/"Sheet Happens Plini Trilogy Tabs GPX PDF" has Guitar Pro files AND their printed PDFs (render the GP, compare
       note for note); also the Sultans Songsterr PDF and the GP files in ~/Downloads.
+- [ ] **Jam reorganisation (owner 2026-11-12 17:11: "we can go thru jam later and organize it better, don't forget")**: Inspire me
+      and the Playbox arpeggio / strum patterns are too hidden (patterns only in Band line → Strum list; Inspire me below
+      Progression). Plan with him: an Arpeggio button in Inspire me, pattern picker visible, search entries, fewer windows.
+- [x] "Playing" pill (`components/SoundPill.tsx`, `stopAll.ts` labels): whatever makes sound, one Stop, every screen.
