@@ -67,6 +67,8 @@ import { keepRecording } from '../audio/recordings'
 import { offerTake, setThenNowOn, thenNowFor, thenNowOn, type ThenNowPair } from '../audio/thenNow'
 import { ThenVsNow } from '../components/ThenVsNow'
 import { PlayMix } from '../components/PlayMix'
+import { setBandBass, bassPackFor, STYLE_BASS } from '../audio/packSounds'
+import { loadPrivatePack } from '../engine/packs'
 import { Metronome } from '../audio/metronome'
 import { bandByStep, bandEvents, bandStyleLabel, chordBandSong, guessBandStyle, hasBand, CHORD_BAND_STYLES } from '../audio/band'
 import type { Style } from '../theory/progressions'
@@ -749,6 +751,8 @@ export function PlayScreen() {
   useEffect(() => { try { const v = doc ? localStorage.getItem(`kg:bandStyle:${doc.id}`) : null; setBandStylePick(v ? (JSON.parse(v) as Style) : null) } catch { setBandStylePick(null) } }, [doc?.id])
   const bandStyleGuess = useMemo(() => (doc ? guessBandStyle(doc.song, doc.title, doc.song.artist) : 'acoustic'), [doc?.song]) // eslint-disable-line react-hooks/exhaustive-deps
   const bandStyle: Style = bandStylePick ?? bandStyleGuess
+  // the band's bass: the recorded one that suits the song's style (the owner's Studio Bass packs, when on the phone)
+  useEffect(() => { setBandBass(STYLE_BASS[bandStyle]); const pk = bassPackFor(STYLE_BASS[bandStyle]); if (pk) void loadPrivatePack(pk) }, [bandStyle])
   const setBandStyle = (st: Style) => { setBandStylePick(st); try { if (doc) localStorage.setItem(`kg:bandStyle:${doc.id}`, JSON.stringify(st)) } catch { /* private */ } }
   const chordBand = useMemo(() => (doc && track ? chordBandSong(doc.song, trackIdx, bandStyle) : null), [doc?.song, trackIdx, bandStyle]) // eslint-disable-line react-hooks/exhaustive-deps
   const bandSong = chordBand ?? doc?.song

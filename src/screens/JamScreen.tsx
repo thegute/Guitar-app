@@ -18,7 +18,7 @@ import { useHint } from '../components/Fold'
 import { Win, WinArea } from '../components/Win'
 import { chordInfo as readChord } from '../tabs/harmony'
 import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
-import { bassPacks, bassPackFor, BASS_LABEL, BASS_PACK, type BassKind } from '../audio/packSounds'
+import { bassPacks, bassPackFor, BASS_LABEL, BASS_PACK, STYLE_BASS, type BassKind } from '../audio/packSounds'
 import { loadPrivatePack } from '../engine/packs'
 import { strum as strumNotes, preload, allSounds, soundInfo, loadSound, loadBank, bankLoaded, soundLoaded, type SoundId } from '../audio/pluck'
 import { BASSLINES } from '../audio/bass'
@@ -44,12 +44,6 @@ import { useSubTab } from '../components/SubTabs'
 import { PsyPic } from '../components/PsyArt'
 import { pc } from '../theory/notes'
 
-/** The recorded bass each Jam style suits (when the owner's Studio Bass packs are on the phone); others follow the bass line. */
-const STYLE_BASS: Partial<Record<Style, BassKind>> = {
-  bluegrass: 'sixties', jazz: 'sixties', bossa: 'sixties', folk: 'sixties', acoustic: 'sixties', classical: 'sixties', slackkey: 'sixties', island: 'sixties',
-  reggae: 'sixties', reggaerock: 'sixties', motown: 'sixties', neosoul: 'sixties', gospel: 'sixties', lofi: 'sixties', blues: 'sixties', afrobeat: 'sixties',
-  progclean: 'modern', progmetal: 'modern', mathrock: 'modern', metal: 'modern', funk: 'modern', funkpop: 'modern', grunge: 'modern', punk: 'modern',
-}
 const bassLineKind = (id: string): BassKind => BASSLINES.find(b => b.id === id)?.bass ?? 'session'
 import { useScreenInfo } from '../assistant/screen'
 

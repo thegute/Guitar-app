@@ -5,6 +5,7 @@ import { bus } from './engine'
 import { playDrum, grooveOf, type KitSel, type Voice } from './drums'
 import { bassLine, bassMidi } from './bass'
 import { playBass, playNote, strum, soundForProgram, type Handle, type SoundId } from './pluck'
+import { currentBandBass } from './packSounds'
 import { parseSymbol } from '../theory/chords'
 import { pc } from '../theory/notes'
 import { STYLE_DEFAULTS, STYLES, typeTones, type Style } from '../theory/progressions'
@@ -146,7 +147,7 @@ export class BandVoices {
     const end = t + Math.max(0.08, e.dur * spb * 0.95)
     if (e.kind === 'bass') {
       this.bass?.stop(t)
-      const h = playBass(e.midis![0], t, e.level * 0.8 * this.level, dest)
+      const h = playBass(e.midis![0], t, e.level * 0.8 * this.level, dest, currentBandBass())
       h.stop(end)
       this.bass = h
       this.all.push(h)

@@ -199,7 +199,7 @@ pedal steel (Hawaiian), jazz archtop, a humbucker (Les Paul) guitar for classic 
   bypassed), region = studiobass-modern.mid; METRONOME OFF. Library clicks need full-screen control (background AXPress
   doesn't load a patch); delete a region with full control (click + delete key); File > Import > MIDI File lands on a NEW
   track → drag it onto track 1 at bar 1; "Also import tempo?" → No; set the Bounce End bar to the sched length/2 + 1.
-- Next: Upright ("Roots Upright" patch or the plug-in's American Upright model, studiobass-upright.mid, 646 s → end bar
+- Next (owner 16:36: NO upright bass, the Sixties covers bluegrass / folk / jazz): skip the upright (was: studiobass-upright.mid, 646 s → end bar
   ~325), bypass its dynamics/reverb; then Studio Piano, Drum Kit Designer; Dracus humbucker DI (owner clicks) → henson-chug
   + metal tones; Ample M + Ample L (tonight: L → nylon + ukulele / baritone); owner dropped Orange Tree Modern Nylon and
   Strummed Acoustic 2 (Strum Machine strokes: use Ample's own strummer instead).

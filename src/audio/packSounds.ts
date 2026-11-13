@@ -67,3 +67,14 @@ export function bassPackFor(kind?: BassKind): string | null {
   const order: BassKind[] = k === 'upright' ? ['upright', 'sixties', 'session', 'modern'] : k === 'sixties' ? ['sixties', 'session', 'modern', 'upright'] : k === 'modern' ? ['modern', 'session', 'sixties', 'upright'] : ['session', 'modern', 'sixties', 'upright']
   return order.map(x => BASS_PACK[x]).find(x => have.includes(x)) ?? null
 }
+
+/** The recorded bass each Jam / band style suits (styles not listed follow the bass line, else the Session bass). */
+export const STYLE_BASS: Record<string, BassKind | undefined> = {
+  bluegrass: 'sixties', jazz: 'sixties', bossa: 'sixties', folk: 'sixties', acoustic: 'sixties', classical: 'sixties', slackkey: 'sixties', island: 'sixties',
+  reggae: 'sixties', reggaerock: 'sixties', motown: 'sixties', neosoul: 'sixties', gospel: 'sixties', lofi: 'sixties', blues: 'sixties', afrobeat: 'sixties',
+  progclean: 'modern', progmetal: 'modern', mathrock: 'modern', metal: 'modern', funk: 'modern', funkpop: 'modern', grunge: 'modern', punk: 'modern',
+}
+/** The bass Play's band uses right now (Play sets it from the song's band style). */
+let bandBass: BassKind | undefined
+export const setBandBass = (k: BassKind | undefined) => { bandBass = k }
+export const currentBandBass = () => bandBass
