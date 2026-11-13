@@ -43,6 +43,40 @@ export function AskBubble({ context }: { context: AskContext }) {
   const [x, setX] = useState<number | null>(null)
   const drag = useRef<{ x0: number; y0px: number; y0: number; moved: boolean } | null>(null)
   const dragged = useRef(false)
+  // keep out of the way: when the bubble (or its mic) sits on a button or a field of the screen under it (a Start button,
+  // a Contents button), it slides down or up to the nearest free spot. Only for the moment: the place you dragged it stays.
+  const [nudge, setNudge] = useState(0)
+  const nudgeRef = useRef(0); nudgeRef.current = nudge
+  useEffect(() => {
+    const CTRL = 'button, a[href], input, select, textarea, [role=tab], [role=button], [data-chord], .tab-note'
+    const mine = (el: Element) => !!el.closest('.ask-bubble, .talk-btn, .talk-card, .tip-card')
+    const blocked = (r: DOMRect, dy: number) => {
+      for (const fx of [0.2, 0.5, 0.8]) for (const fy of [0.2, 0.5, 0.8]) {
+        const px = r.left + r.width * fx, py = r.top + dy + r.height * fy
+        if (py < 4 || py > innerHeight - 4) return true
+        for (const el of document.elementsFromPoint(px, py)) {
+          if (mine(el)) continue
+          if (el.closest(CTRL)) return true
+          break
+        }
+      }
+      return false
+    }
+    const check = () => {
+      if (drag.current || document.hidden) return
+      const els = [...document.querySelectorAll('.ask-bubble, .talk-btn')]
+      if (!els.length) return
+      // where they'd be with no nudge
+      const rects = els.map(e => { const r = e.getBoundingClientRect(); return new DOMRect(r.left, r.top - nudgeRef.current, r.width, r.height) })
+      const free = (dy: number) => rects.every(r => !blocked(r, dy))
+      if (free(0)) { if (nudgeRef.current) setNudge(0); return }
+      if (nudgeRef.current && free(nudgeRef.current)) return
+      for (let k = 1; k <= 8; k++) for (const dy of [k * 48, -k * 48]) if (free(dy)) { setNudge(dy); return }
+    }
+    const t = setInterval(check, 1200)
+    const t0 = setTimeout(check, 300)
+    return () => { clearInterval(t); clearTimeout(t0) }
+  }, [])
 
   // ── hands-free talk
   const inst = useInstrument()
@@ -139,7 +173,7 @@ export function AskBubble({ context }: { context: AskContext }) {
   }, [tip, tipMode, tipOpen, phase])
   if (!show) return null
   const talkOk = canListen()
-  const top = `calc(${Math.round(y * 100)}% - 28px)`
+  const top = `calc(${Math.round(y * 100)}% - 28px + ${nudge}px)`
   const placeSide = x !== null ? { left: x - 26, right: 'auto' } : side === 'left' ? { left: 10, right: 'auto' } : {}
   const busy = phase === 'listening' || phase === 'thinking'
   // tips: a glowing dot when there's one here; tap ✨ to read it ("always": it opens by itself, never while you play)
@@ -167,7 +201,7 @@ export function AskBubble({ context }: { context: AskContext }) {
       {noTip && <div className="talk-card tip-card" style={{ top: cardTop, ...(side === 'left' ? { left: 10 } : { right: 10 }) }} role="status" data-testid="tip-none"><p className="talk-a">No new tips for this screen right now. Come back later, or ask me anything.</p></div>}
       {tipOpen && tip && phase === 'idle' && <TipCard tip={tip} screen={screen} from={side === 'left' && x === null ? 'left' : 'right'} style={{ top: cardTop }} onClose={() => setTipOpen(false)} />}
       {talkOk && (
-        <button className={`talk-btn${busy ? ' on' : ''}`} style={{ top: `calc(${Math.round(y * 100)}% - 25px)`, ...(x !== null ? { left: x - 70, right: 'auto' } : side === 'left' ? { left: 60, right: 'auto' } : { right: 60 }) }}
+        <button className={`talk-btn${busy ? ' on' : ''}`} style={{ top: `calc(${Math.round(y * 100)}% - 25px + ${nudge}px)`, ...(x !== null ? { left: x - 70, right: 'auto' } : side === 'left' ? { left: 60, right: 'auto' } : { right: 60 }) }}
           onClick={() => void talk()} aria-label={phase === 'listening' ? 'Stop listening' : 'Talk to the helper'} aria-pressed={busy} data-testid="talk-btn">
           {phase === 'listening' ? <Ico n="stop" fill /> : <Ico n="mic" />}
           {phase === 'listening' && <span className="talk-level" style={{ transform: `scale(${1 + Math.min(1, Math.max(0, level) / 10) * 0.5})` }} aria-hidden />}

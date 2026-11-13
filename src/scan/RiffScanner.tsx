@@ -67,10 +67,14 @@ export function RiffScanner({ listen, onUseInJam, startMode }: {
 }
 
 /** Screenshots, or a video / audio file → a tab. */
-export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onListen, initialLink }: {
+export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onListen, initialLink, autoRead = false, title }: {
   onUseInJam?: (chords: string[]) => void
   youtube?: string
   initialPics?: { name: string; url: string }[]
+  /** read initialPics straight away (pages picked from a book: one tap, not two) */
+  autoRead?: boolean
+  /** the song's name when it's read (e.g. the book and its pages) */
+  title?: string
   /** offer a YouTube link (Gemini watches it → KGuitar grabs its screen → your screen recording) */
   links?: boolean
   /** "Play it out loud": go to the mic */
@@ -100,6 +104,13 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
   const ready = canRead()
   useEffect(() => () => abort.current?.abort(), [])
   useEffect(() => { if (initialPics?.length) void addUrls(initialPics) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // pages from a book: once they're loaded, read them (only when an AI reader is set up; otherwise the set-up note shows)
+  const autoDone = useRef(false)
+  useEffect(() => {
+    if (!autoRead || autoDone.current || !ready || !initialPics?.length || pics.length < initialPics.length) return
+    autoDone.current = true
+    void scanPictures()
+  }, [autoRead, ready, pics.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function addUrls(list: { name: string; url: string }[]) {
     const add: Pic[] = []
@@ -151,7 +162,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       const { pieces, found } = piecesFromPictures(pics.map(p => p.img), box)
       step('frames', { state: 'done', note: found ? `${found} staff${found === 1 ? '' : 's'}` : 'no staff lines: reading the box' })
       step('sharpen', { state: 'done', note: `${pieces.length} strip${pieces.length === 1 ? '' : 's'}` })
-      await readOut(pieces, signal, pics.length === 1 ? 'Scanned tab' : 'Scanned tab', `Read from ${pics.length} picture${pics.length === 1 ? '' : 's'}${found ? '' : ' (no staff lines found, so the box you set was read)'}.`)
+      await readOut(pieces, signal, title || 'Scanned tab', `Read from ${pics.length} picture${pics.length === 1 ? '' : 's'}${found ? '' : ' (no staff lines found, so the box you set was read)'}.`)
     } catch (e) { fail(e) }
   }
 

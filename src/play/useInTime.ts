@@ -48,10 +48,15 @@ interface Args {
   onPass?: (s: RunStats, speed: number) => void
 }
 
+export interface Tally { on: number; early: number; late: number; miss: number }
+const EMPTY_TALLY: Tally = { on: 0, early: 0, late: 0, miss: 0 }
+
 export function useInTime(a: Args) {
   const [running, setRunning] = useState(false)
   const [cursor, setCursor] = useState(-1)
   const [feedback, setFeedback] = useState<InTimeFeedback | null>(null)
+  /** this pass so far: a steady count the readout shows instead of a word per note (a word per note flashed) */
+  const [tally, setTally] = useState<Tally>(EMPTY_TALLY)
   const [stats, setStats] = useState<RunStats | null>(null)
   const [pass, setPass] = useState<{ n: number; last: RunStats | null; speed: number }>({ n: 0, last: null, speed: 1 })
   const [usingVideo, setUsingVideo] = useState(false)
@@ -130,6 +135,7 @@ export function useInTime(a: Args) {
     setPass({ n: 0, last: null, speed })
     setStats(null)
     setFeedback(null)
+    setTally(EMPTY_TALLY)
     setRunning(true)
     void keepAwake(true)
     void audio().resume()
@@ -148,6 +154,7 @@ export function useInTime(a: Args) {
           setWraps(w => w + 1)
           for (const i of r.inRange) { r.results[i] = undefined; r.taken.delete(i); args.current.states.current[r.steps[i].flat] = 0 }
           r.errs = []
+          setTally(EMPTY_TALLY)
           args.current.onChange()
         }
         // video loop: jump back at the end of the section
@@ -178,17 +185,21 @@ export function useInTime(a: Args) {
         setCursor(c => (c === cur ? c : cur))
         // steps that went by without being played are missed
         const late = 0.35 + 0.22 / r.clock.spb()
-        let changed = false
+        let missed = 0
         for (const i of r.inRange) {
           const s = r.steps[i]
           if (s.beat + late < b && r.results[i] === undefined) {
             r.results[i] = 'miss'
             r.taken.add(i)
             args.current.states.current[s.flat] = 3
-            changed = true
+            missed++
           }
         }
-        if (changed) { setFeedback(f => ({ j: 'miss', ms: 0, key: (f?.key ?? 0) + 1 })); args.current.onChange() }
+        if (missed) {
+          setFeedback(f => ({ j: 'miss', ms: 0, key: (f?.key ?? 0) + 1 }))
+          setTally(t => ({ ...t, miss: t.miss + missed }))
+          args.current.onChange()
+        }
         if (!r.loop && b > r.toBeat + 1) { stop(true); return }
       }
       r.raf = requestAnimationFrame(tick)
@@ -213,6 +224,7 @@ export function useInTime(a: Args) {
     r.errs.push(m.errMs)
     args.current.states.current[r.steps[m.step].flat] = j === 'perfect' || j === 'good' ? 1 : 2
     setFeedback(f => ({ j, ms: Math.round(m.errMs), key: (f?.key ?? 0) + 1 }))
+    setTally(t => (j === 'perfect' || j === 'good' ? { ...t, on: t.on + 1 } : j === 'early' ? { ...t, early: t.early + 1 } : { ...t, late: t.late + 1 }))
     args.current.onHitNote?.()
     args.current.onChange()
   }, [])
@@ -222,5 +234,5 @@ export function useInTime(a: Args) {
   const speedNow = useCallback((): number => run.current?.speed ?? 1, [])
 
   useEffect(() => () => stop(), [stop])
-  return { running, cursor, feedback, stats, pass, usingVideo, start, stop, played, countIn, wraps, beatNow, speedNow }
+  return { running, cursor, feedback, tally, stats, pass, usingVideo, start, stop, played, countIn, wraps, beatNow, speedNow }
 }

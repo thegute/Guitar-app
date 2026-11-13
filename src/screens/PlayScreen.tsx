@@ -1179,12 +1179,18 @@ export function PlayScreen() {
                 ? `${inTime.usingVideo ? 'Following the video' : `${Math.round(songBpm * (trainer.on && loop && !inTime.usingVideo ? inTime.pass.speed : speed))} BPM`}${loop ? ` · pass ${inTime.pass.n + 1}` : ''}${inTime.pass.last ? ` · last pass ${inTime.pass.last.score}%` : ''}${trainer.on && loop && !inTime.usingVideo ? ` · speed ${Math.round(inTime.pass.speed * 100)}%` : ''}`
                 : 'Run finished'}
             </span>
+            {/* a steady tally (the numbers count up in place) and one dot in the colour of the last note: a word per note
+                flashed on fast songs and changed the readout's size, which made the whole screen jump */}
             {inTime.running && inTime.feedback && (
-              <span key={inTime.feedback.key} className={`timing-fb ${inTime.feedback.j}`}>
-                {inTime.feedback.j === 'perfect' ? 'On time!' : inTime.feedback.j === 'good' ? `Good (${Math.abs(inTime.feedback.ms)} ms ${inTime.feedback.ms < 0 ? 'early' : 'late'})` : inTime.feedback.j === 'miss' ? 'Missed a note' : `${Math.abs(inTime.feedback.ms)} ms ${inTime.feedback.j}`}
+              <span className="timing-tally" data-testid="timing-tally">
+                <span className={`timing-dot ${inTime.feedback.j}`} aria-hidden="true" />
+                <span className="tt on"><b>{inTime.tally.on}</b> on time</span>
+                <span className="tt early"><b>{inTime.tally.early}</b> early</span>
+                <span className="tt late"><b>{inTime.tally.late}</b> late</span>
+                <span className="tt miss"><b>{inTime.tally.miss}</b> missed</span>
               </span>
             )}
-            {inTime.running && !inTime.feedback && <span className="small">Count-in: play along when the clicks lead in.</span>}
+            {inTime.running && !inTime.feedback && <span className="timing-tally small">Count-in: play along when the clicks lead in.</span>}
             {!inTime.running && inTime.stats && (
               <>
                 <b>Score {inTime.stats.score}%</b>
@@ -1252,6 +1258,8 @@ export function PlayScreen() {
                   }} />}
               </span>
             )}
+            {/* the feedback line's place is always kept, so the readout never grows and shrinks note by note */}
+            {!feedback && !taughtNote && !inspect && <span className="fb fb-empty" aria-hidden="true">&nbsp;</span>}
           </>
         )}
       </div>
@@ -1571,17 +1579,15 @@ export function PlayScreen() {
           const chordNext = si >= 0 ? timeline.spans[si + 1]?.name ?? '' : ''
           const isChord = new Set(notes.map(n => n.midi % 12)).size >= 3
           const fbWait = mode === 'wait' && feedback ? (feedback.ok ? { ok: true, text: '✓ Got it' } : { ok: false, text: `✗ That was ${noteName(feedback.heard, flats)}` }) : null
-          const fbTime = mode === 'time' && inTime.running && inTime.feedback
-            ? { ok: inTime.feedback.j === 'perfect' || inTime.feedback.j === 'good', text: inTime.feedback.j === 'perfect' ? 'On time!' : inTime.feedback.j === 'good' ? 'Good' : inTime.feedback.j === 'miss' ? 'Missed one' : inTime.feedback.j === 'early' ? 'Early' : 'Late' }
-            : null
-          const fb = fbTime ?? fbWait
+          // In time the big view never flips colour per note (on a fast song that strobed): a steady tally instead
+          const fb = fbWait
           return (
             <div className={`remote${fb ? (fb.ok ? ' fb-ok' : ' fb-bad') : ''}`} data-testid="remote" role="region" aria-label="Big view for the music stand">
               <div className="remote-top">
                 <span className="remote-title">{doc.title}</span>
                 <span className="remote-bar">{done && mode === 'wait' ? 'Finished!' : `Bar ${(f?.bar ?? 0) + 1} / ${track.bars.length}`}{loop ? ` · ⟲ ${loop.from === loop.to ? loop.from + 1 : `${loop.from + 1}–${loop.to + 1}`}` : ''}</span>
               </div>
-              <div className="remote-main" key={fb ? `${fb.text}${feedback?.heard ?? ''}${inTime.feedback?.key ?? ''}` : 'x'}>
+              <div className="remote-main" key={fb ? `${fb.text}${feedback?.heard ?? ''}` : 'x'}>
                 {inTime.running && inTime.countIn > 0 ? <b className="remote-count">{inTime.countIn}</b>
                   : isChord || (chordNow && !notes.length) ? <>
                     <b className="remote-chord">{chordNow || 'Chord'}</b>
@@ -1591,6 +1597,10 @@ export function PlayScreen() {
                     <span className="remote-sub">{notes.map(n => `${stringLabel(track.tuning, n.string, flats)} string = ${noteName(n.midi, flats)}`).join(', ')}</span>
                   </> : <b className="remote-chord">{done ? '✓' : '–'}</b>}
                 {fb && <span className={`remote-fb ${fb.ok ? 'ok' : 'bad'}`}>{fb.text}</span>}
+                {mode === 'time' && inTime.running && inTime.feedback && (
+                  <span className="timing-tally remote-tally"><span className={`timing-dot ${inTime.feedback.j}`} aria-hidden="true" />
+                    <span className="tt on"><b>{inTime.tally.on}</b> on time</span><span className="tt miss"><b>{inTime.tally.early + inTime.tally.late}</b> off</span><span className="tt miss"><b>{inTime.tally.miss}</b> missed</span></span>
+                )}
               </div>
               {(chordNow || chordNext) && !isChord && <div className="remote-chords">{chordNow && <span>Chord <b data-chord={chordNow}>{chordNow}</b></span>}{chordNext && <span>next <b data-chord={chordNext}>{chordNext}</b></span>}</div>}
               {isChord && chordNext && <div className="remote-chords"><span>next <b>{chordNext}</b></span></div>}

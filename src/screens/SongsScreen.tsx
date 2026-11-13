@@ -301,20 +301,21 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
     if (!p) return
     void import('../tabs/pdfTab').then(async ({ pdfPageCount }) => setBook({ name: p.name, bytes: p.bytes, pages: await pdfPageCount(p.bytes) }))
   }, [])
-  const [scanned, setScanned] = useState<{ name: string; pics: { name: string; mime: string; b64: string; url: string }[] } | null>(null)
+  const [scanned, setScanned] = useState<{ name: string; pics: { name: string; mime: string; b64: string; url: string }[]; fromBook?: boolean } | null>(null)
   const [scanLink, setScanLink] = useState<string | undefined>()
   const pictures = useRef<HTMLDivElement | null>(null)
   const link: string | undefined = undefined
 
   /** Import one or many files (from the phone or straight from Google Drive). One file opens right away. */
   /** A scanned PDF (or tab printed as pictures): hand its pages to the picture reader below. */
-  async function toPictures(name: string, e: unknown): Promise<boolean> {
+  async function toPictures(name: string, e: unknown, fromBook = false): Promise<boolean> {
     if (!(e instanceof Error && e.name === 'Error' && /scanned/.test(e.message) && 'bytes' in e)) return false
     const sc = e as Error & { bytes: Uint8Array; from?: number; count?: number }
     const { pdfPictures } = await import('../tabs/pdfTab')
     try {
-      setScanned({ name, pics: await pdfPictures(sc.bytes, sc.count ?? 6, sc.from ?? 1) })
-      setTimeout(() => pictures.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+      setScanned({ name, pics: await pdfPictures(sc.bytes, sc.count ?? 6, sc.from ?? 1), fromBook })
+      // pages picked from a book are read right where you tapped (the scanner window further down could be tucked away)
+      if (!fromBook) setTimeout(() => pictures.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
       return true
     } catch { return false }
   }
@@ -384,7 +385,7 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
       onOpen(doc)
     } catch (e) {
       setBusy(false)
-      if (await toPictures(`${book.name.replace(/\.[^.]+$/, '')} p.${from}–${to}`, e)) return
+      if (await toPictures(`${book.name.replace(/\.[^.]+$/, '')} p.${from}${to > from ? `–${to}` : ''}`, e, true)) { setBook(null); return }
       setError(`No tab or chords found on pages ${from}–${to}. Try the pages either side (‹ ›): the book's page numbers can be a few off from the PDF's.`)
     }
   }
@@ -395,13 +396,20 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
         <AddBox onOpen={onOpen} onFiles={fs => void openFiles(fs)} onScan={url => { setScanLink(url); setTimeout(() => pictures.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }} />
         {busy && <p className="small muted" role="status" style={{ margin: 0 }}>Importing…</p>}
         {book && <PdfPages name={book.name} bytes={book.bytes} pages={book.pages} busy={busy} onRead={(a, b) => void readBook(a, b)} onCancel={() => setBook(null)} />}
+        {busy && book && <p className="small muted" role="status" style={{ margin: 0 }}>Getting the pages ready…</p>}
+        {scanned?.fromBook && (
+          <div className="stack book-scan" style={{ gap: 6 }} data-testid="book-scan">
+            <p className="notice small" style={{ margin: 0 }}>The tab on <b>{scanned.name}</b> is printed as pictures, so the AI reads it. It starts by itself; when the tab shows here, check it and tap <b>Open in Play</b>.</p>
+            <ScanVideo key={scanned.name} autoRead title={scanned.name} initialPics={scanned.pics.map(p => ({ name: p.name, url: p.url }))} />
+          </div>
+        )}
         {error && <p className="notice small" role="alert">{error}</p>}
       </Win>
       <Win id="picture" title="Riff Scanner: a video, a picture of a tab or a scanned PDF" bodyClass="stack" bodyStyle={{ gap: 8 }}
         extra={<button className="btn sm" onClick={() => { setSubPage('jam', 'find'); go('progressions') }} data-testid="open-scanner"><Ico n="scan" /> Full scanner</button>}>
         <div ref={pictures} />
-        {scanned && <p className="notice small" style={{ margin: 0 }}>The tab in "{scanned.name}" is pictures (a scan, or printed as images), so the AI reads it: the pages are below. Tap <b>Read the tab</b>.</p>}
-        <ScanVideo key={`${scanned?.name ?? ''}|${scanLink ?? ''}`} youtube={scanLink} links initialLink={scanLink} initialPics={scanned?.pics.map(p => ({ name: p.name, url: p.url }))} />
+        {scanned && !scanned.fromBook && <p className="notice small" style={{ margin: 0 }}>The tab in "{scanned.name}" is pictures (a scan, or printed as images), so the AI reads it: the pages are below. Tap <b>Read the tab</b>.</p>}
+        <ScanVideo key={`${scanned && !scanned.fromBook ? scanned.name : ''}|${scanLink ?? ''}`} youtube={scanLink} links initialLink={scanLink} initialPics={scanned && !scanned.fromBook ? scanned.pics.map(p => ({ name: p.name, url: p.url })) : undefined} />
         <p className="small muted" style={{ margin: 0 }}>The full Riff Scanner (Full scanner, or the link under Jam's three buttons) also scans YouTube links and Shorts, and listens.</p>
       </Win>
     </WinArea>
