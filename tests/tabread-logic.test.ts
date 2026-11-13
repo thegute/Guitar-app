@@ -6,6 +6,9 @@ import { readFileSync } from 'node:fs'
 import { inflateSync } from 'node:zlib'
 import { readTab, fitRhythm } from '../src/scan/tabRead'
 import { readingSong } from '../src/scan/tabReadSong'
+import { tuningFromText, guitarNumbers } from '../src/scan/tuningText'
+import { rhythmFromStems } from '../src/scan/stemRhythm'
+import type { PdfShape } from '../src/tabs/pdfTab'
 import type { Gray } from '../src/scan/image'
 
 const raw = inflateSync(readFileSync('tests/fixtures/tab-picture.gray.z'))
@@ -92,3 +95,39 @@ console.log('tab picture, clean: ok', r.notes, 'numbers')
 assert.deepEqual(fitRhythm([10, 10, 10, 10], 4), [1, 1, 1, 1])
 assert.deepEqual(fitRhythm([6, 6, 6, 6, 10, 10], 4), [0.5, 0.5, 0.5, 0.5, 1, 1])
 console.log('fitRhythm: ok')
+
+// a page's tuning lines, one per guitar group, with the flats drawn as little pictures after the letters (Plini's books)
+{
+  const H = 800
+  const row = (label: string, names: string[], y: number) => [
+    { str: label, x: 400, y: H - y, w: 50, h: 8 },
+    ...names.map((n, i) => ({ str: n, x: 470 + i * 20, y: H - y, w: 5.8, h: 8 })),
+  ]
+  const texts = [...row('Guitars 1 - 3', ['D', 'A', 'D', 'G', 'B', 'E'], 365), ...row('Guitars 4 & 5', ['E', 'A', 'D', 'G', 'B', 'E'], 380)]
+  // flats after every letter of the first line only
+  const marks = [0, 1, 2, 3, 4, 5].map(i => ({ x0: 470 + i * 20 + 5.8, x1: 470 + i * 20 + 14, y0: 355, y1: 366, sign: 'flat' as const }))
+  const f = tuningFromText(texts, H, [], 6, marks)!
+  assert.deepEqual(f.midis, [37, 44, 49, 54, 58, 63], 'Db Ab Db Gb Bb Eb')
+  assert.deepEqual(f.parts?.map(p => p.guitars), [[1, 2, 3], [4, 5]])
+  assert.deepEqual(f.parts?.[1].midis, [40, 45, 50, 55, 59, 64], 'guitars 4 & 5 in standard')
+  assert.deepEqual(guitarNumbers('Gtr. 2'), [2])
+  console.log('tuning lines per guitar + drawn flats: ok')
+}
+
+// rhythm under the tab (Guitar Pro style): a tied note printed with no number keeps its own length, a grace note takes a
+// 32nd from the note before, a bracketed 3 shortens only the notes under it
+{
+  const g = 6, lines = [0, 6, 12, 18, 24, 30]
+  const st = { lines, gap: g, left: 0, right: 400 }
+  const fill = (x0: number, y0: number, x1: number, y1: number): PdfShape => ({ kind: 'fill', polys: [[x0, y0, x1, y0, x1, y1, x0, y1]], x0, y0, x1, y1, sig: `${x1 - x0}x${y1 - y0}` })
+  const stem = (x: number) => fill(x - 0.15, 33, x + 0.15, 42) // full stems: 1.5 gaps
+  const beam = (a: number, b: number, y = 41) => fill(a, y, b, y + 1)
+  // bar of 4/4: quarter (x=20) tied into a quarter with no number (x=60), then a grace (x=100, no stem) before an eighth
+  // (x=118), eighth (x=140), then a quarter (x=180)
+  const shapes = [stem(20), stem(60), stem(118), stem(140), beam(118, 140), stem(180)]
+  const r = rhythmFromStems(shapes, { ...st }, [20, 100, 118, 140, 180], 0, 220, 4)!
+  assert.deepEqual(r.durs, [1, 0.125, 0.5, 0.5, 1], 'grace takes a 32nd')
+  assert.deepEqual(r.rests.map(q => [q.x, q.dur]), [[60, 0.875]], 'the held quarter, less the grace\'s 32nd')
+  assert.deepEqual(r.grace, [false, true, false, false, false])
+  console.log('stems: held notes and grace notes: ok')
+}

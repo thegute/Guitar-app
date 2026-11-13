@@ -1,7 +1,7 @@
 // The tuning, capo and tempo a printed tab states in words: string names written left of the staff lines (Songsterr:
 // "e B G D A E", "D A D G B E"), a tuning line ("Tuning: E♭ A♭ D♭ G♭ B♭ E♭", "Drop D", "DADGAD", "Half step down"), a capo
 // ("Capo 3", "Capo III", "capo on the 2nd fret"), and the tempo ("♩ = 130", "= 148").
-import type { PdfText } from '../tabs/pdfTab'
+import type { PdfMark, PdfText } from '../tabs/pdfTab'
 
 export interface TuningFound {
   /** note names lowest string first, e.g. ['Eb', 'Ab', 'Db', 'Gb', 'Bb', 'Eb'] */
@@ -12,6 +12,21 @@ export interface TuningFound {
   tempo?: number
   /** where it came from, in words (for the song check card) */
   from: string[]
+  /** a tuning per guitar when the page lists several ("Guitars 1 - 3  C G D E G B", "Guitars 4 & 5  E A D G B E") */
+  parts?: { guitars: number[]; names: string[]; midis: number[] }[]
+}
+
+/** "Guitars 1 - 3" → [1, 2, 3]; "Guitars 4 & 5" → [4, 5]; "Gtr. 2" → [2] */
+export function guitarNumbers(label: string): number[] {
+  const m = /\b(?:guitars?|gtrs?\.?)\s*([\d\s,&+–-]+(?:and\s*\d+)?)/i.exec(label)
+  if (!m) return []
+  const out = new Set<number>()
+  const txt = m[1].replace(/and/gi, '&')
+  for (const r of txt.matchAll(/(\d+)\s*(?:[-–]\s*(\d+))?/g)) {
+    const a = Number(r[1]), b = r[2] ? Number(r[2]) : a
+    for (let k = a; k <= b && k - a < 12; k++) out.add(k)
+  }
+  return [...out]
 }
 
 const PC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
@@ -74,7 +89,15 @@ export function tuningFromWords(text: string, strings = 6): TuningFound | undefi
 }
 
 /** From a PDF page's text items: string names left of a staff's lines first, then the page's words. */
-export function tuningFromText(texts: PdfText[], height: number, staves: { lines: number[]; gap: number; left: number }[], strings: number): TuningFound | undefined {
+export function tuningFromText(texts: PdfText[], height: number, staves: { lines: number[]; gap: number; left: number }[], strings: number, marks: PdfMark[] = []): TuningFound | undefined {
+  // a ♭ / ♯ drawn as a little picture right after a letter belongs to it ("D" + ♭ = "Db")
+  const signed = marks.filter(m => m.sign)
+  if (signed.length) texts = texts.map(t => {
+    if (!/^[A-G]$/.test(t.str.trim())) return t
+    const end = t.x + (t.w || t.h * 0.6)
+    const m = signed.find(q => q.x0 >= t.x + (t.w || 0) * 0.5 && q.x0 - end < t.h * 0.6 && Math.abs((height - t.y) - q.y1) < t.h * 0.8)
+    return m ? { ...t, str: t.str.trim() + (m.sign === 'flat' ? 'b' : '#') } : t
+  })
   let byLines: string[] | undefined
   for (const st of staves) {
     // one short note name level with each line, just left of (or at) the staff's start
@@ -89,6 +112,23 @@ export function tuningFromText(texts: PdfText[], height: number, staves: { lines
   const page = texts.map(t => t.str).join(' ')
   const words = tuningFromWords(page, strings)
   const f: TuningFound = words ?? { from: [] }
+  // one line per guitar group: "Guitars 1 - 3   C G D E G B"
+  const rows = new Map<number, PdfText[]>()
+  for (const t of texts) { const k = Math.round(t.y / 3); (rows.get(k) ?? rows.set(k, []).get(k)!).push(t) }
+  const parts: NonNullable<TuningFound['parts']> = []
+  for (const row of rows.values()) {
+    const line = row.sort((a, b) => a.x - b.x).map(t => t.str).join(' ')
+    const guitars = guitarNumbers(line)
+    if (!guitars.length) continue
+    const w = tuningFromWords(line.replace(/\b(?:guitars?|gtrs?\.?)\s*[\d\s,&+–-]+/i, ' '), strings)
+    if (w?.names && w.midis) parts.push({ guitars, names: w.names, midis: w.midis })
+  }
+  if (parts.length) {
+    f.parts = parts
+    // the first group's tuning is the song's own
+    f.names = parts[0].names; f.midis = parts[0].midis
+    f.from = [...f.from.filter(x => !x.startsWith('Tuning')), ...parts.map(p => `Guitar${p.guitars.length > 1 ? 's' : ''} ${p.guitars.join(', ')}: ${p.names.join(' ')}`)]
+  }
   if (byLines) {
     const mids = tuningMidis(byLines.map(n => n.length === 1 ? n.toUpperCase() : n[0].toUpperCase() + n.slice(1)))
     if (mids) { f.names = byLines.map(n => n[0].toUpperCase() + n.slice(1)); f.midis = mids; f.from = [...f.from.filter(x => !x.startsWith('Tuning')), `Strings named ${byLines.join(' ')}`] }

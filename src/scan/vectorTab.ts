@@ -7,7 +7,7 @@
 //   - printed time signatures (4/4 → 3/4 mid-song) set each bar's length;
 //   - the rhythm stems and beams under the staff give each column's length (rhythm.ts), the spacing only when there are none.
 // Pure functions on PdfShape lists (tabs/pdfTab.ts readPdf collects them), so they run the same in the app and in tests.
-import type { PdfGlyph, PdfShape, PdfText } from '../tabs/pdfTab'
+import type { PdfGlyph, PdfShape, PdfText, PdfMark } from '../tabs/pdfTab'
 import { tuningFromText, type TuningFound } from './tuningText'
 import { assemble, classify, components, normDigit, DEAD, type Num, type ReadSystem, type TabReading } from './tabRead'
 import { rhythmFromStems } from './stemRhythm'
@@ -167,7 +167,7 @@ export interface VectorReading extends TabReading {
 }
 
 /** Read the tab on one page's shapes. Null when the page has no tab staff with numbers. */
-export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?: PdfText[]; height?: number; glyphs?: PdfGlyph[]; /** the time signature in force from the page before */ startMeter?: { beats: number; sig: [number, number] } } = {}): VectorReading | null {
+export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?: PdfText[]; height?: number; glyphs?: PdfGlyph[]; /** small pictures (♭ / ♯ signs drawn as images) */ pdfMarks?: PdfMark[]; /** the time signature in force from the page before */ startMeter?: { beats: number; sig: [number, number] } } = {}): VectorReading | null {
   const nStr = opts.strings ?? 6
   // paper-coloured boxes aren't ink; a shape drawn twice in the same place (some PDFs do) counts once
   const seenAt = new Set<string>()
@@ -391,7 +391,7 @@ export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?:
       return { durs: n.durs, rests: n.rests.map(r => ({ x: r.x * K, dur: r.dur })), ...((n as { grace?: boolean[] }).grace ? { grace: (n as { grace?: boolean[] }).grace } : {}) }
     },
   })
-  const tuning = opts.texts && opts.height ? tuningFromText(opts.texts, opts.height, staves, nStr) : undefined
+  const tuning = opts.texts && opts.height ? tuningFromText(opts.texts, opts.height, staves, nStr, opts.pdfMarks) : undefined
   // pick / strum directions: ⊓ (down) and V (up) printed over or under each note (SMuFL down-bow / up-bow), each given
   // to the nearest column of the staff below it
   if (opts.glyphs?.length) {

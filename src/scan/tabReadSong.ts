@@ -71,7 +71,12 @@ export function readingSong(readings: TabReading[], tuning: number[], title: str
   const tracks = parts.filter(Boolean).map((p, i) => {
     // an empty last bar left over at the end of a page isn't music
     while (p.bars.length && !p.bars[p.bars.length - 1].steps.some(st => st.notes.length)) p.bars.pop()
-    return { name: p.name ?? (parts.length > 1 ? `Guitar ${i + 1}` : 'Guitar'), tuning: [...tun], capo, bars: p.bars }
+    const name = p.name ?? (parts.length > 1 ? `Guitar ${i + 1}` : 'Guitar')
+    // the page can give each guitar its own tuning ("Guitars 4 & 5  E A D G B E")
+    const num = Number(/(\d+)/.exec(name)?.[1] ?? i + 1)
+    const own = found?.parts?.find(q => q.guitars.includes(num) && q.midis.length === tuning.length)?.midis
+    if (own && own.join() !== tun.join()) for (const b of p.bars) for (const st of b.steps) for (const n of st.notes) n.midi = own[n.string] + capo + n.fret
+    return { name, tuning: [...(own ?? tun)], capo, bars: p.bars }
   }).filter(t => t.bars.length)
   const durs = tracks[0].bars.flatMap(b => b.steps.filter(st => st.notes.length).map(st => st.dur))
   const song: Song = {
@@ -91,7 +96,7 @@ export function readPdfShapes(pages: PdfPage[], tuning: number[], title: string)
   let startMeter: { beats: number; sig: [number, number] } | undefined
   for (const pg of pages) {
     // a time signature carries on to the next page until a new one is printed
-    const r = pg.shapes?.length ? readVectorTab(pg.shapes, { strings, texts: pg.texts, height: pg.height, glyphs: pg.glyphs, startMeter }) : null
+    const r = pg.shapes?.length ? readVectorTab(pg.shapes, { strings, texts: pg.texts, height: pg.height, glyphs: pg.glyphs, pdfMarks: pg.marks, startMeter }) : null
     if (r && r.notes) rs.push(r)
     const last = r?.meters[r.meters.length - 1]
     if (last) startMeter = { beats: last.beats, sig: last.sig }

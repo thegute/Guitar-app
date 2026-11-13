@@ -9,7 +9,9 @@ export interface PdfText { str: string; x: number; y: number; w: number; h: numb
 /** a drawn line: horizontal (y1 = y2) or vertical (x1 = x2), in page units, y up */
 export interface PdfLine { x1: number; y1: number; x2: number; y2: number }
 /** `pictures`: how much of the page is covered by pictures (0–1): a scanned book, or tab printed as an image. */
-export interface PdfPage { texts: PdfText[]; lines: PdfLine[]; width: number; height: number; pictures?: number; shapes?: PdfShape[]; glyphs?: PdfGlyph[] }
+export interface PdfPage { texts: PdfText[]; lines: PdfLine[]; width: number; height: number; pictures?: number; shapes?: PdfShape[]; glyphs?: PdfGlyph[]; marks?: PdfMark[] }
+/** a small picture on the page (y down), e.g. a ♭ drawn as an image beside a tuning's note names; `sign` when it reads as one */
+export interface PdfMark { x0: number; y0: number; x1: number; y1: number; sign?: 'flat' | 'sharp' }
 /** One character placed on the page: music-font characters (SMuFL code points U+E000–U+F8FF: note heads, flags, rests,
  *  dots, tuplet numbers, time signatures …) and the digits, x and brackets tabs are written with; its origin (baseline) in
  *  page units (y DOWN) and font size. Notation software (Finale, Dorico,
@@ -163,6 +165,36 @@ async function pdfjs() {
   return lib
 }
 
+type PdfImg = { width: number; height: number; kind?: number; data?: Uint8Array | Uint8ClampedArray; bitmap?: CanvasImageSource }
+/** An image the page painted (pdf.js keeps it under its id once the drawing list is made). */
+function objOf(page: { objs: { get: (id: string, cb?: (v: unknown) => void) => unknown }; commonObjs?: { get: (id: string, cb?: (v: unknown) => void) => unknown } }, id: string): Promise<PdfImg | null> {
+  const store = id.startsWith('g_') && page.commonObjs ? page.commonObjs : page.objs
+  return new Promise(res => {
+    const t = setTimeout(() => res(null), 500)
+    try { store.get(id, v => { clearTimeout(t); res((v as PdfImg) ?? null) }) } catch { clearTimeout(t); res(null) }
+  })
+}
+/** ♭ or ♯ from a little picture of one: a flat's top right is empty (one stem on the left, a bowl at the bottom); a sharp
+ *  has ink there (two stems, two bars). */
+function signOf(img: PdfImg): 'flat' | 'sharp' | null {
+  const { width: w, height: h } = img
+  let ink: (x: number, y: number) => boolean
+  if (img.data) {
+    const d = img.data, n = d.length / (w * h)
+    ink = (x, y) => { const i = (y * w + x) * n; return n >= 4 ? d[i + 3] > 128 && d[i] + d[i + 1] + d[i + 2] < 384 : n === 3 ? d[i] + d[i + 1] + d[i + 2] < 384 : d[i] < 128 }
+    if (img.kind === 1) { const row = Math.ceil(w / 8); ink = (x, y) => !((d[y * row + (x >> 3)] >> (7 - (x & 7))) & 1) }
+  } else if (img.bitmap && typeof OffscreenCanvas !== 'undefined') {
+    const c = new OffscreenCanvas(w, h), x2 = c.getContext('2d')!
+    x2.fillStyle = '#fff'; x2.fillRect(0, 0, w, h); x2.drawImage(img.bitmap, 0, 0)
+    const d = x2.getImageData(0, 0, w, h).data
+    ink = (x, y) => { const i = (y * w + x) * 4; return d[i] + d[i + 1] + d[i + 2] < 384 }
+  } else return null
+  let all = 0, tr = 0, bl = 0
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (ink(x, y)) { all++; if (y < h * 0.4 && x > w * 0.5) tr++; if (y > h * 0.6 && x < w * 0.4) bl++ }
+  if (all < 8) return null
+  return tr < all * 0.04 ? 'flat' : tr > all * 0.1 ? 'sharp' : null
+}
+
 /** Text and drawn lines of every page (up to 30 pages). */
 /** Read pages `from`…`to` (a book: only the pages you picked; at most 30 at a time). */
 export async function readPdf(bytes: Uint8Array, from = 1, to = from + 29): Promise<PdfPage[]> {
@@ -184,6 +216,7 @@ export async function readPdf(bytes: Uint8Array, from = 1, to = from + 29): Prom
     const lines: PdfLine[] = []
     const shapes: PdfShape[] = []
     const glyphs: PdfGlyph[] = []
+    const marks: (PdfMark & { id?: string })[] = []
     let lineW = 1
     let pictures = 0
     try {
@@ -251,6 +284,10 @@ export async function readPdf(bytes: Uint8Array, from = 1, to = from + 29): Prom
         else if (fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject || fn === OPS.paintImageMaskXObject) {
           // an image fills the unit square under the current transform: its area on the page
           pictures += Math.abs(ctm[0] * ctm[3] - ctm[1] * ctm[2]) / Math.max(1, (view[2] - view[0]) * (view[3] - view[1]))
+          // a small one (a sign the size of a letter): keep where it is, to read later
+          const [ax, ay] = ap(ctm, 0, 0), [bx, by] = ap(ctm, 1, 1)
+          const mw = Math.abs(bx - ax), mh = Math.abs(by - ay)
+          if (mw < 30 && mh < 30 && mw > 1 && mh > 1 && marks.length < 2000) marks.push({ x0: Math.min(ax, bx), x1: Math.max(ax, bx), y0: view[3] - Math.max(ay, by), y1: view[3] - Math.min(ay, by), ...(fn === OPS.paintImageXObject && typeof args[0] === 'string' ? { id: args[0] as string } : {}) })
         }
         else if (fn === OPS.setLineWidth) lineW = (args as number[])[0]
         else if (fn === OPS.constructPath) {
@@ -353,7 +390,16 @@ export async function readPdf(bytes: Uint8Array, from = 1, to = from + 29): Prom
         }
       }
     } catch { /* no drawings: text only */ }
-    out.push({ texts, lines, width: view[2] - view[0], height: view[3] - view[1], pictures: Math.min(1, pictures), shapes, glyphs })
+    // read the small pictures that sit right after a capital letter (a tuning's "D♭ A♭ …" with the flats drawn as images)
+    const H = view[3]
+    for (const mk of marks) {
+      if (!mk.id) continue
+      const letter = texts.some(t => /^[A-G]$/.test(t.str.trim()) && mk.x0 - (t.x + (t.w || t.h * 0.6)) < t.h * 0.6 && mk.x0 >= t.x + (t.w || 0) * 0.5 && Math.abs((H - t.y) - mk.y1) < t.h * 0.8)
+      if (!letter) continue
+      const img = await objOf(page, mk.id)
+      if (img) { const sg = signOf(img); if (sg) mk.sign = sg }
+    }
+    out.push({ texts, lines, width: view[2] - view[0], height: view[3] - view[1], pictures: Math.min(1, pictures), shapes, glyphs, ...(marks.length ? { marks: marks.map(({ id: _id, ...m }) => m) } : {}) })
   }
   return out
 }
