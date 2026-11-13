@@ -188,3 +188,19 @@ pedal steel (Hawaiian), jazz archtop, a humbucker (Les Paul) guitar for classic 
   phone exports; tonight Modern Nylon / Ample M / Strummed Acoustic 2.
 - Logic via background computer use works: app_ax_find "bypass" for plug-in slots, "Metronome Click" checkbox, File menu
   via app_menu, Bounce button at (846, 416) in the save sheet, then "Replace".
+
+## RESUME HERE (paused 2026-11-12 16:30 HST, owner out of usage)
+- Done since 13:00: re-amps with headroom (one gain per pack, peak -1 dBFS): mayer-clean, corywong-funk, rabea-crunch,
+  henson-clean, henson-crunch, henson-synth (octave up + down; the low voice's fundamental is under the cab's low cut, its
+  harmonics carry it); flatpick6 (1152, Kontakt froze 4× and the watchdog restarted it); Logic basses studiobass-session,
+  -sixties, -modern (5-string, B0–C4). Phone .kgpacks in ~/KGuitar-harvest/phone (agsj, flatpick6, 6 amp tones, + basses
+  being exported by jobs 890–892). Old clipped packs moved to packs/_old-clipped (owner may delete them; ask first).
+- Logic: track 1 is Studio Bass (model switched to Modern inside the plug-in; chain from "Focused Sixties", Compressor
+  bypassed), region = studiobass-modern.mid; METRONOME OFF. Library clicks need full-screen control (background AXPress
+  doesn't load a patch); delete a region with full control (click + delete key); File > Import > MIDI File lands on a NEW
+  track → drag it onto track 1 at bar 1; "Also import tempo?" → No; set the Bounce End bar to the sched length/2 + 1.
+- Next: Upright ("Roots Upright" patch or the plug-in's American Upright model, studiobass-upright.mid, 646 s → end bar
+  ~325), bypass its dynamics/reverb; then Studio Piano, Drum Kit Designer; Dracus humbucker DI (owner clicks) → henson-chug
+  + metal tones; Ample M + Ample L (tonight: L → nylon + ukulele / baritone); owner dropped Orange Tree Modern Nylon and
+  Strummed Acoustic 2 (Strum Machine strokes: use Ample's own strummer instead).
+- Unused file logic/studiobass-driven.sched.json (owner decided against a driven bass; couldn't delete without asking).
