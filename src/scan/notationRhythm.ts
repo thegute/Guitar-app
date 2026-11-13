@@ -113,12 +113,14 @@ export function rhythmFromNotation(shapes: PdfShape[], glyphs: PdfGlyph[], st: S
   }
   // a tied note carried over from the bar before (no tab number at the bar's start): its time is kept as a held step
   const held: { x: number; dur: number }[] = []
+  // tied heads' time added to a column, by where the head sits (a triplet bracket over it shortens that part too)
+  const adds: { k: number; x: number; d: number }[] = []
   for (const pl of places) {
     const cx = pl[0].x + headW / 2
     let k = -1
     xs.forEach((x, j) => { if (x < cx) k = j })
     const m = measure(pl)
-    if (k >= 0) { durs[k] += m.d; if (m.beam && !beamOf[k]) beamOf[k] = m.beam }
+    if (k >= 0) { durs[k] += m.d; adds.push({ k, x: cx, d: m.d }); if (m.beam && !beamOf[k]) beamOf[k] = m.beam }
     else held.push({ x: cx, dur: m.d })
   }
   // triplets written as a plain (often italic) "3" with a bracket: horizontal lines left and right of it at its height;
@@ -134,7 +136,7 @@ export function rhythmFromNotation(shapes: PdfShape[], glyphs: PdfGlyph[], st: S
   }
   const headX = xs.map(x => x)
   // each triplet found: which columns it covers and by how much; applied below only where the bar is too long without it
-  const tuplets: { cols: number[]; k: number }[] = []
+  const tuplets: { cols: number[]; k: number; a: number; b: number }[] = []
   for (const t of glyphs.filter(g => (g.cp === 0x33 || g.cp === 0x36) && g.x > x0 - sp && g.x < x1 && g.y > yLo && g.y < top - st.gap * 0.8)) {
     const mid = t.x + (t.w || t.size * 0.5) / 2, cy = t.y - t.size * 0.35
     // the bracket's arms: short level lines on both sides, at the number's height (staff lines are far longer)
@@ -144,14 +146,14 @@ export function rhythmFromNotation(shapes: PdfShape[], glyphs: PdfGlyph[], st: S
     const a = Math.min(...left.map(l => l.a)) - sp * 0.3, b = Math.max(...right.map(l => l.b)) + sp * 0.3
     const k = t.cp === 0x36 ? 4 / 6 : 2 / 3
     const cols = headX.map((x, j) => (x > a && x < b ? j : -1)).filter(j => j >= 0)
-    if (cols.length) tuplets.push({ cols, k })
+    if (cols.length || adds.some(q => q.x > a && q.x < b)) tuplets.push({ cols, k, a, b })
   }
   // triplets: a 3 near a beam makes the notes on that beam 2/3
   for (const t of here.filter(g => isThree(g.cp))) {
     const b = beams.find(q => t.x > q.x0 - sp && t.x < q.x1 + sp && Math.min(Math.abs(t.y - q.y0), Math.abs(t.y - q.y1)) < sp * 3)
     if (!b) continue
     const cols = beamOf.map((q, k) => (q === b ? k : -1)).filter(k => k >= 0)
-    if (cols.length) tuplets.push({ cols, k: 2 / 3 })
+    if (cols.length) tuplets.push({ cols, k: 2 / 3, a: b.x0 - sp, b: b.x1 + sp })
   }
   // the golden rule: a triplet only counts where the bar is too long without it, and only if it brings the bar closer
   const restTime = here.filter(g => REST[g.cp] !== undefined && g.x > x0 && g.x < x1).reduce((a2, g) => a2 + REST[g.cp], 0) + held.reduce((a2, h) => a2 + h.dur, 0)
@@ -162,8 +164,17 @@ export function rhythmFromNotation(shapes: PdfShape[], glyphs: PdfGlyph[], st: S
     if (done.has(key)) continue
     const before = total()
     if (before <= beats + 1e-6) break
-    const after = before - t.cols.reduce((a2, j) => a2 + durs[j], 0) * (1 - t.k)
-    if (Math.abs(after - beats) < Math.abs(before - beats) - 1e-6) { t.cols.forEach(j => { durs[j] *= t.k }); done.add(key) }
+    // the part of each column under the bracket: its own written length (minus tied heads outside the bracket) plus
+    // tied heads inside it
+    const inside = t.cols.map(j => durs[j] - adds.filter(q => q.k === j && !(q.x > t.a && q.x < t.b)).reduce((p, q) => p + q.d, 0))
+    const extra = adds.filter(q => !t.cols.includes(q.k) && q.x > t.a && q.x < t.b)
+    const cut = (inside.reduce((p, q) => p + q, 0) + extra.reduce((p, q) => p + q.d, 0)) * (1 - t.k)
+    const after = before - cut
+    if (Math.abs(after - beats) < Math.abs(before - beats) - 1e-6) {
+      t.cols.forEach((j, n) => { durs[j] -= inside[n] * (1 - t.k) })
+      for (const q of extra) durs[q.k] -= q.d * (1 - t.k)
+      done.add(key)
+    }
   }
   // grace notes: a sixteenth taken from the next note
   for (let k = 0; k < durs.length; k++) if (grace[k]) {

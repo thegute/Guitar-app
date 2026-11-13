@@ -24,6 +24,8 @@ export interface SongStep {
   section?: string
   /** pick or strum direction printed on the page: down (⊓ / ↓) or up (V / ↑) */
   stroke?: 'down' | 'up'
+  /** a grace note: printed small, played quickly just before the note after it */
+  grace?: boolean
 }
 export interface SongBar {
   steps: SongStep[]

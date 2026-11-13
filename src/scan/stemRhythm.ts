@@ -10,7 +10,7 @@ type Staff = { lines: number[]; gap: number; left: number; right: number; /** wh
 interface Marks {
   stems: { cx: number; y0: number; y1: number }[]
   beams: { x0: number; x1: number; y: number }[]
-  flags: { x0: number; x1: number; y0: number; y1: number }[]
+  flags: { x0: number; x1: number; y0: number; y1: number; sh: PdfShape }[]
   dots: { cx: number; cy: number }[]
   rests: { cx: number; cy: number; h: number; w: number; sh: PdfShape }[]
   threes: { cx: number; cy: number; sh: PdfShape }[]
@@ -51,10 +51,12 @@ function marks(shapes: PdfShape[], st: Staff): Marks {
       else if (w > 0.5 && w < g * 0.4 && h > 0.5 && h < g * 0.4) m.dots.push({ cx, cy })
       continue
     }
+    // a 16th's second hook can start just above the bottom line (Guitar Pro stacks one hook shape per level)
+    if (s.y0 < bot && s.y0 > bot - g * 0.8 && s.y1 > bot + g * 0.5 && w > 1.5 && w < g && h > g && h < g * 3) { m.flags.push({ x0: s.x0, x1: s.x1, y0: s.y0, y1: s.y1, sh: s }); continue }
     if (s.y0 < bot || s.y0 > bot + g * 5 || (st.limit !== undefined && s.y1 > st.limit - g * 0.6)) continue
     if (w < 1.0 && h > g * 0.5 && h < g * 2.6) m.stems.push({ cx, y0: s.y0, y1: s.y1 })
     else if (h > 0.6 && h < 2 && w > 1.5 && pts(s) <= 5) m.beams.push({ x0: s.x0, x1: s.x1, y: cy })
-    else if (w > 1.5 && w < g && h > g && h < g * 3) m.flags.push({ x0: s.x0, x1: s.x1, y0: s.y0, y1: s.y1 })
+    else if (w > 1.5 && w < g && h > g && h < g * 3) m.flags.push({ x0: s.x0, x1: s.x1, y0: s.y0, y1: s.y1, sh: s })
     else if (w > 0.5 && w < 1.6 && h > 0.5 && h < 1.6) m.dots.push({ cx, cy })
     else if (h > g * 0.4 && h < g * 0.9 && w < g * 0.8) m.threes.push({ cx, cy, sh: s })
   }
@@ -64,19 +66,30 @@ function marks(shapes: PdfShape[], st: Staff): Marks {
 
 /** Lengths (in quarter notes) for the columns at `xs` in the bar x0…x1, and the rests between them; null when the bar has
  *  no rhythm marks under it (the layout then works from the spacing). */
-export function rhythmFromStems(shapes: PdfShape[], st: Staff, xs: number[], x0: number, x1: number, beats: number, tuplet: (sh: PdfShape) => number | null = () => null, restKind: (sh: PdfShape) => number | null = () => null): { durs: number[]; rests: { x: number; dur: number }[] } | null {
+export function rhythmFromStems(shapes: PdfShape[], st: Staff, xs: number[], x0: number, x1: number, beats: number, tuplet: (sh: PdfShape) => number | null = () => null, restKind: (sh: PdfShape) => number | null = () => null): { durs: number[]; rests: { x: number; dur: number }[]; grace?: boolean[] } | null {
   const m = marks(shapes, st)
   const g = st.gap
   const inBar = m.stems.filter(s => s.cx > x0 && s.cx < x1)
   if (!inBar.length) return null
+  // a stem with no number over it is a held (tied) note: the number is left out, or printed in brackets "(6)" (tie
+  // destinations aren't read as notes). It keeps its own length as a silent step, so the notes around it keep theirs.
+  const held = inBar.filter(s => !xs.some(x => Math.abs(s.cx - x) < g * 0.7)).map(s => s.cx)
+  const nCols = xs.length
+  xs = [...xs, ...held]
   // a half note has a stem about half as long as the others (Guitar Pro's rhythm under the tab)
   const hs = m.stems.map(s => s.y1 - s.y0).sort((a, b) => a - b)
-  const fullStem = hs[Math.floor(hs.length * 0.75)]
+  // (a page of nothing but half notes has only short stems: a full stem is at least about 1¼ line gaps)
+  const fullStem = Math.max(hs[Math.floor(hs.length * 0.75)], g * 1.25)
   // the beam levels sit this far apart (the gap between the main beam and the next)
   const durs: number[] = []
   let missing = 0
-  for (const x of xs) {
-    const stem = inBar.reduce<typeof inBar[number] | null>((b, s) => (Math.abs(s.cx - x) < g * 0.7 && (!b || Math.abs(s.cx - x) < Math.abs(b.cx - x)) ? s : b), null)
+  const stemAt = (x: number) => inBar.reduce<typeof inBar[number] | null>((b, s) => (Math.abs(s.cx - x) < g * 0.7 && (!b || Math.abs(s.cx - x) < Math.abs(b.cx - x)) ? s : b), null)
+  // a grace note: a (small) number with no stem, just before a note that has one. It counts for nothing in the bar;
+  // played, it takes a 32nd from the step before it (Guitar Pro's way), so the bar still adds up.
+  const grace = xs.map((x, k) => k < nCols && !stemAt(x) && xs.some((y, j) => j !== k && y > x && y - x < g * 4 && !!stemAt(y)))
+  for (const [k, x] of xs.entries()) {
+    const stem = stemAt(x)
+    if (grace[k]) { durs.push(0); continue }
     if (!stem) { durs.push(0); missing++; continue }
     if (stem.y1 - stem.y0 < fullStem * 0.7) {
       let d2 = 2
@@ -94,6 +107,7 @@ export function rhythmFromStems(shapes: PdfShape[], st: Staff, xs: number[], x0:
     if (!n) {
       // a single note's flags hang off the stem's end
       const fl = m.flags.filter(f => f.x0 < stem.cx + 1 && f.x1 > stem.cx - 0.5 && f.y1 > stem.y0 && f.y0 < stem.y1 + 2)
+        .filter((f, i, a) => a.findIndex(q => Math.abs(q.y0 - f.y0) < 0.3 && Math.abs(q.x0 - f.x0) < 0.3) === i)
       if (fl.length) {
         const tall = Math.max(...fl.map(f => f.y1 - f.y0))
         n = fl.length > 1 ? fl.length : tall > g * 2.4 ? 2 : 1
@@ -114,15 +128,15 @@ export function rhythmFromStems(shapes: PdfShape[], st: Staff, xs: number[], x0:
     let strong = false
     const ratio = 2 ** Math.floor(Math.log2(n)) / n
     let a = -Infinity, b = Infinity
+    // a bracket round the number says exactly which notes (it can be shorter than the beam: "4 5 4" of a run of 16ths)
+    const arms = brackets.filter(l => Math.abs(l.y - t.cy) < g * 0.8)
+    const left = arms.filter(l => l.b < t.cx && t.cx - l.b < g * 2), right = arms.filter(l => l.a > t.cx && l.a - t.cx < g * 2)
     const beam = m.beams.find(bm => t.cx > bm.x0 - 1 && t.cx < bm.x1 + 1 && t.cy > bm.y && t.cy < bm.y + g * 1.6)
-    if (beam) { a = beam.x0 - g * 0.7; b = beam.x1 + g * 0.7 }
-    else {
-      const arms = brackets.filter(l => Math.abs(l.y - t.cy) < g * 0.8)
-      const left = arms.filter(l => l.b < t.cx && t.cx - l.b < g * 2), right = arms.filter(l => l.a > t.cx && l.a - t.cx < g * 2)
-      if (!left.length || !right.length) continue
+    if (left.length && right.length) {
       a = Math.min(...left.map(l => l.a)) - g * 0.3; b = Math.max(...right.map(l => l.b)) + g * 0.3
       strong = true // a number inside a bracket is a tuplet
-    }
+    } else if (beam) { a = beam.x0 - g * 0.7; b = beam.x1 + g * 0.7 }
+    else continue
     // a beamed group whose note count is the tuplet's number is one too
     if (!strong && beam && xs.filter(x => x > a && x < b).length === n) strong = true
     const cols = xs.map((x, k) => (durs[k] && x > a && x < b ? k : -1)).filter(k => k >= 0)
@@ -163,7 +177,29 @@ export function rhythmFromStems(shapes: PdfShape[], st: Staff, xs: number[], x0:
     }
   } else if (left > 1e-6 && durs.length) {
     // time left with no rest drawn (a tied-over note, a missed mark): give it to the last note
-    durs[durs.length - 1] += left
+    const last = xs.reduce((b, x, k) => (x > xs[b] ? k : b), 0)
+    durs[last] += left
   }
-  return { durs, rests: restOut }
+  // the held stems go back out as silent steps (exact lengths, not shares of what's left)
+  const heldOut = held.map((x, k) => ({ x, dur: durs[nCols + k] }))
+  const restsAll = [...restOut, ...heldOut]
+  // grace notes take their 32nd from whatever sounds before them (a note, a rest, a held note), else from the note after
+  for (const [k, isG] of grace.entries()) {
+    if (!isG) continue
+    type It = { x: number; get: () => number; set: (d: number) => void }
+    const items: It[] = [
+      ...xs.slice(0, nCols).map((x, j) => ({ x, get: () => durs[j], set: (d: number) => { durs[j] = d } })).filter((_, j) => !grace[j]),
+      ...restsAll.map(r => ({ x: r.x, get: () => r.dur, set: (d: number) => { r.dur = d } })),
+    ]
+    const x = xs[k]
+    // two or three grace notes before one note (a rake "x x 7") share the 32nd
+    const nextMain = Math.min(...xs.slice(0, nCols).filter((y, j) => !grace[j] && y > x))
+    const prevMain = Math.max(-Infinity, ...xs.slice(0, nCols).filter((y, j) => !grace[j] && y < x))
+    const GR = 0.125 / xs.slice(0, nCols).filter((y, j) => grace[j] && y > prevMain && y < nextMain).length
+    const before = items.filter(it => it.x < x && it.get() > GR + 1e-6).sort((a, b) => b.x - a.x)[0]
+    const after = items.filter(it => it.x > x && it.get() > GR + 1e-6).sort((a, b) => a.x - b.x)[0]
+    const from = before ?? after
+    if (from) { from.set(from.get() - GR); durs[k] = GR }
+  }
+  return { durs: durs.slice(0, nCols), rests: restsAll, ...(grace.some(Boolean) ? { grace: grace.slice(0, nCols) } : {}) }
 }

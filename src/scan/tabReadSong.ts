@@ -3,7 +3,7 @@
 // are never guessed. Numbers the reader wasn't sure of are kept and marked (`unsure`): the tab shows them with an amber
 // ring so you can check them against the page.
 import { isDark, type Gray } from './image'
-import { readTab, type TabReading } from './tabRead'
+import { readTab, graceLead, type TabReading } from './tabRead'
 import { readVectorTab, type VectorReading } from './vectorTab'
 import type { TuningFound } from './tuningText'
 import type { PdfPage } from '../tabs/pdfTab'
@@ -53,6 +53,7 @@ export function readingSong(readings: TabReading[], tuning: number[], title: str
         part.bars.push({
           steps: b.steps.map(st => ({
             dur: st.dur,
+            ...(st.grace ? { grace: true } : {}),
             ...(st.stroke ? { stroke: st.stroke } : {}),
             notes: st.notes.filter(n => n.string < tun.length).map(n => {
               notes++
@@ -66,6 +67,7 @@ export function readingSong(readings: TabReading[], tuning: number[], title: str
     }
   }
   if (!notes) return null
+  for (const p of parts) if (p) graceLead(p.bars)
   const tracks = parts.filter(Boolean).map((p, i) => {
     // an empty last bar left over at the end of a page isn't music
     while (p.bars.length && !p.bars[p.bars.length - 1].steps.some(st => st.notes.length)) p.bars.pop()

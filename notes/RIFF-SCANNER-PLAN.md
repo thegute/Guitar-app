@@ -20,14 +20,14 @@ error rate (wrong note without an amber ring).
    letter templates in the first system's margin.
 2. **tab_crnn.onnx — row-pooled column-wise CRNN** for pictures and video frames (≤5 MB FP16):
    - input: the staff strip DEWARPED first (fit each string line as a cubic y_s(x) over ~16 slices; resample so string s
-     sits on a fixed row Y_s = 42 + 13·s, s = 0..6, in an H = 160 strip; 0–42 headroom for chords/techniques, 120–160 for
+     sits on a fixed row Y_s = 42 + 15·s, s = 0..5, in an H = 160 strip; 0–42 headroom for chords/techniques, 120–160 for
      stems/beams/pick strokes); staff lines NOT erased; ±1.5 px line jitter in training.
    - backbone MobileNetV4-Conv-Small or ConvNeXt-Femto, horizontal stride 4; row pooling = static slices per string row
      + an upper lane + a lower lane; sequence encoder = 4-layer dilated depthwise-separable 1D TCN (dil 1,2,4,8, k5) or a
      small Transformer (all ops on Apple MPS; no GRU / CTC).
    - heads per step: event (blank / note column / barline / rest, Gaussian targets σ=1 + focal loss) + sub-step x offset
-     (smooth-L1); ONE shared string head (27 classes: empty, frets 0–24, dead X) with a string-index embedding across 7
-     slots (read slots 0..N-1 for 4/6/7 strings); technique + pick head (h p / \ b ~ harmonic, down/up stroke); rhythm
+     (smooth-L1); ONE shared string head (27 classes: empty, frets 0–24, dead X) with a string-index embedding across 6
+     slots (read slots 0..N-1 for 4/6 strings; owner has no 7-string, 2026-11-13); technique + pick head (h p / \ b ~ harmonic, down/up stroke); rhythm
      head (whole…32nd, dots 0–2, tuplet none/3/5/6/7, tie-to-previous, rest value). Direct per-step supervision at the
      known column x (no CTC); inference = 3-point peak pick + argmax.
    - training data: alphaTab in Node (alphaSkia, boundsLookup for exact columns) + our own parameterised canvas/Skia

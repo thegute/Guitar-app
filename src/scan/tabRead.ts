@@ -14,7 +14,7 @@ import { TEMPLATES_B64, TEMPLATE_COUNT, TEMPLATE_W as TW, TEMPLATE_H as TH } fro
 import { pixelRhythm } from './pixelRhythm'
 
 export interface ReadNote { string: number; fret: number; x: number; sure: number; dead?: boolean }
-export interface ReadStep { x: number; notes: ReadNote[]; dur: number; /** pick / strum direction printed over it */ stroke?: 'down' | 'up' }
+export interface ReadStep { x: number; notes: ReadNote[]; dur: number; /** pick / strum direction printed over it */ stroke?: 'down' | 'up'; /** a grace note (small, no stem) */ grace?: boolean }
 export interface ReadBar { steps: ReadStep[]; beats: number; x0: number; x1: number }
 export interface ReadSystem { lines: number[]; gap: number; left: number; right: number; bars: ReadBar[]; /** which part (Guitar 1, 2 …) when a system stacks several staves; 0 when there is one */ part?: number; partName?: string }
 export interface TabReading { systems: ReadSystem[]; unsure: number; notes: number; meter: number }
@@ -457,7 +457,7 @@ export interface AssembleOpts {
   meterAt?: (sys: number, x: number) => number | undefined
   /** note lengths read from the page itself (rhythm stems under the staff): one per step, plus the rests between them;
    *  null to work them out from the spacing */
-  durations?: (sys: number, xs: number[], x0: number, x1: number, beats: number) => { durs: number[]; rests?: { x: number; dur: number }[] } | null
+  durations?: (sys: number, xs: number[], x0: number, x1: number, beats: number) => { durs: number[]; rests?: { x: number; dur: number }[]; grace?: boolean[] } | null
   /** skip the clef area at the start of each staff (pictures: the TAB letters can look like digits) */
   clef?: boolean
 }
@@ -540,7 +540,7 @@ export function assemble(systems: ReadSystem[], sysBars: number[][], nums: Num[]
     if (r.first && span < median * 0.85) beats = Math.max(1, Math.min(meter - 1, Math.round(meter * span / median)))
     const given = r.steps.length ? opts.durations?.(r.si, r.steps.map(st => st.x), r.x0, r.x1, beats) : null
     if (given && given.durs.length === r.steps.length) {
-      given.durs.forEach((d, k) => { r.steps[k].dur = d })
+      given.durs.forEach((d, k) => { r.steps[k].dur = d; if (given.grace?.[k]) r.steps[k].grace = true })
       // a first bar read from printed rhythm is as long as its notes and rests (a pickup, or a full bar)
       if (r.first) { const sum = given.durs.reduce((a, b) => a + b, 0) + (given.rests ?? []).reduce((a, b) => a + b.dur, 0); beats = Math.min(opts.meterAt?.(r.si, (r.x0 + r.x1) / 2) ?? meter, Math.round(sum * 48) / 48) }
       // rests read from the page become silent steps in their place
@@ -551,6 +551,22 @@ export function assemble(systems: ReadSystem[], sysBars: number[][], nums: Num[]
     s.bars.push({ steps: r.steps, beats, x0: r.x0, x1: r.x1 })
   }
   return { systems, unsure, notes: count, meter }
+}
+
+/** Grace notes that open a bar are played just before the bar line, so the bar's first real note lands on the beat:
+ *  their time moves from that note to the last step of the bar before (Guitar Pro plays them this way). `bars` are one
+ *  part's bars in order. */
+export function graceLead(bars: { steps: { dur: number; notes: unknown[]; grace?: boolean }[] }[]) {
+  for (let i = 1; i < bars.length; i++) {
+    const st = bars[i].steps
+    let k = 0, lead = 0
+    while (k < st.length && st[k].grace) lead += st[k++].dur
+    if (!lead || k >= st.length) continue
+    const prev = bars[i - 1].steps[bars[i - 1].steps.length - 1]
+    if (!prev || prev.dur <= lead + 1e-6) continue
+    prev.dur -= lead
+    st[k].dur += lead
+  }
 }
 
 /** The reading as an ASCII tab (for checking it and for the existing text-tab path): high e on top. */

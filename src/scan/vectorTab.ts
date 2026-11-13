@@ -388,7 +388,7 @@ export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?:
       const n = d ?? (opts.glyphs?.length ? rhythmFromNotation(shapes, opts.glyphs, staves[si], si ? staves[si - 1].lines[nStr - 1] : 0, xs.map(x => x / K), x0 / K, x1 / K, meterAt(si, (x0 + x1) / 2) ?? 4) : null)
       if (!n) return null
       rhythmRead += n.durs.length
-      return { durs: n.durs, rests: n.rests.map(r => ({ x: r.x * K, dur: r.dur })) }
+      return { durs: n.durs, rests: n.rests.map(r => ({ x: r.x * K, dur: r.dur })), ...((n as { grace?: boolean[] }).grace ? { grace: (n as { grace?: boolean[] }).grace } : {}) }
     },
   })
   const tuning = opts.texts && opts.height ? tuningFromText(opts.texts, opts.height, staves, nStr) : undefined
