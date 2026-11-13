@@ -226,6 +226,11 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
 - Sounds: owner prefers the Ample (SJ) acoustic over Flatpick 6 after re-listening → Ample = primary acoustic, Flatpick 6
   second. Ample Guitar M (Martin dreadnought) and Ample Guitar L (nylon → ukulele mode) arrive tonight; he prefers
   dreadnoughts over jumbos, so Ample M is likely the new primary once rendered (blind A/B first).
+- Kontakt (2026-11-13): the Kontakt on his Mac logs a patched registration ("DevXJuan / LKey"), so Claude paused Kontakt
+  recording and won't export Orange Tree Modern Nylon from it (owner disagreed; says he has permission). Resumes if Kontakt +
+  the library are on his own Native Access account. Meanwhile: a free nylon (Pianobook MDM Classical Guitar, SFZ: build the
+  pack straight from its WAVs) for nylon / ukulele / baritone, once he downloads it. Uke + baritone already use the built-in
+  free nylon bank. .kgpack picker fixed (no accept filter).
 - Native sound core (#1 of the speed plan): owner said go. Phone upgrade = nothing to redo (ONNX Runtime picks the chip).
 - [x] Play top bar flicker: the readout grew/shrank per judged note (whole screen jumped); fixed height + In time tally. (2026-11-12)
 - [x] Play click with a volume slider (strip under the play buttons, both modes; Wait mode runs a metronome at the song's tempo).
@@ -241,6 +246,10 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
       reverbs captured as IRs, free Valhalla Supermassive optional); delays, modulation (chorus, phaser, flanger, tremolo,
       vibrato, rotary), comp, gate, EQ, drive, octaver / harmonizer written in the native core from MIT-licensed DSP
       (Airwindows, Signalsmith DSP, NeuralAmpModelerCore, RTNeural). No GPL code in the app.
+- [x] (2026-11-13) Own tab-picture reader BUILT and in the app (src/scan/tabRead.ts + tabReadSong.ts): book pages, scanned and
+      Songsterr PDFs, screenshots read with no AI; unsure numbers get an amber ring; AI only when no staff is found. Plini
+      "Other Things" vs its GP file: 95% of numbers right at 300 dpi (was 62%). Still to do: rhythm from the stems under the
+      staff, read time signatures and rests, the 1-tap fix wheel on an amber note, and the same reader for video frames (Stage 4).
 - [ ] **TOP PRIORITY after the sounds (owner 2026-11-12 16:54): our own tab-picture reader.** The AI reader got "You Are My
       Sunshine" (Fingerpicking Country, p.41–42) wrong: the first bar should be B-0 / low E-3 / D-0 (thumb on the low E,
       melody on the B), the app made 2s on G and 0s on high e: wrong strings AND wrong frets. Build: staff-line finder → digit
