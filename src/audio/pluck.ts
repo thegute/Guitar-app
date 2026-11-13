@@ -3,8 +3,8 @@
 // body impulse responses (tools/render_tones.py); only the finished notes ship. Live guitar input is never processed here.
 import { audio, out, route } from './engine'
 import { monoOut } from './rig'
-import { playPack, packLoaded, loadPrivatePack, playPackChord } from '../engine/packs'
-import { packSounds, type BuiltInSound } from './packSounds'
+import { playPack, packLoaded, loadPrivatePack, playPackChord, privatePacks } from '../engine/packs'
+import { packSounds, setPackSounds, FIRST_CHOICE, type BuiltInSound } from './packSounds'
 import { strumNotes } from '../engine/strumLogic'
 import { midiToFreq } from '../theory/notes'
 
@@ -287,6 +287,16 @@ export function packFor(id: SoundId): string | null {
 export function setPackFor(id: SoundId, packId: string | null) {
   try { if (packId) localStorage.setItem(`kg:pack:${id}`, JSON.stringify(packId)); else localStorage.removeItem(`kg:pack:${id}`) } catch { /* private */ }
   soundListeners.forEach(f => f())
+}
+/** Bring the list of pack sounds up to date with the packs on this phone (start-up, after an import or a delete). A pack
+ *  with a first choice (the Ample → the acoustic, owner 2026-11-12) takes that sound over the first time it arrives. */
+export async function refreshPackSounds(justImported?: string) {
+  const list = setPackSounds(await privatePacks())
+  if (justImported && FIRST_CHOICE[justImported] && !packFor(FIRST_CHOICE[justImported])) setPackFor(FIRST_CHOICE[justImported], justImported)
+  const c = soundChoice()
+  if (c !== 'auto' && c.startsWith('pack:') && !list.some(p => `pack:${p.id}` === c)) setSoundChoice('auto')
+  soundListeners.forEach(f => f())
+  return list
 }
 /** gain (0–1+) → MIDI velocity: how hard a note is picked */
 const velOf = (gain: number) => Math.max(20, Math.min(127, Math.round(30 + 90 * Math.min(1.1, gain))))

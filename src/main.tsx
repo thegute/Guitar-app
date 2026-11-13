@@ -6,13 +6,15 @@ import { applyTheme } from './theme'
 import { startGame } from './learn/game'
 import { onLogUpdate } from './learn/progress'
 import { onPracticeLogged, scheduleReminders } from './learn/reminders'
-import { activeSound, loadSound } from './audio/pluck'
+import { activeSound, loadSound, refreshPackSounds } from './audio/pluck'
 import { startShareIn } from './shareIn'
 
 applyTheme()
 startGame()
 // load the recorded guitar sound in the background
 setTimeout(() => void loadSound(activeSound()), 800)
+// the owner's sound packs as sounds of their own (names in every sound picker)
+setTimeout(() => void refreshPackSounds().catch(() => {}), 400)
 // keep two weeks of reminders lined up, and drop today's once you've practised
 void scheduleReminders()
 onLogUpdate(() => onPracticeLogged())

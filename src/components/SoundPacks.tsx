@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { importPack, privatePacks, deletePack, loadPrivatePack, ensure, playPack } from '../engine/packs'
 import type { Pack } from '../engine/packLogic'
-import { SOUNDS, packFor, setPackFor, type SoundId } from '../audio/pluck'
+import { SOUNDS, packFor, setPackFor, refreshPackSounds, type SoundId } from '../audio/pluck'
 import { audio } from '../audio/engine'
 import { parseChordSets, savePrivateSets } from '../theory/chordSets'
 
@@ -14,8 +14,8 @@ export function SoundPacks() {
   const [, bump] = useState(0)
   const input = useRef<HTMLInputElement>(null)
   const file = useRef<HTMLInputElement>(null)
-  const refresh = () => { void privatePacks().then(setPacks) }
-  useEffect(refresh, [])
+  const refresh = (imported?: string) => { void privatePacks().then(setPacks); void refreshPackSounds(imported) }
+  useEffect(() => refresh(), [])
   useEffect(() => { input.current?.setAttribute('webkitdirectory', ''); input.current?.setAttribute('directory', '') }, [])
 
   const onFiles = async (fl: FileList | null) => {
@@ -26,12 +26,20 @@ export function SoundPacks() {
       try { const sets = parseChordSets(JSON.parse(await cs.text())); savePrivateSets(sets); setBusy(`${sets.length} chord sets are ready in Jam → Inspire me.`) } catch (e) { setBusy(String((e as Error).message ?? e)) }
       if (![...fl].some(f => f.name === 'pack.json')) return
     }
-    try {
-      setBusy('Bringing the pack in…')
-      const p = await importPack([...fl], (d, t) => setBusy(`Bringing the pack in… ${d} of ${t} recordings`))
-      setBusy(`"${p.name}" is ready.`)
-      refresh()
-    } catch (e) { setBusy(String((e as Error).message ?? e)) }
+    // several .kgpack files picked at once come in one after another
+    const kgs = [...fl].filter(f => /\.(kgpack|zip)$/i.test(f.name))
+    const groups = kgs.length ? kgs.map(f => [f]) : [[...fl]]
+    const done: string[] = []
+    for (const [i, g] of groups.entries()) {
+      try {
+        const n = groups.length > 1 ? ` (${i + 1} of ${groups.length})` : ''
+        setBusy(`Bringing the pack in${n}…`)
+        const p = await importPack(g, (d, t) => setBusy(`Bringing the pack in${n}… ${d} of ${t} recordings`))
+        done.push(p.name)
+        refresh(p.id)
+      } catch (e) { setBusy(`${g[0]?.name ?? 'That file'}: ${String((e as Error).message ?? e)}`); return }
+    }
+    setBusy(done.length === 1 ? `"${done[0]}" is ready: pick it by name in any sound picker.` : `${done.length} packs are ready: pick them by name in any sound picker.`)
   }
   const tryIt = async (p: Pack) => {
     await loadPrivatePack(p.id)
@@ -62,9 +70,9 @@ export function SoundPacks() {
         They stay on this phone only. Bring in the pack's <b>.kgpack</b> file (one file, made on your Mac), or on a computer its folder (the one with <b>pack.json</b>).
       </p>
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <button className="btn" onClick={() => file.current?.click()} data-testid="pack-file">Bring in a .kgpack file…</button>
+        <button className="btn" onClick={() => file.current?.click()} data-testid="pack-file">Bring in .kgpack files…</button>
         <button className="btn ghost" onClick={() => input.current?.click()}>…or a pack folder</button>
-        <input ref={file} type="file" accept=".kgpack,.zip" hidden onChange={e => { void onFiles(e.target.files); e.target.value = '' }} />
+        <input ref={file} type="file" accept=".kgpack,.zip" multiple hidden onChange={e => { void onFiles(e.target.files); e.target.value = '' }} />
         <input ref={input} type="file" multiple hidden onChange={e => { void onFiles(e.target.files); e.target.value = '' }} />
       </div>
       {busy && <p className="small" role="status" style={{ margin: 0 }}>{busy}</p>}

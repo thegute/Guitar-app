@@ -32,6 +32,10 @@ const bad = m => { problems.push(m); console.log('  PROBLEM', m) }
     if (vp.n === 'cover') await box.locator('input[type=file][accept*=kgpack]').setInputFiles(path.join(__dirname, '..', 'fixtures', 'pack-test.kgpack'))
     else await box.locator('input[type=file]:not([accept])').setInputFiles(path.join(__dirname, '..', 'fixtures', 'pack-test'))
     await page.locator('[data-testid=sound-pack]:has-text("Test sines")').waitFor({ timeout: 10000 }).catch(() => bad(`${vp.n}: the imported pack isn't listed`))
+    // the pack is a sound of its own, by name, wherever a sound is picked
+    await page.waitForTimeout(400)
+    const named = await page.evaluate(() => JSON.parse(localStorage.getItem('kg:packSounds') || '[]').map(p => p.name))
+    if (!named.includes('Test sines')) bad(`${vp.n}: the pack isn't in the sound list (${named.join(', ')})`)
     await page.locator('[data-testid=sound-pack] select').selectOption('acoustic')
     if ((await page.evaluate(() => localStorage.getItem('kg:pack:acoustic'))) !== '"test-sines"') bad(`${vp.n}: choosing it for Acoustic wasn't saved`)
     await page.locator('[data-testid=sound-pack] button:has-text("Try it")').click()
