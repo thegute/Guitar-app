@@ -1500,7 +1500,7 @@ export function PlayScreen() {
         {!sideOpen && readout(true)}
         {!sideOpen && micError && <p className="notice small">{micError}</p>}
         {tabTools}
-        <PlayMix click={click} onClick={setClick} mix={mode === 'time' && (guide || withBand)} band={withBand} bandAvail={bandAvail} bandOn={bandOn} onBand={setBandOn} />
+        {gameView !== 'game' && <PlayMix click={click} onClick={setClick} mix={mode === 'time' && (guide || withBand)} band={withBand} bandAvail={bandAvail} bandOn={bandOn} onBand={setBandOn} />}
         {nudge && mode === 'wait' && (
           <div className="notice nudge" role="status">
             <span><b>Clean run!</b> Next step: play it <b>In time</b>, with the beat. Start at ¾ speed{bandAvail ? ' with the band' : ''}.</span>
