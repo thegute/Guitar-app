@@ -1,6 +1,7 @@
 // Bass lines for Jam: a recorded electric bass following the chords, in a pattern that suits the style
 // (driving eighths, metal sixteenths with the kick, walking jazz lines, reggae, bossa, country root-fifth ...).
 import { playBass, type Handle } from './pluck'
+import type { BassKind } from './packSounds'
 
 /** A bass note: R root, 3 the chord's third, 5 fifth, 6 sixth, 7 the chord's seventh (or b7), 8 octave, W walking, A approach into the next chord */
 type Deg = 'R' | '3' | '5' | '6' | '7' | '8' | 'W' | 'A'
@@ -12,26 +13,28 @@ export interface BassLine {
   level?: number
   /** how much amp grit under the bass (rock and metal bass players drive their tone) */
   drive?: number
+  /** which recorded bass suits it (when the owner's bass packs are on the phone): session unless said */
+  bass?: BassKind
 }
 
 const eighths = (d: Deg, len = 0.45, acc = 1): BHit[] => [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map(b => [b, d, len, b % 1 ? 0.78 * acc : acc])
 const S = 2 / 3 // swung eighth
 
 export const BASSLINES: BassLine[] = [
-  { id: 'root8', drive: 0.3, label: 'Driving eighths (rock)', hits: eighths('R') },
+  { id: 'root8', bass: 'modern', drive: 0.3, label: 'Driving eighths (rock)', hits: eighths('R') },
   { id: 'pop', label: 'Pop', hits: [[0, 'R', 1.4, 1], [1.5, 'R', 0.45, 0.75], [2, '5', 0.9, 0.85], [3, '8', 0.45, 0.8], [3.5, '5', 0.45, 0.7]] },
-  { id: 'metal', drive: 0.55, level: 0.6, label: 'Metal (with the double kick)', hits: Array.from({ length: 16 }, (_, i) => [i / 4, 'R', 0.22, i % 4 === 0 ? 1 : 0.8] as BHit) },
-  { id: 'gallop', drive: 0.55, level: 0.6, label: 'Metal gallop', hits: [0, 1, 2, 3].flatMap(b => [[b, 'R', 0.45, 1], [b + 0.5, 'R', 0.22, 0.8], [b + 0.75, 'R', 0.22, 0.8]] as BHit[]) },
+  { id: 'metal', bass: 'modern', drive: 0.55, level: 0.6, label: 'Metal (with the double kick)', hits: Array.from({ length: 16 }, (_, i) => [i / 4, 'R', 0.22, i % 4 === 0 ? 1 : 0.8] as BHit) },
+  { id: 'gallop', bass: 'modern', drive: 0.55, level: 0.6, label: 'Metal gallop', hits: [0, 1, 2, 3].flatMap(b => [[b, 'R', 0.45, 1], [b + 0.5, 'R', 0.22, 0.8], [b + 0.75, 'R', 0.22, 0.8]] as BHit[]) },
   { id: 'ballad', label: 'Long notes (ballad)', hits: [[0, 'R', 1.9, 1], [2, '5', 1.4, 0.8], [3.5, 'R', 0.45, 0.6]] },
-  { id: 'halftime', drive: 0.25, label: 'Half-time', hits: [[0, 'R', 1.6, 1], [1.75, 'R', 0.4, 0.7], [2.5, '5', 1.2, 0.85]] },
+  { id: 'halftime', bass: 'modern', drive: 0.25, label: 'Half-time', hits: [[0, 'R', 1.6, 1], [1.75, 'R', 0.4, 0.7], [2.5, '5', 1.2, 0.85]] },
   { id: 'country', label: 'Root–fifth (country)', hits: [[0, 'R', 0.9, 1], [2, '5', 0.9, 0.9]] },
-  { id: 'boogie', label: 'Blues boogie (shuffle)', hits: [[0, 'R', S - 0.05, 1], [S, '3', 0.3, 0.7], [1, '5', S - 0.05, 0.9], [1 + S, '6', 0.3, 0.7], [2, '7', S - 0.05, 0.95], [2 + S, '6', 0.3, 0.7], [3, '5', S - 0.05, 0.9], [3 + S, '3', 0.3, 0.7]] },
-  { id: 'walk', label: 'Walking (jazz)', hits: [[0, 'R', 0.9, 1], [1, 'W', 0.9, 0.85], [2, 'W', 0.9, 0.9], [3, 'A', 0.9, 0.85]] },
-  { id: 'bossa', label: 'Bossa nova', hits: [[0, 'R', 1.4, 1], [1.5, '5', 0.45, 0.8], [2, '5', 1.4, 0.9], [3.5, 'R', 0.45, 0.8]] },
-  { id: 'funk', label: 'Funk', hits: [[0, 'R', 0.2, 1], [0.75, 'R', 0.2, 0.75], [1, '8', 0.15, 0.9], [1.75, '7', 0.2, 0.7], [2, 'R', 0.2, 0.95], [2.5, 'R', 0.2, 0.7], [2.75, '5', 0.2, 0.8], [3.5, '8', 0.15, 0.9], [3.75, '7', 0.2, 0.7]] },
+  { id: 'boogie', bass: 'sixties', label: 'Blues boogie (shuffle)', hits: [[0, 'R', S - 0.05, 1], [S, '3', 0.3, 0.7], [1, '5', S - 0.05, 0.9], [1 + S, '6', 0.3, 0.7], [2, '7', S - 0.05, 0.95], [2 + S, '6', 0.3, 0.7], [3, '5', S - 0.05, 0.9], [3 + S, '3', 0.3, 0.7]] },
+  { id: 'walk', bass: 'upright', label: 'Walking (jazz)', hits: [[0, 'R', 0.9, 1], [1, 'W', 0.9, 0.85], [2, 'W', 0.9, 0.9], [3, 'A', 0.9, 0.85]] },
+  { id: 'bossa', bass: 'upright', label: 'Bossa nova', hits: [[0, 'R', 1.4, 1], [1.5, '5', 0.45, 0.8], [2, '5', 1.4, 0.9], [3.5, 'R', 0.45, 0.8]] },
+  { id: 'funk', bass: 'modern', label: 'Funk', hits: [[0, 'R', 0.2, 1], [0.75, 'R', 0.2, 0.75], [1, '8', 0.15, 0.9], [1.75, '7', 0.2, 0.7], [2, 'R', 0.2, 0.95], [2.5, 'R', 0.2, 0.7], [2.75, '5', 0.2, 0.8], [3.5, '8', 0.15, 0.9], [3.75, '7', 0.2, 0.7]] },
   { id: 'disco', label: 'Octaves (disco)', hits: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map(b => [b, b % 1 ? '8' : 'R', 0.4, b % 1 ? 0.8 : 1] as BHit) },
-  { id: 'reggae', level: 1.6, label: 'Reggae one drop', hits: [[0.5, 'R', 0.45, 0.85], [1, 'R', 0.9, 1], [2.5, '3', 0.45, 0.8], [3, '5', 0.9, 0.9]] },
-  { id: 'lofi', label: 'Laid back (lo-fi)', hits: [[0, 'R', 1.4, 1], [1.75, 'R', 0.5, 0.7], [2.5, '5', 1.2, 0.85]] },
+  { id: 'reggae', bass: 'sixties', level: 1.6, label: 'Reggae one drop', hits: [[0.5, 'R', 0.45, 0.85], [1, 'R', 0.9, 1], [2.5, '3', 0.45, 0.8], [3, '5', 0.9, 0.9]] },
+  { id: 'lofi', bass: 'sixties', label: 'Laid back (lo-fi)', hits: [[0, 'R', 1.4, 1], [1.75, 'R', 0.5, 0.7], [2.5, '5', 1.2, 0.85]] },
 ]
 export const bassLine = (id: string) => BASSLINES.find(b => b.id === id)
 
@@ -73,7 +76,7 @@ export class BassPlayer {
   private last: Handle | null = null
   private lastMidi: number | null = null
   stop(at?: number) { this.last?.stop(at); this.last = null }
-  beat(lineId: string, pos: number, when: number, spb: number, level: number, dest: AudioNode,
+  beat(lineId: string, pos: number, when: number, spb: number, level: number, dest: AudioNode, kind: BassKind | undefined,
     chordAt: (beatOffset: number) => { c: BassChord; next: BassChord | null } | null) {
     const line = bassLine(lineId)
     if (!line) return
@@ -85,7 +88,7 @@ export class BassPlayer {
       const m = bassMidi(deg, at.c, at.next, Math.floor(p), this.lastMidi)
       // one string at a time: a new note stops the last one
       this.last?.stop(t)
-      const h = playBass(m, t, 0.85 * lv * level * (line.level ?? 1), dest)
+      const h = playBass(m, t, 0.85 * lv * level * (line.level ?? 1), dest, kind ?? line.bass)
       h.stop(t + len * spb)
       this.last = h
       this.lastMidi = m

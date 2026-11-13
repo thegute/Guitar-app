@@ -43,3 +43,27 @@ export function setPackSounds(packs: (Pick<Pack, 'id' | 'name' | 'kind'> & { ren
 
 /** A pack that should take over a built-in sound the first time it arrives (the owner's picks; he can change it). */
 export const FIRST_CHOICE: Record<string, BuiltInSound> = { agsj: 'acoustic' }
+
+// ---- recorded basses (Logic's Studio Bass, rendered on the Mac): each bass line picks the one that suits its style ----
+export type BassKind = 'session' | 'sixties' | 'modern' | 'upright'
+export const BASS_PACK: Record<BassKind, string> = { session: 'studiobass-session', sixties: 'studiobass-sixties', modern: 'studiobass-modern', upright: 'studiobass-upright' }
+export const BASS_LABEL: Record<BassKind, string> = { session: 'Session (round, all-round)', sixties: 'Sixties (flatwounds: reggae, soul)', modern: 'Modern (tight: prog, funk, rock)', upright: 'Upright (bluegrass, folk, jazz)' }
+const BASS_KEY = 'kg:bassPacks'
+/** Bass packs on this phone (kept with the pack sound list). */
+export function bassPacks(): string[] { try { const v = JSON.parse(localStorage.getItem(BASS_KEY) ?? '[]'); return Array.isArray(v) ? v : [] } catch { return [] } }
+export function setBassPacks(ids: string[]) { try { localStorage.setItem(BASS_KEY, JSON.stringify(ids)) } catch { /* private */ } }
+/** The owner's choice of bass: 'auto' (the bass line's style decides) or one kind. */
+export function bassChoice(): 'auto' | BassKind {
+  try { const v = JSON.parse(localStorage.getItem('kg:bassSound') ?? '"auto"'); return v in BASS_PACK ? v : 'auto' } catch { return 'auto' }
+}
+export function setBassChoice(c: 'auto' | BassKind) { try { localStorage.setItem('kg:bassSound', JSON.stringify(c)) } catch { /* private */ } }
+/** The bass pack to play for a bass line's kind, when it's on this phone (else the built-in bass bank). */
+export function bassPackFor(kind?: BassKind): string | null {
+  const k = bassChoice() === 'auto' ? kind ?? 'session' : bassChoice() as BassKind
+  const have = bassPacks()
+  const id = BASS_PACK[k]
+  if (have.includes(id)) return id
+  // the closest one that is here: any recorded bass beats the built-in one
+  const order: BassKind[] = k === 'upright' ? ['upright', 'sixties', 'session', 'modern'] : k === 'sixties' ? ['sixties', 'session', 'modern', 'upright'] : k === 'modern' ? ['modern', 'session', 'sixties', 'upright'] : ['session', 'modern', 'sixties', 'upright']
+  return order.map(x => BASS_PACK[x]).find(x => have.includes(x)) ?? null
+}

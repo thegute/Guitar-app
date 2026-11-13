@@ -4,7 +4,7 @@
 import { audio, out, route } from './engine'
 import { monoOut } from './rig'
 import { playPack, packLoaded, loadPrivatePack, playPackChord, privatePacks } from '../engine/packs'
-import { packSounds, setPackSounds, FIRST_CHOICE, type BuiltInSound } from './packSounds'
+import { packSounds, setPackSounds, FIRST_CHOICE, setBassPacks, bassPackFor, type BuiltInSound, type BassKind } from './packSounds'
 import { strumNotes } from '../engine/strumLogic'
 import { midiToFreq } from '../theory/notes'
 
@@ -291,7 +291,9 @@ export function setPackFor(id: SoundId, packId: string | null) {
 /** Bring the list of pack sounds up to date with the packs on this phone (start-up, after an import or a delete). A pack
  *  with a first choice (the Ample → the acoustic, owner 2026-11-12) takes that sound over the first time it arrives. */
 export async function refreshPackSounds(justImported?: string) {
-  const list = setPackSounds(await privatePacks())
+  const all = await privatePacks()
+  const list = setPackSounds(all)
+  setBassPacks(all.filter(p => p.kind === 'bass').map(p => p.id))
   if (justImported && FIRST_CHOICE[justImported] && !packFor(FIRST_CHOICE[justImported])) setPackFor(FIRST_CHOICE[justImported], justImported)
   const c = soundChoice()
   if (c !== 'auto' && c.startsWith('pack:') && !list.some(p => `pack:${p.id}` === c)) setSoundChoice('auto')
@@ -439,10 +441,18 @@ export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: 
   return { stop: (at?: number) => notes.forEach(n => n.stop(at)) }
 }
 
-/** Electric bass (recorded), for Jam's bass lines. */
-export function playBass(midi: number, when: number, gain: number, dest?: AudioNode): Handle {
-  const bank = banks.get('bass')
+/** Electric bass (recorded), for Jam's bass lines: one of the owner's Studio Bass packs when it's on the phone (the bass
+ *  line's style picks which: reggae the Sixties, bluegrass the upright …), else the built-in bass bank. */
+export function playBass(midi: number, when: number, gain: number, dest?: AudioNode, kind?: BassKind): Handle {
   const t = when || audio().currentTime
+  const pk = bassPackFor(kind)
+  if (pk) {
+    if (packLoaded(pk)) {
+      const h = playPack(pk, { art: 'sustain', midi, vel: velOf(gain * 0.95), when: t, dest: dest ?? route('any', 'bass') })
+      if (h) return h
+    } else void loadPrivatePack(pk)
+  }
+  const bank = banks.get('bass')
   if (bank) {
     const g = bank.groups.notes!
     const k = nearest(g, midi)

@@ -18,6 +18,8 @@ import { useHint } from '../components/Fold'
 import { Win, WinArea } from '../components/Win'
 import { chordInfo as readChord } from '../tabs/harmony'
 import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
+import { bassPacks, bassPackFor, BASS_LABEL, type BassKind } from '../audio/packSounds'
+import { loadPrivatePack } from '../engine/packs'
 import { strum as strumNotes, preload, allSounds, soundInfo, loadSound, loadBank, bankLoaded, soundLoaded, type SoundId } from '../audio/pluck'
 import { BASSLINES } from '../audio/bass'
 import { audio, keepAwake } from '../audio/engine'
@@ -41,6 +43,14 @@ import { Zoomable } from '../components/Zoomable'
 import { useSubTab } from '../components/SubTabs'
 import { PsyPic } from '../components/PsyArt'
 import { pc } from '../theory/notes'
+
+/** The recorded bass each Jam style suits (when the owner's Studio Bass packs are on the phone); others follow the bass line. */
+const STYLE_BASS: Partial<Record<Style, BassKind>> = {
+  bluegrass: 'upright', jazz: 'upright', bossa: 'upright', folk: 'upright', acoustic: 'upright', classical: 'upright', slackkey: 'upright', island: 'upright',
+  reggae: 'sixties', reggaerock: 'sixties', motown: 'sixties', neosoul: 'sixties', gospel: 'sixties', lofi: 'sixties', blues: 'sixties', afrobeat: 'sixties',
+  progclean: 'modern', progmetal: 'modern', mathrock: 'modern', metal: 'modern', funk: 'modern', funkpop: 'modern', grunge: 'modern', punk: 'modern',
+}
+const bassLineKind = (id: string): BassKind => BASSLINES.find(b => b.id === id)?.bass ?? 'session'
 import { useScreenInfo } from '../assistant/screen'
 
 const StudioScreen = lazy(() => import('../studio/StudioScreen').then(m => ({ default: m.StudioScreen })))
@@ -99,6 +109,9 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   const [toneId, setToneId] = usePersist<'auto' | SoundId>('jamTone', 'auto')
   const [bassId, setBassId] = usePersist('jamBass', 'auto')
   const [bassOn, setBassOn] = usePersist('jamBassOn', true)
+  // which recorded bass (when the owner's Studio Bass packs are on the phone): the style's, or one he picks
+  const [bassKindPick, setBassKindPick] = usePersist<'auto' | BassKind>('bassSound', 'auto')
+  const haveBassPacks = bassPacks().length > 0
   const [bandOpen, setBandOpen] = useState(false)
   const [optionsOpen, setOptionsOpen] = usePersist('jamOptionsOpen', false)
   // Jam is three choices (Play with a band, Make a beat, Loop myself) plus the Riff Scanner behind a small link. Solo over it
@@ -212,6 +225,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   function applySong() {
     const t = tr()
     chosen.forEach(v => preload(midisOf(v), tone))
+    t.bassKind = bassKindPick === 'auto' ? STYLE_BASS[style] : bassKindPick
     t.setSong(prog.map((c, i) => ({ midis: midisOf(chosen[i]), beats: c.beats ?? 4, root: pc(c.root), tones: typeTones(c.type) })), bpm, strumKind, drums, bassLine, tone, kitId === 'auto' ? null : kitId)
     t.setMix({ chords: chordsOn, drums: drumsOn, click: clickOn, bass: bassOn })
   }
@@ -219,8 +233,8 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   useEffect(() => {
     void loadSound(tone)
     if (drums !== 'off') void loadKit(kit)
-    if (bassLine !== 'off') void loadBank('bass')
-  }, [tone, drums, bassLine, kit])
+    if (bassLine !== 'off') { void loadBank('bass'); const pk = bassPackFor(bassKindPick === 'auto' ? STYLE_BASS[style] ?? bassLineKind(bassLine) : bassKindPick); if (pk) void loadPrivatePack(pk) }
+  }, [tone, drums, bassLine, kit, bassKindPick, style])
   const [loadingSounds, setLoadingSounds] = useState(false)
   async function playWhenReady() {
     const ready = () => soundLoaded(tone) && (drums === 'off' || kitLoaded(kit)) && (bassLine === 'off' || bankLoaded('bass'))
@@ -252,7 +266,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   useEffect(() => {
     if (transport.current?.playing) startPlay(0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bpm, strumKind, drums, prog, shapeIdx, shapePref, bassLine, tone, kitId])
+  }, [bpm, strumKind, drums, prog, shapeIdx, shapePref, bassLine, tone, kitId, bassKindPick])
   useEffect(() => {
     transport.current?.setMix({ chords: chordsOn, drums: drumsOn, click: clickOn, bass: bassOn })
   }, [chordsOn, drumsOn, clickOn, bassOn])
@@ -412,6 +426,14 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
             {BASSLINES.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
           </select>
         </Field>
+        {haveBassPacks && bassLine !== 'off' && (
+          <Field label="Bass sound">
+            <select className="select" value={bassKindPick} onChange={e => setBassKindPick(e.target.value as 'auto' | BassKind)} data-testid="jam-bass-sound">
+              <option value="auto">Match the style ({BASS_LABEL[STYLE_BASS[style] ?? bassLineKind(bassLine)].split(' (')[0]})</option>
+              {(Object.keys(BASS_LABEL) as BassKind[]).map(k => <option key={k} value={k}>{BASS_LABEL[k]}</option>)}
+            </select>
+          </Field>
+        )}
       </div>
       )}
       <div className="row hear-row">

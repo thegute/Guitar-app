@@ -7,6 +7,8 @@ import { playGrooveBar, loadKit, grooveOf, type KitId } from './drums'
 import { playHit, strumPattern, type Handle } from './strums'
 import { BassPlayer, bassLine, type BassChord } from './bass'
 import { loadBank, loadSound, soundInfo, type SoundId } from './pluck'
+import { bassPackFor, type BassKind } from './packSounds'
+import { loadPrivatePack } from '../engine/packs'
 
 export interface JamChord {
   midis: number[]
@@ -46,6 +48,8 @@ export class JamTransport {
   bass = 'off'
   sound: SoundId = 'acoustic'
   private bassPlayer = new BassPlayer()
+  /** the recorded bass this style suits (the owner's Studio Bass packs): bluegrass the upright, reggae the Sixties … */
+  bassKind: BassKind | undefined
   /** context time of loop position 0 */
   T0 = 0
   playing = false
@@ -94,7 +98,7 @@ export class JamTransport {
     this.kit = kit
     void loadSound(sound)
     if (drums !== 'off') void loadKit(kit ?? grooveOf(drums)?.kit)
-    if (bass !== 'off') void loadBank('bass')
+    if (bass !== 'off') { void loadBank('bass'); const pk = bassPackFor(this.bassKind ?? bassLine(bass)?.bass); if (pk) void loadPrivatePack(pk) }
     const drive = bassLine(bass)?.drive ?? 0
     const now = audio().currentTime
     this.bassWet.gain.setTargetAtTime(drive * 0.55, now, 0.02)
@@ -261,7 +265,7 @@ export class JamTransport {
       const ch = this.chords[ci]
       const pos = lb % 4
       if (this.bass !== 'off') {
-        this.bassPlayer.beat(this.bass, pos, t, this.spb, 1, this.bassBus, off => {
+        this.bassPlayer.beat(this.bass, pos, t, this.spb, 1, this.bassBus, this.bassKind, off => {
           const i = this.chordIndexAt((lb + off) % this.loopBeats)
           const c = this.bassChord(i)
           return c ? { c, next: this.bassChord((i + 1) % this.chords.length) } : null
