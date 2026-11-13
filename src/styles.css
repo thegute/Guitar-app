@@ -2826,3 +2826,7 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
   .play-head > .song-title .song-name b { font-size: 19px; }
   .play-head > .btn.listen { margin-left: auto; }
 }
+
+/* The "Tucked away" tray sits at the end of its page, in line with everything else (owner 2026-11-12: floating over the
+   page it got in the way). Scroll to the bottom to bring a tucked-away window back. */
+.win-tray, .win-tray[class] { position: static; bottom: auto; box-shadow: none; z-index: auto; }
