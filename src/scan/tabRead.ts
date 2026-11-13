@@ -11,6 +11,7 @@
 // Pure functions on a grey picture (Gray from scan/image.ts), so they run the same in the app and in tests.
 import { findStrips, type Gray } from './image'
 import { TEMPLATES_B64, TEMPLATE_COUNT, TEMPLATE_W as TW, TEMPLATE_H as TH } from './digitTemplates'
+import { pixelRhythm } from './pixelRhythm'
 
 export interface ReadNote { string: number; fret: number; x: number; sure: number; dead?: boolean }
 export interface ReadStep { x: number; notes: ReadNote[]; dur: number; /** pick / strum direction printed over it */ stroke?: 'down' | 'up' }
@@ -437,7 +438,15 @@ export function readTab(g: Gray, opts: ReadOpts = {}): TabReading {
     const dead = c.cls!.d === DEAD
     nums.push({ sys: c.sys, string: c.string, x: c.x, fret: dead ? 0 : c.cls!.d, sure: Math.min(c.cls!.sure, c.cls!.score - floor), ...(dead ? { dead } : {}) })
   }
-  return assemble(systems, sysBars, nums, opts)
+  // rhythm marks under each staff (stems, beams): read them from the picture when they're there
+  systems.forEach((s2, i) => { (s2 as ReadSystem & { limit?: number }).limit = systems[i + 1] ? Math.min(...systems[i + 1].lines) : undefined })
+  return assemble(systems, sysBars, nums, {
+    ...opts,
+    durations: ((si: number, xs: number[], x0: number, x1: number, beats: number) => {
+      const s2 = systems[si]
+      return pixelRhythm(g, { lines: s2.lines, gap: s2.gap, left: s2.left, right: s2.right, limit: (s2 as ReadSystem & { limit?: number }).limit }, xs, x0, x1, beats, th)
+    }),
+  })
 }
 
 /** A number read on a string line: which staff, which string (0 = lowest), where across, the fret, how sure. */
@@ -448,7 +457,7 @@ export interface AssembleOpts {
   meterAt?: (sys: number, x: number) => number | undefined
   /** note lengths read from the page itself (rhythm stems under the staff): one per step, plus the rests between them;
    *  null to work them out from the spacing */
-  durations?: (sys: number, xs: number[], x0: number, x1: number) => { durs: number[]; rests?: { x: number; dur: number }[] } | null
+  durations?: (sys: number, xs: number[], x0: number, x1: number, beats: number) => { durs: number[]; rests?: { x: number; dur: number }[] } | null
   /** skip the clef area at the start of each staff (pictures: the TAB letters can look like digits) */
   clef?: boolean
 }
@@ -529,7 +538,7 @@ export function assemble(systems: ReadSystem[], sysBars: number[][], nums: Num[]
     let beats = opts.meterAt?.(r.si, (r.x0 + r.x1) / 2) ?? meter
     const span = r.steps.length ? r.x1 - Math.max(r.x0, r.steps[0].x - lead) : r.x1 - r.x0
     if (r.first && span < median * 0.85) beats = Math.max(1, Math.min(meter - 1, Math.round(meter * span / median)))
-    const given = r.steps.length ? opts.durations?.(r.si, r.steps.map(st => st.x), r.x0, r.x1) : null
+    const given = r.steps.length ? opts.durations?.(r.si, r.steps.map(st => st.x), r.x0, r.x1, beats) : null
     if (given && given.durs.length === r.steps.length) {
       given.durs.forEach((d, k) => { r.steps[k].dur = d })
       // a first bar read from printed rhythm is as long as its notes and rests (a pickup, or a full bar)
