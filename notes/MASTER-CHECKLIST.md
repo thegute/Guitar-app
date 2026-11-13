@@ -241,3 +241,10 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
       reverbs captured as IRs, free Valhalla Supermassive optional); delays, modulation (chorus, phaser, flanger, tremolo,
       vibrato, rotary), comp, gate, EQ, drive, octaver / harmonizer written in the native core from MIT-licensed DSP
       (Airwindows, Signalsmith DSP, NeuralAmpModelerCore, RTNeural). No GPL code in the app.
+- [ ] **TOP PRIORITY after the sounds (owner 2026-11-12 16:54): our own tab-picture reader.** The AI reader got "You Are My
+      Sunshine" (Fingerpicking Country, p.41–42) wrong: the first bar should be B-0 / low E-3 / D-0 (thumb on the low E,
+      melody on the B), the app made 2s on G and 0s on high e: wrong strings AND wrong frets. Build: staff-line finder → digit
+      blobs on lines (the line = the string, exact) → digit classifier trained on rendered printed digits (0–24, many book
+      fonts) → rhythm from stems / the notation above → bar-length + playability checks → amber glow on unsure notes. AI only
+      for text marks (H, P, sl., let ring). Same reader for Songsterr PDFs and tabs in videos. Owner's pages = first test
+      (private, never committed).
