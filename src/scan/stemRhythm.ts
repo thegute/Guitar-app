@@ -6,7 +6,7 @@
 // Rests are drawn in the staff; the time the notes leave over in the bar is theirs.
 import type { PdfShape } from '../tabs/pdfTab'
 
-type Staff = { lines: number[]; gap: number; left: number; right: number }
+type Staff = { lines: number[]; gap: number; left: number; right: number; /** where the next staff down begins: marks below it are that staff's */ limit?: number }
 interface Marks {
   stems: { cx: number; y0: number; y1: number }[]
   beams: { x0: number; x1: number; y: number }[]
@@ -18,6 +18,24 @@ interface Marks {
 const cache = new WeakMap<Staff, Marks>()
 
 const pts = (s: PdfShape) => s.polys.reduce((a, p) => a + p.length / 2, 0)
+
+/** short level strokes under the staff: the arms of tuplet brackets */
+const armCache = new WeakMap<Staff, { y: number; a: number; b: number }[]>()
+function bracketArms(shapes: PdfShape[], st: Staff) {
+  const hit = armCache.get(st)
+  if (hit) return hit
+  const bot = st.lines[st.lines.length - 1], g = st.gap
+  const out: { y: number; a: number; b: number }[] = []
+  for (const s of shapes) {
+    if (s.kind !== 'stroke' || s.y0 < bot || s.y1 > bot + g * 6 || s.x1 < st.left || s.x0 > st.right) continue
+    for (const pl of s.polys) for (let i = 0; i + 3 < pl.length; i += 2) {
+      const dx = Math.abs(pl[i + 2] - pl[i]), dy = Math.abs(pl[i + 3] - pl[i + 1])
+      if (dy < dx * 0.3 && dx > g * 0.4 && dx < g * 12) out.push({ y: (pl[i + 1] + pl[i + 3]) / 2, a: Math.min(pl[i], pl[i + 2]), b: Math.max(pl[i], pl[i + 2]) })
+    }
+  }
+  armCache.set(st, out)
+  return out
+}
 
 function marks(shapes: PdfShape[], st: Staff): Marks {
   const hit = cache.get(st)
@@ -33,8 +51,8 @@ function marks(shapes: PdfShape[], st: Staff): Marks {
       else if (w > 0.5 && w < g * 0.4 && h > 0.5 && h < g * 0.4) m.dots.push({ cx, cy })
       continue
     }
-    if (s.y0 < bot || s.y0 > bot + g * 5) continue
-    if (w < 1.0 && h > g * 0.9 && h < g * 2.6) m.stems.push({ cx, y0: s.y0, y1: s.y1 })
+    if (s.y0 < bot || s.y0 > bot + g * 5 || (st.limit !== undefined && s.y1 > st.limit - g * 0.6)) continue
+    if (w < 1.0 && h > g * 0.5 && h < g * 2.6) m.stems.push({ cx, y0: s.y0, y1: s.y1 })
     else if (h > 0.6 && h < 2 && w > 1.5 && pts(s) <= 5) m.beams.push({ x0: s.x0, x1: s.x1, y: cy })
     else if (w > 1.5 && w < g && h > g && h < g * 3) m.flags.push({ x0: s.x0, x1: s.x1, y0: s.y0, y1: s.y1 })
     else if (w > 0.5 && w < 1.6 && h > 0.5 && h < 1.6) m.dots.push({ cx, cy })
@@ -46,17 +64,26 @@ function marks(shapes: PdfShape[], st: Staff): Marks {
 
 /** Lengths (in quarter notes) for the columns at `xs` in the bar x0…x1, and the rests between them; null when the bar has
  *  no rhythm marks under it (the layout then works from the spacing). */
-export function rhythmFromStems(shapes: PdfShape[], st: Staff, xs: number[], x0: number, x1: number, beats: number, isThree: (sh: PdfShape) => boolean = () => false, restKind: (sh: PdfShape) => number | null = () => null): { durs: number[]; rests: { x: number; dur: number }[] } | null {
+export function rhythmFromStems(shapes: PdfShape[], st: Staff, xs: number[], x0: number, x1: number, beats: number, tuplet: (sh: PdfShape) => number | null = () => null, restKind: (sh: PdfShape) => number | null = () => null): { durs: number[]; rests: { x: number; dur: number }[] } | null {
   const m = marks(shapes, st)
   const g = st.gap
   const inBar = m.stems.filter(s => s.cx > x0 && s.cx < x1)
   if (!inBar.length) return null
+  // a half note has a stem about half as long as the others (Guitar Pro's rhythm under the tab)
+  const hs = m.stems.map(s => s.y1 - s.y0).sort((a, b) => a - b)
+  const fullStem = hs[Math.floor(hs.length * 0.75)]
   // the beam levels sit this far apart (the gap between the main beam and the next)
   const durs: number[] = []
   let missing = 0
   for (const x of xs) {
     const stem = inBar.reduce<typeof inBar[number] | null>((b, s) => (Math.abs(s.cx - x) < g * 0.7 && (!b || Math.abs(s.cx - x) < Math.abs(b.cx - x)) ? s : b), null)
     if (!stem) { durs.push(0); missing++; continue }
+    if (stem.y1 - stem.y0 < fullStem * 0.7) {
+      let d2 = 2
+      if (m.dots.some(t => t.cx > stem.cx + 0.3 && t.cx < stem.cx + g * 0.9 && t.cy > stem.y0 - 2 && t.cy < stem.y1 + 2)) d2 *= 1.5
+      durs.push(d2)
+      continue
+    }
     const levels = new Set<number>()
     for (const b of m.beams) {
       if (stem.cx < b.x0 - 0.4 || stem.cx > b.x1 + 0.4) continue
@@ -76,12 +103,35 @@ export function rhythmFromStems(shapes: PdfShape[], st: Staff, xs: number[], x0:
     if (m.dots.some(t => t.cx > stem.cx + 0.3 && t.cx < stem.cx + g * 0.9 && t.cy > stem.y0 && t.cy < stem.y1 + 2)) d *= 1.5
     durs.push(d)
   }
-  // triplets: a small "3" under a beamed group makes each of its notes 2/3
+  // tuplets: a small 3 (or 5, 6, 7 …) under a beamed group or a bracket: n notes in the time of the power of two below n.
+  // Only where the bar is too long without it, and only if it brings the bar closer (a stray number can't break a bar).
+  const brackets = bracketArms(shapes, st)
+  const restGuess = m.rests.filter(r => r.cx > x0 + g * 0.5 && r.cx < x1 - g * 0.3).reduce((a, r) => { const k = restKind(r.sh); return a + (k === null ? 0 : [4, 2, 1, 0.5, 0.25, 0.125][k]) }, 0)
   for (const t of m.threes) {
-    // just under a beam, and really a 3 (not a letter of the next part's marks)
-    const beam = m.beams.find(b => t.cx > b.x0 - 1 && t.cx < b.x1 + 1 && t.cy > b.y && t.cy < b.y + g * 1.6)
-    if (!beam || !isThree(t.sh)) continue
-    xs.forEach((x, k) => { if (durs[k] && x > beam.x0 - g * 0.7 && x < beam.x1 + g * 0.7) durs[k] = durs[k] * 2 / 3 })
+    if (t.cx < x0 || t.cx > x1) continue
+    const n = tuplet(t.sh)
+    if (!n) continue
+    let strong = false
+    const ratio = 2 ** Math.floor(Math.log2(n)) / n
+    let a = -Infinity, b = Infinity
+    const beam = m.beams.find(bm => t.cx > bm.x0 - 1 && t.cx < bm.x1 + 1 && t.cy > bm.y && t.cy < bm.y + g * 1.6)
+    if (beam) { a = beam.x0 - g * 0.7; b = beam.x1 + g * 0.7 }
+    else {
+      const arms = brackets.filter(l => Math.abs(l.y - t.cy) < g * 0.8)
+      const left = arms.filter(l => l.b < t.cx && t.cx - l.b < g * 2), right = arms.filter(l => l.a > t.cx && l.a - t.cx < g * 2)
+      if (!left.length || !right.length) continue
+      a = Math.min(...left.map(l => l.a)) - g * 0.3; b = Math.max(...right.map(l => l.b)) + g * 0.3
+      strong = true // a number inside a bracket is a tuplet
+    }
+    // a beamed group whose note count is the tuplet's number is one too
+    if (!strong && beam && xs.filter(x => x > a && x < b).length === n) strong = true
+    const cols = xs.map((x, k) => (durs[k] && x > a && x < b ? k : -1)).filter(k => k >= 0)
+    if (!cols.length) continue
+    if (strong) { cols.forEach(k => { durs[k] *= ratio }); continue }
+    const before = durs.reduce((p, q) => p + q, 0) + restGuess
+    if (before <= beats + 1e-6) continue
+    const after = before - cols.reduce((p, k) => p + durs[k], 0) * (1 - ratio)
+    if (Math.abs(after - beats) < Math.abs(before - beats) - 1e-6) cols.forEach(k => { durs[k] *= ratio })
   }
   const used = durs.reduce((a, b) => a + b, 0)
   // columns with no stem (halves / wholes): they share what's left after the rests

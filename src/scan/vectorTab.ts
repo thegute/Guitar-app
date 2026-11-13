@@ -57,7 +57,7 @@ export function rasterShape(sh: Pick<PdfShape, 'polys' | 'x0' | 'y0' | 'x1' | 'y
 
 /** The digits in a shape, left to right (one shape can hold "10", or be a single "7"), each with how well it matched and
  *  where its middle is, measured from the shape's left edge (identical shapes share one reading). */
-function readGlyph(sh: PdfShape, set: 'tab' | 'sig' = 'tab'): { d: number; score: number; sure: number; all: Float32Array; x: number }[] {
+export function readGlyph(sh: PdfShape, set: 'tab' | 'sig' = 'tab'): { d: number; score: number; sure: number; all: Float32Array; x: number }[] {
   const { ink, w, h } = rasterShape(sh, 40)
   const bin = new Uint8Array(w * h)
   for (let i = 0; i < ink.length; i++) bin[i] = ink[i] > 0.5 ? 1 : 0
@@ -345,9 +345,12 @@ export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?:
     })
   }
   meters.sort((a, b) => a.sys - b.sys || a.x - b.x)
+  // which system each staff is in (Guitar 1 / 2 / 3 stacked are one system): a time signature applies from its place
+  // in its own staff, and to every staff of the systems after it
+  const groupOf: number[] = []
   const meterAt = (sys: number, x: number) => {
     let m: number | undefined = opts.startMeter?.beats
-    for (const t of meters) if (t.sys < sys || (t.sys === sys && t.x <= x)) m = t.beats
+    for (const t of meters) if ((groupOf[t.sys] ?? t.sys) < (groupOf[sys] ?? sys) || (t.sys === sys && t.x <= x)) m = t.beats
     return m
   }
   const systems: ReadSystem[] = staves.map(st => ({ lines: [...st.lines].reverse().map(y => y * K), gap: st.gap * K, left: st.left * K, right: st.right * K, bars: [] }))
@@ -366,18 +369,22 @@ export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?:
     // stacked staves are joined by the system's line down the left edge (or bar lines running through both)
     const same = !!p && Math.abs(p.left - st.left) < 1.5 && vlines.some(v => Math.abs(v.x - st.left) < 2 && v.y0 <= p.lines[0] + 0.5 && v.y1 >= st.lines[nStr - 1] - 0.5)
     part = same ? part + 1 : 0
+    groupOf[i] = i === 0 ? 0 : groupOf[i - 1] + (same ? 0 : 1)
     systems[i].part = part
     // the part's name printed beside it ("Guitar 2"), when it's text
     const nm = opts.texts?.find(t => /^(guitar|gtr|bass|rhythm|lead|acoustic|electric)\b/i.test(t.str.trim()) && t.x < st.left + st.gap && Math.abs((opts.height ?? 0) - t.y - (st.lines[0] + st.lines[nStr - 1]) / 2) < st.gap * 4)
     if (nm) systems[i].partName = nm.str.trim()
   })
   let rhythmRead = 0
+  // a staff's rhythm marks end where the next staff begins
+  staves.forEach((st, i) => { (st as { limit?: number }).limit = staves[i + 1]?.lines[0] })
   const r = assemble(systems, sysBars, nums, {
     clef: false, // the TAB letters are never read as numbers here (shapes are sized, text is text)
     meterAt,
-    beats: meters.length ? meters[0].beats : opts.startMeter?.beats,
+    // bars before the page's first time signature keep the one from the page before (4/4 when unknown)
+    beats: opts.startMeter?.beats ?? (meters[0] && meters[0].sys === 0 && meters[0].x < (staves[0].left + staves[0].gap * 8) * K ? meters[0].beats : 4),
     durations: (si, xs, x0, x1) => {
-      const d = rhythmFromStems(shapes, staves[si], xs.map(x => x / K), x0 / K, x1 / K, meterAt(si, (x0 + x1) / 2) ?? 4, sh => { const r = readGlyph(sh); return r.length === 1 && r[0].d === 3 && r[0].score > 0.75 }, restKind)
+      const d = rhythmFromStems(shapes, staves[si], xs.map(x => x / K), x0 / K, x1 / K, meterAt(si, (x0 + x1) / 2) ?? 4, sh => { const r = readGlyph(sh); return r.length === 1 && [3, 5, 6, 7, 9].includes(r[0].d) && r[0].score > 0.75 ? r[0].d : r.length === 2 && r[0].d === 1 && r[0].score > 0.75 && r[1].score > 0.75 ? 10 + r[1].d : null }, restKind)
       const n = d ?? (opts.glyphs?.length ? rhythmFromNotation(shapes, opts.glyphs, staves[si], si ? staves[si - 1].lines[nStr - 1] : 0, xs.map(x => x / K), x0 / K, x1 / K, meterAt(si, (x0 + x1) / 2) ?? 4) : null)
       if (!n) return null
       rhythmRead += n.durs.length
