@@ -2817,3 +2817,12 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .play-mix .pm-mix { flex: 1 1 220px; }
 [data-theme='psy'] .play-mix:not(.folded) { background: rgba(28, 6, 65, .92); border-color: rgba(0, 229, 255, .35); }
 .play.stand .play-mix { display: none; }
+
+/* Phones (Fold cover, 360–480 px): the song's name gets a full row above the buttons, instead of being squeezed to
+   one letter beside them ("Oh!…" showed as "0") */
+@media (max-width: 480px) {
+  .play-head { flex-wrap: wrap; }
+  .play-head > .song-title { flex: 1 0 100%; order: -1; }
+  .play-head > .song-title .song-name b { font-size: 19px; }
+  .play-head > .btn.listen { margin-left: auto; }
+}
