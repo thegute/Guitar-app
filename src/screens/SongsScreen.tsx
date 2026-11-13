@@ -303,6 +303,9 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
   }, [])
   const [scanned, setScanned] = useState<{ name: string; pics: { name: string; mime: string; b64: string; url: string }[]; fromBook?: boolean } | null>(null)
   const [scanLink, setScanLink] = useState<string | undefined>()
+  // a PDF printed from Songsterr ("Artist - Song"): the song itself (exact notes, rhythm, every part) can come from there
+  const [songsterr, setSongsterr] = useState('')
+  const [boxKey, setBoxKey] = useState(0)
   const pictures = useRef<HTMLDivElement | null>(null)
   const link: string | undefined = undefined
 
@@ -310,7 +313,8 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
   /** A scanned PDF (or tab printed as pictures): hand its pages to the picture reader below. */
   async function toPictures(name: string, e: unknown, fromBook = false): Promise<boolean> {
     if (!(e instanceof Error && e.name === 'Error' && /scanned/.test(e.message) && 'bytes' in e)) return false
-    const sc = e as Error & { bytes: Uint8Array; from?: number; count?: number }
+    const sc = e as Error & { bytes: Uint8Array; from?: number; count?: number; songsterr?: string }
+    setSongsterr(sc.songsterr ?? '')
     const { pdfPictures } = await import('../tabs/pdfTab')
     try {
       setScanned({ name, pics: await pdfPictures(sc.bytes, sc.count ?? 6, sc.from ?? 1), fromBook })
@@ -393,10 +397,16 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
   return (
     <WinArea area="songsAdd">
       <Win id="box" title="Add a song" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }} hint={<>One box for everything: a song name searches Songsterr and Ultimate Guitar (straight in on the phone); a YouTube link offers Find a tab, Scan it or Save for later; a Songsterr or Ultimate Guitar page comes straight in; a pasted tab or chord sheet loads. <b>Files</b>: Guitar Pro, PDF (a book asks which pages), text, a picture or screenshot of a tab (the Riff Scanner reads it), or a recording (the Riff Scanner listens). <b>From Google Drive:</b> in the picker, tap ☰ and choose Drive. Long-press to pick several files.</>}>
-        <AddBox onOpen={onOpen} onFiles={fs => void openFiles(fs)} onScan={url => { setScanLink(url); setTimeout(() => pictures.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }} />
+        <AddBox key={boxKey} onOpen={onOpen} onFiles={fs => void openFiles(fs)} onScan={url => { setScanLink(url); setTimeout(() => pictures.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }} />
         {busy && <p className="small muted" role="status" style={{ margin: 0 }}>Importing…</p>}
         {book && <PdfPages name={book.name} bytes={book.bytes} pages={book.pages} busy={busy} onRead={(a, b) => void readBook(a, b)} onCancel={() => setBook(null)} />}
         {busy && book && <p className="small muted" role="status" style={{ margin: 0 }}>Getting the pages ready…</p>}
+        {songsterr && (
+          <div className="notice small row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }} data-testid="songsterr-offer">
+            <span>This PDF was printed from <b>Songsterr</b>: its numbers are drawn as pictures, so reading it is a guess. The song itself, with the exact notes and rhythm and every part, can come straight from Songsterr.</span>
+            <button className="btn sm primary" onClick={() => { try { sessionStorage.setItem('kg:addPrefill', songsterr) } catch { /* private */ } setBoxKey(k => k + 1); setSongsterr('') }} data-testid="songsterr-find">Find "{songsterr}" on Songsterr</button>
+          </div>
+        )}
         {scanned?.fromBook && (
           <div className="stack book-scan" style={{ gap: 6 }} data-testid="book-scan">
             <p className="notice small" style={{ margin: 0 }}>The tab on <b>{scanned.name}</b> is printed as pictures, so the AI reads it. It starts by itself; when the tab shows here, check it and tap <b>Open in Play</b>.</p>

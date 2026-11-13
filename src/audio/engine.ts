@@ -105,7 +105,7 @@ export function catBus(cat: Category): CatBus {
   if (!b) {
     const input = c.createGain()
     const output = c.createGain()
-    output.gain.value = CAT_TRIM[cat]
+    output.gain.value = CAT_TRIM[cat] * catLevel(cat)
     const [cin, cout] = busChain(c, cat)
     input.connect(cin); cout.connect(output).connect(masterIn!)
     returns ??= makeReturns(c, masterIn!)
@@ -120,6 +120,17 @@ export function catBus(cat: Category): CatBus {
     cats.set(cat, b)
   }
   return b
+}
+/** A category's own volume (0–1.5), remembered as kg:cat:<cat>: e.g. the click slider in Play (1 = the mix default). */
+export function catLevel(cat: Category): number {
+  try { const v = localStorage.getItem(`kg:cat:${cat}`); if (v !== null && Number.isFinite(Number(v))) return Math.max(0, Math.min(1.5, Number(v))) } catch { /* private */ }
+  return 1
+}
+export function setCatLevel(cat: Category, v: number) {
+  const x = Math.max(0, Math.min(1.5, v))
+  try { localStorage.setItem(`kg:cat:${cat}`, String(Math.round(x * 100) / 100)) } catch { /* private */ }
+  const b = cats.get(cat)
+  if (b && ctx) b.output.gain.setTargetAtTime(CAT_TRIM[cat] * x, ctx.currentTime, 0.03)
 }
 /** How much of a category goes to a shared space (0–1): remembered as kg:send:<cat>:<send>, else the mix default. */
 export function sendLevel(cat: Category, sd: Send): number {

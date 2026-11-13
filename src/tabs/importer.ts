@@ -31,12 +31,21 @@ export const stringNames = (inst: Instrument) => [...inst.tuning.notes].reverse(
 
 /** A tab or chord sheet from a PDF (pages `from`…`to` of a book). Throws ScannedPdf when the tab on those pages is
  *  pictures (a scanned book, or tab printed as an image next to real text): the AI picture reader can read those. */
+/** "Artist   Song" from the top of a Songsterr print, to look the real song up on Songsterr. */
+function songsterrTitle(text: string): string | undefined {
+  const line = text.split('\n').map(l => l.trim()).find(l => l && !/songsterr|guitar tabs/i.test(l))
+  return line ? line.replace(/\s{2,}/g, ' - ') : undefined
+}
+
 export async function songFromPdf(name: string, bytes: Uint8Array, inst: Instrument, youtube?: string, range?: { from: number; to: number }): Promise<SongDoc> {
   const { readPdf, pdfTabText, ScannedPdf } = await import('./pdfTab')
   const pages = await readPdf(bytes, range?.from ?? 1, range?.to)
   const base = name.replace(/\.[^.]+$/, '')
   const title = range ? `${base} p.${range.from}${range.to > range.from ? `–${range.to}` : ''}` : base
-  const { staff, text } = pdfTabText(pages, stringNames(inst))
+  const { staff, text, drawn, songsterr } = pdfTabText(pages, stringNames(inst))
+  // the tab is printed with its numbers drawn as shapes (a Songsterr print): reading the page's words would only find
+  // the lyrics and chord names, so it goes to the picture reader (which sees the numbers) instead
+  if (drawn) throw new ScannedPdf(bytes, range?.from ?? 1, Math.min(6, pages.length || 6), songsterr ? songsterrTitle(text) : undefined)
   const doc = (staff && songFromText(staff, title, inst, youtube)) || songFromText(text, title, inst, youtube)
   if (doc) return { ...doc, source: doc.source === 'chords' ? 'chords' : 'text' }
   const words = pages.reduce((a, p) => a + p.texts.filter(t => t.str.trim()).length, 0)

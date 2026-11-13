@@ -2805,3 +2805,15 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .books-reader .zoomable-wrap { width: 100%; }
 .readout-box.mini .timing-tally { gap: 8px; font-size: 14px; }
 .readout-box.mini .timing-tally .tt b { font-size: 18px; min-width: 1.1em; }
+
+/* Play: sounds while you play (click on/off + volume, band, your part ↔ band) */
+.play-mix { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--r-md); background: color-mix(in srgb, var(--surface) 88%, transparent); }
+.play-mix.folded { border: 0; background: none; padding: 0; }
+.play-mix .pm-item { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.play-mix input[type=range] { width: clamp(90px, 22vw, 180px); accent-color: var(--accent); }
+.play-mix .pm-toggle.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.play-mix .pm-val { min-width: 3.2em; color: var(--ink-2); }
+.play-mix .pm-fold { margin-left: auto; min-height: var(--h-xs); padding: 0 8px; }
+.play-mix .pm-mix { flex: 1 1 220px; }
+[data-theme='psy'] .play-mix:not(.folded) { background: rgba(28, 6, 65, .92); border-color: rgba(0, 229, 255, .35); }
+.play.stand .play-mix { display: none; }

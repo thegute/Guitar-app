@@ -1,7 +1,7 @@
 import './test-env'
 import { strict as assert } from 'node:assert'
 import { readFileSync } from 'node:fs'
-import { readPdf, pdfTabText } from '../src/tabs/pdfTab'
+import { readPdf, pdfTabText, staffScan, type PdfPage } from '../src/tabs/pdfTab'
 import { songFromPdf, stringNames } from '../src/tabs/importer'
 import { INSTRUMENTS } from '../src/instrument'
 import { flatten } from '../src/tabs/model'
@@ -35,4 +35,21 @@ const notesOf = (d: Awaited<ReturnType<typeof songFromPdf>>) => flatten(d.song.t
 {
   await assert.rejects(songFromPdf('scanned.pdf', new Uint8Array(readFileSync('tests/fixtures/scanned.pdf')), guitar), (e: Error) => e.name === 'Error' && /scanned/.test(e.message))
   console.log('PDF scanned pages → the picture reader: ok')
+}
+{
+  // a Songsterr-style print: tab staves and bar lines are drawn, the fret numbers are shapes (not text); only the big
+  // time signature (4 over 4) and bar numbers are text. Those must not become notes (they made a bogus "4 + 4" chord).
+  const staff = (y0: number) => [0, 1, 2, 3, 4, 5].map(k => ({ x1: 40, y1: y0 - k * 7, x2: 560, y2: y0 - k * 7 }))
+  const bars = (y0: number) => [200, 380, 560].map(x => ({ x1: x, y1: y0 - 35, x2: x, y2: y0 }))
+  const page: PdfPage = {
+    width: 600, height: 800,
+    lines: [...staff(700), ...bars(700), ...staff(600), ...bars(600)],
+    texts: [{ str: '4', x: 46, y: 680, w: 8, h: 17 }, { str: '4', x: 46, y: 666, w: 8, h: 17 }, { str: '1', x: 120, y: 712, w: 4, h: 6 }, { str: 'Dire Straits   Sultans Of Swing', x: 100, y: 760, w: 200, h: 10 }, { str: 'Guitar Tabs with Rhythm | Songsterr', x: 20, y: 790, w: 150, h: 6 }],
+  }
+  const sc = staffScan([page], stringNames(guitar))
+  assert.equal(sc.text, '', `no tab from a time signature: ${sc.text}`)
+  assert.equal(sc.staves, 2)
+  const t = pdfTabText([page], stringNames(guitar))
+  assert.ok(t.drawn && t.songsterr, 'drawn numbers on a Songsterr print')
+  console.log('PDF with drawn numbers (Songsterr print) → the picture reader, no bogus chord: ok')
 }

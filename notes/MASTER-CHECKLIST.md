@@ -227,3 +227,12 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
   second. Ample Guitar M (Martin dreadnought) and Ample Guitar L (nylon → ukulele mode) arrive tonight; he prefers
   dreadnoughts over jumbos, so Ample M is likely the new primary once rendered (blind A/B first).
 - Native sound core (#1 of the speed plan): owner said go. Phone upgrade = nothing to redo (ONNX Runtime picks the chip).
+- [x] Play top bar flicker: the readout grew/shrank per judged note (whole screen jumped); fixed height + In time tally. (2026-11-12)
+- [x] Play click with a volume slider (strip under the play buttons, both modes; Wait mode runs a metronome at the song's tempo).
+- [x] In time: the highlight steps through rests on their beat (cursor from every step's beat, rests included).
+- [x] Books: real page first with the PDF, junk OCR hidden as "a picture, music or tab is here", add the PDF from the reader;
+      "Read this page's tab" reads right where you tapped (it went to a tucked-away window and needed a second tap).
+- [x] Sultans PDF: a Songsterr print draws its fret numbers as shapes; the time signature's 4 / 4 became a bogus chord.
+      Now: drawn numbers → the picture reader, and a Songsterr print offers the real song from Songsterr.
+- [ ] Stage 4: read DRAWN tab numbers ourselves (Songsterr / Guitar Pro prints): the glyph outlines are vectors, so match them
+      to digit shapes (Roboto) on the string lines, and read the rhythm stems under the staff → exact tab, no AI.

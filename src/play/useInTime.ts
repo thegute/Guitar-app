@@ -67,7 +67,7 @@ export function useInTime(a: Args) {
   const args = useRef(a)
   args.current = a
   const run = useRef<{
-    clock: Clock; steps: ReturnType<typeof timeline>['steps']; inRange: number[]; fromBeat: number; toBeat: number; loop: boolean
+    clock: Clock; steps: ReturnType<typeof timeline>['steps']; beatOf: number[]; inRange: number[]; fromBeat: number; toBeat: number; loop: boolean
     results: (Judgement | 'miss' | undefined)[]; errs: number[]; taken: Set<number>; lastBeat: number; speed: number; raf: number; video: boolean; passes: number; expectKey?: string
   } | null>(null)
 
@@ -130,7 +130,7 @@ export function useInTime(a: Args) {
         },
       })
     }
-    run.current = { clock, steps: tl.steps, inRange, fromBeat, toBeat, loop: !!A.loop, results: [], errs: [], taken: new Set(), lastBeat: -Infinity, speed, raf: 0, video: useVideo, passes: 0 }
+    run.current = { clock, steps: tl.steps, beatOf: tl.beatOf, inRange, fromBeat, toBeat, loop: !!A.loop, results: [], errs: [], taken: new Set(), lastBeat: -Infinity, speed, raf: 0, video: useVideo, passes: 0 }
     setUsingVideo(useVideo)
     setPass({ n: 0, last: null, speed })
     setStats(null)
@@ -179,9 +179,11 @@ export function useInTime(a: Args) {
           const key = nowM.join(',') + '|' + nextM.join(',')
           if (key !== r.expectKey) { r.expectKey = key; args.current.onExpect(nowM, nextM) }
         }
-        // cursor: the step being played now
+        // cursor: the step being played now, rests included (owner: the highlight keeps moving with the beat through a
+        // rest, so you feel where you are); before the section starts it waits on the first step
         let cur = -1
-        for (let k = 0; k < r.steps.length && r.steps[k].beat <= b + 0.02; k++) cur = r.steps[k].flat
+        if (b >= r.fromBeat - 0.02) for (let k = 0; k < r.beatOf.length && r.beatOf[k] <= b + 0.02; k++) cur = k
+        else cur = r.beatOf.findIndex(x => x >= r.fromBeat - 1e-6)
         setCursor(c => (c === cur ? c : cur))
         // steps that went by without being played are missed
         const late = 0.35 + 0.22 / r.clock.spb()

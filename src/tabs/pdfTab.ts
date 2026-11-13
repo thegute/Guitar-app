@@ -74,17 +74,32 @@ const NOTE = /^\(?(\d{1,2}|[xX])\)?$/
 
 /** ASCII tab rebuilt from staves with numbers on their lines (Guitar Pro style prints). Empty when there are none. */
 export function staffTabs(pages: PdfPage[], names: string[]): string {
+  return staffScan(pages, names).text
+}
+/** The staves found and the tab written from them. `staves` with no notes = the numbers are drawn, not text (a
+ *  Songsterr print draws its fret numbers as shapes): only a picture reader can read those. */
+export function staffScan(pages: PdfPage[], names: string[]): { text: string; staves: number; notes: number; bars: number } {
   const n = names.length
   const systems: string[] = []
+  let nStaves = 0, nNotes = 0, nBars = 0
   for (const p of pages) {
     const staves = findStaves(p.lines, p.width, n)
+    nStaves += staves.length
     for (const st of staves) {
       const s = (st.ys[0] - st.ys[n - 1]) / (n - 1)
+      // bar lines: vertical lines that span the staff
+      const bars = p.lines.filter(l => Math.abs(l.x1 - l.x2) < 0.6 && Math.min(l.y1, l.y2) <= st.ys[n - 1] + 1 && Math.max(l.y1, l.y2) >= st.ys[0] - 1)
+        .map(l => l.x1).filter(x => x > st.x0 + 4 && x < st.x1 - 2).sort((a, b) => a - b)
+        .filter((x, i, a) => i === 0 || x - a[i - 1] > 3)
+      nBars += bars.length + 1
       // fret numbers sitting on this staff's lines (their middle is about 0.35 of their height above the baseline)
       const notes: { x: number; str: number; t: string }[] = []
       for (const t of p.texts) {
         const v = t.str.trim()
         if (!NOTE.test(v)) continue
+        // a time signature's big digits (4 over 4 at the start) are not fret numbers: fret numbers are about one line
+        // gap tall, a time signature spans the staff
+        if (t.h > s * 1.6) continue
         const cy = t.y + t.h * 0.35
         if (cy > st.ys[0] + s * 0.5 || cy < st.ys[n - 1] - s * 0.5 || t.x < st.x0 - 2 || t.x > st.x1 + 2) continue
         const str = Math.round((st.ys[0] - cy) / s)
@@ -92,10 +107,7 @@ export function staffTabs(pages: PdfPage[], names: string[]): string {
         notes.push({ x: t.x + t.w / 2, str, t: v.replace(/[()]/g, '').toLowerCase() })
       }
       if (!notes.length) continue
-      // bar lines: vertical lines that span the staff
-      const bars = p.lines.filter(l => Math.abs(l.x1 - l.x2) < 0.6 && Math.min(l.y1, l.y2) <= st.ys[n - 1] + 1 && Math.max(l.y1, l.y2) >= st.ys[0] - 1)
-        .map(l => l.x1).filter(x => x > st.x0 + 4 && x < st.x1 - 2).sort((a, b) => a - b)
-        .filter((x, i, a) => i === 0 || x - a[i - 1] > 3)
+      nNotes += notes.length
       // columns: notes struck together share an x
       const xs = [...notes].sort((a, b) => a.x - b.x)
       const cols: { x: number; notes: typeof notes }[] = []
@@ -124,7 +136,9 @@ export function staffTabs(pages: PdfPage[], names: string[]): string {
       systems.push(rows.map(r => (r.endsWith('|') ? r : r + '--|')).join('\n'))
     }
   }
-  return systems.join('\n\n')
+  // a handful of numbers over many bars is not a tab (a stray time signature or bar number): nothing was read
+  if (nNotes < Math.max(2, nBars * 0.5)) return { text: '', staves: nStaves, notes: nNotes, bars: nBars }
+  return { text: systems.join('\n\n'), staves: nStaves, notes: nNotes, bars: nBars }
 }
 
 // ---------- reading the PDF (pdf.js, loaded only when a PDF is opened) ----------
@@ -227,9 +241,16 @@ export async function pdfPageCount(bytes: Uint8Array): Promise<number> {
 }
 
 /** The tab on these pages is pictures (a scan, or tab printed as an image): the picture reader reads it, from page `from`. */
-export class ScannedPdf extends Error { constructor(public bytes: Uint8Array, public from = 1, public count = 6) { super('This PDF is scanned pictures, not text') } }
+export class ScannedPdf extends Error {
+  /** `songsterr`: the PDF was printed from Songsterr ("Artist - Song"): the song itself can come straight from Songsterr */
+  constructor(public bytes: Uint8Array, public from = 1, public count = 6, public songsterr?: string) { super('This PDF is scanned pictures, not text') }
+}
 
 /** The text to read a tab or chord sheet from: Guitar Pro style staves first, then the page text as laid out. */
-export function pdfTabText(pages: PdfPage[], names: string[]): { staff: string; text: string } {
-  return { staff: staffTabs(pages, names), text: pages.map(p => pdfItemsToText(p.texts)).join('\n\n') }
+export function pdfTabText(pages: PdfPage[], names: string[]): { staff: string; text: string; drawn: boolean; songsterr: boolean } {
+  const sc = staffScan(pages, names)
+  const text = pages.map(p => pdfItemsToText(p.texts)).join('\n\n')
+  // tab staves on the page but their numbers aren't text: drawn as shapes (Songsterr's prints do this)
+  const drawn = !sc.text && sc.staves >= Math.max(1, pages.length)
+  return { staff: sc.text, text, drawn, songsterr: /songsterr/i.test(text) }
 }

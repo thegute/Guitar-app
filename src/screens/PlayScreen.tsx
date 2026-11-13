@@ -66,6 +66,8 @@ import { TakeRecorder, saveTake } from '../audio/takeRecorder'
 import { keepRecording } from '../audio/recordings'
 import { offerTake, setThenNowOn, thenNowFor, thenNowOn, type ThenNowPair } from '../audio/thenNow'
 import { ThenVsNow } from '../components/ThenVsNow'
+import { PlayMix } from '../components/PlayMix'
+import { Metronome } from '../audio/metronome'
 import { bandByStep, bandEvents, bandStyleLabel, chordBandSong, guessBandStyle, hasBand, CHORD_BAND_STYLES } from '../audio/band'
 import type { Style } from '../theory/progressions'
 import { SongCheckCard, RetuneNotice } from '../components/SongCheckCard'
@@ -758,6 +760,18 @@ export function PlayScreen() {
     return (['drums', 'bass', 'other'] as const).filter(p => (p === 'drums' ? k.has('drum') : p === 'bass' ? k.has('bass') : k.has('gtr')))
   }, [bandEv])
   const withBand = bandOn && bandAvail
+  // Wait for me: the click keeps a steady beat at the song's tempo (× speed) while you play (In time has its own,
+  // locked to the scrolling tab)
+  const waitMet = useRef<Metronome | null>(null)
+  useEffect(() => {
+    const on = mode === 'wait' && listening && click
+    if (!on) { waitMet.current?.stop(); waitMet.current = null; return }
+    const m = waitMet.current ?? new Metronome()
+    m.bpm = Math.max(30, Math.round(songBpm * speed)); m.beatsPerBar = meter; m.accents = Array.from({ length: meter }, (_, i) => (i === 0 ? 2 : 1)) as typeof m.accents
+    m.sound = 'wood'
+    if (!waitMet.current) { waitMet.current = m; m.start() }
+  }, [mode, listening, click, songBpm, speed, meter])
+  useEffect(() => () => { waitMet.current?.stop() }, [])
   const inTime = useInTime({
     band: withBand ? bandEv : undefined,
     strum: strumPat, meter, tempo: tempoMap?.changes ? tempoMap : undefined,
@@ -1322,7 +1336,7 @@ export function PlayScreen() {
           )}
           {mode === 'time' && (
             <>
-              <label className="opt-row opt-check" data-find="click"><input type="checkbox" checked={click} onChange={() => setClick(!click)} /><span><b>Click</b><span className="small muted">A metronome click while you play in time.</span></span></label>
+              <label className="opt-row opt-check" data-find="click"><input type="checkbox" checked={click} onChange={() => setClick(!click)} /><span><b>Click</b><span className="small muted">A metronome click while you play (its volume slider is under the play buttons).</span></span></label>
               <label className="opt-row opt-check" data-find="guide"><input type="checkbox" checked={guide} onChange={() => setGuide(!guide)} /><span><b>Hear the tab too</b><span className="small muted">Your part plays along with you{withBand ? ', with the band' : ''}.</span></span></label>
               {guide && <div className="opt-row" data-find="mix"><MixSlider band={withBand} /></div>}
               {loop && <label className="opt-row opt-check" data-find="trainer"><input type="checkbox" checked={trainer.on} onChange={() => setTrainer({ ...trainer, on: !trainer.on })} /><span><b>Speed trainer</b><span className="small muted">Starts at {Math.round(trainer.start * 100)}% and speeds up {Math.round(trainer.step * 100)}% after each pass of {trainer.pass}% or better.</span></span></label>}
@@ -1486,6 +1500,7 @@ export function PlayScreen() {
         {!sideOpen && readout(true)}
         {!sideOpen && micError && <p className="notice small">{micError}</p>}
         {tabTools}
+        <PlayMix click={click} onClick={setClick} mix={mode === 'time' && (guide || withBand)} band={withBand} bandAvail={bandAvail} bandOn={bandOn} onBand={setBandOn} />
         {nudge && mode === 'wait' && (
           <div className="notice nudge" role="status">
             <span><b>Clean run!</b> Next step: play it <b>In time</b>, with the beat. Start at ¾ speed{bandAvail ? ' with the band' : ''}.</span>
@@ -1595,7 +1610,7 @@ export function PlayScreen() {
                   </> : notes.length ? <>
                     <b className="remote-fret">{notes.map(n => n.fret).join(' · ')}</b>
                     <span className="remote-sub">{notes.map(n => `${stringLabel(track.tuning, n.string, flats)} string = ${noteName(n.midi, flats)}`).join(', ')}</span>
-                  </> : <b className="remote-chord">{done ? '✓' : '–'}</b>}
+                  </> : <b className="remote-chord">{done ? '✓' : inTime.running && f ? 'Rest' : '–'}</b>}
                 {fb && <span className={`remote-fb ${fb.ok ? 'ok' : 'bad'}`}>{fb.text}</span>}
                 {mode === 'time' && inTime.running && inTime.feedback && (
                   <span className="timing-tally remote-tally"><span className={`timing-dot ${inTime.feedback.j}`} aria-hidden="true" />
