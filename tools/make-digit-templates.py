@@ -4,7 +4,9 @@ printed-book styles (sans, serif, mono, regular and bold, a little condensed), e
 12 × 16 grid the same way the reader normalises a digit it finds on a tab line.
 
 Fonts are free-licence ones (Liberation: OFL, DejaVu: Bitstream Vera licence, TeX Gyre: GUST font licence, FreeFont:
-GPL with the font exception); only small bitmaps of their digits go into the app.
+GPL with the font exception; the music fonts Bravura, Petaluma (Steinberg) and Leland (MuseScore): SIL OFL, downloaded to
+~/.cache/kguitar-fonts the first time); only small bitmaps of their digits go into the app. The music fonts give the
+engraved time-signature digits (SMuFL U+E080–E089) that tab books print in the staff (4/4 → 3/4).
 
   python3 tools/make-digit-templates.py   →   src/scan/digitTemplates.ts
 """
@@ -36,6 +38,30 @@ FONTS = [
     '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
     '/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf',
 ]
+
+
+MUSIC_FONTS = {
+    'Bravura.otf': 'https://raw.githubusercontent.com/steinbergmedia/bravura/master/redist/otf/Bravura.otf',
+    'Petaluma.otf': 'https://raw.githubusercontent.com/steinbergmedia/petaluma/master/redist/otf/Petaluma.otf',
+    'Leland.otf': 'https://raw.githubusercontent.com/MuseScoreFonts/Leland/main/Leland.otf',
+}
+
+
+def music_fonts():
+    import urllib.request
+    cache = os.path.expanduser('~/.cache/kguitar-fonts')
+    os.makedirs(cache, exist_ok=True)
+    out = []
+    for name, url in MUSIC_FONTS.items():
+        path = os.path.join(cache, name)
+        if not os.path.exists(path):
+            try:
+                urllib.request.urlretrieve(url, path)
+            except Exception as e:  # offline: build without them
+                print('skip', name, e)
+                continue
+        out.append(path)
+    return out
 
 
 def norm(ink):
@@ -84,6 +110,32 @@ def main():
                 g = norm((a > 0.45).astype(np.float32))
                 if g is not None:
                     rows.append((d, (np.clip(g, 0, 1) * 255).astype(np.uint8)))
+    # engraved time-signature digits (big, bold, ball ends): two sizes each, as drawn and a little thinner
+    for path in music_fonts():
+        font = ImageFont.truetype(path, 120)
+        for d in range(10):
+            bb = font.getbbox(chr(0xE080 + d))
+            im = Image.new('L', (220, 220), 0)
+            ImageDraw.Draw(im).text((30 - bb[0], 30 - bb[1]), chr(0xE080 + d), font=font, fill=255)
+            a = np.asarray(im, dtype=np.float32) / 255
+            for erode in (False, True):
+                b = a
+                if erode:
+                    from PIL import ImageFilter
+                    b = np.asarray(Image.fromarray((a * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(3)), dtype=np.float32) / 255
+                g = norm(b)
+                if g is not None:
+                    rows.append((20 + d, (np.clip(g, 0, 1) * 255).astype(np.uint8)))  # 20–29: time-signature digits
+    # rests (40 whole, 41 half, 42 quarter, 43 eighth, 44 sixteenth, 45 32nd): tab software draws them in the staff
+    for path in music_fonts():
+        font = ImageFont.truetype(path, 120)
+        for k, cp in enumerate(range(0xE4E3, 0xE4E9)):
+            bb = font.getbbox(chr(cp))
+            im = Image.new('L', (240, 300), 0)
+            ImageDraw.Draw(im).text((30 - bb[0], 30 - bb[1]), chr(cp), font=font, fill=255)
+            g = norm(np.asarray(im, dtype=np.float32) / 255)
+            if g is not None:
+                rows.append((40 + k, (np.clip(g, 0, 1) * 255).astype(np.uint8)))
     data = bytes([d for d, _ in rows]) + b''.join(g.tobytes() for _, g in rows)
     b64 = base64.b64encode(data).decode()
     out = os.path.join(os.path.dirname(__file__), '..', 'src', 'scan', 'digitTemplates.ts')

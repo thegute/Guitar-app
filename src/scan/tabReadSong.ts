@@ -4,6 +4,9 @@
 // ring so you can check them against the page.
 import { isDark, type Gray } from './image'
 import { readTab, type TabReading } from './tabRead'
+import { readVectorTab, type VectorReading } from './vectorTab'
+import type { TuningFound } from './tuningText'
+import type { PdfPage } from '../tabs/pdfTab'
 import type { Song, SongBar } from '../tabs/model'
 import { guessTabTempo } from '../audio/tempo'
 
@@ -13,6 +16,8 @@ export interface PictureReading {
   unsure: number
   staves: number
   meter: number
+  /** the tuning / capo / tempo the page printed */
+  found?: TuningFound
 }
 
 /** Read every picture (pages in order). Null when no tab staff with numbers was found on any of them. */
@@ -28,24 +33,29 @@ export function readTabPictures(pics: Gray[], tuning: number[], title: string): 
   return readingSong(readings, tuning, title, meter)
 }
 
-/** Several pages' readings → one song (exported for tests). */
-export function readingSong(readings: TabReading[], tuning: number[], title: string, meter: number): PictureReading | null {
-  const bars: SongBar[] = []
+/** Several pages' readings → one song (exported for tests). Staves stacked in one system (Guitar 1 / 2 / 3) become their
+ *  own tracks; a tuning / capo / tempo the page prints is used. */
+export function readingSong(readings: TabReading[], tuning: number[], title: string, meter: number, found?: TuningFound): PictureReading | null {
+  const tun = found?.midis && found.midis.length === tuning.length ? found.midis : tuning
+  const capo = found?.capo ?? 0
+  const parts: { name?: string; bars: SongBar[] }[] = []
   let notes = 0, unsure = 0, staves = 0
   for (const r of readings) {
     for (const s of r.systems) {
       if (!s.bars.some(b => b.steps.length)) continue
       staves++
+      const part = (parts[s.part ?? 0] ??= { bars: [] })
+      if (s.partName && !part.name) part.name = s.partName
       for (const b of s.bars) {
-        if (!b.steps.length) { bars.push({ steps: [{ notes: [], dur: b.beats }] }); continue }
-        bars.push({
+        if (!b.steps.length) { part.bars.push({ steps: [{ notes: [], dur: b.beats }] }); continue }
+        part.bars.push({
           steps: b.steps.map(st => ({
             dur: st.dur,
-            notes: st.notes.filter(n => n.string < tuning.length).map(n => {
+            notes: st.notes.filter(n => n.string < tun.length).map(n => {
               notes++
               const doubt = n.sure < 0.06
               if (doubt) unsure++
-              return { string: n.string, fret: n.fret, midi: tuning[n.string] + n.fret, ...(n.dead ? { tech: 'x' } : {}), ...(doubt ? { unsure: true } : {}) }
+              return { string: n.string, fret: n.fret, midi: tun[n.string] + capo + n.fret, ...(n.dead ? { tech: 'x' } : {}), ...(doubt ? { unsure: true } : {}) }
             }),
           })),
         })
@@ -53,17 +63,34 @@ export function readingSong(readings: TabReading[], tuning: number[], title: str
     }
   }
   if (!notes) return null
-  // an empty last bar left over at the end of a page isn't music
-  while (bars.length && !bars[bars.length - 1].steps.some(st => st.notes.length)) bars.pop()
-  const durs = bars.flatMap(b => b.steps.filter(st => st.notes.length).map(st => st.dur))
+  const tracks = parts.filter(Boolean).map((p, i) => {
+    // an empty last bar left over at the end of a page isn't music
+    while (p.bars.length && !p.bars[p.bars.length - 1].steps.some(st => st.notes.length)) p.bars.pop()
+    return { name: p.name ?? (parts.length > 1 ? `Guitar ${i + 1}` : 'Guitar'), tuning: [...tun], capo, bars: p.bars }
+  }).filter(t => t.bars.length)
+  const durs = tracks[0].bars.flatMap(b => b.steps.filter(st => st.notes.length).map(st => st.dur))
   const song: Song = {
     title,
-    tempo: guessTabTempo(durs),
-    tempoFrom: 'guess',
+    ...(found?.tempo ? { tempo: found.tempo, tempoFrom: 'file' as const } : { tempo: guessTabTempo(durs), tempoFrom: 'guess' as const }),
     ...(meter !== 4 ? { meter, timeSig: [meter, 4] as [number, number] } : {}),
-    tracks: [{ name: 'Guitar', tuning: [...tuning], capo: 0, bars }],
+    tracks,
   }
-  return { song, notes, unsure, staves, meter }
+  return { song, notes, unsure, staves, meter, ...(found ? { found } : {}) }
+}
+
+/** A tab PDF drawn by tab software (Guitar Pro, Songsterr, Sheet Happens …): read from its shapes, exactly. Null when
+ *  the pages have no drawn tab. */
+export function readPdfShapes(pages: PdfPage[], tuning: number[], title: string): PictureReading | null {
+  const strings = tuning.length
+  const rs: VectorReading[] = []
+  for (const pg of pages) {
+    const r = pg.shapes?.length ? readVectorTab(pg.shapes, { strings, texts: pg.texts, height: pg.height }) : null
+    if (r && r.notes) rs.push(r)
+  }
+  if (!rs.length) return null
+  const found = rs.find(r => r.tuning?.names)?.tuning ?? rs.find(r => r.tuning)?.tuning
+  const first = rs.flatMap(r => r.meters)[0]
+  return readingSong(rs, tuning, title, first?.beats ?? 4, found)
 }
 
 /** Good enough to use without asking the AI: a real tab was found, and most of it read cleanly. */

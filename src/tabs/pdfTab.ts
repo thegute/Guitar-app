@@ -9,7 +9,10 @@ export interface PdfText { str: string; x: number; y: number; w: number; h: numb
 /** a drawn line: horizontal (y1 = y2) or vertical (x1 = x2), in page units, y up */
 export interface PdfLine { x1: number; y1: number; x2: number; y2: number }
 /** `pictures`: how much of the page is covered by pictures (0–1): a scanned book, or tab printed as an image. */
-export interface PdfPage { texts: PdfText[]; lines: PdfLine[]; width: number; height: number; pictures?: number }
+export interface PdfPage { texts: PdfText[]; lines: PdfLine[]; width: number; height: number; pictures?: number; shapes?: PdfShape[] }
+/** A drawn shape (tab software draws its numbers, rests and stems as shapes, not text): its outline as polygons (curves
+ *  flattened), in page units with y DOWN (like a picture), its box, and a key that is the same for identical shapes. */
+export interface PdfShape { kind: 'fill' | 'stroke'; evenOdd?: boolean; polys: number[][]; x0: number; y0: number; x1: number; y1: number; sig: string; width?: number; /** paper-coloured (a white box behind a number that breaks the staff line): not ink */ blank?: true }
 
 const median = (a: number[]) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)] }
 
@@ -174,22 +177,83 @@ export async function readPdf(bytes: Uint8Array, from = 1, to = from + 29): Prom
       texts.push({ str: it.str, x: it.transform[4], y: it.transform[5], w: it.width ?? 0, h })
     }
     const lines: PdfLine[] = []
+    const shapes: PdfShape[] = []
+    let lineW = 1
     let pictures = 0
     try {
       const ol = await page.getOperatorList()
       let ctm: M = [1, 0, 0, 1, 0, 0]
       const stack: M[] = []
+      const wStack: number[] = []
+      const cStack: number[] = []
+      let fillLum = 0
+      // a fill colour (pdf.js gives 0–255 numbers, or "#rrggbb") → how light it is, 0 black … 1 white
+      const lum = (a: unknown): number => {
+        const v = a as Record<number, number> | string | string[]
+        if (typeof v === 'string' || (Array.isArray(v) && typeof v[0] === 'string')) {
+          const h = (typeof v === 'string' ? v : v[0]).replace('#', '')
+          const n = parseInt(h, 16)
+          return (((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) / 255
+        }
+        const r = Number(v[0] ?? 0), g = Number(v[1] ?? 0), b = Number(v[2] ?? 0), k = r > 1 || g > 1 || b > 1 ? 255 : 1
+        return (r * 0.299 + g * 0.587 + b * 0.114) / k
+      }
       for (let k = 0; k < ol.fnArray.length; k++) {
         const fn = ol.fnArray[k], args = ol.argsArray[k] as unknown[]
-        if (fn === OPS.save) stack.push(ctm)
-        else if (fn === OPS.restore) ctm = stack.pop() ?? ctm
+        if (fn === OPS.save) { stack.push(ctm); wStack.push(lineW); cStack.push(fillLum) }
+        else if (fn === OPS.restore) { ctm = stack.pop() ?? ctm; lineW = wStack.pop() ?? lineW; fillLum = cStack.pop() ?? fillLum }
+        else if (fn === OPS.setFillRGBColor) fillLum = lum(args)
+        else if (fn === OPS.setFillGray) fillLum = Number((args as number[])[0] ?? 0)
+        else if (fn === OPS.setFillCMYKColor) { const [c, m, y, kk] = (args as number[]).map(Number); fillLum = (1 - Math.min(1, c + kk)) * 0.3 + (1 - Math.min(1, m + kk)) * 0.59 + (1 - Math.min(1, y + kk)) * 0.11 }
         else if (fn === OPS.transform) ctm = mul(ctm, args as M)
+        else if (fn === OPS.paintFormXObjectBegin) { stack.push(ctm); wStack.push(lineW); if (Array.isArray(args[0])) ctm = mul(ctm, args[0] as M) }
+        else if (fn === OPS.paintFormXObjectEnd) { ctm = stack.pop() ?? ctm; lineW = wStack.pop() ?? lineW }
         else if (fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject || fn === OPS.paintImageMaskXObject) {
           // an image fills the unit square under the current transform: its area on the page
           pictures += Math.abs(ctm[0] * ctm[3] - ctm[1] * ctm[2]) / Math.max(1, (view[2] - view[0]) * (view[3] - view[1]))
         }
+        else if (fn === OPS.setLineWidth) lineW = (args as number[])[0]
         else if (fn === OPS.constructPath) {
           const ops = args[0] as number[], co = args[1] as number[]
+          // the shape itself (for the shape reader): what follows says whether it's filled or stroked
+          const next = ol.fnArray[k + 1]
+          const fillKind = next === OPS.fill || next === OPS.eoFill || next === OPS.fillStroke || next === OPS.eoFillStroke || next === OPS.closeFillStroke || next === OPS.closeEOFillStroke
+          const strokeKind = next === OPS.stroke || next === OPS.closeStroke
+          if ((fillKind || strokeKind) && shapes.length < 20000) {
+            const H = view[3]
+            const P = (x: number, y: number) => { const [a, b] = ap(ctm, x, y); return [a, H - b] }
+            const polys: number[][] = []
+            let cur: number[] = [], px = 0, py = 0, sx = 0, sy = 0, q = 0
+            const bez = (x1: number, y1: number, x2: number, y2: number, x3: number, y3: number) => {
+              for (let t = 1; t <= 8; t++) {
+                const u = t / 8, v = 1 - u
+                const x = v * v * v * px + 3 * v * v * u * x1 + 3 * v * u * u * x2 + u * u * u * x3, y = v * v * v * py + 3 * v * v * u * y1 + 3 * v * u * u * y2 + u * u * u * y3
+                cur.push(...P(x, y))
+              }
+              px = x3; py = y3
+            }
+            for (const op of ops) {
+              if (op === OPS.moveTo) { if (cur.length > 2) polys.push(cur); px = sx = co[q]; py = sy = co[q + 1]; cur = [...P(px, py)]; q += 2 }
+              else if (op === OPS.lineTo) { px = co[q]; py = co[q + 1]; cur.push(...P(px, py)); q += 2 }
+              else if (op === OPS.curveTo) { bez(co[q], co[q + 1], co[q + 2], co[q + 3], co[q + 4], co[q + 5]); q += 6 }
+              else if (op === OPS.curveTo2) { bez(px, py, co[q], co[q + 1], co[q + 2], co[q + 3]); q += 4 }
+              else if (op === OPS.curveTo3) { bez(co[q], co[q + 1], co[q + 2], co[q + 3], co[q + 2], co[q + 3]); q += 4 }
+              else if (op === OPS.rectangle) {
+                if (cur.length > 2) polys.push(cur)
+                const [x, y, w, h] = co.slice(q, q + 4); q += 4
+                polys.push([...P(x, y), ...P(x + w, y), ...P(x + w, y + h), ...P(x, y + h)]); cur = []
+                px = sx = x; py = sy = y
+              } else if (op === OPS.closePath) { if (cur.length > 2) { cur.push(cur[0], cur[1]); polys.push(cur) } cur = []; px = sx; py = sy }
+            }
+            if (cur.length > 2) polys.push(cur)
+            if (polys.length) {
+              let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+              for (const pl of polys) for (let t = 0; t < pl.length; t += 2) { x0 = Math.min(x0, pl[t]); x1 = Math.max(x1, pl[t]); y0 = Math.min(y0, pl[t + 1]); y1 = Math.max(y1, pl[t + 1]) }
+              // identical shapes (every "7" in the book) get the same key: the outline relative to its own corner
+              const sig = polys.map(pl => pl.map((v, t) => Math.round((v - (t % 2 ? y0 : x0)) * 20)).join(',')).join('|')
+              shapes.push({ kind: fillKind ? 'fill' : 'stroke', ...(fillKind && !strokeKind && fillLum > 0.85 && next !== OPS.fillStroke ? { blank: true as const } : {}), ...(next === OPS.eoFill || next === OPS.eoFillStroke || next === OPS.closeEOFillStroke ? { evenOdd: true } : {}), polys, x0, y0, x1, y1, sig, ...(strokeKind ? { width: lineW * Math.hypot(ctm[0], ctm[1]) } : {}) })
+            }
+          }
           let j = 0, cx = 0, cy = 0
           for (const op of ops) {
             if (op === OPS.moveTo) { [cx, cy] = [co[j], co[j + 1]]; j += 2 }
@@ -208,7 +272,7 @@ export async function readPdf(bytes: Uint8Array, from = 1, to = from + 29): Prom
         }
       }
     } catch { /* no drawings: text only */ }
-    out.push({ texts, lines, width: view[2] - view[0], height: view[3] - view[1], pictures: Math.min(1, pictures) })
+    out.push({ texts, lines, width: view[2] - view[0], height: view[3] - view[1], pictures: Math.min(1, pictures), shapes })
   }
   return out
 }

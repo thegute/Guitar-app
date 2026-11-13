@@ -42,6 +42,10 @@ export async function songFromPdf(name: string, bytes: Uint8Array, inst: Instrum
   const pages = await readPdf(bytes, range?.from ?? 1, range?.to)
   const base = name.replace(/\.[^.]+$/, '')
   const title = range ? `${base} p.${range.from}${range.to > range.from ? `–${range.to}` : ''}` : base
+  // a tab PDF drawn by tab software: its numbers, staff and rhythm are exact shapes, read directly (no picture, no AI)
+  const { readPdfShapes } = await import('../scan/tabReadSong')
+  const shaped = readPdfShapes(pages, inst.midis, title)
+  if (shaped && shaped.notes >= 6) return { id: newId(), title, source: 'text', inst: inst.id, song: shaped.song, youtube, updated: Date.now() }
   const { staff, text, drawn, songsterr } = pdfTabText(pages, stringNames(inst))
   // the tab is printed with its numbers drawn as shapes (a Songsterr print): reading the page's words would only find
   // the lyrics and chord names, so it goes to the picture reader (which sees the numbers) instead

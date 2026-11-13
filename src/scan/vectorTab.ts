@@ -1,0 +1,311 @@
+// Reading a tab PDF made by tab software (Guitar Pro, Songsterr, Sheet Happens books …) from its drawn shapes, not from a
+// picture of the page. Such a PDF draws every fret number, staff line, bar line, rest and rhythm stem as an exact shape, so:
+//   - the staff lines and bar lines are exact (no guessing where a line is);
+//   - every number is its own shape, never touching a slide line or a tie (those are separate shapes), and identical
+//     numbers are identical shapes, so each different shape is read once, large and sharp, and all its copies agree;
+//   - the string is the line the number is centred on;
+//   - printed time signatures (4/4 → 3/4 mid-song) set each bar's length;
+//   - the rhythm stems and beams under the staff give each column's length (rhythm.ts), the spacing only when there are none.
+// Pure functions on PdfShape lists (tabs/pdfTab.ts readPdf collects them), so they run the same in the app and in tests.
+import type { PdfShape, PdfText } from '../tabs/pdfTab'
+import { tuningFromText, type TuningFound } from './tuningText'
+import { assemble, classify, components, normDigit, DEAD, type Num, type ReadSystem, type TabReading } from './tabRead'
+import { rhythmFromStems } from './stemRhythm'
+
+/** a text item's middle height (its y is the baseline, y up) */
+const t2y = (t: PdfText) => t.y + t.h * 0.35
+const K = 4 // page units → reading units (so 1 unit ≈ a pixel at 288 dpi; the shared layout code thinks in pixels)
+
+interface Seg { a: number; b: number; at: number }
+
+/** Fill a shape's outline into a small grey grid (1 = ink): even-odd or non-zero, sampled 4× per pixel row. */
+export function rasterShape(sh: Pick<PdfShape, 'polys' | 'x0' | 'y0' | 'x1' | 'y1' | 'evenOdd'>, px: number): { ink: Float32Array; w: number; h: number } {
+  const sw = sh.x1 - sh.x0, shh = sh.y1 - sh.y0
+  const s = px / Math.max(shh, sw * 0.6, 1e-6)
+  const w = Math.max(1, Math.ceil(sw * s) + 2), h = Math.max(1, Math.ceil(shh * s) + 2)
+  const ink = new Float32Array(w * h)
+  const edges: [number, number, number, number, number][] = [] // x0 y0 x1 y1 dir
+  for (const pl of sh.polys) {
+    const n = pl.length / 2
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n
+      const x0 = (pl[2 * i] - sh.x0) * s + 1, y0 = (pl[2 * i + 1] - sh.y0) * s + 1, x1 = (pl[2 * j] - sh.x0) * s + 1, y1 = (pl[2 * j + 1] - sh.y0) * s + 1
+      if (y0 !== y1) edges.push(y0 < y1 ? [x0, y0, x1, y1, 1] : [x1, y1, x0, y0, -1])
+    }
+  }
+  const SUB = 4
+  for (let y = 0; y < h; y++) for (let sub = 0; sub < SUB; sub++) {
+    const yy = y + (sub + 0.5) / SUB
+    const xs: [number, number][] = []
+    for (const e of edges) if (yy >= e[1] && yy < e[3]) xs.push([e[0] + (yy - e[1]) / (e[3] - e[1]) * (e[2] - e[0]), e[4]])
+    xs.sort((a, b) => a[0] - b[0])
+    let wind = 0
+    for (let k = 0; k + 1 < xs.length; k++) {
+      wind = sh.evenOdd ? wind ^ 1 : wind + xs[k][1]
+      if (!wind) continue
+      const a = Math.max(0, xs[k][0]), b = Math.min(w, xs[k + 1][0])
+      for (let x = Math.floor(a); x < Math.ceil(b); x++) {
+        const cover = Math.min(x + 1, b) - Math.max(x, a)
+        if (cover > 0) ink[y * w + x] += cover / SUB
+      }
+    }
+  }
+  for (let i = 0; i < ink.length; i++) ink[i] = Math.min(1, ink[i])
+  return { ink, w, h }
+}
+
+/** The digits in a shape, left to right (one shape can hold "10", or be a single "7"), each with how well it matched and
+ *  where its middle is, measured from the shape's left edge (identical shapes share one reading). */
+function readGlyph(sh: PdfShape, set: 'tab' | 'sig' = 'tab'): { d: number; score: number; sure: number; all: Float32Array; x: number }[] {
+  const { ink, w, h } = rasterShape(sh, 40)
+  const bin = new Uint8Array(w * h)
+  for (let i = 0; i < ink.length; i++) bin[i] = ink[i] > 0.5 ? 1 : 0
+  const parts = components(bin, w, h).filter(c => c.n >= 8).sort((a, b) => a.x0 - b.x0)
+  // pieces of one digit stacked or overlapping in x (the dot of nothing, broken outlines) join up: digits sit side by side
+  const groups: typeof parts[] = []
+  for (const c of parts) {
+    const g = groups[groups.length - 1]
+    if (g && c.x0 <= Math.max(...g.map(q => q.x1)) - 1) g.push(c)
+    else groups.push([c])
+  }
+  const s = (sh.x1 - sh.x0) / Math.max(1, w - 2)
+  return groups.map(g => {
+    const x0 = Math.min(...g.map(c => c.x0)), x1 = Math.max(...g.map(c => c.x1)), y0 = Math.min(...g.map(c => c.y0)), y1 = Math.max(...g.map(c => c.y1))
+    const cw = x1 - x0 + 1, ch = y1 - y0 + 1
+    const cut = new Float32Array(cw * ch)
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) cut[y * cw + x] = bin[(y0 + y) * w + x0 + x]
+    return { ...classify(normDigit(cut, cw, ch), undefined, undefined, set), x: ((x0 + x1) / 2 - 1) * s } // x from the shape's left edge
+  })
+}
+
+/** Is this shape a rest, and which (0 whole, 1 half, 2 quarter, 3 eighth, 4 sixteenth, 5 32nd)? Whole and half rests are
+ *  plain boxes, the rest are matched to engraved rest shapes. */
+const restCache = new Map<string, number | null>()
+function restKind(sh: PdfShape): number | null {
+  if (restCache.has(sh.sig)) return restCache.get(sh.sig)!
+  const w = sh.x1 - sh.x0, h = sh.y1 - sh.y0
+  let k: number | null = null
+  const box = sh.polys.length === 1 && sh.polys[0].length <= 10
+  if (box && w > h * 1.4) k = 1 // a box: a half (or whole) rest; the bar's room decides which
+  else if (!box) {
+    const { ink, w: rw, h: rh } = rasterShape(sh, 40)
+    const c = classify(normDigit(ink, rw, rh), undefined, undefined, 'rest')
+    if (c.score > 0.72 && c.d >= 2) k = c.d
+  }
+  restCache.set(sh.sig, k)
+  return k
+}
+
+/** Staves of `nStr` evenly spaced horizontal lines (strokes, or thin filled boxes), with their extent. */
+function findStaves(shapes: PdfShape[], nStr: number) {
+  const hs: Seg[] = []
+  for (const sh of shapes) {
+    const w = sh.x1 - sh.x0, h = sh.y1 - sh.y0
+    if (sh.kind === 'fill' && h < 1.2 && h > 0.05 && w > 12) { hs.push({ a: sh.x0, b: sh.x1, at: (sh.y0 + sh.y1) / 2 }); continue }
+    if (sh.kind !== 'stroke') continue
+    for (const pl of sh.polys) for (let i = 0; i + 3 < pl.length; i += 2) {
+      const dx = pl[i + 2] - pl[i], dy = pl[i + 3] - pl[i + 1]
+      if (Math.abs(dy) < 0.15 && Math.abs(dx) > 3) hs.push({ a: Math.min(pl[i], pl[i + 2]), b: Math.max(pl[i], pl[i + 2]), at: (pl[i + 1] + pl[i + 3]) / 2 })
+    }
+  }
+  // rows: segments at the same height, long in total
+  const rows: { y: number; a: number; b: number; len: number }[] = []
+  for (const sg of hs.sort((p, q) => p.at - q.at)) {
+    const r = rows[rows.length - 1]
+    if (r && Math.abs(r.y - sg.at) < 0.3) { r.a = Math.min(r.a, sg.a); r.b = Math.max(r.b, sg.b); r.len += sg.b - sg.a }
+    else rows.push({ y: sg.at, a: sg.a, b: sg.b, len: sg.b - sg.a })
+  }
+  const long = rows.filter(r => r.len > 60)
+  const staves: { lines: number[]; gap: number; left: number; right: number }[] = []
+  for (let i = 0; i + nStr - 1 < long.length; i++) {
+    const run = long.slice(i, i + nStr)
+    const d = run.slice(1).map((r, k) => r.y - run[k].y)
+    const g = d.reduce((x, y) => x + y, 0) / d.length
+    if (g < 2.5 || g > 16 || d.some(x => Math.abs(x - g) > g * 0.06)) continue
+    // the rows overlap across (one staff, not lines from two columns of a page)
+    const left = Math.max(...run.map(r => r.a)), right = Math.min(...run.map(r => r.b))
+    if (right - left < 60) continue
+    // a line just outside at the same spacing means this is part of a bigger staff
+    const before = long[i - 1], after = long[i + nStr]
+    if ((before && Math.abs(run[0].y - before.y - g) < g * 0.06) || (after && Math.abs(after.y - run[nStr - 1].y - g) < g * 0.06)) continue
+    staves.push({ lines: run.map(r => r.y), gap: g, left: Math.min(...run.map(r => r.a)), right: Math.max(...run.map(r => r.b)) })
+    i += nStr - 1
+  }
+  return staves
+}
+
+/** Bar lines: vertical strokes (or thin filled boxes) spanning a staff. */
+function findBars(shapes: PdfShape[], st: { lines: number[]; gap: number; left: number; right: number }) {
+  const top = st.lines[0], bot = st.lines[st.lines.length - 1]
+  const xs: number[] = []
+  const add = (x: number, y0: number, y1: number) => {
+    if (x < st.left - 1 || x > st.right + 1) return
+    if (y0 <= top + st.gap * 0.2 && y1 >= bot - st.gap * 0.2 && y1 - y0 < (bot - top) * 3) xs.push(x)
+  }
+  for (const sh of shapes) {
+    const w = sh.x1 - sh.x0
+    if (sh.kind === 'fill' && w < 1.6 && sh.y1 - sh.y0 > st.gap * 3) { add((sh.x0 + sh.x1) / 2, sh.y0, sh.y1); continue }
+    if (sh.kind !== 'stroke') continue
+    for (const pl of sh.polys) for (let i = 0; i + 3 < pl.length; i += 2) {
+      if (Math.abs(pl[i + 2] - pl[i]) < 0.15) add((pl[i] + pl[i + 2]) / 2, Math.min(pl[i + 1], pl[i + 3]), Math.max(pl[i + 1], pl[i + 3]))
+    }
+  }
+  xs.sort((a, b) => a - b)
+  const out: number[] = []
+  for (const x of xs) if (!out.length || x - out[out.length - 1] > st.gap * 0.8) out.push(x); else out[out.length - 1] = x
+  return out
+}
+
+export interface VectorReading extends TabReading {
+  /** time signatures printed in the staves, in order: from this staff and x on, `beats` quarter notes a bar */
+  meters: { sys: number; x: number; beats: number; sig: [number, number] }[]
+  /** how many columns got their length from the printed rhythm (stems / beams), not the spacing */
+  rhythmRead: number
+  /** the tuning / capo / tempo the page prints (string names left of the staff, "E♭ A♭ D♭ …", "Drop D", "Capo 3", "♩ = 130") */
+  tuning?: TuningFound
+}
+
+/** Read the tab on one page's shapes. Null when the page has no tab staff with numbers. */
+export function readVectorTab(all: PdfShape[], opts: { strings?: number; texts?: PdfText[]; height?: number } = {}): VectorReading | null {
+  const nStr = opts.strings ?? 6
+  // paper-coloured boxes aren't ink; a shape drawn twice in the same place (some PDFs do) counts once
+  const seenAt = new Set<string>()
+  const shapes = all.filter(s => {
+    if (s.blank) return false
+    const k = `${s.kind}${s.sig}@${Math.round(s.x0 * 10)},${Math.round(s.y0 * 10)}`
+    if (seenAt.has(k)) return false
+    seenAt.add(k)
+    return true
+  })
+  const staves = findStaves(shapes, nStr)
+  if (!staves.length) return null
+  const fills = shapes.filter(s => s.kind === 'fill')
+  // which glyph shapes sit on which staff
+  type G = { sh: PdfShape; si: number; line: number; h: number }
+  const onLines: G[] = []
+  const sigs: { si: number; sh: PdfShape }[] = []
+  staves.forEach((st, si) => {
+    const top = st.lines[0], bot = st.lines[nStr - 1]
+    for (const sh of fills) {
+      const w = sh.x1 - sh.x0, h = sh.y1 - sh.y0, cy = (sh.y0 + sh.y1) / 2
+      if (sh.x1 < st.left || sh.x0 > st.right || cy < top - st.gap || cy > bot + st.gap) continue
+      if (w > st.gap * 3 || h < st.gap * 0.35) continue
+      // a time signature digit: about two string spaces tall, inside the staff
+      if (h > st.gap * 1.3 && h < st.gap * 2.6 && w < st.gap * 2.2 && cy > top && cy < bot) { sigs.push({ si, sh }); continue }
+      if (h > st.gap * 1.25) continue
+      let line = -1, bd = Infinity
+      st.lines.forEach((ly, k) => { const d = Math.abs(cy - ly); if (d < bd) { bd = d; line = k } })
+      if (bd > st.gap * 0.3) continue
+      onLines.push({ sh, si, line: nStr - 1 - line, h }) // lines[0] is the top line = the highest string
+    }
+  })
+  // the page's number height: the commonest height; brackets "(12)", rests and letters are taller or shorter
+  const hist = new Map<number, number>()
+  for (const g of onLines) { const k = Math.round(g.h * 10); hist.set(k, (hist.get(k) ?? 0) + 1) }
+  let Hd = 0, hb = 0
+  for (const [k, n] of hist) if (n > hb) { hb = n; Hd = k / 10 }
+  const digits = onLines.filter(g => !Hd || (g.h >= Hd * 0.8 && g.h <= Hd * 1.12))
+  // read each different shape once; copies of a shape share its reading
+  const cache = new Map<string, ReturnType<typeof readGlyph>>()
+  const nums: Num[] = []
+  type Part = { si: number; string: number; x: number; x0: number; x1: number; d: number; score: number; sure: number }
+  const parts: Part[] = []
+  const seen = new Set<string>()
+  for (const g of digits) {
+    // some PDFs draw a number twice in the same place (fill, then again for a halo): read it once
+    const at = `${g.sh.sig}@${Math.round(g.sh.x0 * 10)},${Math.round(g.sh.y0 * 10)}`
+    if (seen.has(at)) continue
+    seen.add(at)
+    let r = cache.get(g.sh.sig)
+    if (!r) { r = readGlyph(g.sh); cache.set(g.sh.sig, r) }
+    const n = r.length
+    r.forEach(p => { const x = g.sh.x0 + p.x; parts.push({ si: g.si, string: g.line, x, x0: n === 1 ? g.sh.x0 : x - Hd * 0.3, x1: n === 1 ? g.sh.x1 : x + Hd * 0.3, d: p.d, score: p.score, sure: p.sure }) })
+    if (r.length > 2) parts.splice(parts.length - r.length, r.length) // three digits on one string isn't a fret
+  }
+  // digits side by side on one string make one number (1 + 0 = 10)
+  parts.sort((a, b) => a.si - b.si || a.string - b.string || a.x - b.x)
+  for (let i = 0; i < parts.length; i++) {
+    const a = parts[i], b = parts[i + 1]
+    if (a.score < 0.5) continue
+    if (b && b.si === a.si && b.string === a.string && b.x0 - a.x1 < Hd * 0.45 && b.score >= 0.5 && a.d !== DEAD && b.d !== DEAD) {
+      const fret = a.d * 10 + b.d
+      if (fret <= 30) nums.push({ sys: a.si, string: a.string, x: (a.x + b.x) / 2 * K, fret, sure: Math.min(a.sure, b.sure, a.score - 0.5, b.score - 0.5) })
+      i++
+      continue
+    }
+    nums.push({ sys: a.si, string: a.string, x: a.x * K, fret: a.d === DEAD ? 0 : a.d, sure: Math.min(a.sure, a.score - 0.5), ...(a.d === DEAD ? { dead: true } : {}) })
+  }
+  if (!nums.length) return null
+  // printed time signatures: a top and a bottom digit at the same place
+  const meters: VectorReading['meters'] = []
+  const used = new Set<number>()
+  sigs.forEach((a, i) => {
+    if (used.has(i)) return
+    const j = sigs.findIndex((b, k) => k !== i && !used.has(k) && b.si === a.si && Math.abs((b.sh.x0 + b.sh.x1) - (a.sh.x0 + a.sh.x1)) / 2 < staves[a.si].gap && b.sh.y0 > a.sh.y0 + staves[a.si].gap)
+    if (j < 0) return
+    used.add(i); used.add(j)
+    // a time signature can only be so many things: the bottom is 2, 4, 8 or 16, the top 1–15. Pick the best of those.
+    const topD = readGlyph(a.sh, 'sig'), botD = readGlyph(sigs[j].sh, 'sig')
+    const pick = (g: ReturnType<typeof readGlyph>[number], allowed: number[]) => allowed.reduce((b, d) => (g.all[d] > g.all[b] ? d : b), allowed[0])
+    const den = botD.length === 2 ? 16 : botD.length === 1 ? pick(botD[0], [2, 4, 8]) : 0
+    const num = topD.length === 2 ? 10 + pick(topD[1], [0, 1, 2, 3, 4, 5]) : topD.length === 1 ? pick(topD[0], [1, 2, 3, 4, 5, 6, 7, 8, 9]) : 0
+    if (!num || !den) return
+    meters.push({ sys: a.si, x: (a.sh.x0 + a.sh.x1) / 2 * K, beats: num * 4 / den, sig: [num, den] })
+  })
+  // time signatures printed as text (Songsterr): two big numbers inside a staff, one above the other
+  if (opts.texts && opts.height) {
+    const H = opts.height
+    const big = opts.texts.filter(t => /^\d{1,2}$/.test(t.str.trim()))
+    staves.forEach((st, si) => {
+      const top = st.lines[0], bot = st.lines[nStr - 1], mid = (top + bot) / 2
+      const here = big.filter(t => t.h > st.gap * 1.5 && t.x > st.left - st.gap && t.x < st.right && H - t.y > top && H - t.y - t.h * 0.7 < bot)
+      for (const a of here) {
+        const ya = H - t2y(a)
+        if (ya > mid) continue
+        const b = here.find(t => t !== a && Math.abs(t.x - a.x) < st.gap && H - t2y(t) > mid)
+        const num = Number(a.str), den = b ? Number(b.str) : 0
+        if (b && num > 0 && num < 16 && [2, 4, 8, 16].includes(den)) meters.push({ sys: si, x: (a.x + a.w / 2) * K, beats: num * 4 / den, sig: [num, den] })
+      }
+    })
+  }
+  meters.sort((a, b) => a.sys - b.sys || a.x - b.x)
+  const meterAt = (sys: number, x: number) => {
+    let m: number | undefined
+    for (const t of meters) if (t.sys < sys || (t.sys === sys && t.x <= x)) m = t.beats
+    return m
+  }
+  const systems: ReadSystem[] = staves.map(st => ({ lines: [...st.lines].reverse().map(y => y * K), gap: st.gap * K, left: st.left * K, right: st.right * K, bars: [] }))
+  const barXs = staves.map(st => findBars(shapes, st))
+  const sysBars = barXs.map(xs => xs.map(x => x * K))
+  // staves stacked in one system (Guitar 1 / 2 / 3 over each other): each is its own part
+  const vlines: { x: number; y0: number; y1: number }[] = []
+  for (const sh of shapes) {
+    if (sh.kind === 'fill' && sh.x1 - sh.x0 < 1.6 && sh.y1 - sh.y0 > 20) { vlines.push({ x: (sh.x0 + sh.x1) / 2, y0: sh.y0, y1: sh.y1 }); continue }
+    if (sh.kind !== 'stroke') continue
+    for (const pl of sh.polys) for (let k = 0; k + 3 < pl.length; k += 2) if (Math.abs(pl[k + 2] - pl[k]) < 0.15 && Math.abs(pl[k + 3] - pl[k + 1]) > 20) vlines.push({ x: pl[k], y0: Math.min(pl[k + 1], pl[k + 3]), y1: Math.max(pl[k + 1], pl[k + 3]) })
+  }
+  let part = 0
+  staves.forEach((st, i) => {
+    const p = staves[i - 1]
+    // stacked staves are joined by the system's line down the left edge (or bar lines running through both)
+    const same = !!p && Math.abs(p.left - st.left) < 1.5 && vlines.some(v => Math.abs(v.x - st.left) < 2 && v.y0 <= p.lines[0] + 0.5 && v.y1 >= st.lines[nStr - 1] - 0.5)
+    part = same ? part + 1 : 0
+    systems[i].part = part
+    // the part's name printed beside it ("Guitar 2"), when it's text
+    const nm = opts.texts?.find(t => /^(guitar|gtr|bass|rhythm|lead|acoustic|electric)\b/i.test(t.str.trim()) && t.x < st.left + st.gap && Math.abs((opts.height ?? 0) - t.y - (st.lines[0] + st.lines[nStr - 1]) / 2) < st.gap * 4)
+    if (nm) systems[i].partName = nm.str.trim()
+  })
+  let rhythmRead = 0
+  const r = assemble(systems, sysBars, nums, {
+    meterAt,
+    beats: meters.length ? meters[0].beats : undefined,
+    durations: (si, xs, x0, x1) => {
+      const d = rhythmFromStems(shapes, staves[si], xs.map(x => x / K), x0 / K, x1 / K, meterAt(si, (x0 + x1) / 2) ?? 4, sh => { const r = readGlyph(sh); return r.length === 1 && r[0].d === 3 && r[0].score > 0.75 }, restKind)
+      if (!d) return null
+      rhythmRead += d.durs.length
+      return { durs: d.durs, rests: d.rests.map(r => ({ x: r.x * K, dur: r.dur })) }
+    },
+  })
+  const tuning = opts.texts && opts.height ? tuningFromText(opts.texts, opts.height, staves, nStr) : undefined
+  return { ...r, meters, rhythmRead, ...(tuning ? { tuning } : {}) }
+}

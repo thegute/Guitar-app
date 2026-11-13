@@ -15,10 +15,10 @@ import { TEMPLATES_B64, TEMPLATE_COUNT, TEMPLATE_W as TW, TEMPLATE_H as TH } fro
 export interface ReadNote { string: number; fret: number; x: number; sure: number; dead?: boolean }
 export interface ReadStep { x: number; notes: ReadNote[]; dur: number }
 export interface ReadBar { steps: ReadStep[]; beats: number; x0: number; x1: number }
-export interface ReadSystem { lines: number[]; gap: number; left: number; right: number; bars: ReadBar[] }
+export interface ReadSystem { lines: number[]; gap: number; left: number; right: number; bars: ReadBar[]; /** which part (Guitar 1, 2 …) when a system stacks several staves; 0 when there is one */ part?: number; partName?: string }
 export interface TabReading { systems: ReadSystem[]; unsure: number; notes: number; meter: number }
 
-interface Comp { x0: number; x1: number; y0: number; y1: number; n: number }
+export interface Comp { x0: number; x1: number; y0: number; y1: number; n: number }
 
 // ---------- digit templates ----------
 let TPL: { d: number; v: Float32Array }[] | null = null
@@ -35,7 +35,7 @@ function templates() {
   return TPL
 }
 /** zero mean, unit length (so comparing is a correlation) */
-function centre(v: Float32Array): Float32Array {
+export function centre(v: Float32Array): Float32Array {
   let m = 0
   for (const x of v) m += x
   m /= v.length
@@ -49,7 +49,7 @@ function centre(v: Float32Array): Float32Array {
 const dot = (a: Float32Array, b: Float32Array) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s }
 
 /** One digit's ink (1 = ink) cut out and scaled into the template grid the same way the templates were made. */
-function normDigit(ink: Float32Array, w: number, h: number): Float32Array {
+export function normDigit(ink: Float32Array, w: number, h: number): Float32Array {
   const s = Math.min(TW / w, TH / h)
   const nw = Math.max(1, Math.round(w * s)), nh = Math.max(1, Math.round(h * s))
   const ox = Math.floor((TW - nw) / 2), oy = Math.floor((TH - nh) / 2)
@@ -70,18 +70,24 @@ function normDigit(ink: Float32Array, w: number, h: number): Float32Array {
 
 /** classes: the digits 0–9 and 10 = X (a dead note) */
 const NCLS = 11
-const DEAD = 10
+export const DEAD = 10
 /** Best digit for a normalised glyph: per digit the best match over all templates; `sure` = margin over the runner-up. */
-function classify(v: Float32Array, extra?: Map<number, Float32Array[]>, skip?: Float32Array): { d: number; score: number; sure: number } {
+export function classify(v: Float32Array, extra?: Map<number, Float32Array[]>, skip?: Float32Array, set: 'tab' | 'sig' | 'rest' = 'tab'): { d: number; score: number; sure: number; all: Float32Array } {
   const c = centre(v)
   const best = new Float32Array(NCLS).fill(-1)
-  for (const t of templates()) { const s = dot(c, t.v); if (s > best[t.d]) best[t.d] = s }
+  // 'tab': fret digits and X; 'sig': the engraved time-signature digits (stored as 20–29); 'rest': rests (40–45 → 0–5)
+  const base = set === 'sig' ? 20 : set === 'rest' ? 40 : 0
+  for (const t of templates()) {
+    const d = t.d - base
+    if (d < 0 || d >= NCLS || (set === 'tab' && t.d >= 20) || (set === 'sig' && t.d >= 40) || (set === 'rest' && d > 5)) continue
+    const s = dot(c, t.v); if (s > best[d]) best[d] = s
+  }
   if (extra) for (const [d, vs] of extra) for (const t of vs) { if (t === skip) continue; const s = dot(c, t) * 1.04; if (s > best[d]) best[d] = s }
   let d = 0
   for (let k = 1; k < NCLS; k++) if (best[k] > best[d]) d = k
   let second = -1
   for (let k = 0; k < NCLS; k++) if (k !== d && best[k] > second) second = best[k]
-  return { d, score: best[d], sure: best[d] - second }
+  return { d, score: best[d], sure: best[d] - second, all: best }
 }
 
 // ---------- the picture ----------
@@ -191,7 +197,7 @@ function rejoin(cs: Comp[], ink: Uint8Array, w: number, g: Gray, top: number, le
   return out.filter(Boolean)
 }
 
-function components(ink: Uint8Array, w: number, h: number): Comp[] {
+export function components(ink: Uint8Array, w: number, h: number): Comp[] {
   const seen = new Uint8Array(w * h)
   const out: Comp[] = []
   const stack: number[] = []
@@ -415,7 +421,6 @@ export function readTab(g: Gray, opts: ReadOpts = {}): TabReading {
   const floor = Math.max(0.5, usual - 0.25), doubt = usual - 0.2
   for (const c of cands) if (c.cls!.score < doubt && c.cls!.score >= floor) c.cls = { ...c.cls!, sure: Math.min(c.cls!.sure, 0.03) }
   // join the parts of two-digit numbers, drop marks that aren't digits (letters, ties, dots)
-  type Num = { sys: number; string: number; x: number; fret: number; sure: number; dead?: boolean }
   const nums: Num[] = []
   for (let i = 0; i < cands.length; i++) {
     const c = cands[i]
@@ -432,7 +437,25 @@ export function readTab(g: Gray, opts: ReadOpts = {}): TabReading {
     const dead = c.cls!.d === DEAD
     nums.push({ sys: c.sys, string: c.string, x: c.x, fret: dead ? 0 : c.cls!.d, sure: Math.min(c.cls!.sure, c.cls!.score - floor), ...(dead ? { dead } : {}) })
   }
-  // columns and bars
+  return assemble(systems, sysBars, nums, opts)
+}
+
+/** A number read on a string line: which staff, which string (0 = lowest), where across, the fret, how sure. */
+export type Num = { sys: number; string: number; x: number; fret: number; sure: number; dead?: boolean }
+export interface AssembleOpts {
+  beats?: number
+  /** a printed time signature in force at this point of a staff (beats per bar, in quarter notes) */
+  meterAt?: (sys: number, x: number) => number | undefined
+  /** note lengths read from the page itself (rhythm stems under the staff): one per step, plus the rests between them;
+   *  null to work them out from the spacing */
+  durations?: (sys: number, xs: number[], x0: number, x1: number) => { durs: number[]; rests?: { x: number; dur: number }[] } | null
+  /** skip the clef area at the start of each staff (pictures: the TAB letters can look like digits) */
+  clef?: boolean
+}
+
+/** Staves, their bar lines and the numbers on them → bars of columns with note lengths (shared by the picture reader and
+ *  the PDF shape reader). */
+export function assemble(systems: ReadSystem[], sysBars: number[][], nums: Num[], opts: AssembleOpts = {}): TabReading {
   let unsure = 0, count = 0
   let median = 0
   const widths: number[] = []
@@ -459,7 +482,7 @@ export function readTab(g: Gray, opts: ReadOpts = {}): TabReading {
     for (let b = 0; b + 1 < edges.length; b++) {
       const x0 = edges[b], x1 = edges[b + 1]
       // the first bar of each staff starts with the TAB clef (its letters can look like digits): notes never sit that close
-      const from = b === 0 ? s.left + s.gap * 3 : x0 + 1
+      const from = b === 0 && opts.clef !== false ? s.left + s.gap * 3 : x0 + 1
       const inBar = mineN.filter(n => n.x > from && n.x < x1 - 1)
       if (!inBar.length && (b === 0 || x1 - x0 < s.gap * 3)) continue
       const steps: ReadStep[] = []
@@ -503,10 +526,16 @@ export function readTab(g: Gray, opts: ReadOpts = {}): TabReading {
   }
   for (const r of raws) {
     const s = systems[r.si]
-    let beats = meter
+    let beats = opts.meterAt?.(r.si, (r.x0 + r.x1) / 2) ?? meter
     const span = r.steps.length ? r.x1 - Math.max(r.x0, r.steps[0].x - lead) : r.x1 - r.x0
     if (r.first && span < median * 0.85) beats = Math.max(1, Math.min(meter - 1, Math.round(meter * span / median)))
-    if (r.steps.length) fitRhythm(gapsOf(r), beats).forEach((d, k) => { r.steps[k].dur = d })
+    const given = r.steps.length ? opts.durations?.(r.si, r.steps.map(st => st.x), r.x0, r.x1) : null
+    if (given && given.durs.length === r.steps.length) {
+      given.durs.forEach((d, k) => { r.steps[k].dur = d })
+      // rests read from the page become silent steps in their place
+      for (const rs of given.rests ?? []) if (rs.dur > 0) r.steps.push({ x: rs.x, notes: [], dur: rs.dur })
+      r.steps.sort((a, b) => a.x - b.x)
+    } else if (r.steps.length) fitRhythm(gapsOf(r), beats).forEach((d, k) => { r.steps[k].dur = d })
     for (const st of r.steps) for (const n of st.notes) { count++; if (n.sure < 0.06) unsure++ }
     s.bars.push({ steps: r.steps, beats, x0: r.x0, x1: r.x1 })
   }
