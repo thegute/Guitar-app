@@ -376,3 +376,18 @@ Left-handed mode, automatic tempo detection from the video, per-note polyphonic 
 ## Working with the owner
 Explain things plainly: a guitarist, not a developer. Ask before deleting anything on their computer.
 Tab search: in the phone app, Songsterr and Ultimate Guitar results open straight in KGuitar (siteImport.ts); on the web they open in the browser, then the GP file is uploaded or the text pasted.
+
+## Owner's bug pass + packs as sounds (2026-11-12 evening, test-44+)
+- Play readout keeps one shape (no per-note jumping; `.fb-empty` placeholder, mini readout grid); In time shows a steady tally
+  (`useInTime` `tally`) + a coloured dot; the music-stand big view no longer flashes per note. Probe: `tests/browser/flicker-probe.cjs`.
+- In time cursor walks through rests (`beatOf` of every step). `components/PlayMix.tsx`: Click on/off + volume (`setCatLevel('click')`,
+  `kg:cat:<cat>` in engine.ts), Band, your part ↔ band; Wait mode runs a Metronome at the song's tempo. Not shown in Game view.
+- Books: `books/pageText.ts` (junk OCR lines → figure markers, picture pages), real page first when the PDF is in (`kg:bookReal`),
+  add the PDF from the reader; "Read this page's tab" reads in place (`ScanVideo autoRead`). AskBubble slides off controls (nudge).
+- PDF: `staffScan` ignores time signatures (big digits); staves with no text numbers = drawn (Songsterr prints) → ScannedPdf with
+  `songsterr` "Artist - Song" → Songs → Add offers "Find it on Songsterr". Stage 4: read drawn digits ourselves.
+- Sound packs are sounds: `audio/packSounds.ts` (`pack:<id>` SoundIds, `baseOf` stand-in, `allSounds()` in every picker,
+  `refreshPackSounds` at start-up / import / delete, `FIRST_CHOICE` agsj → acoustic; several .kgpack at once). Basses:
+  `BASS_PACK` (studiobass-session / -sixties / -modern; no upright, owner), `STYLE_BASS`, Jam "Bass sound" picker, Play's band
+  (`setBandBass`). Bass bus compressor in engine/console.ts.
+- Harvest state + rules: `notes/HARVEST-PLAN.md` "RESUME HERE" (latest at the end).
