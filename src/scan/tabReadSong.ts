@@ -2,7 +2,7 @@
 // PDF, screenshots) are read here first, with no AI and no key: the line a number sits on is the string, so the strings
 // are never guessed. Numbers the reader wasn't sure of are kept and marked (`unsure`): the tab shows them with an amber
 // ring so you can check them against the page.
-import { deskew, isDark, type Gray } from './image'
+import { deskew, inkDark, type Gray } from './image'
 import { readTab, graceLead, type TabReading } from './tabRead'
 import { readVectorTab, type VectorReading } from './vectorTab'
 import type { TuningFound } from './tuningText'
@@ -24,7 +24,7 @@ export interface PictureReading {
 export function readTabPictures(pics: Gray[], tuning: number[], title: string): PictureReading | null {
   const strings = tuning.length
   // light lines on a dark background (a dark-mode screenshot, a video's tab strip): turn round so the ink is dark
-  pics = pics.map(g => (isDark(g) ? { w: g.w, h: g.h, px: g.px.map(v => 1 - v) } : g)).map(g => deskew(g).g) // and level a crooked photo
+  pics = pics.map(g => deskew(inkDark(g)).g) // and level a crooked photo
   let readings = pics.map(g => readTab(g, { strings }))
   // one time signature for the whole piece: the one most of the notes were read in (a page with few bars can't tell)
   const votes = new Map<number, number>()
@@ -43,7 +43,7 @@ export async function readTabPicturesBest(pics: Gray[], tuning: number[], title:
   if (!run) return readTabPictures(pics, tuning, title)
   const { readTabCrnn } = await import('./crnnRead')
   const strings = tuning.length
-  pics = pics.map(g => (isDark(g) ? { w: g.w, h: g.h, px: g.px.map(v => 1 - v) } : g))
+  pics = pics.map(inkDark)
   let readings: TabReading[] = []
   for (const g of pics) readings.push(await readTabCrnn(g, run, { strings }))
   const votes = new Map<number, number>()
@@ -146,10 +146,9 @@ export function grayOf(img: HTMLImageElement | HTMLCanvasElement, minWidth = 160
   const d = x.getImageData(0, 0, w, h).data
   const px = new Float32Array(w * h)
   for (let i = 0; i < w * h; i++) px[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) / 255
-  const g = { w, h, px }
-  // a dark-mode screenshot (light lines on black): turn it round so ink is dark
-  if (isDark(g)) for (let i = 0; i < px.length; i++) px[i] = 1 - px[i]
-  return g
+  // a dark-mode screenshot (light lines on black): turned round so ink is dark (a dark video frame with a white tab
+  // strip in it is left as it is)
+  return inkDark({ w, h, px })
 }
 
 /** The song as a plain text tab (for "Fix the tab text"), high string on top; spacing follows the note lengths. */

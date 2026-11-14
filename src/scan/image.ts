@@ -65,8 +65,22 @@ export function isDark(g: Gray) {
  * below for rhythm marks.
  */
 export function findStrips(g: Gray, strings = [6, 4]): Strip[] {
+  // a video frame is often mostly dark (the player, the room) with a white tab strip in it: try the other way round too
+  const d = isDark(g)
+  const first = stripsOf(g, strings, d)
+  return first.length ? first : stripsOf(g, strings, !d)
+}
+
+/** The picture with its tab as dark ink on a light ground: turned round only when the tab itself is light on dark
+ *  (a dark-mode screenshot), not when a dark video frame has a white tab strip in it. */
+export function inkDark(g: Gray): Gray {
+  if (stripsOf(g, [6, 4], false).length) return g
+  if (stripsOf(g, [6, 4], true).length || isDark(g)) return { w: g.w, h: g.h, px: g.px.map(v => 1 - v) }
+  return g
+}
+
+function stripsOf(g: Gray, strings: number[], dark: boolean): Strip[] {
   const { w, h, px } = g
-  const dark = isDark(g)
   // a pixel is "line" when it is darker (or lighter, on a dark picture) than 2 px above and below
   const lineRow = new Float32Array(h)
   const spanL = new Int32Array(h), spanR = new Int32Array(h)
