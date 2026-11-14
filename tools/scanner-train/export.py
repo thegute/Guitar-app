@@ -9,7 +9,7 @@ import torch
 from model import TabCRNN
 
 src, dst = sys.argv[1], sys.argv[2]
-m = TabCRNN()
+m = TabCRNN(arch=sys.argv[3] if len(sys.argv) > 3 else 'dense')
 m.load_state_dict(torch.load(src, map_location='cpu'))
 m.eval()
 

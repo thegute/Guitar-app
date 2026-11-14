@@ -35,10 +35,26 @@ class DW(nn.Module):
         return F.gelu(y + (x if self.skip is None else self.skip(x)))
 
 
-class TCN(nn.Module):
-    def __init__(self, d, dil):
+class Dense(nn.Module):
+    """plain 3×3 conv block with a skip (Apple's GPU runs these far faster than depthwise ones)"""
+
+    def __init__(self, cin, cout, stride=1, dil=1):
         super().__init__()
-        self.dw = nn.Conv1d(d, d, 5, padding=2 * dil, dilation=dil, groups=d)
+        self.c1 = nn.Conv2d(cin, cout, 3, stride, padding=dil, dilation=dil, bias=False)
+        self.b1 = nn.BatchNorm2d(cout)
+        self.c2 = nn.Conv2d(cout, cout, 3, 1, padding=1, bias=False)
+        self.b2 = nn.BatchNorm2d(cout)
+        self.skip = None if (cin == cout and stride == 1) else nn.Sequential(nn.Conv2d(cin, cout, 1, stride, bias=False), nn.BatchNorm2d(cout))
+
+    def forward(self, x):
+        y = self.b2(self.c2(F.gelu(self.b1(self.c1(x)))))
+        return F.gelu(y + (x if self.skip is None else self.skip(x)))
+
+
+class TCN(nn.Module):
+    def __init__(self, d, dil, dense=False):
+        super().__init__()
+        self.dw = nn.Conv1d(d, d, 5, padding=2 * dil, dilation=dil, groups=1 if dense else d)
         self.n = nn.BatchNorm1d(d)
         self.pw1 = nn.Conv1d(d, d * 2, 1)
         self.pw2 = nn.Conv1d(d * 2, d, 1)
@@ -49,18 +65,28 @@ class TCN(nn.Module):
 
 
 class TabCRNN(nn.Module):
-    def __init__(self, c=(32, 64, 96, 144), d=192):
+    """arch 'dense' (default: plain convs, fast on Apple's GPU) or 'dw' (depthwise-separable, the first version)"""
+
+    def __init__(self, c=(32, 64, 96, 144), d=192, arch='dense'):
         super().__init__()
-        self.stem = nn.Sequential(nn.Conv2d(1, c[0], 3, 1, 1, bias=False), nn.BatchNorm2d(c[0]), nn.GELU())
-        self.s1 = nn.Sequential(DW(c[0], c[1], 2), DW(c[1], c[1]))          # 80 × W/2
-        self.s2 = nn.Sequential(DW(c[1], c[2], 2), DW(c[2], c[2]), DW(c[2], c[2], dil=2))  # 40 × W/4
-        self.s3 = nn.Sequential(DW(c[2], c[3]), DW(c[3], c[3], dil=2), DW(c[3], c[3]))
+        self.arch = arch
+        if arch == 'dw':
+            self.stem = nn.Sequential(nn.Conv2d(1, c[0], 3, 1, 1, bias=False), nn.BatchNorm2d(c[0]), nn.GELU())
+            self.s1 = nn.Sequential(DW(c[0], c[1], 2), DW(c[1], c[1]))          # 80 × W/2
+            self.s2 = nn.Sequential(DW(c[1], c[2], 2), DW(c[2], c[2]), DW(c[2], c[2], dil=2))  # 40 × W/4
+            self.s3 = nn.Sequential(DW(c[2], c[3]), DW(c[3], c[3], dil=2), DW(c[3], c[3]))
+        else:
+            c = (32, 64, 96, 128)
+            self.stem = nn.Sequential(nn.Conv2d(1, c[0], 3, 2, 1, bias=False), nn.BatchNorm2d(c[0]), nn.GELU())  # 80 × W/2
+            self.s1 = Dense(c[0], c[1], 2)                                       # 40 × W/4
+            self.s2 = nn.Sequential(Dense(c[1], c[2]), Dense(c[2], c[2], dil=2))
+            self.s3 = nn.Sequential(Dense(c[2], c[3]), Dense(c[3], c[3], dil=2))
         C = c[3]
         self.C = C
         # string rows in the 40-row feature map: (42 + 15 s) / 4
         self.rows = [((TOP + GAP * s) / 4) for s in range(SLOTS)]
         self.mix = nn.Conv1d(C * (SLOTS + 2), d, 1)
-        self.tcn = nn.Sequential(*[TCN(d, k) for k in (1, 2, 4, 8, 1, 2)])
+        self.tcn = nn.Sequential(*[TCN(d, k, dense=arch != 'dw') for k in (1, 2, 4, 8, 1, 2)])
         self.emb = nn.Parameter(torch.zeros(SLOTS, 16))
         nn.init.normal_(self.emb, std=0.5)
         self.fret1 = nn.Conv1d(C + d + 16, d, 1)
@@ -97,7 +123,8 @@ class TabCRNN(nn.Module):
 
 
 if __name__ == '__main__':
-    m = TabCRNN()
+    import sys
+    m = TabCRNN(arch=sys.argv[1] if len(sys.argv) > 1 else 'dense')
     n = sum(p.numel() for p in m.parameters())
     y = m(torch.zeros(2, 1, 160, 512))
     print(f'{n / 1e6:.2f} M parameters', {k: tuple(v.shape) for k, v in y.items()})

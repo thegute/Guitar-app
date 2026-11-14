@@ -8,8 +8,8 @@ from model import TabCRNN
 
 if __name__ == '__main__':
     dev = 'mps' if torch.backends.mps.is_available() else 'cpu'
-    for amp in (True, False):
-        m = TabCRNN().to(dev)
+    for arch, amp in (('dense', False), ('dense', True), ('dw', False)):
+        m = TabCRNN(arch=arch).to(dev)
         opt = torch.optim.AdamW(m.parameters(), 1e-3)
         x = torch.rand(32, 1, 160, 512, device=dev)
         for i in range(25):
@@ -25,8 +25,8 @@ if __name__ == '__main__':
             opt.step()
         if dev == 'mps':
             torch.mps.synchronize()
-        print(f'network on {dev} (half precision {amp}): {20 / (time.time() - t):.2f} steps/s', flush=True)
-    for w in (4, 6):
+        print(f'network {arch} on {dev} (half precision {amp}): {20 / (time.time() - t):.2f} steps/s', flush=True)
+    for w in (6,):
         dl = torch.utils.data.DataLoader(Mixed('strips/train'), batch_size=32, num_workers=w)
         it = iter(dl)
         next(it)

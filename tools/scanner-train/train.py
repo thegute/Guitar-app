@@ -30,6 +30,8 @@ if __name__ == '__main__':
     p.add_argument('--eval', type=int, default=1000)
     p.add_argument('--real', type=float, default=0.4)
     p.add_argument('--resume', default='')
+    p.add_argument('--arch', default='dense')
+    p.add_argument('--amp', type=int, default=0, help='half precision on the GPU (1) or not (0)')
     p.add_argument('--smoke', action='store_true', help='a few steps on the CPU to check everything runs')
     a = p.parse_args()
 
@@ -47,7 +49,7 @@ if __name__ == '__main__':
         log.flush()
 
 
-    model = TabCRNN().to(dev)
+    model = TabCRNN(arch=a.arch).to(dev)
     if a.resume:
         model.load_state_dict(torch.load(a.resume, map_location=dev))
     opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=0.02)
@@ -151,7 +153,7 @@ if __name__ == '__main__':
 
 
     say(f'device {dev}, {sum(p.numel() for p in model.parameters()) / 1e6:.2f} M parameters, {len(ds.items)} real strips')
-    use_amp = dev in ('mps', 'cuda')
+    use_amp = dev in ('mps', 'cuda') and bool(a.amp)
     amp_dtype = torch.float16 if dev == 'mps' else torch.bfloat16
     best = -1
     t0 = time.time()
