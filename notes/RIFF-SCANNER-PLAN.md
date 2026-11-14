@@ -89,3 +89,11 @@ error rate (wrong note without an amber ring).
   misread as 10/12/13/14 and its 6/X/4 muted chords missed, a few phantoms from video showing through. Billy Strings Short
   (97a93475): at 510 px the B and D lines vanished in the copy sent; nothing found. Fixes: thick lines (d = 2 or 4, rows
   ≤4 px merged), same page by staff height + numbers, page overlap on ink darker than its surroundings, dropLoop.
+- 2026-11-14 Audio referee on real recordings: none of the owner's videos has a playhead playheadX can see (coloured lines,
+  highlight boxes, none), so it never ran. Now the Stitcher also keeps `views` (each frame's place on the strip and its
+  time); hear.ts viewTimeline (a still page is swept left to right while shown; a scroll passes a playhead at fraction p)
+  + tuneTiming (p, a −1.2…+1.2 s delay and the tuning: standard / drop D / ½ and 1 step down, chosen by how much better the
+  sure notes sound at their own times than shuffled among them; trusted at gain ≥ 0.15 and score ≥ 0.4) + heardAround
+  (±0.24 s). On the real videos the timing is found on 5 of 6 (scores 0.48–0.93) and standard tuning picked every time,
+  but no note changed: the reader is already sure of nearly every number, and the wrong ones are confidently wrong (bend
+  labels, Everlong). A veto of notes not heard (< 0.1) would drop as many real notes as phantoms: not done.

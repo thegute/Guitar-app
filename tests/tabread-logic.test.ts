@@ -9,7 +9,7 @@ import { readingSong, mergePages, dropLoop } from '../src/scan/tabReadSong'
 import { tuningFromText, guitarNumbers } from '../src/scan/tuningText'
 import { rhythmFromStems } from '../src/scan/stemRhythm'
 import { fitBar, straighten, timeOf } from '../src/scan/crnnRead'
-import { hearing, referee } from '../src/scan/hear'
+import { hearing, referee, tuneTiming, viewTimeline } from '../src/scan/hear'
 import type { PdfShape } from '../src/tabs/pdfTab'
 import type { Gray } from '../src/scan/image'
 
@@ -198,4 +198,26 @@ console.log('fitRhythm: ok')
   const out = dropLoop([rd(sys(...A)), rd(sys(...B)), rd(sys(...A)), rd(sys(...B)), rd(sys(...A.slice(0, 9)))])
   assert.deepEqual(out.map(r => r.systems[0].bars.length), [1, 1, 1, 1, 0], 'only the replay at the end goes')
   console.log('Short replay dropped: ok')
+}
+
+// the sound as referee with no playhead to see: a page shown for 5 s is played left to right; the timing and tuning that
+// make the read notes sound right are found by listening, and a sound track of other notes is not trusted
+{
+  const sr = 22050, dur = 6, x = new Float32Array(sr * dur), y = new Float32Array(sr * dur)
+  const tuning = [40, 45, 50, 55, 59, 64]
+  const notes = Array.from({ length: 12 }, (_, i) => ({ x: 50 + i * 75, string: (i * 5) % 6, fret: (i * 7) % 8 }))
+  const pluck = (buf: Float32Array, t: number, midi: number) => {
+    const f = 440 * 2 ** ((midi - 69) / 12)
+    for (let i = Math.round(t * sr); i < Math.min(buf.length, Math.round((t + 0.45) * sr)); i++) { const u = i / sr - t; for (let h = 1; h <= 4; h++) buf[i] += Math.sin(2 * Math.PI * f * h * u) / h * Math.exp(-u * 5) }
+  }
+  // shown 0.5 s … 5 s (frames every 0.5 s), played 0.3 s late
+  const views = Array.from({ length: 10 }, (_, i) => ({ x0: 0, w: 1000, t: 0.5 + i * 0.5 }))
+  notes.forEach(n => pluck(x, 0.5 + (n.x / 1000) * 5 + 0.3, tuning[n.string] + n.fret))
+  notes.forEach((n, i) => pluck(y, 0.5 + (n.x / 1000) * 5 + 0.3, 50 + ((i * 5) % 13)))
+  const tt = tuneTiming(notes, views, hearing(x, sr), [tuning, tuning.map(m => m - 1)])
+  assert.ok(tt && tt.tuning === tuning && Math.abs(tt.delay - 0.4) <= 0.41, `timing found by listening (${JSON.stringify(tt && { ...tt, tuning: tt.tuning.join() })})`)
+  assert.equal(tuneTiming(notes, views, hearing(y, sr), [tuning]), null, 'other notes heard: not trusted')
+  const tl = viewTimeline(views, 0.5)
+  assert.ok(tl.length === 2 && tl[0].t === 0.5 && tl[1].x === 1000, 'a still page is swept left to right while shown')
+  console.log('referee timing without a playhead: ok')
 }

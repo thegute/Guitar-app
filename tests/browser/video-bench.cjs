@@ -44,9 +44,15 @@ const [video, outp] = process.argv.slice(2)
       const { timeOf } = await import('/src/scan/crnnRead.ts')
       const snd = await soundOf(blob, new OfflineAudioContext(1, 44100, 44100))
       if (snd && vt.timelines) {
-        const at = hearing(snd.x, snd.sr)
+        void hearing; void timeOf
+        const { soundFor } = await import('/src/scan/tabReadSong.ts')
+        const hf = await soundFor({ x: snd.x, sr: snd.sr, timelines: vt.timelines, views: vt.views }, [40, 45, 50, 55, 59, 64])
         const hr = []
-        for (const [i, g] of vt.strips.entries()) hr.push(await readTabCrnn(g, run, { hear: { at, when: timeOf(vt.timelines[i] || []), tuning: [40, 45, 50, 55, 59, 64] } }))
+        for (const [i, g] of vt.strips.entries()) {
+          const o = hf(i).hear ? hf(i) : hf(i, tr[i])
+          if (o.hear) window.__heardStrips = [...(window.__heardStrips || []), `${i}:${o.hear.tuning.join(',')}`]
+          hr.push(o.hear ? await readTabCrnn(g, run, o) : tr[i])
+        }
         heard = dropLoop(dropRepeats(mergePages(hr))).flatMap(ser)
       }
     } catch (e) { heard = String(e) }
@@ -69,7 +75,7 @@ const [video, outp] = process.argv.slice(2)
     }
     // the whole first strip as 8-bit grey (for looking into it outside the browser)
     const gray = btoa(Array.from(g0.px, v => String.fromCharCode(Math.max(0, Math.min(255, Math.round(v * 255))))).join(''))
-    return { all, heard, tl: (vt.timelines || []).map(t => t.length), trace: vt.trace, perStrip, raw: JSON.parse(JSON.stringify(raw)), gray, gw: g0.w, gh: g0.h, peek, strips: vt.strips.map(g => `${g.w}×${g.h}`), frames: vt.frames, kept: vt.kept, scrolled: vt.scrolled, secs: Math.round((t1 - t0) / 100) / 10, readSecs: Math.round((performance.now() - t1) / 100) / 10, trained, matcher }
+    return { heardStrips: window.__heardStrips || [], all, heard, tl: (vt.timelines || []).map(t => t.length), trace: vt.trace, perStrip, raw: JSON.parse(JSON.stringify(raw)), gray, gw: g0.w, gh: g0.h, peek, strips: vt.strips.map(g => `${g.w}×${g.h}`), frames: vt.frames, kept: vt.kept, scrolled: vt.scrolled, secs: Math.round((t1 - t0) / 100) / 10, readSecs: Math.round((performance.now() - t1) / 100) / 10, trained, matcher }
   })
   if (process.env.TRACE) console.log(res.trace.join(' '))
   console.log(`notes per strip ${res.perStrip.join(' ')} · frames ${res.frames}, kept ${res.kept}, scrolled ${res.scrolled}, strips ${res.strips.join(' ')}, video ${res.secs} s, reading ${res.readSecs} s`)
@@ -77,7 +83,7 @@ const [video, outp] = process.argv.slice(2)
   fs.writeFileSync(`${outp}-strip.png`, Buffer.from(res.peek.split(',')[1], 'base64'))
   if (Array.isArray(res.heard)) fs.writeFileSync(`${outp}-heard.json`, JSON.stringify(res.heard)); else console.log('sound:', res.heard)
   ;(res.all || []).forEach((u, i) => fs.writeFileSync(`${outp}-s${i}.png`, Buffer.from(u.split(',')[1], 'base64')))
-  console.log('timeline points per strip', res.tl.join(' '))
+  console.log('timeline points per strip', res.tl.join(' '), '· strips refereed by sound', res.heardStrips.join(' ') || 'none')
   fs.writeFileSync(`${outp}-raw.json`, JSON.stringify(res.raw))
   fs.writeFileSync(`${outp}-trained.json`, JSON.stringify(res.trained))
   fs.writeFileSync(`${outp}-matcher.json`, JSON.stringify(res.matcher))

@@ -138,7 +138,7 @@ function seek(v: HTMLVideoElement, t: number) {
   })
 }
 
-export interface VideoTab { pieces: Piece[]; frames: number; kept: number; scrolled: boolean; box: Box | null; /** each tab strip whole (before it's cut into pieces for the AI): for KGuitar's own reader */ strips: Gray[]; trace?: string[]; /** per strip: playhead x → seconds (see Stitcher.timelines) */ timelines?: { x: number; t: number }[][] }
+export interface VideoTab { pieces: Piece[]; frames: number; kept: number; scrolled: boolean; box: Box | null; /** each tab strip whole (before it's cut into pieces for the AI): for KGuitar's own reader */ strips: Gray[]; trace?: string[]; /** per strip: playhead x → seconds (see Stitcher.timelines) */ timelines?: { x: number; t: number }[][]; /** per strip: where each frame sat and when (Stitcher.views) */ views?: { x0: number; w: number; t: number }[][] }
 
 /**
  * Frames in, tab strips out, one frame at a time (a long screen grab never keeps more than a handful of frames): the tab
@@ -168,6 +168,10 @@ export class Stitcher {
    *  whose time was given. Lets the sound be checked against each column (the audio referee). */
   timelines: { x: number; t: number }[][] = []
   private timeline: { x: number; t: number }[] = []
+  /** for each strip: every frame's place on it and when it was shown (x0 = the frame's left edge, w its width). When no
+   *  playhead can be seen, this still says roughly when each column was played (crnnRead viewTimeline) */
+  views: { x0: number; w: number; t: number }[][] = []
+  private view: { x0: number; w: number; t: number }[] = []
   /** what the scroll tracking saw at each frame (shift:match, or x for none): for tests */
   trace: string[] = []
   private shifts: number[] = []
@@ -202,7 +206,12 @@ export class Stitcher {
     let ink = 0
     for (let i = 0; i < g.px.length; i += 5) if (g.px[i] < 0.5) ink++
     if (ink < g.px.length / 5 * 0.004) return
-    const mark = () => { if (t === undefined) return; const p = playheadX(g); if (p !== null) this.timeline.push({ x: this.at + p, t }) }
+    const mark = () => {
+      if (t === undefined) return
+      this.view.push({ x0: this.at, w: g.w, t })
+      const p = playheadX(g)
+      if (p !== null) this.timeline.push({ x: this.at + p, t })
+    }
     // (a "nearly the same" frame still has its shift measured: a sparse tab scrolling a little changes few pixels, and
     // stacking it in the old place would smear the numbers away)
     const prof = profile(g)
@@ -330,9 +339,9 @@ export class Stitcher {
     if (this.layers.length) this.append(this.compose(this.doneW, this.width))
     const pano = this.done
     this.layers = []; this.width = 0; this.done = null; this.doneW = 0
-    const tl = this.timeline
-    this.timeline = []
-    if (pano) { this.strips.push(pano); this.timelines.push(tl); for (const part of cutWide(pano)) this.out.push(pieceOf(part)) }
+    const tl = this.timeline, vw = this.view
+    this.timeline = []; this.view = []
+    if (pano) { this.strips.push(pano); this.timelines.push(tl); this.views.push(vw); for (const part of cutWide(pano)) this.out.push(pieceOf(part)) }
   }
   finish(): Piece[] { this.flush(); return this.out }
 }
@@ -432,7 +441,7 @@ export async function tabFromVideo(file: Blob, o: { every?: number; from?: numbe
       st.add(v, t)
     }
     const pieces = st.finish()
-    return { pieces, frames: st.frames, kept: st.kept, scrolled: st.scrolled, box: st.box, strips: st.strips, timelines: st.timelines, trace: st.trace }
+    return { pieces, frames: st.frames, kept: st.kept, scrolled: st.scrolled, box: st.box, strips: st.strips, timelines: st.timelines, views: st.views, trace: st.trace }
   } finally {
     v.removeAttribute('src'); v.load()
     URL.revokeObjectURL(url)

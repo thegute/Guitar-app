@@ -140,21 +140,51 @@ export function dropLoop(readings: TabReading[]): TabReading[] {
   return readings
 }
 
+/** A video's sound with, per strip, when its playhead was where (Stitcher.timelines) and where its frames sat when
+ *  (Stitcher.views). */
+export interface VideoSound { x: Float32Array; sr: number; timelines: { x: number; t: number }[][]; views?: { x0: number; w: number; t: number }[][] }
+
+/** The audio referee's settings for strip i: from its playhead when one was seen; otherwise (given a first reading of the
+ *  strip) from where its frames sat, with the playhead place and the tuning that make the notes the picture is sure of
+ *  sound right (standard, drop D, a half step and a whole step down are tried when the app is in standard tuning). */
+export async function soundFor(snd: VideoSound, tuning: number[]): Promise<(i: number, first?: TabReading) => { hear?: { at: import('./hear').Hearing; when: (x: number) => number | null; tuning: number[] } }> {
+  const H = await import('./hear')
+  const { timeOf } = await import('./crnnRead')
+  const at = H.hearing(snd.x, snd.sr)
+  const std = tuning.join() === '40,45,50,55,59,64'
+  const tunings = std ? [tuning, [38, 45, 50, 55, 59, 64], tuning.map(m => m - 1), tuning.map(m => m - 2)] : [tuning]
+  const cache = new Map<number, ReturnType<typeof H.tuneTiming>>()
+  return (i, first) => {
+    const tl = snd.timelines[i]
+    if (tl && tl.length >= 2) return { hear: { at, when: timeOf(tl), tuning } }
+    const vs = snd.views?.[i]
+    if (!vs || vs.length < 2) return {}
+    if (!cache.has(i)) {
+      if (!first) return {}
+      const notes = first.systems.flatMap(sy => sy.bars.flatMap(b => b.steps.flatMap(st => st.notes.filter(n => !n.dead && n.sure >= 0.8).map(n => ({ x: n.x, string: n.string, fret: n.fret })))))
+      cache.set(i, H.tuneTiming(notes, vs, at, tunings))
+    }
+    const tt = cache.get(i)
+    if (!tt) return {}
+    const w = timeOf(H.viewTimeline(vs, tt.p))
+    return { hear: { at: H.heardAround(at), when: (x: number) => { const t = w(x); return t === null ? null : t + tt.delay }, tuning: tt.tuning } }
+  }
+}
+
 /** The same, with the trained reader (tab_crnn) when the app has it: it reads photos, scans and video frames far better
  *  than the number matcher. Falls back to readTabPictures when the model can't be loaded. */
 export async function readTabPicturesBest(pics: Gray[], tuning: number[], title: string, o: {
   video?: boolean
   /** a video's sound and, per picture, when the playhead was where (pictures.ts Stitcher.timelines): numbers the
    *  picture leaves in doubt are settled by the note heard */
-  hear?: { x: Float32Array; sr: number; timelines: { x: number; t: number }[][] }
+  hear?: VideoSound
 } = {}): Promise<PictureReading | null> {
   let run: import('./crnnRead').CrnnRun | null = null
   try { run = await (await import('../ml/models')).tabCrnnRunner() } catch { run = null }
   if (!run) return readTabPictures(pics, tuning, title)
-  const { readTabCrnn, timeOf } = await import('./crnnRead')
+  const { readTabCrnn } = await import('./crnnRead')
   const strings = tuning.length
-  const at = o.hear ? (await import('./hear')).hearing(o.hear.x, o.hear.sr) : null
-  const hearFor = (i: number) => (at && o.hear?.timelines[i]?.length ? { hear: { at, when: timeOf(o.hear.timelines[i]), tuning } } : {})
+  const hearFor: Awaited<ReturnType<typeof soundFor>> = o.hear ? await soundFor(o.hear, tuning) : () => ({})
   pics = pics.map(inkDark)
   let readings: TabReading[] = []
   for (const [i, g] of pics.entries()) readings.push(await readTabCrnn(g, run, { strings, ...hearFor(i) }))
@@ -163,7 +193,11 @@ export async function readTabPicturesBest(pics: Gray[], tuning: number[], title:
   if (!votes.size) return readTabPictures(pics, tuning, title)
   const meter = [...votes].sort((a, b) => b[1] - a[1])[0][0]
   const again: TabReading[] = []
-  for (const [i, r] of readings.entries()) again.push(r.notes && r.meter !== meter ? await readTabCrnn(pics[i], run, { strings, beats: meter, ...hearFor(i) }) : r)
+  for (const [i, r] of readings.entries()) {
+    // strips with no playhead to time them: timed from where their frames sat, once the reading says what to listen for
+    const late: ReturnType<typeof hearFor> = r.notes && !hearFor(i).hear ? hearFor(i, r) : {}
+    again.push(r.notes && (r.meter !== meter || late.hear) ? await readTabCrnn(pics[i], run, { strings, beats: meter, ...hearFor(i), ...late }) : r)
+  }
   readings = o.video ? dropLoop(dropRepeats(mergePages(again))) : again
   return readingSong(readings, tuning, title, meter)
 }
