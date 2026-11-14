@@ -58,11 +58,17 @@ function align(a: St[], b: St[]) {
 
 let read = 0, ok = 0, gpN = 0, steps = 0, rhy = 0, chanceOk = 0, staves = 0
 const per: string[] = []
-for (const f of readdirSync(dir).filter(f => f.endsWith('.gray')).sort()) {
-  const buf = readFileSync(dir + '/' + f); const w = buf.readUInt32LE(0), h = buf.readUInt32LE(4)
-  const px = new Float32Array(w * h); for (let i = 0; i < w * h; i++) px[i] = buf[8 + i] / 255
-  const r = run ? await readTabCrnn({ w, h, px }, run) : readTab(deskew({ w, h, px }).g)
-  for (const s of r.systems) {
+// a folder of .gray pages, or a .json of readings already made (tests/browser/video-bench.cjs)
+type Sys = { bars: { steps: { dur: number; notes: { string: number; fret: number; dead?: boolean }[] }[] }[] }
+const sources: [string, () => Promise<Sys[]>][] = dir.endsWith('.json')
+  ? [[dir, async () => JSON.parse(readFileSync(dir, 'utf8'))]]
+  : readdirSync(dir).filter(f => f.endsWith('.gray')).sort().map(f => [f, async () => {
+    const buf = readFileSync(dir + '/' + f); const w = buf.readUInt32LE(0), h = buf.readUInt32LE(4)
+    const px = new Float32Array(w * h); for (let i = 0; i < w * h; i++) px[i] = buf[8 + i] / 255
+    return (run ? await readTabCrnn({ w, h, px }, run) : readTab(deskew({ w, h, px }).g)).systems
+  }])
+for (const [f, load] of sources) {
+  for (const s of await load()) {
     const a: St[] = s.bars.flatMap(b => b.steps.filter(st => st.notes.length).map(st => ({ key: keyOf(st.notes), n: st.notes.length, dur: st.dur })))
     if (a.length < 2) continue
     staves++

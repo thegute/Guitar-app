@@ -51,7 +51,7 @@ for (let p0 = first; p0 <= last; p0 += 30) {
         }
         if (bar.x1 < s.right - 2) cols.push({ x: bar.x1 / K, kind: 'bar', frets: {}, dur: null, dots: 0, tup: 0, grace: 0, stroke: 0 })
       }
-      return { lines, gap: s.gap / K, left: s.left / K, right: s.right / K, nstr, cols, rhythmRead: rhythm !== 'none' }
+      return { lines, gap: s.gap / K, left: s.left / K, right: s.right / K, nstr, cols, rhythmRead: rhythm !== 'none', part: s.part ?? 0 }
     })
     pagesOut.push({ page: p0 + i, width: pg.width, height: pg.height, staves })
   })

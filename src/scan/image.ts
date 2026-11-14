@@ -148,7 +148,14 @@ export function sharpen(g: Gray, amount = 1): Gray {
 /** Darkness per column (what scrolls sideways in a scrolling tab). */
 export function profile(g: Gray): Float32Array {
   const p = new Float32Array(g.w)
-  for (let x = 0; x < g.w; x++) { let s = 0; for (let y = 0; y < g.h; y++) s += 1 - g.px[y * g.w + x]; p[x] = s / g.h }
+  for (let x = 0; x < g.w; x++) {
+    let s = 0, dark = 0
+    for (let y = 0; y < g.h; y++) { const v = g.px[y * g.w + x]; s += 1 - v; if (v < 0.5) dark++ }
+    // a line from top to bottom of the box is a video's playhead (it stays put while the tab moves): leave it out, or the
+    // tab would seem not to have moved
+    p[x] = dark > g.h * 0.8 ? -1 : s / g.h
+  }
+  for (let x = 0; x < g.w; x++) if (p[x] < 0) { let a = x; while (a > 0 && p[a] < 0) a--; let b = x; while (b < g.w - 1 && p[b] < 0) b++; p[x] = Math.max(0, ((p[a] < 0 ? 0 : p[a]) + (p[b] < 0 ? 0 : p[b])) / 2) }
   // take away each column's average over a wide window, so only the notes are left (not the lines or the background)
   const out = new Float32Array(g.w)
   const r = 12

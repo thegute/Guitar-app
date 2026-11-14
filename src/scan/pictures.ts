@@ -176,8 +176,12 @@ export class Stitcher {
       const { g, scale } = grayAt(src, 1000)
       const s = findStrips(g)
       if (s.length) {
-        this.box = unionBox(s.map(x => toBox(x, scale, w, h)))
         this.gap = (s[0].lines[s[0].lines.length - 1] - s[0].lines[0]) / (s[0].lines.length - 1) / scale
+        // room above (pick strokes, words) and below (the rhythm: stems, beams, tuplet 3s) the staff
+        const b = unionBox(s.map(x => toBox(x, scale, w, h)))!
+        const up = (this.gap * 2) / h, down = (this.gap * 3.5) / h
+        const y0 = Math.max(0, b.y - up), y1 = Math.min(1, b.y + b.h + down)
+        this.box = { ...b, y: y0, h: y1 - y0 }
       } else if (this.searched < 60) return
       else this.box = { x: 0, y: 0, w: 1, h: 1 }
     }

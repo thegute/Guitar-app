@@ -202,34 +202,76 @@ export function fitBar(cols: { u: number; lens: { d: number; p: number }[] }[], 
   return out
 }
 
+function cropCols(g: Gray, a: number, b: number): Gray {
+  const w = b - a, px = new Float32Array(w * g.h)
+  for (let y = 0; y < g.h; y++) px.set(g.px.subarray(y * g.w + a, y * g.w + b), y * w)
+  return { w, h: g.h, px }
+}
+
 /** Read every tab staff in the picture with the network. */
 export async function readTabCrnn(g: Gray, run: CrnnRun, opts: { strings?: number; beats?: number } = {}): Promise<TabReading> {
   const nStr = opts.strings ?? 6
   g = deskew(g).g // a crooked photo: level its lines first
-  const strips = findStrips(g, [nStr])
   const systems: ReadSystem[] = []
   const sysBars: number[][] = []
   const nums: Num[] = []
-  const found: { cols: CrnnCol[]; toPage: (u: number) => number; gap: number }[] = []
-  for (const st of strips) {
-    const sv = straighten(g, st, nStr)
-    const o = await run(sv.px, sv.W)
-    const cols = decode(o, nStr)
-    const si = systems.length
-    const lines = sv.lines.map(f => f((st.left + st.right) / 2)).sort((a, b) => b - a) // low string first
-    systems.push({ lines, gap: sv.gap, left: st.left, right: st.right, bars: [] })
-    sysBars.push(cols.filter(c => c.kind === 'bar').map(c => sv.toPage(c.u)))
-    for (const c of cols) if (c.kind === 'note') for (const f of c.frets) {
-      nums.push({ sys: si, string: nStr - 1 - f.slot, x: sv.toPage(c.u), fret: f.fret, sure: f.sure, ...(f.dead ? { dead: true } : {}) })
+  type Col = CrnnCol & { x: number }
+  const found: { cols: Col[]; gap: number }[] = []
+  // a very wide picture (a scrolling video stitched into one long strip) is looked at in overlapping windows: its staff
+  // lines can break between stretches, drift up or down, and the staff finder wants a picture of ordinary proportions.
+  // The same staff seen in several windows (matched by height) becomes one system.
+  const win = g.w > g.h * 8 ? g.h * 6 : g.w, wov = Math.round(win * 0.15)
+  const wins: [number, number][] = []
+  for (let a = 0; a < g.w; a += win - wov) { wins.push([a, Math.min(g.w, a + win)]); if (a + win >= g.w) break }
+  const rows: { top: number; ls: number[]; gap: number; left: number; right: number; cols: Col[] }[] = []
+  for (const [wk, [wa, wb]] of wins.entries()) {
+    const sub = wins.length === 1 ? g : cropCols(g, wa, wb)
+    const wlo = wk === 0 ? -Infinity : wa + wov / 2, whi = wk === wins.length - 1 ? Infinity : wb - wov / 2
+    let fs = findStrips(sub, [nStr])
+    // a stretch of a long strip where the staff finder sees no staff (long ties, a chord with brackets, a gap in the
+    // lines): the staff runs on at the height it had either side of it
+    if (!fs.length && wins.length > 1 && rows.length) fs = rows.map(r => ({ top: Math.max(0, Math.round(r.ls[0] - r.gap * 2.6)), bottom: Math.min(g.h - 1, Math.round(r.ls[r.ls.length - 1] + r.gap * 1.8)), left: 0, right: sub.w - 1, lines: r.ls }))
+    for (const st of fs) {
+      // a long stretch is read in overlapping pieces too, each straightened on its own; each keeps its middle part
+      const ls = [...st.lines].sort((p, q) => p - q)
+      const gap0 = (ls[ls.length - 1] - ls[0]) / Math.max(1, ls.length - 1)
+      const piece = gap0 * 72, ov = gap0 * 10
+      const cuts: [number, number][] = []
+      if (st.right - st.left <= piece * 1.25) cuts.push([st.left, st.right])
+      else for (let a = st.left; a < st.right; a += piece - ov) { cuts.push([a, Math.min(st.right, a + piece)]); if (a + piece >= st.right) break }
+      const cols: Col[] = []
+      let gap = gap0
+      for (const [k, [a, b]] of cuts.entries()) {
+        const sv = straighten(sub, { ...st, left: a, right: b }, nStr)
+        if (k === 0) gap = sv.gap
+        const lo = k === 0 ? -Infinity : a + ov / 2, hi = k === cuts.length - 1 ? Infinity : b - ov / 2
+        for (const c of decode(await run(sv.px, sv.W), nStr)) {
+          const x = sv.toPage(c.u)
+          if (x >= lo && x < hi && x + wa >= wlo && x + wa < whi) cols.push({ ...c, x: x + wa })
+        }
+      }
+      const row = rows.find(r => Math.abs(r.top - ls[0]) < gap * 1.5)
+      if (row) { row.cols.push(...cols); row.left = Math.min(row.left, st.left + wa); row.right = Math.max(row.right, st.right + wa) }
+      else rows.push({ top: ls[0], ls, gap, left: st.left + wa, right: st.right + wa, cols })
     }
-    found.push({ cols, toPage: sv.toPage, gap: sv.gap })
+  }
+  rows.sort((p, q) => p.top - q.top)
+  for (const r of rows) {
+    const cols = r.cols.sort((p, q) => p.x - q.x)
+    const si = systems.length
+    systems.push({ lines: [...r.ls].reverse(), gap: r.gap, left: r.left, right: r.right, bars: [] }) // low string first
+    sysBars.push(cols.filter(c => c.kind === 'bar').map(c => c.x))
+    for (const c of cols) if (c.kind === 'note') for (const f of c.frets) {
+      nums.push({ sys: si, string: nStr - 1 - f.slot, x: c.x, fret: f.fret, sure: f.sure, ...(f.dead ? { dead: true } : {}) })
+    }
+    found.push({ cols, gap: r.gap })
   }
   // the time signature isn't read by the network: the commonest bar length its first choices add up to
   const sums = new Map<number, number>()
   found.forEach(f => {
-    const xb = [-Infinity, ...f.cols.filter(c => c.kind === 'bar').map(c => c.u), Infinity]
+    const xb = [-Infinity, ...f.cols.filter(c => c.kind === 'bar').map(c => c.x), Infinity]
     for (let i = 0; i + 1 < xb.length; i++) {
-      const here = f.cols.filter(c => c.kind !== 'bar' && !c.grace && c.u > xb[i] && c.u < xb[i + 1])
+      const here = f.cols.filter(c => c.kind !== 'bar' && !c.grace && c.x > xb[i] && c.x < xb[i + 1])
       if (here.length < 2 || here.some(c => c.printed < 0.5)) continue
       const sum = Math.round(here.reduce((a, c) => a + (c.lens[0]?.d ?? 0), 0) * 8) / 8
       if (sum >= 1 && sum <= 12) sums.set(sum, (sums.get(sum) ?? 0) + 1)
@@ -241,7 +283,7 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: { strings?: numbe
     ...(opts.beats ? { beats: opts.beats } : voted ? { beats: voted } : {}),
     durations: (si, xs, x0, x1, beats) => {
       const f = found[si]
-      const here = f.cols.filter(c => c.kind !== 'bar' && f.toPage(c.u) > x0 && f.toPage(c.u) < x1)
+      const here = f.cols.filter(c => c.kind !== 'bar' && c.x > x0 && c.x < x1)
       // no rhythm printed under this bar: let the spacing decide
       if (!here.length || here.reduce((a, c) => a + c.printed, 0) / here.length < 0.5) return null
       const mains = here.filter(c => !c.grace)
@@ -250,16 +292,16 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: { strings?: numbe
       const first = mains.map(c => c.lens[0]?.d ?? 0)
       const fsum = first.reduce((a, b) => a + b, 0)
       const allSure = mains.every(c => (c.lens[0]?.p ?? 0) > 0.9)
-      const lens = Math.abs(fsum - beats) < 1e-3 || (allSure && fsum > 0) ? first : fitBar(mains.map(c => ({ u: f.toPage(c.u), lens: c.lens })), beats, x1) ?? first
+      const lens = Math.abs(fsum - beats) < 1e-3 || (allSure && fsum > 0) ? first : fitBar(mains.map(c => ({ u: c.x, lens: c.lens })), beats, x1) ?? first
       if (!lens.every(d => d > 0)) return null
       // each note column of the layout gets the length of the network column nearest it; rests come back as rests
-      const durOf = new Map<CrnnCol, number>()
+      const durOf = new Map<Col, number>()
       mains.forEach((c, i) => durOf.set(c, lens[i]))
-      const near = (x: number) => here.reduce<CrnnCol | null>((b, c) => (Math.abs(f.toPage(c.u) - x) < f.gap * 0.7 && (!b || Math.abs(f.toPage(c.u) - x) < Math.abs(f.toPage(b.u) - x)) ? c : b), null)
-      const used = new Set<CrnnCol>()
+      const near = (x: number) => here.reduce<Col | null>((b, c) => (Math.abs(c.x - x) < f.gap * 0.7 && (!b || Math.abs(c.x - x) < Math.abs(b.x - x)) ? c : b), null)
+      const used = new Set<Col>()
       const durs = xs.map(x => { const c = near(x); if (!c) return 0; used.add(c); return c.grace ? 0.125 : durOf.get(c) ?? 0 })
       if (durs.some(d => d === 0)) return null
-      const rests = mains.filter(c => !used.has(c)).map(c => ({ x: f.toPage(c.u), dur: durOf.get(c)! }))
+      const rests = mains.filter(c => !used.has(c)).map(c => ({ x: c.x, dur: durOf.get(c)! }))
       return { durs, rests, grace: xs.map(x => !!near(x)?.grace) }
     },
   })
