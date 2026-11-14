@@ -151,11 +151,16 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
 
   /** Tab strips taken from a video (stitched across its frames), read by KGuitar itself (used when no AI reader is set up).
    *  True when it read a tab; the video's own tempo goes on the song. */
+  /** the trained picture reader is in the app: it goes before the AI (the AI is the fallback when it can't read it) */
+  async function ownFirst() {
+    try { await (await import('../ml/models')).tabCrnnRunner(); return true } catch { return false }
+  }
+
   async function readOwnPieces(pieces: Piece[], name: string, how: string, bpm?: number, strips?: Gray[]): Promise<boolean> {
-    const { readTabPictures, trustReading, grayOf, songTabText } = await import('./tabReadSong')
+    const { readTabPicturesBest, trustReading, grayOf, songTabText } = await import('./tabReadSong')
     // the whole strips when we have them (cut pieces would split bars), else the pieces
     const grays = strips?.length ? strips : (await Promise.all(pieces.map(pc => loadPicture(pc.url)))).map(im => grayOf(im))
-    const r = readTabPictures(grays, inst.midis, name)
+    const r = await readTabPicturesBest(grays, inst.midis, name)
     if (!r || !(trustReading(r) || !ready)) return false
     const song = bpm ? { ...r.song, tempo: bpm, tempoFrom: 'file' as const } : r.song
     const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song, youtube, updated: Date.now() }
@@ -174,14 +179,14 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     begin([{ id: 'own', label: 'Reading the numbers on the tab lines', state: 'run' }])
     await new Promise(r => setTimeout(r, 30))
     try {
-      const { readTabPictures, trustReading, grayOf, songTabText } = await import('./tabReadSong')
-      const r = readTabPictures(pics.map(p => grayOf(p.img)), inst.midis, name)
+      const { readTabPicturesBest, trustReading, grayOf, songTabText } = await import('./tabReadSong')
+      const r = await readTabPicturesBest(pics.map(p => grayOf(p.img)), inst.midis, name)
       if (r && (trustReading(r) || !ready)) {
         const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song: r.song, youtube, updated: Date.now() }
         const names = stringNames(inst)
         setOut({
           doc, heard: false, text: songTabText(r.song, names), reparse: t => songFromScan(t, name, inst, youtube),
-          how: `KGuitar read ${r.notes} number${r.notes === 1 ? '' : 's'} on ${r.staves} staff${r.staves === 1 ? '' : 's'} itself${r.meter !== 4 ? ` (${r.meter}/4)` : ''}.${r.unsure ? ` ${r.unsure} ${r.unsure === 1 ? 'has' : 'have'} an amber ring: check ${r.unsure === 1 ? 'it' : 'them'} against the page.` : ''} The rhythm comes from how the notes are spaced.`,
+          how: `KGuitar read ${r.notes} number${r.notes === 1 ? '' : 's'} on ${r.staves} staff${r.staves === 1 ? '' : 's'} itself${r.meter !== 4 ? ` (${r.meter}/4)` : ''}.${r.unsure ? ` ${r.unsure} ${r.unsure === 1 ? 'has' : 'have'} an amber ring: check ${r.unsure === 1 ? 'it' : 'them'} against the page.` : ''} Note lengths come from the rhythm printed under the tab, or from how the notes are spaced.`,
         })
         setStages(null)
         return
@@ -232,7 +237,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       if (signal.aborted) throw new Error('Cancelled.')
       // video frames: the AI reader first when it's set up (KGuitar's own reader still misses some numbers in small,
       // blurry video text); KGuitar's own reader when there's no AI
-      if (pieces.length && !ready && await readOwnPieces(pieces, title, `Read from the tab on screen in "${f.name}"${a ? ', tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined, strips)) return
+      if (pieces.length && (!ready || await ownFirst()) && await readOwnPieces(pieces, title, `Read from the tab on screen in "${f.name}"${a ? ', tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined, strips)) return
       if (pieces.length && ready) {
         step('notes', { state: 'skip', note: 'read from the screen instead' })
         await readOut(pieces, signal, title, `Read from the tab on screen in "${f.name}"${a ? `, tempo from its sound` : ''}.`, a ? Math.round(a.bpm) : undefined)
@@ -330,7 +335,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
         setPhase(null)
         return
       }
-      if (!ready && await readOwnPieces(g.pieces, 'Scanned riff', `KGuitar watched the video on screen${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined, g.strips)) { setOut(o => (o ? { ...o, doc: { ...o.doc, youtube: linkUrl || o.doc.youtube } } : o)); setPhase(null); return }
+      if ((!ready || await ownFirst()) && await readOwnPieces(g.pieces, 'Scanned riff', `KGuitar watched the video on screen${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined, g.strips)) { setOut(o => (o ? { ...o, doc: { ...o.doc, youtube: linkUrl || o.doc.youtube } } : o)); setPhase(null); return }
       if (!ready) throw new Error('KGuitar couldn\'t find a tab staff with numbers in the video. Set up the free AI reader for videos like this.')
       await readOut(g.pieces, signal, 'Scanned riff', `KGuitar watched the video on screen and read the tab${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined)
       setOut(o => (o ? { ...o, doc: { ...o.doc, youtube: linkUrl || o.doc.youtube } } : o))

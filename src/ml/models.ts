@@ -289,5 +289,19 @@ export async function basicPitchRunner(): Promise<(win: Float32Array) => Promise
   }
 }
 
+let crnnSess: Promise<Sess> | null = null
+/** The trained tab picture reader (tools/scanner-train → public/models/tab-crnn/tab_crnn.onnx, ~3 MB, in the app).
+ *  Rejects when the app has no such model yet (the readers before it are used then). */
+export async function tabCrnnRunner(): Promise<import('../scan/crnnRead').CrnnRun> {
+  const ort = await ortWeb()
+  crnnSess ??= ort.InferenceSession.create(`${import.meta.env.BASE_URL}models/tab-crnn/tab_crnn.onnx`, { executionProviders: ['wasm'] })
+  const s = await crnnSess.catch(e => { crnnSess = null; throw e })
+  return async (strip, W) => {
+    const r = await s.run({ strip: new ort.Tensor('float32', strip, [1, 1, 160, W]) })
+    const f = (k: string) => r[k].data as Float32Array
+    return { T: W / 4, heat: f('heat'), off: f('off'), frets: f('frets'), dur: f('dur'), dots: f('dots'), tup: f('tup'), grace: f('grace'), stroke: f('stroke') }
+  }
+}
+
 /** Let go of the models (they use a lot of memory) when the scanner is closed. */
 export function releaseModels() { closeAll() }

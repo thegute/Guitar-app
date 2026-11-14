@@ -35,6 +35,27 @@ export function readTabPictures(pics: Gray[], tuning: number[], title: string): 
   return readingSong(readings, tuning, title, meter)
 }
 
+/** The same, with the trained reader (tab_crnn) when the app has it: it reads photos, scans and video frames far better
+ *  than the number matcher. Falls back to readTabPictures when the model can't be loaded. */
+export async function readTabPicturesBest(pics: Gray[], tuning: number[], title: string): Promise<PictureReading | null> {
+  let run: import('./crnnRead').CrnnRun | null = null
+  try { run = await (await import('../ml/models')).tabCrnnRunner() } catch { run = null }
+  if (!run) return readTabPictures(pics, tuning, title)
+  const { readTabCrnn } = await import('./crnnRead')
+  const strings = tuning.length
+  pics = pics.map(g => (isDark(g) ? { w: g.w, h: g.h, px: g.px.map(v => 1 - v) } : g))
+  let readings: TabReading[] = []
+  for (const g of pics) readings.push(await readTabCrnn(g, run, { strings }))
+  const votes = new Map<number, number>()
+  for (const r of readings) if (r.notes) votes.set(r.meter, (votes.get(r.meter) ?? 0) + r.notes)
+  if (!votes.size) return readTabPictures(pics, tuning, title)
+  const meter = [...votes].sort((a, b) => b[1] - a[1])[0][0]
+  const again: TabReading[] = []
+  for (const [i, r] of readings.entries()) again.push(r.notes && r.meter !== meter ? await readTabCrnn(pics[i], run, { strings, beats: meter }) : r)
+  readings = again
+  return readingSong(readings, tuning, title, meter)
+}
+
 /** Several pages' readings → one song (exported for tests). Staves stacked in one system (Guitar 1 / 2 / 3) become their
  *  own tracks; a tuning / capo / tempo the page prints is used. */
 export function readingSong(readings: TabReading[], tuning: number[], title: string, meter: number, found?: TuningFound): PictureReading | null {

@@ -8,6 +8,7 @@ import { readTab, fitRhythm } from '../src/scan/tabRead'
 import { readingSong } from '../src/scan/tabReadSong'
 import { tuningFromText, guitarNumbers } from '../src/scan/tuningText'
 import { rhythmFromStems } from '../src/scan/stemRhythm'
+import { fitBar, straighten } from '../src/scan/crnnRead'
 import type { PdfShape } from '../src/tabs/pdfTab'
 import type { Gray } from '../src/scan/image'
 
@@ -130,4 +131,29 @@ console.log('fitRhythm: ok')
   assert.deepEqual(r.rests.map(q => [q.x, q.dur]), [[60, 0.875]], 'the held quarter, less the grace\'s 32nd')
   assert.deepEqual(r.grace, [false, true, false, false, false])
   console.log('stems: held notes and grace notes: ok')
+}
+
+// the trained reader's helpers: a bar's lengths made to add up (most likely set, spacing as a tie-break), and a bent
+// staff straightened onto the frame's rows
+{
+  const opt = (...xs: [number, number][]) => xs.map(([d, p]) => ({ d, p }))
+  // four columns read as 8th, 8th, quarter, quarter: in 3/4 they're kept as read; in a bar of 2½ beats the least sure
+  // column (the last) takes its second guess
+  const cols = [{ u: 0, lens: opt([0.5, 0.9], [0.25, 0.1]) }, { u: 10, lens: opt([0.5, 0.9], [1, 0.1]) }, { u: 20, lens: opt([1, 0.8], [0.5, 0.2]) }, { u: 40, lens: opt([1, 0.6], [0.5, 0.4]) }]
+  assert.deepEqual(fitBar(cols, 3, 60), [0.5, 0.5, 1, 1])
+  assert.deepEqual(fitBar(cols, 2.5, 60), [0.5, 0.5, 1, 0.5], 'the least sure column gives way')
+  assert.equal(fitBar(cols, 9, 60), null)
+  // a staff whose lines sag by 3 px in the middle: after straightening, every line sits on its frame row
+  const w = 400, h = 140
+  const px = new Float32Array(w * h).fill(1)
+  const sag = (x: number) => 3 * Math.sin(Math.PI * x / w)
+  for (let s = 0; s < 6; s++) for (let x = 20; x < 380; x++) { const y = Math.round(30 + 12 * s + sag(x)); px[y * w + x] = 0 }
+  const sv = straighten({ w, h, px }, { top: 20, bottom: 110, left: 20, right: 380, lines: [30, 42, 54, 66, 78, 90] }, 6)
+  let off = 0
+  for (let s = 0; s < 6; s++) for (const u of [Math.round(sv.W * 0.3), Math.round(sv.W * 0.5), Math.round(sv.W * 0.7)]) {
+    const row = 42 + 15 * s
+    if (sv.px[row * sv.W + u] > 0.5 && sv.px[(row - 1) * sv.W + u] > 0.5 && sv.px[(row + 1) * sv.W + u] > 0.5) off++
+  }
+  assert.equal(off, 0, 'lines land on rows 42 + 15·s')
+  console.log('trained reader helpers (bar fit, straightening): ok')
 }
