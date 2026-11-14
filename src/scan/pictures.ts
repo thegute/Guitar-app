@@ -3,7 +3,7 @@
 //   the contrast (dark video tabs come out black on white), sharpen; very wide strips are cut between notes
 //   video files (and Samsung screen recordings): sample frames, skip ones where nothing changed, follow a scrolling tab
 //   sideways and stitch the new part onto a panorama; a page turn starts a new strip
-import { findStrips, profile, sameFrame, sharpen, shiftBetween, stretchContrast, toGray, type Gray, type Strip } from './image'
+import { findStrips, matchAt, profile, sameFrame, sharpen, shiftBetween, stretchContrast, toGray, type Gray, type Strip } from './image'
 
 export interface Box { x: number; y: number; w: number; h: number } // 0..1 of the picture
 export interface Piece { b64: string; mime: string; url: string; w: number; h: number }
@@ -138,7 +138,7 @@ function seek(v: HTMLVideoElement, t: number) {
   })
 }
 
-export interface VideoTab { pieces: Piece[]; frames: number; kept: number; scrolled: boolean; box: Box | null; /** each tab strip whole (before it's cut into pieces for the AI): for KGuitar's own reader */ strips: Gray[] }
+export interface VideoTab { pieces: Piece[]; frames: number; kept: number; scrolled: boolean; box: Box | null; /** each tab strip whole (before it's cut into pieces for the AI): for KGuitar's own reader */ strips: Gray[]; trace?: string[] }
 
 /**
  * Frames in, tab strips out, one frame at a time (a long screen grab never keeps more than a handful of frames): the tab
@@ -162,6 +162,9 @@ export class Stitcher {
   frames = 0
   kept = 0
   scrolled = false
+  /** what the scroll tracking saw at each frame (shift:match, or x for none): for tests */
+  trace: string[] = []
+  private shifts: number[] = []
   /** frames looked at while still searching for the tab */
   private searched = 0
   constructor(box: Box | null = null) { this.box = box }
@@ -189,6 +192,16 @@ export class Stitcher {
     if (this.prev && sameFrame(this.prev, g)) { this.stack(g); return }
     const prof = profile(g)
     let sh = this.prev && this.prevProf && this.layers.length ? shiftBetween(this.prevProf, prof) : null
+    // a tab scrolling at a steady speed moves the same amount between frames: when the last few shifts agree and this
+    // frame's best guess is missing or different, the steady shift is used if it still fits reasonably (small, blurry tabs
+    // match less sharply)
+    const recent = this.shifts.slice(-3)
+    const steady = recent.length === 3 && recent.every(d => Math.abs(d - recent[0]) <= 3) ? Math.round(recent.reduce((a, b) => a + b, 0) / 3) : 0
+    if (steady && this.prevProf && this.layers.length && (!sh || Math.abs(sh.dx - steady) > 3)) {
+      const m = matchAt(this.prevProf, prof, steady)
+      if (m > 0.4 && (!sh || m > sh.match - 0.12)) sh = { dx: steady, match: m }
+    }
+    this.trace.push(sh ? `${sh.dx}:${sh.match.toFixed(2)}` : 'x')
     // a big jump is a new page whose music happens to look like the last one (a repeated riff), not a scroll: a
     // scrolling tab moves a little between the frames we look at
     if (sh && sh.dx > g.w * 0.35) sh = null
@@ -199,12 +212,14 @@ export class Stitcher {
       // scrolled sideways: this frame sits further along the strip
       this.scrolled = true
       this.at += sh.dx
+      this.shifts.push(sh.dx)
       this.stack(g)
     } else if (sh) this.stack(g) // the same page, something moved on it (a playhead)
     else {
       // a new page (or the first): keep what we had, start again
       this.flush()
       this.at = 0
+      this.shifts = []
       this.stack(g)
     }
     this.kept++
@@ -281,7 +296,7 @@ export async function tabFromVideo(file: Blob, o: { every?: number; from?: numbe
       st.add(v)
     }
     const pieces = st.finish()
-    return { pieces, frames: st.frames, kept: st.kept, scrolled: st.scrolled, box: st.box, strips: st.strips }
+    return { pieces, frames: st.frames, kept: st.kept, scrolled: st.scrolled, box: st.box, strips: st.strips, trace: st.trace }
   } finally {
     v.removeAttribute('src'); v.load()
     URL.revokeObjectURL(url)

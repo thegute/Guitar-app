@@ -45,8 +45,9 @@ const [video, outp] = process.argv.slice(2)
     const peek = c.toDataURL('image/png')
     // the whole first strip as 8-bit grey (for looking into it outside the browser)
     const gray = btoa(Array.from(g0.px, v => String.fromCharCode(Math.max(0, Math.min(255, Math.round(v * 255))))).join(''))
-    return { perStrip, gray, gw: g0.w, gh: g0.h, peek, strips: vt.strips.map(g => `${g.w}×${g.h}`), frames: vt.frames, kept: vt.kept, scrolled: vt.scrolled, secs: Math.round((t1 - t0) / 100) / 10, readSecs: Math.round((performance.now() - t1) / 100) / 10, trained, matcher }
+    return { trace: vt.trace, perStrip, gray, gw: g0.w, gh: g0.h, peek, strips: vt.strips.map(g => `${g.w}×${g.h}`), frames: vt.frames, kept: vt.kept, scrolled: vt.scrolled, secs: Math.round((t1 - t0) / 100) / 10, readSecs: Math.round((performance.now() - t1) / 100) / 10, trained, matcher }
   })
+  if (process.env.TRACE) console.log(res.trace.join(' '))
   console.log(`notes per strip ${res.perStrip.join(' ')} · frames ${res.frames}, kept ${res.kept}, scrolled ${res.scrolled}, strips ${res.strips.join(' ')}, video ${res.secs} s, reading ${res.readSecs} s`)
   { const head = Buffer.alloc(8); head.writeUInt32LE(res.gw, 0); head.writeUInt32LE(res.gh, 4); fs.writeFileSync(`${outp}-strip.gray`, Buffer.concat([head, Buffer.from(res.gray, 'base64')])) }
   fs.writeFileSync(`${outp}-strip.png`, Buffer.from(res.peek.split(',')[1], 'base64'))

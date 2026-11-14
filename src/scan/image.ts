@@ -195,6 +195,15 @@ export function shiftBetween(a: Float32Array, b: Float32Array, maxShift = Math.r
   return best.match > 0.6 ? best : null
 }
 
+/** How well frame b matches frame a moved left by dx (the same measure shiftBetween uses). */
+export function matchAt(a: Float32Array, b: Float32Array, dx: number): number {
+  const n = Math.min(a.length, b.length), len = n - dx
+  if (dx < 0 || len < n * 0.25) return 0
+  let s = 0, na = 0, nb = 0
+  for (let x = 0; x < len; x++) { const va = a[x + dx], vb = b[x]; s += va * vb; na += va * va; nb += vb * vb }
+  return s / Math.sqrt(na * nb + 1e-12)
+}
+
 /** Nothing changed between two frames (same size): mean absolute difference under 2%. */
 export function sameFrame(a: Gray, b: Gray): boolean {
   if (a.w !== b.w || a.h !== b.h) return false

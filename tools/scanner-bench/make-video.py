@@ -3,7 +3,7 @@ tools/scanner-train/realstrips.ts) shown either as one long line scrolling sidew
 (Songsterr / Guitar Pro "horizontal" view) or as still cards with a playhead sweeping across each, over a busy
 "video" background, small (gap px between string lines), H.264-compressed like YouTube.
 
-python3 make-video.py <book.pdf> <labels.json> <first page> <last page> <out.mp4|.webm> [scroll|cards] [gap px] [crf] [part]
+python3 make-video.py <book.pdf> <labels.json> <first page> <last page> <out.mp4|.webm> [scroll|cards] [gap px] [crf] [part] [landscape|portrait]
 """
 import os
 import random
@@ -22,6 +22,8 @@ def main():
     gap_px = float(sys.argv[7]) if len(sys.argv) > 7 else 9
     crf = sys.argv[8] if len(sys.argv) > 8 else '30'
     part = int(sys.argv[9]) if len(sys.argv) > 9 else 0
+    # 'portrait': a Short / a phone screen recording (720 × 1280), the tab strip across the middle under the player
+    portrait = len(sys.argv) > 10 and sys.argv[10] == 'portrait'
     a, b = int(a), int(b)
     pages = [p for p in json.load(open(lab)) if a <= p['page'] <= b]
     rng = random.Random(7)
@@ -45,8 +47,8 @@ def main():
                 x0 = (min(notes) - g * 1.6) if (mode == 'scroll' and notes) else st['left'] - 1
                 staves.append(img.crop((int(x0 * k), int(y0 * k), int(st['right'] * k) + 1, int(y1 * k))))
     H = max(s.height for s in staves)
-    W, VH, fps = 1280, 720, 10
-    ty = VH - H - 40
+    W, VH, fps = (720, 1280, 10) if portrait else (1280, 720, 10)
+    ty = int(VH * 0.55) if portrait else VH - H - 40
     frames_dir = tempfile.mkdtemp()
     bg = (np.random.default_rng(1).random((VH // 8, W // 8, 3)) * 90 + 40).astype(np.uint8)
     bg = Image.fromarray(bg).resize((W, VH), Image.BILINEAR)
