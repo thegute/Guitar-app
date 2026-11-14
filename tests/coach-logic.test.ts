@@ -250,3 +250,38 @@ import { fromTextTab } from '../src/tabs/model'
   }
   console.log('backing tracks: ok')
 }
+
+// ---- target notes: chord tones, the voice-leading walk, judging a landing, the speed trainer, onsets
+import { tchord, allowed, walk, judge, nextBpm, OnsetDetector, stepWords, zone } from '../src/learn/targets'
+{
+  const C = tchord('C')!, G7 = tchord('G7')!, Am = tchord('Am')!, F = tchord('F')!
+  assert.deepEqual(allowed(C, 'third'), [4]); assert.deepEqual(allowed(Am, 'third'), [0]); assert.deepEqual(allowed(G7, 'seventh'), [5])
+  assert.deepEqual(allowed(C, 'seventh'), [4], 'no 7th: the 3rd')
+  assert.deepEqual(allowed(G7, 'guide').sort((a, b) => a - b), [5, 11])
+  // the voice-leading walk moves a few frets at most from chord to chord
+  const z = zone([40, 45, 50, 55, 59, 64], 5)
+  assert.deepEqual(z, { lo: 45, hi: 73 })
+  const w = walk([G7, C, Am, F], 'guide', z.lo, z.hi, 59)
+  for (let i = 1; i < w.length; i++) assert.ok(Math.abs(w[i] - w[i - 1]) <= 4, `voice leading moves little: ${w}`)
+  assert.equal(w[0] % 12, 11, 'starts on B, the 3rd of G7 nearest to B')
+  assert.match(stepWords(C, 64, 65), /E, the 3rd of C \(1 fret down\)/)
+  // judging: a target note a little late on the 1 counts; a wrong first note doesn't (first-note mode), but on-the-1 mode finds the right one
+  assert.ok(judge([{ beat: 4.2, midi: 64 }], 4, [4], 'one').ok)
+  assert.ok(!judge([{ beat: 4.8, midi: 64 }], 4, [4], 'one').ok, 'too late for "on the 1"')
+  assert.ok(judge([{ beat: 4.8, midi: 64 }], 4, [4], 'first').ok, 'in the first beat counts in first-note mode')
+  assert.ok(!judge([{ beat: 3.9, midi: 62 }, { beat: 4.1, midi: 64 }], 4, [4], 'first').ok)
+  assert.ok(judge([{ beat: 3.9, midi: 62 }, { beat: 4.1, midi: 64 }], 4, [4], 'one').ok)
+  assert.equal(judge([], 4, [4], 'one').ok, false)
+  // speed trainer
+  let s = nextBpm(70, 90, 0); assert.deepEqual(s, { bpm: 70, goodLaps: 1 })
+  s = nextBpm(70, 85, 1); assert.deepEqual(s, { bpm: 74, goodLaps: 0 })
+  assert.equal(nextBpm(70, 40, 1).bpm, 66); assert.equal(nextBpm(70, 60, 1).goodLaps, 0)
+  // onsets: a change of note held for two readings; the same note picked again (a jump in level); silence resets
+  const d = new OnsetDetector()
+  const feed = (m: number | null, t: number, l = 0.1) => d.feed(m, t, l)
+  assert.equal(feed(60, 0), null); assert.deepEqual(feed(60, 1), { midi: 60, t: 0 })
+  assert.equal(feed(60, 2, 0.08), null)
+  assert.deepEqual(feed(60, 3, 0.3), { midi: 60, t: 3 }, 're-picked')
+  assert.equal(feed(62, 4, 0.2), null, 'one reading of a new note is not enough'); assert.deepEqual(feed(62, 5, 0.2), { midi: 62, t: 4 })
+  console.log('target notes: ok')
+}

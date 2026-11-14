@@ -89,6 +89,14 @@ export class JamTransport {
   }
 
   get spb() { return 60 / this.bpm }
+  /** Change the tempo while playing, keeping the place in the loop (a speed trainer's step). */
+  setTempo(bpm: number) {
+    if (!this.playing) { this.bpm = bpm; return }
+    const now = audio().currentTime
+    const b = (now - this.T0) / this.spb
+    this.bpm = bpm
+    this.T0 = now - b * this.spb
+  }
   get loopDur() { return this.loopBeats * this.spb }
 
   setSong(chords: JamChord[], bpm: number, strum: string, drums: string, bass = 'off', sound: SoundId = 'acoustic', kit: KitId | null = null) {

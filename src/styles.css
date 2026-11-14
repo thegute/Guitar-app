@@ -2876,3 +2876,14 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .coach-checkup { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2); border-radius: var(--r-md); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .coach-checkup p { margin: 0; }
 .coach-spots li { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* Target notes trainer */
+.tn-now { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-md); background: var(--surface); }
+.tn-chord b { font-size: 2rem; font-family: 'Barlow Condensed', sans-serif; }
+.tn-target { margin: 0; font-size: 1.15rem; }
+.tn-count { font-size: 2.6rem; text-align: center; }
+.tn-strip { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.tn-cell { display: flex; flex-direction: column; align-items: center; min-width: 3.2rem; padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent); }
+.tn-cell.now { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.tn-cell.ok { background: color-mix(in srgb, var(--mint) 30%, transparent); }
+.tn-cell.miss { background: color-mix(in srgb, var(--coral) 28%, transparent); }
