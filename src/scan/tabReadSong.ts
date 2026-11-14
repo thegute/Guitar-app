@@ -47,8 +47,8 @@ function lcs(a: string[], b: string[]): number {
 }
 
 /** A video's strips can repeat: the tab stops scrolling at the end, a page comes back, the scroll was lost for a moment
- *  and picked up again. A strip that starts with what the strips before it ended on loses that part (6+ steps the same,
- *  in order), and a strip that's wholly a repeat of the end of what came before is dropped. */
+ *  and picked up again. A strip that starts with what the strips before it ended on loses that part (8+ steps the same,
+ *  in order), and a short scrap that only repeats the last steps is dropped. */
 export function dropRepeats(readings: TabReading[]): TabReading[] {
   const key = (st: { notes: { string: number; fret: number }[] }) => st.notes.map(n => `${n.string}:${n.fret}`).sort().join('+')
   const seen: string[] = []
@@ -58,9 +58,11 @@ export function dropRepeats(readings: TabReading[]): TabReading[] {
     if (keys.length && seen.length) {
       const tail = seen.slice(-Math.max(keys.length * 2, 40))
       // wholly inside what came just before
-      const inside = keys.length >= 4 && lcs(keys, tail) >= keys.length * 0.8
+      // a short scrap that's nothing but the last steps again (the tab stopping at the end); a riff that really repeats
+      // (a whole line, a card of its own) is kept
+      const inside = keys.length >= 2 && keys.length <= 12 && lcs(keys, seen.slice(-keys.length - 2)) >= keys.length * 0.9
       let k = 0
-      if (!inside) for (let n = Math.min(keys.length, tail.length); n >= 6; n--) if (tail.slice(-n).join('|') === keys.slice(0, n).join('|')) { k = n; break }
+      if (!inside) for (let n = Math.min(keys.length, tail.length); n >= 8; n--) if (tail.slice(-n).join('|') === keys.slice(0, n).join('|')) { k = n; break }
       if (inside) { sys.bars = []; continue }
       if (k) {
         // drop the first k note steps (and whatever rests sit among them)

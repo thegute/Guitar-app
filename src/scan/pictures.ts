@@ -188,7 +188,13 @@ export class Stitcher {
     const g = enhance(src, this.box, this.gap || undefined)
     if (this.prev && sameFrame(this.prev, g)) { this.stack(g); return }
     const prof = profile(g)
-    const sh = this.prev && this.prevProf && this.layers.length ? shiftBetween(this.prevProf, prof) : null
+    let sh = this.prev && this.prevProf && this.layers.length ? shiftBetween(this.prevProf, prof) : null
+    // a big jump is a new page whose music happens to look like the last one (a repeated riff), not a scroll: a
+    // scrolling tab moves a little between the frames we look at
+    if (sh && sh.dx > g.w * 0.35) sh = null
+    // not moved at all: the same page only if it's nearly identical (a playhead moved over it); a new page with the same
+    // riff in the same places matches less well
+    if (sh && sh.dx === 0 && sh.match < 0.93) sh = null
     if (sh && sh.dx > 0) {
       // scrolled sideways: this frame sits further along the strip
       this.scrolled = true
