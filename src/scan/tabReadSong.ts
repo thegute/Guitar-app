@@ -2,7 +2,7 @@
 // PDF, screenshots) are read here first, with no AI and no key: the line a number sits on is the string, so the strings
 // are never guessed. Numbers the reader wasn't sure of are kept and marked (`unsure`): the tab shows them with an amber
 // ring so you can check them against the page.
-import { isDark, type Gray } from './image'
+import { deskew, isDark, type Gray } from './image'
 import { readTab, graceLead, type TabReading } from './tabRead'
 import { readVectorTab, type VectorReading } from './vectorTab'
 import type { TuningFound } from './tuningText'
@@ -24,7 +24,7 @@ export interface PictureReading {
 export function readTabPictures(pics: Gray[], tuning: number[], title: string): PictureReading | null {
   const strings = tuning.length
   // light lines on a dark background (a dark-mode screenshot, a video's tab strip): turn round so the ink is dark
-  pics = pics.map(g => (isDark(g) ? { w: g.w, h: g.h, px: g.px.map(v => 1 - v) } : g))
+  pics = pics.map(g => (isDark(g) ? { w: g.w, h: g.h, px: g.px.map(v => 1 - v) } : g)).map(g => deskew(g).g) // and level a crooked photo
   let readings = pics.map(g => readTab(g, { strings }))
   // one time signature for the whole piece: the one most of the notes were read in (a page with few bars can't tell)
   const votes = new Map<number, number>()

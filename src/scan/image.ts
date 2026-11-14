@@ -14,6 +14,43 @@ export function toGray(rgba: Uint8ClampedArray | Uint8Array, w: number, h: numbe
   return { w, h, px }
 }
 
+/** A photo taken a little crooked: the angle (as a slope, rise per pixel across) that lines the staff lines up with the
+ *  rows best, and the picture sheared straight. Small angles only (±4°); a flat scan comes back as it was. */
+export function deskew(g: Gray): { g: Gray; slope: number } {
+  const { w, h, px } = g
+  // dark pixels (a sample of them is enough to find the angle)
+  const pts: number[] = []
+  const step = Math.max(1, Math.round(Math.sqrt((w * h) / 250000)))
+  for (let y = 0; y < h; y += step) for (let x = 0; x < w; x += step) if (px[y * w + x] < 0.5) pts.push(x, y)
+  const score = (slope: number) => {
+    const rows = new Float32Array(h + 2)
+    for (let i = 0; i < pts.length; i += 2) {
+      const y = pts[i + 1] - pts[i] * slope
+      if (y >= 0 && y < h) rows[Math.round(y)]++
+    }
+    let s2 = 0
+    for (const r of rows) s2 += r * r
+    return s2
+  }
+  let best = 0, bs = score(0)
+  for (let a = -4; a <= 4; a += 0.25) { const sl = Math.tan((a * Math.PI) / 180); const v = score(sl); if (v > bs) { bs = v; best = sl } }
+  const c = best
+  for (let d = -0.2; d <= 0.2; d += 0.025) { const sl = Math.tan(Math.atan(c) + (d * Math.PI) / 180); const v = score(sl); if (v > bs) { bs = v; best = sl } }
+  if (Math.abs(best) * w < 1) return { g, slope: 0 }
+  // shear each column back so the lines run level
+  const out = new Float32Array(w * h).fill(1)
+  for (let x = 0; x < w; x++) {
+    const dy = x * best
+    for (let y = 0; y < h; y++) {
+      const sy = y + dy
+      const y0 = Math.floor(sy), f = sy - y0
+      if (y0 < 0 || y0 + 1 >= h) continue
+      out[y * w + x] = px[y0 * w + x] * (1 - f) + px[(y0 + 1) * w + x] * f
+    }
+  }
+  return { g: { w, h, px: out }, slope: best }
+}
+
 /** Is the picture mostly dark (white lines on black, like many video tabs)? */
 export function isDark(g: Gray) {
   let s = 0

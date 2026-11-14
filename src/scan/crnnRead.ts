@@ -4,7 +4,7 @@
 // readers (`assemble`). Note lengths are then made to add up per bar: the most likely set of lengths whose sum is the
 // bar, with the spacing on the page as a tie-breaker (a constrained Viterbi). Numbers the network wasn't sure of keep
 // their amber ring.
-import { findStrips, type Gray, type Strip } from './image'
+import { deskew, findStrips, type Gray, type Strip } from './image'
 import { assemble, type Num, type ReadSystem, type TabReading } from './tabRead'
 
 export const FRAME_H = 160, FRAME_GAP = 15, FRAME_TOP = 42, SLOTS = 6, STEP = 4
@@ -205,6 +205,7 @@ export function fitBar(cols: { u: number; lens: { d: number; p: number }[] }[], 
 /** Read every tab staff in the picture with the network. */
 export async function readTabCrnn(g: Gray, run: CrnnRun, opts: { strings?: number; beats?: number } = {}): Promise<TabReading> {
   const nStr = opts.strings ?? 6
+  g = deskew(g).g // a crooked photo: level its lines first
   const strips = findStrips(g, [nStr])
   const systems: ReadSystem[] = []
   const sysBars: number[][] = []
