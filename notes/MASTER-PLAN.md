@@ -100,10 +100,9 @@ ms, trouble bars, trends, recordings); Gemini also hears a short clip of the run
   and a Teacher floating card on any screen.
 - Memory of past lessons (what he was told, whether it improved) on the phone; works with the free Gemini key, falls back to the
   built-in coach (report card + rules) without a key.
-- (owner 2026-11-13, final) Teacher characters, switchable: a cheerful neutral coach and an encouraging female coach who believes in
-  him (warm, not strict, no flirting or spice). Advice stays honest underneath (one fix each pass). It suggests what to practise and
-  he chooses. On a style path it tailors focus, examples, what it listens for and the exercises to that style. Camera hand checks
-  explained, his call pending. Open: names, a picture (only from his own art).
+- (owner 2026-11-13, final) Teacher voice: a female coach, close to neutral: friendly and plain, not gushing, no names, no
+  pictures. Advice stays honest (one fix each pass). It suggests what to practise and he chooses. On a style path it tailors focus,
+  examples, what it listens for and the exercises to that style. Camera hand checks explained, his call pending.
 - Ideas list (brainstorm 2026-11-13): root-cause patterns over many runs → matching or Composer-made drills; song chunking + speed
   ladder + reviews; technique clinic (bend cents, vibrato width, changes per minute, buzz/muting); call and response; improv coach
   (chord tones on the beat, space); theory in context with course + book links; hands-free session director (mic + footswitch);
