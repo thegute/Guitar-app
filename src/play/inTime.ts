@@ -1,5 +1,6 @@
 // "Play in time": the tab scrolls at tempo (with a click, or following a synced YouTube video) and every note
 // you play is judged early / on time / late. Includes the speed trainer for looped sections.
+import { accepted, bendAlso } from '../tabs/bends'
 import { TempoMap } from './tempoMap'
 import { audio, bus } from '../audio/engine'
 import { playClick } from '../audio/metronome'
@@ -13,6 +14,8 @@ export interface TimedStep {
   beat: number
   dur: number
   midis: number[]
+  /** pitches a bend on this step passes through and lands on: they count as the note too */
+  also?: number[]
   /** three or more notes: judged as a strum (chord) rather than by single pitch */
   chord: boolean
 }
@@ -45,7 +48,7 @@ export function timeline(flat: FlatStep[], strum?: { hits: [number, string][] } 
         steps.push(k === 'B' ? { flat: i, beat: barAt + p, dur: 0.5, midis: [low.midi], chord: false } : { flat: i, beat: barAt + p, dur: 0.5, midis: ns.map(n => n.midi), chord: true })
       }
       if (!hits.length) steps.push({ flat: i, beat: b, dur: f.step.dur, midis: ns.map(n => n.midi), chord })
-    } else if (ns.length) steps.push({ flat: i, beat: b, dur: f.step.dur, midis: ns.map(n => n.midi), chord })
+    } else if (ns.length) { const also = bendAlso(ns); steps.push({ flat: i, beat: b, dur: f.step.dur, midis: ns.map(n => n.midi), chord, ...(also.length ? { also } : {}) }) }
     b += f.step.dur
   })
   return { steps, total: b, beatOf }
@@ -250,7 +253,7 @@ export function matchTimed(
     if (s.beat < beat - win || taken.has(i)) continue
     // strummed chords are judged by what rang out (all their notes), single notes by pitch
     const ok = s.chord ? !!played.chordOk && played.chordOk(s.midis)
-      : played.midi !== undefined && s.midis.some(m => (strictOctave ? m === played.midi : (m - played.midi!) % 12 === 0))
+      : played.midi !== undefined && accepted(s).some(m => (strictOctave ? m === played.midi : (m - played.midi!) % 12 === 0))
     if (!ok) continue
     const errMs = (beat - s.beat) * spb * 1000
     if (!best || Math.abs(errMs) < Math.abs(best.errMs)) best = { step: i, errMs }

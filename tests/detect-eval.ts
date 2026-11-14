@@ -8,6 +8,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { PitchDetector } from 'pitchy'
 import { NoteDetector } from '../src/audio/noteDetect'
 import { matchNote, type FollowStep } from '../src/tabs/follow'
+import { accepted } from '../src/tabs/bends'
 
 const SR = 44100
 function decode(file: string): Float32Array {
@@ -48,7 +49,8 @@ function noteAudio(bank: Bank, midi: number, len: number, gain: number): Float32
 
 let seed = 12345
 const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 }
-interface Phrase { name: string; notes: { midi: number; at: number }[]; ring: boolean; tab?: number[] }
+interface PNote { midi: number; at: number; /** no new pick: hammer-on / pull-off from the note before */ legato?: boolean; /** bent up this many semitones after the pick */ bend?: number }
+interface Phrase { name: string; notes: PNote[]; ring: boolean; tab?: number[]; /** tab steps with their bend targets */ steps?: FollowStep[] }
 function phrases(): Phrase[] {
   const out: Phrase[] = []
   const scale = [0, 2, 4, 5, 7, 9, 11]
@@ -85,6 +87,30 @@ function phrases(): Phrase[] {
   tab2.forEach((n, i) => { if (i % 4 === 2) { played2.push({ midi: n.midi - 7, at: t2 }); t2 += 0.3 } played2.push({ midi: n.midi, at: t2 }); t2 += 0.3 })
   out.push({ name: 'wrong: a 5th low (4)', notes: played2, ring: false, tab: tab2.map(n => n.midi) } as Phrase)
   out.push({ name: 'arpeggio, ringing', notes: [43, 50, 55, 59, 62, 59, 55, 50, 45, 52, 57, 60, 64, 60, 57, 52].map((m, i) => ({ midi: m, at: 0.3 + i * 0.3 })), ring: true })
+  // legato: one pick, then hammer-ons and pull-offs (a trill and a 4-note run), at 16ths @120 and @160
+  for (const [bpm, dt] of [[120, 0.125], [160, 0.094]] as const) {
+    const ns: PNote[] = []
+    let t = 0.3
+    for (const base of [57, 60, 64, 62, 59, 55]) {
+      const run = base % 2 ? [0, 2, 0, 2, 0, 2, 4, 2] : [0, 2, 3, 5, 3, 2, 0, 2]
+      run.forEach((d, i) => { ns.push({ midi: base + d, at: t, legato: i > 0 }); t += dt })
+      t += 0.25
+    }
+    out.push({ name: `legato 16ths @${bpm}`, notes: ns, ring: false })
+  }
+  // bends: pick, bend up (half, whole, 1½ steps), hold; the tab wants the fretted note and accepts the way up
+  {
+    const ns: PNote[] = [], steps: FollowStep[] = []
+    let t = 0.3
+    for (const [m, b] of [[62, 2], [64, 1], [67, 2], [69, 3], [62, 2], [71, 1], [66, 2], [64, 3], [59, 2], [69, 2]] as const) {
+      ns.push({ midi: m, at: t, bend: b }); steps.push({ midis: [m], also: Array.from({ length: b }, (_, k) => m + k + 1) })
+      ns.push({ midi: m - 2, at: t + 0.7 }); steps.push({ midis: [m - 2] })
+      t += 1.0
+    }
+    out.push({ name: 'bends (10) + notes', notes: ns, ring: false, steps })
+  }
+  // hard pick on the low strings (the attack reads sharp for a moment)
+  out.push({ name: 'low E/D hard picks', notes: [40, 40, 38, 40, 43, 38, 40, 41, 38, 40, 45, 40].map((m, i) => ({ midi: m, at: 0.3 + i * 0.4 })), ring: false })
   return out
 }
 
@@ -101,10 +127,49 @@ const CONDS: Cond[] = [
   { name: 'acoustic J-45, phone mic', bank: 'j45', drive: 0, snr: 22, hpf: 150, gain: 0.35, external: false },
 ]
 
+/** phrases with hammer-ons, pull-offs and bends: one string sounding on, its pitch changed without a new pick */
+function renderVoiced(p: Phrase, c: Cond, bank: Bank, out: Float32Array) {
+  let i = 0
+  while (i < p.notes.length) {
+    const first = p.notes[i]
+    let j = i + 1
+    while (j < p.notes.length && p.notes[j].legato) j++
+    const next = p.notes[j]
+    const key = [...bank.keys()].reduce((a, b) => (Math.abs(b - first.midi) < Math.abs(a - first.midi) ? b : a))
+    const src = bank.get(key)!
+    const start = Math.round(first.at * SR), stopAt = next ? Math.round(next.at * SR) : out.length
+    const hard = p.name.startsWith('low E') ? 1.6 : 1
+    const gain = c.gain * (0.75 + rnd() * 0.5) * hard
+    let pos = 0, semis = first.midi - key, amp = 1, last: PNote = first
+    const group = p.notes.slice(i, j)
+    for (let t = start; t < out.length; t++) {
+      const sec = t / SR
+      // which note of the group is sounding
+      let cur = group[0]
+      for (const g of group) if (g.at <= sec) cur = g
+      let target = cur.midi - key
+      if (cur.bend) { const u = Math.min(1, Math.max(0, (sec - cur.at - 0.06) / 0.22)); target += cur.bend * u }
+      // a hard pick starts a little sharp and settles (low wound strings)
+      if (hard > 1) target += 0.35 * Math.exp(-(sec - first.at) / 0.03)
+      // each hammer-on / pull-off sets the string going again (a little quieter, no pick click)
+      if (cur !== last) { last = cur; if (cur !== group[0]) { amp *= 0.9; pos = Math.min(pos, Math.round(0.05 * SR)) } }
+      semis += (target - semis) * (cur.bend || hard > 1 ? 1 : 0.02)
+      const jx = Math.floor(pos)
+      if (jx + 1 >= src.length) break
+      let g = 1
+      if (t >= stopAt) { g = Math.max(0, 1 - (t - stopAt) / (0.03 * SR)); if (g <= 0) break }
+      out[t] += (src[jx] + (src[jx + 1] - src[jx]) * (pos - jx)) * gain * amp * g
+      pos += Math.pow(2, semis / 12)
+    }
+    i = j
+  }
+}
+
 function render(p: Phrase, c: Cond, bank: Bank): Float32Array {
   const end = p.notes[p.notes.length - 1].at + 1.6
   const out = new Float32Array(Math.ceil(end * SR))
-  p.notes.forEach((n, i) => {
+  if (p.notes.some(n => n.legato || n.bend) || p.name.startsWith('low E')) renderVoiced(p, c, bank, out)
+  else p.notes.forEach((n, i) => {
     const start = Math.round(n.at * SR)
     const next = p.notes[i + 1]
     // picked notes stop when the next one starts (short release); ringing notes keep going
@@ -170,14 +235,14 @@ function oldDetector(x: Float32Array, external: boolean, onNote: (m: number, t: 
   }
 }
 
-function follow(steps: FollowStep[], run: (expect: (midis: number[], after: number[]) => void, onEvent: (midi: number) => void) => void) {
-  let idx = 0, wrong = 0
-  const expectNow = (exp: (midis: number[], after: number[]) => void) => exp(steps[idx]?.midis ?? [], steps[idx + 1]?.midis ?? [])
+function follow(steps: FollowStep[], run: (expect: (midis: number[], after: number[]) => void, onEvent: (midi: number, time?: number) => void) => void) {
+  let idx = 0, wrong = 0, hitTime = -Infinity
+  const expectNow = (exp: (midis: number[], after: number[]) => void) => exp(accepted(steps[idx]), accepted(steps[idx + 1]))
   let setExp: ((m: number[], a: number[]) => void) | null = null
-  run(exp => { setExp = exp; expectNow(exp) }, midi => {
-    const r = matchNote(steps, idx, midi)
-    if (r.kind === 'hit') idx = r.step + 1
-    else if (r.kind === 'miss') wrong++
+  run(exp => { setExp = exp; expectNow(exp) }, (midi, time = Infinity) => {
+    const r = matchNote(steps, idx, midi, false, time - hitTime)
+    if (r.kind === 'hit') { idx = r.step + 1; hitTime = time }
+    else if (r.kind === 'miss') { wrong++; if (process.env.WHY) console.log(`      wrong: heard ${midi}, wanted ${accepted(steps[idx]).join('/')} (step ${idx}, before it ${accepted(steps[idx - 1]).join('/')})`) }
     if (setExp) expectNow(setExp)
   })
   return { got: idx, wrong }
@@ -187,15 +252,17 @@ const banks: Record<string, Bank> = {}
 const ps = phrases()
 let totOld = 0, totNew = 0, tot = 0, wrongOld = 0, wrongNew = 0
 console.log('condition'.padEnd(38), 'phrase'.padEnd(20), 'old: got  wrong', '  new: got  wrong')
+const ONLY = process.env.ONLY
 for (const c of CONDS) {
   banks[c.bank] ??= loadBank(c.bank)
   for (const p of ps) {
+    if (ONLY && !new RegExp(ONLY).test(p.name)) continue
     const x = render(p, c, banks[c.bank])
-    const steps: FollowStep[] = (p.tab ?? p.notes.map(n => n.midi)).map(m => ({ midis: [m] }))
-    const o = follow(steps, (_exp, ev) => oldDetector(x, c.external, m => ev(m)))
+    const steps: FollowStep[] = p.steps ?? (p.tab ?? p.notes.map(n => n.midi)).map(m => ({ midis: [m] }))
+    const o = process.env.NOOLD ? { got: 0, wrong: 0 } : follow(steps, (_exp, ev) => oldDetector(x, c.external, m => ev(m)))
     const n = follow(steps, (exp, ev) => {
       const d = new NoteDetector(SR)
-      d.onNote = e => ev(e.midi)
+      d.onNote = e => ev(e.midi, e.time)
       exp((m, a) => d.expect(m, a))
       const chunk = 512
       for (let i = 0; i < x.length; i += chunk) d.push(x.subarray(i, Math.min(x.length, i + chunk)))

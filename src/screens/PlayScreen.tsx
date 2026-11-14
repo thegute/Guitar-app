@@ -14,6 +14,7 @@ import { HarmonyPanel, stringLabel } from '../components/HarmonyPanel'
 import { Chips, usePersist } from '../components/Controls'
 import { InputPicker } from '../components/InputPicker'
 import { NoteListener, matchNote, type FollowStep } from '../tabs/follow'
+import { accepted, bendAlso } from '../tabs/bends'
 import { defaultTrack, flatten, playable, trackPickup, type SongNote, type SongTrack } from '../tabs/model'
 import { detectKey, improvisationScales, type KeyGuess } from '../tabs/keyDetect'
 import { chordInfo, chordTimeline, guessBarChords, keyScalePcs } from '../tabs/harmony'
@@ -393,7 +394,7 @@ export function PlayScreen() {
     flat.forEach((f, i) => {
       const ns = playable(f.step)
       // three or more different notes = a strummed chord: checked by listening to the whole chord
-      if (ns.length) { idx.push(i); steps.push({ midis: ns.map(n => n.midi), chord: new Set(ns.map(n => n.midi % 12)).size >= 3 }) }
+      if (ns.length) { idx.push(i); const also = bendAlso(ns); steps.push({ midis: ns.map(n => n.midi), chord: new Set(ns.map(n => n.midi % 12)).size >= 3, ...(also.length ? { also } : {}) }) }
     })
     return { idx, steps }
   }, [flat])
@@ -481,7 +482,7 @@ export function PlayScreen() {
     const l = listener.current
     if (!l) return
     l.strictOctave = strict
-    if (mode !== 'time') l.expect(follow.steps[pos]?.midis ?? [], follow.steps[pos + 1]?.midis ?? [])
+    if (mode !== 'time') l.expect(accepted(follow.steps[pos]), accepted(follow.steps[pos + 1]))
   }, [pos, follow, strict, mode, listening])
 
   /** Save a run to this song's progress: score plus which bars went wrong. */
@@ -571,6 +572,7 @@ export function PlayScreen() {
     setVersion(v => v + 1)
   }, [])
 
+  const lastHitMs = useRef(-1e9)
   /** Wait-for-me mode: a single note was heard. */
   const onNote = useCallback((heardMidi: number) => {
     const { pos, follow, strict, loopRange } = ref.current
@@ -580,8 +582,8 @@ export function PlayScreen() {
     const midi = (follow.steps[pos] && taughtAlias(ref.current.kind, follow.steps[pos].midis, heardMidi)) ?? heardMidi
     // inside a loop, only look as far as the loop's last note
     const steps = loopRange ? follow.steps.slice(0, loopRange.b + 1) : follow.steps
-    const r = matchNote(steps, pos, midi, strict)
-    if (r.kind === 'hit') hitAt(r.step, r.skipped, midi)
+    const r = matchNote(steps, pos, midi, strict, (performance.now() - lastHitMs.current) / 1000)
+    if (r.kind === 'hit') { lastHitMs.current = performance.now(); hitAt(r.step, r.skipped, midi) }
     else if (r.kind === 'miss') missAt(midi)
   }, [hitAt, missAt])
 
@@ -647,7 +649,7 @@ export function PlayScreen() {
       l.strictOctave = ref.current.strict
       // wait-for-me: the step you're on and the one after
       const { pos: p0, follow: f0 } = ref.current
-      if (modeRef.current !== 'time') l.expect(f0.steps[p0]?.midis ?? [], f0.steps[p0 + 1]?.midis ?? [])
+      if (modeRef.current !== 'time') l.expect(accepted(f0.steps[p0]), accepted(f0.steps[p0 + 1]))
       let last: number | null = null
       l.onFrame = f => { if (f.midi !== last) { last = f.midi; setLive(f.midi) } }
       l.onOnset = t => { lastOnset.current = t }

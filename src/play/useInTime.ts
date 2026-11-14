@@ -1,5 +1,6 @@
 // Runs a "play in time" session for the Play screen: the clock (own click or a synced video), the moving cursor,
 // judging each note or strum, loop passes and the speed trainer.
+import { accepted } from '../tabs/bends'
 import type { TempoMap } from './tempoMap'
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react'
 import type { SoundId } from '../audio/pluck'
@@ -173,8 +174,8 @@ export function useInTime(a: Args) {
           for (const i of r.inRange) {
             const s = r.steps[i]
             if (r.taken.has(i)) continue
-            if (Math.abs(s.beat - b) <= 0.6) nowM.push(...s.midis)
-            else if (s.beat > b && s.beat - b <= 1.6) nextM.push(...s.midis)
+            if (Math.abs(s.beat - b) <= 0.6) nowM.push(...accepted(s))
+            else if (s.beat > b && s.beat - b <= 1.6) nextM.push(...accepted(s))
           }
           const key = nowM.join(',') + '|' + nextM.join(',')
           if (key !== r.expectKey) { r.expectKey = key; args.current.onExpect(nowM, nextM) }

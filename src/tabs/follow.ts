@@ -5,6 +5,7 @@ import { openInput, type OpenedInput } from '../audio/input'
 import { gear, kindOf } from '../audio/gear'
 import { addChroma } from '../audio/chroma'
 import { NoteDetector } from '../audio/noteDetect'
+import { accepted } from './bends'
 
 export interface NoteEvent {
   midi: number
@@ -59,6 +60,16 @@ export class NoteListener {
   private chroma: { acc: number[]; at: number } | null = null
   private raf = 0
 
+  private tape: Float32Array | null = null
+  private taped = 0
+  private sr = 44100
+  /** What was played between two moments (audio-clock seconds, like the times of note events), cut from the last
+   *  TAPE_SECONDS the listener keeps in memory. Null when that stretch is gone (too long ago) or nothing was heard. */
+  clip(from: number, to: number): { x: Float32Array; sr: number } | null {
+    return cutTape(this.tape, this.taped, this.sr, this.t0, from, to)
+  }
+  /** the audio-clock time of the newest sound heard */
+  get heardUntil() { return this.t0 + this.taped / this.sr }
   /** the open input while listening (so a recording can share it) */
   get mediaStream() { return this.stream }
   /** loudness needed to count as a note: lower = more sensitive */
@@ -91,9 +102,17 @@ export class NoteListener {
     const sink = ctx.createGain()
     sink.gain.value = 0
     sink.connect(ctx.destination)
+    this.sr = ctx.sampleRate
+    this.tape = new Float32Array(Math.round(ctx.sampleRate * TAPE_SECONDS))
+    this.taped = 0
     const feed = (frame: number, d: Float32Array) => {
       if (this.t0 < 0) this.t0 = frame / ctx.sampleRate - det.time
       det.push(d)
+      // the last few seconds of what was played, for the coach to listen back to
+      const tp = this.tape!, w = this.taped % tp.length
+      if (w + d.length <= tp.length) tp.set(d, w)
+      else { const k = tp.length - w; tp.set(d.subarray(0, k), w); tp.set(d.subarray(k), 0) }
+      this.taped += d.length
     }
     if (ctx.audioWorklet && typeof AudioWorkletNode !== 'undefined') {
       captureReady ??= ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([CAPTURE], { type: 'application/javascript' })))
@@ -133,6 +152,7 @@ export class NoteListener {
     this.stream = null
     this.wide = null
     this.det = null
+    this.tape = null
   }
 
   /** the input kind (phone mic or USB) once started */
@@ -156,25 +176,50 @@ export class NoteListener {
   }
 }
 
+/** how much of what was played the listener keeps (seconds) */
+export const TAPE_SECONDS = 20
+
+/** A stretch of a ring tape: `taped` samples written so far (the newest at index (taped − 1) mod length), sample 0 at
+ *  time t0. Clamped to what the tape still holds; null when less than a tenth of a second is left. */
+export function cutTape(tape: Float32Array | null, taped: number, sr: number, t0: number, from: number, to: number): { x: Float32Array; sr: number } | null {
+  if (!tape || !taped) return null
+  const oldest = Math.max(0, taped - tape.length)
+  const a = Math.max(oldest, Math.round((from - t0) * sr)), b = Math.min(taped, Math.round((to - t0) * sr))
+  if (b - a < sr * 0.1) return null
+  const x = new Float32Array(b - a)
+  for (let i = a; i < b; i++) x[i - a] = tape[i % tape.length]
+  return { x, sr }
+}
+
+/** seconds after a bent note is hit in which a stray reading isn't called a wrong note */
+export const BEND_GRACE = 1
+
 export interface FollowStep {
   midis: number[]
+  /** pitches a bend on this step passes through and lands on (tabs/bends.ts): they count as the note too */
+  also?: number[]
   /** a strummed chord (3+ different notes): followed by listening to the whole chord, not single notes */
   chord?: boolean
 }
 
 export type FollowResult = { kind: 'hit'; step: number; skipped: number } | { kind: 'miss'; heard: number; expected: number[] } | { kind: 'done' }
+  /** the note just played, still being bent (its pitch on the way up or back down): nothing new */
+  | { kind: 'bend' }
 
 /** Matches played notes to the tab, step by step. Pitch classes match in any octave by default
  *  (phone mics often hear a low string an octave up). */
-export function matchNote(steps: FollowStep[], idx: number, midi: number, strictOctave = false): FollowResult {
+export function matchNote(steps: FollowStep[], idx: number, midi: number, strictOctave = false, sinceHit = Infinity): FollowResult {
   if (idx >= steps.length) return { kind: 'done' }
   const same = (a: number, b: number) => (strictOctave ? a === b : ((a - b) % 12 + 12) % 12 === 0)
   for (let look = 0; look <= 2 && idx + look < steps.length; look++) {
     // look ahead one or two steps in case a note was missed, but only accept that when it is unambiguous
-    if (steps[idx + look].midis.some(m => same(m, midi))) {
-      if (look > 0 && steps.slice(idx, idx + look).some(st => st.midis.some(m => same(m, midi)))) continue
+    if (accepted(steps[idx + look]).some(m => same(m, midi))) {
+      if (look > 0 && steps.slice(idx, idx + look).some(st => accepted(st).some(m => same(m, midi)))) continue
       return { kind: 'hit', step: idx + look, skipped: look }
     }
   }
+  // right after a bent note (sinceHit: seconds since it was hit) the string's pitch is on the move and anything may be
+  // read off it for a moment: its own pitches on the way always count as the bend, anything else for a second
+  if (idx > 0 && steps[idx - 1].also?.length && (sinceHit < BEND_GRACE || accepted(steps[idx - 1]).some(m => same(m, midi)))) return { kind: 'bend' }
   return { kind: 'miss', heard: midi, expected: steps[idx].midis }
 }
