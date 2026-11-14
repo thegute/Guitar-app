@@ -95,6 +95,16 @@ const errs = (page, where) => { if (page.errors.length) bad(`${where} page error
       void title0
       errs(page, 'drill'); await page.context().close(); continue
     }
+    // Hear it, then you: the tab's bars play, then your own take of them (from the listener's tape)
+    if (!(await page.locator('[data-testid=coach-act-compare]').count())) bad(`${vp.width}: no "Hear it, then you" after a run`)
+    else {
+      await page.locator('[data-testid=coach-act-compare]').click()
+      await page.waitForTimeout(400)
+      const lbl = await page.locator('[data-testid=coach-act-compare]').innerText().catch(() => '')
+      if (!/Stop/.test(lbl)) bad(`${vp.width}: compare should be playing (button says "${lbl}")`)
+      await page.locator('[data-testid=coach-act-compare]').click()
+      await page.waitForTimeout(200)
+    }
     // Loop: the trouble bar is looped and the card goes
     await page.locator('[data-testid=coach-act-loop]').click()
     await page.waitForTimeout(300)
@@ -136,6 +146,27 @@ const errs = (page, where) => { if (page.errors.length) bad(`${where} page error
     }
     await page.screenshot({ path: path.join(OUT, 'coach-ai.png') })
     errs(page, 'ai'); await page.context().close()
+  }
+
+  // ---- Learn → Today: the coach's spots and the weekly check-up, which starts a 5-minute session in the song player
+  if (want('today')) {
+    const now = Date.now(), DAY = 864e5
+    const spot = (bar, at, x = {}) => ({ song: 'ex-ode', title: 'Ode to Joy', bar, loop: { from: bar, to: bar }, kind: 'shift', at, n: 2, ...x })
+    const mem = { spots: [spot(3, now - DAY, { best: 0.75 }), spot(6, now - 5 * DAY), spot(1, now - 9 * DAY, { fixedAt: now - 2 * DAY, best: 0.95 })], log: [[now - DAY, 'shift'], [now - 2 * DAY, 'shift'], [now - 3 * DAY, 'shift']], ceilings: { shift: [[now - 9 * DAY, 0.7], [now - DAY, 0.85]] } }
+    const page = await newPage(browser, { ...base, 'kg:coachMemory': mem, 'kg:sub:learn': 'today' }, { width: 412, height: 915 })
+    await open(page)
+    await page.locator('nav >> text=Learn').first().click()
+    await page.waitForSelector('[data-testid=coach-checkup]', { timeout: 6000 }).catch(() => {})
+    const box = await page.locator('[data-testid=coach-checkup]').innerText().catch(() => '')
+    if (!/Weekly check-up/.test(box) || !/fixed 1 trouble spot/.test(box)) bad(`today: check-up card: "${box}"`)
+    if ((await page.locator('[data-testid=coach-spot]').count()) < 2) bad('today: the open spots should be listed')
+    if (await sideways(page)) bad('today: sideways scroll')
+    await page.screenshot({ path: path.join(OUT, 'coach-today.png') })
+    await page.locator('[data-testid=coach-checkup-go]').click().catch(() => bad('today: no Start button'))
+    await page.waitForSelector('.tab-note', { timeout: 6000 }).catch(() => {})
+    const body = await page.evaluate(() => document.body.innerText)
+    if (!/Does it hold/.test(body)) bad('today: the check-up session should be running')
+    errs(page, 'today'); await page.context().close()
   }
 
   await browser.close()

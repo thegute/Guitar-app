@@ -47,7 +47,7 @@ import { noteStuck } from '../tips/tips'
 import { setBusLevel } from '../audio/engine'
 import { exampleDoc } from '../tabs/examples'
 import { playNote, strum, allSounds, activeSound, onSoundChange, setSoundChoice, soundChoice, soundForProgram, soundInfo, loadSound, soundLoaded, type SoundId } from '../audio/pluck'
-import { audio, keepAwake } from '../audio/engine'
+import { audio, finalOut, keepAwake } from '../audio/engine'
 import { songTempo } from '../play/tempoMap'
 import { TempoBadge, TempoSheet, withSig, withTempo } from '../components/TempoSheet'
 import { askTempo, canAskTempo } from '../assistant/tempoAsk'
@@ -513,6 +513,7 @@ export function PlayScreen() {
     setReport(makeReport({ score, mode: runMode, speed: speedNow, mistakes, before: was?.runs ?? [], best: was?.best ?? 0, stats }))
     setNudge(false)
     coachRef.current?.afterPass()
+    coachRef.current?.ran(score)
     autoFinishRef.current(score, speedNow)
   }, [])
 
@@ -802,6 +803,7 @@ export function PlayScreen() {
     onChange: () => setVersion(v => v + 1),
     onHitNote: () => bumpCounts({ notesHit: 1, [doc?.source === 'lesson' ? 'exerciseNotes' : 'songNotes']: 1 }),
     onPass: (s, sp) => {
+      coachRef.current?.ran(s.score)
       // a clean pass: the coach's memory of these bars improves (a drill's passes count for the bar it was cut from)
       if (s.score >= 90 && doc) {
         if (doc.drillOf) { const m = loadMemory(), n = noteClean(m, doc.drillOf.id, { from: doc.drillOf.bar, to: doc.drillOf.bar }, sp); if (n !== m) saveMemory(n) }
@@ -830,6 +832,10 @@ export function PlayScreen() {
   const [moved, setMoved] = useState<{ key: string; text: string } | null>(null)
   useEffect(() => { if (!loop) setShiftBadge(null) }, [loop])
   useEffect(() => { setMoved(null); setShiftBadge(null) }, [doc?.id])
+  const [comparing, setComparing] = useState(false)
+  const compareSrc = useRef<AudioBufferSourceNode | null>(null)
+  const stopCompare = () => { try { compareSrc.current?.stop() } catch { /* not started */ } compareSrc.current = null; player.current?.stop(); setPlayAt(-1); setComparing(false) }
+  useEffect(() => { if (!coach.state && comparing) stopCompare() }, [coach.state]) // eslint-disable-line react-hooks/exhaustive-deps
   /** what the coach's card offers (the first is what the pedal / "try it" starts) */
   const coachActs = (): CoachAct[] => {
     const c = coach.state
@@ -857,7 +863,35 @@ export function PlayScreen() {
       setMoved({ key, text: `Bar ${t.bar + 1}: moved to ${e.to.fret === 0 ? `the open ${stringName(track.tuning, e.to.string)} string` : `the ${stringName(track.tuning, e.to.string)} string, fret ${e.to.fret}`} (${e.why}).` })
       done(); countUse('play:coach-easier')
     } } : null
-    return [...(shift ? [shift, drill] : [drill, loopIt]), ...(easier ? [easier] : []), keep]
+    // record and compare: the tab's version of those bars, then yours
+    const compare: CoachAct | null = c.clip ? { id: 'compare', label: comparing ? 'Stop' : 'Hear it, then you', icon: 'ear', run: () => {
+      if (comparing) { stopCompare(); return }
+      if (listening) void toggleListen()
+      if (inTime.running) inTime.stop()
+      stopSpeaking()
+      const a = flat.findIndex(f => f.bar >= t.loop.from && playable(f.step).length > 0)
+      let b = flat.length
+      for (let i = Math.max(0, a); i < flat.length; i++) if (flat[i].bar > t.loop.to) { b = i; break }
+      if (a < 0) return
+      const p = (player.current ??= new TabPlayer())
+      p.sound = hearSound; p.band = undefined; p.strum = undefined; p.meter = meter; p.tempo = undefined
+      p.onStep = i => setPlayAt(i)
+      setComparing(true)
+      p.onEnd = () => {
+        setPlayAt(-1)
+        // then your playing of it
+        const ctx = audio(), buf = ctx.createBuffer(1, c.clip!.x.length, c.clip!.sr)
+        buf.copyToChannel(c.clip!.x as Float32Array<ArrayBuffer>, 0)
+        const src = ctx.createBufferSource()
+        src.buffer = buf; src.connect(finalOut())
+        src.onended = () => { compareSrc.current = null; setComparing(false) }
+        compareSrc.current = src
+        src.start(ctx.currentTime + 0.35)
+      }
+      p.play(flat, a, songBpm * (mode === 'time' ? speed : 0.8), b)
+      countUse('play:coach-compare')
+    } } : null
+    return [...(shift ? [shift, drill] : [drill, loopIt]), ...(compare ? [compare] : []), ...(easier ? [easier] : []), keep]
   }
   const coachActsRef = useRef(coachActs)
   coachActsRef.current = coachActs

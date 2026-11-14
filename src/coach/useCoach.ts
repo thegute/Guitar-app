@@ -11,6 +11,7 @@ import { barFacts, explain, findTrouble, MissStreak, type PassData, type Trouble
 import { coachPrefs, ruleAdvice, type Advice } from './advice'
 import { aiAdvice, type CoachContext } from './listen'
 import { activeLens } from './lens'
+import { endurance, sessionRuns } from './endurance'
 import { habitLine, loadMemory, noteClean, noteTrouble, saveMemory } from './memory'
 
 export interface CoachState {
@@ -20,6 +21,8 @@ export interface CoachState {
   listening: boolean
   /** why it came up */
   why: 'pass' | 'stuck' | 'asked'
+  /** your playing of those bars, to hear back next to the tab's (record and compare) */
+  clip: { x: Float32Array; sr: number } | null
 }
 
 export interface CoachArgs {
@@ -44,6 +47,8 @@ export interface CoachArgs {
 
 export function useCoach(a: CoachArgs) {
   const [state, setState] = useState<CoachState | null>(null)
+  const stateRef = useRef(state)
+  stateRef.current = state
   /** "play it through once first" */
   const [note, setNote] = useState<string | null>(null)
   const args = useRef(a)
@@ -87,11 +92,12 @@ export function useCoach(a: CoachArgs) {
     // remembered across sessions (a drill's own bars aren't the song's)
     if (A.song) saveMemory(noteTrouble(loadMemory(), t, A.song))
     const say = (adv: Advice) => { if (prefs.voice) void speak(adv.spoken, { gemini: true }) }
-    const clip = wantAi && aiSettings().keys.gemini && (typeof navigator === 'undefined' || navigator.onLine !== false) ? clipFor(t) : null
-    if (!clip) { setState({ advice: rules, trouble: t, listening: false, why }); say(rules); return }
+    const mine = clipFor(t)
+    const clip = wantAi && aiSettings().keys.gemini && (typeof navigator === 'undefined' || navigator.onLine !== false) ? mine : null
+    if (!clip) { setState({ advice: rules, trouble: t, listening: false, why, clip: mine }); say(rules); return }
     const ac = new AbortController()
     abort.current = ac
-    setState({ advice: rules, trouble: t, listening: true, why })
+    setState({ advice: rules, trouble: t, listening: true, why, clip: mine })
     const ctx: CoachContext = { title: A.title, inst: A.inst, tuning: A.tuning, mode: A.mode, speed: A.speed, flat: A.flat, groups: A.groups, lens: activeLens()?.listen, habits: habitLine(loadMemory()) }
     aiAdvice(t, ctx, rules, clip, ac.signal)
       .then(adv => { if (ac.signal.aborted) return; setState(s => (s && s.trouble === t ? { ...s, advice: adv, listening: false } : s)); say(adv) })
@@ -155,6 +161,15 @@ export function useCoach(a: CoachArgs) {
     show(t, 'asked', true)
   }, [show])
 
+  /** a run or a loop pass just ended with this score: when accuracy has been sliding for a while, say so once */
+  const ran = useCallback((score: number) => {
+    const now = Date.now()
+    const tired = endurance(sessionRuns, score, now)
+    if (!tired || !coachPrefs().auto) return
+    const msg = 'Your accuracy has been slipping for a while. Take five minutes, or switch to something easier, and come back to this.'
+    setNote(msg)
+    if (coachPrefs().voice && !stateRef.current) void speak(msg, { gemini: true })
+  }, [])
   /** a clean pass over these bars at this speed (a loop pass or a whole run): the memory's spots there improve */
   const clean = useCallback((bars: { from: number; to: number }, speed: number) => {
     const A = args.current
@@ -164,5 +179,5 @@ export function useCoach(a: CoachArgs) {
   }, [])
 
   const dismiss = useCallback(() => { abort.current?.abort(); stopSpeaking(); setState(null); setNote(null) }, [])
-  return { state, note, afterPass, missed, hit, heard, ask, dismiss, clean }
+  return { state, note, afterPass, missed, hit, heard, ask, dismiss, clean, ran }
 }

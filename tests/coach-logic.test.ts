@@ -181,3 +181,45 @@ await (async () => {
   m2 = emptyMemory(); saveMemory(m2)
   console.log('lenses, memory, practice plan: ok')
 })()
+
+// ---- endurance: tired hands
+import { endurance, type Runs } from '../src/coach/endurance'
+{
+  const MIN = 60_000, t0 = 1_000_000_000
+  const r: Runs = { list: [], told: 0 }
+  const fire: number[] = []
+  // 12 runs, 3 minutes apart: strong first, then fading
+  const scores = [80, 90, 92, 91, 93, 90, 88, 84, 78, 74, 72, 70]
+  scores.forEach((s, i) => { if (endurance(r, s, t0 + i * 3 * MIN)) fire.push(i) })
+  assert.ok(fire.length === 1, 'says it once: ' + fire)
+  assert.ok(fire[0] >= 8, 'not before 20 minutes and 8 runs')
+  const r2: Runs = { list: [], told: 0 }
+  assert.ok(![...Array(14)].some((_, i) => endurance(r2, 90 + (i % 3), t0 + i * 3 * MIN)), 'steady scores: nothing')
+  // a long gap starts a new sitting
+  endurance(r, 50, t0 + 200 * MIN)
+  assert.equal(r.list.length, 1)
+  console.log('endurance: ok')
+}
+
+// ---- weekly check-up
+import { weekReport, checkupDue, checkupSession } from '../src/coach/checkup'
+{
+  const DAY = 864e5, now = 2_000_000_000_000
+  const m = emptyMemory()
+  assert.equal(checkupDue(m, now, 0), false, 'nothing remembered: no check-up')
+  assert.equal(checkupSession(m, undefined, now), null)
+  const spot = (bar: number, at: number, extra = {}) => ({ song: 's1', title: 'Test tune', bar, loop: { from: bar, to: bar }, kind: 'shift' as const, at, n: 1, ...extra })
+  m.spots = [spot(3, now - 2 * DAY, { n: 4, best: 0.75 }), spot(7, now - 6 * DAY), spot(9, now - 10 * DAY, { fixedAt: now - 3 * DAY, best: 0.95 })]
+  m.log = [[now - DAY, 'shift'], [now - 2 * DAY, 'shift'], [now - 9 * DAY, 'shift'], [now - 10 * DAY, 'jump'], [now - 11 * DAY, 'jump']]
+  m.ceilings = { shift: [[now - 14 * DAY, 0.7], [now - 2 * DAY, 0.85]] }
+  assert.ok(checkupDue(m, now, now - 8 * DAY)); assert.ok(!checkupDue(m, now, now - 2 * DAY), 'once a week')
+  const r = weekReport(m, now)
+  assert.equal(r.fixed, 1); assert.equal(r.flagged, 2); assert.equal(r.flaggedBefore, 3)
+  assert.match(r.text, /fixed 1 trouble spot/); assert.match(r.text, /Fewer slips/); assert.match(r.text, /70% → 85%/)
+  const s = checkupSession(m, undefined, now)!
+  assert.equal(s.steps.reduce((a, x) => a + x.minutes, 0), 5)
+  assert.match(s.steps[0].title, /Does it hold\? Bar 10/)
+  assert.deepEqual((s.steps[1].target as { go: unknown }).go, { song: 's1', loop: { from: 3, to: 3 }, speed: 0.75 })
+  assert.match(s.steps[2].title, /Bar 8/)
+  console.log('weekly check-up: ok')
+}
