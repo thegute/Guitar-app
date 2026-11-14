@@ -223,17 +223,34 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: { strings?: numbe
     }
     found.push({ cols, toPage: sv.toPage, gap: sv.gap })
   }
+  // the time signature isn't read by the network: the commonest bar length its first choices add up to
+  const sums = new Map<number, number>()
+  found.forEach(f => {
+    const xb = [-Infinity, ...f.cols.filter(c => c.kind === 'bar').map(c => c.u), Infinity]
+    for (let i = 0; i + 1 < xb.length; i++) {
+      const here = f.cols.filter(c => c.kind !== 'bar' && !c.grace && c.u > xb[i] && c.u < xb[i + 1])
+      if (here.length < 2 || here.some(c => c.printed < 0.5)) continue
+      const sum = Math.round(here.reduce((a, c) => a + (c.lens[0]?.d ?? 0), 0) * 8) / 8
+      if (sum >= 1 && sum <= 12) sums.set(sum, (sums.get(sum) ?? 0) + 1)
+    }
+  })
+  const voted = [...sums].sort((a, b) => b[1] - a[1])[0]?.[0]
   return assemble(systems, sysBars, nums, {
     clef: false,
-    ...(opts.beats ? { beats: opts.beats } : {}),
+    ...(opts.beats ? { beats: opts.beats } : voted ? { beats: voted } : {}),
     durations: (si, xs, x0, x1, beats) => {
       const f = found[si]
       const here = f.cols.filter(c => c.kind !== 'bar' && f.toPage(c.u) > x0 && f.toPage(c.u) < x1)
       // no rhythm printed under this bar: let the spacing decide
       if (!here.length || here.reduce((a, c) => a + c.printed, 0) / here.length < 0.5) return null
       const mains = here.filter(c => !c.grace)
-      const lens = fitBar(mains.map(c => ({ u: f.toPage(c.u), lens: c.lens })), beats, x1)
-      if (!lens) return null
+      // the network's first choices, when they make a whole bar (of this time signature, or of another when every
+      // column is sure: the time signature can change), else the likeliest set that does
+      const first = mains.map(c => c.lens[0]?.d ?? 0)
+      const fsum = first.reduce((a, b) => a + b, 0)
+      const allSure = mains.every(c => (c.lens[0]?.p ?? 0) > 0.9)
+      const lens = Math.abs(fsum - beats) < 1e-3 || (allSure && fsum > 0) ? first : fitBar(mains.map(c => ({ u: f.toPage(c.u), lens: c.lens })), beats, x1) ?? first
+      if (!lens.every(d => d > 0)) return null
       // each note column of the layout gets the length of the network column nearest it; rests come back as rests
       const durOf = new Map<CrnnCol, number>()
       mains.forEach((c, i) => durOf.set(c, lens[i]))
