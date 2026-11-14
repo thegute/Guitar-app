@@ -231,7 +231,13 @@ export class Stitcher {
     // riff in the same places matches less well
     // (a see-through tab box with the video moving behind it changes many pixels while the numbers stay put: the numbers,
     // compared one by one, decide)
-    const samePage = () => { const o = overlapScore(this.prev!, g, 0, 0); return !!o && o.m >= 0.8 }
+    // (and only with the staff at the same height: a page scrolling up a little isn't the same picture)
+    const samePage = () => {
+      const la = findStrips(this.prev!).flatMap(x => x.lines), lb = findStrips(g).flatMap(x => x.lines)
+      if (!la.length || la.length !== lb.length || la.some((y, i) => Math.abs(y - lb[i]) > 1.5)) return false
+      const o = overlapScore(this.prev!, g, 0, 0)
+      return !!o && o.m >= 0.8
+    }
     if (sh && sh.dx === 0 && sh.match < 0.97 && this.prev && pageDiff(this.prev, g) > 0.02 && !samePage()) sh = null
     else if (!sh && this.prev && this.layers.length && samePage()) sh = { dx: 0, match: 1 }
     // a tab that moves on in jumps (a page at a time) shows the end of the last page again at the start of the new one:

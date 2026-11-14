@@ -31,7 +31,7 @@ const [video, outp] = process.argv.slice(2)
     const vt = await tabFromVideo(blob)
     const t1 = performance.now()
     const ser = r => r.systems.map(s => ({ bars: s.bars.map(b => ({ steps: b.steps.map(st => ({ dur: st.dur, notes: st.notes.map(n => ({ string: n.string, fret: n.fret, ...(n.dead ? { dead: true } : {}) })) })) })) }))
-    const { dropRepeats, mergePages } = await import('/src/scan/tabReadSong.ts')
+    const { dropRepeats, mergePages, dropLoop } = await import('/src/scan/tabReadSong.ts')
     const run = await tabCrnnRunner()
     const tr = [], mt = []
     for (const g of vt.strips) { tr.push(await readTabCrnn(g, run)); mt.push(readTab(deskew(g).g)) }
@@ -47,11 +47,11 @@ const [video, outp] = process.argv.slice(2)
         const at = hearing(snd.x, snd.sr)
         const hr = []
         for (const [i, g] of vt.strips.entries()) hr.push(await readTabCrnn(g, run, { hear: { at, when: timeOf(vt.timelines[i] || []), tuning: [40, 45, 50, 55, 59, 64] } }))
-        heard = dropRepeats(mergePages(hr)).flatMap(ser)
+        heard = dropLoop(dropRepeats(mergePages(hr))).flatMap(ser)
       }
     } catch (e) { heard = String(e) }
     const raw = tr.map(r => ({ ...r, systems: ser(r) }))
-    const trained = dropRepeats(mergePages(tr)).flatMap(ser), matcher = dropRepeats(mt).flatMap(ser)
+    const trained = dropLoop(dropRepeats(mergePages(tr))).flatMap(ser), matcher = dropRepeats(mt).flatMap(ser)
     // the first strip's start, as a PNG, to look at
     const g0 = vt.strips[0], cw = Math.min(g0.w, 3000)
     const c = document.createElement('canvas'); c.width = cw; c.height = g0.h

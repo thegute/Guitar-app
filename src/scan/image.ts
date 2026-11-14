@@ -116,7 +116,7 @@ function stripsOf(g: Gray, strings: number[], dark: boolean): Strip[] {
   const cand: number[] = []
   for (let y = 2; y < h - 2; y++) {
     if (lineRow[y] < 0.35) continue
-    if (cand.length && y - cand[cand.length - 1] <= 2) { if (lineRow[y] > lineRow[cand[cand.length - 1]]) cand[cand.length - 1] = y; continue }
+    if (cand.length && y - cand[cand.length - 1] <= 4) { if (lineRow[y] > lineRow[cand[cand.length - 1]]) cand[cand.length - 1] = y; continue }
     cand.push(y)
   }
   const out: Strip[] = []
