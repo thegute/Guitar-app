@@ -26,6 +26,7 @@ type St = { key: string; n: number; dur: number }
 const keyOf = (ns: { string: number; fret: number; dead?: boolean; tech?: string }[]) => ns.map(n => `${n.string}:${n.dead || n.tech === 'x' ? 'x' : n.fret}`).sort().join('+')
 const tracks: St[][] = song.tracks.filter(t => t.tuning.length === 6).map(t => t.bars.flatMap(b => b.steps.filter(s => s.notes.length).map(s => ({ key: keyOf(s.notes), n: s.notes.length, dur: s.dur }))))
 
+const durMiss: string[] = []
 function align(a: St[], b: St[]) {
   // local alignment; match +2 (exact step), partial (shares a note) +0.5, mismatch -1, gap -1
   const m = a.length, n = b.length
@@ -47,7 +48,7 @@ function align(a: St[], b: St[]) {
     const p = P[i * (n + 1) + j]
     if (p === 1) {
       gpNotes += b[j - 1].n
-      if (a[i - 1].key === b[j - 1].key) { okNotes += a[i - 1].n; steps++; if (Math.abs(a[i - 1].dur - b[j - 1].dur) < 0.01) rhythm++ }
+      if (a[i - 1].key === b[j - 1].key) { okNotes += a[i - 1].n; steps++; if (Math.abs(a[i - 1].dur - b[j - 1].dur) < 0.01) rhythm++; else if (process.env.V === '2') durMiss.push(`${+a[i - 1].dur.toFixed(3)}≠${+b[j - 1].dur.toFixed(3)}`) }
       else { const s = new Set(a[i - 1].key.split('+')); okNotes += b[j - 1].key.split('+').filter(t => s.has(t)).length }
       i--; j--
     } else if (p === 2) i--
@@ -83,6 +84,7 @@ for (const [f, load] of sources) {
     if (process.env.V) per.push(`${f} ${nRead} read, ${best.okNotes} right of ${best.gpNotes} in GP stretch, rhythm ${best.rhythm}/${best.steps}`)
   }
 }
-if (process.env.V) console.log(per.join('\n'))
+if (process.env.V === '1') console.log(per.join('\n'))
+if (process.env.V === '2') { const c = new Map<string, number>(); for (const k of durMiss) c.set(k, (c.get(k) ?? 0) + 1); console.log([...c].sort((x, y) => y[1] - x[1]).slice(0, 15).map(([k, v]) => `${v}× ${k}`).join('  ')) }
 const pc = (x: number, y: number) => (100 * x / Math.max(1, y)).toFixed(1) + '%'
 console.log(`${staves} staves | notes read ${read} | precision ${pc(ok, read)} | recall ${pc(ok, gpN)} | rhythm right ${pc(rhy, steps)} of steps | chance ${pc(chanceOk, read)}`)

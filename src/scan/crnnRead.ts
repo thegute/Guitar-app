@@ -110,11 +110,14 @@ function softmaxAt(a: Float32Array, C: number, T: number, t: number, base = 0): 
   return e.map(v => v / s)
 }
 
+/** a length choice: quarters, probability, and (when known) the note value and tuplet it came from */
+export type Len = { d: number; p: number; b?: number; t?: number }
+
 export interface CrnnCol {
   u: number; t: number; kind: 'note' | 'bar' | 'rest'; p: number
   frets: { slot: number; fret: number; dead: boolean; sure: number }[]
   /** length options, most likely first: quarters and probability */
-  lens: { d: number; p: number }[]
+  lens: Len[]
   printed: number // probability that a rhythm is printed under it
   grace: boolean; stroke: 0 | 1 | 2
 }
@@ -140,13 +143,13 @@ export function decode(o: CrnnOut, nStr: number, thresh = 0.45): CrnnCol[] {
         }
         const pd = softmaxAt(o.dur, 7, T, t), pdot = softmaxAt(o.dots, 3, T, t), ptup = softmaxAt(o.tup, TUPS.length, T, t)
         col.printed = 1 - pd[6]
-        const opts: { d: number; p: number }[] = []
+        const opts: Len[] = []
         for (let b = 0; b < 6; b++) for (let dt = 0; dt < 3; dt++) for (let tu = 0; tu < TUPS.length; tu++) {
           const p = pd[b] * pdot[dt] * ptup[tu]
           if (p < 1e-4) continue
           let d = DUR[b] * (dt === 1 ? 1.5 : dt === 2 ? 1.75 : 1)
           if (TUPS[tu]) d *= 2 ** Math.floor(Math.log2(TUPS[tu])) / TUPS[tu]
-          opts.push({ d, p })
+          opts.push({ d, p, b, t: TUPS[tu] })
         }
         col.lens = opts.sort((a, b) => b.p - a.p).slice(0, 8)
         col.grace = softmaxAt(o.grace, 2, T, t)[1] > 0.5
@@ -164,7 +167,7 @@ export function decode(o: CrnnOut, nStr: number, thresh = 0.45): CrnnCol[] {
 
 /** The lengths of a bar's columns that add up to `beats`: most likely by the network, nudged by the spacing (a longer
  *  note gets more room, about as length^0.65). Null when nothing fits. */
-export function fitBar(cols: { u: number; lens: { d: number; p: number }[] }[], beats: number, x1: number, lambda = 0.6): number[] | null {
+export function fitBar(cols: { u: number; lens: Len[] }[], beats: number, x1: number, lambda = 0.6): number[] | null {
   if (!cols.length) return null
   const Q = 48 // units per quarter (32nds, triplets, quintuplets aside from 5/7 approximated)
   const goal = Math.round(beats * Q)
@@ -172,32 +175,41 @@ export function fitBar(cols: { u: number; lens: { d: number; p: number }[] }[], 
   const gaps = cols.map((c, i) => (i + 1 < cols.length ? cols[i + 1].u : x1) - c.u)
   const ks = cols.map((c, i) => gaps[i] / Math.max(0.05, c.lens[0]?.d ?? 1) ** 0.65).sort((a, b) => a - b)
   const g = ks[Math.floor(ks.length / 2)] || 1
-  type Cell = { cost: number; prev: number; pick: number }
-  let layer = new Map<number, Cell>([[0, { cost: 0, prev: -1, pick: -1 }]])
-  const back: Map<number, Cell>[] = []
+  // the state is (time so far, the choice made for the column before): a run of notes of the same value is all in the
+  // tuplet or none of it (a 6 over sixteenths covers all six), so changing tuplet between them costs
+  type Cell = { cost: number; prev: string; pick: number }
+  let layer = new Map<string, Cell>([['0:-1', { cost: 0, prev: '', pick: -1 }]])
+  const back: Map<string, Cell>[] = []
   cols.forEach((c, i) => {
-    const next = new Map<number, Cell>()
+    const next = new Map<string, Cell>()
     const last = i === cols.length - 1
-    for (const [sum, cell] of layer) c.lens.forEach((o, k) => {
-      const q = Math.round(o.d * Q)
-      const s2 = sum + q
-      if (s2 > goal || q <= 0) return
-      const room = last ? 0 : lambda * Math.abs(Math.log(Math.max(1e-3, gaps[i]) / (g * o.d ** 0.65)))
-      const cost = cell.cost - Math.log(o.p + 1e-6) + room
-      const was = next.get(s2)
-      if (!was || cost < was.cost) next.set(s2, { cost, prev: sum, pick: k })
-    })
+    for (const [key, cell] of layer) {
+      const [sumS, pk] = key.split(':')
+      const sum = Number(sumS), po = Number(pk) >= 0 ? cols[i - 1].lens[Number(pk)] : null
+      c.lens.forEach((o, k) => {
+        const q = Math.round(o.d * Q)
+        const s2 = sum + q
+        if (s2 > goal || q <= 0) return
+        const room = last ? 0 : lambda * Math.abs(Math.log(Math.max(1e-3, gaps[i]) / (g * o.d ** 0.65)))
+        const split = po && po.b !== undefined && po.b === o.b && (po.t ?? 0) !== (o.t ?? 0) ? 1.2 : 0
+        const cost = cell.cost - Math.log(o.p + 1e-6) + room + split
+        const nk = `${s2}:${k}`
+        const was = next.get(nk)
+        if (!was || cost < was.cost) next.set(nk, { cost, prev: key, pick: k })
+      })
+    }
     back.push(next)
     layer = next
   })
-  const end = layer.get(goal)
-  if (!end) return null
+  let endKey = '', best = Infinity
+  for (const [key, cell] of layer) if (key.startsWith(`${goal}:`) && cell.cost < best) { best = cell.cost; endKey = key }
+  if (!endKey) return null
   const out: number[] = []
-  let sum = goal
+  let key = endKey
   for (let i = cols.length - 1; i >= 0; i--) {
-    const cell = back[i].get(sum)!
+    const cell = back[i].get(key)!
     out.unshift(cols[i].lens[cell.pick].d)
-    sum = cell.prev
+    key = cell.prev
   }
   return out
 }
@@ -278,6 +290,26 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: { strings?: numbe
     }
   })
   const voted = [...sums].sort((a, b) => b[1] - a[1])[0]?.[0]
+  // a bar line the network missed (thin and blurred in a small video): a stretch between two bar lines whose note
+  // lengths add up to two or more whole bars is split where each bar's worth runs out
+  const meter = opts.beats ?? voted
+  if (meter) found.forEach((f, si) => {
+    const xb = [-Infinity, ...sysBars[si], Infinity]
+    const add: number[] = []
+    for (let i = 0; i + 1 < xb.length; i++) {
+      const here = f.cols.filter(c => c.kind !== 'bar' && !c.grace && c.x > xb[i] && c.x < xb[i + 1])
+      if (here.length < 3 || here.some(c => c.printed < 0.5)) continue
+      const sum = here.reduce((a, c) => a + (c.lens[0]?.d ?? 0), 0)
+      const k = Math.round(sum / meter)
+      if (k < 2 || Math.abs(sum - k * meter) > meter * 0.13) continue
+      let acc = 0, next = meter
+      for (let j = 0; j + 1 < here.length; j++) {
+        acc += here[j].lens[0]?.d ?? 0
+        if (Math.abs(acc - next) < 1e-3) { add.push((here[j].x + here[j + 1].x) / 2); next += meter }
+      }
+    }
+    if (add.length) sysBars[si] = [...sysBars[si], ...add].sort((a, b) => a - b)
+  })
   return assemble(systems, sysBars, nums, {
     clef: false,
     ...(opts.beats ? { beats: opts.beats } : voted ? { beats: voted } : {}),
