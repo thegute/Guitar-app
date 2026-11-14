@@ -18,7 +18,7 @@ const onPhone = () => Capacitor.isNativePlatform() && Capacitor.getPlatform() ==
 
 export const canGrab = () => onPhone() || (typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia)
 
-export interface Grabbed { pieces: Piece[]; frames: number; scrolled: boolean; sound: { x: Float32Array; sr: number } | null; strips?: Gray[] }
+export interface Grabbed { pieces: Piece[]; frames: number; scrolled: boolean; sound: { x: Float32Array; sr: number } | null; strips?: Gray[]; /** per strip: playhead x → seconds into the grab (for the audio referee) */ timelines?: { x: number; t: number }[][] }
 export interface GrabSession {
   /** stop and work through what was grabbed */
   stop(onProgress?: (f: number) => void): Promise<Grabbed>
@@ -43,7 +43,7 @@ async function startNative(fps: number, seconds: number): Promise<GrabSession> {
       const got = await native.stop()
       const st = new Stitcher()
       for (const [i, path] of got.frames.entries()) {
-        try { st.add(await loadPicture(Capacitor.convertFileSrc(path))) } catch { /* a frame that didn't save */ }
+        try { st.add(await loadPicture(Capacitor.convertFileSrc(path)), i / (got.fps || fps)) } catch { /* a frame that didn't save */ }
         onProgress?.((i + 1) / got.frames.length)
         if (i % 4 === 3) await new Promise(res => setTimeout(res, 0)) // let the screen update
       }
@@ -54,7 +54,7 @@ async function startNative(fps: number, seconds: number): Promise<GrabSession> {
           sound = { x: buf.getChannelData(0).slice(), sr: buf.sampleRate }
         } catch { /* no sound */ }
       }
-      return { pieces: st.finish(), frames: st.frames, scrolled: st.scrolled, sound, strips: st.strips }
+      return { pieces: st.finish(), frames: st.frames, scrolled: st.scrolled, sound, strips: st.strips, timelines: st.timelines }
     },
   }
 }
@@ -70,7 +70,8 @@ async function startWeb(fps: number, seconds: number): Promise<GrabSession> {
   await v.play().catch(() => {})
   const st = new Stitcher()
   let busy = false
-  const timer = setInterval(() => { if (busy || !v.videoWidth) return; busy = true; try { st.add(v) } finally { busy = false } }, 1000 / fps)
+  const t0 = performance.now()
+  const timer = setInterval(() => { if (busy || !v.videoWidth) return; busy = true; try { st.add(v, (performance.now() - t0) / 1000) } finally { busy = false } }, 1000 / fps)
   // the sound (if a tab's audio was shared)
   const at = stream.getAudioTracks()
   const chunks: Blob[] = []
@@ -91,7 +92,7 @@ async function startWeb(fps: number, seconds: number): Promise<GrabSession> {
       if (chunks.length) {
         try { const buf = await audio().decodeAudioData(await new Blob(chunks).arrayBuffer()); sound = { x: buf.getChannelData(0).slice(), sr: buf.sampleRate } } catch { /* no sound */ }
       }
-      return { pieces: st.finish(), frames: st.frames, scrolled: st.scrolled, sound, strips: st.strips }
+      return { pieces: st.finish(), frames: st.frames, scrolled: st.scrolled, sound, strips: st.strips, timelines: st.timelines }
     },
   }
 }

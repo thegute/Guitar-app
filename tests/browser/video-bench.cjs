@@ -35,6 +35,20 @@ const [video, outp] = process.argv.slice(2)
     const tr = [], mt = []
     for (const g of vt.strips) { tr.push(await readTabCrnn(g, run)); mt.push(readTab(deskew(g).g)) }
     const perStrip = tr.map(r => r.notes)
+    // the same with the sound as referee (the video's own sound track; standard tuning)
+    let heard = null
+    try {
+      const { soundOf } = await import('/src/scan/pictures.ts')
+      const { hearing } = await import('/src/scan/hear.ts')
+      const { timeOf } = await import('/src/scan/crnnRead.ts')
+      const snd = await soundOf(blob, new OfflineAudioContext(1, 44100, 44100))
+      if (snd && vt.timelines) {
+        const at = hearing(snd.x, snd.sr)
+        const hr = []
+        for (const [i, g] of vt.strips.entries()) hr.push(await readTabCrnn(g, run, { hear: { at, when: timeOf(vt.timelines[i] || []), tuning: [40, 45, 50, 55, 59, 64] } }))
+        heard = dropRepeats(hr).flatMap(ser)
+      }
+    } catch (e) { heard = String(e) }
     const trained = dropRepeats(tr).flatMap(ser), matcher = dropRepeats(mt).flatMap(ser)
     // the first strip's start, as a PNG, to look at
     const g0 = vt.strips[0], cw = Math.min(g0.w, 3000)
@@ -45,12 +59,14 @@ const [video, outp] = process.argv.slice(2)
     const peek = c.toDataURL('image/png')
     // the whole first strip as 8-bit grey (for looking into it outside the browser)
     const gray = btoa(Array.from(g0.px, v => String.fromCharCode(Math.max(0, Math.min(255, Math.round(v * 255))))).join(''))
-    return { trace: vt.trace, perStrip, gray, gw: g0.w, gh: g0.h, peek, strips: vt.strips.map(g => `${g.w}×${g.h}`), frames: vt.frames, kept: vt.kept, scrolled: vt.scrolled, secs: Math.round((t1 - t0) / 100) / 10, readSecs: Math.round((performance.now() - t1) / 100) / 10, trained, matcher }
+    return { heard, tl: (vt.timelines || []).map(t => t.length), trace: vt.trace, perStrip, gray, gw: g0.w, gh: g0.h, peek, strips: vt.strips.map(g => `${g.w}×${g.h}`), frames: vt.frames, kept: vt.kept, scrolled: vt.scrolled, secs: Math.round((t1 - t0) / 100) / 10, readSecs: Math.round((performance.now() - t1) / 100) / 10, trained, matcher }
   })
   if (process.env.TRACE) console.log(res.trace.join(' '))
   console.log(`notes per strip ${res.perStrip.join(' ')} · frames ${res.frames}, kept ${res.kept}, scrolled ${res.scrolled}, strips ${res.strips.join(' ')}, video ${res.secs} s, reading ${res.readSecs} s`)
   { const head = Buffer.alloc(8); head.writeUInt32LE(res.gw, 0); head.writeUInt32LE(res.gh, 4); fs.writeFileSync(`${outp}-strip.gray`, Buffer.concat([head, Buffer.from(res.gray, 'base64')])) }
   fs.writeFileSync(`${outp}-strip.png`, Buffer.from(res.peek.split(',')[1], 'base64'))
+  if (Array.isArray(res.heard)) fs.writeFileSync(`${outp}-heard.json`, JSON.stringify(res.heard)); else console.log('sound:', res.heard)
+  console.log('timeline points per strip', res.tl.join(' '))
   fs.writeFileSync(`${outp}-trained.json`, JSON.stringify(res.trained))
   fs.writeFileSync(`${outp}-matcher.json`, JSON.stringify(res.matcher))
   await b.close()

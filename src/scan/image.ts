@@ -195,6 +195,21 @@ export function shiftBetween(a: Float32Array, b: Float32Array, maxShift = Math.r
   return best.match > 0.6 ? best : null
 }
 
+/** A video's playhead in a tab frame: one narrow line from top to bottom of the box (x of its middle), or null. */
+export function playheadX(g: Gray): number | null {
+  const runs: [number, number][] = []
+  let start = -1
+  for (let x = 0; x <= g.w; x++) {
+    let dark = 0
+    if (x < g.w) for (let y = 0; y < g.h; y++) if (g.px[y * g.w + x] < 0.5) dark++
+    const on = x < g.w && dark > g.h * 0.8
+    if (on && start < 0) start = x
+    if (!on && start >= 0) { runs.push([start, x - 1]); start = -1 }
+  }
+  const narrow = runs.filter(([a, b]) => b - a < Math.max(10, g.w * 0.012))
+  return narrow.length === 1 ? (narrow[0][0] + narrow[0][1]) / 2 : null
+}
+
 /** How well frame b matches frame a moved left by dx (the same measure shiftBetween uses). */
 export function matchAt(a: Float32Array, b: Float32Array, dx: number): number {
   const n = Math.min(a.length, b.length), len = n - dx

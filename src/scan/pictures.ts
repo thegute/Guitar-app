@@ -3,7 +3,7 @@
 //   the contrast (dark video tabs come out black on white), sharpen; very wide strips are cut between notes
 //   video files (and Samsung screen recordings): sample frames, skip ones where nothing changed, follow a scrolling tab
 //   sideways and stitch the new part onto a panorama; a page turn starts a new strip
-import { findStrips, matchAt, profile, sameFrame, sharpen, shiftBetween, stretchContrast, toGray, type Gray, type Strip } from './image'
+import { findStrips, matchAt, playheadX, profile, sameFrame, sharpen, shiftBetween, stretchContrast, toGray, type Gray, type Strip } from './image'
 
 export interface Box { x: number; y: number; w: number; h: number } // 0..1 of the picture
 export interface Piece { b64: string; mime: string; url: string; w: number; h: number }
@@ -138,7 +138,7 @@ function seek(v: HTMLVideoElement, t: number) {
   })
 }
 
-export interface VideoTab { pieces: Piece[]; frames: number; kept: number; scrolled: boolean; box: Box | null; /** each tab strip whole (before it's cut into pieces for the AI): for KGuitar's own reader */ strips: Gray[]; trace?: string[] }
+export interface VideoTab { pieces: Piece[]; frames: number; kept: number; scrolled: boolean; box: Box | null; /** each tab strip whole (before it's cut into pieces for the AI): for KGuitar's own reader */ strips: Gray[]; trace?: string[]; /** per strip: playhead x → seconds (see Stitcher.timelines) */ timelines?: { x: number; t: number }[][] }
 
 /**
  * Frames in, tab strips out, one frame at a time (a long screen grab never keeps more than a handful of frames): the tab
@@ -162,6 +162,10 @@ export class Stitcher {
   frames = 0
   kept = 0
   scrolled = false
+  /** for each strip: when the playhead was over which point of it (strip x, seconds into the video), from the frames
+   *  whose time was given. Lets the sound be checked against each column (the audio referee). */
+  timelines: { x: number; t: number }[][] = []
+  private timeline: { x: number; t: number }[] = []
   /** what the scroll tracking saw at each frame (shift:match, or x for none): for tests */
   trace: string[] = []
   private shifts: number[] = []
@@ -170,7 +174,7 @@ export class Stitcher {
   constructor(box: Box | null = null) { this.box = box }
   /** still looking for where the tab is */
   get searching() { return !this.box }
-  add(src: Src) {
+  add(src: Src, t?: number) {
     this.frames++
     if (!this.box) {
       // look for staff lines (on every frame until found, but give up after 60 tries: then read whole frames)
@@ -189,7 +193,8 @@ export class Stitcher {
       else this.box = { x: 0, y: 0, w: 1, h: 1 }
     }
     const g = enhance(src, this.box, this.gap || undefined)
-    if (this.prev && sameFrame(this.prev, g)) { this.stack(g); return }
+    const mark = () => { if (t === undefined) return; const p = playheadX(g); if (p !== null) this.timeline.push({ x: this.at + p, t }) }
+    if (this.prev && sameFrame(this.prev, g)) { this.stack(g); mark(); return }
     const prof = profile(g)
     let sh = this.prev && this.prevProf && this.layers.length ? shiftBetween(this.prevProf, prof) : null
     // a tab scrolling at a steady speed moves the same amount between frames: when the last few shifts agree and this
@@ -199,7 +204,9 @@ export class Stitcher {
     const steady = recent.length === 3 && recent.every(d => Math.abs(d - recent[0]) <= 3) ? Math.round(recent.reduce((a, b) => a + b, 0) / 3) : 0
     if (steady && this.prevProf && this.layers.length && (!sh || Math.abs(sh.dx - steady) > 3)) {
       const m = matchAt(this.prevProf, prof, steady)
-      if (m > 0.4 && (!sh || m > sh.match - 0.12)) sh = { dx: steady, match: m }
+      // (a "didn't move" that isn't nearly identical, in the middle of a steady scroll, is something on the screen that
+      // stays put, not the tab stopping)
+      if (m > 0.3 && (!sh || m > sh.match - 0.2 || (sh.dx === 0 && sh.match < 0.9))) sh = { dx: steady, match: m }
     }
     this.trace.push(sh ? `${sh.dx}:${sh.match.toFixed(2)}` : 'x')
     // a big jump is a new page whose music happens to look like the last one (a repeated riff), not a scroll: a
@@ -222,6 +229,7 @@ export class Stitcher {
       this.shifts = []
       this.stack(g)
     }
+    mark()
     this.kept++
     this.prev = g; this.prevProf = prof
   }
@@ -273,7 +281,9 @@ export class Stitcher {
     if (this.layers.length) this.append(this.compose(this.doneW, this.width))
     const pano = this.done
     this.layers = []; this.width = 0; this.done = null; this.doneW = 0
-    if (pano) { this.strips.push(pano); for (const part of cutWide(pano)) this.out.push(pieceOf(part)) }
+    const tl = this.timeline
+    this.timeline = []
+    if (pano) { this.strips.push(pano); this.timelines.push(tl); for (const part of cutWide(pano)) this.out.push(pieceOf(part)) }
   }
   finish(): Piece[] { this.flush(); return this.out }
 }
@@ -293,10 +303,10 @@ export async function tabFromVideo(file: Blob, o: { every?: number; from?: numbe
       if (o.signal?.aborted) throw new Error('Cancelled.')
       await seek(v, t)
       o.onProgress?.((t - from) / Math.max(0.001, to - from), `${Math.round(t)} s of ${Math.round(to)} s`)
-      st.add(v)
+      st.add(v, t)
     }
     const pieces = st.finish()
-    return { pieces, frames: st.frames, kept: st.kept, scrolled: st.scrolled, box: st.box, strips: st.strips, trace: st.trace }
+    return { pieces, frames: st.frames, kept: st.kept, scrolled: st.scrolled, box: st.box, strips: st.strips, timelines: st.timelines, trace: st.trace }
   } finally {
     v.removeAttribute('src'); v.load()
     URL.revokeObjectURL(url)

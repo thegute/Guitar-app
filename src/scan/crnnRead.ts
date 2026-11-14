@@ -6,6 +6,7 @@
 // their amber ring.
 import { deskew, findStrips, type Gray, type Strip } from './image'
 import { assemble, type Num, type ReadSystem, type TabReading } from './tabRead'
+import { referee, type Hearing } from './hear'
 
 export const FRAME_H = 160, FRAME_GAP = 15, FRAME_TOP = 42, SLOTS = 6, STEP = 4
 const NFRET = 27
@@ -115,7 +116,7 @@ export type Len = { d: number; p: number; b?: number; t?: number }
 
 export interface CrnnCol {
   u: number; t: number; kind: 'note' | 'bar' | 'rest'; p: number
-  frets: { slot: number; fret: number; dead: boolean; sure: number }[]
+  frets: { slot: number; fret: number; dead: boolean; sure: number; /** the next likeliest readings (for the audio referee) */ alts: { fret: number; dead: boolean; p: number }[] }[]
   /** length options, most likely first: quarters and probability */
   lens: Len[]
   printed: number // probability that a rhythm is printed under it
@@ -139,7 +140,8 @@ export function decode(o: CrnnOut, nStr: number, thresh = 0.45): CrnnCol[] {
           const [p1, c1] = order[0], p2 = order[1][0]
           if (c1 === 0) continue
           // amber ring: top choice under 0.82, or the runner-up close behind
-          col.frets.push({ slot: s, fret: c1 === 26 ? 0 : c1 - 1, dead: c1 === 26, sure: p1 >= 0.82 && p1 - p2 >= 0.35 ? 1 : 0 })
+          const alts = order.slice(0, 3).filter(([, c]) => c > 0).map(([p, c]) => ({ fret: c === 26 ? 0 : c - 1, dead: c === 26, p }))
+          col.frets.push({ slot: s, fret: c1 === 26 ? 0 : c1 - 1, dead: c1 === 26, sure: p1 >= 0.82 && p1 - p2 >= 0.35 ? 1 : 0, alts })
         }
         const pd = softmaxAt(o.dur, 7, T, t), pdot = softmaxAt(o.dots, 3, T, t), ptup = softmaxAt(o.tup, TUPS.length, T, t)
         col.printed = 1 - pd[6]
@@ -221,7 +223,12 @@ function cropCols(g: Gray, a: number, b: number): Gray {
 }
 
 /** Read every tab staff in the picture with the network. */
-export async function readTabCrnn(g: Gray, run: CrnnRun, opts: { strings?: number; beats?: number } = {}): Promise<TabReading> {
+export async function readTabCrnn(g: Gray, run: CrnnRun, opts: {
+  strings?: number; beats?: number
+  /** a video's sound, to settle numbers the picture leaves in doubt: `when` = the time a point of this picture is played
+   *  (from the playhead), `tuning` = MIDI of each string, lowest first, with any capo */
+  hear?: { at: Hearing; when: (x: number) => number | null; tuning: number[] }
+} = {}): Promise<TabReading> {
   const nStr = opts.strings ?? 6
   g = deskew(g).g // a crooked photo: level its lines first
   const systems: ReadSystem[] = []
@@ -273,8 +280,25 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: { strings?: numbe
     const si = systems.length
     systems.push({ lines: [...r.ls].reverse(), gap: r.gap, left: r.left, right: r.right, bars: [] }) // low string first
     sysBars.push(cols.filter(c => c.kind === 'bar').map(c => c.x))
-    for (const c of cols) if (c.kind === 'note') for (const f of c.frets) {
-      nums.push({ sys: si, string: nStr - 1 - f.slot, x: c.x, fret: f.fret, sure: f.sure, ...(f.dead ? { dead: true } : {}) })
+    for (const c of cols) if (c.kind === 'note') {
+      // numbers in doubt: the note heard when the playhead was over this column decides between the likely readings
+      const doubt = opts.hear && c.frets.some(f => !f.sure && f.alts.length > 1)
+      const t = doubt ? opts.hear!.when(c.x) : null
+      const sal = t !== null && t !== undefined ? opts.hear!.at(t) : null
+      for (const f of c.frets) {
+        let { fret, dead, sure } = f
+        if (sal && !sure && f.alts.length > 1) {
+          const string = nStr - 1 - f.slot
+          const base = opts.hear!.tuning[string]
+          const opt = f.alts.map(a => ({ midi: a.dead || base === undefined ? null : base + a.fret, p: a.p }))
+          const k = referee(opt, sal)
+          fret = f.alts[k].fret; dead = f.alts[k].dead
+          // the sound clearly backs it: no amber ring
+          const s = opt.map(o => (o.midi === null ? 0 : sal(o.midi))), top = Math.max(...s, 1e-9)
+          if (s[k] / top > 0.95 && s.every((v, i) => i === k || v / top < 0.5)) sure = 1
+        }
+        nums.push({ sys: si, string: nStr - 1 - f.slot, x: c.x, fret, sure, ...(dead ? { dead: true } : {}) })
+      }
     }
     found.push({ cols, gap: r.gap })
   }
@@ -341,4 +365,18 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: { strings?: numbe
       return { durs, rests, grace: xs.map(x => !!near(x)?.grace) }
     },
   })
+}
+
+/** A strip's timeline (playhead x → seconds) as a lookup: the time a point of the strip was played, or null outside it. */
+export function timeOf(tl: { x: number; t: number }[]): (x: number) => number | null {
+  // keep the points in time order whose x keeps growing (the playhead only moves on)
+  const pts: { x: number; t: number }[] = []
+  for (const p of [...tl].sort((a, b) => a.t - b.t)) if (!pts.length || p.x > pts[pts.length - 1].x) pts.push(p)
+  return x => {
+    if (pts.length < 2 || x < pts[0].x || x > pts[pts.length - 1].x) return null
+    let i = 1
+    while (pts[i].x < x) i++
+    const a = pts[i - 1], b = pts[i]
+    return a.t + ((x - a.x) / Math.max(1e-6, b.x - a.x)) * (b.t - a.t)
+  }
 }

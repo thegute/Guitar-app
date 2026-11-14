@@ -83,21 +83,28 @@ export function dropRepeats(readings: TabReading[]): TabReading[] {
 
 /** The same, with the trained reader (tab_crnn) when the app has it: it reads photos, scans and video frames far better
  *  than the number matcher. Falls back to readTabPictures when the model can't be loaded. */
-export async function readTabPicturesBest(pics: Gray[], tuning: number[], title: string, o: { video?: boolean } = {}): Promise<PictureReading | null> {
+export async function readTabPicturesBest(pics: Gray[], tuning: number[], title: string, o: {
+  video?: boolean
+  /** a video's sound and, per picture, when the playhead was where (pictures.ts Stitcher.timelines): numbers the
+   *  picture leaves in doubt are settled by the note heard */
+  hear?: { x: Float32Array; sr: number; timelines: { x: number; t: number }[][] }
+} = {}): Promise<PictureReading | null> {
   let run: import('./crnnRead').CrnnRun | null = null
   try { run = await (await import('../ml/models')).tabCrnnRunner() } catch { run = null }
   if (!run) return readTabPictures(pics, tuning, title)
-  const { readTabCrnn } = await import('./crnnRead')
+  const { readTabCrnn, timeOf } = await import('./crnnRead')
   const strings = tuning.length
+  const at = o.hear ? (await import('./hear')).hearing(o.hear.x, o.hear.sr) : null
+  const hearFor = (i: number) => (at && o.hear?.timelines[i]?.length ? { hear: { at, when: timeOf(o.hear.timelines[i]), tuning } } : {})
   pics = pics.map(inkDark)
   let readings: TabReading[] = []
-  for (const g of pics) readings.push(await readTabCrnn(g, run, { strings }))
+  for (const [i, g] of pics.entries()) readings.push(await readTabCrnn(g, run, { strings, ...hearFor(i) }))
   const votes = new Map<number, number>()
   for (const r of readings) if (r.notes) votes.set(r.meter, (votes.get(r.meter) ?? 0) + r.notes)
   if (!votes.size) return readTabPictures(pics, tuning, title)
   const meter = [...votes].sort((a, b) => b[1] - a[1])[0][0]
   const again: TabReading[] = []
-  for (const [i, r] of readings.entries()) again.push(r.notes && r.meter !== meter ? await readTabCrnn(pics[i], run, { strings, beats: meter }) : r)
+  for (const [i, r] of readings.entries()) again.push(r.notes && r.meter !== meter ? await readTabCrnn(pics[i], run, { strings, beats: meter, ...hearFor(i) }) : r)
   readings = o.video ? dropRepeats(again) : again
   return readingSong(readings, tuning, title, meter)
 }

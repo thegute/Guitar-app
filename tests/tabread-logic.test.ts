@@ -8,7 +8,8 @@ import { readTab, fitRhythm } from '../src/scan/tabRead'
 import { readingSong } from '../src/scan/tabReadSong'
 import { tuningFromText, guitarNumbers } from '../src/scan/tuningText'
 import { rhythmFromStems } from '../src/scan/stemRhythm'
-import { fitBar, straighten } from '../src/scan/crnnRead'
+import { fitBar, straighten, timeOf } from '../src/scan/crnnRead'
+import { hearing, referee } from '../src/scan/hear'
 import type { PdfShape } from '../src/tabs/pdfTab'
 import type { Gray } from '../src/scan/image'
 
@@ -156,4 +157,20 @@ console.log('fitRhythm: ok')
   }
   assert.equal(off, 0, 'lines land on rows 42 + 15·s')
   console.log('trained reader helpers (bar fit, straightening): ok')
+}
+
+// the audio referee: a picture that can't tell a 6 from an 8 on the B string, and the sound of an 8 (G4) ringing
+{
+  const sr = 44100, x = new Float32Array(sr * 2)
+  const f = 440 * 2 ** ((67 - 69) / 12)
+  for (let i = sr / 2; i < x.length; i++) { const t = (i - sr / 2) / sr; for (let h = 1; h <= 4; h++) x[i] += Math.sin(2 * Math.PI * f * h * t) / h * Math.exp(-t * 2) }
+  const sal = hearing(x, sr)(0.5)!
+  assert.ok(sal, 'sound found')
+  // B string open = 59: fret 6 = 65, fret 8 = 67; the picture leans to 6
+  assert.equal(referee([{ midi: 65, p: 0.55 }, { midi: 67, p: 0.42 }], sal), 1, 'the 8 is what sounds')
+  assert.equal(hearing(x, sr)(0.1), null, 'silence says nothing')
+  const tl = timeOf([{ x: 100, t: 1 }, { x: 300, t: 2 }, { x: 250, t: 3 }])
+  assert.equal(tl(200), 1.5)
+  assert.equal(tl(50), null)
+  console.log('audio referee: ok')
 }
