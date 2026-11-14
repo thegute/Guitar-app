@@ -169,12 +169,20 @@ E|-3---------|-----------|`
     await page.waitForSelector('[data-testid=scan-progress]', { timeout: 3000 }).catch(() => bad(`${vp.n}: no progress steps`))
     await page.waitForSelector('[data-testid=scan-result]', { timeout: 20000 }).catch(() => bad(`${vp.n}: no result`))
     const sent = page.sent[0]
-    console.log(`${vp.n}: the AI got ${page.sent.length} strip(s): ${page.sent.map(x => `${x.w}×${x.h}`).join(', ')}`)
-    const totalW = page.sent.reduce((a, x) => a + x.w, 0)
-    // the strip was ~1200 × 87 px in the frame: it must arrive at least twice as big, in at most 3 pieces
-    if (!sent || totalW < 2400 || sent.h < 170 || page.sent.length > 3) bad(`${vp.n}: the strip sent wasn't enlarged well (${JSON.stringify(page.sent)})`)
-    const badge = (await page.locator('[data-testid=scan-result] [data-testid=tempo-badge]').innerText()).replace(/\s+/g, ' ')
-    if (!/^96 4\/4$/.test(badge)) bad(`${vp.n}: result tempo badge "${badge}"`)
+    const ownHow = await page.locator('[data-testid=scan-result] p.small.muted').first().innerText().catch(() => '')
+    const own = /KGuitar read (\d+) number/.exec(ownHow)
+    if (own) {
+      // the trained reader is in the app: it reads the picture itself (the AI is only the fallback)
+      console.log(`${vp.n}: KGuitar read ${own[1]} numbers itself`)
+      if (Number(own[1]) < 30) bad(`${vp.n}: KGuitar read only ${own[1]} numbers of the ~35 on the frame`)
+    } else {
+      console.log(`${vp.n}: the AI got ${page.sent.length} strip(s): ${page.sent.map(x => `${x.w}×${x.h}`).join(', ')}`)
+      const totalW = page.sent.reduce((a, x) => a + x.w, 0)
+      // the strip was ~1200 × 87 px in the frame: it must arrive at least twice as big, in at most 3 pieces
+      if (!sent || totalW < 2400 || sent.h < 170 || page.sent.length > 3) bad(`${vp.n}: the strip sent wasn't enlarged well (${JSON.stringify(page.sent)})`)
+      const badge = (await page.locator('[data-testid=scan-result] [data-testid=tempo-badge]').innerText()).replace(/\s+/g, ' ')
+      if (!/^96 4\/4$/.test(badge)) bad(`${vp.n}: result tempo badge "${badge}"`)
+    }
     if (await page.locator('[data-testid=scan-check]').count()) bad(`${vp.n}: a tab read off the screen shouldn't ask "Does this look right?"`)
     await page.screenshot({ path: `${DIR}/step2-scan-result-${vp.n}.png` })
     if (await sideways(page)) bad(`${vp.n}: sideways overflow in the scanner`)

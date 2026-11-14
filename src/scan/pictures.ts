@@ -3,7 +3,7 @@
 //   the contrast (dark video tabs come out black on white), sharpen; very wide strips are cut between notes
 //   video files (and Samsung screen recordings): sample frames, skip ones where nothing changed, follow a scrolling tab
 //   sideways and stitch the new part onto a panorama; a page turn starts a new strip
-import { findStrips, matchAt, playheadX, profile, sameFrame, sharpen, shiftBetween, stretchContrast, toGray, type Gray, type Strip } from './image'
+import { findStrips, matchAt, playheadX, profile, sharpen, shiftBetween, stretchContrast, toGray, type Gray, type Strip } from './image'
 
 export interface Box { x: number; y: number; w: number; h: number } // 0..1 of the picture
 export interface Piece { b64: string; mime: string; url: string; w: number; h: number }
@@ -192,9 +192,17 @@ export class Stitcher {
       } else if (this.searched < 60) return
       else this.box = { x: 0, y: 0, w: 1, h: 1 }
     }
-    const g = enhance(src, this.box, this.gap || undefined)
+    this.addGray(enhance(src, this.box, this.gap || undefined), t)
+  }
+  /** a frame already cut to the tab box and cleaned up (enhance): follow it into the strips (also for tests) */
+  addGray(g: Gray, t?: number) {
+    // a blank frame (a video still decoding after a jump, a fade to black): nothing to stack; it would wipe the tab out
+    let ink = 0
+    for (let i = 0; i < g.px.length; i += 5) if (g.px[i] < 0.5) ink++
+    if (ink < g.px.length / 5 * 0.004) return
     const mark = () => { if (t === undefined) return; const p = playheadX(g); if (p !== null) this.timeline.push({ x: this.at + p, t }) }
-    if (this.prev && sameFrame(this.prev, g)) { this.stack(g); mark(); return }
+    // (a "nearly the same" frame still has its shift measured: a sparse tab scrolling a little changes few pixels, and
+    // stacking it in the old place would smear the numbers away)
     const prof = profile(g)
     let sh = this.prev && this.prevProf && this.layers.length ? shiftBetween(this.prevProf, prof) : null
     // a tab scrolling at a steady speed moves the same amount between frames: when the last few shifts agree and this
@@ -206,15 +214,17 @@ export class Stitcher {
       const m = matchAt(this.prevProf, prof, steady)
       // (a "didn't move" that isn't nearly identical, in the middle of a steady scroll, is something on the screen that
       // stays put, not the tab stopping)
-      if (m > 0.3 && (!sh || m > sh.match - 0.2 || (sh.dx === 0 && sh.match < 0.9))) sh = { dx: steady, match: m }
+      // (only when this frame's own answer is weak: a clear match at another shift is the truth, e.g. a choppy recording
+      // that skipped frames)
+      if (m > 0.3 && (!sh || (sh.dx === 0 && sh.match < 0.9) || (sh.match < 0.8 && m > sh.match - 0.2))) sh = { dx: steady, match: m }
     }
     this.trace.push(sh ? `${sh.dx}:${sh.match.toFixed(2)}` : 'x')
-    // a big jump is a new page whose music happens to look like the last one (a repeated riff), not a scroll: a
-    // scrolling tab moves a little between the frames we look at
-    if (sh && sh.dx > g.w * 0.35) sh = null
+    // a big jump that matches only loosely is a new page whose music looks like the last one (a repeated riff), not a
+    // scroll (a choppy recording can jump far, but then the overlap matches almost exactly)
+    if (sh && sh.dx > g.w * 0.35 && sh.match < 0.9) sh = null
     // not moved at all: the same page only if it's nearly identical (a playhead moved over it); a new page with the same
     // riff in the same places matches less well
-    if (sh && sh.dx === 0 && sh.match < 0.93) sh = null
+    if (sh && sh.dx === 0 && sh.match < 0.97 && this.prev && pageDiff(this.prev, g) > 0.02) sh = null
     if (sh && sh.dx > 0) {
       // scrolled sideways: this frame sits further along the strip
       this.scrolled = true
@@ -286,6 +296,26 @@ export class Stitcher {
     if (pano) { this.strips.push(pano); this.timelines.push(tl); for (const part of cutWide(pano)) this.out.push(pieceOf(part)) }
   }
   finish(): Piece[] { this.flush(); return this.out }
+}
+
+/** How different two frames of the same size are, leaving out a playhead (columns dark from top to bottom in either):
+ *  the share of pixels that changed clearly. A page with a playhead moving over it stays under ~1%; a new page, even of
+ *  the same riff, changes many of its numbers. */
+function pageDiff(a: Gray, b: Gray): number {
+  if (a.w !== b.w || a.h !== b.h) return 1
+  const skip = new Uint8Array(a.w)
+  for (let x = 0; x < a.w; x++) {
+    let da = 0, db = 0
+    for (let y = 0; y < a.h; y += 2) { if (a.px[y * a.w + x] < 0.5) da++; if (b.px[y * a.w + x] < 0.5) db++ }
+    if (da > a.h * 0.4 || db > a.h * 0.4) { skip[x] = 1; if (x > 0) skip[x - 1] = 1 }
+  }
+  let n = 0, d = 0
+  for (let y = 0; y < a.h; y += 2) for (let x = 0; x < a.w; x += 2) {
+    if (skip[x]) continue
+    n++
+    if (Math.abs(a.px[y * a.w + x] - b.px[y * a.w + x]) > 0.35) d++
+  }
+  return d / Math.max(1, n)
 }
 
 /** A video file (a lesson download, a Samsung screen recording) → tab strips, a frame every `every` seconds. */
