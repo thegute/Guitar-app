@@ -21,12 +21,13 @@ export function deskew(g: Gray): { g: Gray; slope: number } {
   // dark pixels (a sample of them is enough to find the angle)
   const pts: number[] = []
   const step = Math.max(1, Math.round(Math.sqrt((w * h) / 250000)))
-  for (let y = 0; y < h; y += step) for (let x = 0; x < w; x += step) if (px[y * w + x] < 0.5) pts.push(x, y)
+  for (let y = 0; y < h; y += step) for (let x = 0; x < w; x += step) if (px[y * w + x] < 0.8) pts.push(x, y) // blurred thin lines are only grey
   const score = (slope: number) => {
-    const rows = new Float32Array(h + 2)
+    // rows binned as wide as the sampling step (else a level line wins just because only every step-th row has points)
+    const rows = new Float32Array(Math.ceil(h / step) + 2)
     for (let i = 0; i < pts.length; i += 2) {
       const y = pts[i + 1] - pts[i] * slope
-      if (y >= 0 && y < h) rows[Math.round(y)]++
+      if (y >= 0 && y < h) rows[Math.round(y / step)]++
     }
     let s2 = 0
     for (const r of rows) s2 += r * r
