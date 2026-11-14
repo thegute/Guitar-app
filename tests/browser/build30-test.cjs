@@ -49,7 +49,7 @@ async function playThrough(page) {
   for (let i = 0; i < 60; i++) {
     await page.waitForTimeout(500)
     // (the coach's card comes up with it when a bar went wrong: these checks are about the report card)
-    if (await page.locator('[data-testid=report-card]').count()) { await page.waitForTimeout(200); await page.locator('[data-testid=coach-keep]').click({ timeout: 800 }).catch(() => {}); return true }
+    if (await page.locator('[data-testid=report-card]').count()) { await page.waitForTimeout(200); await page.locator('[data-testid=coach-act-keep]').click({ timeout: 800 }).catch(() => {}); return true }
   }
   return false
 }

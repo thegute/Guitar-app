@@ -16,8 +16,9 @@ import { InputPicker } from '../components/InputPicker'
 import { NoteListener, matchNote, type FollowStep } from '../tabs/follow'
 import { accepted, bendAlso } from '../tabs/bends'
 import { useCoach } from '../coach/useCoach'
-import { CoachCard } from '../coach/CoachCard'
-import { coachPrefs, saveCoachPrefs } from '../coach/advice'
+import { CoachCard, type CoachAct } from '../coach/CoachCard'
+import { coachPrefs, saveCoachPrefs, stringName, barsText as coachBars } from '../coach/advice'
+import { COACH_RAMP, DRILL_ID, easierSpot, makeDrill } from '../coach/drill'
 import { isSpeaking, stopSpeaking } from '../assistant/speak'
 import { defaultTrack, flatten, playable, trackPickup, type SongNote, type SongTrack } from '../tabs/model'
 import { detectKey, improvisationScales, type KeyGuess } from '../tabs/keyDetect'
@@ -788,10 +789,12 @@ export function PlayScreen() {
     if (!waitMet.current) { waitMet.current = m; m.start() }
   }, [mode, listening, click, songBpm, speed, meter])
   useEffect(() => () => { waitMet.current?.stop() }, [])
+  // a coach's drill runs on the coach's ramp (up 3% after every two clean passes, down 2% after a flub)
+  const trainerNow: TrainerOpts = doc?.id === DRILL_ID ? { on: true, start: COACH_RAMP.start, step: COACH_RAMP.up, target: 1, pass: COACH_RAMP.clean, ramp: true } : trainer
   const inTime = useInTime({
     band: withBand ? bandEv : undefined,
     strum: strumPat, meter, tempo: tempoMap?.changes ? tempoMap : undefined,
-    flat, loop: loop, startFlat: withBand && pos === 0 ? 0 : cursorFlat >= 0 ? cursorFlat : 0, songBpm, speed, click, guide, sound: hearSound, strict, trainer, video,
+    flat, loop: loop, startFlat: withBand && pos === 0 ? 0 : cursorFlat >= 0 ? cursorFlat : 0, songBpm, speed, click, guide, sound: hearSound, strict, trainer: trainerNow, video,
     sync: showVideo ? doc?.ytSync : undefined, states,
     latencyMs: () => latencyMs(kindOf(listener.current?.external)),
     onExpect: (now, next) => listener.current?.expect(now, next),
@@ -813,6 +816,44 @@ export function PlayScreen() {
     listener, errOf: () => (mode === 'time' ? inTime.errOf.current : undefined), version, drilling: !!loop && loop.to - loop.from <= 1,
   })
   coachRef.current = coach
+  const [shiftBadge, setShiftBadge] = useState<{ fret: number; bar: number } | null>(null)
+  const [moved, setMoved] = useState<{ key: string; text: string } | null>(null)
+  useEffect(() => { if (!loop) setShiftBadge(null) }, [loop])
+  useEffect(() => { setMoved(null); setShiftBadge(null) }, [doc?.id])
+  /** what the coach's card offers (the first is what the pedal / "try it" starts) */
+  const coachActs = (): CoachAct[] => {
+    const c = coach.state
+    if (!c || !doc || !track) return []
+    const t = c.trouble
+    const done = () => { setReport(null); coach.dismiss() }
+    const slow = () => { if (mode === 'time') setSpeed(Math.min(speed, 0.7)) }
+    const keep: CoachAct = { id: 'keep', label: 'Keep playing', run: () => coach.dismiss() }
+    const loopIt: CoachAct = { id: 'loop', label: `Loop ${coachBars(t.loop).replace(' to ', '–')}`, icon: 'loop', run: () => { setLoop(t.loop); slow(); done(); countUse('play:coach-loop') } }
+    // (a drill isn't drilled again: it loops already)
+    if (doc.id === DRILL_ID) return [keep]
+    const drill: CoachAct = { id: 'drill', label: 'Try micro-drill', icon: 'target', run: () => {
+      if (inTime.running) inTime.stop()
+      const d = makeDrill(doc, track, flat, t)
+      void saveSong(d).then(() => { setDoc(d); setSongId(d.id); setMode('time'); setSpeed(COACH_RAMP.start) })
+      done(); countUse('play:coach-drill')
+    } }
+    const shift: CoachAct | null = t.kind === 'shift' && t.shift ? { id: 'shift', label: 'Loop this shift', icon: 'loop', run: () => {
+      setLoop(t.loop); setMode('time'); setSpeed(0.7); setShiftBadge({ fret: t.shift!.to, bar: t.bar }); done(); countUse('play:coach-shift')
+    } } : null
+    const e = easierSpot(flat, hands, t, track.tuning, track.capo)
+    const easier: CoachAct | null = e ? { id: 'easier', label: 'Easier fingering', icon: 'hand', run: () => {
+      const key = editKey(trackIdx, e.flat, e.from.string)
+      update({ hand: { ...(doc.hand ?? {}), [key]: { string: e.to.string, fret: e.to.fret } } })
+      setMoved({ key, text: `Bar ${t.bar + 1}: moved to ${e.to.fret === 0 ? `the open ${stringName(track.tuning, e.to.string)} string` : `the ${stringName(track.tuning, e.to.string)} string, fret ${e.to.fret}`} (${e.why}).` })
+      done(); countUse('play:coach-easier')
+    } } : null
+    return [...(shift ? [shift, drill] : [drill, loopIt]), ...(easier ? [easier] : []), keep]
+  }
+  const coachActsRef = useRef(coachActs)
+  coachActsRef.current = coachActs
+  // the card just came up: for a few seconds the pedal (or "try it") starts its first button
+  const coachShown = useRef(0)
+  useEffect(() => { coachShown.current = coach.state ? performance.now() : 0 }, [coach.state?.trouble]) // eslint-disable-line react-hooks/exhaustive-deps
   // Game Mode: when each step sounds (beats), chord names, and the wrong/right events of Wait for me
   const gameBeats = useMemo(() => inTimeTimeline(flat, strumPat, meter).beatOf, [flat, strumPat, meter])
   // Game's clock: In time's, or Hear it's playhead (the highway scrolls and the ball bounces along while the tab plays itself)
@@ -904,7 +945,11 @@ export function PlayScreen() {
     setVersion(v => v + 1)
   }
   usePedals({
-    startStop: () => (mode === 'time' ? void toggleRun() : void toggleListen()),
+    startStop: () => {
+      // the coach's card just came up: the pedal takes its first offer
+      if (coach.state && coachShown.current && performance.now() - coachShown.current < 4000) { coachActs()[0]?.run(); return }
+      if (mode === 'time') void toggleRun(); else void toggleListen()
+    },
     restart: () => { if (inTime.running) { inTime.stop(); inTime.start() } else restart() },
     loopBar: () => { if (loop) setLoop(undefined); else if (cursorFlat >= 0) setLoop({ from: flat[cursorFlat].bar, to: flat[cursorFlat].bar }) },
     prevBar: () => jumpBar(-1),
@@ -1072,7 +1117,7 @@ export function PlayScreen() {
       else { const n = track.bars.length; const f = Math.max(0, Math.min(n - 1, a.loop.from)), t = Math.max(f, Math.min(n - 1, a.loop.to)); setLoop({ from: f, to: t }) }
     }
     if (a.speed) setSpeed(Math.max(0.25, Math.min(1.5, Math.round(a.speed * 20) / 20)))
-    if (a.coach) coach.ask(a.coach.bar)
+    if (a.coach?.act) { if (coach.state) coachActsRef.current()[0]?.run() } else if (a.coach) coach.ask(a.coach.bar)
     if (a.open === 'options') setOpts(true)
     else if (a.open === 'video') { if (doc?.youtube) setShowVideo(true); else setVideoAsk(true); setLay({ ...lay, side: true, focus: false }) }
     else if (a.open === 'check') setCheckOpen(true)
@@ -1213,7 +1258,7 @@ export function PlayScreen() {
           <>
             <span className="small muted">
               {inTime.running
-                ? `${inTime.usingVideo ? 'Following the video' : `${Math.round(songBpm * (trainer.on && loop && !inTime.usingVideo ? inTime.pass.speed : speed))} BPM`}${loop ? ` · pass ${inTime.pass.n + 1}` : ''}${inTime.pass.last ? ` · last pass ${inTime.pass.last.score}%` : ''}${trainer.on && loop && !inTime.usingVideo ? ` · speed ${Math.round(inTime.pass.speed * 100)}%` : ''}`
+                ? `${inTime.usingVideo ? 'Following the video' : `${Math.round(songBpm * (trainerNow.on && loop && !inTime.usingVideo ? inTime.pass.speed : speed))} BPM`}${loop ? ` · pass ${inTime.pass.n + 1}` : ''}${inTime.pass.last ? ` · last pass ${inTime.pass.last.score}%` : ''}${trainerNow.on && loop && !inTime.usingVideo ? ` · speed ${Math.round(inTime.pass.speed * 100)}%` : ''}`
                 : 'Run finished'}
             </span>
             {/* a steady tally (the numbers count up in place) and one dot in the colour of the last note: a word per note
@@ -1549,12 +1594,19 @@ export function PlayScreen() {
           </div>
         )}
         {coach.state && gameView !== 'game' && (
-          <CoachCard c={coach.state} slowPct={mode === 'time' ? Math.round(Math.min(speed, 0.7) * 100) : null} onClose={() => coach.dismiss()} onLoop={() => {
-            const t = coach.state!.trouble
-            setLoop(t.loop)
-            if (mode === 'time') setSpeed(Math.min(speed, 0.7))
-            setReport(null); coach.dismiss(); countUse('play:coach-loop')
-          }} />
+          <CoachCard c={coach.state} acts={coachActs()} handsFreeMs={4000} onClose={() => coach.dismiss()} />
+        )}
+        {doc?.drillOf && (
+          <div className="coach-note small" role="status" data-testid="drill-bar"><Ico n="target" /> <span>Drill from bar {doc.drillOf.bar + 1} of {doc.drillOf.title}. It starts at {Math.round(COACH_RAMP.start * 100)}% and speeds up after every two clean passes.</span>
+            <button className="btn sm" data-testid="drill-back" onClick={() => { const id = doc.drillOf!.id; if (inTime.running) inTime.stop(); void getSong(id).then(d => { if (d) { setDoc(d); setSongId(d.id) } }) }}>Back to the song</button></div>
+        )}
+        {shiftBadge && loop && (
+          <div className="coach-note small" role="status" data-testid="shift-badge"><Ico n="hand" /> <b>Upcoming shift → fret {shiftBadge.fret}</b> <span className="muted">(bar {shiftBadge.bar + 1}): start moving early.</span></div>
+        )}
+        {moved && (
+          <div className="coach-note small" role="status" data-testid="moved-note"><Ico n="hand" /> <span>{moved.text}</span>
+            <button className="btn sm" data-testid="as-written" onClick={() => { const next = { ...(doc?.hand ?? {}) }; delete next[moved.key]; update({ hand: next }); setMoved(null) }}>As written</button>
+            <button className="btn sm ghost" aria-label="Close" onClick={() => setMoved(null)}>✕</button></div>
         )}
         {coach.note && !coach.state && (
           <div className="coach-note small" role="status" data-testid="coach-note"><Ico n="sparkles" /> {coach.note} <button className="btn sm ghost" aria-label="Close" onClick={() => coach.dismiss()}>✕</button></div>

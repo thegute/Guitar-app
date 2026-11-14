@@ -1,5 +1,6 @@
 // Runs a "play in time" session for the Play screen: the clock (own click or a synced video), the moving cursor,
 // judging each note or strum, loop passes and the speed trainer.
+import { rampNext } from '../coach/drill'
 import { accepted } from '../tabs/bends'
 import type { TempoMap } from './tempoMap'
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react'
@@ -12,7 +13,7 @@ import {
   type Clock, type Judgement, type RunStats, type VideoApi, type VideoSync, videoTimeOf,
 }  from './inTime'
 
-export interface TrainerOpts { on: boolean; start: number; step: number; target: number; pass: number; down?: number; min?: number }
+export interface TrainerOpts { on: boolean; start: number; step: number; target: number; pass: number; down?: number; min?: number; /** the coach's drill ramp (coach/drill.ts rampNext): up after every two clean passes, down a touch after a flub */ ramp?: boolean }
 export interface InTimeFeedback { j: Judgement | 'miss'; ms: number; key: number }
 
 interface Args {
@@ -69,7 +70,7 @@ export function useInTime(a: Args) {
   args.current = a
   const run = useRef<{
     clock: Clock; steps: ReturnType<typeof timeline>['steps']; beatOf: number[]; inRange: number[]; fromBeat: number; toBeat: number; loop: boolean
-    results: (Judgement | 'miss' | undefined)[]; errs: number[]; taken: Set<number>; lastBeat: number; speed: number; raf: number; video: boolean; passes: number; expectKey?: string
+    results: (Judgement | 'miss' | undefined)[]; errs: number[]; taken: Set<number>; lastBeat: number; speed: number; raf: number; video: boolean; passes: number; expectKey?: string; /** clean passes in a row (the coach's ramp) */ clean?: number
   } | null>(null)
 
   const stop = useCallback((finished = false) => {
@@ -122,7 +123,8 @@ export function useInTime(a: Args) {
           const counted = r.inRange.filter(i => r.steps[i].beat < lastBeat || r.results[i] !== undefined)
           const s = scoreRun(counted.map(i => r.results[i]), r.errs)
           const T = args.current.trainer
-          const nsp = T.on ? nextSpeed(r.speed, s.score, T) : r.speed
+          let nsp = T.on ? nextSpeed(r.speed, s.score, T) : r.speed
+          if (T.on && T.ramp) { const n = rampNext({ speed: r.speed, clean: r.clean ?? 0 }, s.score); nsp = n.speed; r.clean = n.clean }
           r.passes++
           setPass({ n: r.passes, last: s, speed: nsp })
           args.current.onPass?.(s, r.speed)

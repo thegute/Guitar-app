@@ -99,3 +99,44 @@ import { handGroups } from '../src/play/handShape'
   assert.equal(ms.miss(1), false); assert.equal(ms.miss(2), false); assert.equal(ms.miss(2), false); assert.equal(ms.miss(2), true)
   console.log('trouble bar + advice: ok')
 }
+
+// ---- phase B: the micro-drill, the speed ramp, an easier place for the note
+import { drillSteps, makeDrill, rampNext, easierSpot, DRILL_ID, DRILL_REPS, COACH_RAMP } from '../src/coach/drill'
+{
+  const T = [40, 45, 50, 55, 59, 64]
+  const n = (string: number, fret: number) => ({ string, fret, midi: T[string] + fret })
+  const bars = [
+    [n(4, 1), n(4, 3), n(3, 2), n(3, 0)],
+    [n(4, 8), n(4, 10), n(3, 7), n(3, 9)],
+    [n(4, 1), n(1, 3), n(4, 1), n(1, 3)],
+  ]
+  const flat = bars.flatMap((b, bi) => b.map((x, si) => ({ bar: bi, idx: si, step: { dur: 1, notes: [x] } })))
+  const groups = handGroups(flat as never)
+  const t = findTrouble({ states: [1, 1, 1, 1, 2, 3, 1, 1, 1, 1, 1, 1], flat: flat as never, groups, mode: 'wait' })!
+  // the drill: the note before the shift, the note it lands on, the note after
+  assert.deepEqual(drillSteps(flat as never, t), { from: 3, to: 5 })
+  const track = { name: 'Guitar', tuning: T, capo: 0, bars: bars.map(b => ({ steps: b.map(x => ({ dur: 1, notes: [x] })) })) }
+  const doc = { id: 'song1', title: 'Test tune', source: 'text', song: { title: 'Test tune', tempo: 96, tracks: [track] }, updated: 0 }
+  const d = makeDrill(doc as never, track as never, flat as never, t)
+  assert.equal(d.id, DRILL_ID); assert.equal(d.source, 'lesson'); assert.deepEqual(d.drillOf, { id: 'song1', title: 'Test tune', bar: 1 })
+  assert.equal(d.song.tracks[0].bars.length, DRILL_REPS); assert.deepEqual(d.loop, { from: 0, to: DRILL_REPS - 1 })
+  const b0 = d.song.tracks[0].bars[0].steps
+  assert.deepEqual(b0.map(s => s.notes.map(x => x.fret).join()), ['0', '8', '10', '']); assert.equal(d.song.meter, 4)
+  assert.equal(b0.reduce((a, s) => a + s.dur, 0), 4, 'a whole number of beats with a rest to reset')
+  assert.equal(d.song.tempo, 96)
+  // the ramp: +3% after every two clean passes, −2% after a flub, steady in between
+  let r = { speed: COACH_RAMP.start, clean: 0 }
+  r = rampNext(r, 95); assert.deepEqual(r, { speed: 0.7, clean: 1 })
+  r = rampNext(r, 100); assert.deepEqual(r, { speed: 0.73, clean: 0 })
+  r = rampNext(r, 80); assert.deepEqual(r, { speed: 0.73, clean: 0 })
+  r = rampNext(r, 95); r = rampNext(r, 50); assert.deepEqual(r, { speed: 0.71, clean: 0 }, 'a flub also breaks the clean streak')
+  assert.equal(rampNext({ speed: 1, clean: 1 }, 100).speed, 1); assert.equal(rampNext({ speed: 0.4, clean: 0 }, 0).speed, 0.4)
+  // easier fingering: B string fret 8 (G) after open position → the open G string... is the same note
+  const e = easierSpot(flat as never, groups, t, T, 0)
+  assert.ok(e, 'an easier place exists'); assert.equal(T[e!.to.string] + e!.to.fret, t.spot.midi, 'the same note')
+  assert.ok(e!.to.fret === 0 || e!.to.fret <= 4, `inside the box the hand comes from (${JSON.stringify(e!.to)})`)
+  // already in the box: nothing to offer
+  const t4 = findTrouble({ states: [1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], flat: flat as never, groups, mode: 'wait' })!
+  assert.equal(easierSpot(flat as never, groups, t4, T, 0), null)
+  console.log('micro-drill, ramp, easier fingering: ok')
+}

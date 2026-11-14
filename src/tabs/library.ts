@@ -33,6 +33,8 @@ export interface SongDoc {
   noCapo?: boolean
   /** chord sheets: extra capo frets with easier shapes (Smart capo) */
   smartCapo?: number
+  /** a coach's micro-drill: the song (and bar) it was cut from, to go back to */
+  drillOf?: { id: string; title: string; bar: number }
   /** your own choices, by "track:flat step:string": a finger, or the note moved to another string */
   hand?: Record<string, { finger?: number; string?: number; fret?: number }>
   updated: number

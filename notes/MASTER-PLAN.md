@@ -122,6 +122,13 @@ ms, trouble bars, trends, recordings); Gemini also hears a short clip of the run
 - (owner 2026-11-14) Speed control everywhere it makes sense: the target-note trainer, call and response, backing tracks, drills
   and ear exercises all get a slow-down / speed-up control (practise slow, then faster). And a FLOATING LOOPER CARD: the looper as
   a floating card he can add on any page (like the Ask bubble / floating finger diagrams), not only the strip on Play / Scales.
+- (owner 2026-11-14) After the AI teacher (B → C → D): a small LOOPER PASS: the floating looper button on every page (tap record,
+  tap loop, undo, stop), "Start when I play", "Capture last pass" (both need a rolling input buffer: only the coach's 20 s tape in
+  Play's listener exists today), and a SMART looper: it snaps the loop's start and end to the beat and keeps the loop in time by
+  itself (he has trouble closing loops in time): quantized ends, tempo found from a free loop, small timing drift corrected.
+  VISUAL AIDS matter: a blinking beat light and a bar position display (which beat of the bar, where in the loop) on the floating
+  button and the looper, plus a clear count-in.
+  No test APK until the coach's features are in.
 - Ideas list (brainstorm 2026-11-13): root-cause patterns over many runs → matching or Composer-made drills; song chunking + speed
   ladder + reviews; technique clinic (bend cents, vibrato width, changes per minute, buzz/muting); call and response; improv coach
   (chord tones on the beat, space); theory in context with course + book links; hands-free session director (mic + footswitch);

@@ -2865,3 +2865,8 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .report-card.mini .report-score { width: 44px; height: 44px; }
 .report-card.mini .report-score b { font-size: 1.1rem; }
 .report-card.mini .report-body > .small, .report-card.mini .report-btns { display: none; }
+.coach-acts { flex-wrap: wrap; }
+.coach-acts .btn.armed { animation: coach-armed 1s ease-in-out infinite; }
+@keyframes coach-armed { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .coach-acts .btn.armed { animation: none; outline: 2px solid var(--accent); } }
+.coach-note > span { flex: 1; min-width: 0; }

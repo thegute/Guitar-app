@@ -72,9 +72,31 @@ const errs = (page, where) => { if (page.errors.length) bad(`${where} page error
     if (await sideways(page)) bad(`${vp.width}: the page scrolls sideways with the coach card`)
     await page.screenshot({ path: path.join(OUT, `coach-${vp.width}.png`) })
     console.log(`  ${vp.width}: ${fix}  //  ${drill}`)
-    // Loop: the trouble bar is looped and the card goes
     await page.locator('button.listen').click().catch(() => {})
-    await page.locator('[data-testid=coach-loop]').click()
+    const order = await page.locator('.coach-acts .btn').evaluateAll(bs => bs.map(b => b.getAttribute('data-testid')))
+    if (order[0] !== 'coach-act-drill' || !order.includes('coach-act-loop') || order[order.length - 1] !== 'coach-act-keep') bad(`${vp.width}: the card's buttons: ${order.join(' ')}`)
+    if (!(await page.locator('[data-testid=coach-armed]').count())) bad(`${vp.width}: the card should say the pedal / "try it" starts the first button`)
+    if (vp.width === 840) {
+      // Try micro-drill: a tiny looped tab of the trouble notes opens In time at 70%, and Back returns to the song
+      const title0 = await page.locator('h1, .play-title').first().innerText().catch(() => '')
+      await page.locator('[data-testid=coach-act-drill]').click()
+      await page.waitForSelector('[data-testid=drill-bar]', { timeout: 4000 }).catch(() => {})
+      const db = await page.locator('[data-testid=drill-bar]').innerText().catch(() => '')
+      if (!new RegExp(`Drill from bar ${bar}`).test(db) || !/70%/.test(db)) bad(`drill bar: "${db}"`)
+      const body = await page.evaluate(() => document.body.innerText)
+      if (!/Drill: bar/.test(body)) bad('the drill should be the open tab')
+      const nNotes = await page.locator('.tab-note').count()
+      if (nNotes < 8 || nNotes > 40) bad(`the drill should be a handful of notes written out four times (${nNotes} notes)`)
+      await page.screenshot({ path: path.join(OUT, 'coach-drill.png') })
+      await page.locator('[data-testid=drill-back]').click()
+      await page.waitForFunction(() => !document.querySelector('[data-testid=drill-bar]'), null, { timeout: 4000 }).catch(() => {})
+      const body2 = await page.evaluate(() => document.body.innerText)
+      if (!/Ode to Joy/.test(body2) || /Drill from bar/.test(body2)) bad('Back to the song should reopen the song')
+      void title0
+      errs(page, 'drill'); await page.context().close(); continue
+    }
+    // Loop: the trouble bar is looped and the card goes
+    await page.locator('[data-testid=coach-act-loop]').click()
     await page.waitForTimeout(300)
     if (await card.count()) bad(`${vp.width}: the card should close after Loop`)
     const loopOn = await page.evaluate(b => new RegExp(`bars? ${b}\\b|Loop[^\\n]*\\b${b}\\b`, 'i').test(document.body.innerText), bar)
