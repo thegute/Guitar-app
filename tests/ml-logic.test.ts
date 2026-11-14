@@ -127,6 +127,14 @@ const allSteps = (s: ReturnType<typeof notesToSong>) => s!.tracks[0].bars.flatMa
   const { q } = quantize([0, 0.26, 0.49, 0.74, 1.0, 1.34, 1.66])
   ok(JSON.stringify(q.map(x => Math.round(x * 1000) / 1000)) === JSON.stringify([0, 0.25, 0.5, 0.75, 1, 1.333, 1.667]), `16ths then triplets (${q})`)
 }
+// a fast sextuplet run keeps all six notes (16ths would squeeze two onto one spot); 32nds where they're 32nds
+{
+  const six = [0, 1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6].map((x, i) => x + (i % 2 ? 0.01 : -0.008))
+  const { q } = quantize(six)
+  ok(new Set(q.map(x => Math.round(x * 1000))).size === 6 && Math.abs(q[1] - 1 / 6) < 1e-6, `sextuplets kept (${q})`)
+  const thirty = [0, 0.125, 0.25, 0.375, 0.5, 0.75]
+  ok(JSON.stringify(quantize(thirty).q) === JSON.stringify(thirty), `32nds kept (${quantize(thirty).q})`)
+}
 // resampling keeps a 440 Hz tone at 440 Hz
 {
   const x = new Float32Array(22050).map((_, i) => Math.sin((2 * Math.PI * 440 * i) / 22050))

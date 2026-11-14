@@ -214,3 +214,12 @@ export async function separate(l: Float32Array, r: Float32Array, run: Runner, o:
 export async function vocals(l: Float32Array, r: Float32Array, run: Runner, o: { onProgress?: (f: number) => void; signal?: AbortSignal } = {}): Promise<[Float32Array, Float32Array]> {
   return (await separate(l, r, run, o)).vocals
 }
+
+/** The guitar part ("other": in a guitar band that's the guitars and keys) and the backing without it (drums + bass +
+ *  vocals), for playing along to a recording minus its guitar. */
+export function guitarAndBacking(st: Stems): { guitar: [Float32Array, Float32Array]; backing: [Float32Array, Float32Array] } {
+  const n = st.other[0].length
+  const backing: [Float32Array, Float32Array] = [new Float32Array(n), new Float32Array(n)]
+  for (const k of ['drums', 'bass', 'vocals'] as const) for (let c = 0; c < 2; c++) { const a = st[k][c], b = backing[c]; for (let i = 0; i < n; i++) b[i] += a[i] }
+  return { guitar: st.other, backing }
+}

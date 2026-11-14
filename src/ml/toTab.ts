@@ -46,22 +46,41 @@ export function beatPositions(times: number[], grid: BeatGrid | null | undefined
 }
 
 /**
- * Round each beat's notes to 16ths, triplets or (for a fast run) 32nds, whichever fits that beat's notes best.
- * 16ths win when it's close; 32nds are only tried for a beat that has five or more notes or two notes closer than a 16th.
+ * Round each beat's notes to a grid: 16ths, 8th triplets, 16th sextuplets or (for a fast run) 32nds, whichever fits that
+ * beat's notes best. 16ths win when it's close. A grid that would squeeze two separate notes onto one spot loses (a fast
+ * run keeps every note: sextuplets or 32nds instead).
  */
 export function quantize(pos: number[]): { q: number[]; triplets: number; split: number } {
   const byBeat = new Map<number, number[]>()
   pos.forEach((p, i) => { const b = Math.floor(p + 1e-6); (byBeat.get(b) ?? byBeat.set(b, []).get(b)!).push(i) })
   const q = new Array<number>(pos.length)
   let triplets = 0, split = 0
+  // how much each grid is held back: plain 16ths are the usual answer
+  const PRIOR: Record<number, number> = { 4: 0, 3: 0.012, 6: 0.03, 8: 0.035 }
   for (const [b, idx] of byBeat) {
-    const err = (d: number) => idx.reduce((e, i) => e + Math.abs((pos[i] - b) * d - Math.round((pos[i] - b) * d)) / d, 0)
-    const e4 = err(4), e3 = err(3)
-    const off = idx.some(i => Math.abs(pos[i] - Math.round(pos[i])) > 0.12)
-    let d = e3 * 1.25 < e4 ? 3 : 4
     const sorted = idx.map(i => pos[i]).sort((x, y) => x - y)
-    const tight = sorted.some((x, k) => k > 0 && x - sorted[k - 1] < 0.2)
-    if (d === 4 && (idx.length >= 5 || tight) && err(8) * 2 < e4) d = 8
+    // distinct onsets (notes struck together, a chord, are one onset)
+    const onsets = sorted.filter((x, k) => k === 0 || x - sorted[k - 1] > 0.04)
+    const cost = (d: number) => {
+      let e = 0
+      const seen = new Set<number>()
+      let clash = 0
+      for (const x of onsets) {
+        const r = Math.round((x - b) * d)
+        e += Math.abs((x - b) * d - r) / d
+        if (seen.has(r)) clash++
+        seen.add(r)
+      }
+      return e + clash * 0.25 + PRIOR[d] * onsets.length
+    }
+    const e4 = cost(4)
+    let d = 4, best = e4
+    // triplets need clearly better timing than 16ths; sextuplets and 32nds only for runs (4+ onsets or tight pairs)
+    const tight = onsets.some((x, k) => k > 0 && x - onsets[k - 1] < 0.2)
+    const cands: number[] = [3]
+    if (onsets.length >= 4 || tight) cands.push(6, 8)
+    for (const c of cands) { const v = cost(c); if (v * (c === 3 ? 1.25 : 1) < best) { best = v; d = c } }
+    const off = idx.some(i => Math.abs(pos[i] - Math.round(pos[i])) > 0.12)
     if (off) { split++; if (d === 3) triplets++ }
     for (const i of idx) q[i] = b + Math.round((pos[i] - b) * d) / d
   }
