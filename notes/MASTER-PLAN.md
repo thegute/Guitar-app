@@ -103,6 +103,13 @@ ms, trouble bars, trends, recordings); Gemini also hears a short clip of the run
 - (owner 2026-11-13, final) Teacher voice: a female coach, close to neutral: friendly and plain, not gushing, no names, no
   pictures. Advice stays honest (one fix each pass). It suggests what to practise and he chooses. On a style path it tailors focus,
   examples, what it listens for and the exercises to that style. Camera hand checks explained, his call pending.
+- (owner 2026-11-14) Build order A → B → C → D approved (Gemini's spec + corrections): A coach in Play (bends accepted, 20 s tape,
+  trouble bar, two senses, one fix + one drill, card + voice, offline rules; Gemini clip Auto / Only when I tap Coach, never
+  automatic during drill reps), B action chips (micro-drill from the song's own notes with speed ramp, loop this shift, easier
+  fingering, keep playing; 4 s pedal / "try it"), C style lenses + CoachMemory → Today / Practice, D Jam: improv coach, call and
+  response, and COACH-MADE BACKING TRACKS: it works out the style being practised (style path, the song's style, what he's
+  playing) and offers a backing in it from the Jam engine (metal chugs / riffs, chords, bass, drums) in the song's key to
+  improvise over.
 - Ideas list (brainstorm 2026-11-13): root-cause patterns over many runs → matching or Composer-made drills; song chunking + speed
   ladder + reviews; technique clinic (bend cents, vibrato width, changes per minute, buzz/muting); call and response; improv coach
   (chord tones on the beat, space); theory in context with course + book links; hands-free session director (mic + footswitch);
