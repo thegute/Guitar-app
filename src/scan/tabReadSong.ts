@@ -35,9 +35,53 @@ export function readTabPictures(pics: Gray[], tuning: number[], title: string): 
   return readingSong(readings, tuning, title, meter)
 }
 
+/** how many of a's items appear in b in the same order */
+function lcs(a: string[], b: string[]): number {
+  let prev = new Uint16Array(b.length + 1)
+  for (const x of a) {
+    const cur = new Uint16Array(b.length + 1)
+    for (let j = 1; j <= b.length; j++) cur[j] = x === b[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], cur[j - 1])
+    prev = cur
+  }
+  return prev[b.length]
+}
+
+/** A video's strips can repeat: the tab stops scrolling at the end, a page comes back, the scroll was lost for a moment
+ *  and picked up again. A strip that starts with what the strips before it ended on loses that part (6+ steps the same,
+ *  in order), and a strip that's wholly a repeat of the end of what came before is dropped. */
+export function dropRepeats(readings: TabReading[]): TabReading[] {
+  const key = (st: { notes: { string: number; fret: number }[] }) => st.notes.map(n => `${n.string}:${n.fret}`).sort().join('+')
+  const seen: string[] = []
+  for (const r of readings) for (const sys of r.systems) {
+    const steps = sys.bars.flatMap(b => b.steps.filter(st => st.notes.length))
+    const keys = steps.map(key)
+    if (keys.length && seen.length) {
+      const tail = seen.slice(-Math.max(keys.length * 2, 40))
+      // wholly inside what came just before
+      const inside = keys.length >= 4 && lcs(keys, tail) >= keys.length * 0.8
+      let k = 0
+      if (!inside) for (let n = Math.min(keys.length, tail.length); n >= 6; n--) if (tail.slice(-n).join('|') === keys.slice(0, n).join('|')) { k = n; break }
+      if (inside) { sys.bars = []; continue }
+      if (k) {
+        // drop the first k note steps (and whatever rests sit among them)
+        let left = k
+        for (const b of sys.bars) {
+          if (!left) break
+          let cut = 0
+          while (cut < b.steps.length && left) { if (b.steps[cut].notes.length) left--; cut++ }
+          b.steps = b.steps.slice(cut)
+        }
+        sys.bars = sys.bars.filter(b => b.steps.length)
+      }
+      seen.push(...keys.slice(k))
+    } else seen.push(...keys)
+  }
+  return readings
+}
+
 /** The same, with the trained reader (tab_crnn) when the app has it: it reads photos, scans and video frames far better
  *  than the number matcher. Falls back to readTabPictures when the model can't be loaded. */
-export async function readTabPicturesBest(pics: Gray[], tuning: number[], title: string): Promise<PictureReading | null> {
+export async function readTabPicturesBest(pics: Gray[], tuning: number[], title: string, o: { video?: boolean } = {}): Promise<PictureReading | null> {
   let run: import('./crnnRead').CrnnRun | null = null
   try { run = await (await import('../ml/models')).tabCrnnRunner() } catch { run = null }
   if (!run) return readTabPictures(pics, tuning, title)
@@ -52,7 +96,7 @@ export async function readTabPicturesBest(pics: Gray[], tuning: number[], title:
   const meter = [...votes].sort((a, b) => b[1] - a[1])[0][0]
   const again: TabReading[] = []
   for (const [i, r] of readings.entries()) again.push(r.notes && r.meter !== meter ? await readTabCrnn(pics[i], run, { strings, beats: meter }) : r)
-  readings = again
+  readings = o.video ? dropRepeats(again) : again
   return readingSong(readings, tuning, title, meter)
 }
 

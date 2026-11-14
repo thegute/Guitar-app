@@ -160,7 +160,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     const { readTabPicturesBest, trustReading, grayOf, songTabText } = await import('./tabReadSong')
     // the whole strips when we have them (cut pieces would split bars), else the pieces
     const grays = strips?.length ? strips : (await Promise.all(pieces.map(pc => loadPicture(pc.url)))).map(im => grayOf(im))
-    const r = await readTabPicturesBest(grays, inst.midis, name)
+    const r = await readTabPicturesBest(grays, inst.midis, name, { video: !!strips?.length })
     if (!r || !(trustReading(r) || !ready)) return false
     const song = bpm ? { ...r.song, tempo: bpm, tempoFrom: 'file' as const } : r.song
     const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song, youtube, updated: Date.now() }

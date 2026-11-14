@@ -30,12 +30,11 @@ const [video, outp] = process.argv.slice(2)
     const vt = await tabFromVideo(blob)
     const t1 = performance.now()
     const ser = r => r.systems.map(s => ({ bars: s.bars.map(b => ({ steps: b.steps.map(st => ({ dur: st.dur, notes: st.notes.map(n => ({ string: n.string, fret: n.fret, ...(n.dead ? { dead: true } : {}) })) })) })) }))
+    const { dropRepeats } = await import('/src/scan/tabReadSong.ts')
     const run = await tabCrnnRunner()
-    const trained = [], matcher = []
-    for (const g of vt.strips) {
-      trained.push(...ser(await readTabCrnn(g, run)))
-      matcher.push(...ser(readTab(deskew(g).g)))
-    }
+    const tr = [], mt = []
+    for (const g of vt.strips) { tr.push(await readTabCrnn(g, run)); mt.push(readTab(deskew(g).g)) }
+    const trained = dropRepeats(tr).flatMap(ser), matcher = dropRepeats(mt).flatMap(ser)
     // the first strip's start, as a PNG, to look at
     const g0 = vt.strips[0], cw = Math.min(g0.w, 3000)
     const c = document.createElement('canvas'); c.width = cw; c.height = g0.h
