@@ -97,3 +97,12 @@ error rate (wrong note without an amber ring).
   (±0.24 s). On the real videos the timing is found on 5 of 6 (scores 0.48–0.93) and standard tuning picked every time,
   but no note changed: the reader is already sure of nearly every number, and the wrong ones are confidently wrong (bend
   labels, Everlong). A veto of notes not heard (< 0.1) would drop as many real notes as phantoms: not done.
+- 2026-11-14 v5 model (from v2, 14000 steps, synth + string names, music-font rests, bend labels, big touching numbers, muted
+  strings in chords) swapped in (last.pt; best.pt = step 8000 was worse on the 6 px Short). Book pages, notes right / found:
+  Selenium clean 99.6 / 99.3 (was 99.5 / 99.0), photo 93.6 / 95.6 (86.9 / 90.2); Opening clean 97.1 / 98.0 (99.5 / 99.6, WORSE:
+  extra notes on Guitar 1/3 staves with long tie/let-ring curves running along the strings from a chord), photo 94.2 / 95.4
+  (89.8 / 92.6); Wombat clean 99.2 / 99.7 (same), photo 94.8 / 96.3 (84.0 / 87.8). Rhythm up everywhere (Selenium clean 87→93%).
+  Synthetic videos: cards 92.5→98.7%, short 7 px 95.6→97.8%, short 6 px 93.1→90.7% (recall 89→91), scroll 99.4 same.
+  Real recordings: bend labels gone, Everlong's 11-over-9 read right everywhere, Songsterr rest-as-0 and the phantom chord gone;
+  new: a few phantom x-chords where the light Songsterr-style cursor crosses the tab (e5c8654f), one 3:14 phantom twice.
+  Next training: long ties along strings after chords (Opening), a vertical cursor bar/box across the strings, Everlong's X chords.
