@@ -19,6 +19,7 @@ import { useCoach } from '../coach/useCoach'
 import { CoachCard, type CoachAct } from '../coach/CoachCard'
 import { coachPrefs, saveCoachPrefs, stringName, barsText as coachBars } from '../coach/advice'
 import { COACH_RAMP, DRILL_ID, easierSpot, makeDrill } from '../coach/drill'
+import { loadMemory, noteClean, saveMemory } from '../coach/memory'
 import { isSpeaking, stopSpeaking } from '../assistant/speak'
 import { defaultTrack, flatten, playable, trackPickup, type SongNote, type SongTrack } from '../tabs/model'
 import { detectKey, improvisationScales, type KeyGuess } from '../tabs/keyDetect'
@@ -800,13 +801,21 @@ export function PlayScreen() {
     onExpect: (now, next) => listener.current?.expect(now, next),
     onChange: () => setVersion(v => v + 1),
     onHitNote: () => bumpCounts({ notesHit: 1, [doc?.source === 'lesson' ? 'exerciseNotes' : 'songNotes']: 1 }),
-    onPass: (s, sp) => { if (s.score >= 90) bump('loop90'); if (loop) saveRun(s.score, 'time', sp, false, [loop.from, loop.to]) },
+    onPass: (s, sp) => {
+      // a clean pass: the coach's memory of these bars improves (a drill's passes count for the bar it was cut from)
+      if (s.score >= 90 && doc) {
+        if (doc.drillOf) { const m = loadMemory(), n = noteClean(m, doc.drillOf.id, { from: doc.drillOf.bar, to: doc.drillOf.bar }, sp); if (n !== m) saveMemory(n) }
+        else if (loop) coachRef.current?.clean(loop, sp)
+      }
+      if (s.score >= 90) bump('loop90'); if (loop) saveRun(s.score, 'time', sp, false, [loop.from, loop.to])
+    },
     onFinish: s => {
       setGameDone(n => n + 1)
       // Game Mode's Auto speed after a whole run too (loops use the speed trainer)
       if (gameView === 'game' && trainer.on && trainer.down !== undefined && !loop) setSpeed(nextSpeed(speed, s.score, trainer))
       if (s.score >= 60) bump(doc?.source === 'lesson' ? 'exercisesFinished' : 'songsFinished')
       const was = saveRun(s.score, 'time', speed, !loop && s.total > 0, loop ? [loop.from, loop.to] : undefined)
+      if (!loop && s.score >= 90) coachRef.current?.clean({ from: 0, to: 1e9 }, speed)
       if (!loop && s.total > 0) showReport(s.score, 'time', speed, was, s)
     },
   })
@@ -814,6 +823,7 @@ export function PlayScreen() {
   const coach = useCoach({
     flat, groups: hands, states, mode, speed, tuning: track ? track.tuning.map(t => t + track.capo) : [], title: doc?.title ?? 'this piece', inst: inst.noun,
     listener, errOf: () => (mode === 'time' ? inTime.errOf.current : undefined), version, drilling: !!loop && loop.to - loop.from <= 1,
+    song: doc && doc.id !== DRILL_ID ? { id: doc.id, title: doc.title, inst: docInstrument(doc) } : undefined,
   })
   coachRef.current = coach
   const [shiftBadge, setShiftBadge] = useState<{ fret: number; bar: number } | null>(null)

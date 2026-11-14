@@ -140,3 +140,44 @@ import { drillSteps, makeDrill, rampNext, easierSpot, DRILL_ID, DRILL_REPS, COAC
   assert.equal(easierSpot(flat as never, groups, t4, T, 0), null)
   console.log('micro-drill, ramp, easier fingering: ok')
 }
+
+// ---- phase C: style lenses, the coach's memory, yesterday's trouble in the Practice plan
+import { activeLens, LENSES } from '../src/coach/lens'
+import { emptyMemory, noteTrouble, noteClean, openSpots, habits, habitLine, ceilingsNow, saveMemory } from '../src/coach/memory'
+import { practicePlan } from '../src/sessions/practice'
+import { PATHS } from '../src/learn/zeroHero'
+import { current as currentInst } from '../src/instrument'
+await (async () => {
+  for (const p of PATHS) assert.ok(LENSES[p.id], `a lens for the ${p.id} path`)
+  assert.equal(activeLens([]), undefined); assert.equal(activeLens(['prog', 'reggae'])!.id, 'prog')
+  const DAY = 864e5, now = 1_800_000_000_000
+  const tr = (bar: number, kind: string) => ({ bar, kind, loop: { from: bar, to: bar } }) as never
+  let m = emptyMemory()
+  const song = { id: 's1', title: 'Test tune', inst: 'guitar' }
+  m = noteTrouble(m, tr(3, 'shift'), song, now - 2 * DAY)
+  m = noteTrouble(m, tr(3, 'shift'), song, now - DAY)
+  m = noteTrouble(m, tr(7, 'shift'), song, now - DAY)
+  m = noteTrouble(m, tr(9, 'rush'), { id: 's2', title: 'Other', inst: 'uke' }, now - 10 * DAY)
+  assert.equal(m.spots.length, 3); assert.equal(m.spots.find(s => s.bar === 3)!.n, 2)
+  assert.deepEqual(openSpots(m, 'guitar', now).map(s => s.bar), [7, 3], 'newest first, this instrument, last week only')
+  assert.deepEqual(habits(m, now).map(h => [h.kind, h.n]), [['shift', 3]])
+  assert.match(habitLine(m, now), /getting to a new position late \(3 times\)/)
+  // clean passes: the best speed is kept, 90%+ fixes the spot, the week's ceiling for that kind rises
+  m = noteClean(m, 's1', { from: 3, to: 3 }, 0.76, now)
+  assert.equal(m.spots.find(s => s.bar === 3)!.best, 0.76); assert.equal(openSpots(m, 'guitar', now).length, 2)
+  m = noteClean(m, 's1', { from: 0, to: 99 }, 0.95, now)
+  assert.equal(openSpots(m, 'guitar', now).length, 0, 'clean at 95%: fixed')
+  assert.deepEqual(ceilingsNow(m).map(c => [c.kind, c.speed]), [['shift', 0.95]])
+  const same = noteClean(m, 'nope', { from: 0, to: 9 }, 1, now)
+  assert.equal(same, m, 'nothing remembered there: nothing changes')
+  // the Practice plan starts its fixing with what the coach flagged yesterday
+  let m2 = noteTrouble(emptyMemory(), tr(5, 'jump'), song, now - DAY)
+  saveMemory(m2)
+  const plan = await practicePlan(currentInst(), 20, now)
+  const fix = plan.parts.find(p => p.kind === 'fix')!
+  assert.match(fix.title, /Fix bar 6 of Test tune/); assert.match(fix.why, /coach flagged it/)
+  const step = plan.session.steps.find(s => /Fix bar 6/.test(s.title))!
+  assert.deepEqual((step.target as { go: { song: string; loop: unknown; speed: number } }).go, { song: 's1', loop: { from: 5, to: 5 }, speed: 0.7 })
+  m2 = emptyMemory(); saveMemory(m2)
+  console.log('lenses, memory, practice plan: ok')
+})()

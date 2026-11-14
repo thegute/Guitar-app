@@ -11,6 +11,7 @@ import { suggestExercises } from '../exercises/suggest'
 import { currentFocus, pathSteps, z2h } from '../learn/zeroHero'
 import { allSongStats, dueReviews, troubleBars, ago } from '../play/songStats'
 import { getSong, type SongDoc } from '../tabs/library'
+import { kindWords, loadMemory, openSpots } from '../coach/memory'
 
 export type PracticeLen = 10 | 20 | 30
 /** One line of the plan, for the card: what and why. */
@@ -50,11 +51,20 @@ export async function practicePlan(inst: Instrument, total: PracticeLen = 20, no
     if (f?.target) picks.push({ part: { kind: 'plan', title: f.label, why: 'What your Zero to Hero plan is on now' }, step: { title: f.label, target: f.target, tip: 'Your plan\'s current skill. Slow is fine: clean beats fast.' } })
   }
 
+  // 3a. what the coach flagged in the last couple of days and isn't fixed yet comes first (yesterday's trouble)
+  const spot = openSpots(loadMemory(), inst.id, now, 3)[0]
+  if (spot) {
+    const where = barsText(spot.loop)
+    picks.push({
+      part: { kind: 'fix', title: `Fix ${where} of ${spot.title}`, why: `Your coach flagged it ${ago(spot.at, now)}: ${kindWords(spot.kind)}` },
+      step: { title: `Fix ${where} of ${spot.title}`, target: { go: { song: spot.song, loop: spot.loop, speed: 0.7 } }, tip: `Loop ${where} at 70%. Two clean passes, then speed it up a little.` },
+    })
+  }
   // 3. trouble spot: a song played in the last two weeks with bars that keep going wrong
   const stats = allSongStats()
   const recent = Object.entries(stats).filter(([, s]) => s.inst === inst.id && now - s.lastAt < 14 * DAY).sort((a, b) => b[1].lastAt - a[1].lastAt)
-  let fixId = ''
-  for (const [id, s] of recent) {
+  let fixId = spot?.song ?? ''
+  for (const [id, s] of spot ? [] : recent) {
     const t = troubleBars(s)
     if (!t) continue
     fixId = id

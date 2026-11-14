@@ -6,6 +6,7 @@ import { ZeroToHero } from './ZeroToHero'
 import { MyRecordings } from './MyRecordings'
 import { LICK_STYLES } from '../licks/styles'
 import { MySessions } from '../sessions/MySessions'
+import { CoachToday } from '../coach/CoachToday'
 import { ArtThumb } from '../components/Art'
 import { useEffect, useRef, useState } from 'react'
 import { IconGear } from '../components/Icons'
@@ -368,6 +369,7 @@ export function LearnScreen() {
                 ))}
               </ol>
             </Win>
+            <Win id="coach" title="From your coach" className="panel"><CoachToday /></Win>
             <Win id="sessions" title="My practice sessions" className="panel"><MySessions /></Win>
             <Win id="quests" title="Daily quests" className="panel quests">
               <div className="sec-head">

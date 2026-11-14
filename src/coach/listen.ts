@@ -22,6 +22,8 @@ export interface CoachContext {
   lens?: string
   /** how strict: gentle / balanced / strict */
   strict?: string
+  /** this player's recurring trouble, from the coach's memory */
+  habits?: string
 }
 
 /** the trouble bar (and the one before it when the loop takes it in) as text the AI can read */
@@ -52,7 +54,8 @@ export function coachPrompt(t: Trouble, c: CoachContext, rules: Advice): string 
     `What the tab asks for there:\n${barText(t, c)}`,
     `What the app measured in bar ${t.bar + 1} (trust these numbers; your ears can't beat them on pitch and timing): ${nums}.`,
     `The app's own reading of the problem: ${rules.fix}`,
-    c.lens ? `The student is working on this style; listen with it in mind: ${c.lens}` : '',
+    c.lens ? `The student is working on this style; listen with it in mind and lean the fix toward it: ${c.lens}` : '',
+    c.habits ?? '',
     `Listen for what the numbers can't show: fret buzz, a neighbouring string muted or ringing by accident, notes that die early, a stiff or rushed feel, uneven loudness, sloppy bends or slides. If you can't hear anything worth saying, say nothing about the sound.`,
     `Reply with ONLY a JSON object, no other text:`,
     `{"good": one short sentence on something that went well (true, not flattery), "fix": ONE concrete physical fix naming the bar, string, fret and finger, at most 30 words, "drill": ONE short drill for it, at most 20 words, "heard": what you heard in the sound that the numbers can't show, at most 20 words, or "" if nothing, "spoken": the good thing and the fix as one or two natural spoken sentences, no symbols, numbers as words where natural, at most 45 words}`,
