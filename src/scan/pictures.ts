@@ -141,16 +141,21 @@ function seek(v: HTMLVideoElement, t: number) {
 export interface VideoTab { pieces: Piece[]; frames: number; kept: number; scrolled: boolean; box: Box | null; /** each tab strip whole (before it's cut into pieces for the AI): for KGuitar's own reader */ strips: Gray[] }
 
 /**
- * Frames in, tab strips out, one frame at a time (a long screen grab never keeps more than two frames): the tab
- * area is found on the first frames that have staff lines; frames where nothing changed are skipped; a scrolling tab
- * is followed and the new part stitched on; anything else (a page turn) starts a new strip.
+ * Frames in, tab strips out, one frame at a time (a long screen grab never keeps more than a handful of frames): the tab
+ * area is found on the first frames that have staff lines; a scrolling tab is followed and the new part stitched on;
+ * anything else (a page turn) starts a new strip. Every frame of a strip is kept in its place and the strip is made from
+ * the MIDDLE value of each pixel across them: a playhead, a highlight box or a bouncing ball is only in a few frames at
+ * any one spot, so it disappears, and the numbers (in every frame) stay.
  */
 export class Stitcher {
   box: Box | null
   private gap = 0
   private prev: Gray | null = null
   private prevProf: Float32Array | null = null
-  private pano: Gray | null = null
+  /** the current strip: frames at their place across it */
+  private layers: { x0: number; g: Gray }[] = []
+  private at = 0
+  private width = 0
   private out: Piece[] = []
   /** the strips whole, before cutting (bar lines stay where they are) */
   strips: Gray[] = []
@@ -177,26 +182,74 @@ export class Stitcher {
       else this.box = { x: 0, y: 0, w: 1, h: 1 }
     }
     const g = enhance(src, this.box, this.gap || undefined)
-    if (this.prev && sameFrame(this.prev, g)) return
+    if (this.prev && sameFrame(this.prev, g)) { this.stack(g); return }
     const prof = profile(g)
-    const sh = this.prev && this.prevProf ? shiftBetween(this.prevProf, prof) : null
-    const P = this.pano
-    if (P && sh && sh.dx > 0) {
-      // scrolled sideways: add the new columns on the right
+    const sh = this.prev && this.prevProf && this.layers.length ? shiftBetween(this.prevProf, prof) : null
+    if (sh && sh.dx > 0) {
+      // scrolled sideways: this frame sits further along the strip
       this.scrolled = true
-      const add = sh.dx, w = P.w + add
-      const px = new Float32Array(w * g.h)
-      for (let y = 0; y < g.h; y++) { px.set(P.px.subarray(y * P.w, (y + 1) * P.w), y * w); px.set(g.px.subarray(y * g.w + g.w - add, (y + 1) * g.w), y * w + P.w) }
-      this.pano = { w, h: g.h, px }
-    } else if (!P || !sh) {
+      this.at += sh.dx
+      this.stack(g)
+    } else if (sh) this.stack(g) // the same page, something moved on it (a playhead)
+    else {
       // a new page (or the first): keep what we had, start again
       this.flush()
-      this.pano = g
+      this.at = 0
+      this.stack(g)
     }
     this.kept++
     this.prev = g; this.prevProf = prof
   }
-  private flush() { if (this.pano) { this.strips.push(this.pano); for (const part of cutWide(this.pano)) this.out.push(pieceOf(part)) } this.pano = null }
+  /** keep a frame at the current place (at most 7 at any one place: the oldest goes). Columns no later frame can reach
+   *  (left of where the newest frame starts: a tab only scrolls one way) are finished, and frames wholly left of it let go */
+  private stack(g: Gray) {
+    if (this.layers.length && this.layers[0].g.h !== g.h) return
+    const here = this.layers.filter(l => l.x0 === this.at)
+    if (here.length >= 7) this.layers.splice(this.layers.indexOf(here[0]), 1)
+    this.layers.push({ x0: this.at, g })
+    this.width = Math.max(this.width, this.at + g.w)
+    if (this.at > this.doneW) {
+      this.append(this.compose(this.doneW, this.at))
+      this.layers = this.layers.filter(l => l.x0 + l.g.w > this.at)
+    }
+  }
+  /** finished columns of the current strip */
+  private done: Gray | null = null
+  private doneW = 0
+  private append(part: Gray) {
+    const d = this.done
+    if (!d) { this.done = part; this.doneW = part.w; return }
+    const w = d.w + part.w, px = new Float32Array(w * d.h)
+    for (let y = 0; y < d.h; y++) { px.set(d.px.subarray(y * d.w, (y + 1) * d.w), y * w); px.set(part.px.subarray(y * part.w, (y + 1) * part.w), y * w + d.w) }
+    this.done = { w, h: d.h, px }
+    this.doneW = w
+  }
+  /** columns x0…x1 of the strip from its frames: each pixel's middle value */
+  private compose(x0: number, x1: number): Gray {
+    const h = this.layers[0].g.h, w = Math.max(0, x1 - x0)
+    const px = new Float32Array(w * h).fill(1)
+    const vals: number[] = []
+    for (let x = x0; x < x1; x++) {
+      const on = this.layers.filter(l => x >= l.x0 && x < l.x0 + l.g.w)
+      if (!on.length) continue
+      const last = on[on.length - 1]
+      for (let y = 0; y < h; y++) {
+        // one or two frames: the newer; three or more: the middle one
+        if (on.length < 3) { px[y * w + x - x0] = last.g.px[y * last.g.w + (x - last.x0)]; continue }
+        vals.length = 0
+        for (const l of on) vals.push(l.g.px[y * l.g.w + (x - l.x0)])
+        vals.sort((a, b) => a - b)
+        px[y * w + x - x0] = vals[(vals.length - 1) >> 1]
+      }
+    }
+    return { w, h, px }
+  }
+  private flush() {
+    if (this.layers.length) this.append(this.compose(this.doneW, this.width))
+    const pano = this.done
+    this.layers = []; this.width = 0; this.done = null; this.doneW = 0
+    if (pano) { this.strips.push(pano); for (const part of cutWide(pano)) this.out.push(pieceOf(part)) }
+  }
   finish(): Piece[] { this.flush(); return this.out }
 }
 
