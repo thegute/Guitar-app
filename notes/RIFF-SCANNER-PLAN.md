@@ -58,3 +58,14 @@ error rate (wrong note without an amber ring).
   a 32nd from the step before, rakes share it, bar-opening graces borrow from the bar before), bracket tuplets, 16th flag
   hooks above the bottom line, pages of half notes, tied heads under triplet brackets, natural harmonics <7>, ghost notes
   (N) vs tie ends (N). Left: GP on-beat vs before-beat graces (can't be told from print), tiny slide graces, a few chords.
+- 2026-11-13 Step 2 (tab_crnn) training on the owner's MacBook Air: `~/KGuitar-harvest/scanner` (kit = tools/scanner-train +
+  private strips), `runs/v2` (arch dense, 3.24 M params, ~0.55 steps/s, 24k steps, best.pt saved every 2000). Depthwise convs
+  were 2× slower on MPS (bench.py). Owner OK'd the model in the public repo (public/models/tab-crnn/tab_crnn.onnx, ~6.5 MB fp16).
+  Scoreboard `npm run bench:scanner` (SCANNER_DATA = private folder) + video bench (tools/scanner-bench/make-video.py,
+  tests/browser/video-bench.cjs with `npx vite --port 5179`). Step-4000/8000 model, held-back pages:
+  clean picture 99.3–99.9% notes right / 98.6–99.7% found (number matcher 86–94%), photo-quality 87–92% (matcher 11–30%);
+  video, lesson-style thin strip at the bottom of 720p: 9 px gap 99.4% / 95%, 7 px 90% / 95%, 6 px 84% / 88%, still cards with a
+  playhead 97.5% / 97.5% (lengths 97%). Video fixes: crop keeps the rhythm under the staff, playhead left out of scroll tracking,
+  per-pixel median over frames, long strips read in windows, white tab in a dark frame found, repeats at the end dropped, look-alike
+  page turns kept apart. Open: note lengths on scrolling video (56–74%: triplets vs 8ths in the tuplet head, missed bar lines),
+  dead notes x read as 0 at small sizes, the owner's real screen recordings (Billy Strings Short first), audio as referee.
