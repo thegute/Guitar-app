@@ -14,7 +14,7 @@ import { typeTones } from '../theory/progressions'
 import { shapesFor } from '../theory/shapes'
 import { STARTER_PROGS, jamProgression, starterProgression } from '../tabs/fromProgression'
 import { bumpCounts, usePracticeTimer } from './progress'
-import { TARGET_KINDS, allowed, judge, nextBpm, OnsetDetector, pcLabel, stepWords, tchord, walk, zone, type Onset, type TargetKind, type TChord, type Window } from './targets'
+import { LEVELS, TARGET_KINDS, levelAdvice, loadBest, noteLap, allowed, judge, nextBpm, OnsetDetector, pcLabel, stepWords, tchord, walk, zone, type Onset, type TargetKind, type TChord, type Window } from './targets'
 import { countUse } from '../usage'
 
 const ZONES = [{ id: 0, label: 'Open' }, { id: 3, label: '3rd fret' }, { id: 5, label: '5th fret' }, { id: 7, label: '7th fret' }, { id: 9, label: '9th fret' }, { id: 12, label: '12th fret' }]
@@ -37,6 +37,8 @@ export function TargetNotes({ inst, onExit }: { inst: Instrument; onExit: () => 
   const [laps, setLaps] = useState<number[]>([])
   const [heard, setHeard] = useState<number | null>(null)
   const [hits, setHits] = useState(0)
+  const [best, setBest] = useState(loadBest)
+  const adv = levelAdvice(best)
   usePracticeTimer('theory', on, true)
 
   // the progression: Jam's, or a starter in the chosen key
@@ -122,6 +124,7 @@ export function TargetNotes({ inst, onExit }: { inst: Instrument; onExit: () => 
           if (ci === chords.length - 1) {
             const pct = Math.round((L.lapMarks.filter(Boolean).length / chords.length) * 100)
             setLaps(ls => [...ls.slice(-7), pct])
+            setBest(noteLap(kind, L.bpm, pct))
             if (trainer) {
               const n = nextBpm(L.bpm, pct, L.good)
               L.good = n.goodLaps
@@ -163,6 +166,11 @@ export function TargetNotes({ inst, onExit }: { inst: Instrument; onExit: () => 
       <div className="row"><button className="btn sm" onClick={() => { stop(); onExit() }}>← Back</button><h2 style={{ margin: 0 }}>Target notes</h2></div>
       <div className="panel stack" style={{ gap: 10 }}>
       {!on && <>
+      <div className="tn-level" data-testid="tn-level">
+        <div className="tn-steps">{LEVELS.map(k => <span key={k} className={(best[k] ?? 0) >= 80 ? 'ok' : k === adv.next ? 'now' : ''} title={TARGET_KINDS.find(x => x.id === k)?.label}>{TARGET_KINDS.find(x => x.id === k)?.label}</span>)}</div>
+        <p className="small" style={{ margin: 0 }}>{adv.text}</p>
+        {kind !== adv.next && <button className="btn sm" data-testid="tn-next" onClick={() => setKind(adv.next)}>Practise {TARGET_KINDS.find(x => x.id === adv.next)?.label.toLowerCase()}</button>}
+      </div>
       <p className="small muted" style={{ margin: 0 }}>A band plays the chords. Land on the target note as each chord arrives: that is how a solo follows the changes.</p>
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <label className="field" style={{ flex: '2 1 180px' }}><span>Chords</span>

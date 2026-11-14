@@ -124,3 +124,29 @@ export class OnsetDetector {
     return null
   }
 }
+
+// ---------- your level: the chord-tone path, one target kind at a time ----------
+/** the order to learn them in: roots, any chord tone, 3rds, 5ths, 7ths, then voice leading */
+export const LEVELS: TargetKind[] = ['root', 'any', 'third', 'fifth', 'seventh', 'guide']
+/** a kind counts as learned at this tempo or faster with a lap of 80% or more */
+export const PASS_BPM = 80
+const BEST = 'kg:tnBest'
+export function loadBest(): Partial<Record<TargetKind, number>> { try { return JSON.parse(localStorage.getItem(BEST) ?? '{}') } catch { return {} } }
+/** a lap at 80%+ at this tempo: remember the fastest */
+export function noteLap(kind: TargetKind, bpm: number, pct: number): Partial<Record<TargetKind, number>> {
+  const b = loadBest()
+  if (pct >= 80 && bpm > (b[kind] ?? 0)) { b[kind] = bpm; try { localStorage.setItem(BEST, JSON.stringify(b)) } catch { /* storage full */ } }
+  return b
+}
+/** The coach's word on where you are and what to work on next. */
+export function levelAdvice(best: Partial<Record<TargetKind, number>>): { next: TargetKind; text: string; done: number } {
+  const done = LEVELS.filter(k => (best[k] ?? 0) >= PASS_BPM).length
+  const next = LEVELS.find(k => (best[k] ?? 0) < PASS_BPM) ?? 'guide'
+  const lbl = (k: TargetKind) => TARGET_KINDS.find(x => x.id === k)!.label.toLowerCase()
+  const cur = best[next]
+  const text = done === LEVELS.length
+    ? `You've got all six at ${PASS_BPM} BPM or faster. Keep voice leading going in new keys and positions, and push the speed.`
+    : cur ? `Next: ${lbl(next)}. Your best clean lap is at ${cur} BPM; get one at ${PASS_BPM} to move on.`
+      : done ? `Next: ${lbl(next)}. ${LEVELS.slice(0, done).map(lbl).join(', ')} done.` : `Start with ${lbl(next)}: slow, and only the first note of each chord counts.`
+  return { next, text, done }
+}

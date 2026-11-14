@@ -2887,3 +2887,8 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .tn-cell.now { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 .tn-cell.ok { background: color-mix(in srgb, var(--mint) 30%, transparent); }
 .tn-cell.miss { background: color-mix(in srgb, var(--coral) 28%, transparent); }
+.tn-level { display: flex; flex-direction: column; gap: var(--sp-1); align-items: flex-start; }
+.tn-steps { display: flex; flex-wrap: wrap; gap: 4px; }
+.tn-steps span { font-size: .78rem; padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); }
+.tn-steps span.ok { background: color-mix(in srgb, var(--mint) 35%, transparent); }
+.tn-steps span.now { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }

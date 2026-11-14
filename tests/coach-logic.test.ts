@@ -285,3 +285,13 @@ import { tchord, allowed, walk, judge, nextBpm, OnsetDetector, stepWords, zone }
   assert.equal(feed(62, 4, 0.2), null, 'one reading of a new note is not enough'); assert.deepEqual(feed(62, 5, 0.2), { midi: 62, t: 4 })
   console.log('target notes: ok')
 }
+import { levelAdvice, noteLap, loadBest } from '../src/learn/targets'
+{
+  localStorage.removeItem('kg:tnBest')
+  assert.equal(levelAdvice({}).next, 'root'); assert.match(levelAdvice({}).text, /Start with roots/)
+  noteLap('root', 70, 90); noteLap('root', 84, 79); noteLap('root', 84, 80)
+  assert.equal(loadBest().root, 84)
+  const a = levelAdvice(loadBest()); assert.equal(a.next, 'any'); assert.equal(a.done, 1)
+  noteLap('any', 72, 100); assert.match(levelAdvice(loadBest()).text, /best clean lap is at 72 BPM/)
+  console.log('target levels: ok')
+}
