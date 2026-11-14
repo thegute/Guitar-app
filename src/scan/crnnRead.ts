@@ -298,14 +298,15 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: { strings?: numbe
     const add: number[] = []
     for (let i = 0; i + 1 < xb.length; i++) {
       const here = f.cols.filter(c => c.kind !== 'bar' && !c.grace && c.x > xb[i] && c.x < xb[i + 1])
-      if (here.length < 3 || here.some(c => c.printed < 0.5)) continue
+      if (here.length < 3 || here.filter(c => c.printed < 0.5).length > here.length * 0.2) continue
       const sum = here.reduce((a, c) => a + (c.lens[0]?.d ?? 0), 0)
       const k = Math.round(sum / meter)
-      if (k < 2 || Math.abs(sum - k * meter) > meter * 0.13) continue
+      if (k < 2 || Math.abs(sum - k * meter) > meter * 0.2) continue
       let acc = 0, next = meter
       for (let j = 0; j + 1 < here.length; j++) {
         acc += here[j].lens[0]?.d ?? 0
-        if (Math.abs(acc - next) < 1e-3) { add.push((here[j].x + here[j + 1].x) / 2); next += meter }
+        // where a bar's worth runs out (or the nearest step past it, when a length or two was misread)
+        if (acc >= next - 1e-3) { add.push((here[j].x + here[j + 1].x) / 2); next += meter }
       }
     }
     if (add.length) sysBars[si] = [...sysBars[si], ...add].sort((a, b) => a - b)
@@ -324,7 +325,10 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: { strings?: numbe
       const first = mains.map(c => c.lens[0]?.d ?? 0)
       const fsum = first.reduce((a, b) => a + b, 0)
       const allSure = mains.every(c => (c.lens[0]?.p ?? 0) > 0.9)
-      const lens = Math.abs(fsum - beats) < 1e-3 || (allSure && fsum > 0) ? first : fitBar(mains.map(c => ({ u: c.x, lens: c.lens })), beats, x1) ?? first
+      // far off (a bar line missed or seen twice): squeezing the notes into one bar would make them all wrong, so the
+      // network's own lengths stand
+      const farOff = Math.abs(fsum - beats) > beats * 0.25
+      const lens = Math.abs(fsum - beats) < 1e-3 || farOff || (allSure && fsum > 0) ? first : fitBar(mains.map(c => ({ u: c.x, lens: c.lens })), beats, x1) ?? first
       if (!lens.every(d => d > 0)) return null
       // each note column of the layout gets the length of the network column nearest it; rests come back as rests
       const durOf = new Map<Col, number>()
