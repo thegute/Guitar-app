@@ -15,7 +15,7 @@ import { searchBooks, shelfNow } from '../books/store'
 
 export interface BeatChange { starter?: string; bpm?: number; key?: string; minor?: boolean; patterns?: string[]; swing?: number }
 /** a change to Play: loop (0-based bars, null = stop) and/or speed; `label` is the button text */
-export interface PlayChange { loop?: { from: number; to: number } | null; speed?: number; label: string }
+export interface PlayChange { loop?: { from: number; to: number } | null; speed?: number; /** ask the coach on Play (a bar, or the worst so far) */ coach?: { bar?: number }; label: string }
 export interface Answer { reply: string; session?: Session; open?: Result; beat?: BeatChange; play?: PlayChange; ideas?: string[]; ai: boolean; note?: string }
 
 function playLabel(c: Omit<PlayChange, 'label'>): string {
@@ -40,6 +40,12 @@ function playCommand(q: string, info: ScreenInfo | null): Answer | null {
   const p = info?.play
   if (!p) return null
   const t = spokenNumbers(q)
+  // the coach: "coach me", "how was that?", "why is this bar hard?", "what am I doing wrong in bar 6?"
+  if (/\bcoach( me)?\b|how (was|did) (that|i)\b|what('s| is| am i| did i)( i)? (doing |do )?wrong|why (is|was) (this|that|bar \d+)( bar| part)? (so )?(hard|tricky|difficult)|what should i (fix|work on)/.test(t)) {
+    const m = /\b(?:bar|measure) (\d+)/.exec(t)
+    const bar = m ? Math.max(0, Math.min(p.bars - 1, Number(m[1]) - 1)) : /\b(this|that) (bar|part)\b/.test(t) ? p.bar : undefined
+    return { reply: 'Okay, let me look at how that went.', play: { coach: { bar }, label: 'Ask the coach' }, ai: false }
+  }
   if (t.split(/\s+/).length > 12 && !/loop\b.*\d/.test(t)) return null // a real question, not a quick command
   if (/^(how|what|why|explain|tell me|teach|show me|can you (explain|tell|show))\b/.test(t) && !/\b(tempo|speed|loop|bpm|percent)\b/.test(t)) return null
   const c: Omit<PlayChange, 'label'> = {}

@@ -2846,3 +2846,22 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 @media (prefers-reduced-motion: reduce) { .sound-pill .sp-dot { animation: none; } }
 @media (min-width: 760px) { .sound-pill { left: calc(var(--rail-w, 74px) + 12px); bottom: 78px; } }
 [data-theme='psy'] .sound-pill { background: rgba(28, 6, 65, .96); border-color: rgba(0, 229, 255, .45); }
+
+/* ── The coach's card on Play (coach/CoachCard.tsx): one kind word, one fix, one drill */
+.coach-card { position: relative; display: flex; flex-direction: column; gap: var(--sp-1); padding: 12px 40px 12px 12px; margin: 4px 0 8px; border-radius: var(--r-md);
+  background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); box-shadow: var(--shadow); animation: report-in .25s ease-out; }
+.coach-card p { margin: 0; }
+.coach-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.coach-fix { font-size: 1.02rem; line-height: 1.35; }
+.coach-tag { display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; margin-right: 4px; border-radius: var(--r-pill);
+  background: var(--accent); color: var(--bg); vertical-align: 1px; }
+.coach-drill .coach-tag { background: var(--mint); }
+.coach-heard .coach-tag { background: var(--gold); }
+.coach-listening { display: inline-flex; align-items: center; gap: 6px; }
+.coach-note { display: flex; align-items: center; gap: 6px; padding: 8px 10px; margin: 4px 0 8px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); }
+.coach-note .btn { margin-left: auto; }
+@media (max-width: 440px) { .coach-btn .opts-label { display: none; } }
+.report-card.mini { align-items: center; padding-top: 6px; padding-bottom: 6px; }
+.report-card.mini .report-score { width: 44px; height: 44px; }
+.report-card.mini .report-score b { font-size: 1.1rem; }
+.report-card.mini .report-body > .small, .report-card.mini .report-btns { display: none; }

@@ -15,6 +15,10 @@ import { Chips, usePersist } from '../components/Controls'
 import { InputPicker } from '../components/InputPicker'
 import { NoteListener, matchNote, type FollowStep } from '../tabs/follow'
 import { accepted, bendAlso } from '../tabs/bends'
+import { useCoach } from '../coach/useCoach'
+import { CoachCard } from '../coach/CoachCard'
+import { coachPrefs, saveCoachPrefs } from '../coach/advice'
+import { isSpeaking, stopSpeaking } from '../assistant/speak'
 import { defaultTrack, flatten, playable, trackPickup, type SongNote, type SongTrack } from '../tabs/model'
 import { detectKey, improvisationScales, type KeyGuess } from '../tabs/keyDetect'
 import { chordInfo, chordTimeline, guessBarChords, keyScalePcs } from '../tabs/harmony'
@@ -506,6 +510,7 @@ export function PlayScreen() {
     const mistakes = barMistakes(states.current, i => flat[i]?.bar, runMode)
     setReport(makeReport({ score, mode: runMode, speed: speedNow, mistakes, before: was?.runs ?? [], best: was?.best ?? 0, stats }))
     setNudge(false)
+    coachRef.current?.afterPass()
     autoFinishRef.current(score, speedNow)
   }, [])
 
@@ -573,6 +578,7 @@ export function PlayScreen() {
   }, [])
 
   const lastHitMs = useRef(-1e9)
+  const coachRef = useRef<ReturnType<typeof useCoach> | null>(null)
   /** Wait-for-me mode: a single note was heard. */
   const onNote = useCallback((heardMidi: number) => {
     const { pos, follow, strict, loopRange } = ref.current
@@ -583,8 +589,10 @@ export function PlayScreen() {
     // inside a loop, only look as far as the loop's last note
     const steps = loopRange ? follow.steps.slice(0, loopRange.b + 1) : follow.steps
     const r = matchNote(steps, pos, midi, strict, (performance.now() - lastHitMs.current) / 1000)
-    if (r.kind === 'hit') { lastHitMs.current = performance.now(); hitAt(r.step, r.skipped, midi) }
-    else if (r.kind === 'miss') missAt(midi)
+    const fi = follow.idx[r.kind === 'hit' ? r.step : pos]
+    coachRef.current?.heard()
+    if (r.kind === 'hit') { lastHitMs.current = performance.now(); if (fi !== undefined) coachRef.current?.hit(fi); hitAt(r.step, r.skipped, midi) }
+    else if (r.kind === 'miss') { if (fi !== undefined) coachRef.current?.missed(fi); missAt(midi) }
   }, [hitAt, missAt])
 
   /** Wait-for-me mode: a strum was heard (strum-along). */
@@ -655,11 +663,13 @@ export function PlayScreen() {
       l.onOnset = t => { lastOnset.current = t }
       l.onNote = e => {
         if (talkingNow()) return // you're talking to the helper: your voice isn't a wrong note
+        // the coach is talking: on the phone's mic its voice isn't your guitar; on a USB input, playing on cuts it off
+        if (isSpeaking()) { if (!l.external) return; stopSpeaking() }
         if (modeRef.current === 'time') { if (inTimeRef.current.running) inTimeRef.current.played(e.attack ? lastOnset.current : e.time, { midi: e.midi }) }
         else onNote(e.midi)
       }
       l.onChord = (chroma, at) => {
-        if (talkingNow()) return
+        if (talkingNow() || (isSpeaking() && !l.external)) return
         if (modeRef.current === 'time') { if (inTimeRef.current.running) inTimeRef.current.played(at, { chroma }) }
         else onChord(chroma)
       }
@@ -797,6 +807,12 @@ export function PlayScreen() {
       if (!loop && s.total > 0) showReport(s.score, 'time', speed, was, s)
     },
   })
+  // the coach: one fix and one drill after a pass, when a bar keeps going wrong, or when asked
+  const coach = useCoach({
+    flat, groups: hands, states, mode, speed, tuning: track ? track.tuning.map(t => t + track.capo) : [], title: doc?.title ?? 'this piece', inst: inst.noun,
+    listener, errOf: () => (mode === 'time' ? inTime.errOf.current : undefined), version, drilling: !!loop && loop.to - loop.from <= 1,
+  })
+  coachRef.current = coach
   // Game Mode: when each step sounds (beats), chord names, and the wrong/right events of Wait for me
   const gameBeats = useMemo(() => inTimeTimeline(flat, strumPat, meter).beatOf, [flat, strumPat, meter])
   // Game's clock: In time's, or Hear it's playhead (the highway scrolls and the ball bounces along while the tab plays itself)
@@ -1056,6 +1072,7 @@ export function PlayScreen() {
       else { const n = track.bars.length; const f = Math.max(0, Math.min(n - 1, a.loop.from)), t = Math.max(f, Math.min(n - 1, a.loop.to)); setLoop({ from: f, to: t }) }
     }
     if (a.speed) setSpeed(Math.max(0.25, Math.min(1.5, Math.round(a.speed * 20) / 20)))
+    if (a.coach) coach.ask(a.coach.bar)
     if (a.open === 'options') setOpts(true)
     else if (a.open === 'video') { if (doc?.youtube) setShowVideo(true); else setVideoAsk(true); setLay({ ...lay, side: true, focus: false }) }
     else if (a.open === 'check') setCheckOpen(true)
@@ -1300,6 +1317,7 @@ export function PlayScreen() {
       {recording && (
         <button className="btn sm rec on" aria-pressed onClick={() => void toggleRec()} aria-label="Stop recording"><Ico n="stop" fill /> {Math.floor(recSecs / 60)}:{String(recSecs % 60).padStart(2, '0')}</button>
       )}
+      <button className="btn sm coach-btn" data-find="coach" data-testid="coach-btn" onClick={() => { countUse('play:coach'); coach.ask() }} aria-label="Coach: what should I fix?"><Ico n="sparkles" /><span className="opts-label">Coach</span></button>
       <button className="btn sm opts-btn" data-find="opts" aria-expanded={opts} onClick={() => setOpts(true)} aria-label="Options: speed, sound, band, record, how the tab looks">
         <IconSliders /><span className="opts-label">Options</span>
       </button>
@@ -1408,6 +1426,20 @@ export function PlayScreen() {
               <button className="btn sm" onClick={() => { forgetTaught(gearKind); setVersion(v => v + 1) }}>Forget them</button>
             </div>
           )}
+          <div className="opt-row" data-find="coach-opts"><span className="opt-name">Coach</span>
+            <span className="seg" role="group" aria-label="When the coach comes up">
+              <button className={`btn sm${coachPrefs().auto ? ' on' : ''}`} aria-pressed={coachPrefs().auto} onClick={() => { saveCoachPrefs({ auto: true }); setVersion(v => v + 1) }}>After a run</button>
+              <button className={`btn sm${!coachPrefs().auto ? ' on' : ''}`} aria-pressed={!coachPrefs().auto} onClick={() => { saveCoachPrefs({ auto: false }); setVersion(v => v + 1) }}>Only when I tap Coach</button>
+            </span>
+            <label className="small"><input type="checkbox" checked={coachPrefs().voice} onChange={e => { saveCoachPrefs({ voice: e.target.checked }); setVersion(v => v + 1) }} /> Say it out loud</label>
+          </div>
+          <div className="opt-row" data-find="coach-ai"><span className="opt-name">Coach's ear</span>
+            <span className="seg" role="group" aria-label="When the AI listens to your playing">
+              <button className={`btn sm${coachPrefs().ai === 'auto' ? ' on' : ''}`} aria-pressed={coachPrefs().ai === 'auto'} onClick={() => { saveCoachPrefs({ ai: 'auto' }); setVersion(v => v + 1) }}>Auto</button>
+              <button className={`btn sm${coachPrefs().ai === 'tap' ? ' on' : ''}`} aria-pressed={coachPrefs().ai === 'tap'} onClick={() => { saveCoachPrefs({ ai: 'tap' }); setVersion(v => v + 1) }}>Only when I tap Coach</button>
+            </span>
+            <span className="small muted">With a Gemini key, the AI hears a few seconds of the trouble bar (never during quick drill loops). Without one, the built-in coach works from what KGuitar measured.</span>
+          </div>
           <div className="row">
             <button className="btn sm" data-find="setup" onClick={() => { setOpts(false); setGearOpen(true) }}>{isSetUp() ? 'Set up input again' : 'Set up your input (2 min)'}</button>
             <button className="btn sm" data-find="restart" onClick={() => { restart(); setOpts(false) }}>Start over</button>
@@ -1516,8 +1548,19 @@ export function PlayScreen() {
             </span>
           </div>
         )}
+        {coach.state && gameView !== 'game' && (
+          <CoachCard c={coach.state} slowPct={mode === 'time' ? Math.round(Math.min(speed, 0.7) * 100) : null} onClose={() => coach.dismiss()} onLoop={() => {
+            const t = coach.state!.trouble
+            setLoop(t.loop)
+            if (mode === 'time') setSpeed(Math.min(speed, 0.7))
+            setReport(null); coach.dismiss(); countUse('play:coach-loop')
+          }} />
+        )}
+        {coach.note && !coach.state && (
+          <div className="coach-note small" role="status" data-testid="coach-note"><Ico n="sparkles" /> {coach.note} <button className="btn sm ghost" aria-label="Close" onClick={() => coach.dismiss()}>✕</button></div>
+        )}
         {report && gameView !== 'game' && (
-          <ReportCard r={report} onClose={() => setReport(null)} onNext={() => {
+          <ReportCard r={report} mini={!!coach.state} onClose={() => setReport(null)} onNext={() => {
             const r = report
             if (r.next.kind === 'loop' && r.loop) { setLoop(r.loop); if (r.next.speed) setSpeed(r.next.speed); countUse('play:report') }
             else if (r.next.kind === 'intime') { setMode('time'); setSpeed(r.next.speed ?? 0.75); restart(); countUse('play:report') }
@@ -1725,12 +1768,12 @@ export function PlayScreen() {
 }
 
 /** After a whole run: the score, how it compares, the bars that went wrong (lit up on the tab) and one next step. */
-function ReportCard({ r, onNext, onAgain, onClose, onThenNow }: { r: Report & { take?: 'first' | 'now' }; onNext: () => void; onAgain: () => void; onClose: () => void; onThenNow: () => void }) {
+function ReportCard({ r, mini, onNext, onAgain, onClose, onThenNow }: { r: Report & { take?: 'first' | 'now' }; /** the coach's card is up: just the score and the headline */ mini?: boolean; onNext: () => void; onAgain: () => void; onClose: () => void; onThenNow: () => void }) {
   const diff = r.prev !== undefined ? r.score - r.prev : null
   const t = r.timing
   const tone = r.score >= 90 ? 'great' : r.score >= 75 ? 'good' : r.score >= 50 ? 'ok' : 'low'
   return (
-    <div className={`report-card ${tone}`} role="status" aria-label="How that run went" data-testid="report-card">
+    <div className={`report-card ${tone}${mini ? ' mini' : ''}`} role="status" aria-label="How that run went" data-testid="report-card">
       <div className="report-score" style={{ ['--p' as string]: r.score }}><b>{r.score}</b><small>%</small></div>
       <div className="report-body">
         <b className="report-head">{r.headline}</b>

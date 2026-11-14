@@ -110,6 +110,18 @@ ms, trouble bars, trends, recordings); Gemini also hears a short clip of the run
   response, and COACH-MADE BACKING TRACKS: it works out the style being practised (style path, the song's style, what he's
   playing) and offers a backing in it from the Jam engine (metal chugs / riffs, chords, bass, drums) in the song's key to
   improvise over.
+- (owner 2026-11-14, all approved) Extra coach features, by phase. C: warm-up from yesterday's trouble spots, speed ceiling per
+  technique over weeks, endurance check (accuracy dropping late → break / easier), weekly 5-minute check-up (same test each week).
+  B: record and compare (the coach plays the phrase, then yours). D: target-note trainer over a backing (the best landing note
+  lit before each change), CHORD TONES and VOICE LEADING coaching (which chord tone he landed on, the nearest 3rd / 7th into the
+  next chord, triad and voicing moves between chords: uses tabs/harmony.ts voice leading + theory/layers.ts), EAR TRAINING that
+  goes deep (call and response by ear, sing-then-play, intervals → chord qualities → progressions → transcribing short licks,
+  graded and spaced), teach-back after a theory lesson (one spoken question, answered by playing).
+  KNOWLEDGE: the coach must know guitar deeply. Its prompt is grounded in the course lessons, techniques, the owner's book index
+  (books/store.ts topicPages / findRef) and the style lenses, and it links to the lesson / book page behind what it says.
+- (owner 2026-11-14) Speed control everywhere it makes sense: the target-note trainer, call and response, backing tracks, drills
+  and ear exercises all get a slow-down / speed-up control (practise slow, then faster). And a FLOATING LOOPER CARD: the looper as
+  a floating card he can add on any page (like the Ask bubble / floating finger diagrams), not only the strip on Play / Scales.
 - Ideas list (brainstorm 2026-11-13): root-cause patterns over many runs → matching or Composer-made drills; song chunking + speed
   ladder + reviews; technique clinic (bend cents, vibrato width, changes per minute, buzz/muting); call and response; improv coach
   (chord tones on the beat, space); theory in context with course + book links; hands-free session director (mic + footswitch);

@@ -48,7 +48,8 @@ async function playThrough(page) {
   await page.locator('button.listen').click()
   for (let i = 0; i < 60; i++) {
     await page.waitForTimeout(500)
-    if (await page.locator('[data-testid=report-card]').count()) return true
+    // (the coach's card comes up with it when a bar went wrong: these checks are about the report card)
+    if (await page.locator('[data-testid=report-card]').count()) { await page.waitForTimeout(200); await page.locator('[data-testid=coach-keep]').click({ timeout: 800 }).catch(() => {}); return true }
   }
   return false
 }

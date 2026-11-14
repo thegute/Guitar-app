@@ -13,6 +13,8 @@ export interface PlayAction {
   /** open the Options sheet, the video, the song check, start picking loop bars, or show Scales & chords */
   open?: 'options' | 'video' | 'check' | 'loop' | 'solo'
   focus?: PlayFocus
+  /** ask the coach (about this bar, 0-based; no bar = the worst so far) */
+  coach?: { bar?: number }
   /** loop these bars (0-based, inclusive), or null to stop looping */
   loop?: { from: number; to: number } | null
   /** playback speed, 1 = the song's tempo */

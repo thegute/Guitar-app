@@ -132,7 +132,7 @@ export function AskBubble({ context }: { context: AskContext }) {
     if (!live.current.alive) return
     // you're playing: loop / speed / beat changes happen straight away
     let did: string | undefined
-    if (a.play) { playAction({ ...(a.play.loop !== undefined ? { loop: a.play.loop } : {}), ...(a.play.speed ? { speed: a.play.speed } : {}) }); did = a.play.label }
+    if (a.play) { playAction({ ...(a.play.loop !== undefined ? { loop: a.play.loop } : {}), ...(a.play.speed ? { speed: a.play.speed } : {}), ...(a.play.coach ? { coach: a.play.coach } : {}) }); did = a.play.label }
     if (a.beat && context === 'beat') { applyBeatChange(a.beat); did = 'Changed your beat' }
     setCard({ q: h.text, a, did })
     setPhase('answer')

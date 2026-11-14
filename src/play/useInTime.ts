@@ -131,6 +131,7 @@ export function useInTime(a: Args) {
         },
       })
     }
+    errOf.current.clear()
     run.current = { clock, steps: tl.steps, beatOf: tl.beatOf, inRange, fromBeat, toBeat, loop: !!A.loop, results: [], errs: [], taken: new Set(), lastBeat: -Infinity, speed, raf: 0, video: useVideo, passes: 0 }
     setUsingVideo(useVideo)
     setPass({ n: 0, last: null, speed })
@@ -155,6 +156,7 @@ export function useInTime(a: Args) {
           setWraps(w => w + 1)
           for (const i of r.inRange) { r.results[i] = undefined; r.taken.delete(i); args.current.states.current[r.steps[i].flat] = 0 }
           r.errs = []
+          errOf.current.clear()
           setTally(EMPTY_TALLY)
           args.current.onChange()
         }
@@ -211,6 +213,8 @@ export function useInTime(a: Args) {
   }, [stop])
 
   /** A note or strum was heard at `time` (audio clock, before latency correction). */
+  /** each played step's timing error this pass (flat step → ms, + = late), for the coach */
+  const errOf = useRef(new Map<number, number>())
   const played = useCallback((time: number, p: { midi?: number; chroma?: number[] }) => {
     const r = run.current
     if (!r) return
@@ -225,6 +229,7 @@ export function useInTime(a: Args) {
     r.taken.add(m.step)
     r.results[m.step] = j
     r.errs.push(m.errMs)
+    errOf.current.set(r.steps[m.step].flat, m.errMs)
     args.current.states.current[r.steps[m.step].flat] = j === 'perfect' || j === 'good' ? 1 : 2
     setFeedback(f => ({ j, ms: Math.round(m.errMs), key: (f?.key ?? 0) + 1 }))
     setTally(t => (j === 'perfect' || j === 'good' ? { ...t, on: t.on + 1 } : j === 'early' ? { ...t, early: t.early + 1 } : { ...t, late: t.late + 1 }))
@@ -237,5 +242,5 @@ export function useInTime(a: Args) {
   const speedNow = useCallback((): number => run.current?.speed ?? 1, [])
 
   useEffect(() => () => stop(), [stop])
-  return { running, cursor, feedback, tally, stats, pass, usingVideo, start, stop, played, countIn, wraps, beatNow, speedNow }
+  return { running, cursor, feedback, tally, stats, pass, usingVideo, start, stop, played, countIn, wraps, beatNow, speedNow, errOf }
 }

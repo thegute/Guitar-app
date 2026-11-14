@@ -165,7 +165,7 @@ export function SearchSheet({ onClose, initial = '', context = 'general', autoAs
                       </>
                     )}
                     {t.answer.beat && <button className="btn primary sm" onClick={() => { applyBeatChange(t.answer!.beat!); onClose() }}>Apply to my beat</button>}
-                    {t.answer.play && <button className="btn primary sm" onClick={() => { const c = t.answer!.play!; playAction({ ...(c.loop !== undefined ? { loop: c.loop } : {}), ...(c.speed ? { speed: c.speed } : {}) }); onClose() }}>▶ {t.answer.play.label}</button>}
+                    {t.answer.play && <button className="btn primary sm" onClick={() => { const c = t.answer!.play!; playAction({ ...(c.loop !== undefined ? { loop: c.loop } : {}), ...(c.speed ? { speed: c.speed } : {}), ...(c.coach ? { coach: c.coach } : {}) }); onClose() }}>▶ {t.answer.play.label}</button>}
                     {t.answer.open && <button className="btn sm" onClick={() => open(t.answer!.open!)}>Open {t.answer.open.title}</button>}
                     <div className="row" style={{ gap: 6, justifyContent: 'space-between' }}>
                       {t.answer.note ? <span className="small muted">{t.answer.note}</span> : <span />}
