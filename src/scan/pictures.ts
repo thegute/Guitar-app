@@ -229,7 +229,11 @@ export class Stitcher {
     if (sh && sh.dx > g.w * 0.35 && sh.match < 0.9) sh = null
     // not moved at all: the same page only if it's nearly identical (a playhead moved over it); a new page with the same
     // riff in the same places matches less well
-    if (sh && sh.dx === 0 && sh.match < 0.97 && this.prev && pageDiff(this.prev, g) > 0.02) sh = null
+    // (a see-through tab box with the video moving behind it changes many pixels while the numbers stay put: the numbers,
+    // compared one by one, decide)
+    const samePage = () => { const o = overlapScore(this.prev!, g, 0, 0); return !!o && o.m >= 0.8 }
+    if (sh && sh.dx === 0 && sh.match < 0.97 && this.prev && pageDiff(this.prev, g) > 0.02 && !samePage()) sh = null
+    else if (!sh && this.prev && this.layers.length && samePage()) sh = { dx: 0, match: 1 }
     // a tab that moves on in jumps (a page at a time) shows the end of the last page again at the start of the new one:
     // the same strip, moved on (checked number by number, so a new page that starts with the same riff isn't taken for it)
     if (!sh && this.prev && this.layers.length) { const ov = pageOverlap(this.prev, g); if (ov) sh = { dx: ov.dx, match: 1 } }
@@ -335,8 +339,8 @@ export function pageOverlap(a: Gray, b: Gray, info?: (m: number, dx: number) => 
   const best = overlapScore(a, b, a.w * 0.2, a.w)
   if (!best) return null
   info?.(best.m, best.dx)
-  // (the same stretch shown twice matches at 0.93+; a new page, even of the same riff, at 0.3–0.7)
-  return best.m >= 0.86 ? { dx: best.dx } : null
+  // (the same stretch shown twice matches at 0.9+ on the owner's recordings; a new page, even of the same riff, ≤0.3)
+  return best.m >= 0.8 ? { dx: best.dx } : null
 }
 
 /** How alike frame b is to frame a moved left by dx (-1…1, number by number on the staff), for the best dx between lo and
@@ -354,9 +358,19 @@ export function overlapScore(a: Gray, b: Gray, lo: number, hi: number): { dx: nu
     const o = new Float32Array(W * H)
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = (y0 + y * 2) * g.w + x * 2
-      // ink or not (a video showing through a see-through tab box shades it unevenly)
-      o[y * W + x] = Math.min(g.px[i], g.px[i + 1], g.px[i + g.w], g.px[i + g.w + 1]) < 0.5 ? 1 : 0
+      o[y * W + x] = 1 - Math.min(g.px[i], g.px[i + 1], g.px[i + g.w], g.px[i + g.w + 1])
     }
+    // only what's darker than its surroundings (a video showing through a see-through tab box shades it unevenly; one
+    // page can come out fainter than the next)
+    const r = 8, cs = new Float32Array((W + 1) * (H + 1))
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) cs[(y + 1) * (W + 1) + x + 1] = o[y * W + x] + cs[y * (W + 1) + x + 1] + cs[(y + 1) * (W + 1) + x] - cs[y * (W + 1) + x]
+    const box = (x0: number, y0: number, x1: number, y1: number) => cs[y1 * (W + 1) + x1] - cs[y0 * (W + 1) + x1] - cs[y1 * (W + 1) + x0] + cs[y0 * (W + 1) + x0]
+    const hp = new Float32Array(W * H)
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const x0 = Math.max(0, x - r), x1 = Math.min(W, x + r + 1), y0_ = Math.max(0, y - r), y1_ = Math.min(H, y + r + 1)
+      hp[y * W + x] = Math.max(0, o[y * W + x] - box(x0, y0_, x1, y1_) / ((x1 - x0) * (y1_ - y0_)))
+    }
+    o.set(hp)
     // the staff lines are the same everywhere: leave each row's average out
     for (let y = 0; y < H; y++) { let s = 0; for (let x = 0; x < W; x++) s += o[y * W + x]; s /= W; for (let x = 0; x < W; x++) o[y * W + x] -= s }
     return o

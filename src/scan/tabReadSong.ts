@@ -122,6 +122,24 @@ export function dropRepeats(readings: TabReading[]): TabReading[] {
   return readings
 }
 
+/** A screen recording of a YouTube Short often runs past its end: the Short starts again from the top. Lines at the end
+ *  that are the opening again (8+ steps the same, in order, from the first note) are that replay, not more music. */
+export function dropLoop(readings: TabReading[]): TabReading[] {
+  const key = (st: { notes: { string: number; fret: number }[] }) => st.notes.map(n => `${n.string}:${n.fret}`).sort().join('+')
+  const all = readings.flatMap(r => r.systems.map(sy => ({ r, sy, keys: sy.bars.flatMap(b => b.steps.filter(st => st.notes.length).map(key)) })))
+  const start = all.flatMap(a => a.keys).slice(0, 40)
+  // walk back from the end while each line (or its start) is the opening played again
+  for (let i = all.length - 1; i > 0; i--) {
+    const k = all[i].keys
+    const n = Math.min(k.length, start.length)
+    if (n < 8 || lcs(k.slice(0, n), start.slice(0, n)) < n * 0.9) break
+    // the replay only counts when everything after this line is gone too (it is the very end)
+    if (all.slice(i + 1).some(a => a.sy.bars.length)) break
+    all[i].sy.bars = []
+  }
+  return readings
+}
+
 /** The same, with the trained reader (tab_crnn) when the app has it: it reads photos, scans and video frames far better
  *  than the number matcher. Falls back to readTabPictures when the model can't be loaded. */
 export async function readTabPicturesBest(pics: Gray[], tuning: number[], title: string, o: {
@@ -146,7 +164,7 @@ export async function readTabPicturesBest(pics: Gray[], tuning: number[], title:
   const meter = [...votes].sort((a, b) => b[1] - a[1])[0][0]
   const again: TabReading[] = []
   for (const [i, r] of readings.entries()) again.push(r.notes && r.meter !== meter ? await readTabCrnn(pics[i], run, { strings, beats: meter, ...hearFor(i) }) : r)
-  readings = o.video ? dropRepeats(mergePages(again)) : again
+  readings = o.video ? dropLoop(dropRepeats(mergePages(again))) : again
   return readingSong(readings, tuning, title, meter)
 }
 

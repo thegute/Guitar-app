@@ -5,7 +5,7 @@ import { strict as assert } from 'node:assert'
 import { readFileSync } from 'node:fs'
 import { inflateSync } from 'node:zlib'
 import { readTab, fitRhythm } from '../src/scan/tabRead'
-import { readingSong, mergePages } from '../src/scan/tabReadSong'
+import { readingSong, mergePages, dropLoop } from '../src/scan/tabReadSong'
 import { tuningFromText, guitarNumbers } from '../src/scan/tuningText'
 import { rhythmFromStems } from '../src/scan/stemRhythm'
 import { fitBar, straighten, timeOf } from '../src/scan/crnnRead'
@@ -187,4 +187,15 @@ console.log('fitRhythm: ok')
   const lines = out.flatMap(r => r.systems.map((s: any) => s.bars[0].steps.map((st: any) => st.notes.map((n: any) => `${n.string}:${n.fret}`).join('+')).join(' ')))
   assert.deepEqual(lines, ['0:3 1:2 2:0 3:0', '4:1 5:0 4:1 3:2', '1:3 2:2 3:0 4:1', '0:1 1:1 2:3 3:3', '5:5 4:5 3:5 2:5'], lines.join(' / '))
   console.log('page that scrolls up: ok')
+}
+
+// a Short recorded past its end: the opening again at the end is dropped, a riff that comes back mid-song is kept
+{
+  const sys = (...cols: string[]) => ({ lines: [], gap: 10, left: 0, right: 100, bars: [{ steps: cols.map(c => ({ dur: 1, notes: c.split('+').map(n => ({ string: +n.split(':')[0], fret: +n.split(':')[1] })) })) }] }) as any
+  const A = ['0:3', '1:2', '2:0', '3:0', '4:1', '5:0', '4:1', '3:2', '2:2', '1:3']
+  const B = ['0:1', '1:1', '2:3', '3:3', '4:3', '5:3', '4:0', '3:0', '2:0', '1:0']
+  const rd = (...s: any[]) => ({ systems: s, unsure: 0, notes: 10, meter: 4 })
+  const out = dropLoop([rd(sys(...A)), rd(sys(...B)), rd(sys(...A)), rd(sys(...B)), rd(sys(...A.slice(0, 9)))])
+  assert.deepEqual(out.map(r => r.systems[0].bars.length), [1, 1, 1, 1, 0], 'only the replay at the end goes')
+  console.log('Short replay dropped: ok')
 }

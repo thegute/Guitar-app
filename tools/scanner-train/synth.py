@@ -138,8 +138,9 @@ def chord(rng, nstr):
         lo = rng.randint(0, nstr - k)
         strings = list(range(lo, lo + k))
     frets = {}
+    xr = 0.04 if k < 3 else rng.choice([0.04, 0.04, 0.2])  # muted strings inside chords (6/X/4 power chords)
     for s in strings:
-        if rng.random() < 0.04:
+        if rng.random() < xr:
             frets[s] = 'x'
         else:
             frets[s] = max(0, min(24, pos + rng.randint(-2, 3) if pos else rng.choice([0, 0, 1, 2, 3])))
@@ -155,6 +156,8 @@ def sample(rng=random, W=512, nstr=None):
     d = ImageDraw.Draw(img)
     fpath = rng.choice(fonts())
     fsize = rng.uniform(0.62, 0.98) * GAP * S * 1.25  # cap height ≈ 0.6–0.9 of a gap
+    if rng.random() < 0.15:  # big bold video fonts: numbers taller than the gap, stacked ones touching (Everlong Short)
+        fsize = rng.uniform(0.98, 1.25) * GAP * S * 1.25
     fnt = font(fpath, fsize)
     small = font(fpath, fsize * 0.7)
     lw = rng.uniform(0.45, 2.2) * S
@@ -377,6 +380,27 @@ def clutter(d, rng, Wpx, ys, nstr, ink, fpath, S):
     if rng.random() < 0.15:  # a bend arrow
         x = rng.uniform(0, Wpx * 0.9)
         d.line([(x, ys(1, x)), (x + GAP * S, ys(0, x) - GAP * S * 1.2)], fill=ink, width=S)
+    # bends as Guitar Pro / Songsterr draw them: a curve from the note up past the top line to an arrow head, with how
+    # far ("¼", "½", "full") written just above it; sometimes back down again (bend and release). Not notes.
+    g = GAP * S
+    lab = font(fpath, g * rng.uniform(0.6, 0.95))
+    for _ in range(rng.choice([0, 0, 0, 1, 1, 2, 3])):
+        s = rng.randrange(min(3, nstr))
+        x = rng.uniform(g, Wpx * 0.92)
+        y0 = ys(s, x) - g * 0.1
+        tx, ty = x + g * rng.uniform(1.0, 2.6), ys(0, x) - g * rng.uniform(1.0, 1.9)
+        pts = [(x + g * 0.45 + (tx - x - g * 0.45) * t, y0 + (ty - y0) * t ** 2.2) for t in np.linspace(0, 1, 12)]
+        lw = max(1, int(S * rng.uniform(0.8, 1.4)))
+        d.line(pts, fill=ink, width=lw)
+        if rng.random() < 0.4:  # a second string bent together (a double-stop bend)
+            d.line([(px, py + g) for px, py in pts[:6]] + pts[6:], fill=ink, width=lw)
+        a = g * 0.28
+        d.polygon([(tx, ty - a * 1.4), (tx - a, ty), (tx + a, ty)], fill=ink)
+        if rng.random() < 0.35:  # and released
+            rx = tx + g * rng.uniform(1.0, 2.0)
+            d.arc([tx, ty, rx * 2 - tx, ys(0, x) + g * 0.2], 270, 360, fill=ink, width=lw)
+            d.polygon([(rx, ys(0, x) - g * 0.05), (rx - a, ys(0, x) - g * 0.5), (rx + a, ys(0, x) - g * 0.5)], fill=ink)
+        d.text((tx, ty - a * 1.6), rng.choice(['¼', '½', 'full', '1½', '1/4', '1/2', '2', '¾']), font=lab, fill=ink, anchor='mb')
 
 
 def degrade(img, rng):

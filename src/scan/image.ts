@@ -84,16 +84,25 @@ function stripsOf(g: Gray, strings: number[], dark: boolean): Strip[] {
   // a pixel is "line" when it is darker (or lighter, on a dark picture) than 2 px above and below
   const lineRow = new Float32Array(h)
   const spanL = new Int32Array(h), spanR = new Int32Array(h)
+  // (a thick line, in a picture blown up from a small video, is still dark 2 px from its middle: look 4 px away too)
+  const lineAt = (x: number, y: number) => {
+    const v = px[y * w + x]
+    for (const d of [2, 4]) {
+      if (y - d < 0 || y + d >= h) continue
+      const a = px[(y - d) * w + x], b = px[(y + d) * w + x]
+      if (dark ? v - Math.max(a, b) > 0.08 : Math.min(a, b) - v > 0.08) return true
+    }
+    return false
+  }
   for (let y = 2; y < h - 2; y++) {
     let run = 0, best = 0, bestEnd = 0, count = 0
     for (let x = 0; x < w; x++) {
-      const v = px[y * w + x], a = px[(y - 2) * w + x], b = px[(y + 2) * w + x]
-      const on = dark ? v - Math.max(a, b) > 0.08 : Math.min(a, b) - v > 0.08
+      const on = lineAt(x, y)
       if (on) { run++; count++; if (run > best) { best = run; bestEnd = x } } else if (run > 0 && x + 1 < w) {
         // a digit sitting on the line breaks it for a few pixels: bridge small gaps
         const look = Math.min(w - 1, x + Math.max(4, Math.round(w * 0.03)))
         let gap = true
-        for (let k = x + 1; k <= look; k++) { const vv = px[y * w + k], aa = px[(y - 2) * w + k], bb = px[(y + 2) * w + k]; if (dark ? vv - Math.max(aa, bb) > 0.08 : Math.min(aa, bb) - vv > 0.08) { gap = false; break } }
+        for (let k = x + 1; k <= look; k++) if (lineAt(k, y)) { gap = false; break }
         if (gap) run = 0
       }
     }
