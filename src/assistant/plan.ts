@@ -15,7 +15,7 @@ import { searchBooks, shelfNow } from '../books/store'
 
 export interface BeatChange { starter?: string; bpm?: number; key?: string; minor?: boolean; patterns?: string[]; swing?: number }
 /** a change to Play: loop (0-based bars, null = stop) and/or speed; `label` is the button text */
-export interface PlayChange { loop?: { from: number; to: number } | null; speed?: number; /** ask the coach on Play (a bar, or the worst so far) */ coach?: { bar?: number; act?: boolean }; label: string }
+export interface PlayChange { loop?: { from: number; to: number } | null; speed?: number; /** ask the coach on Play (a bar, or the worst so far) */ coach?: { bar?: number; act?: boolean; backing?: string }; label: string }
 export interface Answer { reply: string; session?: Session; open?: Result; beat?: BeatChange; play?: PlayChange; ideas?: string[]; ai: boolean; note?: string }
 
 function playLabel(c: Omit<PlayChange, 'label'>): string {
@@ -41,6 +41,10 @@ function playCommand(q: string, info: ScreenInfo | null): Answer | null {
   if (!p) return null
   const t = spokenNumbers(q)
   if (/^(ok(ay)? |yes |yeah |sure )?(try it|let'?s try it|do it|do the drill|drill it|start the drill|loop it)\b/.test(t)) return { reply: 'Okay.', play: { coach: { act: true }, label: 'Do what the coach suggests' }, ai: false }
+  // a backing track to improvise over, in this song's key and style ("metal chugs to jam over", "give me a backing track")
+  if (/backing( track)?|\bjam (over|along|to)\b|improvi[sz]e over|something to (solo|jam|improvi[sz]e) (over|to)|\bchugs?\b.*(over|to|for)/.test(t) && !/\b(turn|switch)\b|\bband\b/.test(t) && !/\bin [a-g](#|b| sharp| flat)?( minor| major| m)?\b/.test(t)) {
+    return { reply: 'Okay, a band in this song\'s key.', play: { coach: { backing: t }, label: 'Backing track for this' }, ai: false }
+  }
   // the coach: "coach me", "how was that?", "why is this bar hard?", "what am I doing wrong in bar 6?"
   if (/\bcoach( me)?\b|how (was|did) (that|i)\b|what('s| is| am i| did i)( i)? (doing |do )?wrong|why (is|was) (this|that|bar \d+)( bar| part)? (so )?(hard|tricky|difficult)|what should i (fix|work on)/.test(t)) {
     const m = /\b(?:bar|measure) (\d+)/.exec(t)

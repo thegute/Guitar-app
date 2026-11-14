@@ -148,6 +148,32 @@ const errs = (page, where) => { if (page.errors.length) bad(`${where} page error
     errs(page, 'ai'); await page.context().close()
   }
 
+  // ---- "metal chugs to jam over": the coach makes a backing track in this song's key; Improvise over it opens Jam's band
+  if (want('backing')) {
+    const page = await newPage(browser, { ...base, 'kg:coach': { voice: false } })
+    await open(page)
+    await page.locator('.nav-search').click()
+    await page.locator('.search-input').fill('give me metal chugs to jam over')
+    await page.keyboard.press('Enter')
+    await page.waitForSelector('.ask-a:not(.thinking)', { timeout: 5000 }).catch(() => {})
+    const b = page.locator('.ask-a button:has-text("Backing track for this")')
+    if (!(await b.count())) bad('backing: Ask should offer "Backing track for this"')
+    else {
+      await b.click()
+      const t = await page.locator('[data-testid=coach-backing]').innerText({ timeout: 3000 }).catch(() => '')
+      if (!/Metal backing in [A-G]/.test(t) || !/you asked/.test(t) || !/BPM/.test(t)) bad(`backing: the offer: "${t}"`)
+      console.log(`  backing: ${t.split('\n')[0]}`)
+      await page.locator('[data-testid=coach-backing-go]').click()
+      await page.waitForTimeout(1200)
+      const body = await page.evaluate(() => document.body.innerText)
+      if (!/Progression/i.test(body) || !/A minor · Metal/.test(body)) bad('backing: Jam should open with the metal band in A minor')
+      const k = await page.evaluate(() => [localStorage.getItem('kg:progStyle'), localStorage.getItem('kg:progKey')])
+      if (k[0] !== '"metal"') bad(`backing: Jam style ${k[0]}`)
+      await page.screenshot({ path: path.join(OUT, 'coach-backing.png') })
+    }
+    errs(page, 'backing'); await page.context().close()
+  }
+
   // ---- Learn → Today: the coach's spots and the weekly check-up, which starts a 5-minute session in the song player
   if (want('today')) {
     const now = Date.now(), DAY = 864e5

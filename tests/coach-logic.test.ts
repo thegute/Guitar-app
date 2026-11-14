@@ -223,3 +223,30 @@ import { weekReport, checkupDue, checkupSession } from '../src/coach/checkup'
   assert.match(s.steps[2].title, /Bar 8/)
   console.log('weekly check-up: ok')
 }
+
+// ---- coach-made backing tracks
+import { backingFor, styleFromWords, styleFromSong } from '../src/coach/backing'
+import { parseTextTab } from '../src/tabs/textTab'
+import { fromTextTab } from '../src/tabs/model'
+{
+  assert.equal(styleFromWords('give me metal chugs to jam over'), 'metal')
+  assert.equal(styleFromWords('a djent groove'), 'progmetal')
+  assert.equal(styleFromWords('something bluesy'), 'blues')
+  const am = { root: 'A', minor: true, score: 1, label: 'A minor' }
+  const p = backingFor({ key: am, asked: 'metal chugs' })
+  assert.equal(p.style, 'metal'); assert.equal(p.key, 'A'); assert.equal(p.mode, 'minor'); assert.match(p.text, /you asked/); assert.match(p.scale, /A natural minor/)
+  const blues = backingFor({ key: { root: 'E', minor: false, score: 1, label: 'E major' }, path: 'bluesrock' })
+  assert.equal(blues.style, 'bluesrock'); assert.equal(blues.mode, 'mixolydian'); assert.match(blues.text, /style path/)
+  // a drop-D palm-muted riff reads as metal; the speed you play it at sets the tempo
+  const tt = parseTextTab(`e|----------------|\nB|----------------|\nG|----------------|\nD|0-0-0-0-3-3-5-5-|\nA|0-0-0-0-3-3-5-5-|\nD|0-0-0-0-3-3-5-5-|`)
+  assert.ok(tt)
+  const riff = fromTextTab(tt!)
+  {
+    const tr = riff.tracks[0]; tr.tuning = [38, 45, 50, 55, 59, 64]
+    riff.tempo = 150
+    assert.equal(styleFromSong(riff).style, 'metal')
+    const r = backingFor({ song: riff, key: { root: 'D', minor: true, score: 1, label: 'D minor' }, speed: 0.6 })
+    assert.equal(r.bpm, 90, 'song tempo × your speed')
+  }
+  console.log('backing tracks: ok')
+}

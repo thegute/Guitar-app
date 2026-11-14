@@ -20,7 +20,10 @@ import { CoachCard, type CoachAct } from '../coach/CoachCard'
 import { coachPrefs, saveCoachPrefs, stringName, barsText as coachBars } from '../coach/advice'
 import { COACH_RAMP, DRILL_ID, easierSpot, makeDrill } from '../coach/drill'
 import { loadMemory, noteClean, saveMemory } from '../coach/memory'
-import { isSpeaking, stopSpeaking } from '../assistant/speak'
+import { backingFor, type BackingPlan } from '../coach/backing'
+import { activeLens } from '../coach/lens'
+import { launch } from '../search/launch'
+import { isSpeaking, speak, stopSpeaking } from '../assistant/speak'
 import { defaultTrack, flatten, playable, trackPickup, type SongNote, type SongTrack } from '../tabs/model'
 import { detectKey, improvisationScales, type KeyGuess } from '../tabs/keyDetect'
 import { chordInfo, chordTimeline, guessBarChords, keyScalePcs } from '../tabs/harmony'
@@ -514,6 +517,7 @@ export function PlayScreen() {
     setNudge(false)
     coachRef.current?.afterPass()
     coachRef.current?.ran(score)
+    if (score >= 90) offerBacking.current()
     autoFinishRef.current(score, speedNow)
   }, [])
 
@@ -582,6 +586,10 @@ export function PlayScreen() {
 
   const lastHitMs = useRef(-1e9)
   const coachRef = useRef<ReturnType<typeof useCoach> | null>(null)
+  // the coach's backing track offer: after a clean run, or when asked ("give me a backing track", "metal chugs to jam over")
+  const [backing, setBacking] = useState<BackingPlan | null>(null)
+  const backingOffered = useRef(new Set<string>())
+  const offerBacking = useRef<(asked?: string, force?: boolean) => void>(() => {})
   /** Wait-for-me mode: a single note was heard. */
   const onNote = useCallback((heardMidi: number) => {
     const { pos, follow, strict, loopRange } = ref.current
@@ -828,6 +836,16 @@ export function PlayScreen() {
     song: doc && doc.id !== DRILL_ID ? { id: doc.id, title: doc.title, inst: docInstrument(doc) } : undefined,
   })
   coachRef.current = coach
+  offerBacking.current = (asked, force) => {
+    if (!doc || !track || doc.id === DRILL_ID || doc.source === 'lesson') return
+    if (!force && (backingOffered.current.has(doc.id) || !coachPrefs().auto)) return
+    backingOffered.current.add(doc.id)
+    let picked: string | undefined
+    try { picked = JSON.parse(localStorage.getItem(`kg:bandStyle:${doc.id}`) ?? 'null') ?? undefined } catch { /* storage */ }
+    const plan = backingFor({ song: doc.song, title: doc.title, artist: doc.artist, picked, key, asked, path: activeLens()?.id, speed })
+    setBacking(plan)
+    if (force && coachPrefs().voice) void speak(plan.text, { gemini: true })
+  }
   const [shiftBadge, setShiftBadge] = useState<{ fret: number; bar: number } | null>(null)
   const [moved, setMoved] = useState<{ key: string; text: string } | null>(null)
   useEffect(() => { if (!loop) setShiftBadge(null) }, [loop])
@@ -1161,6 +1179,7 @@ export function PlayScreen() {
       else { const n = track.bars.length; const f = Math.max(0, Math.min(n - 1, a.loop.from)), t = Math.max(f, Math.min(n - 1, a.loop.to)); setLoop({ from: f, to: t }) }
     }
     if (a.speed) setSpeed(Math.max(0.25, Math.min(1.5, Math.round(a.speed * 20) / 20)))
+    if (a.coach?.backing !== undefined) { offerBacking.current(a.coach.backing, true); return }
     if (a.coach?.act) { if (coach.state) coachActsRef.current()[0]?.run() } else if (a.coach) coach.ask(a.coach.bar)
     if (a.open === 'options') setOpts(true)
     else if (a.open === 'video') { if (doc?.youtube) setShowVideo(true); else setVideoAsk(true); setLay({ ...lay, side: true, focus: false }) }
@@ -1654,6 +1673,11 @@ export function PlayScreen() {
         )}
         {coach.note && !coach.state && (
           <div className="coach-note small" role="status" data-testid="coach-note"><Ico n="sparkles" /> {coach.note} <button className="btn sm ghost" aria-label="Close" onClick={() => coach.dismiss()}>✕</button></div>
+        )}
+        {backing && !coach.state && (
+          <div className="coach-note small" role="status" data-testid="coach-backing"><Ico n="sparkles" /> <span>{backing.text}</span>
+            <button className="btn sm primary" data-testid="coach-backing-go" onClick={() => { countUse('play:coach-backing'); const b = backing; setBacking(null); launch({ jam: { key: b.key, mode: b.mode, style: b.style, bpm: b.bpm, page: 'jam' } }) }}>Improvise over it</button>
+            <button className="btn sm ghost" aria-label="Close" onClick={() => setBacking(null)}>✕</button></div>
         )}
         {report && gameView !== 'game' && (
           <ReportCard r={report} mini={!!coach.state} onClose={() => setReport(null)} onNext={() => {

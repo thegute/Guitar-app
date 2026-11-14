@@ -14,7 +14,7 @@ export interface PlayAction {
   open?: 'options' | 'video' | 'check' | 'loop' | 'solo'
   focus?: PlayFocus
   /** ask the coach (about this bar, 0-based; no bar = the worst so far) */
-  coach?: { bar?: number; /** do what the coach's card offers first ("try it") */ act?: boolean }
+  coach?: { bar?: number; /** do what the coach's card offers first ("try it") */ act?: boolean; /** make a backing track in this song's key and style (what was said, for the style) */ backing?: string }
   /** loop these bars (0-based, inclusive), or null to stop looping */
   loop?: { from: number; to: number } | null
   /** playback speed, 1 = the song's tempo */
