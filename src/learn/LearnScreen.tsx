@@ -27,6 +27,8 @@ import { profile, profileSkipped, skipProfile } from './profile'
 import { ProfileForm } from '../components/ProfileForm'
 import { BendTrainer } from './BendTrainer'
 import { TargetNotes } from './TargetNotes'
+import { CallResponse } from './CallResponse'
+import { EarPath } from './EarPath'
 import { TechniqueList, TechniqueView } from './TechniqueLessons'
 import { TECHNIQUES, drillSong, techniquesDone, type Technique } from './techniques'
 import { lessonTab, type LessonEx } from './lessonExtras'
@@ -61,7 +63,7 @@ import { ago } from '../components/BackupPanel'
 type Route =
   | { k: 'home' } | { k: 'quiz'; id: string } | { k: 'lesson'; id: string } | { k: 'deep'; id: string } | { k: 'books'; id?: string; page?: number; q?: string } | { k: 'lessons' } | { k: 'ear' } | { k: 'caged' }
   | { k: 'changes' } | { k: 'rhythm' } | { k: 'circle' } | { k: 'progress' } | { k: 'settings'; n?: number } | { k: 'guide'; sec?: string }
-  | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' } | { k: 'targets' } | { k: 'licks'; sel?: string } | { k: 'videos' } | { k: 'recordings' } | { k: 'chainer' }
+  | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' } | { k: 'targets' } | { k: 'cr' } | { k: 'earpath' } | { k: 'licks'; sel?: string } | { k: 'videos' } | { k: 'recordings' } | { k: 'chainer' }
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -217,6 +219,12 @@ export function LearnScreen() {
   if (route.k === 'changes') return <ChordChanges inst={inst} onExit={back} />
   if (route.k === 'bends') return <BendTrainer inst={inst} onExit={back} />
   if (route.k === 'targets') return <TargetNotes inst={inst} onExit={back} />
+  if (route.k === 'cr') return <CallResponse inst={inst} onExit={back} />
+  if (route.k === 'earpath') return <EarPath onExit={back} onOpen={it => {
+    if ('quiz' in it) push({ k: 'quiz', id: it.quiz })
+    else if ('drone' in it) { try { localStorage.setItem('kg:earLevel', JSON.stringify(it.drone)) } catch { /* storage */ } push({ k: 'ear' }) }
+    else { try { localStorage.setItem('kg:cr:level', JSON.stringify(it.cr)) } catch { /* storage */ } push({ k: 'cr' }) }
+  }} />
   if (route.k === 'techniques') return <TechniqueList onExit={back} onOpen={id => push({ k: 'technique', id })} />
   if (route.k === 'technique') return <TechniqueView id={route.id} inst={inst} onExit={back} onDrill={t => runDrill(t)} />
   if (route.k === 'rhythm') return <RhythmTrainer onExit={back} />
@@ -286,7 +294,8 @@ export function LearnScreen() {
     { title: 'Your books', tools: [{ id: 'books' as const, title: 'My books', sub: books.length ? `${books.length} books: read, search, learn from them` : 'Import your book pack' }] },
     { title: 'Ears and theory', tools: [
       { id: 'lessons', title: 'Theory lessons', sub: `${read} of ${lessonsFor(inst.id).length} read` },
-      { id: 'ear', title: 'Ear training', sub: 'Drone-based, by feel' },
+      { id: 'earpath', title: 'Ear training', sub: 'Step by step: degrees, intervals, chords, progressions, play it back' },
+      { id: 'cr', title: 'Call and response', sub: 'Hear a phrase, play it back', needs: true },
       { id: 'caged', title: `${inst.shapeSystem.join('')} explorer`, sub: 'Five shapes, whole neck' },
       { id: 'circle', title: 'Circle of fifths', sub: 'Keys and their chords' },
     ] },
@@ -508,7 +517,7 @@ export function LearnScreen() {
 // Psychedelic mode: a samurai dog sticker on each Learn tool.
 const BADGES: Record<string, DogId> = {
   techniques: 'shepherd', licks: 'rottweiler', bends: 'doberman', changes: 'boxer', rhythm: 'shiba', lessons: 'akita', ear: 'husky',
-  caged: 'frenchie', circle: 'golden', progress: 'muscle', guide: 'lab', songbook: 'princess', exercises: 'husky', videos: 'akita', chainer: 'golden', recordings: 'lab', targets: 'shepherd',
+  caged: 'frenchie', circle: 'golden', progress: 'muscle', guide: 'lab', songbook: 'princess', exercises: 'husky', videos: 'akita', chainer: 'golden', recordings: 'lab', targets: 'shepherd', earpath: 'husky', cr: 'boxer',
 }
 function ToolBadge({ id }: { id: string }) {
   const b = BADGES[id]

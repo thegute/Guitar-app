@@ -2892,3 +2892,14 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .tn-steps span { font-size: .78rem; padding: 2px 8px; border-radius: var(--r-pill); border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); }
 .tn-steps span.ok { background: color-mix(in srgb, var(--mint) 35%, transparent); }
 .tn-steps span.now { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+/* Call and response, ear path */
+.cr-dots { display: flex; gap: 6px; flex-wrap: wrap; }
+.cr-dot { min-width: 2.4rem; text-align: center; padding: 6px 8px; border-radius: var(--r-sm); border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); font-weight: 600; }
+.cr-dot.heard { border-color: var(--accent); }
+.cr-dot.ok { background: color-mix(in srgb, var(--mint) 35%, transparent); }
+.cr-dot.wrong { background: color-mix(in srgb, var(--coral) 35%, transparent); }
+.cr-dot.missing { opacity: .55; border-style: dashed; }
+.cr-msg { margin: 0; font-size: 1.05rem; }
+.ear-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ear-items li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

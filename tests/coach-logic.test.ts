@@ -295,3 +295,28 @@ import { levelAdvice, noteLap, loadBest } from '../src/learn/targets'
   noteLap('any', 72, 100); assert.match(levelAdvice(loadBest()).text, /best clean lap is at 72 BPM/)
   console.log('target levels: ok')
 }
+
+// ---- call and response, the ear path
+import { CR_LEVELS, makePhrase, compare, boxFor } from '../src/learn/callPhrases'
+import { EAR_PATH, earStatus } from '../src/learn/earSteps'
+import { findQuiz } from '../src/learn/quiz'
+{
+  const b = boxFor('A', 'minpent'); assert.equal(b.from, 5); assert.equal(b.root, 57)
+  for (const l of CR_LEVELS) for (let s = 1; s < 30; s++) {
+    const p = makePhrase(l, 'A', s)
+    assert.ok(p.notes.length >= l.notes[0] && p.notes.length <= l.notes[1] || l.scale === 'lick', `level ${l.id} length`)
+    if (!l.anyStart) assert.equal(p.notes[0], p.root, 'starts at home')
+    if (l.scale === 'minpent') for (const m of p.notes) assert.ok(b.pool.includes(m), 'inside the box')
+    assert.ok(compare(p, p.notes).ok)
+  }
+  const p = makePhrase(CR_LEVELS[1], 'A', 3)
+  assert.ok(compare(p, p.notes.map(m => m + 12)).ok, 'any octave'); assert.ok(!compare(p, p.notes.map(m => m + 12), false).ok)
+  const wrong = compare(p, [p.notes[0], p.notes[1] + 1]); assert.equal(wrong.first?.i, 1); assert.deepEqual(wrong.marks.slice(1), ['wrong', 'missing'])
+  // bends: the fretted note or the bent one
+  assert.ok(compare({ notes: [59], durs: [1], also: [[57, 58]], root: 57, from: 5 }, [57]).ok)
+  // every quiz on the ear path exists
+  const inst = currentInst()
+  for (const st of EAR_PATH) for (const it of st.items) if ('quiz' in it) assert.ok(findQuiz(it.quiz, inst), `quiz ${it.quiz}`)
+  assert.equal(earStatus().next?.id, 'l1-pitch')
+  console.log('call and response, ear path: ok')
+}
