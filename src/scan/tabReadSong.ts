@@ -123,7 +123,7 @@ export function dropRepeats(readings: TabReading[]): TabReading[] {
 }
 
 /** A screen recording of a YouTube Short often runs past its end: the Short starts again from the top. Lines at the end
- *  that are the opening again (8+ steps the same, in order, from the first note) are that replay, not more music. */
+ *  that are the opening again (6+ steps the same, in order, from the first note) are that replay, not more music. */
 export function dropLoop(readings: TabReading[]): TabReading[] {
   const key = (st: { notes: { string: number; fret: number }[] }) => st.notes.map(n => `${n.string}:${n.fret}`).sort().join('+')
   const all = readings.flatMap(r => r.systems.map(sy => ({ r, sy, keys: sy.bars.flatMap(b => b.steps.filter(st => st.notes.length).map(key)) })))
@@ -132,7 +132,7 @@ export function dropLoop(readings: TabReading[]): TabReading[] {
   for (let i = all.length - 1; i > 0; i--) {
     const k = all[i].keys
     const n = Math.min(k.length, start.length)
-    if (n < 8 || lcs(k.slice(0, n), start.slice(0, n)) < n * 0.9) break
+    if (n < 6 || lcs(k.slice(0, n), start.slice(0, n)) < n * 0.85) break
     // the replay only counts when everything after this line is gone too (it is the very end)
     if (all.slice(i + 1).some(a => a.sy.bars.length)) break
     all[i].sy.bars = []
