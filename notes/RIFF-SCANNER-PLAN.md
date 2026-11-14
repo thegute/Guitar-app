@@ -80,3 +80,12 @@ error rate (wrong note without an amber ring).
   "staffed columns" mask); page view scrolling up (mergePages: a picture's first lines = the last picture's last lines are
   read once, the look most others agree with wins). Synth: string names (15%) and heavy music-font rests (55% of rests) →
   retrain v4 on the Mac (`retrain-v4.sh`, from v2/best.pt).
+- 2026-11-14 9 more real recordings (owner's phone, sent at ~520 px wide: smaller than the screen; the app grabs full size).
+  Right after fixes: LevelUp 93/93; Blue all pages incl. the note under the "Live" badge (same-page frames now stack);
+  Songsterr page view right except one phantom chord on the first line; Amazing Grace 19/19; jazz Dm Short 42 notes, one
+  grace missed; landscape lessons (tab strip at the bottom, white on black and light Songsterr-style) read right;
+  Brown Eyed Girl (see-through box, guitarist moving behind) now one strip, tie-end "(12)" parens read as notes.
+  Still wrong (→ synth v5 on the Mac): ¼/½/full bend labels read as top-string notes, Everlong's big bold touching "11 over 9"
+  misread as 10/12/13/14 and its 6/X/4 muted chords missed, a few phantoms from video showing through. Billy Strings Short
+  (97a93475): at 510 px the B and D lines vanished in the copy sent; nothing found. Fixes: thick lines (d = 2 or 4, rows
+  ≤4 px merged), same page by staff height + numbers, page overlap on ink darker than its surroundings, dropLoop.
