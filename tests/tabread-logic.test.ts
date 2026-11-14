@@ -5,7 +5,7 @@ import { strict as assert } from 'node:assert'
 import { readFileSync } from 'node:fs'
 import { inflateSync } from 'node:zlib'
 import { readTab, fitRhythm } from '../src/scan/tabRead'
-import { readingSong } from '../src/scan/tabReadSong'
+import { readingSong, mergePages } from '../src/scan/tabReadSong'
 import { tuningFromText, guitarNumbers } from '../src/scan/tuningText'
 import { rhythmFromStems } from '../src/scan/stemRhythm'
 import { fitBar, straighten, timeOf } from '../src/scan/crnnRead'
@@ -173,4 +173,18 @@ console.log('fitRhythm: ok')
   assert.equal(tl(200), 1.5)
   assert.equal(tl(50), null)
   console.log('audio referee: ok')
+}
+
+// a page that scrolls up and down: each picture shows a few lines, the next the same lines moved up and one new; the
+// lines seen again are read once, and the reading most looks agree on wins
+{
+  const sys = (...cols: string[]) => ({ lines: [], gap: 10, left: 0, right: 100, bars: [{ steps: cols.map(c => ({ dur: 1, notes: c ? c.split('+').map(n => ({ string: +n.split(':')[0], fret: +n.split(':')[1] })) : [] })) }] }) as any
+  const L1 = sys('0:3', '1:2', '2:0', '3:0'), L2 = sys('4:1', '5:0', '4:1', '3:2'), L3 = sys('1:3', '2:2', '3:0', '4:1')
+  const L3x = sys('2:0', '1:3', '2:2', '3:0', '4:1') // a rest sign once read as a 0
+  const L4 = sys('0:1', '1:1', '2:3', '3:3')
+  const rd = (...s: any[]) => ({ systems: s, unsure: 0, notes: 4, meter: 4 })
+  const out = mergePages([rd(L1, L2, L3x), rd(L2, L3, L4), rd(L3, L4, sys('5:5', '4:5', '3:5', '2:5'))])
+  const lines = out.flatMap(r => r.systems.map((s: any) => s.bars[0].steps.map((st: any) => st.notes.map((n: any) => `${n.string}:${n.fret}`).join('+')).join(' ')))
+  assert.deepEqual(lines, ['0:3 1:2 2:0 3:0', '4:1 5:0 4:1 3:2', '1:3 2:2 3:0 4:1', '0:1 1:1 2:3 3:3', '5:5 4:5 3:5 2:5'], lines.join(' / '))
+  console.log('page that scrolls up: ok')
 }

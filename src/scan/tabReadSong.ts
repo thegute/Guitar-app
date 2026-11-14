@@ -46,6 +46,47 @@ function lcs(a: string[], b: string[]): number {
   return prev[b.length]
 }
 
+/** A video of a whole page that scrolls up and down (Songsterr's page view, a PDF on screen): each picture shows a few
+ *  lines of tab, the next one the same lines moved up with a new one at the bottom. The lines a picture starts with
+ *  that are the lines the picture before it ended on (in order, mostly the same notes) are the same music seen again:
+ *  they're left out of the later picture, and every look at a line counts as a vote: the line keeps the reading that
+ *  agrees most with the others (a rest sign once read as a 0, a blurred 6 once read as an 8, is outvoted). */
+export function mergePages(readings: TabReading[]): TabReading[] {
+  type Sys = TabReading['systems'][number]
+  const key = (st: { notes: { string: number; fret: number }[] }) => st.notes.map(n => `${n.string}:${n.fret}`).sort().join('+')
+  const keysOf = (sy: Sys) => sy.bars.flatMap(b => b.steps.filter(st => st.notes.length).map(key))
+  const sim = (a: Sys, b: Sys) => {
+    const ka = keysOf(a), kb = keysOf(b)
+    const n = Math.max(ka.length, kb.length)
+    return n ? lcs(ka, kb) / n : 1
+  }
+  const kept: { r: number; i: number; looks: Sys[] }[] = []
+  const lines = readings.map(r => r.systems.length)
+  readings.forEach((rd, ri) => {
+    const prevMany = ri > 0 && lines[ri - 1] >= 2
+    let m = 0
+    if (prevMany && rd.systems.length >= 2) {
+      for (let n = Math.min(kept.length, rd.systems.length); n >= 1 && !m; n--) {
+        const from = kept.length - n
+        if (rd.systems.slice(0, n).every((sy, j) => sim(sy, kept[from + j].looks[kept[from + j].looks.length - 1]) >= 0.6)) m = n
+      }
+      for (let j = 0; j < m; j++) kept[kept.length - m + j].looks.push(rd.systems[j])
+    }
+    rd.systems.forEach((sy, i) => { if (i >= m) kept.push({ r: ri, i, looks: [sy] }) })
+    rd.systems = rd.systems.slice(m)
+    // (indexes of the lines this picture keeps start at 0 again)
+    for (const k of kept) if (k.r === ri) k.i -= m
+  })
+  for (const k of kept) if (k.looks.length > 2) {
+    // the look with the fewest differences from the others (notes in one and not the other)
+    const ks = k.looks.map(keysOf)
+    let best = 0, bv = Infinity
+    ks.forEach((a, x) => { const v = ks.reduce((s, b, y) => s + (x === y ? 0 : a.length + b.length - 2 * lcs(a, b)), 0); if (v < bv) { bv = v; best = x } })
+    readings[k.r].systems[k.i] = k.looks[best]
+  }
+  return readings
+}
+
 /** A video's strips can repeat: the tab stops scrolling at the end, a page comes back, the scroll was lost for a moment
  *  and picked up again. A strip that starts with what the strips before it ended on loses that part (8+ steps the same,
  *  in order), and a short scrap that only repeats the last steps is dropped. */
@@ -105,7 +146,7 @@ export async function readTabPicturesBest(pics: Gray[], tuning: number[], title:
   const meter = [...votes].sort((a, b) => b[1] - a[1])[0][0]
   const again: TabReading[] = []
   for (const [i, r] of readings.entries()) again.push(r.notes && r.meter !== meter ? await readTabCrnn(pics[i], run, { strings, beats: meter, ...hearFor(i) }) : r)
-  readings = o.video ? dropRepeats(again) : again
+  readings = o.video ? dropRepeats(mergePages(again)) : again
   return readingSong(readings, tuning, title, meter)
 }
 

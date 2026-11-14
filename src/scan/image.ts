@@ -97,10 +97,11 @@ function stripsOf(g: Gray, strings: number[], dark: boolean): Strip[] {
         if (gap) run = 0
       }
     }
-    lineRow[y] = best / w
+    // a top line crowded with two-digit numbers ("—11—12—14—12—") breaks into short runs: the row's total line pixels
+    // count too (a little less than one unbroken run)
+    lineRow[y] = Math.max(best, count * 0.85) / w
     spanL[y] = bestEnd - best + 1
     spanR[y] = bestEnd
-    void count
   }
   // candidate line rows: long runs, keep the strongest row of each thick line
   const cand: number[] = []

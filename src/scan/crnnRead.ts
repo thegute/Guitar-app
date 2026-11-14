@@ -276,7 +276,9 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: {
   }
   rows.sort((p, q) => p.top - q.top)
   for (const r of rows) {
-    const cols = r.cols.sort((p, q) => p.x - q.x)
+    // the string names printed at the start of a staff ("E B G D A E") look like a full chord of unsure numbers there:
+    // left out
+    const cols = r.cols.sort((p, q) => p.x - q.x).filter(c => !(c.kind === 'note' && c.x < r.left + r.gap * 2.5 && c.frets.length >= nStr - 1 && c.frets.filter(f => !f.sure).length * 2 >= c.frets.length))
     const si = systems.length
     systems.push({ lines: [...r.ls].reverse(), gap: r.gap, left: r.left, right: r.right, bars: [] }) // low string first
     sysBars.push(cols.filter(c => c.kind === 'bar').map(c => c.x))

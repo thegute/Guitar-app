@@ -153,7 +153,9 @@ export class Stitcher {
   private prev: Gray | null = null
   private prevProf: Float32Array | null = null
   /** the current strip: frames at their place across it */
-  private layers: { x0: number; g: Gray }[] = []
+  private layers: { x0: number; g: Gray; ok: Uint8Array | null }[] = []
+  /** the staff lines' heights in the current strip's frames (to tell the tab from a box's blank margin) */
+  private lineYs: number[] | null = null
   private at = 0
   private width = 0
   private out: Piece[] = []
@@ -219,12 +221,18 @@ export class Stitcher {
       if (m > 0.3 && (!sh || (sh.dx === 0 && sh.match < 0.9) || (sh.match < 0.8 && m > sh.match - 0.2))) sh = { dx: steady, match: m }
     }
     this.trace.push(sh ? `${sh.dx}:${sh.match.toFixed(2)}` : 'x')
+    // a shift that matches only loosely by columns is checked number by number (a new page of a riff laid out on an even
+    // grid can line up column by column at some shift)
+    if (sh && sh.dx > 0 && sh.match < 0.8) { const o = overlapScore(this.prev!, g, sh.dx - 4, sh.dx + 4); if (o && o.m < 0.5) sh = null }
     // a big jump that matches only loosely is a new page whose music looks like the last one (a repeated riff), not a
     // scroll (a choppy recording can jump far, but then the overlap matches almost exactly)
     if (sh && sh.dx > g.w * 0.35 && sh.match < 0.9) sh = null
     // not moved at all: the same page only if it's nearly identical (a playhead moved over it); a new page with the same
     // riff in the same places matches less well
     if (sh && sh.dx === 0 && sh.match < 0.97 && this.prev && pageDiff(this.prev, g) > 0.02) sh = null
+    // a tab that moves on in jumps (a page at a time) shows the end of the last page again at the start of the new one:
+    // the same strip, moved on (checked number by number, so a new page that starts with the same riff isn't taken for it)
+    if (!sh && this.prev && this.layers.length) { const ov = pageOverlap(this.prev, g); if (ov) sh = { dx: ov.dx, match: 1 } }
     if (sh && sh.dx > 0) {
       // scrolled sideways: this frame sits further along the strip
       this.scrolled = true
@@ -249,12 +257,31 @@ export class Stitcher {
     if (this.layers.length && this.layers[0].g.h !== g.h) return
     const here = this.layers.filter(l => l.x0 === this.at)
     if (here.length >= 7) this.layers.splice(this.layers.indexOf(here[0]), 1)
-    this.layers.push({ x0: this.at, g })
+    if (!this.layers.length && !this.doneW) { const st = findStrips(g); this.lineYs = st.length ? st.flatMap(x => x.lines) : null }
+    this.layers.push({ x0: this.at, g, ok: this.staffed(g) })
     this.width = Math.max(this.width, this.at + g.w)
     if (this.at > this.doneW) {
       this.append(this.compose(this.doneW, this.at))
       this.layers = this.layers.filter(l => l.x0 + l.g.w > this.at)
     }
+  }
+  /** which columns of a frame show the staff (most of its lines there): a page that moves on in jumps has a blank
+   *  margin at its edges, which mustn't paint over the last page's notes where the two overlap */
+  private staffed(g: Gray): Uint8Array | null {
+    const ys = this.lineYs
+    if (!ys) return null
+    const ok = new Uint8Array(g.w)
+    for (let x = 0; x < g.w; x++) {
+      let n = 0
+      for (const y of ys) {
+        const yy = Math.round(y)
+        let v = 1
+        for (let d = -1; d <= 1; d++) if (yy + d >= 0 && yy + d < g.h) v = Math.min(v, g.px[(yy + d) * g.w + x])
+        if (v < 0.6) n++
+      }
+      ok[x] = n * 2 >= ys.length ? 1 : 0
+    }
+    return ok
   }
   /** finished columns of the current strip */
   private done: Gray | null = null
@@ -273,8 +300,10 @@ export class Stitcher {
     const px = new Float32Array(w * h).fill(1)
     const vals: number[] = []
     for (let x = x0; x < x1; x++) {
-      const on = this.layers.filter(l => x >= l.x0 && x < l.x0 + l.g.w)
-      if (!on.length) continue
+      const all = this.layers.filter(l => x >= l.x0 && x < l.x0 + l.g.w)
+      if (!all.length) continue
+      const staffed = all.filter(l => !l.ok || l.ok[x - l.x0])
+      const on = staffed.length ? staffed : all
       const last = on[on.length - 1]
       for (let y = 0; y < h; y++) {
         // one or two frames: the newer; three or more: the middle one
@@ -296,6 +325,53 @@ export class Stitcher {
     if (pano) { this.strips.push(pano); this.timelines.push(tl); for (const part of cutWide(pano)) this.out.push(pieceOf(part)) }
   }
   finish(): Piece[] { this.flush(); return this.out }
+}
+
+/** A new page that starts with the end of the last one (a tab that moves on in jumps, not smoothly): how far it moved
+ *  (dx: the last page's column dx is the new page's column 0). Compared on the staff only (a title or a player's buttons under
+ *  the tab stay put), and only an almost exact match counts: a new page that merely starts with the same riff is laid
+ *  out differently. */
+export function pageOverlap(a: Gray, b: Gray, info?: (m: number, dx: number) => void): { dx: number } | null {
+  const best = overlapScore(a, b, a.w * 0.2, a.w)
+  if (!best) return null
+  info?.(best.m, best.dx)
+  // (the same stretch shown twice matches at 0.93+; a new page, even of the same riff, at 0.3–0.7)
+  return best.m >= 0.86 ? { dx: best.dx } : null
+}
+
+/** How alike frame b is to frame a moved left by dx (-1…1, number by number on the staff), for the best dx between lo and
+ *  hi (pixels); null when b shows no staff. */
+export function overlapScore(a: Gray, b: Gray, lo: number, hi: number): { dx: number; m: number } | null {
+  if (a.w !== b.w || a.h !== b.h) return null
+  const st = findStrips(b)
+  if (!st.length) return null
+  const ls = st.flatMap(x => x.lines), gap = (st[0].lines[st[0].lines.length - 1] - st[0].lines[0]) / Math.max(1, st[0].lines.length - 1)
+  const y0 = Math.max(0, Math.floor(Math.min(...ls) - gap)), y1 = Math.min(a.h, Math.ceil(Math.max(...ls) + gap))
+  // compared as pictures (the numbers on their strings), at half size: a riff that repeats looks alike column by column
+  // but not number by number
+  const W = a.w >> 1, H = (y1 - y0) >> 1
+  const half = (g: Gray) => {
+    const o = new Float32Array(W * H)
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y0 + y * 2) * g.w + x * 2
+      // ink or not (a video showing through a see-through tab box shades it unevenly)
+      o[y * W + x] = Math.min(g.px[i], g.px[i + 1], g.px[i + g.w], g.px[i + g.w + 1]) < 0.5 ? 1 : 0
+    }
+    // the staff lines are the same everywhere: leave each row's average out
+    for (let y = 0; y < H; y++) { let s = 0; for (let x = 0; x < W; x++) s += o[y * W + x]; s /= W; for (let x = 0; x < W; x++) o[y * W + x] -= s }
+    return o
+  }
+  const A = half(a), B = half(b)
+  let best = { dx: 0, m: -1 }
+  for (let dx = Math.max(0, Math.round(lo / 2)); dx <= Math.min(Math.round(W * 0.72), Math.round(hi / 2)); dx++) {
+    // (the stretch both show, less its ends: a tab box has margins, and a number at the very edge is cut in one of them)
+    const len = W - dx, e = Math.round(W * 0.06)
+    let s = 0, na = 0, nb = 0
+    for (let y = 0; y < H; y++) for (let x = e; x < len - e; x++) { const va = A[y * W + x + dx], vb = B[y * W + x]; s += va * vb; na += va * va; nb += vb * vb }
+    const m = s / Math.sqrt(na * nb + 1e-12)
+    if (m > best.m) best = { dx, m }
+  }
+  return best.m > -1 ? { dx: best.dx * 2, m: best.m } : null
 }
 
 /** How different two frames of the same size are, leaving out a playhead (columns dark from top to bottom in either):

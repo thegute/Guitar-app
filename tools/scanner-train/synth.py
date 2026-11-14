@@ -181,6 +181,13 @@ def sample(rng=random, W=512, nstr=None):
     min_dx = fnt.getbbox('22')[2] * rng.uniform(1.25, 1.7)  # numbers never touch
     prop = rng.random() < 0.8
     x = x_start + rng.uniform(0.6, 2.5) * GAP * S
+    # sometimes the string names at the start ("E B G D A E"), not notes
+    if rng.random() < 0.15:
+        nm = font(fpath, fsize * rng.uniform(0.7, 1.0))
+        names = rng.choice([['e', 'B', 'G', 'D', 'A', 'E'], ['E', 'B', 'G', 'D', 'A', 'E'], ['D', 'A', 'F', 'C', 'G', 'C'], ['A', 'E', 'C', 'G']])[:nstr]
+        for s_, ch in enumerate(names):
+            d.text((x - GAP * S * 0.9, ys(s_, x)), ch, font=nm, fill=ink, anchor='mm')
+        x += GAP * S * 0.6
     # sometimes a time signature or "TAB" at the start
     if rng.random() < 0.3:
         big = font(fpath, GAP * S * 2.2)
@@ -268,21 +275,33 @@ def draw_num(d, x, y, txt, fnt, ink, bg, halo):
 
 
 def draw_rest(d, rng, x, top, bot, kind, ink, S):
-    mid = (top + bot) / 2
+    mid = (top + bot) / 2 + rng.uniform(-0.6, 0.6) * (bot - top) / 5
     g = (bot - top) / 5
+    bold = rng.random() < 0.55  # music-font rests (Songsterr, Guitar Pro): heavy, about as thick as a digit's stroke
     if kind <= 1:  # whole / half: a box on a line
         y = mid - g * 0.5 if kind == 0 else mid
-        d.rectangle([x - g * 0.6, y - g * 0.45, x + g * 0.6, y], fill=ink)
+        w = g * (rng.uniform(0.5, 0.65) if bold else 0.6)
+        d.rectangle([x - w, y - g * (0.5 if bold else 0.45), x + w, y], fill=ink)
     elif kind == 2:  # quarter: a zigzag
-        pts = [(x - g * 0.2, mid - g * 1.4), (x + g * 0.3, mid - g * 0.6), (x - g * 0.2, mid), (x + g * 0.3, mid + g * 0.7), (x - g * 0.1, mid + g * 1.2)]
-        d.line(pts, fill=ink, width=max(1, int(g * 0.35)))
+        if bold:
+            h = g * rng.uniform(1.7, 2.6)
+            t = mid - h / 2
+            lw = max(2, int(g * rng.uniform(0.3, 0.5)))
+            pts = [(x - g * 0.25, t), (x + g * 0.3, t + h * 0.32), (x - g * 0.15, t + h * 0.55), (x + g * 0.25, t + h * 0.8)]
+            d.line(pts, fill=ink, width=lw, joint='curve')
+            # the hook at the foot, curling back to the left
+            d.arc([x - g * 0.45, t + h * 0.72, x + g * 0.3, t + h * 1.02], 60, 250, fill=ink, width=max(1, int(lw * 0.7)))
+        else:
+            pts = [(x - g * 0.2, mid - g * 1.4), (x + g * 0.3, mid - g * 0.6), (x - g * 0.2, mid), (x + g * 0.3, mid + g * 0.7), (x - g * 0.1, mid + g * 1.2)]
+            d.line(pts, fill=ink, width=max(1, int(g * 0.35)))
     else:  # eighth … 32nd: a slanted stem with 1–3 hooks
         n = kind - 2
-        d.line([(x + g * 0.4, mid - g * 0.9), (x - g * 0.1, mid + g * (0.6 + 0.5 * n))], fill=ink, width=max(1, int(S * 0.9)))
+        r = g * (rng.uniform(0.22, 0.32) if bold else 0.2)
+        d.line([(x + g * 0.4, mid - g * 0.9), (x - g * 0.1, mid + g * (0.6 + 0.5 * n))], fill=ink, width=max(1, int(S * (rng.uniform(1.2, 2.0) if bold else 0.9))))
         for k in range(n):
             cy = mid - g * 0.9 + k * g * 0.6
-            d.ellipse([x - g * 0.45, cy - g * 0.22, x - g * 0.05, cy + g * 0.22], fill=ink)
-            d.line([(x - g * 0.25, cy), (x + g * 0.4 - k * g * 0.15, cy - g * 0.1)], fill=ink, width=max(1, int(S * 0.7)))
+            d.ellipse([x - g * 0.25 - r, cy - r, x - g * 0.25 + r, cy + r], fill=ink)
+            d.line([(x - g * 0.25, cy), (x + g * 0.4 - k * g * 0.15, cy - g * 0.1)], fill=ink, width=max(1, int(S * (1.2 if bold else 0.7))))
 
 
 def draw_stroke(d, x, y, kind, ink, S):

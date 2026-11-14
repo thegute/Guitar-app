@@ -6,6 +6,7 @@ import { looksLikeTab, writtenTempo } from '../src/scan/read'
 import { songFromScan } from '../src/scan/RiffScanner'
 import { current } from '../src/instrument'
 import { findStrips, profile, sameFrame, shiftBetween, stretchContrast, sharpen, type Gray } from '../src/scan/image'
+import { Stitcher } from '../src/scan/pictures'
 
 let checks = 0
 const ok = (c: boolean, m: string) => { checks++; assert.ok(c, m) }
@@ -101,5 +102,48 @@ E|-3---------|-----------|
   const notes = d.song.tracks[0].bars.flatMap(b => b.steps.flatMap(st => st.notes.map(n => `${n.string}:${n.fret}`)))
   ok(notes.slice(0, 3).join(' ') === '0:3 3:0 4:0' && notes.length === 13, `scanned notes ${notes.join(' ')}`)
   ok(d.song.tracks[0].bars[0].steps.some(st => st.chord === 'G'), 'chord names kept')
+}
+// a top line crowded with two-digit numbers ("—11—12—14—12—"): the staff is still found
+{
+  const g = canvas(1100, 300, 1)
+  for (let s = 0; s < 6; s++) rect(g, 80, 100 + s * 30, 1000, 2, 0)
+  for (let i = 0; i < 9; i++) { const x = 100 + i * 110; rect(g, x - 4, 88, 48, 26, 1); rect(g, x, 90, 18, 22, 0); rect(g, x + 22, 90, 18, 22, 0) }
+  for (let i = 0; i < 8; i++) { const x = 150 + i * 115; rect(g, x - 4, 118, 48, 26, 1); rect(g, x, 120, 18, 22, 0); rect(g, x + 22, 120, 18, 22, 0) }
+  const st = findStrips(g, [6])
+  ok(st.length === 1 && st[0].lines.length === 6, `staff with crowded top lines found (${JSON.stringify(st.map(x => x.lines))})`)
+}
+// (the stitcher also makes PNG pieces for the AI reader: a canvas that draws nothing will do here)
+;(globalThis as any).document ??= { createElement: () => ({ getContext: () => ({ createImageData: (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData() {} }), toDataURL: () => 'data:image/png;base64,' }) }
+// a tab that moves on a page at a time, each page showing the end of the last one again, with a blank margin at both
+// sides of the box: one strip, nothing lost under the margins
+{
+  const W = 1000, H = 120, mar = 40
+  const long = canvas(3000, H, 1)
+  const ns: [number, number][] = Array.from({ length: 90 }, (_, i) => [20 + i * 32 + Math.round(rnd() * 6), Math.floor(rnd() * 6)])
+  staff(long, 0, 30, 3000, 12, 6, 0, 1, ns)
+  const page = (x0: number) => {
+    const f = canvas(W, H, 1)
+    for (let y = 0; y < H; y++) for (let x = mar; x < W - mar; x++) f.px[y * W + x] = long.px[y * long.w + x0 + x]
+    return f
+  }
+  const st = new Stitcher()
+  for (const x0 of [0, 600, 1200, 1800]) for (let k = 0; k < 3; k++) st.addGray(page(x0))
+  st.finish()
+  ok(st.strips.length === 1 && st.scrolled, `pages that overlap become one strip (${st.strips.length} strips: ${st.trace.join(' ')})`)
+  const s0 = st.strips[0]
+  // no blank margin painted over the middle of the strip: every column between the first and last page's edges has its lines
+  let blank = 0
+  for (let x = mar; x < s0.w - mar; x++) if (s0.px[(30 + 12 * 5) * s0.w + x] > 0.5 && s0.px[(30 + 12 * 4) * s0.w + x] > 0.5) blank++
+  ok(blank < 30, `no blank stripes where the pages meet (${blank} columns)`)
+  // a new page with other music on it: a new strip
+  const other = canvas(3000, H, 1)
+  staff(other, 0, 30, 3000, 12, 6, 0, 1, Array.from({ length: 90 }, (_, i): [number, number] => [20 + i * 32 + Math.round(rnd() * 6), Math.floor(rnd() * 6)]))
+  const st2 = new Stitcher()
+  for (let k = 0; k < 3; k++) st2.addGray(page(0))
+  const f2 = canvas(W, H, 1)
+  for (let y = 0; y < H; y++) for (let x = mar; x < W - mar; x++) f2.px[y * W + x] = other.px[y * other.w + x]
+  for (let k = 0; k < 3; k++) st2.addGray(f2)
+  st2.finish()
+  ok(st2.strips.length === 2, `a page of other music is a new strip (${st2.strips.length}: ${st2.trace.join(" ")})`)
 }
 console.log(`scan image: ${checks} checks, 0 failed`)

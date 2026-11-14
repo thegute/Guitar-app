@@ -69,3 +69,14 @@ error rate (wrong note without an amber ring).
   per-pixel median over frames, long strips read in windows, white tab in a dark frame found, repeats at the end dropped, look-alike
   page turns kept apart. Open: note lengths on scrolling video (56–74%: triplets vs 8ths in the tuplet head, missed bar lines),
   dead notes x read as 0 at small sizes, the owner's real screen recordings (Billy Strings Short first), audio as referee.
+- 2026-11-14 The owner's 3 real phone recordings (1080×1432, YouTube app), checked note by note against the frames:
+  LevelUp Short (page flips, the end of each page shown again at the start of the next): 93/93 notes right after the fix;
+  James_Guitar "Blue" (small see-through white box, string names): every clear page exact, one note lost under YouTube's
+  "Live" badge; Songsterr page view (Tears in Heaven, scrolling up): notes right except Songsterr's heavy quarter rests read as 0.
+  Fixes: string-name letters at a staff's start dropped (crnnRead); a top line crowded with 2-digit numbers still counts as a
+  line (image.ts: run OR 0.85 × all line pixels); pages that move on in jumps join into one strip (pictures.ts pageOverlap /
+  overlapScore: ink-vs-paper 2D match on the staff at half size, 0.93+ same stretch vs ≤0.7 a new page of the same riff; weak
+  column-profile shifts are checked the same way); a box's blank margin never paints over notes (Stitcher layers keep a
+  "staffed columns" mask); page view scrolling up (mergePages: a picture's first lines = the last picture's last lines are
+  read once, the look most others agree with wins). Synth: string names (15%) and heavy music-font rests (55% of rests) →
+  retrain v4 on the Mac (`retrain-v4.sh`, from v2/best.pt).
