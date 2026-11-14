@@ -102,6 +102,24 @@ def bar_rhythm(rng, beats):
     return out
 
 
+def bar_rhythm_compound(rng, beats):
+    """6/8, 9/8, 12/8: beats of a dotted quarter, eighths beamed in threes (NOT triplets: no 3 printed)"""
+    out = []
+    for _ in range(int(round(beats / 1.5))):
+        r = rng.random()
+        if r < 0.45:
+            out += [(3, 0, 0)] * 3
+        elif r < 0.6:
+            out.append((2, 1, 0))
+        elif r < 0.75:
+            out += [(2, 0, 0), (3, 0, 0)]
+        elif r < 0.88:
+            out += [(4, 0, 0), (4, 0, 0), (3, 0, 0), (3, 0, 0)]
+        else:
+            out += [(3, 0, 0), (2, 0, 0)]
+    return out
+
+
 def length(d):
     dur, dots, tup = d
     v = DUR[dur] * (1.5 if dots == 1 else 1.75 if dots == 2 else 1)
@@ -169,9 +187,11 @@ def sample(rng=random, W=512, nstr=None):
         for k, ch in enumerate(rng.choice(['44', '34', '68', '78', '24', 'TA'])):
             d.text((x, ys(0, x) + (k * 2 - 0.2) * GAP * S * (nstr - 1) / 4), ch, font=big, fill=ink, anchor='lt')
         x += GAP * S * 2.4
-    meter = rng.choice([4, 4, 4, 3, 2, 3.5, 3])
+    compound = rng.random() < 0.22
+    meter = rng.choice([3, 4.5, 6, 6]) if compound else rng.choice([4, 4, 4, 3, 2, 3.5, 3])
+    beam_unit = 1.5 if compound else 1.0
     while x < x_end - GAP * S:
-        bar = bar_rhythm(rng, meter)
+        bar = bar_rhythm_compound(rng, meter) if compound else bar_rhythm(rng, meter)
         beat_t = 0.0
         group = []  # columns in the current beam group
         for b in bar:
@@ -220,7 +240,7 @@ def sample(rng=random, W=512, nstr=None):
                 group = []
             cols.append(col)
             beat_t += L
-            if rhythm and abs(beat_t - round(beat_t)) < 1e-6:
+            if rhythm and abs(beat_t / beam_unit - round(beat_t / beam_unit)) < 1e-6:
                 finish_group(d, rng, group, ink, beam_h, S, small)
                 group = []
             x += max(min_dx, (spacing * (L ** 0.65) if prop else spacing * 0.7) * rng.uniform(0.92, 1.08))

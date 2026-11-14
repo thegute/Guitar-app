@@ -15,7 +15,7 @@ import torch
 import torch.nn.functional as F
 
 from data import IGN, Fixed, Mixed
-from model import SLOTS, TabCRNN
+from model import SLOTS, TUPS, TabCRNN
 
 # (everything runs under this guard: on a Mac the data workers start fresh and re-read this file)
 if __name__ == '__main__':
@@ -86,7 +86,7 @@ if __name__ == '__main__':
         B, S, C, T = out['frets'].shape
         L['frets'] = ce(out['frets'].permute(0, 1, 3, 2).reshape(-1, C), y['frets'].reshape(-1)) * 2
         for k in ('dur', 'dots', 'tup', 'grace', 'stroke'):
-            L[k] = ce(out[k], y[k]) * (1.0 if k == 'dur' else 0.5)
+            L[k] = ce(out[k], y[k]) * (1.0 if k in ('dur', 'tup') else 0.5)
         return sum(L.values()), {k: float(v.detach()) for k, v in L.items()}
 
 
@@ -103,10 +103,13 @@ if __name__ == '__main__':
                 cols.append({'x': 4 * (t + 0.5 + float(off[t])), 't': t, 'kind': ['note', 'bar', 'rest'][k], 'p': float(v[t])})
         fr = out['frets'][i].argmax(1).cpu()
         du = out['dur'][i].argmax(0).cpu()
+        dt = out['dots'][i].argmax(0).cpu()
+        tu = out['tup'][i].argmax(0).cpu()
         for c in cols:
             if c['kind'] == 'note':
                 c['frets'] = {s: int(fr[s, c['t']]) for s in range(nstr) if int(fr[s, c['t']]) > 0}
             c['dur'] = int(du[c['t']])
+            c['full'] = (int(du[c['t']]), int(dt[c['t']]), TUPS[int(tu[c['t']])])
         return cols
 
 
@@ -117,7 +120,7 @@ if __name__ == '__main__':
         fx = Fixed(a.holdout, damage)
         idx = range(len(fx)) if not limit else range(0, len(fx), max(1, len(fx) // limit))
         tp = fp = fn = 0
-        dur_ok = dur_n = 0
+        dur_ok = dur_n = full_ok = 0
         bars_ok = bars_n = 0
         for j in idx:
             x, e = fx[j]
@@ -140,6 +143,7 @@ if __name__ == '__main__':
                 if g['dur'] is not None and not g.get('grace') and e['rhythm']:
                     dur_n += 1
                     dur_ok += pred[best[1]]['dur'] == g['dur']
+                    full_ok += pred[best[1]]['full'] == (g['dur'], min(2, g['dots']), g['tup'])
             for n, p_ in enumerate(pred):
                 if n not in used:
                     fp += len(p_['frets'])
@@ -149,7 +153,7 @@ if __name__ == '__main__':
         model.train()
         P = tp / max(1, tp + fp)
         R = tp / max(1, tp + fn)
-        return {'precision': round(100 * P, 2), 'recall': round(100 * R, 2), 'dur': round(100 * dur_ok / max(1, dur_n), 2)}
+        return {'precision': round(100 * P, 2), 'recall': round(100 * R, 2), 'dur': round(100 * dur_ok / max(1, dur_n), 2), 'full': round(100 * full_ok / max(1, dur_n), 2)}
 
 
     say(f'device {dev}, {sum(p.numel() for p in model.parameters()) / 1e6:.2f} M parameters, {len(ds.items)} real strips')
@@ -178,9 +182,9 @@ if __name__ == '__main__':
         if step % a.eval == 0 or step == a.steps:
             m = evaluate(limit=8 if a.smoke else None)
             md = evaluate(limit=8 if a.smoke else None, damage=True)
-            score = m['precision'] + m['recall'] + 0.5 * m['dur'] + md['precision'] + md['recall'] + 0.5 * md['dur']
-            say(f'HELD-BACK PAGES at step {step}: clean: notes precision {m["precision"]}% recall {m["recall"]}% lengths {m["dur"]}% | '
-                f'photo / video quality: precision {md["precision"]}% recall {md["recall"]}% lengths {md["dur"]}%')
+            score = m['precision'] + m['recall'] + 0.5 * m['full'] + md['precision'] + md['recall'] + 0.5 * md['full']
+            say(f'HELD-BACK PAGES at step {step}: clean: notes precision {m["precision"]}% recall {m["recall"]}% lengths {m["dur"]}% (with dots + tuplets {m["full"]}%) | '
+                f'photo / video quality: precision {md["precision"]}% recall {md["recall"]}% lengths {md["dur"]}% (with dots + tuplets {md["full"]}%)')
             m = {'clean': m, 'damaged': md}
             torch.save(model.state_dict(), os.path.join(a.out, 'last.pt'))
             if score > best:
