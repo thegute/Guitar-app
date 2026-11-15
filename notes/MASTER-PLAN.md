@@ -133,3 +133,18 @@ ms, trouble bars, trends, recordings); Gemini also hears a short clip of the run
   ladder + reviews; technique clinic (bend cents, vibrato width, changes per minute, buzz/muting); call and response; improv coach
   (chord tones on the beat, space); theory in context with course + book links; hands-free session director (mic + footswitch);
   weekly teacher note, then-vs-now picks; quick "someone's here" switch to the neutral voice; warmth that grows with his streak.
+
+## Fills between chords (owner 2026-11-14: "I want to become a master at this"; all brainstorm ideas approved)
+Rhythm fills / chord embellishments (Hendrix, Mayer, Mayfield, country, slack key): little melodies between chord shapes.
+Owner is new to this and wants guidance: everything is a guided workshop over a generated progression.
+- Fills workshop flow: pick a style + key → app makes a good progression (Jam engine) → step lessons on THAT progression:
+  1 shells on top strings · 2 shape map (chord tones, free fingers, pentatonic around it, double-stops) · 3 one free-finger move per chord
+  · 4 two-note fills · 5 three-note fills landing on the next chord's tone · 6 double-stop slides (3rds/6ths) · 7 link shapes up the neck
+  · 8 a fill every bar · 9 your own fills (call and response: app plays chord only, you answer).
+  Each step: explain + hear it + tab/neck with fingers + play along with the band (mic-gated, speed control + speed trainer).
+- Backing: Jam band now (chords/bass/drums, strum pattern); Stage 5 Strum Machine later plugs in the same way.
+- Looper: record yourself strumming the progression on track 1 (smart looper snaps to the beat), then practise fills over YOUR rhythm;
+  record the fills on track 2 to hear the whole part. Needs the looper pass (floating looper, start-when-I-play).
+- Also: fill library per style, upbeat trainer, fill-in-the-gap, next-chord view, fill builder, variation coach, spot fills in songs,
+  coach listening (landing, ringing chord, upbeat, rushing), daily 10-min fills routine, then-vs-now weekly, course unit (Seriff triad windows).
+- Ask the owner which players' fills he wants to sound like first.
