@@ -411,3 +411,9 @@ Tab search: in the phone app, Songsterr and Ultimate Guitar results open straigh
 - Tests: coach-logic, fills-logic (all styles × keys), looper-logic; browser coach-test, targets-test, ear-test, fills-test, looper float.
 - Owner wants everything interconnected (shared progression/key/style across features). Next: owner tests test-51, then brainstorm
   the next phase (Stage 3 engine, Strum Machine, beat maker, Deep Dive course).
+
+## Returning from the Gemini week (owner rule, 2026-11-14)
+- Gemini works on `gemini-week` (log: notes/GEMINI-LOG.md; backup: `claude-safe`). When Claude takes the project back, anything
+  the owner liked is HIS decision: entries marked **KEEP** in notes/GEMINI-LOG.md, or anything he says he likes, stay as they are.
+  Fix bugs in them without changing how they look, sound or behave; never swap them for Claude's own earlier ideas. To rework one
+  (even to improve it), ask him first and explain why. Only unmarked, untested or broken changes are open to review.
