@@ -38,3 +38,10 @@ Only make one when the owner asks. Updates install over each other because the s
 3. Automatic timing calibration per gear profile (phone mic: click loopback; Pocket Master: 8-click play-along).
 4. Sampler in an AudioWorklet (per-string voices; hammer-ons/slides from the ringing string).
 If a step turns out risky, stop at a working, tested point and write down where you got to rather than leaving it half-wired.
+
+## Build on what's there (owner rule, 2026-11-14)
+- Build on what already exists; don't replace it. Every feature Claude built stays: the coach, fills workshop, Target notes, ear
+  training, Call and response, looper, beat maker, Riff Scanner, Game Mode, theory course, sounds, the layout and the look.
+- Improve things by extending them (new options, better accuracy, faster code, fixed bugs), keeping how they look and behave
+  unless the owner asks for a change. Never delete, hide or redesign a feature, screen or setting without asking him first.
+- If the new engine needs an old piece rewired, keep the old behaviour working (same buttons, same results) and note it in the log.
