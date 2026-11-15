@@ -148,3 +148,7 @@ Owner is new to this and wants guidance: everything is a guided workshop over a 
 - Also: fill library per style, upbeat trainer, fill-in-the-gap, next-chord view, fill builder, variation coach, spot fills in songs,
   coach listening (landing, ringing chord, upbeat, rushing), daily 10-min fills routine, then-vs-now weekly, course unit (Seriff triad windows).
 - Ask the owner which players' fills he wants to sound like first.
+- Owner 2026-11-14: "I want everything interconnected in the app." Every new feature links both ways to the others:
+  progression (Jam / Inspire me / Songs chords) ↔ fills workshop ↔ Target notes ↔ backing band / Strum Machine ↔ looper tracks
+  ↔ Play (fills as tabs, fills spotted in songs) ↔ coach (Today, Practice plan, memory, check-up) ↔ ear path (call and response with fills)
+  ↔ course lessons ↔ books ↔ helper ("teach me fills over this"). One shared "current progression" + "current key/style" all of them read.
