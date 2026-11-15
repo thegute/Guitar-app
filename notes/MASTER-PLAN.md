@@ -152,3 +152,8 @@ Owner is new to this and wants guidance: everything is a guided workshop over a 
   progression (Jam / Inspire me / Songs chords) ↔ fills workshop ↔ Target notes ↔ backing band / Strum Machine ↔ looper tracks
   ↔ Play (fills as tabs, fills spotted in songs) ↔ coach (Today, Practice plan, memory, check-up) ↔ ear path (call and response with fills)
   ↔ course lessons ↔ books ↔ helper ("teach me fills over this"). One shared "current progression" + "current key/style" all of them read.
+- Owner's fill heroes (2026-11-14): John Mayer, Plini, "Mateus Mancusso" (Mateus Asato or Matteo Mancuso — asked), "Chet skins"
+  (= Chet Atkins, assumed), Tony Rice, Billy Strings. Workshop styles in this order: Mayer/Asato soul fills → bluegrass (Rice/Strings:
+  G runs, crosspicked fills, open-string double-stops, chromatic walk-ups) → Chet Atkins (thumb bass + melody fills, harmonics)
+  → Plini (add9/maj7 shapes with open strings, legato fills) → Mancuso (fusion fingerstyle, chromatic passing tones). Original fills in
+  their styles only: never copy their songs or licks note for note.
