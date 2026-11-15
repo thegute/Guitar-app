@@ -12,7 +12,7 @@ import { shapesFor } from '../theory/shapes'
 import { bar, nt, rnd, walkTo, type Ev, type FillStep } from './make'
 import { shellPath, STD, type Shell } from './shells'
 
-export type Style2 = 'bluegrass' | 'atkins' | 'plini' | 'mancuso'
+export type Style2 = 'bluegrass' | 'atkins' | 'plini' | 'mancuso' | 'spread'
 const MAJOR = [0, 2, 4, 5, 7, 9, 11]
 const PCS: Record<string, number> = { C: 0, 'C#': 1, Db: 1, D: 2, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, Ab: 8, A: 9, Bb: 10, B: 11 }
 const pcOf = (m: number) => ((m % 12) + 12) % 12
@@ -45,6 +45,15 @@ export const STYLE2: Record<Style2, { label: string; keys: string[]; progs: { id
       { id: 'i-vi-iv-v', label: 'I – vi – IV – V', chords: [[0, false], [9, true], [5, false], [7, false]] },
       { id: 'iv-i-v-vi', label: 'IV – I – V – vi', chords: [[5, false], [0, false], [7, false], [9, true]] },
       { id: 'vi-iv-i-v', label: 'vi – IV – I – V', chords: [[9, true], [5, false], [0, false], [7, false]] },
+    ],
+  },
+  spread: {
+    label: 'String-skipping triads & 10ths', keys: ['C', 'G', 'D', 'A', 'E', 'F'], bpm: 72, groove: 'halftime', bass: 'ballad', program: 25,
+    intro: 'Triads with a string skipped: spread (open) triad shapes for a big, piano-like sound; 10ths (a bass note with its 3rd an octave up) moving together like two singers; and string-skipping arpeggios that jump across the neck. Used by John Mayer, Tommy Emmanuel, neo-soul and worship players, Paul Gilbert and Plini.',
+    progs: [
+      { id: 'i-vi-iv-v', label: 'I – vi – IV – V', chords: [[0, false], [9, true], [5, false], [7, false]] },
+      { id: 'i-iv-v-i', label: 'I – IV – V – I', chords: [[0, false], [5, false], [7, false], [0, false]] },
+      { id: 'ii-v-i-i', label: 'ii – V – I', chords: [[2, true], [7, false], [0, false], [0, false]] },
     ],
   },
   mancuso: {
@@ -87,6 +96,42 @@ function song(title: string, bars: SongBar[], st: Style2, bpm: number, label: st
   return { title: `${label}: ${title}`, tempo: bpm, backing: { groove: S.groove, bass: S.bass }, tracks: [{ name: 'Guitar', tuning, capo: 0, bars, program: S.program }] }
 }
 
+
+// ---------- spread triads (open voicings) and 10ths ----------
+export interface Spread { strings: number[]; frets: number[]; midis: number[]; roles: string[] }
+const ROLE: Record<number, string> = { 0: 'R', 3: 'b3', 4: '3', 7: '5', 6: 'b5', 8: '#5' }
+/** Every spread triad for a chord: three strings out of four neighbouring ones (one string skipped), notes going up,
+ *  covering more than an octave (that's what makes it "spread"), within a 4-fret span, frets 0–14. Lowest first. */
+export function spreadTriads(root: number, minor: boolean): Spread[] {
+  const pcs = [root, (root + (minor ? 3 : 4)) % 12, (root + 7) % 12]
+  const sets = [[0, 2, 3], [0, 1, 3], [1, 3, 4], [1, 2, 4], [2, 4, 5], [2, 3, 5]]
+  const out: Spread[] = []
+  for (const set of sets) for (let a = 0; a <= 14; a++) for (let b = 0; b <= 14; b++) for (let c = 0; c <= 14; c++) {
+    const fr = [a, b, c], m = set.map((st, i) => tuning[st] + fr[i])
+    if (!(m[0] < m[1] && m[1] < m[2]) || m[2] - m[0] <= 12) continue
+    const p = m.map(pcOf)
+    if (new Set(p).size !== 3 || !pcs.every(x => p.includes(x))) continue
+    const played = fr.filter(f => f > 0)
+    if (played.length && Math.max(...played) - Math.min(...played) > 3) continue
+    if (fr.some(f => f === 0) && Math.max(...fr) > 4) continue
+    out.push({ strings: set, frets: fr, midis: m, roles: m.map(x => ROLE[pcOf(x - root)] ?? '') })
+  }
+  return out.sort((x, y) => Math.min(...x.frets) - Math.min(...y.frets))
+}
+/** a 10th: the root on a low string and its 3rd an octave up, three strings higher (two skipped: E with G, A with B) */
+export function tenthOf(rootMidi: number, minor: boolean, near: number): { lo: { string: number; fret: number }; hi: { string: number; fret: number } } | null {
+  let best: { lo: { string: number; fret: number }; hi: { string: number; fret: number } } | null = null, cost = 99
+  for (const s of [0, 1]) for (const oct of [0, 12, 24]) {
+    const lf = rootMidi + oct - tuning[s]
+    if (lf < 0 || lf > 14) continue
+    const hm = rootMidi + oct + 12 + (minor ? 3 : 4), hs = s + 3, hf = hm - tuning[hs]
+    if (hf < 0 || hf > 15 || Math.abs(hf - lf) > 4) continue
+    const c = Math.abs(lf - near) + s * 0.3
+    if (c < cost) { cost = c; best = { lo: { string: s, fret: lf }, hi: { string: hs, fret: hf } } }
+  }
+  return best
+}
+
 export interface Style2In { style: Style2; key: string; prog: [number, boolean][]; bpm: number; title?: string }
 
 export function style2Workshop(w: Style2In): { chords: string[]; steps: FillStep[] } {
@@ -98,8 +143,8 @@ export function style2Workshop(w: Style2In): { chords: string[]; steps: FillStep
   const n = chords.length
   const steps: FillStep[] = []
   const add = (id: string, title: string, why: string, how: string[], listen: string, bars: SongBar[], inTime?: boolean) => steps.push({ id, title, why, how, listen, song: mk(title.replace(/^\d+\.\s*/, '').toLowerCase(), bars), ...(inTime ? { inTime } : {}) })
-  const mix = (id: string, from: number, to: number) => {
-    const pool = steps.slice(from, to)
+  const mix = (id: string, from: number, to: number, skip?: string) => {
+    const pool = steps.slice(from, to).filter(x => x.id !== skip)
     add(id, `${steps.length + 1}. Mix them up`, 'A real part moves between all of these: one move per bar, the rhythm never stopping.', ['Each bar uses a different move from the steps before.', 'Keep the time first: if a move makes you late, play it slower or leave it out.', 'Once it\'s clean, swap the order of the moves.'], 'Every bar lands on the 1, whatever the move.',
       [0, 1].flatMap(pass => chords.map((_, i) => { const p = pool[(i + pass * 2) % pool.length].song.tracks[0].bars; return p[(i + pass * n) % p.length] })))
   }
@@ -188,6 +233,70 @@ export function style2Workshop(w: Style2In): { chords: string[]; steps: FillStep
       mix('ca-mix', 2, 5)
       add('ca-yours', `${steps.length + 1}. Your own melody over the thumb`, 'The thumb is written out; the top is yours. Make up a melody from the chord\'s notes and the scale, and keep the thumb going no matter what.', ['Thumb: root, other, root, other.', 'Fingers: anything on top, on the beats or the "and"s.', 'If the thumb stops, simplify the top.'], 'The thumb never stops.', twice(i => thumb(opens[i], chords[i])), true)
     }
+    return { chords, steps }
+  }
+
+  if (w.style === 'spread') {
+    const k = PCS[w.key] ?? 0
+    // one spread voicing per chord, close to the last one (the 1–4 / 2–5 / 3–6 string sets)
+    const sp: Spread[] = []
+    chords.forEach((_, i) => {
+      const root = pcOf(k + w.prog[i][0]), minor = w.prog[i][1]
+      const all = spreadTriads(root, minor).filter(v => Math.min(...v.frets) >= 0 && Math.max(...v.frets) <= 12)
+      const prev = sp[i - 1]
+      const pick = prev ? all.reduce((a, b) => (dist(b, prev) < dist(a, prev) ? b : a)) : (all.find(v => v.strings[0] === 1 && Math.min(...v.frets) >= 1) ?? all[0])
+      sp.push(pick)
+    })
+    function dist(a: Spread, b: Spread) { return a.frets.reduce((x, f, j) => x + Math.abs(f - b.frets[j]), 0) + (a.strings[0] === b.strings[0] ? 0 : 3) }
+    const vn = (v: Spread, j: number, tech?: string) => nt(v.strings[j], v.frets[j], tech, tuning)
+    const all3 = (v: Spread) => v.strings.map((_, j) => vn(v, j))
+    const tenths = chords.map((_, i) => { const r = pcOf(k + w.prog[i][0]); return tenthOf(tuning[0] + pcOf(r - tuning[0]), w.prog[i][1], Math.min(...sp[i].frets))! })
+    const pair = (t: NonNullable<ReturnType<typeof tenthOf>>, tech?: string) => [nt(t.lo.string, t.lo.fret, tech, tuning), nt(t.hi.string, t.hi.fret, tech, tuning)]
+    add('sp-shape', '1. Spread triads', 'A spread (or "open") triad is the same three notes as a chord shape, but with the middle note moved up an octave, so a string is skipped and the chord spans more than an octave. It sounds big and open, like a piano chord, and leaves room around each note.', ['Play the three notes together: root on the lowest string, then a string skipped, then the 5th, then the 3rd on top (the order can vary by chord).', 'Mute the skipped string with the underside of the finger below it.', 'Pluck with pick and fingers, or thumb and two fingers: all three at once.'], 'All three notes ring, and the skipped string is silent.', twice(i => [{ at: 0, dur: 2, notes: all3(sp[i]), chord: chords[i] }, { at: 2, dur: 2, notes: all3(sp[i]) }]))
+    add('sp-arp', '2. String-skipping arpeggios', 'Now pick the spread shape one note at a time: low, high, middle, high. Each jump crosses a string you don\'t play, which is what gives these arpeggios their wide, sparkling sound (Paul Gilbert, Plini, Mateus Asato) and what makes them a great picking workout.', ['Hold the shape. Pick in 8ths: low string, top string, middle string, top string, twice per bar.', 'Alternate picking (down-up) across the skipped string: keep the pick\'s movement small.', 'Let every note ring.'], 'Eight even notes per bar and no stray notes from the skipped strings.', twice(i => [0, 2, 1, 2, 0, 2, 1, 2].map((j, q) => ({ at: q * 0.5, dur: 0.5, notes: [vn(sp[i], j)], ...(q === 0 ? { chord: chords[i] } : {}) }))))
+    add('sp-inv', '3. Spread shapes up the neck', 'Each chord has three spread shapes on the same strings, one above the other, as the notes take turns being on top. Climbing through them over one chord is a fill in itself: the chord stays, the melody on top moves.', ['Play the first shape on 1.', 'On 3, the next shape up the neck (same chord, a different note on top).', 'Then back down for the next chord.'], 'The top note moves while the chord stays the same.', twice(i => {
+      const root = pcOf(k + w.prog[i][0])
+      const same = spreadTriads(root, w.prog[i][1]).filter(v => v.strings.join() === sp[i].strings.join() && Math.min(...v.frets) > Math.min(...sp[i].frets))[0] ?? sp[i]
+      return [{ at: 0, dur: 2, notes: all3(sp[i]), chord: chords[i] }, { at: 2, dur: 2, notes: all3(same) }]
+    }))
+    // diatonic 10ths up the key's scale: bass on the A string, the 3rd an octave up on the B string
+    const scale10 = (): Ev[][] => {
+      const bars: Ev[][] = []
+      // the bass on the A string, or the low E when the key's root sits high on the A
+      const bs = pcOf(k - tuning[1]) <= 5 ? 1 : 0, ts = bs + 3
+      const startF = pcOf(k - tuning[bs])
+      const degs = MAJOR.map(d => tuning[bs] + startF + d)
+      const evs: Ev[] = []
+      degs.concat([tuning[bs] + startF + 12]).forEach((m, q) => {
+        // the diatonic 3rd above (two scale steps), an octave up
+        const idx = MAJOR.indexOf(pcOf(m - k))
+        const third = m + ((MAJOR[(idx + 2) % 7] - MAJOR[idx] + 12) % 12) + 12
+        evs.push({ at: (q % 4), dur: 1, notes: [nt(bs, m - tuning[bs], undefined, tuning), nt(ts, third - tuning[ts], undefined, tuning)] })
+        if (q % 4 === 3) { bars.push(evs.splice(0)) }
+      })
+      return bars
+    }
+    const tb = scale10()
+    const degChord = (m: number) => { const d = pcOf(m - k); return NAMES[pcOf(m)] + ([2, 4, 9].includes(d) ? 'm' : d === 11 ? 'dim' : '') }
+    add('sp-10scale', '4. 10ths up the scale', 'A 10th is a bass note and the note a 3rd above it, an octave higher (a 3rd plus an octave = a 10th), with two strings skipped between them. Moving them together along the scale (major and minor 10ths taking turns, the way the key decides) is the sound of a bass player and a singer moving in harmony: Tommy Emmanuel, soul ballads, "Blackbird".', ['Bass note on the A string (or the low E) with your thumb or middle finger, the 10th three strings up (the B, or the G); the strings in between stay silent (touch them with the fretting fingers).', 'Walk them up the key\'s scale together, one per beat.', 'Pluck both at once: thumb and a finger.'], 'Both notes together, the strings between them silent.', [0, 1].flatMap(() => tb.map(evs => bar(evs.map((e, j) => (j === 0 ? { ...e, chord: degChord(e.notes[0].midi) } : e))))))
+    add('sp-10chords', '5. The progression in 10ths', 'Every chord can be played as just a 10th: its root low and its 3rd high. That\'s enough for your ear to hear the whole chord, and the two voices can glide from chord to chord. Here the 10ths walk into each change.', ['Play each chord\'s 10th on 1 and let it ring.', 'On 4, slide both notes into the next chord\'s 10th from a fret below (or step into it).', 'Keep the strings between them muted.'], 'Both voices land together on 1.', twice(i => {
+      const t = tenths[i], nx = tenths[(i + 1) % n]
+      const evs: Ev[] = [{ at: 0, dur: 3, notes: pair(t), chord: chords[i] }]
+      if (nx.lo.fret >= 1 && nx.hi.fret >= 1) evs.push({ at: 3, dur: 1, notes: [nt(nx.lo.string, nx.lo.fret - 1, undefined, tuning), nt(nx.hi.string, nx.hi.fret - 1, undefined, tuning)] })
+      return evs
+    }))
+    add('sp-fill', '6. Spread chord, 10ths fill', 'Put it together: the spread triad on the beat, then a two-voice fill in 10ths walking into the next chord. It sounds like a piano player\'s left and right hands.', ['Spread triad on 1, again on 2.', 'On 3 and 4: two 10ths walking toward the next chord.', 'Land on the next spread shape on 1.'], 'The 10ths are clean pairs and the next chord lands on 1.', twice(i => {
+      const t = tenths[i]
+      const step = (d: number) => { const lo = { string: t.lo.string, fret: t.lo.fret + d }; const m = tuning[lo.string] + lo.fret; const idx = MAJOR.indexOf(pcOf(m - k)); if (idx < 0 || lo.fret < 0) return null; const third = m + ((MAJOR[(idx + 2) % 7] - MAJOR[idx] + 12) % 12) + 12; return [nt(lo.string, lo.fret, undefined, tuning), nt(t.hi.string, third - tuning[t.hi.string], undefined, tuning)] }
+      const nx = tenths[(i + 1) % n]
+      const up = nx.lo.fret >= t.lo.fret
+      const ds = [1, 2, 3, 4, 5].filter(d => step(up ? d : -d)).slice(0, 2)
+      const evs: Ev[] = [{ at: 0, dur: 1, notes: all3(sp[i]), chord: chords[i] }, { at: 1, dur: 1, notes: all3(sp[i]) }]
+      ds.forEach((d, q) => { const p = step(up ? d : -d); if (p && p.every(x => x.fret >= 0 && x.fret <= 17)) evs.push({ at: 2 + q, dur: 1, notes: p }) })
+      return evs
+    }))
+    mix('sp-mix', 0, 6, 'sp-10scale')
+    add('sp-yours', `${steps.length + 1}. Your own`, 'The spread shape on 1 and 2 is written; beats 3 and 4 are yours: a string-skipping arpeggio, a 10ths walk, or the next shape up the neck.', ['Spread triad on 1 and 2.', 'Anything on 3 and 4.', 'Land on the next chord on 1. Play it In time.'], 'You land on the next chord on 1.', twice(i => [{ at: 0, dur: 1, notes: all3(sp[i]), chord: chords[i] }, { at: 1, dur: 1, notes: all3(sp[i]) }]), true)
     return { chords, steps }
   }
 

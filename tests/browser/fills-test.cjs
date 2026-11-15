@@ -66,7 +66,7 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
       const mh = await page.locator('.fills-step .fills-head b').allInnerTexts()
       if (!mh.some(h => /The gallop/.test(h)) || !mh.some(h => /11\. Longer riffs/.test(h))) bad(`metal steps: ${mh.join(' | ')}`)
       await page.screenshot({ path: path.join(OUT, 'fills-metal.png') })
-      for (const [chip, step] of [['Tony Rice', 'bg-run'], ['Chet Atkins', 'ca-travis'], ['Plini', 'pl-ring'], ['Matteo Mancuso', 'mc-encl']]) {
+      for (const [chip, step] of [['Tony Rice', 'bg-run'], ['Chet Atkins', 'ca-travis'], ['Plini', 'pl-ring'], ['Matteo Mancuso', 'mc-encl'], ['String-skipping', 'sp-10scale']]) {
         await page.locator(`[data-testid=fills] button:has-text("${chip}")`).click()
         await page.waitForSelector(`[data-testid=fills-step-${step}]`, { timeout: 4000 }).catch(() => bad(`${chip}: no step ${step}`))
         await page.screenshot({ path: path.join(OUT, `fills-${step}.png`) })

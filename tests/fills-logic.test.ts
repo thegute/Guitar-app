@@ -157,7 +157,7 @@ import { handGroups } from '../src/play/handShape'
 import { style2Workshop, style2Part, STYLE2 } from '../src/fills/styles2'
 {
   let n = 0
-  for (const style of ['bluegrass', 'atkins', 'plini', 'mancuso'] as const) for (const key of STYLE2[style].keys) for (const p of STYLE2[style].progs) {
+  for (const style of ['bluegrass', 'atkins', 'plini', 'mancuso', 'spread'] as const) for (const key of STYLE2[style].keys) for (const p of STYLE2[style].progs) {
     const w = style2Workshop({ style, key, prog: p.chords, bpm: 90 })
     assert.ok(w.steps.length >= 6, `${style} steps`)
     for (const st of w.steps) {

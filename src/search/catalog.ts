@@ -331,7 +331,7 @@ export const FEATURES: Entry[] = [
     keys: 'looper loop pedal record a loop floating looper start when i play count in beat light flashing timing overdub' }),
   f({ id: 'fills', title: 'Fills between chords', where: 'Learn → Explore', guide: 'Fills between chords', target: { go: { tool: 'fills' } },
     text: 'Little melodies between chord shapes (John Mayer style), step by step over a progression.',
-    keys: 'fills fill between chords chord embellishments embellish rhythm fills john mayer hendrix mayfield soul rhythm guitar double stops sixths sus hammer on triad shapes licks between chords' }),
+    keys: 'string skipping triads spread triads open voicings tenths 10ths travis picking chet atkins bluegrass tony rice billy strings plini mancuso mateus asato metal chug riffs gallop fills fill between chords chord embellishments embellish rhythm fills john mayer hendrix mayfield soul rhythm guitar double stops sixths sus hammer on triad shapes licks between chords' }),
   f({ id: 'targets', title: 'Target notes trainer', where: 'Learn → Explore', guide: 'Target notes', target: { go: { tool: 'targets' } },
     text: 'Land on chord tones (roots, 3rds, 7ths, voice leading) as the chords change, over a band.',
     keys: 'target notes target tones chord tones land on the 3rd third seventh guide tones voice leading play the changes solo over changes follow the chords arpeggio targeting improvise' }),

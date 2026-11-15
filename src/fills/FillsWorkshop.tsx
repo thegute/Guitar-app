@@ -25,6 +25,7 @@ const STYLES = [
   { id: 'mayer', label: 'John Mayer soul fills', ready: true },
   { id: 'asato', label: 'Mateus Asato', ready: true },
   { id: 'metal', label: 'Metal: chugs with lead fills', ready: true },
+  { id: 'spread', label: 'String-skipping triads & 10ths', ready: true },
   { id: 'bluegrass', label: 'Tony Rice / Billy Strings', ready: true },
   { id: 'atkins', label: 'Chet Atkins', ready: true },
   { id: 'plini', label: 'Plini', ready: true },
@@ -52,7 +53,7 @@ export function FillsWorkshop({ inst, onExit }: { inst: Instrument; onExit: () =
       <p className="panel small">The fills workshop is for guitar in standard tuning for now. Switch the instrument (or the tuning) in Settings to use it.</p>
     </div>
   )
-  if (style === 'bluegrass' || style === 'atkins' || style === 'plini' || style === 'mancuso') return <Style2Workshop key={style} inst={inst} onExit={onExit} chips={chips} style={style} />
+  if (style === 'bluegrass' || style === 'atkins' || style === 'plini' || style === 'mancuso' || style === 'spread') return <Style2Workshop key={style} inst={inst} onExit={onExit} chips={chips} style={style} />
   return style === 'metal' ? <MetalWorkshop inst={inst} onExit={onExit} chips={chips} /> : <SoftWorkshop inst={inst} onExit={onExit} style={style} chips={chips} />
 }
 
