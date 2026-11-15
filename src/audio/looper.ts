@@ -132,48 +132,299 @@ export function makeLayerBuffer(samples: Float32Array): AudioBuffer {
   return buf
 }
 
+export type CalibrationMethod = 'loopback' | 'strum'
+
+export interface CalibrationResult {
+  ok: boolean
+  latencyMs: number | null
+  spreadMs: number | null
+  method: CalibrationMethod
+  hits: number
+  total: number
+  reason?: 'no-signal' | 'inconsistent' | 'late-signal'
+  message: string
+}
+
 /**
- * Measure the round-trip delay (sound out → your ears and hands → back in). Plays 8 clicks; with the phone mic
- * it can hear the clicks itself, with a USB amp you play a muted strum on each click. Returns milliseconds, or null.
+ * Pure analyser for the phone-mic speaker loopback check (Safeguard #1).
+ * Looks for crisp click spikes within 500 ms of each scheduled click and verifies tight hardware consistency.
+ * Never fails silently: returns a clear diagnostic reason and plain-English explanation when no clean spike is found.
  */
-export async function measureLatency(rec: InputRecorder, onClick?: (i: number) => void): Promise<number | null> {
-  const ctx = audio()
-  const gap = 0.6
-  const t0 = ctx.currentTime + 0.6
-  const clicks = Array.from({ length: 8 }, (_, i) => t0 + i * gap)
-  clicks.forEach((t, i) => {
-    playClick(t, 'wood', i === 0 ? 'accent' : 'beat', 0.9)
-    setTimeout(() => onClick?.(i), Math.max(0, (t - ctx.currentTime) * 1000))
-  })
-  const from = t0 - 0.3
-  const samples = await rec.capture(from, 0.3 + clicks.length * gap + 0.4)
-  const sr = ctx.sampleRate
-  const hop = Math.round(sr * 0.0025)
+export function analyseLoopbackSamples(
+  samples: Float32Array,
+  sr: number,
+  from: number,
+  clicks: number[],
+): CalibrationResult {
+  const total = clicks.length
+  const hopSec = 0.001
+  const hop = Math.max(1, Math.round(sr * hopSec))
+  const dt = hop / sr
   const win = hop * 2
   const env: number[] = []
-  for (let i = 0; i + win < samples.length; i += hop) {
+  for (let i = 0; i + win <= samples.length; i += hop) {
     let s = 0
     for (let k = 0; k < win; k++) s += samples[i + k] * samples[i + k]
     env.push(Math.sqrt(s / win))
   }
-  const base = [...env.slice(0, Math.round(0.25 / 0.0025))].sort((a, b) => a - b)[Math.floor(0.25 / 0.0025 / 2)] ?? 0.001
-  const peak = Math.max(...env)
-  const thr = Math.max(base * 6, peak * 0.15, 0.003)
-  const offsets: number[] = []
+  const quietFrames = Math.max(4, Math.min(env.length, Math.round(0.2 / dt)))
+  const baseSorted = [...env.slice(0, quietFrames)].sort((a, b) => a - b)
+  const base = baseSorted[Math.floor(baseSorted.length / 2)] ?? 0.001
+  let peak = 0
+  for (let i = 0; i < env.length; i++) if (env[i] > peak) peak = env[i]
+  const thr = Math.max(base * 5.5, peak * 0.18, 0.003)
+
+  const offsetsMs: number[] = []
+  let lateSpikes = 0
+  let firstClickFound = false
+  for (let idx = 0; idx < clicks.length; idx++) {
+    const c = clicks[idx]
+    const nextC = clicks[idx + 1] ?? Infinity
+    const a = Math.round((c - from + 0.002) / dt)
+    const b = Math.round((Math.min(c + 0.5, nextC - 0.005) - from) / dt)
+    const bLate = Math.round((Math.min(c + 0.8, nextC - 0.005) - from) / dt)
+    let found = false
+    for (let i = Math.max(3, a); i < Math.min(b, env.length); i++) {
+      if (env[i] > thr && env[i] > env[i - 3] * 2.4) {
+        offsetsMs.push((i * dt + from - c) * 1000)
+        found = true
+        if (idx === 0) firstClickFound = true
+        break
+      }
+    }
+    if (!found) {
+      for (let i = Math.max(3, b); i < Math.min(bLate, env.length); i++) {
+        if (env[i] > thr && env[i] > env[i - 3] * 2.4) {
+          lateSpikes++
+          break
+        }
+      }
+    }
+  }
+
+  // Also check if the entire click train was delayed by > 500 ms (so click 0 missed before click 1,
+  // and the last click's echo arrived > 500 ms after the last scheduled click).
+  const lastC = clicks[clicks.length - 1] ?? 0
+  const postLateA = Math.round((lastC - from + 0.5) / dt)
+  const postLateB = Math.round((lastC - from + 0.85) / dt)
+  let postLastSpike = false
+  for (let i = Math.max(3, postLateA); i < Math.min(postLateB, env.length); i++) {
+    if (env[i] > thr && env[i] > env[i - 3] * 2.4) {
+      postLastSpike = true
+      break
+    }
+  }
+
+  if ((!firstClickFound && postLastSpike) || (offsetsMs.length < 4 && lateSpikes >= 2)) {
+    return {
+      ok: false,
+      latencyMs: null,
+      spreadMs: null,
+      method: 'loopback',
+      hits: 0,
+      total,
+      reason: 'late-signal',
+      message:
+        'Clicks arrived more than 500 ms late (likely Bluetooth speaker/headphones delay). Unplug or disconnect Bluetooth for the speaker check, or switch to the 8-click strum check.',
+    }
+  }
+
+  if (offsetsMs.length < 4) {
+    return {
+      ok: false,
+      latencyMs: null,
+      spreadMs: null,
+      method: 'loopback',
+      hits: offsetsMs.length,
+      total,
+      reason: 'no-signal',
+      message:
+        offsetsMs.length === 0
+          ? "The microphone didn't hear the clicks from the speaker within half a second. Turn your phone's volume up and unplug headphones, or switch to the 8-click strum check."
+          : `Only caught ${offsetsMs.length} of ${total} clicks clearly. Turn the speaker volume up a little and stay quiet, or switch to the 8-click strum check.`,
+    }
+  }
+
+  const sorted = [...offsetsMs].sort((a, b) => a - b)
+  const trimmed = sorted.length >= 5 ? sorted.slice(1, -1) : sorted
+  const med = trimmed[Math.floor(trimmed.length / 2)]
+  const devs = trimmed.map(x => Math.abs(x - med)).sort((a, b) => a - b)
+  const spreadMs = Math.max(1, Math.round(devs[Math.floor(devs.length / 2)] ?? 0))
+
+  if (spreadMs > 25) {
+    return {
+      ok: false,
+      latencyMs: null,
+      spreadMs,
+      method: 'loopback',
+      hits: offsetsMs.length,
+      total,
+      reason: 'inconsistent',
+      message: `Heard background noise instead of steady speaker clicks (±${spreadMs} ms spread). Turn the speaker volume up in a quiet room, or switch to the 8-click strum check.`,
+    }
+  }
+
+  const latencyMs = Math.round(Math.max(0, Math.min(500, med)))
+  return {
+    ok: true,
+    latencyMs,
+    spreadMs,
+    method: 'loopback',
+    hits: offsetsMs.length,
+    total,
+    message: `Measured ${latencyMs} ms (±${spreadMs} ms across ${offsetsMs.length}/${total} speaker clicks).`,
+  }
+}
+
+/**
+ * Pure analyser for the 8-click muted-strum play-along check (Pocket Master / USB interface / headphones, Upgrade #5).
+ * Drops lowest & highest outliers and computes both median round-trip latency and consistency spread (±ms).
+ */
+export function analyseStrumSamples(
+  samples: Float32Array,
+  sr: number,
+  from: number,
+  clicks: number[],
+): CalibrationResult {
+  const total = clicks.length
+  const hopSec = 0.0025
+  const hop = Math.max(1, Math.round(sr * hopSec))
+  const dt = hop / sr
+  const win = hop * 2
+  const env: number[] = []
+  for (let i = 0; i + win <= samples.length; i += hop) {
+    let s = 0
+    for (let k = 0; k < win; k++) s += samples[i + k] * samples[i + k]
+    env.push(Math.sqrt(s / win))
+  }
+  const quietFrames = Math.max(4, Math.min(env.length, Math.round(0.25 / dt)))
+  const baseSorted = [...env.slice(0, quietFrames)].sort((a, b) => a - b)
+  const base = baseSorted[Math.floor(baseSorted.length / 2)] ?? 0.001
+  let peak = 0
+  for (let i = 0; i < env.length; i++) if (env[i] > peak) peak = env[i]
+  const thr = Math.max(base * 5.5, peak * 0.15, 0.003)
+
+  const offsetsMs: number[] = []
   for (const c of clicks) {
-    const a = Math.round((c - from - 0.05) / 0.0025)
-    const b = Math.round((c - from + 0.45) / 0.0025)
+    const a = Math.round((c - from - 0.05) / dt)
+    const b = Math.round((c - from + 0.45) / dt)
     for (let i = Math.max(4, a); i < Math.min(b, env.length); i++) {
-      if (env[i] > thr && env[i] > env[i - 4] * 2.5) {
-        offsets.push(i * 0.0025 + from - c)
+      if (env[i] > thr && env[i] > env[i - 4] * 2.4) {
+        offsetsMs.push((i * dt + from - c) * 1000)
         break
       }
     }
   }
-  if (offsets.length < 4) return null
-  offsets.sort((a, b) => a - b)
-  const med = offsets[Math.floor(offsets.length / 2)]
-  return Math.round(Math.max(0, Math.min(0.5, med)) * 1000)
+
+  if (offsetsMs.length < 4) {
+    return {
+      ok: false,
+      latencyMs: null,
+      spreadMs: null,
+      method: 'strum',
+      hits: offsetsMs.length,
+      total,
+      reason: 'no-signal',
+      message:
+        offsetsMs.length === 0
+          ? "Didn't catch your muted strums. Strum firmly across the muted strings right on each of the 8 clicks after the 4-beat count-in."
+          : `Only caught ${offsetsMs.length} of ${total} strums clearly. Try once more with slightly firmer muted strums on each click.`,
+    }
+  }
+
+  const sorted = [...offsetsMs].sort((a, b) => a - b)
+  const trimmed = sorted.length >= 5 ? sorted.slice(1, -1) : sorted
+  const med = trimmed[Math.floor(trimmed.length / 2)]
+  const devs = trimmed.map(x => Math.abs(x - med)).sort((a, b) => a - b)
+  const spreadMs = Math.max(1, Math.round(devs[Math.floor(devs.length / 2)] ?? 0))
+  const latencyMs = Math.round(Math.max(0, Math.min(500, med)))
+
+  return {
+    ok: true,
+    latencyMs,
+    spreadMs,
+    method: 'strum',
+    hits: offsetsMs.length,
+    total,
+    message: `Measured ${latencyMs} ms (±${spreadMs} ms consistency across ${offsetsMs.length}/${total} strums).`,
+  }
+}
+
+export interface CalibrateTimingOpts {
+  /** Override calibration route ('loopback' speaker-to-mic vs 'strum' 4-beat count-in + 8 muted strums). */
+  method?: CalibrationMethod
+  /** Called on each count-in beat ('count-in', 0..3, 4) and each measurement click ('click', 0..N-1, N). */
+  onPhase?: (phase: 'count-in' | 'click', index: number, total: number) => void
+  /** Legacy callback invoked for each measurement click (0..N-1). */
+  onClick?: (i: number) => void
+}
+
+/**
+ * Calibrate round-trip timing for the active gear profile:
+ * - `'loopback'` (default on phone mic): plays 6 crisp clicks and measures the speaker-to-mic delay within 500 ms.
+ *   Never fails silently (Safeguard #1).
+ * - `'strum'` (default on USB / Pocket Master / wireless, or 1-tap fallback with headphones): plays a 4-beat
+ *   count-in first so you lock into the groove, then records 8 muted strums on 8 clicks (Upgrade #5).
+ */
+export async function calibrateTiming(
+  rec: InputRecorder,
+  opts: CalibrateTimingOpts = {},
+): Promise<CalibrationResult> {
+  const ctx = audio()
+  const method: CalibrationMethod = opts.method ?? (rec.input?.external ? 'strum' : 'loopback')
+
+  if (method === 'loopback') {
+    const gap = 0.48
+    const count = 6
+    const t0 = ctx.currentTime + 0.45
+    const clicks = Array.from({ length: count }, (_, i) => t0 + i * gap)
+    clicks.forEach((t, i) => {
+      playClick(t, 'wood', i === 0 ? 'accent' : 'beat', 0.95)
+      setTimeout(() => {
+        opts.onPhase?.('click', i, count)
+        opts.onClick?.(i)
+      }, Math.max(0, (t - ctx.currentTime) * 1000))
+    })
+    const from = t0 - 0.25
+    const samples = await rec.capture(from, 0.25 + count * gap + 0.55)
+    return analyseLoopbackSamples(samples, ctx.sampleRate, from, clicks)
+  }
+
+  // 'strum' route: 4-beat count-in first, then 8 target clicks in the same groove
+  const gap = 0.55
+  const countIn = 4
+  const total = 8
+  const tCountIn = ctx.currentTime + 0.35
+  for (let i = 0; i < countIn; i++) {
+    const t = tCountIn + i * gap
+    playClick(t, 'wood', i === 0 ? 'accent' : 'beat', 0.85)
+    setTimeout(() => opts.onPhase?.('count-in', i, countIn), Math.max(0, (t - ctx.currentTime) * 1000))
+  }
+  const t0 = tCountIn + countIn * gap
+  const clicks = Array.from({ length: total }, (_, i) => t0 + i * gap)
+  clicks.forEach((t, i) => {
+    playClick(t, 'wood', i === 0 ? 'accent' : 'beat', 0.92)
+    setTimeout(() => {
+      opts.onPhase?.('click', i, total)
+      opts.onClick?.(i)
+    }, Math.max(0, (t - ctx.currentTime) * 1000))
+  })
+  const from = t0 - 0.3
+  const samples = await rec.capture(from, 0.3 + total * gap + 0.5)
+  return analyseStrumSamples(samples, ctx.sampleRate, from, clicks)
+}
+
+/**
+ * Measure the round-trip delay (sound out → your ears and hands → back in).
+ * Returns milliseconds, or null when no clean measurement was captured.
+ */
+export async function measureLatency(
+  rec: InputRecorder,
+  onClick?: (i: number) => void,
+  opts?: Omit<CalibrateTimingOpts, 'onClick'>,
+): Promise<number | null> {
+  const res = await calibrateTiming(rec, { ...opts, onClick })
+  return res.ok ? res.latencyMs : null
 }
 
 /** A first guess at the delay before you calibrate. */
@@ -182,3 +433,4 @@ export function defaultLatencyMs() {
   const outL = (ctx as AudioContext & { outputLatency?: number }).outputLatency || ctx.baseLatency || 0.02
   return Math.round((outL + 0.03) * 1000)
 }
+

@@ -1,5 +1,9 @@
 # Gemini week log (newest first)
 
+- 2026-11-15: **Engine Week Part 3 — Automatic Timing Calibration per Gear Profile**:
+  - Updated `src/audio/looper.ts` (`calibrateTiming`, `analyseLoopbackSamples`, `analyseStrumSamples`, `measureLatency`) and `src/audio/gear.ts` (`spreadMs` and `method` stored per profile: `mic`, `usb`, `pedal`).
+  - **Safeguard #1 (Phone Mic Speaker Loopback):** Plays 6 crisp clicks and analyses the microphone with 1 ms envelope resolution within 500 ms. Never fails silently: detects missing spikes (volume down / headphones plugged in), late Bluetooth spikes (> 500 ms), or inconsistent room noise (> 25 ms spread), explains why in plain English, and offers a 1-tap switch to the 8-click strum check in `GearSetup.tsx` and `TimingCheck.tsx`.
+  - **Upgrade #5 (Pocket Master / USB / Wireless 8-Click Play-Along):** Plays a 4-beat count-in first so the player locks into the groove before Click 1, records 8 muted strums, trims outliers, and saves both median round-trip latency (`latencyMs`) and consistency spread (`±spreadMs`) to the active profile (`usb` or `pedal`).
 - 2026-11-15: **Engine Week Part 2 — Shared Listener, Isolated Per-Feature Settings & Smart Bleed Suppression**:
   - Added `src/engine/listener.ts` (`SharedCaptureHub`, `ListenerSession`, `acquireListener`, `cutListenerTape`) and wired `NoteListener` in `src/tabs/follow.ts` onto it so Play, Coach, Target Notes, Call & Response, Improv Coach, Quizzes, Ear Trainer, Rhythm Trainer, and Gear Setup share one audio capture pipeline and rolling tape.
   - **Safeguard #3 (Strictly Isolated Configs):** Each consumer (`play`, `target-notes`, `call-response`, `improv-coach`, `quiz`, `ear-trainer`, `rhythm-trainer`, `gear-setup`) owns an isolated `ListenerSession` (`strictOctave`, `chords`, `autoGate`, `gate`, `allowSinging`, `rollingClipSeconds`, `suppressBleed`, `expect`) so settings on one screen can never leak into another.

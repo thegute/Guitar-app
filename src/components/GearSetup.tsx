@@ -4,7 +4,7 @@ import { micWhere } from '../audio/input'
 import { Ico } from './Icon'
 import { useEffect, useRef, useState } from 'react'
 import { NoteListener } from '../tabs/follow'
-import { InputRecorder, measureLatency } from '../audio/looper'
+import { InputRecorder, calibrateTiming, type CalibrationMethod } from '../audio/looper'
 import { getChoice, listInputs, setChoice, type InputChoice, type InputDevice } from '../audio/input'
 import { gateFrom, gear, kindOf, latencyMs, setGear, type InputKind } from '../audio/gear'
 import { audio } from '../audio/engine'
@@ -29,7 +29,10 @@ export function GearSetup({ onClose }: { onClose: () => void }) {
   const [gate, setGateV] = useState<number | null>(null)
   const [heardHigh, setHeardHigh] = useState<string | null>(null)
   const [lat, setLat] = useState<number | null>(null)
-  const [click, setClick] = useState(-1)
+  const [spread, setSpread] = useState<number | null>(null)
+  const [timingMethod, setTimingMethod] = useState<CalibrationMethod | null>(null)
+  const [phaseInfo, setPhaseInfo] = useState<{ phase: 'count-in' | 'click'; index: number; total: number } | null>(null)
+  const [loopbackFailed, setLoopbackFailed] = useState(false)
   const listener = useRef<NoteListener | null>(null)
   const rec = useRef<InputRecorder | null>(null)
 
@@ -111,24 +114,45 @@ export function GearSetup({ onClose }: { onClose: () => void }) {
     } finally { setRunning(false) }
   }
 
-  async function runTiming() {
-    setMsg(''); setRunning(true); setClick(-1)
+  const activeMethod: CalibrationMethod = timingMethod ?? (kind === 'mic' ? 'loopback' : 'strum')
+
+  async function runTiming(overrideMethod?: CalibrationMethod) {
+    const m = overrideMethod ?? activeMethod
+    if (overrideMethod) setTimingMethod(overrideMethod)
+    setMsg(''); setRunning(true); setPhaseInfo(null); setLoopbackFailed(false)
     listener.current?.stop(); listener.current = null
     try {
       rec.current ??= new InputRecorder()
       await rec.current.start()
-      const ms = await measureLatency(rec.current, i => setClick(i))
+      const res = await calibrateTiming(rec.current, {
+        method: m,
+        onPhase: (phase, index, total) => setPhaseInfo({ phase, index, total }),
+      })
       rec.current.stop()
-      if (ms === null) { setMsg("Couldn't hear clear clicks or strums. Try again a little louder, or skip this and use the estimate."); return }
-      setLat(ms)
-      finish(ms)
+      if (!res.ok || res.latencyMs === null) {
+        setMsg(res.message)
+        if (m === 'loopback') setLoopbackFailed(true)
+        return
+      }
+      setLat(res.latencyMs)
+      setSpread(res.spreadMs)
+      finish(res.latencyMs, res.spreadMs, res.method)
     } catch {
       setMsg("Couldn't open the input for the timing check.")
-    } finally { setRunning(false) }
+    } finally { setRunning(false); setPhaseInfo(null) }
   }
 
-  function finish(ms: number | null) {
-    setGear(kind, { gate: gate ?? gear(kind).gate, noise: noise ?? undefined, level: peak ?? undefined, ...(ms !== null ? { latencyMs: ms } : {}), setAt: Date.now(), label })
+  function finish(ms: number | null, sp: number | null = null, method?: CalibrationMethod) {
+    setGear(kind, {
+      gate: gate ?? gear(kind).gate,
+      noise: noise ?? undefined,
+      level: peak ?? undefined,
+      ...(ms !== null ? { latencyMs: ms } : {}),
+      ...(sp !== null ? { spreadMs: sp } : {}),
+      ...(method ? { method } : {}),
+      setAt: Date.now(),
+      label,
+    })
     setStep('done')
   }
 
@@ -190,13 +214,33 @@ export function GearSetup({ onClose }: { onClose: () => void }) {
 
         {step === 'timing' && (
           <div className="stack" style={{ gap: 10 }}>
-            <p className="small" style={{ margin: 0 }}>✓ Heard {heardHigh}. Note detection is tuned for this {kind === 'usb' ? 'amp' : 'mic'}.</p>
-            <p style={{ margin: 0 }}><b>Step 4: timing.</b> Put on the headphones you play with. You'll hear 8 clicks.
-              {kind === 'usb' ? ' Play a short muted strum exactly on each click.' : ' With the phone speaker, just stay quiet: the mic hears the clicks. With headphones, strum muted strings on each click.'}
+            <p className="small" style={{ margin: 0 }}>✓ Heard {heardHigh}. Note detection is tuned for this {kind === 'mic' ? 'mic' : kind === 'pedal' ? 'pedal + wireless' : 'amp'}.</p>
+            {kind === 'mic' && (
+              <div className="chips" role="group" aria-label="Calibration mode">
+                <button className="chip" aria-pressed={activeMethod === 'loopback'} disabled={running} onClick={() => { setTimingMethod('loopback'); setMsg('') }}>Speaker click check (hands-free)</button>
+                <button className="chip" aria-pressed={activeMethod === 'strum'} disabled={running} onClick={() => { setTimingMethod('strum'); setMsg('') }}>8-click strum check (with headphones)</button>
+              </div>
+            )}
+            <p style={{ margin: 0 }}>
+              <b>Step 4: timing.</b>{' '}
+              {activeMethod === 'loopback'
+                ? 'Unplug headphones, turn your speaker volume up, mute your strings and stay quiet: the phone plays 6 clicks and listens for them itself.'
+                : 'Put on the headphones or wireless you play with. You will hear a 4-beat count-in ("1, 2, 3, 4"), then 8 clicks: play a short, crisp muted strum right on each of the 8 clicks.'}
             </p>
-            {running && <p className="readout" style={{ fontSize: 40, margin: 0 }}>{Math.max(0, click + 1)} / 8</p>}
-            <div className="row">
-              <button className="btn primary big" onClick={() => void runTiming()} disabled={running}>{running ? 'Clicking…' : 'Start'}</button>
+            {running && phaseInfo && (
+              <p className="readout" style={{ fontSize: 36, margin: 0 }}>
+                {phaseInfo.phase === 'count-in'
+                  ? `Get ready… ${phaseInfo.index + 1} / ${phaseInfo.total}`
+                  : activeMethod === 'loopback'
+                    ? `Click ${phaseInfo.index + 1} / ${phaseInfo.total}`
+                    : `Strum! ${phaseInfo.index + 1} / ${phaseInfo.total}`}
+              </p>
+            )}
+            <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+              <button className="btn primary big" onClick={() => void runTiming()} disabled={running}>{running ? (phaseInfo?.phase === 'count-in' ? 'Counting in…' : 'Listening…') : 'Start'}</button>
+              {loopbackFailed && activeMethod === 'loopback' && (
+                <button className="btn" onClick={() => void runTiming('strum')} disabled={running}>Switch to 8-click strum check</button>
+              )}
               <button className="btn ghost" onClick={() => finish(null)} disabled={running}>Skip (use an estimate)</button>
             </div>
           </div>
@@ -204,8 +248,11 @@ export function GearSetup({ onClose }: { onClose: () => void }) {
 
         {step === 'done' && (
           <div className="stack" style={{ gap: 8 }}>
-            <p style={{ margin: 0 }}><b>All set.</b> {label ? `${label}: ` : ''}detection sensitivity {gear(kind).gate}, timing delay {lat !== null ? `${lat} ms (measured)` : `${latencyMs(kind)} ms (estimated)`}.</p>
-            <p className="small muted" style={{ margin: 0 }}>Play-along, quizzes, ear training, the looper and the rhythm trainer all use this now. Run it again if you change amps, rooms or headphones.</p>
+            <p style={{ margin: 0 }}>
+              <b>All set.</b> {label ? `${label}: ` : ''}detection sensitivity {gear(kind).gate}, timing delay{' '}
+              {lat !== null ? `${lat} ms${spread !== null ? ` (±${spread} ms)` : ''} (measured)` : `${latencyMs(kind)} ms (estimated)`}.
+            </p>
+            <p className="small muted" style={{ margin: 0 }}>Play-along, quizzes, ear training, Target notes, the looper and the rhythm trainer all use this profile automatically now. Run it again if you change amps, rooms or headphones.</p>
           </div>
         )}
         {msg && <p className="notice small" role="status" style={{ margin: 0 }}>{msg}</p>}

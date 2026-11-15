@@ -13,6 +13,10 @@ export interface GearProfile {
   gate: number
   /** round-trip delay in ms, or -1 = not measured yet (estimate) */
   latencyMs: number
+  /** consistency spread (±ms) across calibration clicks/strums */
+  spreadMs?: number
+  /** how timing was calibrated ('loopback' speaker-to-mic or 'strum' 8-click play-along) */
+  method?: 'loopback' | 'strum'
   /** measured room noise and note level (RMS), for the setup screen */
   noise?: number
   level?: number
@@ -51,7 +55,13 @@ export const kindOf = (external: boolean | undefined): InputKind => (external ? 
 export function gear(kind: InputKind): GearProfile {
   if (kind === 'pedal') {
     const p = load().pedal
-    return { ...gear('usb'), latencyMs: p?.latencyMs ?? -1, setAt: p?.setAt }
+    return {
+      ...gear('usb'),
+      latencyMs: p?.latencyMs ?? -1,
+      spreadMs: p?.spreadMs,
+      method: p?.method,
+      setAt: p?.setAt,
+    }
   }
   return { gate: 1, latencyMs: -1, ...load()[kind] }
 }
@@ -59,10 +69,18 @@ export function setGear(kind: InputKind, patch: Partial<GearProfile>) {
   const s = { ...load() }
   if (kind === 'pedal') {
     // the input's own settings stay with 'usb'; only the timing is the pedal setup's
-    const { latencyMs, setAt, ...input } = patch
+    const { latencyMs, spreadMs, method, setAt, ...input } = patch
     // a full setup run with the pedal also sets up the USB input (its sensitivity is the same either way)
     if (Object.keys(input).length) s.usb = { ...gear('usb'), ...input, ...(setAt !== undefined && input.gate !== undefined ? { setAt } : {}) }
-    s.pedal = { gate: 1, latencyMs: s.pedal?.latencyMs ?? -1, ...s.pedal, ...(latencyMs !== undefined ? { latencyMs } : {}), ...(setAt !== undefined ? { setAt } : {}) }
+    s.pedal = {
+      gate: 1,
+      latencyMs: s.pedal?.latencyMs ?? -1,
+      ...s.pedal,
+      ...(latencyMs !== undefined ? { latencyMs } : {}),
+      ...(spreadMs !== undefined ? { spreadMs } : {}),
+      ...(method !== undefined ? { method } : {}),
+      ...(setAt !== undefined ? { setAt } : {}),
+    }
   } else s[kind] = { ...gear(kind), ...patch }
   save(s)
 }
