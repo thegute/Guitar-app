@@ -254,6 +254,45 @@ const takes = (s, i, part = 'A') => s?.tracks?.[i]?.parts?.[part]?.takes?.length
     }
   }
 
+  // ---- the floating looper (any page): when I play, the bar lights, the flashing edge, the count-in bar
+  if (want('float')) {
+    const page = await newPage(browser, { width: 412, height: 915 }, { 'looper': { start: 'play' } }, 'jam')
+    await page.waitForSelector('[data-testid=looper-bubble]', { timeout: 8000 })
+    await page.locator('[data-testid=looper-bubble]').click()
+    await page.waitForSelector('[data-testid=float-looper]', { timeout: 5000 }).catch(() => bad('float: no card'))
+    if (await sideways(page)) bad('float: sideways')
+    await page.locator('[data-testid=fl-start-play]').click()
+    await page.locator('[data-testid=fl-big]').click()
+    const t0 = Date.now(); let note = ''
+    while (Date.now() - t0 < 6000) { note = await page.locator('[data-testid=fl-note]').innerText().catch(() => ''); if (/^Recording/.test(note)) break; await page.waitForTimeout(100) }
+    if (!/^Recording/.test(note)) bad(`float: it should start when it hears the guitar: "${note}"`)
+    await page.screenshot({ path: path.join(OUT, 'looper-float-rec.png') })
+    await page.waitForTimeout(3200)
+    await page.locator('[data-testid=fl-big]').click()
+    const t1 = Date.now()
+    while (Date.now() - t1 < 12000) { note = await page.locator('[data-testid=fl-note]').innerText().catch(() => ''); if (/Your loop is \d+ bar/.test(note)) break; await page.waitForTimeout(150) }
+    if (!/Your loop is \d+ bar/.test(note)) bad(`float: the loop should close and set the tempo: "${note}"`)
+    // playing: the lights run and the card's edge flashes on the beat
+    let pulsed = false, mode = ''
+    const t2 = Date.now()
+    while (Date.now() - t2 < 3000 && !pulsed) { const st = await page.evaluate(() => [document.querySelector('[data-testid=float-looper]')?.getAttribute('data-pulse') ?? '', document.querySelector('[data-testid=float-looper] [data-testid=bar-lights]')?.getAttribute('data-mode') ?? '']); mode = st[1]; pulsed = st[0] === 'one' || st[0] === 'beat'; await page.waitForTimeout(30) }
+    if (!pulsed) bad('float: the edge should flash with the beat')
+    if (mode !== 'play') bad(`float: lights mode ${mode}`)
+    console.log(`  float: ${note}`)
+    await page.screenshot({ path: path.join(OUT, 'looper-float.png') })
+    // the count-in bar on a new track: lights in the count colours
+    await page.locator('[data-testid=fl-play]').click()
+    await page.waitForTimeout(1500)
+    await page.locator('[data-testid=fl-track-1]').click()
+    await page.locator('.fl-start button:has-text("Count-in bar")').click()
+    await page.locator('[data-testid=fl-big]').click()
+    let counted = false
+    const t3 = Date.now()
+    while (Date.now() - t3 < 2500 && !counted) { counted = (await page.evaluate(() => document.querySelector('[data-testid=float-looper] [data-testid=bar-lights]')?.getAttribute('data-mode'))) === 'count'; await page.waitForTimeout(40) }
+    if (!counted) bad('float: a count-in bar of lights before recording')
+    errs(page, 'float'); await page.context().close()
+  }
+
   await browser.close()
   console.log(problems.length ? `\n${problems.length} problem(s)` : '\nlooper: all good')
   process.exit(problems.length ? 1 : 0)

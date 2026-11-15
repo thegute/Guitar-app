@@ -16,7 +16,7 @@ import { shiftSamples, stretchSamples } from '../studio/pitchShift'
 import { loadBeat, pushBeat, saveBeat, setBars, type Beat, type PartId } from '../studio/beat'
 import { sharedTransport } from '../studio/shared'
 import type { StudioTransport } from '../studio/transport'
-import { armBar, autoLength, lengths, duckCurve, foldTake, mixTakes, MULTS, peaks, phaseBars, smoothSeam, tempoFromLoop } from './logic'
+import { findAttack, PlayTrigger, wrapPreRoll, armBar, autoLength, lengths, duckCurve, foldTake, mixTakes, MULTS, peaks, phaseBars, smoothSeam, tempoFromLoop } from './logic'
 import { dropTake, getTake, loadSession, putTake, saveSession } from './store'
 
 import { ROLES, type Role } from './roles'
@@ -56,7 +56,7 @@ export interface Session {
   /** the tempo the takes were recorded at (a new beat tempo stretches them to fit) */
   bpm: number | null
   /** how a recording starts when nothing is playing: a bar of count-in, or straight away (the first loop sets the tempo) */
-  start: 'count' | 'free'
+  start: 'count' | 'free' | 'play'
   align: boolean
   beatOn: boolean
   click: boolean
@@ -74,6 +74,8 @@ export interface Rec {
   startT: number
   /** fixed length (bars) or null for Auto until it's closed */
   endBar: number | null
+  /** start when I play: armed and listening for the first note */
+  wait?: boolean
 }
 
 const freshTrack = (role: Role): Track => ({ role, vol: role === 'bass' ? 1.1 : 1, pan: role === 'embellish' ? 0.25 : role === 'lead' ? -0.15 : 0, mute: false, solo: false, rev: false, half: false, octave: role === 'bass', duck: role === 'lead', lenChoice: 'auto', parts: {} })
@@ -108,6 +110,7 @@ export class LoopStation {
   stopAt: number | null = null
   private loaded: Promise<void>
   private fitting = false
+  private trigger: PlayTrigger | null = null
 
   constructor() {
     this.t = sharedTransport()
@@ -432,6 +435,18 @@ export class LoopStation {
     try { await this.openInput() } catch { this.note = "The microphone or amp input couldn't be opened. Allow microphone access and try again."; this.changed(false); return }
     const tr = this.s.tracks[i]
     const existing = this.loopOf(i)
+    if (this.s.start === 'play' && !existing) {
+      // start when I play: listen, and start the take at the first note (with what came just before it)
+      this.trigger = new PlayTrigger()
+      const free = !this.playing && !this.hasAudio()
+      // loops already there: they play while you get ready, and the take starts on the bar nearest your first note
+      if (!free && !this.playing) this.start(0)
+      this.rec = { track: i, part: this.s.part, kind: free ? 'free' : 'new', status: 'armed', startBar: 0, startT: now, endBar: !free && tr.lenChoice !== 'auto' ? tr.lenChoice : null, wait: true }
+      quietForMic(true); haptic('medium')
+      this.note = free ? 'Listening: start playing and the looper starts with you. Press again where the loop comes round.' : 'Listening: start playing and the take starts on the nearest bar.'
+      this.changed(false)
+      return
+    }
     if (!this.playing) {
       if (!existing && this.s.start === 'free' && !this.hasAudio()) {
         this.rec = { track: i, part: this.s.part, kind: 'free', status: 'rec', startBar: 0, startT: now, endBar: null }
@@ -454,6 +469,26 @@ export class LoopStation {
   }
   private recTick(now: number) {
     const r = this.rec!
+    if (r.wait) {
+      if (!this.trigger?.feed(this.recorder?.level ?? 0)) return
+      r.wait = false
+      haptic('light')
+      if (r.kind === 'free') {
+        // a little before we heard it: the real start is found in the audio when the loop is closed
+        r.status = 'rec'; r.startT = now - 0.3
+        this.note = 'Recording. Press again exactly where the loop comes round: that sets the tempo.'
+      } else {
+        // the nearest bar line (a note a little after the 1 still counts as on the 1; the time before it is kept)
+        const bn = this.barNow(now - 0.04)
+        const startBar = Math.abs(bn - Math.round(bn)) < 0.35 ? Math.round(bn) : Math.ceil(bn)
+        r.startBar = startBar; r.startT = this.t.t0 + startBar * this.barDur
+        if (r.endBar !== null) r.endBar = startBar + r.endBar
+        r.status = r.startT <= now ? 'rec' : 'armed'
+        this.note = r.endBar !== null ? `Recording ${r.endBar - startBar} bars.` : 'Recording: press again where the loop should end.'
+      }
+      this.changed(false)
+      return
+    }
     if (r.status === 'armed' && now >= r.startT) { r.status = 'rec'; this.note = r.kind === 'dub' ? 'Overdubbing: press again to stop adding.' : r.endBar !== null ? `Recording ${r.endBar - r.startBar} bars.` : 'Recording: press again where the loop should end.'; this.changed(false) }
     if (r.kind === 'free') { if (now - r.startT > 60) void this.closeFree(); return }
     if (r.status !== 'rec' && r.status !== 'closing') return
@@ -483,12 +518,15 @@ export class LoopStation {
     try {
       // a little past the end too: it's crossfaded into the start so the loop goes round without a click
       const extra = Math.round(0.012 * sr)
-      const raw = await this.recorder!.capture(r.startT + lat, bars * this.barDur + extra / sr)
+      // a new loop also keeps the moment before its first beat: a note picked a hair early comes round at the loop's end
+      const pre = r.kind === 'new' ? Math.round(0.12 * sr) : 0
+      const raw = await this.recorder!.capture(r.startT + lat - pre / sr, bars * this.barDur + (extra + pre) / sr)
       let x = await applyMicFx(levelLoop(raw, sr), sr, micFx(), { keepLength: true })
       const n = Math.round(bars * this.barDur * sr)
       const tr = this.s.tracks[r.track]
       if (r.kind === 'new') {
-        let take: Float32Array<ArrayBufferLike> = x.subarray(0, n).slice()
+        let take: Float32Array<ArrayBufferLike> = wrapPreRoll(x, pre, n)
+        x = x.subarray(pre)
         if (this.s.align) { const moved = gridOffset(take, sr, this.t.stepDur); if (moved) take = rotate(take, moved * sr) }
         take = smoothSeam(take, x.subarray(n, n + extra))
         const id = await this.addTake(take)
@@ -531,12 +569,17 @@ export class LoopStation {
     this.changed(false)
     const ctx = audio(), sr = ctx.sampleRate
     const end = ctx.currentTime
-    const secs = end - r.startT
+    let secs = end - r.startT
     if (secs < 0.8) { this.cancelRec('Too short: play at least a bar.'); return }
     try {
       const lat = this.latency()
       const extra = Math.round(0.012 * sr)
-      const raw = await this.recorder!.capture(r.startT + lat, secs + extra / sr)
+      let raw = await this.recorder!.capture(r.startT + lat, secs + extra / sr)
+      // started when you played: the loop begins at the real start of the first note (a few ms before it, never cut)
+      if (this.s.start === 'play') {
+        const a = findAttack(raw.subarray(0, Math.round(0.6 * sr)), sr)
+        raw = raw.subarray(a); secs -= a / sr; r.startT += a / sr
+      }
       const lt = loopTempo(raw.subarray(0, Math.round(secs * sr)), sr)
       const { bpm, bars } = tempoFromLoop(secs, lt?.beats ?? null, this.t.beat.bpm)
       // the beat takes the loop's tempo, and a length the loop is a whole number of

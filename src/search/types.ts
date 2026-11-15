@@ -20,7 +20,7 @@ export interface PlayAction {
   /** playback speed, 1 = the song's tempo */
   speed?: number
 }
-export type JamPage = 'jam' | 'solo' | 'tab' | 'find' | 'beats'
+export type JamPage = 'jam' | 'solo' | 'tab' | 'find' | 'beats' | 'loop'
 export interface JamTarget { key?: string; mode?: ModeId; style?: Style; bpm?: number; page?: JamPage }
 
 export type Target =

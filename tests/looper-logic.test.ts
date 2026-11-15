@@ -103,3 +103,25 @@ ok(equalSlices(4, 4)[3].start === 3 && equalSlices(4, 4)[3].end === 4, 'equal sl
 }
 console.log(`looper logic + commands: ${checks} checks, ${failed} failed`)
 if (failed) process.exit(1)
+
+// ---- start when I play: the attack, the trigger, the pre-roll
+import { findAttack, PlayTrigger, wrapPreRoll } from '../src/looper/logic'
+{
+  const sr = 48000
+  const x = new Float32Array(sr)
+  for (let i = 0; i < x.length; i++) x[i] = (Math.random() - 0.5) * 0.002
+  const at = 12000
+  for (let i = at; i < x.length; i++) x[i] += Math.sin(i * 0.05) * Math.exp(-(i - at) / 8000) * Math.min(1, (i - at) / 48)
+  const a = findAttack(x, sr)
+  console.log('attack found at', a, 'true', at)
+  if (!(a <= at && at - a < sr * 0.02)) throw new Error(`attack ${a} vs ${at}`)
+  const t = new PlayTrigger()
+  let fired = -1
+  const levels = [0.003, 0.004, 0.003, 0.005, 0.004, 0.003, 0.004, 0.003, 0.004, 0.2]
+  levels.forEach((l, i) => { if (fired < 0 && t.feed(l)) fired = i })
+  if (fired !== 9) throw new Error('trigger ' + fired)
+  const t2 = new PlayTrigger(); if ([0.01, 0.012, 0.011, 0.01, 0.012, 0.011, 0.013, 0.012, 0.011, 0.013].some(l => t2.feed(l))) throw new Error('hiss triggered')
+  const w = wrapPreRoll(Float32Array.from([1, 2, 10, 20, 30, 40]), 2, 4)
+  if (w.join() !== '10,20,31,42') throw new Error('wrap ' + w.join())
+  console.log('start when I play: ok')
+}

@@ -137,3 +137,39 @@ export function peaks(x: Float32Array, n = 120): Float32Array {
 export function equalSlices(lenSecs: number, pieces: number): { start: number; end: number }[] {
   return Array.from({ length: pieces }, (_, i) => ({ start: (lenSecs * i) / pieces, end: (lenSecs * (i + 1)) / pieces }))
 }
+
+// ---------- start when I play ----------
+/** Where the first note really starts in a stretch of audio: the first moment the level (5 ms windows) gets above 15% of
+ *  the loudest level in the stretch, minus a few milliseconds so the pick's attack is never cut. Returns a sample index. */
+export function findAttack(x: Float32Array, sr: number, safetySec = 0.008): number {
+  const win = Math.max(1, Math.round(sr * 0.005))
+  const env: number[] = []
+  for (let i = 0; i < x.length; i += win) { let s = 0; const e = Math.min(x.length, i + win); for (let k = i; k < e; k++) s += x[k] * x[k]; env.push(Math.sqrt(s / Math.max(1, e - i))) }
+  const peak = Math.max(...env, 1e-9)
+  // the noise floor: the quietest tenth
+  const floor = [...env].sort((a, b) => a - b)[Math.floor(env.length * 0.1)] ?? 0
+  const thr = Math.max(floor * 3, peak * 0.15)
+  const i = env.findIndex(v => v >= thr)
+  return Math.max(0, (i < 0 ? 0 : i) * win - Math.round(safetySec * sr))
+}
+
+/** Watches the input level for the first note: true once the level jumps well above the quiet level it has learned. */
+export class PlayTrigger {
+  private floor = 0.004
+  private n = 0
+  /** feed the recent input level (0..1) about every 25 ms */
+  feed(level: number): boolean {
+    this.n++
+    // learn the room's / amp's hiss for the first few readings, slowly after that
+    if (this.n < 8 || level < this.floor * 2) this.floor = this.floor * 0.9 + Math.max(0.0005, level) * 0.1
+    return this.n >= 4 && level > Math.max(0.02, this.floor * 5)
+  }
+}
+
+/** A take that started a little early: the part before the loop's start (`pre` samples at the front of `x`) is mixed
+ *  onto the loop's end, so a note picked just before the beat comes round in the right place instead of being cut. */
+export function wrapPreRoll(x: Float32Array, pre: number, n: number): Float32Array {
+  const out = x.slice(pre, pre + n)
+  for (let i = 0; i < pre && i < n; i++) out[n - pre + i] += x[i]
+  return out
+}

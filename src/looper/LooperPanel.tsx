@@ -12,6 +12,7 @@ import { Win, WinArea } from '../components/Win'
 import { Fretboard, type Mark } from '../components/Fretboard'
 import { useInstrument } from '../instrument'
 import { BeatLight } from '../studio/BeatLight'
+import { BarLights } from './BarLights'
 import { FxPad } from '../studio/FxPad'
 import { MicFxPicker } from '../studio/MicFxPicker'
 import { TimingCheck } from './TimingCheck'
@@ -115,6 +116,7 @@ export function LooperPanel() {
               {st.playing ? <Ico n="stop" fill /> : <Ico n="play" fill />}
             </button>
             <BeatLight t={t} playing={st.playing} big />
+            <BarLights t={t} playing={st.playing} recording={!!st.rec && st.rec.status === 'rec'} />
             <span className="lp-tempo" role="group" aria-label="Tempo">
               <button className="btn sm ghost" onClick={() => setBpm(bpm - 1)} aria-label="Slower"><Ico n="minus" /></button>
               <b className="tabular" data-testid="lp-bpm">{Math.round(bpm)}</b><span className="small muted">BPM</span>
@@ -133,11 +135,12 @@ export function LooperPanel() {
             <label className="lp-toggle"><input type="checkbox" checked={st.s.click} onChange={e => st.set({ click: e.target.checked })} /> Click</label>
           </div>
           {(st.note || st.rec) && <p className={`small lp-note${st.rec?.status === 'armed' ? ' armed' : st.rec ? ' rec' : ''}`} role="status" data-testid="lp-note">{st.note}</p>}
-          {empty && !st.playing && !st.rec && (
+          {!st.rec && (
             <div className="lp-start small">
               <span>Start with</span>
               <span className="seg" role="group" aria-label="How recording starts">
-                <button aria-pressed={st.s.start === 'count'} onClick={() => st.set({ start: 'count' })}>A count-in, at {Math.round(bpm)} BPM</button>
+                <button aria-pressed={st.s.start === 'play'} onClick={() => st.set({ start: 'play' })} data-testid="lp-play-start">When I play (it hears your first note)</button>
+                <button aria-pressed={st.s.start === 'count'} onClick={() => st.set({ start: 'count' })}>A count-in bar, at {Math.round(bpm)} BPM</button>
                 <button aria-pressed={st.s.start === 'free'} onClick={() => st.set({ start: 'free' })} data-testid="lp-free">Free: my first loop sets the tempo</button>
               </span>
             </div>
@@ -344,9 +347,11 @@ function NowNeck({ st, tuning }: { st: LoopStation; tuning: number[] }) {
 /** A slim looper strip for Play, Scales and the beat maker: play/stop, A/B, the four tracks, open the looper. */
 export function LooperBar({ always = false }: { always?: boolean }) {
   const st = useStation()
+  const edge = useRef<HTMLDivElement>(null)
   if (!always && !st.hasAudio() && !st.rec) return null
   return (
-    <div className="looper-bar" data-testid="looper-bar" role="group" aria-label="Looper">
+    <div className="looper-bar" ref={edge} data-testid="looper-bar" role="group" aria-label="Looper">
+      <BarLights t={st.transport} playing={st.playing} recording={!!st.rec && st.rec.status === 'rec'} edgeRef={edge} />
       <button className={`btn sm${st.playing ? ' on' : ''}`} onClick={() => (st.playing ? st.stop() : st.start(0))} aria-label={st.playing ? 'Stop the looper' : 'Play the looper'}>
         {st.playing ? <Ico n="stop" fill /> : <Ico n="play" fill />}
       </button>

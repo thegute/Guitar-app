@@ -322,10 +322,12 @@ function ArtGallery() {
 
 function BubbleSwitch() {
   const [on, setOn] = usePersist('askBubble', true)
+  const [loopOn, setLoopOn] = usePersist('looperBubble', true)
   const [secs, setSecs] = useState(talkCardSecs)
   return (
     <>
       <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={on} onChange={e => { setOn(e.target.checked); try { localStorage.setItem('kg:askBubble', JSON.stringify(e.target.checked)) } catch { /* noop */ } dispatchEvent(new Event('kg-bubble')) }} /> <span>Show the helper bubble on every screen (drag it anywhere to move it out of the way)</span></label>
+      <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={loopOn} onChange={e => { setLoopOn(e.target.checked); try { localStorage.setItem('kg:looperBubble', JSON.stringify(e.target.checked)) } catch { /* noop */ } dispatchEvent(new Event('kg-bubble')) }} /> <span>Show the looper button on every screen</span></label>
       <div className="stack" style={{ gap: 4 }}>
         <span className="small">Spoken answers stay on screen after the voice finishes:</span>
         <Chips label="How long spoken answers stay up" items={TALK_CARD_CHOICES.map(v => ({ id: v, label: v === 0 ? 'Until I close it' : v < 60 ? `${v} s` : '1 min' }))} value={secs} onChange={v => { setTalkCardSecs(v); setSecs(v) }} />
