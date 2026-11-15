@@ -391,3 +391,23 @@ Tab search: in the phone app, Songsterr and Ultimate Guitar results open straigh
   `BASS_PACK` (studiobass-session / -sixties / -modern; no upright, owner), `STYLE_BASS`, Jam "Bass sound" picker, Play's band
   (`setBandBass`). Bass bus compressor in engine/console.ts.
 - Harvest state + rules: `notes/HARVEST-PLAN.md` "RESUME HERE" (latest at the end).
+
+## AI coach + fills workshop + looper upgrades (2026-11-14, big-update, test-51)
+- Coach (`src/coach/`): trouble.ts (worst bar + why), advice.ts (rules; `fillAdvice` for fills docs), listen.ts (Gemini clip),
+  useCoach.ts, CoachCard.tsx (acts: drill / shift / easier / loop / compare "Hear it, then you" / keep), drill.ts (micro-drills,
+  coach ramp), lens.ts (style paths), memory.ts (`kg:coachMemory`), endurance.ts, checkup.ts (weekly 5-min check-up),
+  backing.ts (coach-made backing tracks → Jam), CoachToday.tsx (Learn → Today), teachGrade.ts + TeachBack.tsx (Explain it back,
+  built-in grading), improv.ts + ImprovCoach.tsx (Jam → Improv coach). Helper grounding: `assistant/ground.ts` (course lessons +
+  fills ideas into the AI prompt, lesson link). Persona: female, near-neutral, friendly, no name/picture; suggests, he chooses.
+- Learn → Explore: Target notes (`learn/targets.ts`, TargetNotes.tsx; levels roots→voice leading, `kg:tnBest`), Ear training path
+  (`learn/earSteps.ts`, EarPath.tsx), Call and response (`learn/callPhrases.ts`, CallResponse.tsx).
+- Fills between chords (`src/fills/`): shells.ts (top-string triads, free notes, shellPath), make.ts (Mayer 9 steps, Asato 9 steps
+  incl. connected part, melodicPart, connectedPart, FILL_LEARN ideas, fillStepOf), metal.ts (chug riffs with lead fills),
+  styles2.ts (bluegrass, Atkins Travis, Plini, Mancuso, spread triads & 10ths), FillsWorkshop / MetalWorkshop / Style2Workshop,
+  FillIdea.tsx (The idea + links + Explain it back), current.ts (current workshop → Practice button, Today, 10-min routine),
+  loop.ts (Loop your own rhythm → looper). Doc ids `fills:<style>:<key>:<prog>:<step>`. Original material only.
+- Looper: start mode 'play' (PlayTrigger, findAttack, wrapPreRoll in logic.ts), BarLights (two-colour count-in, beat lamps,
+  `data-pulse` edge flash), FloatingLooper + FloatingCard (every page, `kg:looperBubble`, Settings → You). Tests hide the bubble.
+- Tests: coach-logic, fills-logic (all styles × keys), looper-logic; browser coach-test, targets-test, ear-test, fills-test, looper float.
+- Owner wants everything interconnected (shared progression/key/style across features). Next: owner tests test-51, then brainstorm
+  the next phase (Stage 3 engine, Strum Machine, beat maker, Deep Dive course).
