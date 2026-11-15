@@ -11,14 +11,14 @@ import { jamProgression } from '../tabs/fromProgression'
 import { pcLabel } from '../learn/targets'
 import { countUse } from '../usage'
 import { freeNotes, triadOf, STD } from './shells'
-import { workshop, melodicPart, FILL_LEARN } from './make'
+import { workshop, melodicPart, FILL_LEARN, type FillStyle } from './make'
 import { launch } from '../search/launch'
 import { spell } from '../theory/progressions'
 import { FillIdea } from './FillIdea'
 
 const STYLES = [
   { id: 'mayer', label: 'John Mayer soul fills', ready: true },
-  { id: 'asato', label: 'Mateus Asato', ready: false },
+  { id: 'asato', label: 'Mateus Asato', ready: true },
   { id: 'bluegrass', label: 'Tony Rice / Billy Strings', ready: false },
   { id: 'atkins', label: 'Chet Atkins', ready: false },
   { id: 'plini', label: 'Plini', ready: false },
@@ -55,7 +55,9 @@ export function FillsWorkshop({ inst, onExit }: { inst: Instrument; onExit: () =
   }, [progId, key, jam, jamOk])
   const wkey = progId === 'jam' && jamOk ? jam!.tonic : key
   const standard = inst.id === 'guitar' && inst.midis.length === 6 && inst.midis.every((m, i) => m === STD[i])
-  const ws = useMemo(() => workshop({ chords, key: wkey, bpm, style: 'mayer', title: `Soul fills (${chords.join(' ')})` }), [chords, wkey, bpm])
+  const fstyle = (style === 'asato' ? 'asato' : 'mayer') as FillStyle
+  const stitle = fstyle === 'asato' ? 'Asato fills' : 'Soul fills'
+  const ws = useMemo(() => workshop({ chords, key: wkey, bpm, style: fstyle, title: `${stitle} (${chords.join(' ')})` }), [chords, wkey, bpm, fstyle])
   const sh = ws.shells[Math.min(sel, ws.shells.length - 1)]
   const free = sh ? freeNotes(sh) : []
 
@@ -85,7 +87,7 @@ export function FillsWorkshop({ inst, onExit }: { inst: Instrument; onExit: () =
     openInPlay({ id: docFor(id), title: song.title, source: 'lesson', inst: inst.id, key: { root: wkey, minor: false }, song, updated: Date.now() })
   }
   const practise = (i: number) => { const st = ws.steps[i]; openStep(st.id, st.song, st.inTime) }
-  const melody = useMemo(() => melodicPart({ chords, key: wkey, bpm, style: 'mayer', title: `Soul fills (${chords.join(' ')})` }, mbars, mseed), [chords, wkey, bpm, mbars, mseed])
+  const melody = useMemo(() => melodicPart({ chords, key: wkey, bpm, style: fstyle, title: `${stitle} (${chords.join(' ')})` }, mbars, mseed), [chords, wkey, bpm, mbars, mseed, fstyle])
   /** jam freely over the progression with Jam's band (drums, bass, chords) */
   const jamOver = () => {
     countUse('fills:jam')
@@ -100,7 +102,9 @@ export function FillsWorkshop({ inst, onExit }: { inst: Instrument; onExit: () =
     <div className="stack fills" style={{ gap: 12 }} data-testid="fills">
       <div className="row"><button className="btn sm" onClick={onExit}>← Back</button><h2 style={{ margin: 0 }}>Fills between chords</h2></div>
       <div className="panel stack" style={{ gap: 10 }}>
-        <p className="small" style={{ margin: 0 }}>Little melodies between chord shapes, the way John Mayer, Hendrix and Curtis Mayfield play rhythm guitar. Nine steps over one progression; each one opens in the song player with a band, the mic and speed control.</p>
+        <p className="small" style={{ margin: 0 }}>{fstyle === 'asato'
+          ? 'Mateus Asato\'s way: the same small shapes as Mayer, decorated much more: slides into every chord, quick hammer-pull flicks, 3rds on the top strings, 16th-note flourishes and muted ghost strums. Learn the John Mayer steps first if these feel fast.'
+          : 'Little melodies between chord shapes, the way John Mayer, Hendrix and Curtis Mayfield play rhythm guitar.'} {ws.steps.length} steps over one progression; each one opens in the song player with a band, the mic and speed control.</p>
         <Chips label="Style" items={STYLES.map(s => ({ id: s.id, label: s.ready ? s.label : `${s.label} (soon)` }))} value={style} onChange={v => { if (STYLES.find(s => s.id === v)?.ready) setStyle(v) }} wrap />
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <label className="field" style={{ flex: '2 1 180px' }}><span>Progression</span>
@@ -157,7 +161,7 @@ export function FillsWorkshop({ inst, onExit }: { inst: Instrument; onExit: () =
       })}
       <div className="panel stack fills-step" style={{ gap: 6 }} data-testid="fills-step-melody">
         <button className="fills-head" onClick={() => setOpen(open === 'melody' ? '' : 'melody')} aria-expanded={open === 'melody'}>
-          <b>10. Longer melodies: {mbars} bars</b>{best(`melody-${mbars}-${mseed}`) > 0 && <span className="small muted">best {best(`melody-${mbars}-${mseed}`)}%</span>}
+          <b>{ws.steps.length + 1}. Longer melodies: {mbars} bars</b>{best(`melody-${mbars}-${mseed}`) > 0 && <span className="small muted">best {best(`melody-${mbars}-${mseed}`)}%</span>}
         </button>
         {open === 'melody' && <>
           <p className="small" style={{ margin: 0 }}>Fills joined up into a melody: an idea, the same idea over the next chord, a longer answer, and a walk home, with the chord on 1 of every bar. Make as many as you like.</p>

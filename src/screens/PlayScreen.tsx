@@ -1254,7 +1254,7 @@ export function PlayScreen() {
       `Mode: ${mode === 'time' ? 'In time (the tab moves at tempo)' : 'Wait for me (the tab waits for each right note)'}. They are at bar ${nowBar + 1}.`,
       loop ? `Looping bars ${loop.from + 1} to ${loop.to + 1}.` : 'No loop set.',
       `Speed ${Math.round(speed * 100)}% of ${songBpm} BPM (= ${Math.round(songBpm * speed)} BPM).`,
-      fillStep ? `This is a step of the Fills between chords workshop (John Mayer style soul fills): "${doc.title}". The idea behind it: ${fillStep.learn.idea}` : '',
+      fillStep ? `This is a step of the Fills between chords workshop (${doc.id.split(':')[1] === 'asato' ? 'Mateus Asato' : 'John Mayer'} style): "${doc.title}". The idea behind it: ${fillStep.learn.idea}` : '',
       `Key: ${key.label}.${spanNow ? ` Chord here: ${spanNow.name}${spanNext ? `, next: ${spanNext.name}` : ''}.` : ''}`,
       lm && lm.bar >= 0 ? `Last mistake: in bar ${lm.bar + 1} they played ${lm.chordText ? `a chord sounding like ${lm.chordText}` : noteName(lm.heard, flats)} where the tab wants ${lm.want.map(m => noteName(m, flats)).join('+') || 'a rest'}.` : '',
       (() => { const g = hands[groupAt(hands, cursorFlat)]; if (!g) return ''; const fs = [...new Set(g.notes.map(n => `${n.fret === 0 ? 'open' : `fret ${n.fret}`} ${stringLabel(track.tuning, n.string, flats)} string = finger ${n.finger || 'none (open)'}`))].slice(0, 6); return `Hand position here: ${g.open ? 'open / first position' : `1st finger on fret ${g.base}`} (one finger per fret). Notes in this hand position: ${fs.join('; ')}.` })(),

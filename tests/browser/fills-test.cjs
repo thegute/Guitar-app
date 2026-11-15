@@ -35,6 +35,16 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
     await page.locator('[data-testid=fills] select').nth(1).selectOption('A')
     const chipsA = await page.locator('[data-testid=fills-map] button[data-chord]').allInnerTexts()
     if (chipsA.join(' ') !== 'A F#m D E') bad(`${vp.width}: key A shells ${chipsA}`)
+    if (vp.width === 840) {
+      await page.locator('[data-testid=fills] button:has-text("Mateus Asato")').click()
+      const heads = await page.locator('.fills-step .fills-head b').allInnerTexts()
+      if (!heads.some(h => /The flick/.test(h)) || !heads.some(h => /9\. Longer melodies/.test(h))) bad(`Asato steps: ${heads.join(' | ')}`)
+      await page.locator('[data-testid=fills-step-flick] .fills-head').click()
+      await page.locator('[data-testid=fills-go-flick]').click()
+      await page.waitForSelector('.tab-note', { timeout: 8000 })
+      if (!/Asato fills .*the flick/.test(await page.evaluate(() => document.body.innerText))) bad('the Asato step should open')
+      await page.screenshot({ path: path.join(OUT, 'fills-asato.png') })
+    }
     if (vp.width === 412) {
       // step 3 opens in the song player, with The idea and the band
       await page.locator('[data-testid=fills-step-free] .fills-head').click()

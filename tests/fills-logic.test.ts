@@ -40,8 +40,9 @@ const PROGS: [number, boolean][][] = [[[0, false], [9, true], [5, false], [7, fa
 let checked = 0
 for (let k = 0; k < 12; k++) for (const pr of PROGS) {
   const chords = pr.map(([s, m]) => NAMES[(k + s) % 12] + (m ? 'm' : ''))
-  const ws = workshop({ chords, key: NAMES[k], bpm: 70, style: 'mayer' })
-  assert.equal(ws.steps.length, 9, chords.join(' '))
+  for (const style of ['mayer', 'asato'] as const) {
+  const ws = workshop({ chords, key: NAMES[k], bpm: 70, style })
+  assert.equal(ws.steps.length, style === 'mayer' ? 9 : 8, chords.join(' '))
   for (const st of ws.steps) {
     const bars = st.song.tracks[0].bars
     assert.equal(bars.length, 8)
@@ -52,6 +53,8 @@ for (let k = 0; k < 12; k++) for (const pr of PROGS) {
       for (const x of b.steps) for (const n of x.notes) { assert.ok(n.fret >= 0 && n.fret <= 19, `${st.id} fret ${n.fret}`); assert.ok(n.string >= 3) }
     })
     checked++
+    assert.ok(FILL_LEARN[st.id], `${style}: ${st.id} has its idea`)
+  }
   }
 }
 // the ideas and their links
@@ -61,7 +64,7 @@ assert.equal(fillStepOf('fills:mayer:G:G-Em-C-D:sixths')?.id, 'sixths'); assert.
 let mel = 0
 for (let k = 0; k < 12; k++) for (const pr of PROGS) for (const bars of [4, 6, 8] as const) for (const seed of [1, 2, 3, 4]) {
   const chords = pr.map(([s, m]) => NAMES[(k + s) % 12] + (m ? 'm' : ''))
-  const song = melodicPart({ chords, key: NAMES[k], bpm: 70, style: 'mayer' }, bars, seed)!
+  const song = melodicPart({ chords, key: NAMES[k], bpm: 70, style: seed % 2 ? 'asato' : 'mayer' }, bars, seed)!
   const bs = song.tracks[0].bars
   assert.equal(bs.length, bars)
   bs.forEach((b, i) => {

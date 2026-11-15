@@ -97,7 +97,8 @@ function stepOnString(s: number, fret: number, tonic: number, dir: -1 | 1, tunin
   return fret
 }
 
-export interface WorkshopIn { chords: string[]; key: string; bpm: number; style: 'mayer'; tuning?: number[]; title?: string }
+export type FillStyle = 'mayer' | 'asato'
+export interface WorkshopIn { chords: string[]; key: string; bpm: number; style: FillStyle; tuning?: number[]; title?: string }
 const PCS: Record<string, number> = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 }
 
 /** The workshop: nine steps over one progression. */
@@ -116,6 +117,7 @@ export function workshop(w: WorkshopIn): { shells: Shell[]; steps: FillStep[] } 
   const twice = (make: (sh: Shell, i: number, pass: number) => Ev[]) => [0, 1].flatMap(pass => shells.map((sh, i) => bar(make(sh, i, pass))))
 
   const steps: FillStep[] = []
+  if (w.style === 'asato') { asato(); return { shells, steps } }
   // 1. the shells
   steps.push({
     id: 'shells', title: '1. The chord shells',
@@ -220,6 +222,137 @@ export function workshop(w: WorkshopIn): { shells: Shell[]; steps: FillStep[] } 
     inTime: true,
     song: song('yours', 'your own fills', twice(sh => [strum(sh, 0, 1, sh.chord, tuning), strum(sh, 1, 1, undefined, tuning)])),
   })
+
+  // ---------- Mateus Asato: more ornaments, slides into shapes, 3rds on the top strings, 16th-note flourishes ----------
+  function asato() {
+    const mut = (at: number, dur: number, stroke: 'down' | 'up' = 'down'): Ev => ({ at, dur, notes: TOP.map(st => ({ string: st, fret: 0, midi: tuning[st], tech: 'x' })), stroke })
+    const legato = (pts: { string: number; fret: number }[]) => pts.map((p, k) => {
+      const q = pts[k - 1]
+      const tech = q && q.string === p.string && Math.abs(p.fret - q.fret) <= 2 && p.fret !== q.fret ? (p.fret > q.fret ? 'h' : 'p') : undefined
+      return nt(p.string, p.fret, tech, tuning)
+    })
+    // 1. slide into every chord
+    steps.push({
+      id: 'slidein', title: '1. Slide into every chord',
+      why: 'Mateus Asato rarely just plays a chord: he slides into it from a fret below. That little scoop makes the shape sound sung rather than struck.',
+      how: ['Hold the shape one fret lower, pick it, and slide straight up into the real shape on the beat.', 'Keep the pressure on while you slide so the notes keep sounding.', 'Then strum the shape on 3 and 4.'],
+      listen: 'The slide is quick (a grace note), so the real chord still lands on 1.',
+      song: song('slidein', 'slide into every chord', twice(sh => {
+        if (sh.lo < 2) return [strum(sh, 0, 2, sh.chord, tuning), strum(sh, 2, 1, undefined, tuning), strum(sh, 3, 1, undefined, tuning)]
+        return [{ at: 0, dur: 0.25, notes: sh.notes.map(n => nt(n.string, n.fret - 1, undefined, tuning)), chord: sh.chord, stroke: 'down' }, { at: 0.25, dur: 1.75, notes: sh.notes.map(n => nt(n.string, n.fret, '/', tuning)) }, strum(sh, 2, 1, undefined, tuning), strum(sh, 3, 1, undefined, tuning)]
+      })),
+    })
+    // 2. the flick: hammer, pull, hammer on one chord note
+    steps.push({
+      id: 'flick', title: '2. The flick: hammer, pull, hammer',
+      why: 'A free finger flicks a chord note: hammer on, pull off, hammer on again, fast. It is a tiny trill that makes a held chord shimmer, and it is all over his playing.',
+      how: ['Strum on 1.', 'On the "and" of 2, flick the note: hammer on from the free note, pull off back to it, hammer on again (16ths).', 'Strum again on 4. Keep the other fingers still.'],
+      listen: 'All three flick notes are even and clear, not just the first.',
+      song: song('flick', 'the flick', twice((sh, i, pass) => {
+        const f = pickFree(sh, pass, ['hammer'])
+        if (!f) return [strum(sh, 0, 2, sh.chord, tuning), strum(sh, 2, 2, undefined, tuning)]
+        return [strum(sh, 0, 1.5, sh.chord, tuning), { at: 1.5, dur: 0.25, notes: [nt(f.string, f.fret, undefined, tuning)] }, { at: 1.75, dur: 0.25, notes: [nt(f.string, f.to.fret, 'h', tuning)] }, { at: 2, dur: 0.25, notes: [nt(f.string, f.fret, 'p', tuning)] }, { at: 2.25, dur: 0.75, notes: [nt(f.string, f.to.fret, 'h', tuning)] }, strum(sh, 3, 1, undefined, tuning)]
+      })),
+    })
+    // 3. 3rds on the B and e strings, walking into the next chord
+    const thirdBelow = (eFret: number): number | null => {
+      // the key note two scale steps below the e-string note, played on the B string
+      const m = tuning[5] + eFret
+      const scale: number[] = []
+      for (let x = m - 1; x >= m - 5; x--) if (MAJOR.includes(pcOf(x - tonic))) scale.push(x)
+      const t = scale[1]
+      if (t === undefined) return null
+      const f = t - tuning[4]
+      return f >= 0 ? f : null
+    }
+    steps.push({
+      id: 'thirds', title: '3. 3rds on the top two strings',
+      why: 'Two notes a 3rd apart on the B and e strings, moving together along the scale: the sweetest double-stop there is. Asato uses them to walk from one chord into the next.',
+      how: ['Strum on 1 and hold it.', 'From the "and" of 2, play three pairs of notes on the B and e strings, each a 3rd apart, stepping toward the next chord.', 'Use two fingers (or one rolled across both strings where the frets match).'],
+      listen: 'Both notes of each pair sound together, with no other strings ringing.',
+      song: song('thirds', '3rds on the top two strings', twice((sh, i) => {
+        const nx = next(i)
+        const a = sh.notes[2].fret, b = nx.notes[2].fret
+        const dir = b >= a ? 1 : -1
+        const lo = Math.min(a, b) - 6, hi = Math.max(a, b) + 6
+        const frets = scaleOn(5, lo, hi, tonic, false, tuning).filter(f => f !== b)
+        // the three e-string notes just before the landing note, coming from the current side
+        // stay within reach of the hand: up to three pairs from the side the line comes from
+        const near4 = (f: number) => Math.abs(f - a) <= 4 && Math.abs(f - b) <= 5
+        const below = frets.filter(f => f < b && near4(f)).sort((x, y) => x - y), above = frets.filter(f => f > b && near4(f)).sort((x, y) => y - x)
+        const pick = (dir > 0 ? below : above).length >= (dir > 0 ? above : below).length ? (dir > 0 ? below : above) : (dir > 0 ? above : below)
+        const line: (number | 'shell')[] = pick.slice(-3)
+        // too few: start from the shape's own top two notes
+        while (line.length < 3) line.unshift('shell')
+        const evs: Ev[] = [strum(sh, 0, 1.5, sh.chord, tuning)]
+        line.forEach((f, k) => {
+          const at = 1.5 + k * 0.5 + (k === 2 ? 0.5 : 0), dur = k === 2 ? 1.5 : k === 1 ? 1 : 0.5
+          if (f === 'shell') { evs.push({ at, dur, notes: [nt(4, sh.notes[1].fret, undefined, tuning), nt(5, sh.notes[2].fret, undefined, tuning)] }); return }
+          const bf = thirdBelow(f)
+          evs.push({ at, dur, notes: bf === null ? [nt(5, f, undefined, tuning)] : [nt(4, bf, undefined, tuning), nt(5, f, undefined, tuning)] })
+        })
+        return evs
+      })),
+    })
+    // 4. 16th-note fills
+    steps.push({
+      id: 'sixteenths', title: '4. 16th-note fills into the next chord',
+      why: 'Four quick notes on the last beat, hammered and pulled where they sit on one string: the fast flourish that ends so many of his phrases. Short, fast, and landing exactly on 1.',
+      how: ['Strum on 1, 2 and 3.', 'On beat 4, play four 16th notes ("4 e and a") from the major pentatonic.', 'Hammer on or pull off wherever two notes are on the same string, so only the first is picked.'],
+      listen: 'The four notes are even, and the next chord is right on 1, not late.',
+      song: song('sixteenths', '16th-note fills', twice((sh, i, pass) => {
+        // first time round the major pentatonic, the second the whole major scale
+        const line = walkTo(pass ? sh.notes[1] : sh.notes[2], next(i).notes[2], 4, tonic, !pass, tuning)
+        const notes = legato(line)
+        return [strum(sh, 0, 1, sh.chord, tuning), strum(sh, 1, 1, undefined, tuning), strum(sh, 2, 1, undefined, tuning), ...notes.map((n, k) => ({ at: 3 + k * 0.25, dur: 0.25, notes: [n] }))]
+      })),
+    })
+    // 5. the turn around the 3rd: 4 → 3 → 2 → 3
+    steps.push({
+      id: 'turn', title: '5. The turn: sus4, 3rd, sus2, 3rd',
+      why: 'Circling the chord\'s 3rd from above and below (the 4th, the 3rd, the 2nd, back to the 3rd) is a little melody that never leaves the chord. Pull off, pull off, hammer on: one pick, four notes.',
+      how: ['Strum on 1.', 'On beat 2: pick the 4th, pull off to the 3rd, pull off to the 2nd (or open string), hammer back to the 3rd.', 'Strum on 3 and 4.'],
+      listen: 'The last note (the 3rd) rings, so the chord is whole again.',
+      song: song('turn', 'the turn', twice(sh => {
+        const t = sh.notes.find(n => n.role === '3' || n.role === 'b3')
+        const up = t ? (t.role === '3' ? 1 : 2) : 0, dn = t ? (t.role === '3' ? 2 : 1) : 0
+        if (!t || t.fret - dn < 0) return [strum(sh, 0, 2, sh.chord, tuning), strum(sh, 2, 2, undefined, tuning)]
+        return [strum(sh, 0, 1, sh.chord, tuning), { at: 1, dur: 0.25, notes: [nt(t.string, t.fret + up, undefined, tuning)] }, { at: 1.25, dur: 0.25, notes: [nt(t.string, t.fret, 'p', tuning)] }, { at: 1.5, dur: 0.25, notes: [nt(t.string, t.fret - dn, 'p', tuning)] }, { at: 1.75, dur: 0.25, notes: [nt(t.string, t.fret, 'h', tuning)] }, strum(sh, 2, 1, undefined, tuning), strum(sh, 3, 1, undefined, tuning)]
+      })),
+    })
+    // 6. ghost strums and a fill
+    steps.push({
+      id: 'ghost', title: '6. Ghost strums and a fill',
+      why: 'Between the chords he keeps the right hand moving with muted "ghost" strums (x): the strings are touched, not fretted, so they click. That keeps the groove going, and the fill drops out of it.',
+      how: ['Strum on 1, a muted strum (lift the fretting fingers slightly) on 2, an up-strum of the chord on the "and".', 'Another muted strum on 3, then a three-note fill from the "and" of 3.', 'The strumming hand never stops: down on the beats, up on the "and"s.'],
+      listen: 'The muted strums are dead clicks, not notes, and the fill still lands on 1.',
+      inTime: true,
+      song: song('ghost', 'ghost strums', twice((sh, i) => {
+        const line = walkTo(sh.notes[2], next(i).notes[2], 3, tonic, true, tuning)
+        return [strum(sh, 0, 1, sh.chord, tuning), mut(1, 0.5), { ...strum(sh, 1.5, 0.5, undefined, tuning), stroke: 'up' as const }, mut(2, 0.5), ...legato(line).map((n2, k) => ({ at: 2.5 + k * 0.5, dur: 0.5, notes: [n2] }))]
+      })),
+    })
+    // 7. mixed, 8. your own
+    steps.push({
+      id: 'mix', title: '7. Mix them up',
+      why: 'His parts move between all of these: a slide in, a flick, 3rds, a 16th-note flourish. Mixed, they sound like one person talking, not a list of tricks.',
+      how: ['Each bar uses a different move from steps 1 to 6.', 'Keep the time first: if a move makes you late, play it slower or leave it out.', 'Once it\'s clean, swap the order of the moves.'],
+      listen: 'Every bar lands on 1, whatever the move.',
+      song: song('mix', 'mixed', [0, 1].flatMap(pass => shells.map((sh, i) => {
+        const k = (i + pass * 3) % 6
+        const src = steps[k].song.tracks[0].bars
+        return src[(i + pass * n) % src.length]
+      }))),
+    })
+    steps.push({
+      id: 'yours', title: '8. Your own fills',
+      why: 'Now you choose. The chord is on 1 and 2; the rest of the bar is yours for any of his moves.',
+      how: ['Strum (or slide into) the shape on 1 and 2.', 'Beats 3 and 4 are yours: a flick, the turn, 3rds, or a 16th-note run.', 'Land on the next chord on 1. Play it In time so the band keeps going.'],
+      listen: 'You land on the next chord on 1 every time.',
+      inTime: true,
+      song: song('yours', 'your own fills', twice(sh => [strum(sh, 0, 1, sh.chord, tuning), strum(sh, 1, 1, undefined, tuning)])),
+    })
+  }
   return { shells, steps }
 }
 
@@ -247,6 +380,12 @@ export const FILL_LEARN: Record<string, FillLearn> = {
   neck: { idea: 'The same chord sits in three shapes up the top strings, each one starting where the last one\'s top note was. Moving between them gives you somewhere to go while a chord lasts, and the walk in between is the fill. Mayer often climbs through the shapes over one chord, then comes back down for the next.', lessons: ['c2-triads'], tools: ['targets'], topics: ['inversion', 'triad', 'CAGED'], video: SERIFF },
   mix: { idea: 'A real part mixes the moves: a breathing chord, a lead-in, a pentatonic fill, 6ths. Keep the rhythm going under everything: the strums are the backbone and the fills hang off them. If a fill makes you late for the next chord, it is too long or too fast: play fewer notes.', lessons: ['c2-rhythm'], tools: ['cr'], topics: ['rhythm guitar', 'fills'] },
   melody: { idea: 'A longer melody is fills joined up into sentences. Bar 1 states a short idea (the motif). Bar 2 plays the same shape over the next chord, starting from a different chord tone, so it fits the new chord (a sequence). Bar 3 answers with something longer, and bar 4 walks down (or up) the scale onto the next chord\'s top note to resolve. Six and eight bars repeat the idea and end on the home chord. Question, answer, home: that is how melodies, and good solos, are built.', lessons: ['c3-majorpent', 'c3-progressions'], tools: ['cr', 'targets'], topics: ['phrasing', 'motif', 'melody'] },
+  slidein: { idea: 'Sliding into a shape from one fret below is a chromatic "scoop": for a split second every note is a half step flat, then it lands. Your ear hears that as a voice bending into a note, which is why it sounds vocal. Because the shape just moves up one fret, any shell can be slid into, and it works on every chord.', lessons: ['c1-steps', 'c2-triads'], tools: ['techniques'], topics: ['slide', 'grace note', 'chromatic'] },
+  flick: { idea: 'A flick is a quick trill: the free finger hammers on and pulls off a neighbour note of a chord tone, then lands on it. It decorates a held chord without changing what the chord is, the same way a singer adds a little turn on a held word. Legato (one pick, many notes) keeps it smooth and fast.', lessons: ['c2-intervals'], tools: ['techniques'], topics: ['trill', 'hammer-on', 'pull-off', 'ornament'] },
+  thirds: { idea: 'Diatonic 3rds are pairs of scale notes two steps apart. Played on the B and e strings and moved together along the scale, they sound like two voices singing in harmony, and because both notes are from the key they sound right over every chord in it. Walking them step by step into the next chord\'s top note connects the chords.', lessons: ['c2-intervals', 'c2-keychords'], tools: ['targets'], topics: ['thirds', 'double stops', 'harmony'] },
+  sixteenths: { idea: 'Sixteenth notes are four to a beat. Putting four of them on the last beat of a bar gives a burst of motion right before the next chord, so the change sounds pushed forward. Picking only the first note and hammering or pulling the rest keeps them even and light.', lessons: ['c1-rhythm', 'c2-rhythm', 'c3-majorpent'], tools: ['cr'], topics: ['sixteenth notes', 'legato'] },
+  turn: { idea: 'A turn circles a note from above and below before landing on it. Here the note is the chord\'s 3rd: the 4th above it (the sus4 sound) and the 2nd below it (the sus2 sound) are both one or two frets away, so the turn never leaves the chord shape. It is a melody made of the chord itself.', lessons: ['c2-intervals', 'c2-triads'], tools: ['targets'], topics: ['turn', 'sus4', 'sus2', 'ornament'] },
+  ghost: { idea: 'Ghost strums are strums on strings that are touched but not pressed down, so they click instead of ringing. They keep the strumming hand moving down and up in time even when no chord sounds, which is what makes a part groove. The fill then comes out of a hand that is already moving in time.', lessons: ['c2-rhythm', 'c3-rhythm'], tools: ['techniques'], topics: ['muting', 'percussive strumming', 'groove'] },
   yours: { idea: 'Improvising fills is choosing, in the moment, one move you know (free finger, two-note lead-in, three notes, 6ths) and landing on the next chord on time. Start with the same move every bar, then vary one thing: where it starts, which note it lands on, or its rhythm. Landing on time matters more than what you play.', lessons: ['c3-majorpent'], tools: ['targets', 'cr'], topics: ['improvisation', 'fills'] },
 }
 /** the step behind a fills doc id ("fills:<style>:<key>:<chords>:<step>"), for the song player and the helper */
@@ -260,6 +399,7 @@ export function fillStepOf(docId: string | undefined): { id: string; learn: Fill
 /** A small seeded random. */
 function rnd(seed: number) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296 } }
 /** fill rhythms: where the notes start in the bar (after the chord on 1) */
+const CELLS_ASATO = [[2.5, 2.75, 3, 3.5], [3, 3.25, 3.5, 3.75], [2, 2.5, 2.75, 3, 3.5], [1.5, 2, 2.25, 2.5, 3.5]]
 const CELLS = [[2.5, 3, 3.5], [2, 2.5, 3.5], [1.5, 2, 3, 3.5], [2.5, 3.5], [2, 3, 3.5], [1.5, 2.5, 3, 3.5]]
 /** contours, in scale steps from the first note (the motif's shape) */
 const SHAPES = [[0, 1, 2], [0, -1, -2], [0, 2, 1], [0, 1, -1], [0, -1, 1], [0, 2, 4], [0, -2, -1]]
@@ -273,7 +413,8 @@ export function melodicPart(w: WorkshopIn, bars: 4 | 6 | 8, seed: number): Song 
   if (!shells.length) return null
   const tonic = PCS[w.key.replace(/m$/, '')] ?? 7
   const r = rnd(seed)
-  const cell = CELLS[Math.floor(r() * CELLS.length)]
+  const cells = w.style === 'asato' ? CELLS_ASATO : CELLS
+  const cell = cells[Math.floor(r() * cells.length)]
   const shape = SHAPES[Math.floor(r() * SHAPES.length)]
   // every key note on the top strings around the shapes, one place per pitch (nearest the shapes' middle)
   const lo = Math.max(0, Math.min(...shells.map(s => s.lo)) - 1), hi = Math.max(...shells.map(s => s.hi)) + 3
