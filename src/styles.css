@@ -2903,3 +2903,10 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .cr-msg { margin: 0; font-size: 1.05rem; }
 .ear-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .ear-items li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* Fills workshop */
+.fills-head { all: unset; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.fills-step.done .fills-head b { color: var(--mint-text, var(--mint)); }
+.fills-how { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 2px; }
+.fill-idea { display: flex; flex-direction: column; gap: 6px; }
+.fill-play { flex-direction: column; align-items: stretch; }

@@ -29,6 +29,7 @@ import { BendTrainer } from './BendTrainer'
 import { TargetNotes } from './TargetNotes'
 import { CallResponse } from './CallResponse'
 import { EarPath } from './EarPath'
+import { FillsWorkshop } from '../fills/FillsWorkshop'
 import { TechniqueList, TechniqueView } from './TechniqueLessons'
 import { TECHNIQUES, drillSong, techniquesDone, type Technique } from './techniques'
 import { lessonTab, type LessonEx } from './lessonExtras'
@@ -63,7 +64,7 @@ import { ago } from '../components/BackupPanel'
 type Route =
   | { k: 'home' } | { k: 'quiz'; id: string } | { k: 'lesson'; id: string } | { k: 'deep'; id: string } | { k: 'books'; id?: string; page?: number; q?: string } | { k: 'lessons' } | { k: 'ear' } | { k: 'caged' }
   | { k: 'changes' } | { k: 'rhythm' } | { k: 'circle' } | { k: 'progress' } | { k: 'settings'; n?: number } | { k: 'guide'; sec?: string }
-  | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' } | { k: 'targets' } | { k: 'cr' } | { k: 'earpath' } | { k: 'licks'; sel?: string } | { k: 'videos' } | { k: 'recordings' } | { k: 'chainer' }
+  | { k: 'techniques' } | { k: 'technique'; id: string } | { k: 'bends' } | { k: 'targets' } | { k: 'cr' } | { k: 'earpath' } | { k: 'fills' } | { k: 'licks'; sel?: string } | { k: 'videos' } | { k: 'recordings' } | { k: 'chainer' }
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -219,6 +220,7 @@ export function LearnScreen() {
   if (route.k === 'changes') return <ChordChanges inst={inst} onExit={back} />
   if (route.k === 'bends') return <BendTrainer inst={inst} onExit={back} />
   if (route.k === 'targets') return <TargetNotes inst={inst} onExit={back} />
+  if (route.k === 'fills') return <FillsWorkshop inst={inst} onExit={back} />
   if (route.k === 'cr') return <CallResponse inst={inst} onExit={back} />
   if (route.k === 'earpath') return <EarPath onExit={back} onOpen={it => {
     if ('quiz' in it) push({ k: 'quiz', id: it.quiz })
@@ -285,6 +287,7 @@ export function LearnScreen() {
       { id: 'licks', title: 'Must-know licks', sub: `${LICK_STYLES.length} styles, explained step by step` },
       { id: 'chainer', title: 'Lick chainer', sub: 'Line up licks into a solo' },
       { id: 'bends', title: 'Bends & vibrato', sub: 'Bend to pitch with a needle', needs: true },
+      { id: 'fills', title: 'Fills between chords', sub: 'Little melodies between chord shapes (John Mayer style), step by step' },
       { id: 'targets', title: 'Target notes', sub: 'Land on chord tones as the chords change', needs: true },
       { id: 'changes', title: 'Chord changes', sub: changesBest ? `Best: ${changesBest} a minute` : 'One-minute drill', needs: true },
       { id: 'rhythm', title: 'Rhythm trainer', sub: 'Listen, then tap it back' },
@@ -517,7 +520,7 @@ export function LearnScreen() {
 // Psychedelic mode: a samurai dog sticker on each Learn tool.
 const BADGES: Record<string, DogId> = {
   techniques: 'shepherd', licks: 'rottweiler', bends: 'doberman', changes: 'boxer', rhythm: 'shiba', lessons: 'akita', ear: 'husky',
-  caged: 'frenchie', circle: 'golden', progress: 'muscle', guide: 'lab', songbook: 'princess', exercises: 'husky', videos: 'akita', chainer: 'golden', recordings: 'lab', targets: 'shepherd', earpath: 'husky', cr: 'boxer',
+  caged: 'frenchie', circle: 'golden', progress: 'muscle', guide: 'lab', songbook: 'princess', exercises: 'husky', videos: 'akita', chainer: 'golden', recordings: 'lab', targets: 'shepherd', earpath: 'husky', cr: 'boxer', fills: 'lab',
 }
 function ToolBadge({ id }: { id: string }) {
   const b = BADGES[id]

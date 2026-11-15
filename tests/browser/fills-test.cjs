@@ -1,0 +1,75 @@
+// Fills between chords (Learn → Explore): the shape map, changing key, a step opening in the song player with The idea
+// card and the band, a longer melody, and Jam over it with the same chords. Phone and Fold sizes, no errors.
+// Needs `vite preview` on :4173. Usage: node tests/browser/fills-test.cjs
+const { chromium } = require('playwright')
+const path = require('path')
+const OUT = path.join(__dirname, 'out')
+const problems = []
+const bad = m => { problems.push(m); console.log('  PROBLEM', m) }
+const sideways = page => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
+;(async () => {
+  const browser = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'] })
+  for (const vp of [{ width: 360, height: 740 }, { width: 412, height: 915 }, { width: 840, height: 757 }]) {
+    const ctx = await browser.newContext({ viewport: vp, hasTouch: true, permissions: ['microphone'] })
+    const page = await ctx.newPage()
+    const errs = []
+    page.on('pageerror', e => errs.push(e.message))
+    await page.addInitScript(() => {
+      window.__kgTest = true
+      if (sessionStorage.getItem('s')) return
+      localStorage.clear()
+      for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:getReady': '0', 'kg:askBubble': 'false', 'kg:sub:learn': '"explore"' })) localStorage.setItem(k, v)
+      sessionStorage.setItem('s', '1')
+    })
+    await page.goto('http://localhost:4173/')
+    await page.waitForSelector('nav')
+    await page.locator('nav >> text=Learn').first().click()
+    await page.locator('text=Fills between chords').first().click()
+    await page.waitForSelector('[data-testid=fills]', { timeout: 5000 }).catch(() => bad(`${vp.width}: no workshop`))
+    const chips = await page.locator('[data-testid=fills-map] button[data-chord]').allInnerTexts()
+    if (chips.join(' ') !== 'G Em C D') bad(`${vp.width}: shells ${chips}`)
+    if ((await page.locator('[data-testid=fills-map] .fb-dot, [data-testid=fills-map] circle').count()) < 3) bad(`${vp.width}: the shape map shows no notes`)
+    if (await sideways(page)) bad(`${vp.width}: workshop sideways`)
+    await page.screenshot({ path: path.join(OUT, `fills-${vp.width}.png`), fullPage: false })
+    // a new key rebuilds it
+    await page.locator('[data-testid=fills] select').nth(1).selectOption('A')
+    const chipsA = await page.locator('[data-testid=fills-map] button[data-chord]').allInnerTexts()
+    if (chipsA.join(' ') !== 'A F#m D E') bad(`${vp.width}: key A shells ${chipsA}`)
+    if (vp.width === 412) {
+      // step 3 opens in the song player, with The idea and the band
+      await page.locator('[data-testid=fills-step-free] .fills-head').click()
+      await page.locator('[data-testid=fills-go-free]').click()
+      await page.waitForSelector('.tab-note', { timeout: 8000 })
+      await page.locator('.song-check button:has-text("Got it")').click({ timeout: 2500 }).catch(() => {})
+      const body = await page.evaluate(() => document.body.innerText)
+      if (!/one free finger/.test(body)) bad('the step should be the open tab')
+      if (!(await page.locator('[data-testid=fill-play]').count())) bad('no fills card in the song player')
+      const band = await page.evaluate(() => localStorage.getItem('kg:playBand'))
+      if (band !== 'true') bad('the band should be on')
+      const hs = await page.locator('.tab-note').count()
+      if (hs < 20) bad(`too few notes in the step (${hs})`)
+      await page.screenshot({ path: path.join(OUT, 'fills-play.png') })
+      await page.locator('[data-testid=fill-back]').click()
+      await page.waitForSelector('[data-testid=fills]', { timeout: 5000 }).catch(() => bad('All steps should go back to the workshop'))
+      // a longer melody
+      await page.locator('[data-testid=fills-step-melody] .fills-head').click()
+      await page.locator('[data-testid=fills-new-melody]').click()
+      await page.locator('[data-testid=fills-go-melody]').click()
+      await page.waitForSelector('.tab-note', { timeout: 8000 })
+      if (!/4-bar melody/.test(await page.evaluate(() => document.body.innerText))) bad('the melody should open')
+      await page.locator('[data-testid=fill-back]').click()
+      await page.waitForSelector('[data-testid=fills]', { timeout: 5000 })
+      // Jam over it: Jam opens with these chords
+      await page.locator('[data-testid=fills-jam]').click()
+      await page.waitForTimeout(1200)
+      const jam = await page.evaluate(() => document.body.innerText)
+      if (!/A major/.test(jam) || !/F#m/.test(jam)) bad('Jam should open with the workshop progression')
+      await page.screenshot({ path: path.join(OUT, 'fills-jam.png') })
+    }
+    if (errs.length) bad(`${vp.width}: page errors: ${errs.join(' | ')}`)
+    await ctx.close()
+  }
+  await browser.close()
+  console.log(problems.length ? `\n${problems.length} PROBLEM(S)` : '\nfills: all good')
+  process.exit(problems.length ? 1 : 0)
+})()

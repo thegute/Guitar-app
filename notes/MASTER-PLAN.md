@@ -157,3 +157,8 @@ Owner is new to this and wants guidance: everything is a guided workshop over a 
   G runs, crosspicked fills, open-string double-stops, chromatic walk-ups) → Chet Atkins (thumb bass + melody fills, harmonics)
   → Plini (add9/maj7 shapes with open strings, legato fills) → Mancuso (fusion fingerstyle, chromatic passing tones). Original fills in
   their styles only: never copy their songs or licks note for note.
+- Confirmed: BOTH Mateus Asato and Matteo Mancuso; Chet Atkins.
+- Looper (owner 2026-11-14, wants it AND the Mayer workshop in the next test build): "start when I play" that keeps a little audio
+  from BEFORE the first note (pre-roll, no clipped attack); a one-bar visual count-in in two colours before it starts; it corrects
+  poor timing (snap the loop length to whole bars at the tempo, trim/shift to the beat); the edge of the floating looper bar flashes
+  with the beat (downbeat one colour, other beats another).
