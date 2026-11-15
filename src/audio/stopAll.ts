@@ -2,6 +2,7 @@
 // drone, the helper's voice). Players add themselves while they play; App, Learn and Songs call stopAllSounds() when
 // you move to another page. Settings → Sound can keep the metronome going while you look around.
 import { clearBackingNotes, updateClockState } from '../engine/clock'
+import { stopStringVoices } from '../engine/sampler'
 
 interface Stoppable { stop(): void; kind?: string; /** true = keep playing across pages (the looper with loops in it) */ keep?: () => boolean }
 const live = new Set<Stoppable>()
@@ -23,6 +24,7 @@ export function onLiveChange(f: () => void) { watchers.add(f); return () => { wa
 export function stopEverything() {
   for (const p of [...live]) { try { p.stop() } catch { /* already stopped */ } live.delete(p); labels.delete(p) }
   extra.forEach(f => { try { f() } catch { /* noop */ } })
+  stopStringVoices()
   clearBackingNotes()
   changed()
 }
@@ -38,6 +40,9 @@ export function stopAllSounds() {
     live.delete(p); labels.delete(p)
   }
   extra.forEach(f => { try { f() } catch { /* noop */ } })
-  if (!live.size) clearBackingNotes()
+  if (!live.size) {
+    stopStringVoices()
+    clearBackingNotes()
+  }
   changed()
 }

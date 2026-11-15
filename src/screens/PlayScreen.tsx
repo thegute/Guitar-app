@@ -939,7 +939,10 @@ export function PlayScreen() {
     if (!st) return
     const ns = playable(st)
     const ctx = audio(); void ctx.resume()
-    if (noteIdx !== undefined && ns[noteIdx]) playNote(ns[noteIdx].midi, ctx.currentTime + 0.02, 0.8, undefined, { sound: hearSound })
+    if (noteIdx !== undefined && ns[noteIdx]) {
+      const n = ns[noteIdx]
+      playNote(n.midi, ctx.currentTime + 0.02, 0.8, undefined, { sound: hearSound, pm: n.tech === 'PM', string: n.string, tech: n.tech })
+    }
     else if (ns.length) strum(ns.map(n => n.midi), ctx.currentTime + 0.02, { spread: 0.02, sound: hearSound })
   }, [flat, hearSound])
   // a quick "again" flash on the tab each time the loop goes round (Wait for me and In time)
@@ -1131,7 +1134,7 @@ export function PlayScreen() {
     setInspectAt(flatIdx)
     if (note) {
       setInspect(note)
-      if (note.tech !== 'x') playNote(note.midi, ctx.currentTime + 0.02, 0.8, undefined, { sound: hearSound, pm: note.tech === 'PM' })
+      if (note.tech !== 'x') playNote(note.midi, ctx.currentTime + 0.02, 0.8, undefined, { sound: hearSound, pm: note.tech === 'PM', string: note.string, tech: note.tech })
     } else {
       const ns = playable(flat[follow.idx[k]]?.step ?? { notes: [], dur: 0 })
       setInspect(ns[0] ?? null)

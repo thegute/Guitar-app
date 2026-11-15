@@ -93,7 +93,8 @@ export function useCoach(a: CoachArgs) {
     if (A.song) saveMemory(noteTrouble(loadMemory(), t, A.song))
     const say = (adv: Advice) => { if (prefs.voice) void speak(adv.spoken, { gemini: true }) }
     const mine = clipFor(t)
-    const clip = wantAi && aiSettings().keys.gemini && (typeof navigator === 'undefined' || navigator.onLine !== false) ? mine : null
+    const isOnline = typeof navigator === 'undefined' || navigator.onLine !== false || !!(globalThis as { __kgTest?: boolean }).__kgTest
+    const clip = wantAi && aiSettings().keys.gemini && isOnline ? mine : null
     if (!clip) { setState({ advice: rules, trouble: t, listening: false, why, clip: mine }); say(rules); return }
     const ac = new AbortController()
     abort.current = ac

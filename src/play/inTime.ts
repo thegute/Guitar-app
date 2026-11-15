@@ -1,6 +1,7 @@
 // "Play in time": the tab scrolls at tempo (with a click, or following a synced YouTube video) and every note
 // you play is judged early / on time / late. Includes the speed trainer for looped sections.
 import { accepted, bendAlso } from '../tabs/bends'
+import { bendOf, isRelease } from '../licks/notation'
 import { TempoMap } from './tempoMap'
 import { audio, bus, setDelayTempo } from '../audio/engine'
 import { playClick, scheduleCountIn } from '../audio/metronome'
@@ -153,6 +154,7 @@ export class InternalClock implements Clock {
       this.nextClick = Math.ceil(this.fromBeat)
       this.guideNext = 0
       this.bandNext = 0
+      this.guidePrevMidi.clear()
     }
     if (this.opts.click) {
       while (this.nextClick < this.toBeat && this.timeOf(this.nextClick) <= horizon) {
@@ -178,11 +180,30 @@ export class InternalClock implements Clock {
       while (this.guideNext < inRange.length && this.timeOf(inRange[this.guideNext].beat) <= horizon) {
         const s = inRange[this.guideNext]
         const t = this.timeOf(s.beat)
-        if (t >= now - 0.01) s.midis.forEach((m, k) => playNote(m, t + (s.chord ? k * 0.012 : 0), s.chord ? 0.3 : 0.4, bus('me'), { sound: g.sound }))
+        const spb = this.core.spb(s.beat)
+        const tabNotes = g.flat[s.flat] ? playable(g.flat[s.flat].step) : []
+        if (t >= now - 0.01) {
+          s.midis.forEach((m, k) => {
+            const n = tabNotes[k] && tabNotes[k].midi === m ? tabNotes[k] : tabNotes.find(x => x.midi === m)
+            const isLegato = n?.tech === 'h' || n?.tech === 'p' || n?.tech === '/' || n?.tech === '\\'
+            const b = bendOf(n?.tech)
+            const prevMidi = n ? this.guidePrevMidi.get(n.string) : undefined
+            playNote(m, t + (s.chord ? k * 0.012 : 0), s.chord ? 0.3 : 0.4, bus('me'), {
+              sound: g.sound,
+              pm: n?.tech === 'PM',
+              string: n?.string,
+              tech: isLegato ? n?.tech : undefined,
+              ...(n?.tech === '/' || n?.tech === '\\' ? { slideFrom: prevMidi, slideTime: Math.min(0.11, Math.max(0.04, s.dur * spb * 0.35)) } : {}),
+              ...(b ? { bend: b, prebent: n?.tech?.startsWith('pb'), release: isRelease(n?.tech), bendTime: Math.min(0.25, s.dur * spb * 0.5) } : {}),
+            })
+            if (n) this.guidePrevMidi.set(n.string, n.midi)
+          })
+        }
         this.guideNext++
       }
     }
   }
+  private guidePrevMidi = new Map<number, number>()
   beatAt(ctxTime: number) {
     if (this.stopped) return null
     return this.core.beatAt(ctxTime)

@@ -64,4 +64,98 @@ ok(chordZoneFor(chordPack, false, [47, 54, 59]) === null, 'too far from any reco
 ok(chordZoneFor(chordPack, false, [43, 47, 50, 55, 59, 67])?.zone.key === 'Gd', 'the open G shape')
 ok(chordZoneFor(chordPack, false, [43, 46, 50]) === null, 'a different chord (G minor triad) is not a G5')
 ok(chordZoneFor(chordPack, true, [43, 47, 50, 55, 59, 67])?.zone.key === 'Gu', 'upstrokes use the up recordings')
+
+// ---- Engine Week Part 4: Per-string Sampler, Legato (~35ms zero-crossing + 8ms crossfade), Decay Inheritance & Slides ----
+import {
+  FINGER_LIFT_DAMP_SEC,
+  LEGATO_CROSSFADE_SEC,
+  LEGATO_SKIP_SEC,
+  legatoOffsetOf,
+  prepareStringVoice,
+  registerStringVoice,
+  renderSamplerOffline,
+  stopStringVoices,
+} from '../src/engine/sampler'
+{
+  const sr = 48000
+  // Synthetic guitar sample: loud pick transient in the first 20 ms, then steady 220 Hz sine sustain
+  const makePluckSample = () => {
+    const buf = new Float32Array(sr)
+    for (let i = 0; i < buf.length; i++) {
+      const t = i / sr
+      const transient = t < 0.02 ? 0.9 * Math.sin(2 * Math.PI * 1400 * t) * Math.exp(-t / 0.006) : 0
+      const body = 0.35 * Math.sin(2 * Math.PI * 220 * t) * Math.exp(-t / 1.2)
+      buf[i] = transient + body
+    }
+    return buf
+  }
+  const sample = makePluckSample()
+
+  // 1. Safeguard #4: legatoOffsetOf skips ~35 ms past baseOff and lands on a zero-crossing
+  const off0 = legatoOffsetOf(sample, 0.005, sr, LEGATO_SKIP_SEC)
+  ok(Math.abs(off0 - (0.005 + LEGATO_SKIP_SEC)) <= 0.004, `legato offset ~35ms past onset: ${off0.toFixed(4)}s`)
+  const zIdx = Math.round(off0 * sr)
+  ok(sample[zIdx - 1] * sample[zIdx] <= 1e-6 || Math.abs(sample[zIdx]) < 0.03, 'legato offset snaps to a zero-crossing')
+
+  // 2. Per-string voice stealing (~12 ms finger-lift damping on the same string, independent across strings)
+  stopStringVoices()
+  let dampedString2At: number | null = null
+  const p1 = prepareStringVoice({ namespace: 'test', string: 2, midi: 50, when: 1.0, gain: 0.8, buf: sample, sampleRate: sr })
+  registerStringVoice(p1, { midi: 50, when: 1.0, gain: 0.8, stop: at => { dampedString2At = at } })
+  ok(!p1.dampedPrev && p1.sampleOffsetSec === 0, 'first note on string 2 starts at onset 0')
+
+  // Note on a DIFFERENT string (string 3) does NOT steal string 2
+  const pOther = prepareStringVoice({ namespace: 'test', string: 3, midi: 55, when: 1.1, gain: 0.8, buf: sample, sampleRate: sr })
+  registerStringVoice(pOther, { midi: 55, when: 1.1, gain: 0.8, stop: () => {} })
+  ok(!pOther.dampedPrev && dampedString2At === null, 'note on string 3 leaves string 2 ringing')
+
+  // Second picked note on string 2 steals string 2 with 12 ms finger-lift damping
+  const p2 = prepareStringVoice({ namespace: 'test', string: 2, midi: 52, when: 1.15, gain: 0.8, buf: sample, sampleRate: sr })
+  registerStringVoice(p2, { midi: 52, when: 1.15, gain: 0.8, stop: () => {} })
+  ok(p2.dampedPrev && p2.dampSec === FINGER_LIFT_DAMP_SEC && dampedString2At === 1.15, 'new note on string 2 damps previous voice (12 ms)')
+
+  // 3. Safeguard #4 + Upgrade #7: Hammer-on ('h') and Pull-off ('p') inherit real-time string decay + finger-fret thud
+  const pFastH = prepareStringVoice({ namespace: 'test', string: 2, midi: 54, when: 1.21, gain: 0.8, tech: 'h', buf: sample, sampleRate: sr })
+  registerStringVoice(pFastH, { midi: 54, when: 1.21, gain: 0.8, stop: () => {} })
+  ok(
+    pFastH.legato === 'h' &&
+      pFastH.fadeInSec === LEGATO_CROSSFADE_SEC &&
+      pFastH.sampleOffsetSec > 0.03 &&
+      pFastH.gainScale > 0.85 &&
+      pFastH.thudGain > 0,
+    `fast hammer-on (60ms after pluck) keeps strong level (${pFastH.gainScale.toFixed(2)}) & adds fret thud`,
+  )
+
+  // Hammer-on onto a dying string (1.25s after last note) inherits decayed amplitude instead of jumping back to 100%
+  const pLateH = prepareStringVoice({ namespace: 'test', string: 2, midi: 55, when: 2.46, gain: 0.8, tech: 'h', buf: sample, sampleRate: sr })
+  ok(pLateH.gainScale < pFastH.gainScale * 0.6 && pLateH.gainScale >= 0.22, `late hammer-on inherits decayed string amplitude (${pLateH.gainScale.toFixed(2)})`)
+
+  // Pull-off ('p') at the same decay point is slightly softer than hammer-on ('h')
+  const pLateP = prepareStringVoice({ namespace: 'test', string: 3, midi: 53, when: 1.16, gain: 0.8, tech: 'p', buf: sample, sampleRate: sr })
+  ok(pLateP.legato === 'p' && pLateP.gainScale < pFastH.gainScale && pLateP.thudGain > 0, 'pull-off is slightly softer than hammer-on at same elapsed time')
+
+  // 4. Safeguard #4: Slide ('/' and '\\') computes semitone glide from the ringing string's pitch
+  registerStringVoice(pLateH, { midi: 55, when: 2.5, gain: 0.8, stop: () => {} })
+  const pSlide = prepareStringVoice({ namespace: 'test', string: 2, midi: 57, when: 2.65, gain: 0.8, tech: '/', slideTime: 0.07, buf: sample, sampleRate: sr })
+  ok(pSlide.legato === '/' && pSlide.slideSemitones === -2 && Math.abs(pSlide.slideTimeSec - 0.07) < 1e-6, 'slide up 2 frets starts -2 semitones from target and glides over 70ms')
+
+  // 5. Offline worklet PCM rendering: verify pick + hammer-on + slide produces clean audio with transient skipped on hammer-on
+  const rendered = renderSamplerOffline(
+    [
+      { sample, sampleRate: sr, string: 2, midi: 50, whenSec: 0.02, gain: 0.8 },
+      { sample, sampleRate: sr, string: 2, midi: 52, whenSec: 0.18, gain: 0.8, tech: 'h' },
+      { sample, sampleRate: sr, string: 2, midi: 54, whenSec: 0.34, gain: 0.8, tech: '/', slideFrom: 52, slideTimeSec: 0.06 },
+    ],
+    0.55,
+    sr,
+  )
+  let peakPick = 0
+  let peakHammerAttack = 0
+  for (let i = Math.round(0.02 * sr); i < Math.round(0.04 * sr); i++) peakPick = Math.max(peakPick, Math.abs(rendered.buffer[i]))
+  for (let i = Math.round(0.18 * sr); i < Math.round(0.20 * sr); i++) peakHammerAttack = Math.max(peakHammerAttack, Math.abs(rendered.buffer[i]))
+  ok(peakPick > 0.4 && peakHammerAttack > 0.05 && peakHammerAttack < peakPick * 0.75, `offline worklet skips harsh pick transient on hammer-on (pick=${peakPick.toFixed(2)}, hammer=${peakHammerAttack.toFixed(2)})`)
+  stopStringVoices()
+}
+
 console.log(`packs logic: ${n} checks, 0 failed`)
+

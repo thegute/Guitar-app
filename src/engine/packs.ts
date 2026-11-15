@@ -8,6 +8,17 @@ import { audio, route } from '../audio/engine'
 import { zipEntries, entryBlob } from './kgpack'
 import { isPack, layersFor, normGain, RoundRobin, takeTrim, zoneFor, chordZoneFor, filesFor, stemsFor, stemPath, rateFor, type Articulation, type Pack, type ZonePick } from './packLogic'
 import { monoOut } from '../audio/rig'
+import {
+  applySlideAndBend,
+  ensureSamplerWorklet,
+  FINGER_LIFT_TAU_SEC,
+  legatoOffsetOf,
+  playFingerThud,
+  prepareStringVoice,
+  registerStringVoice,
+  scheduleVoiceGain,
+  type LegatoTech,
+} from './sampler'
 
 // ---- where the files come from -------------------------------------------------------------------------------------
 export interface PackSource { pack: Pack; read: (rel: string) => Promise<ArrayBuffer> }
@@ -128,10 +139,7 @@ export async function ensure(packId: string, art: Articulation, notes: { midi: n
 
 // ---- playing -------------------------------------------------------------------------------------------------------
 export interface PackHandle { stop: (at?: number) => void }
-interface Voice { stop: (at: number, fast?: boolean) => void; end: number }
 const rr = new RoundRobin()
-/** one ringing note per string, per pack (the finger-lift rule) */
-const strings = new Map<string, Voice>()
 
 export interface PackNote {
   art?: Articulation
@@ -147,6 +155,12 @@ export interface PackNote {
   pan?: number
   /** separate one-note-per-string groups (a double-tracked part's left and right takes) */
   group?: string
+  /** legato technique: 'h' (hammer-on), 'p' (pull-off), '/' (slide up), '\\' (slide down) */
+  legato?: LegatoTech
+  /** starting MIDI pitch when sliding ('/' or '\\') into this note */
+  slideFrom?: number
+  /** duration (seconds) of a slide pitch glide */
+  slideTime?: number
 }
 export const packLoaded = (id: string) => sources.has(id)
 /** Remove a private pack and all its files from the phone. */
@@ -185,6 +199,7 @@ export function playPack(packId: string, n: PackNote): PackHandle | null {
 function playPick(packId: string, pack: Pack, art: Articulation, pick: ZonePick, n: PackNote): PackHandle | null {
   const src = { pack }
   const ctx = audio()
+  void ensureSamplerWorklet(ctx)
   const t = Math.max(n.when ?? ctx.currentTime, ctx.currentTime)
   const layers = layersFor(pick.zone, n.vel ?? 90)
   const out = n.dest ?? route('any', src.pack.kind === 'bass' ? 'bass' : src.pack.kind === 'drums' ? 'drums' : src.pack.kind === 'keys' ? 'keys' : 'guitar')
@@ -192,8 +207,38 @@ function playPick(packId: string, pack: Pack, art: Articulation, pick: ZonePick,
   const parts: { s: AudioBufferSourceNode; g: GainNode }[] = []
   const stems = stemsFor(src.pack, monoOut())
   const vary = { cents: (Math.random() - 0.5) * 4, gain: Math.pow(10, ((Math.random() - 0.5) * 1.2) / 20) }
+
+  const strIdx = n.string ?? pick.zone.string
+  const isChordStrum = art === 'strumUp' || art === 'strumDown'
+  let firstBuf: AudioBuffer | null = null
+  const chosenTakes: { layer: (typeof layers)[number]['layer']; weight: number; k: number }[] = []
   for (const { layer, weight } of layers) {
     const k = rr.pick(`${packId}/${art}/${pick.zone.key}/${layer.velocity}`, layer.rr.length)
+    chosenTakes.push({ layer, weight, k })
+    if (!firstBuf && stems.length > 0) {
+      firstBuf = touch(`${packId}/${stemPath(stems[0], layer.rr[k])}`) ?? null
+    }
+  }
+
+  const plan =
+    !isChordStrum && (strIdx !== undefined || src.pack.kind === 'guitar' || src.pack.kind === 'bass')
+      ? prepareStringVoice({
+          namespace: `pack:${packId}`,
+          group: n.group ?? '',
+          string: strIdx,
+          midi: n.midi,
+          when: t,
+          gain: norm,
+          pm: art === 'pm',
+          tech: n.legato,
+          slideFrom: n.slideFrom,
+          slideTime: n.slideTime,
+          buf: firstBuf,
+          baseOffSec: 0,
+        })
+      : null
+
+  for (const { layer, weight, k } of chosenTakes) {
     // every mic stem of the same take starts on the same sample, so they add up like the real mics did
     for (const st of stems) {
       const file = stemPath(st, layer.rr[k])
@@ -204,31 +249,32 @@ function playPick(packId: string, pack: Pack, art: Articulation, pick: ZonePick,
       // a layer with a single recording (Ample plays the same take every time) gets a tiny take-to-take variation, the
       // same for every mic stem of this note: ±2 cents and ±0.6 dB, so repeated notes don't sound machine-gunned
       const rate = rateFor(pick.shift, (layer.tune?.[k] ?? 0) + (layer.rr.length === 1 ? vary.cents : 0))
-      if (rate !== 1) s.playbackRate.value = rate
+      if (plan) applySlideAndBend(s, rate, t, plan)
+      else if (rate !== 1) s.playbackRate.value = rate
       const g = ctx.createGain()
-      g.gain.value = weight * norm * takeTrim(layer, k) * st.gain * (layer.rr.length === 1 ? vary.gain : 1)
+      const stemGain = weight * norm * takeTrim(layer, k) * st.gain * (layer.rr.length === 1 ? vary.gain : 1) * (plan ? plan.gainScale : 1)
+      if (plan) scheduleVoiceGain(g, stemGain, t, plan)
+      else g.gain.value = stemGain
       let node: AudioNode = s.connect(g)
       if (n.pan !== undefined && typeof ctx.createStereoPanner === 'function') { const p = ctx.createStereoPanner(); p.pan.value = n.pan; node = node.connect(p) }
       node.connect(out)
-      s.start(t)
+      const startOff = plan && plan.legato ? legatoOffsetOf(buf, 0, buf.sampleRate) : 0
+      s.start(t, startOff)
       parts.push({ s, g })
     }
   }
   if (!parts.length) return null
+  if (plan && plan.thudGain > 0) playFingerThud(ctx, t, plan.thudGain * 0.6, out, n.pan)
   if ((globalThis as { __kgTest?: boolean }).__kgTest) (globalThis as { __kgPackPlays?: number }).__kgPackPlays = ((globalThis as { __kgPackPlays?: number }).__kgPackPlays ?? 0) + 1
-  const stopAt = (at: number, fast = false) => {
-    // a finger lifted off the string: 12 ms; a let-go note: a natural 60 ms fade
-    const tc = fast ? 0.004 : 0.02
+  const stopAt = (at: number, fast = false, tauSec?: number) => {
+    // a finger lifted off the string: 12 ms (or 8 ms legato crossfade); a let-go note: a natural 60 ms fade
+    const tc = tauSec ?? (fast ? FINGER_LIFT_TAU_SEC : 0.02)
     for (const { s, g } of parts) {
       try { g.gain.cancelScheduledValues(at); g.gain.setTargetAtTime(0, at, tc); s.stop(at + tc * 8) } catch { /* already stopped */ }
     }
   }
-  const voice: Voice = { stop: stopAt, end: Infinity }
-  if (n.string !== undefined) {
-    const key = `${packId}:${n.group ?? ''}:${n.string}`
-    const prev = strings.get(key)
-    if (prev) prev.stop(t, true)
-    strings.set(key, voice)
+  if (plan) {
+    registerStringVoice(plan, { midi: n.midi, when: t, gain: norm, pm: art === 'pm', stop: stopAt })
   }
   if (n.dur !== undefined) stopAt(t + n.dur)
   return { stop: (at?: number) => stopAt(Math.max(at ?? ctx.currentTime, t)) }

@@ -256,7 +256,7 @@ const takes = (s, i, part = 'A') => s?.tracks?.[i]?.parts?.[part]?.takes?.length
 
   // ---- the floating looper (any page): when I play, the bar lights, the flashing edge, the count-in bar
   if (want('float')) {
-    const page = await newPage(browser, { width: 412, height: 915 }, { 'looper': { start: 'play' } }, 'jam')
+    const page = await newPage(browser, { width: 412, height: 915 }, { 'looper': { start: 'play' }, 'kg:looperBubble': true }, 'jam')
     await page.waitForSelector('[data-testid=looper-bubble]', { timeout: 8000 })
     await page.locator('[data-testid=looper-bubble]').click()
     await page.waitForSelector('[data-testid=float-looper]', { timeout: 5000 }).catch(() => bad('float: no card'))

@@ -7,6 +7,17 @@ import { playPack, packLoaded, loadPrivatePack, playPackChord, privatePacks } fr
 import { packSounds, setPackSounds, FIRST_CHOICE, setBassPacks, bassPackFor, type BuiltInSound, type BassKind } from './packSounds'
 import { strumNotes } from '../engine/strumLogic'
 import { recordBackingNote } from '../engine/clock'
+import {
+  applySlideAndBend,
+  ensureSamplerWorklet,
+  FINGER_LIFT_TAU_SEC,
+  isLegatoTech,
+  playFingerThud,
+  prepareStringVoice,
+  registerStringVoice,
+  scheduleVoiceGain,
+  type StringVoicePlan,
+} from '../engine/sampler'
 import { midiToFreq } from '../theory/notes'
 
 const cache = new Map<string, AudioBuffer>()
@@ -223,22 +234,57 @@ function take(g: Group, k: number, avoid = -1): { s: Sample; i: number } {
   return { s: list[i], i }
 }
 
-function playSample(s: Sample, rate: number, when: number, gain: number, dest?: AudioNode, pan?: number, bend?: NoteOpts): Handle {
+function playSample(
+  s: Sample,
+  rate: number,
+  when: number,
+  gain: number,
+  dest?: AudioNode,
+  pan?: number,
+  opts?: NoteOpts,
+  plan?: StringVoicePlan,
+  midi = 60,
+): Handle {
   const ctx = audio()
+  void ensureSamplerWorklet(ctx)
+  const t = Math.max(when || ctx.currentTime, ctx.currentTime)
   const src = ctx.createBufferSource()
   src.buffer = s.buf
-  src.playbackRate.value = rate
-  applyBend(src, Math.max(when || ctx.currentTime, ctx.currentTime), bend)
+  if (plan) {
+    applySlideAndBend(src, rate, t, plan, opts)
+  } else {
+    src.playbackRate.value = rate
+    applyBend(src, t, opts)
+  }
   const g = ctx.createGain()
-  g.gain.value = gain
+  const finalGain = plan ? plan.effectiveGain : gain
+  if (plan) scheduleVoiceGain(g, finalGain, t, plan)
+  else g.gain.value = finalGain
+  const target = dest ?? out()
   if (pan !== undefined && typeof ctx.createStereoPanner === 'function') {
     const p = ctx.createStereoPanner()
     p.pan.value = pan
-    src.connect(g).connect(p).connect(dest ?? out())
-  } else src.connect(g).connect(dest ?? out())
-  const t = Math.max(when || ctx.currentTime, ctx.currentTime)
-  src.start(t, s.off)
-  return { stop: (at?: number) => { try { g.gain.setTargetAtTime(0, Math.max(at ?? ctx.currentTime, t), 0.035) } catch { /* noop */ } } }
+    src.connect(g).connect(p).connect(target)
+  } else src.connect(g).connect(target)
+  const startOff = plan ? plan.sampleOffsetSec : s.off
+  src.start(t, startOff)
+  if (plan && plan.thudGain > 0) playFingerThud(ctx, t, plan.thudGain, target, pan)
+  const stopFn = (at?: number, fast = false, tauSec?: number) => {
+    const e = Math.max(at ?? ctx.currentTime, t)
+    const tc = tauSec ?? (fast ? FINGER_LIFT_TAU_SEC : 0.035)
+    try {
+      if (typeof g.gain.cancelScheduledValues === 'function') g.gain.cancelScheduledValues(e)
+      g.gain.setTargetAtTime(0, e, tc)
+      if (fast && typeof src.stop === 'function') src.stop(e + tc * 8)
+    } catch {
+      /* noop */
+    }
+  }
+  if (plan) {
+    const v = registerStringVoice(plan, { midi, when: t, gain, pm: opts?.pm, stop: stopFn })
+    return { stop: (at?: number) => v.stop(Math.max(at ?? ctx.currentTime, t), false) }
+  }
+  return { stop: (at?: number) => stopFn(at, false) }
 }
 
 /** Bends: the sample's pitch moves (detune, in cents). */
@@ -250,17 +296,54 @@ function applyBend(src: AudioBufferSourceNode, t: number, o?: NoteOpts) {
   else { src.detune.setValueAtTime(0, t + 0.03); src.detune.linearRampToValueAtTime(c, t + 0.03 + dt) }
 }
 
-function synthNote(midi: number, when: number, gain: number, dest?: AudioNode, bend?: NoteOpts): Handle {
+function synthNote(midi: number, when: number, gain: number, dest?: AudioNode, opts?: NoteOpts, trackString = true): Handle {
   const ctx = audio()
-  const src = ctx.createBufferSource()
-  src.buffer = bufferFor(midi)
-  applyBend(src, when || ctx.currentTime, bend)
-  const g = ctx.createGain()
-  g.gain.value = gain
-  src.connect(g).connect(dest ?? out())
+  void ensureSamplerWorklet(ctx)
   const t = when || ctx.currentTime
-  src.start(t)
-  return { stop: (at?: number) => { try { g.gain.setTargetAtTime(0, at ?? ctx.currentTime, 0.03) } catch { /* noop */ } } }
+  const buf = bufferFor(midi)
+  const plan = trackString
+    ? prepareStringVoice({
+        namespace: opts?.sound ?? 'synth',
+        string: opts?.string,
+        midi,
+        when: t,
+        gain,
+        pm: opts?.pm,
+        tech: opts?.tech,
+        slideFrom: opts?.slideFrom,
+        slideTime: opts?.slideTime,
+        buf,
+        baseOffSec: 0,
+        sampleRate: buf.sampleRate,
+      })
+    : undefined
+  const src = ctx.createBufferSource()
+  src.buffer = buf
+  if (plan) applySlideAndBend(src, 1, t, plan, opts)
+  else applyBend(src, t, opts)
+  const g = ctx.createGain()
+  const finalGain = plan ? plan.effectiveGain : gain
+  if (plan) scheduleVoiceGain(g, finalGain, t, plan)
+  else g.gain.value = finalGain
+  const target = dest ?? out()
+  src.connect(g).connect(target)
+  src.start(t, plan ? plan.sampleOffsetSec : 0)
+  if (plan && plan.thudGain > 0) playFingerThud(ctx, t, plan.thudGain, target)
+  const stopFn = (at?: number, fast = false, tauSec?: number) => {
+    const e = Math.max(at ?? ctx.currentTime, t)
+    const tc = tauSec ?? (fast ? FINGER_LIFT_TAU_SEC : 0.03)
+    try {
+      if (typeof g.gain.cancelScheduledValues === 'function') g.gain.cancelScheduledValues(e)
+      g.gain.setTargetAtTime(0, e, tc)
+    } catch {
+      /* noop */
+    }
+  }
+  if (plan) {
+    const v = registerStringVoice(plan, { midi, when: t, gain, pm: opts?.pm, stop: stopFn })
+    return { stop: (at?: number) => v.stop(Math.max(at ?? ctx.currentTime, t), false) }
+  }
+  return { stop: (at?: number) => stopFn(at, false) }
 }
 
 export interface NoteOpts {
@@ -275,8 +358,14 @@ export interface NoteOpts {
   bendTime?: number
   prebent?: boolean
   release?: boolean
-  /** which string (0 = lowest), when known: a sound pack plays that string's own recording */
+  /** which string (0 = lowest), when known: a sound pack or bank plays one monophonic voice per string */
   string?: number
+  /** legato technique: 'h' (hammer-on), 'p' (pull-off), '/' (slide up), '\\' (slide down) */
+  tech?: string
+  /** starting MIDI pitch when sliding ('/' or '\\') into this note */
+  slideFrom?: number
+  /** duration (seconds) of a slide pitch glide */
+  slideTime?: number
 }
 
 // ---- sound packs (Stage 3): a pack the owner chose for a sound plays instead of its built-in bank ----
@@ -308,13 +397,14 @@ function packNote(id: SoundId, midi: number, t: number, gain: number, dest: Audi
   if (!pk) return null
   if (!packLoaded(pk)) { void loadPrivatePack(pk); return null }
   const art = opts.pm ? 'pm' : 'sustain'
+  const legato = isLegatoTech(opts.tech) ? opts.tech : undefined
   if (opts.double) {
-    const a = playPack(pk, { art, midi, string: opts.string, vel: velOf(gain), when: t, dest, pan: -0.8, group: 'L' })
-    const b = playPack(pk, { art, midi, string: opts.string, vel: velOf(gain), when: t + 0.009 + Math.random() * 0.008, dest, pan: 0.8, group: 'R' })
+    const a = playPack(pk, { art, midi, string: opts.string, vel: velOf(gain), when: t, dest, pan: -0.8, group: 'L', legato, slideFrom: opts.slideFrom, slideTime: opts.slideTime })
+    const b = playPack(pk, { art, midi, string: opts.string, vel: velOf(gain), when: t + 0.009 + Math.random() * 0.008, dest, pan: 0.8, group: 'R', legato, slideFrom: opts.slideFrom, slideTime: opts.slideTime })
     if (!a && !b) return null
     return { stop: (at?: number) => { a?.stop(at); b?.stop(at) } }
   }
-  return playPack(pk, { art, midi, string: opts.string, vel: velOf(gain), when: t, dest })
+  return playPack(pk, { art, midi, string: opts.string, vel: velOf(gain), when: t, dest, legato, slideFrom: opts.slideFrom, slideTime: opts.slideTime })
 }
 
 export function playNote(midi: number, when = 0, gain = 0.8, dest?: AudioNode, opts: NoteOpts = {}): Handle {
@@ -336,18 +426,63 @@ export function playNote(midi: number, when = 0, gain = 0.8, dest?: AudioNode, o
       const a = take(g, k)
       const b = take(g, k, a.i)
       const same = b.i === a.i
-      const hs = [playSample(a.s, rate, t, gain * 1.05, dest, -0.8),
-        playSample(b.s, rate * (same ? Math.pow(2, 7 / 1200) : 1), t + 0.009 + Math.random() * 0.008, gain * 1.05, dest, 0.8)]
+      const planL = prepareStringVoice({
+        namespace: baseOf(id),
+        group: 'L',
+        string: opts.string,
+        midi,
+        when: t,
+        gain: gain * 1.05,
+        pm: opts.pm,
+        tech: opts.tech,
+        slideFrom: opts.slideFrom,
+        slideTime: opts.slideTime,
+        buf: a.s.buf,
+        baseOffSec: a.s.off,
+      })
+      const tR = t + 0.009 + Math.random() * 0.008
+      const planR = prepareStringVoice({
+        namespace: baseOf(id),
+        group: 'R',
+        string: opts.string,
+        midi,
+        when: tR,
+        gain: gain * 1.05,
+        pm: opts.pm,
+        tech: opts.tech,
+        slideFrom: opts.slideFrom,
+        slideTime: opts.slideTime,
+        buf: b.s.buf,
+        baseOffSec: b.s.off,
+      })
+      const hs = [
+        playSample(a.s, rate, t, gain * 1.05, dest, -0.8, opts, planL, midi),
+        playSample(b.s, rate * (same ? Math.pow(2, 7 / 1200) : 1), tR, gain * 1.05, dest, 0.8, opts, planR, midi),
+      ]
       const h = { stop: (at?: number) => hs.forEach(x => x.stop(at)) }
       if (opts.pm && !pmGroup) h.stop(t + 0.13)
       return h
     }
-    const h = playSample(take(g, k).s, rate, t, gain * 1.3, dest, undefined, opts)
+    const chosen = take(g, k).s
+    const plan = prepareStringVoice({
+      namespace: baseOf(id),
+      string: opts.string,
+      midi,
+      when: t,
+      gain: gain * 1.3,
+      pm: opts.pm,
+      tech: opts.tech,
+      slideFrom: opts.slideFrom,
+      slideTime: opts.slideTime,
+      buf: chosen.buf,
+      baseOffSec: chosen.off,
+    })
+    const h = playSample(chosen, rate, t, gain * 1.3, dest, undefined, opts, plan, midi)
     if (opts.pm && !pmGroup) h.stop(t + 0.13)
     return h
   }
   if (baseOf(id) !== 'synth') void loadSound(id)
-  const h = synthNote(midi, t, gain, dest, opts)
+  const h = synthNote(midi, t, gain, dest, opts, true)
   if (opts.pm) h.stop(t + 0.12)
   return h
 }

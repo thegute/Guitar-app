@@ -75,6 +75,7 @@ export class TabPlayer {
       t += plan.durationSec
       this.counts.push({ t, n: 0 })
     }
+    const lastMidiByString = new Map<number, number>()
     setDelayTempo(bpm)
     updateClockState({ bpm, meter: this.meter, playing: true, source: 'tab' })
     const schedule = (_now = ctx.currentTime, horizon = ctx.currentTime + 0.25) => {
@@ -93,9 +94,12 @@ export class TabPlayer {
         if (!this.part) { this.queue.push({ t, i, spb, dur: st.dur }); t += st.dur * spb; i++; continue }
         const notes = st.notes
         const ns = notes.filter(n => n.tech !== 'x')
-        notes.forEach(n => { if (n.tech === 'x') { this.ringing.get(n.string)?.stop(t); this.ringing.delete(n.string) } })
-        // through a distorted amp, players mute the last note when they pick the next one (otherwise it's mush)
-        if (amp && ns.length === 1) { this.ringing.forEach(h => h.stop(t)); this.ringing.clear() }
+        notes.forEach(n => { if (n.tech === 'x') { this.ringing.get(n.string)?.stop(t); this.ringing.delete(n.string); lastMidiByString.delete(n.string) } })
+        // through a distorted amp, players mute other strings when they pick the next single note (keeping the same string alive for legato crossfade)
+        if (amp && ns.length === 1) {
+          const onlyStr = ns[0].string
+          this.ringing.forEach((h, s) => { if (s !== onlyStr) { h.stop(t); this.ringing.delete(s) } })
+        }
         const sp = this.strum
         if (sp && st.chord && new Set(ns.map(n => n.midi % 12)).size >= 3) {
           // strum along: down, up, bass note or a short chop at each stroke of the pattern
@@ -116,18 +120,23 @@ export class TabPlayer {
           // power chords play as one recorded chord on the amp sounds (palm muted if the tab says PM)
           ns.forEach(n => this.ringing.get(n.string)?.stop(t))
           const h = strum(ns.map(n => n.midi), t, { gain: 0.7 * this.level, sound: this.sound, pm: ns.some(n => n.tech === 'PM'), spread: 0.012 })
-          ns.forEach(n => this.ringing.set(n.string, h))
+          ns.forEach(n => { this.ringing.set(n.string, h); lastMidiByString.set(n.string, n.midi) })
           this.all.push(h)
         } else {
           ns.forEach((n, k) => {
-            // a new note on a string stops the one ringing on it, like a real guitar
-            this.ringing.get(n.string)?.stop(t)
             const at = t + (ns.length > 2 ? k * 0.012 : 0)
             const b = bendOf(n.tech)
+            const isLegato = n.tech === 'h' || n.tech === 'p' || n.tech === '/' || n.tech === '\\'
+            const prevMidi = lastMidiByString.get(n.string)
             const h = playNote(n.midi, at, (ns.length > 2 ? 0.55 : 0.75) * this.level, undefined, {
-              sound: this.sound, pm: n.tech === 'PM', string: n.string,
+              sound: this.sound,
+              pm: n.tech === 'PM',
+              string: n.string,
+              tech: isLegato ? n.tech : undefined,
+              ...(n.tech === '/' || n.tech === '\\' ? { slideFrom: prevMidi, slideTime: Math.min(0.11, Math.max(0.04, st.dur * spb * 0.35)) } : {}),
               ...(b ? { bend: b, prebent: n.tech?.startsWith('pb'), release: isRelease(n.tech), bendTime: Math.min(0.25, st.dur * spb * 0.5) } : {}),
             })
+            lastMidiByString.set(n.string, n.midi)
             this.ringing.set(n.string, h)
             this.all.push(h)
           })
