@@ -64,7 +64,7 @@ Everything the owner has asked for, in one place. [M] = Opus medium is fine, [H]
 - **Realistic acoustic sound**: free CC0 Meta guitar recordings + a strum engine (down/up, chop, boom-chuck, bass runs, timing spread, noise);
   **sound packs rendered on the Mac** from the owner's plugins (Ample SJ strummer, Orange Tree, Nembrini, Neural DSP Archetypes, .nam
   captures, Humanoid vocal chops), by script, no Logic work; packs live in a phone / Google Drive folder, **never in the public repo**;
-  swappable packs (own recordings or licensed packs with written permission). Needs the Mac linked. [H]
+  swappable packs (own recordings or licensed packs with verbal permission). Needs the Mac linked. [H]
 - **Strum Machine Band mode** in Jam: strums D/U/X, bass B/A + walk-ups, strum feel controls, upstroke swing, backbeat, damped sustain,
   capo/drop D/open G, Cadd9 for C, standup bass, mandolin/banjo chop, foot tap; chart with 2–4 chords a bar, pushes, holds, rests, pickups,
   repeats + 1st/2nd endings, sections; 1-tap transpose; letters / Nashville / Roman; quick entry; drag to loop; auto speed-up; song lists.
