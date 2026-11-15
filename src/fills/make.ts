@@ -332,9 +332,17 @@ export function workshop(w: WorkshopIn): { shells: Shell[]; steps: FillStep[] } 
         return [strum(sh, 0, 1, sh.chord, tuning), mut(1, 0.5), { ...strum(sh, 1.5, 0.5, undefined, tuning), stroke: 'up' as const }, mut(2, 0.5), ...legato(line).map((n2, k) => ({ at: 2.5 + k * 0.5, dur: 0.5, notes: [n2] }))]
       })),
     })
-    // 7. mixed, 8. your own
+    // 7. one connected part, no full chords
+    const cp = connectedPart(w, shells.length * 2, 1, false)
+    if (cp) steps.push({
+      id: 'connected', title: '7. One connected part, no full chords',
+      why: 'This is his signature: he hardly ever strums a whole chord. Two notes of each shape hint the chord on beat 1, and then the line keeps moving (a chord note, a flick, a 3rds double-stop, a walk) straight into the next chord\'s two notes. The melody carries the chords.',
+      how: ['Beat 1: two notes of the shape (the B and e strings, or a 6th on the G and e). Slide into them when the hand moves.', 'Then keep going: the missing chord note, a hammer-on flick, a 3rds pair on beat 3, and a walk into the next chord.', 'Keep the shape\'s fingers hovering over it: everything is one or two frets from where the chord is.'],
+      listen: 'It never stops: no gaps between the chord hints and the fills, and each new chord lands on 1.',
+      song: { ...cp, title: `${w.title ?? 'Fills'}: one connected part` },
+    })
     steps.push({
-      id: 'mix', title: '7. Mix them up',
+      id: 'mix', title: '8. Mix them up',
       why: 'His parts move between all of these: a slide in, a flick, 3rds, a 16th-note flourish. Mixed, they sound like one person talking, not a list of tricks.',
       how: ['Each bar uses a different move from steps 1 to 6.', 'Keep the time first: if a move makes you late, play it slower or leave it out.', 'Once it\'s clean, swap the order of the moves.'],
       listen: 'Every bar lands on 1, whatever the move.',
@@ -345,7 +353,7 @@ export function workshop(w: WorkshopIn): { shells: Shell[]; steps: FillStep[] } 
       }))),
     })
     steps.push({
-      id: 'yours', title: '8. Your own fills',
+      id: 'yours', title: '9. Your own fills',
       why: 'Now you choose. The chord is on 1 and 2; the rest of the bar is yours for any of his moves.',
       how: ['Strum (or slide into) the shape on 1 and 2.', 'Beats 3 and 4 are yours: a flick, the turn, 3rds, or a 16th-note run.', 'Land on the next chord on 1. Play it In time so the band keeps going.'],
       listen: 'You land on the next chord on 1 every time.',
@@ -386,6 +394,7 @@ export const FILL_LEARN: Record<string, FillLearn> = {
   sixteenths: { idea: 'Sixteenth notes are four to a beat. Putting four of them on the last beat of a bar gives a burst of motion right before the next chord, so the change sounds pushed forward. Picking only the first note and hammering or pulling the rest keeps them even and light.', lessons: ['c1-rhythm', 'c2-rhythm', 'c3-majorpent'], tools: ['cr'], topics: ['sixteenth notes', 'legato'] },
   turn: { idea: 'A turn circles a note from above and below before landing on it. Here the note is the chord\'s 3rd: the 4th above it (the sus4 sound) and the 2nd below it (the sus2 sound) are both one or two frets away, so the turn never leaves the chord shape. It is a melody made of the chord itself.', lessons: ['c2-intervals', 'c2-triads'], tools: ['targets'], topics: ['turn', 'sus4', 'sus2', 'ornament'] },
   ghost: { idea: 'Ghost strums are strums on strings that are touched but not pressed down, so they click instead of ringing. They keep the strumming hand moving down and up in time even when no chord sounds, which is what makes a part groove. The fill then comes out of a hand that is already moving in time.', lessons: ['c2-rhythm', 'c3-rhythm'], tools: ['techniques'], topics: ['muting', 'percussive strumming', 'groove'] },
+  connected: { idea: 'A chord does not need all its notes to be heard: two notes of it on the beat, plus a bass player playing the root, are enough for your ear to fill in the rest. That frees the guitar to play a continuous line that moves through the chord\'s notes and the scale notes next to them. Because every bar starts on notes of the chord and every walk ends a step from the next chord\'s notes, the line outlines the progression by itself. That is how Asato, and chord-melody players in general, make one guitar sound like rhythm and lead at once.', lessons: ['c2-triads', 'c2-intervals', 'c3-majorpent'], tools: ['targets', 'cr'], topics: ['chord melody', 'double stops', 'voice leading', 'implied harmony'] },
   yours: { idea: 'Improvising fills is choosing, in the moment, one move you know (free finger, two-note lead-in, three notes, 6ths) and landing on the next chord on time. Start with the same move every bar, then vary one thing: where it starts, which note it lands on, or its rhythm. Landing on time matters more than what you play.', lessons: ['c3-majorpent'], tools: ['targets', 'cr'], topics: ['improvisation', 'fills'] },
 }
 /** the step behind a fills doc id ("fills:<style>:<key>:<chords>:<step>"), for the song player and the helper */
@@ -491,6 +500,81 @@ export function melodicPart(w: WorkshopIn, bars: 4 | 6 | 8, seed: number): Song 
   // end on the key's home chord when the progression starts there: the last bar takes the first shell
   return {
     title: `${w.title ?? 'Fills'}: a ${bars}-bar melody`, tempo: w.bpm, backing: { groove: 'halftime', bass: 'ballad' },
+    tracks: [{ name: 'Guitar', tuning, capo: 0, bars: out, program: 27 }],
+  }
+}
+
+// ---------- Mateus Asato: one connected part, no full chords ----------
+/** the key note two scale steps below a pitch, played on the string below (B under e, G under B); null if out of reach */
+function thirdUnder(string: number, fret: number, tonic: number, tuning = STD): { string: number; fret: number } | null {
+  const m = tuning[string] + fret
+  const scale: number[] = []
+  for (let x = m - 1; x >= m - 5; x--) if (MAJOR.includes(pcOf(x - tonic))) scale.push(x)
+  const t = scale[1]
+  if (t === undefined || string < 1) return null
+  const f = t - tuning[string - 1]
+  return f >= 0 && f <= 19 ? { string: string - 1, fret: f } : null
+}
+
+/** A flowing part in his style: each chord only hinted (two notes of its shape on beat 1, sometimes slid into), then a
+ *  line that keeps moving (a chord note, a hammer-on flick, a 3rds double-stop, a walk) and lands on the next chord's
+ *  two-note shape. No strummed chords: the melody carries the harmony. */
+export function connectedPart(w: WorkshopIn, bars: number, seed: number, end = true): Song | null {
+  const tuning = w.tuning ?? STD
+  const shells = shellPath(w.chords, tuning)
+  if (!shells.length) return null
+  const tonic = PCS[w.key.replace(/m$/, '')] ?? 7
+  const r = rnd(seed * 7 + 3)
+  const out: SongBar[] = []
+  const home = shells.find(x => x.root === tonic && !x.minor) ?? shells[0]
+  let prevTopFret = shells[0].notes[2].fret
+  for (let b = 0; b < bars; b++) {
+    const last = end && b === bars - 1
+    const sh = last ? home : shells[b % shells.length]
+    const nx = end && b === bars - 2 ? home : shells[(b + 1) % shells.length]
+    const evs: Ev[] = []
+    const [g, bb, e] = sh.notes
+    // beat 1: the chord hinted by two of its notes (B + e, or a 6th on G + e every other bar); slid into from a fret
+    // below when the hand comes from further away
+    const sixth = b % 2 === 1
+    const dyad = sixth ? [g, e] : [bb, e]
+    const slide = Math.abs(e.fret - prevTopFret) >= 2 && Math.min(...dyad.map(n => n.fret)) >= 2 && r() < 0.6
+    if (last) {
+      evs.push({ at: 0, dur: 2, notes: sh.notes.map(n => nt(n.string, n.fret, undefined, tuning)), chord: sh.chord }, { at: 2, dur: 2, notes: [nt(bb.string, bb.fret, undefined, tuning), nt(e.string, e.fret, undefined, tuning)] })
+      out.push(bar(evs)); break
+    }
+    if (slide) {
+      evs.push({ at: 0, dur: 0.25, notes: dyad.map(n => nt(n.string, n.fret - 1, undefined, tuning)), chord: sh.chord })
+      evs.push({ at: 0.25, dur: 0.25, notes: dyad.map(n => nt(n.string, n.fret, '/', tuning)) })
+    } else evs.push({ at: 0, dur: 0.5, notes: dyad.map(n => nt(n.string, n.fret, undefined, tuning)), chord: sh.chord })
+    // the and of 1: the chord note left out of the dyad
+    const other = sixth ? bb : g
+    evs.push({ at: 0.5, dur: 0.5, notes: [nt(other.string, other.fret, undefined, tuning)] })
+    // beat 2: a flick into a chord tone (hammer from the free note), or the turn on the 3rd
+    const f = pickFree(sh, b, ['hammer'])
+    if (f) evs.push({ at: 1, dur: 0.25, notes: [nt(f.string, f.fret, undefined, tuning)] }, { at: 1.25, dur: 0.75, notes: [nt(f.string, f.to.fret, 'h', tuning)] })
+    else evs.push({ at: 1, dur: 1, notes: [nt(e.string, e.fret, undefined, tuning)] })
+    // beat 3: a 3rd under the top note (or the next scale note), as a double-stop
+    const top = { string: 5, fret: e.fret }
+    const under = thirdUnder(5, top.fret, tonic, tuning)
+    evs.push({ at: 2, dur: 0.5, notes: under ? [nt(under.string, under.fret, undefined, tuning), nt(5, top.fret, undefined, tuning)] : [nt(5, top.fret, undefined, tuning)] })
+    // the and of 3 to the end: a walk into the next chord's top note (16ths on the last beat every other bar)
+    const run16 = r() < 0.5
+    const k = run16 ? 4 : 3
+    const line = walkTo(e, nx.notes[2], k, tonic, b % 2 === 0, tuning)
+    const times = run16 ? [2.5, 3, 3.25, 3.5, 3.75].slice(5 - k - 0) : [2.5, 3, 3.5]
+    const ts = run16 ? [3, 3.25, 3.5, 3.75] : times
+    if (run16) evs.push({ at: 2.5, dur: 0.5, notes: [nt(e.string, e.fret, undefined, tuning)] })
+    line.forEach((p, i) => {
+      const q = line[i - 1]
+      const tech = q && q.string === p.string && Math.abs(p.fret - q.fret) <= 2 && p.fret !== q.fret ? (p.fret > q.fret ? 'h' : 'p') : undefined
+      evs.push({ at: ts[i], dur: (ts[i + 1] ?? 4) - ts[i], notes: [nt(p.string, p.fret, tech, tuning)] })
+    })
+    prevTopFret = line.length ? line[line.length - 1].fret : e.fret
+    out.push(bar(evs))
+  }
+  return {
+    title: `${w.title ?? 'Fills'}: a connected ${bars}-bar part`, tempo: w.bpm, backing: { groove: 'halftime', bass: 'ballad' },
     tracks: [{ name: 'Guitar', tuning, capo: 0, bars: out, program: 27 }],
   }
 }

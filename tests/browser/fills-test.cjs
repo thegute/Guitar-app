@@ -38,7 +38,7 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
     if (vp.width === 840) {
       await page.locator('[data-testid=fills] button:has-text("Mateus Asato")').click()
       const heads = await page.locator('.fills-step .fills-head b').allInnerTexts()
-      if (!heads.some(h => /The flick/.test(h)) || !heads.some(h => /9\. Longer melodies/.test(h))) bad(`Asato steps: ${heads.join(' | ')}`)
+      if (!heads.some(h => /The flick/.test(h)) || !heads.some(h => /no full chords/.test(h)) || !heads.some(h => /10\. Longer melodies/.test(h))) bad(`Asato steps: ${heads.join(' | ')}`)
       await page.locator('[data-testid=fills-step-flick] .fills-head').click()
       await page.locator('[data-testid=fills-go-flick]').click()
       await page.waitForSelector('.tab-note', { timeout: 8000 })

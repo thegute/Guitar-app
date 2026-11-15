@@ -2,7 +2,7 @@
 import './test-env'
 import { strict as assert } from 'node:assert'
 import { shellsFor, shellPath, freeNotes, triadOf } from '../src/fills/shells'
-import { workshop, walkTo, fillStepOf, FILL_LEARN, melodicPart } from '../src/fills/make'
+import { workshop, walkTo, fillStepOf, FILL_LEARN, melodicPart, connectedPart } from '../src/fills/make'
 import { courseLesson } from '../src/course'
 
 // shells: three notes of the triad on G B e, within four frets
@@ -42,7 +42,7 @@ for (let k = 0; k < 12; k++) for (const pr of PROGS) {
   const chords = pr.map(([s, m]) => NAMES[(k + s) % 12] + (m ? 'm' : ''))
   for (const style of ['mayer', 'asato'] as const) {
   const ws = workshop({ chords, key: NAMES[k], bpm: 70, style })
-  assert.equal(ws.steps.length, style === 'mayer' ? 9 : 8, chords.join(' '))
+  assert.equal(ws.steps.length, 9, chords.join(' '))
   for (const st of ws.steps) {
     const bars = st.song.tracks[0].bars
     assert.equal(bars.length, 8)
@@ -75,6 +75,19 @@ for (let k = 0; k < 12; k++) for (const pr of PROGS) for (const bars of [4, 6, 8
     for (const x of b.steps) for (const n of x.notes) assert.ok(Math.abs(n.fret - Math.max(...shellFrets)) <= 6, `bar ${i}: fret ${n.fret} far from the shape`)
   })
   assert.equal(bs[bars - 1].steps[0].chord, NAMES[k], 'ends on the home chord')
+  mel++
+}
+// connected parts (Asato): never a full strum before the last bar, starts on a two-note hint, full bars, ends home
+for (let k = 0; k < 12; k++) for (const pr of PROGS) for (const bars of [4, 6, 8]) for (const seed of [1, 2, 3]) {
+  const chords = pr.map(([s, m]) => NAMES[(k + s) % 12] + (m ? 'm' : ''))
+  const bs = connectedPart({ chords, key: NAMES[k], bpm: 70, style: 'asato' }, bars, seed)!.tracks[0].bars
+  assert.equal(bs.length, bars)
+  bs.forEach((b, i) => {
+    assert.ok(Math.abs(b.steps.reduce((a, x) => a + x.dur, 0) - 4) < 1e-6, 'full bar')
+    if (i < bars - 1) { assert.ok(b.steps.every(x => x.notes.length <= 2), 'no full chords'); assert.equal(b.steps[0].notes.length, 2, 'a two-note hint on 1') }
+    for (const x of b.steps) for (const n of x.notes) assert.ok(n.fret >= 0 && n.fret <= 19)
+  })
+  assert.equal(bs[bars - 1].steps[0].chord, NAMES[k])
   mel++
 }
 assert.equal(fillStepOf('fills:mayer:G:G-Em-C-D:melody-4-7')?.id, 'melody')

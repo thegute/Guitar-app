@@ -11,7 +11,7 @@ import { jamProgression } from '../tabs/fromProgression'
 import { pcLabel } from '../learn/targets'
 import { countUse } from '../usage'
 import { freeNotes, triadOf, STD } from './shells'
-import { workshop, melodicPart, FILL_LEARN, type FillStyle } from './make'
+import { workshop, melodicPart, connectedPart, FILL_LEARN, type FillStyle } from './make'
 import { launch } from '../search/launch'
 import { spell } from '../theory/progressions'
 import { FillIdea } from './FillIdea'
@@ -87,7 +87,7 @@ export function FillsWorkshop({ inst, onExit }: { inst: Instrument; onExit: () =
     openInPlay({ id: docFor(id), title: song.title, source: 'lesson', inst: inst.id, key: { root: wkey, minor: false }, song, updated: Date.now() })
   }
   const practise = (i: number) => { const st = ws.steps[i]; openStep(st.id, st.song, st.inTime) }
-  const melody = useMemo(() => melodicPart({ chords, key: wkey, bpm, style: fstyle, title: `${stitle} (${chords.join(' ')})` }, mbars, mseed), [chords, wkey, bpm, mbars, mseed, fstyle])
+  const melody = useMemo(() => (fstyle === 'asato' ? connectedPart : melodicPart)({ chords, key: wkey, bpm, style: fstyle, title: `${stitle} (${chords.join(' ')})` }, mbars, mseed), [chords, wkey, bpm, mbars, mseed, fstyle])
   /** jam freely over the progression with Jam's band (drums, bass, chords) */
   const jamOver = () => {
     countUse('fills:jam')
@@ -164,13 +164,13 @@ export function FillsWorkshop({ inst, onExit }: { inst: Instrument; onExit: () =
           <b>{ws.steps.length + 1}. Longer melodies: {mbars} bars</b>{best(`melody-${mbars}-${mseed}`) > 0 && <span className="small muted">best {best(`melody-${mbars}-${mseed}`)}%</span>}
         </button>
         {open === 'melody' && <>
-          <p className="small" style={{ margin: 0 }}>Fills joined up into a melody: an idea, the same idea over the next chord, a longer answer, and a walk home, with the chord on 1 of every bar. Make as many as you like.</p>
+          <p className="small" style={{ margin: 0 }}>{fstyle === 'asato' ? 'One flowing part in his style, no full chords: two notes of each chord on 1, then a line that never stops, into the next chord, ending at home. Make as many as you like.' : 'Fills joined up into a melody: an idea, the same idea over the next chord, a longer answer, and a walk home, with the chord on 1 of every bar. Make as many as you like.'}</p>
           <Chips label="Length" items={[{ id: 4 as const, label: '4 bars' }, { id: 6 as const, label: '6 bars' }, { id: 8 as const, label: '8 bars' }]} value={mbars} onChange={setMbars} />
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             <button className="btn primary" data-testid="fills-go-melody" disabled={!melody} onClick={() => melody && openStep(`melody-${mbars}-${mseed}`, melody)}>Practise it</button>
             <button className="btn" data-testid="fills-new-melody" onClick={() => setMseed(x => x + 1)}>New melody</button>
           </div>
-          <FillIdea learn={FILL_LEARN.melody} />
+          <FillIdea learn={fstyle === 'asato' ? FILL_LEARN.connected : FILL_LEARN.melody} />
         </>}
       </div>
       <div className="panel stack" style={{ gap: 6 }}>
