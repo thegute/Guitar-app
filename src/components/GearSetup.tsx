@@ -44,9 +44,7 @@ export function GearSetup({ onClose }: { onClose: () => void }) {
   /** Listen with a very low threshold so we can see raw levels. */
   async function openListener(g = 0.3) {
     listener.current?.stop()
-    const l = new NoteListener()
-    l.autoGate = false
-    l.gate = g
+    const l = new NoteListener('gear-setup', { autoGate: false, gate: g, suppressBleed: false })
     await audio().resume()
     await l.start()
     listener.current = l

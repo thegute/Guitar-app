@@ -202,7 +202,7 @@ export function EarTrainer({ inst, onExit }: { inst: Instrument; onExit: () => v
   // guitar mode: play the note you heard
   useEffect(() => {
     if (!useGuitar || !running) return
-    const l = new NoteListener()
+    const l = new NoteListener('ear-trainer')
     // the right answer in any octave: checked for first
     const exp = () => { const want = targetRef.current[givenRef.current.length]; if (want === undefined) return l.expect([]); const out: number[] = []; for (let m = 40; m <= 88; m++) if ((m - tonicPc - want + 120) % 12 === 0) out.push(m); l.expect(out) }
     const expTimer = setInterval(exp, 250)

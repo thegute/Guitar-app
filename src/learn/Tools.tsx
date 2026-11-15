@@ -301,7 +301,7 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
     setDone(null)
     if (useMic && !mic.current) {
       try {
-        const l = new NoteListener()
+        const l = new NoteListener('rhythm-trainer')
         l.onOnset = t => addTap(t)
         await l.start()
         mic.current = l

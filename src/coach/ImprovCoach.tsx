@@ -1,9 +1,8 @@
 // Jam → Play with a band → Improv coach: "Coach my solo" listens while you solo over the band, then says what went well
 // and the one thing to work on (with a link to the drill for it). Uses the mic or your USB amp.
 import { useEffect, useRef, useState } from 'react'
-import { PitchTracker } from '../audio/pitch'
+import { acquireListener, type ListenerSession } from '../engine/listener'
 import { audio } from '../audio/engine'
-import { freqToMidi } from '../theory/notes'
 import { OnsetDetector } from '../learn/targets'
 import { launch } from '../search/launch'
 import { speak } from '../assistant/speak'
@@ -17,7 +16,7 @@ export function ImprovCoach({ clock, chords, loopBeats, keyPcs, keyName, playing
   const [count, setCount] = useState(0)
   const [err, setErr] = useState('')
   const notes = useRef<ImprovNote[]>([])
-  const tracker = useRef<PitchTracker | null>(null)
+  const tracker = useRef<ListenerSession | null>(null)
   const args = useRef({ chords, loopBeats, keyPcs, keyName }); args.current = { chords, loopBeats, keyPcs, keyName }
   const finish = () => {
     tracker.current?.stop(); tracker.current = null
@@ -33,15 +32,27 @@ export function ImprovCoach({ clock, chords, loopBeats, keyPcs, keyName, playing
   async function start() {
     setErr(''); setRep(null); notes.current = []; setCount(0)
     try {
-      const pt = new PitchTracker()
+      const pt = acquireListener('improv-coach', { autoGate: true, suppressBleed: true })
       const det = new OnsetDetector()
-      pt.onReading = r => {
+      const pushNote = (beat: number, midi: number) => {
+        if (beat < 0) return
+        const last = notes.current[notes.current.length - 1]
+        if (last && Math.abs(last.beat - beat) <= 0.08 && last.midi === midi) return
+        notes.current.push({ beat, midi })
+        setCount(notes.current.length)
+      }
+      pt.onNote = e => {
         const c = clock()
         if (!c) return
-        const m = r && r.freq ? Math.round(freqToMidi(r.freq)) : null
-        const beat = (audio().currentTime - 0.06 - c.T0) / c.spb
-        const o = det.feed(m, beat, r?.level ?? 0)
-        if (o && beat >= 0) { notes.current.push({ beat: o.t, midi: o.midi }); setCount(notes.current.length) }
+        const beat = (e.time - pt.latencySec() - c.T0) / c.spb
+        pushNote(beat, e.midi)
+      }
+      pt.onFrame = f => {
+        const c = clock()
+        if (!c) return
+        const beat = (audio().currentTime - pt.latencySec() - c.T0) / c.spb
+        const o = det.feed(f.midi, beat, f.level)
+        if (o) pushNote(o.t, o.midi)
       }
       await pt.start()
       tracker.current = pt

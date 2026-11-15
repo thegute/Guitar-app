@@ -360,3 +360,89 @@ import { analyseImprov } from '../src/coach/improv'
   assert.equal(analyseImprov([], chords, 16, G, 'G major').focus, 'more')
   console.log('improv coach: ok')
 }
+
+// ---- shared listener: isolated per-consumer settings (Safeguard #3) + smart bleed suppression (Safeguard #2 & Upgrade #4)
+import { acquireListener } from '../src/engine/listener'
+import { clearBackingNotes, recordBackingNote } from '../src/engine/clock'
+import { NoteDetector } from '../src/audio/noteDetect'
+import { midiToFreq } from '../src/theory/notes'
+{
+  const playL = acquireListener('play', { strictOctave: false, chords: true, gate: 0.9, suppressBleed: true })
+  const crL = acquireListener('call-response', { strictOctave: true, chords: false, gate: 1.4, suppressBleed: true })
+  const tnL = acquireListener('target-notes', { strictOctave: false, autoGate: true })
+
+  playL.expect([60, 64], [67])
+  crL.expect([69], [71])
+  tnL.expect([55, 59, 62])
+
+  // Mutating Call & Response or Target Notes never leaks into Play
+  crL.strictOctave = false
+  crL.strictOctave = true
+  tnL.gate = 2.1
+  tnL.chords = false
+
+  assert.equal(playL.strictOctave, false, 'Play strictOctave isolated from CallResponse')
+  assert.equal(crL.strictOctave, true, 'CallResponse strictOctave isolated from Play')
+  assert.equal(playL.chords, true, 'Play chords isolated from TargetNotes')
+  assert.equal(crL.chords, false)
+  assert.equal(playL.gate, 0.9, 'Play gate isolated from TargetNotes & CallResponse')
+  assert.equal(crL.gate, 1.4)
+  assert.equal(tnL.gate, 2.1)
+  assert.deepEqual(playL.getConfig().expectNow, [60, 64])
+  assert.deepEqual(crL.getConfig().expectNow, [69])
+  assert.deepEqual(tnL.getConfig().expectNow, [55, 59, 62])
+
+  playL.stop()
+  crL.stop()
+  tnL.stop()
+
+  // Smart speaker-bleed suppression test on synthetic 44.1 kHz guitar frames
+  const sr = 44100
+  const synthTone = (midi: number, seconds: number, amp: number): Float32Array => {
+    const f = midiToFreq(midi)
+    const n = Math.round(sr * seconds)
+    const out = new Float32Array(n)
+    for (let i = 0; i < n; i++) {
+      const t = i / sr
+      const env = Math.min(1, i / (sr * 0.004)) * Math.exp(-t * 2.5)
+      out[i] = amp * env * (0.65 * Math.sin(2 * Math.PI * f * t) + 0.25 * Math.sin(4 * Math.PI * f * t) + 0.1 * Math.sin(6 * Math.PI * f * t))
+    }
+    return out
+  }
+
+  // Case 1: Passive speaker bleed of MIDI 64 (E4) on mic profile is suppressed
+  clearBackingNotes()
+  recordBackingNote(64, 0.18, 0.9, 'backing', 0.45)
+  const detBleed = new NoteDetector(sr)
+  detBleed.expect([64])
+  detBleed.bleedAt = (t: number) => [{ midi: 64, strength: 0.9, ageSec: Math.max(0, t - 0.18), role: 'backing' }]
+  const bleedNotes: number[] = []
+  detBleed.onNote = e => bleedNotes.push(e.midi)
+  detBleed.push(new Float32Array(Math.round(sr * 0.18))) // 180ms warm-up so attack & legato detectors are active
+  detBleed.push(synthTone(64, 0.2, 0.035)) // soft speaker bleed arriving at mic
+  assert.equal(bleedNotes.length, 0, 'passive backing bleed on mic is suppressed')
+
+  // Case 2: Fresh strong guitar pick attack on the SAME note (MIDI 64) punches through bleed suppression
+  const detPick = new NoteDetector(sr)
+  detPick.expect([64])
+  detPick.bleedAt = () => [{ midi: 64, strength: 0.85, ageSec: 0.14, role: 'backing' }]
+  const pickedNotes: { midi: number; attack: boolean }[] = []
+  detPick.onNote = e => pickedNotes.push({ midi: e.midi, attack: e.attack })
+  // First establish 180ms of quiet bleed floor, then a crisp player pick attack on the same note
+  detPick.push(synthTone(64, 0.18, 0.025))
+  detPick.push(synthTone(64, 0.22, 0.32))
+  assert.ok(pickedNotes.some(n => n.midi === 64 && n.attack), 'fresh player pick attack on the same note counts through bleed suppression')
+
+  // Case 3: USB / Pedal profile (no bleedAt / returns []) detects even soft notes without suppression
+  const detUsb = new NoteDetector(sr)
+  detUsb.expect([64])
+  detUsb.bleedAt = () => []
+  const usbNotes: number[] = []
+  detUsb.onNote = e => usbNotes.push(e.midi)
+  detUsb.push(new Float32Array(Math.round(sr * 0.18)))
+  detUsb.push(synthTone(64, 0.2, 0.035))
+  assert.ok(usbNotes.includes(64), 'USB/pedal profile bypasses speaker bleed suppression')
+  clearBackingNotes()
+  console.log('shared listener + smart bleed suppression: ok')
+}
+

@@ -63,6 +63,8 @@ export class NoteDetector {
   /** loudness needed to count: lower = more sensitive (from the input setup) */
   gate = 1
   strictOctave = false
+  /** Optional provider returning KGuitar's own scheduled backing/guide notes arriving at the mic at `detectorTime`. */
+  bleedAt?: (detectorTime: number) => { midi: number; strength: number; ageSec: number; role: 'backing' | 'guide' }[]
   /** for tests: what each analysis saw */
   debug?: (d: { best: number; ranked: [number, number][]; exp: [number, number, number][] }) => void
 
@@ -78,6 +80,7 @@ export class NoteDetector {
   private prevMag = new Float32Array(512)
   private flux: number[] = []
   private lastOnset = -1
+  private lastFluxRatio = 1
   private noise = 0.003
   private fftL = new FFT(8192)
   private reL = new Float32Array(8192)
@@ -87,7 +90,7 @@ export class NoteDetector {
   private mag = new Float32Array(4096)
   private wh = new Float32Array(4096)
   private pre = new Float64Array(4097)
-  private pending: { at: number; ready: number; n: number; before: Float32Array; first?: number }[] = []
+  private pending: { at: number; ready: number; n: number; before: Float32Array; first?: number; fluxRatio: number }[] = []
   private expected: number[] = []
   private current: number[] = []
   private lastEmit: { midi: number; time: number } | null = null
@@ -164,13 +167,14 @@ export class NoteDetector {
       // attack time: back off by half a short window
       const at = now - 512 / this.sr
       this.lastOnset = now
+      this.lastFluxRatio = fl / Math.max(1, thresh)
       this.onOnset?.(at)
       // analyse once enough sound after the attack has arrived (longer for low notes)
       const low = this.expected.some(m => m < 52)
       const n = low ? 4096 : 2048
       // what was already sounding (ringing strings) just before the pick
       const before = this.salience(2048)
-      this.pending.push({ at, ready: this.w + Math.round(0.012 * this.sr) + n - 512, n, before })
+      this.pending.push({ at, ready: this.w + Math.round(0.012 * this.sr) + n - 512, n, before, fluxRatio: this.lastFluxRatio })
       this.legato = null
     }
 
@@ -178,7 +182,7 @@ export class NoteDetector {
     while (this.pending.length && this.w >= this.pending[0].ready) {
       const p = this.pending.shift()!
       if (!loud && this.quietSince > 4) continue
-      const r = this.analyse(p.first === undefined ? p.n : 4096, p.before)
+      const r = this.analyse(p.first === undefined ? p.n : 4096, p.before, undefined, p.at, p.fluxRatio, level)
       if (r?.expected) { this.emit(r.midi, p.at, true, true, r.conf); continue }
       if (p.first === undefined) {
         // not what the tab wants? listen once more, a little later and longer, before calling it a wrong note
@@ -193,7 +197,7 @@ export class NoteDetector {
       this.hopsSinceFrame = 0
       const busy = this.pending.length > 0 || now - this.lastOnset < 0.12 || rising
       // hammer-ons, pull-offs and slides can only confirm the note you're on, not one further ahead
-      const r = loud ? this.analyse(2048, null, this.current) : null
+      const r = loud ? this.analyse(2048, null, this.current, now, 1, level) : null
       this.onFrame?.({ midi: r && r.conf > 0.35 ? r.midi : null, level })
       if (r && !busy && r.conf > 0.6) {
         const same = (a: number, b: number) => (this.strictOctave ? a === b : ((a - b) % 12 + 12) % 12 === 0)
@@ -256,8 +260,58 @@ export class NoteDetector {
 
   /** Which note is it? `before` = the sound just before a pick: what the pick added counts most (ringing strings
    *  don't), and a note picked again counts when the pick clearly made it louder. */
-  private analyse(n: number, before?: Float32Array | null, only?: number[]): { midi: number; expected: boolean; conf: number } | null {
-    const plain = this.salience(n)
+  private analyse(n: number, before?: Float32Array | null, only?: number[], atTime = this.time, fluxRatio = 1, rmsLevel = 0): { midi: number; expected: boolean; conf: number } | null {
+    const rawPlain = this.salience(n)
+    const plain = new Float32Array(rawPlain)
+    const bleed = this.bleedAt ? this.bleedAt(atTime) : []
+    const suppressedBleed = new Set<number>()
+    if (bleed.length > 0) {
+      for (const b of bleed) {
+        const m0 = b.midi
+        if (m0 < 34 || m0 > 100) continue
+        const str = b.strength
+        let isSuppressed = false
+        if (!before) {
+          // Passive frame / legato check: suppress ringing backing bleed so it never triggers a false legato note
+          isSuppressed = str >= 0.25
+        } else {
+          // Attack check: distinguish the speaker's own arrival from a real guitar pick in front of the mic
+          const speakerJustStarted = b.ageSec >= -0.025 && b.ageSec <= 0.065
+          const playerFreshPick = speakerJustStarted
+            ? (rmsLevel >= 0.08 * this.gate && fluxRatio >= 1.5)
+            : (rmsLevel >= 0.055 * this.gate && rawPlain[m0] >= 1.35 * before[m0] && fluxRatio >= 1.1)
+          isSuppressed = !playerFreshPick && str >= 0.25
+        }
+        if (isSuppressed) {
+          // Suppress fundamental + harmonic/subharmonic series that share overtones with m0
+          for (const [off, w] of [
+            [0, 1], [12, 0.9], [19, 0.85], [24, 0.8], [28, 0.75],
+            [-12, 0.85], [-19, 0.8], [-24, 0.75], [-28, 0.7], [-7, 0.65], [7, 0.65],
+          ] as const) {
+            const mh = m0 + off
+            if (mh >= 34 && mh <= 100) {
+              plain[mh] *= Math.max(0.06, 1 - 0.9 * str * w)
+              suppressedBleed.add(mh)
+            }
+          }
+        }
+      }
+      if (suppressedBleed.size > 0) {
+        let rawBest = 34
+        for (let m = 35; m <= 100; m++) if (rawPlain[m] > rawPlain[rawBest]) rawBest = m
+        if (suppressedBleed.has(rawBest)) {
+          const rSorted = Array.from(rawPlain.subarray(34, 101)).sort((a, b) => a - b)
+          const rFloor = rSorted[Math.floor(rSorted.length * 0.4)]
+          const rTop = rawPlain[rawBest] - rFloor
+          let independentBest = 0
+          for (let m = 34; m <= 100; m++) {
+            if (!suppressedBleed.has(m)) independentBest = Math.max(independentBest, rawPlain[m] - rFloor)
+          }
+          // If no independent note stands out above the suppressed bleed note, only speaker bleed is present
+          if (rTop <= 0 || independentBest < 0.55 * rTop) return null
+        }
+      }
+    }
     const views: { S: Float32Array; boosted: boolean }[] = []
     if (before) {
       const diff = new Float32Array(101)
@@ -280,6 +334,7 @@ export class NoteDetector {
       for (let m = 35; m <= 100; m++) if (plain[m] > plain[pBest]) pBest = m
       const pContrast = (plain[pBest] - pFloor) / Math.max(pTop * 0.04, Math.max(plain[pBest - 1] ?? 0, plain[pBest + 1] ?? 0) - pFloor)
       for (const e of this.current) {
+        if (suppressedBleed.has(e) || suppressedBleed.has(pBest)) continue
         const ok = this.strictOctave ? pBest === e : pBest === e || (e < 52 && pBest === e + 12)
         if (ok && plain[pBest] >= 1.08 * before[pBest] && pContrast >= 1.35) return { midi: e, expected: true, conf: 1 }
       }
@@ -300,15 +355,17 @@ export class NoteDetector {
       // expected notes: accept when the note clearly stands out
       let bestExp = -1, bestExpScore = 0
       for (const e of only ?? this.expected) {
+        if (suppressedBleed.has(e)) continue
         // an octave off only counts for low notes (a phone mic often hears a low string an octave up)
         const cands = this.strictOctave ? [e] : e < 52 ? [e, e + 12] : [e]
         for (const c of cands) {
+          if (suppressedBleed.has(c)) continue
           const sc = S[c] - floor
           // in the plain view after a pick, the note must also have got louder (picked again, not just ringing on)
           if (boosted && before && plain[c] < 1.2 * before[c]) continue
           if (!boosted && before && (!audible(c) || shadowed(c))) continue
           // just the 3rd or 5th overtone of a lower note that's really sounding (a 5th or major 3rd below)?
-          if ((S[c - 19] ?? 0) > 0.8 * S[c] || (S[c - 28] ?? 0) > 0.8 * S[c]) continue
+          if ((rawPlain[c - 19] ?? 0) > 0.8 * rawPlain[c] || (rawPlain[c - 28] ?? 0) > 0.8 * rawPlain[c]) continue
           if (sc >= top * 0.3 && contrast(c) >= 1.35 && sc > bestExpScore) { bestExpScore = sc; bestExp = e }
         }
       }
@@ -318,7 +375,8 @@ export class NoteDetector {
       }
       if (bestExp >= 0) return { midi: bestExp, expected: true, conf: Math.min(1, bestExpScore / top) }
       // the first view decides what "something else" was played
-      if (!fallback && contrast(best) >= 1.25 && (boosted || !before || (audible(best) && !shadowed(best)))) fallback = { midi: best, expected: false, conf: Math.min(1, (contrast(best) - 1) / 1.5) }
+      const isOvertoneOfBleed = (rawPlain[best - 19] ?? 0) > 0.75 * rawPlain[best] || (rawPlain[best - 28] ?? 0) > 0.75 * rawPlain[best]
+      if (!fallback && !suppressedBleed.has(best) && !isOvertoneOfBleed && contrast(best) >= 1.25 && (boosted || !before || (audible(best) && !shadowed(best)))) fallback = { midi: best, expected: false, conf: Math.min(1, (contrast(best) - 1) / 1.5) }
     }
     return fallback
   }

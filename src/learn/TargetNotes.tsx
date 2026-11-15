@@ -6,10 +6,10 @@ import type { Instrument } from '../instrument'
 import { Chips, usePersist } from '../components/Controls'
 import { Fretboard, type Mark } from '../components/Fretboard'
 import { JamTransport } from '../audio/jam'
-import { PitchTracker } from '../audio/pitch'
+import { acquireListener, type ListenerSession } from '../engine/listener'
 import { audio, keepAwake } from '../audio/engine'
 import { playNote } from '../audio/pluck'
-import { freqToMidi, pc as pcOf, SHARPS } from '../theory/notes'
+import { pc as pcOf, SHARPS } from '../theory/notes'
 import { typeTones } from '../theory/progressions'
 import { shapesFor } from '../theory/shapes'
 import { STARTER_PROGS, jamProgression, starterProgression } from '../tabs/fromProgression'
@@ -53,7 +53,7 @@ export function TargetNotes({ inst, onExit }: { inst: Instrument; onExit: () => 
   const starts = useMemo(() => { let b = 0; return chords.map(c => { const s = b; b += c.beats; return s }) }, [chords])
 
   const T = useRef<JamTransport | null>(null)
-  const tracker = useRef<PitchTracker | null>(null)
+  const tracker = useRef<ListenerSession | null>(null)
   const raf = useRef(0)
   const live = useRef({ onsets: [] as Onset[], judged: -1, lapMarks: [] as (boolean | null)[], lap: 0, good: 0, bpm, det: new OnsetDetector() })
 
@@ -77,17 +77,38 @@ export function TargetNotes({ inst, onExit }: { inst: Instrument; onExit: () => 
     })
     t.setSong(voiced, bpm, 'pop', 'pop', 'pop', 'acoustic')
     t.setMix({ chords: true, drums: true, click: false, bass: true })
+    const expectedForChord = (idx: number) => {
+      const c = chords[idx]
+      if (!c) return []
+      const pcs = allowed(c, kind)
+      const out: number[] = []
+      for (let m = z.lo; m <= z.hi; m++) if (pcs.includes(pcm(m))) out.push(m)
+      return out
+    }
     try {
-      const pt = new PitchTracker()
-      pt.onReading = r => {
+      const pt = acquireListener('target-notes', { autoGate: true, suppressBleed: true })
+      pt.expect(expectedForChord(0), expectedForChord(1 % Math.max(1, chords.length)))
+      const recordOnset = (beat: number, midi: number) => {
+        const last = live.current.onsets[live.current.onsets.length - 1]
+        if (last && Math.abs(last.beat - beat) <= 0.08 && last.midi === midi) return
+        live.current.onsets.push({ beat, midi })
+        if (live.current.onsets.length > 64) live.current.onsets.shift()
+      }
+      pt.onNote = e => {
         const tr = T.current
         if (!tr?.playing) return
-        // the note started a little before we heard it (input latency)
-        const beat = (audio().currentTime - 0.06 - tr.T0) / tr.spb
-        const m = r && r.freq ? Math.round(freqToMidi(r.freq)) : null
-        if (m !== null) setHeard(m)
-        const o = live.current.det.feed(m, beat, r?.level ?? 0)
-        if (o) { live.current.onsets.push({ beat: o.t, midi: o.midi }); if (live.current.onsets.length > 64) live.current.onsets.shift() }
+        const beat = (e.time - pt.latencySec() - tr.T0) / tr.spb
+        setHeard(e.midi)
+        recordOnset(beat, e.midi)
+      }
+      pt.onFrame = f => {
+        const tr = T.current
+        if (!tr?.playing) return
+        // the note started a little before we heard it (calibrated input latency per gear profile)
+        const beat = (audio().currentTime - pt.latencySec() - tr.T0) / tr.spb
+        if (f.midi !== null) setHeard(f.midi)
+        const o = live.current.det.feed(f.midi, beat, f.level)
+        if (o) recordOnset(o.t, o.midi)
       }
       await pt.start()
       tracker.current = pt
@@ -103,12 +124,17 @@ export function TargetNotes({ inst, onExit }: { inst: Instrument; onExit: () => 
     setOn(true)
     void keepAwake(true)
     countUse('learn:targets-start')
+    let lastExpChord = -1
     const loop = () => {
       const tr = T.current
       if (!tr?.playing) return
       const p = tr.position()
       const L = live.current
       if (p.beat >= 0) {
+        if (p.chord !== lastExpChord && chords.length > 0) {
+          lastExpChord = p.chord
+          tracker.current?.expect(expectedForChord(p.chord), expectedForChord((p.chord + 1) % chords.length))
+        }
         const lap = Math.floor(p.beat / tr.loopBeats)
         // judge each chord once its window has passed
         const total = lap * chords.length + p.chord

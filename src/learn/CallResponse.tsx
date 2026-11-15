@@ -4,12 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import type { Instrument } from '../instrument'
 import { Chips, usePersist } from '../components/Controls'
 import { Fretboard, type Mark as FMark } from '../components/Fretboard'
-import { PitchTracker } from '../audio/pitch'
+import { acquireListener, type ListenerSession } from '../engine/listener'
 import { audio, keepAwake } from '../audio/engine'
 import { playNote } from '../audio/pluck'
-import { freqToMidi } from '../theory/notes'
 import { CR_LEVELS, compare, makePhrase, roundStars, type Mark, type Phrase } from './callPhrases'
-import { OnsetDetector, pcLabel } from './targets'
+import { pcLabel } from './targets'
 import { bumpCounts, recordItem, setStars, usePracticeTimer } from './progress'
 import { countUse } from '../usage'
 
@@ -35,8 +34,7 @@ export function CallResponse({ inst, onExit }: { inst: Instrument; onExit: () =>
   const [err, setErr] = useState('')
   const [done, setDone] = useState(false)
   const tries = useRef(0)
-  const tracker = useRef<PitchTracker | null>(null)
-  const det = useRef(new OnsetDetector())
+  const tracker = useRef<ListenerSession | null>(null)
   const gotRef = useRef<number[]>([])
   const quietT = useRef<ReturnType<typeof setTimeout> | null>(null)
   const playingUntil = useRef(0)
@@ -47,8 +45,16 @@ export function CallResponse({ inst, onExit }: { inst: Instrument; onExit: () =>
   const heardRef = useRef<(m: number) => void>(() => {})
 
   useEffect(() => () => { tracker.current?.stop(); void keepAwake(false); if (quietT.current) clearTimeout(quietT.current) }, [])
+  // keep the isolated listener's strictOctave setting in sync with the Exact octave toggle
+  useEffect(() => { if (tracker.current) tracker.current.strictOctave = !anyOct }, [anyOct])
   // a new level or key: a new round
   useEffect(() => { newRound() }, [levelId, key]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function syncExpected(p = phraseRef.current, idx = gotRef.current.length) {
+    const now = p.notes[idx] !== undefined ? [p.notes[idx]] : []
+    const nxt = p.notes[idx + 1] !== undefined ? [p.notes[idx + 1]] : []
+    tracker.current?.expect(now, nxt)
+  }
 
   function newRound() {
     const s = Math.floor(Math.random() * 1e6)
@@ -58,6 +64,7 @@ export function CallResponse({ inst, onExit }: { inst: Instrument; onExit: () =>
   function next(s = seed, qi = q) {
     const p = makePhrase(level, key, s + qi * 7919, tuning)
     setPhrase(p); setGot([]); gotRef.current = []; setMarks(null); setMsg(''); setShow(false); tries.current = 0
+    syncExpected(p, 0)
   }
 
   /** play the phrase (home first, softly, on the first try) */
@@ -69,23 +76,23 @@ export function CallResponse({ inst, onExit }: { inst: Instrument; onExit: () =>
     p.notes.forEach((m, i) => { playNote(m, t, 0.85); t += p.durs[i] * spb })
     playingUntil.current = t
     gotRef.current = []; setGot([]); setMarks(null); setMsg('')
+    syncExpected(p, 0)
     void listen()
   }
 
   async function listen() {
-    if (tracker.current) { setListening(true); return }
+    if (tracker.current) { setListening(true); syncExpected(); return }
     setErr('')
     try {
-      const pt = new PitchTracker()
-      pt.onReading = r => {
+      const pt = acquireListener('call-response', { strictOctave: !anyOct, autoGate: true, suppressBleed: true })
+      pt.onNote = e => {
         // ignore KGuitar's own phrase while it plays
         if (audio().currentTime < playingUntil.current + 0.15) return
-        const m = r && r.freq ? Math.round(freqToMidi(r.freq)) : null
-        const o = det.current.feed(m, 0, r?.level ?? 0)
-        if (o) heardRef.current(o.midi)
+        heardRef.current(e.midi)
       }
       await pt.start()
       tracker.current = pt
+      syncExpected()
       setListening(true)
       void keepAwake(true)
     } catch {
@@ -96,6 +103,7 @@ export function CallResponse({ inst, onExit }: { inst: Instrument; onExit: () =>
     if (marksRef.current) return
     gotRef.current = [...gotRef.current, m]
     setGot(gotRef.current)
+    syncExpected(phraseRef.current, gotRef.current.length)
     if (quietT.current) clearTimeout(quietT.current)
     if (gotRef.current.length >= phraseRef.current.notes.length) check()
     else quietT.current = setTimeout(check, 3000)

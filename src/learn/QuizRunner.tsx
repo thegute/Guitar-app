@@ -149,7 +149,7 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
   useEffect(() => {
     if (!playMode || done) return
     let stopped = false
-    const notes = new NoteListener()
+    const notes = new NoteListener('quiz')
     notesRef.current = notes
     const chords = new ChromaListener()
     const onWrong = (what: string) => {
