@@ -92,3 +92,29 @@ for (let k = 0; k < 12; k++) for (const pr of PROGS) for (const bars of [4, 6, 8
 }
 assert.equal(fillStepOf('fills:mayer:G:G-Em-C-D:melody-4-7')?.id, 'melody')
 console.log(`fills: ok (${checked} step tabs in 12 keys, ${mel} melodies)`)
+
+// metal: chug riffs with lead fills, every key and progression
+import { metalWorkshop, metalRiff, METAL_KEYS, METAL_PROGS } from '../src/fills/metal'
+{
+  let n = 0
+  for (const key of METAL_KEYS) for (const p of METAL_PROGS) {
+    const w = metalWorkshop({ key, prog: p.chords, bpm: 110 })
+    assert.equal(w.steps.length, 10)
+    for (const st of w.steps) {
+      assert.ok(FILL_LEARN[st.id], `metal ${st.id} has its idea`)
+      assert.equal(st.song.tracks[0].program, 30)
+      for (const b of st.song.tracks[0].bars) {
+        assert.ok(Math.abs(b.steps.reduce((a, x) => a + x.dur, 0) - 4) < 1e-6, `${key} ${st.id} full bar`)
+        for (const x of b.steps) for (const nn of x.notes) assert.ok(nn.fret >= 0 && nn.fret <= 17, `${key} ${st.id} fret ${nn.fret}`)
+      }
+      n++
+    }
+    for (const bars of [4, 6, 8]) for (const seed of [1, 2, 3]) {
+      const r = metalRiff({ key, prog: p.chords, bpm: 110 }, bars, seed)
+      assert.equal(r.tracks[0].bars.length, bars)
+      for (const b of r.tracks[0].bars) assert.ok(Math.abs(b.steps.reduce((a, x) => a + x.dur, 0) - 4) < 1e-6)
+    }
+  }
+  assert.equal(fillStepOf('fills:metal:E:i-vi-vii:m-gallop')?.id, 'm-gallop'); assert.equal(fillStepOf('fills:metal:E:i-vi-vii:riff-4-2')?.id, 'riff')
+  console.log(`metal: ok (${n} step tabs)`)
+}

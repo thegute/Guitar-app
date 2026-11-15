@@ -1,7 +1,7 @@
 // Learn → Explore → Fills between chords: the workshop. Pick a style, a key and a progression; the shape map shows each
 // chord's shell, its notes and the free-finger notes around it; nine steps teach the fills one idea at a time, each one
 // a looping tab you practise in Play with the band, the mic, speed control and the coach.
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import type { Instrument } from '../instrument'
 import { Chips, usePersist } from '../components/Controls'
 import { Fretboard, type Mark } from '../components/Fretboard'
@@ -15,10 +15,12 @@ import { workshop, melodicPart, connectedPart, FILL_LEARN, type FillStyle } from
 import { launch } from '../search/launch'
 import { spell } from '../theory/progressions'
 import { FillIdea } from './FillIdea'
+import { MetalWorkshop } from './MetalWorkshop'
 
 const STYLES = [
   { id: 'mayer', label: 'John Mayer soul fills', ready: true },
   { id: 'asato', label: 'Mateus Asato', ready: true },
+  { id: 'metal', label: 'Metal: chugs with lead fills', ready: true },
   { id: 'bluegrass', label: 'Tony Rice / Billy Strings', ready: false },
   { id: 'atkins', label: 'Chet Atkins', ready: false },
   { id: 'plini', label: 'Plini', ready: false },
@@ -38,6 +40,18 @@ const PC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
 
 export function FillsWorkshop({ inst, onExit }: { inst: Instrument; onExit: () => void }) {
   const [style, setStyle] = usePersist('fills:style', 'mayer')
+  const chips = <Chips label="Style" items={STYLES.map(s => ({ id: s.id, label: s.ready ? s.label : `${s.label} (soon)` }))} value={style} onChange={v => { if (STYLES.find(s => s.id === v)?.ready) setStyle(v) }} wrap />
+  const standard = inst.id === 'guitar' && inst.midis.length === 6 && inst.midis.every((m, i) => m === STD[i])
+  if (!standard) return (
+    <div className="stack" style={{ gap: 12 }}>
+      <div className="row"><button className="btn sm" onClick={onExit}>← Back</button><h2 style={{ margin: 0 }}>Fills between chords</h2></div>
+      <p className="panel small">The fills workshop is for guitar in standard tuning for now. Switch the instrument (or the tuning) in Settings to use it.</p>
+    </div>
+  )
+  return style === 'metal' ? <MetalWorkshop inst={inst} onExit={onExit} chips={chips} /> : <SoftWorkshop inst={inst} onExit={onExit} style={style} chips={chips} />
+}
+
+function SoftWorkshop({ inst, onExit, style, chips }: { inst: Instrument; onExit: () => void; style: string; chips: ReactNode }) {
   const [key, setKey] = usePersist('fills:key', 'G')
   const [progId, setProgId] = usePersist('fills:prog', 'i-vi-iv-v')
   const [bpm, setBpm] = usePersist('fills:bpm', 70)
@@ -60,13 +74,6 @@ export function FillsWorkshop({ inst, onExit }: { inst: Instrument; onExit: () =
   const ws = useMemo(() => workshop({ chords, key: wkey, bpm, style: fstyle, title: `${stitle} (${chords.join(' ')})` }), [chords, wkey, bpm, fstyle])
   const sh = ws.shells[Math.min(sel, ws.shells.length - 1)]
   const free = sh ? freeNotes(sh) : []
-
-  if (!standard) return (
-    <div className="stack" style={{ gap: 12 }}>
-      <div className="row"><button className="btn sm" onClick={onExit}>← Back</button><h2 style={{ margin: 0 }}>Fills between chords</h2></div>
-      <p className="panel small">The fills workshop is for guitar in standard tuning for now. Switch the instrument (or the tuning) in Settings to use it.</p>
-    </div>
-  )
 
   const markFor = (midi: number, s: number, fret: number): Mark | null => {
     if (!sh) return null
@@ -105,7 +112,7 @@ export function FillsWorkshop({ inst, onExit }: { inst: Instrument; onExit: () =
         <p className="small" style={{ margin: 0 }}>{fstyle === 'asato'
           ? 'Mateus Asato\'s way: the same small shapes as Mayer, decorated much more: slides into every chord, quick hammer-pull flicks, 3rds on the top strings, 16th-note flourishes and muted ghost strums. Learn the John Mayer steps first if these feel fast.'
           : 'Little melodies between chord shapes, the way John Mayer, Hendrix and Curtis Mayfield play rhythm guitar.'} {ws.steps.length} steps over one progression; each one opens in the song player with a band, the mic and speed control.</p>
-        <Chips label="Style" items={STYLES.map(s => ({ id: s.id, label: s.ready ? s.label : `${s.label} (soon)` }))} value={style} onChange={v => { if (STYLES.find(s => s.id === v)?.ready) setStyle(v) }} wrap />
+        {chips}
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <label className="field" style={{ flex: '2 1 180px' }}><span>Progression</span>
             <select className="select" value={progId} onChange={e => { setProgId(e.target.value); setSel(0) }} data-testid="fills-prog">

@@ -22,13 +22,13 @@ export interface FillStep {
 const MAJOR = [0, 2, 4, 5, 7, 9, 11]
 const PENT = [0, 2, 4, 7, 9]
 const pcOf = (m: number) => ((m % 12) + 12) % 12
-interface Ev { at: number; dur: number; notes: SongNote[]; chord?: string; stroke?: 'down' | 'up' }
+export interface Ev { at: number; dur: number; notes: SongNote[]; chord?: string; stroke?: 'down' | 'up' }
 
-const nt = (s: number, f: number, tech?: string, tuning = STD): SongNote => ({ string: s, fret: f, midi: tuning[s] + f, ...(tech ? { tech } : {}) })
+export const nt = (s: number, f: number, tech?: string, tuning = STD): SongNote => ({ string: s, fret: f, midi: tuning[s] + f, ...(tech ? { tech } : {}) })
 const strum = (sh: Shell, at: number, dur: number, chord?: string, tuning = STD): Ev => ({ at, dur, notes: sh.notes.map(n => nt(n.string, n.fret, undefined, tuning)), ...(chord ? { chord } : {}), stroke: 'down' })
 
 /** events → one bar of steps (gaps become rests) */
-function bar(evs: Ev[], beats = 4): SongBar {
+export function bar(evs: Ev[], beats = 4): SongBar {
   const steps: SongStep[] = []
   let t = 0
   for (const e of [...evs].sort((a, b) => a.at - b.at)) {
@@ -97,7 +97,7 @@ function stepOnString(s: number, fret: number, tonic: number, dir: -1 | 1, tunin
   return fret
 }
 
-export type FillStyle = 'mayer' | 'asato'
+export type FillStyle = 'mayer' | 'asato' | 'metal'
 export interface WorkshopIn { chords: string[]; key: string; bpm: number; style: FillStyle; tuning?: number[]; title?: string }
 const PCS: Record<string, number> = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 }
 
@@ -395,18 +395,30 @@ export const FILL_LEARN: Record<string, FillLearn> = {
   turn: { idea: 'A turn circles a note from above and below before landing on it. Here the note is the chord\'s 3rd: the 4th above it (the sus4 sound) and the 2nd below it (the sus2 sound) are both one or two frets away, so the turn never leaves the chord shape. It is a melody made of the chord itself.', lessons: ['c2-intervals', 'c2-triads'], tools: ['targets'], topics: ['turn', 'sus4', 'sus2', 'ornament'] },
   ghost: { idea: 'Ghost strums are strums on strings that are touched but not pressed down, so they click instead of ringing. They keep the strumming hand moving down and up in time even when no chord sounds, which is what makes a part groove. The fill then comes out of a hand that is already moving in time.', lessons: ['c2-rhythm', 'c3-rhythm'], tools: ['techniques'], topics: ['muting', 'percussive strumming', 'groove'] },
   connected: { idea: 'A chord does not need all its notes to be heard: two notes of it on the beat, plus a bass player playing the root, are enough for your ear to fill in the rest. That frees the guitar to play a continuous line that moves through the chord\'s notes and the scale notes next to them. Because every bar starts on notes of the chord and every walk ends a step from the next chord\'s notes, the line outlines the progression by itself. That is how Asato, and chord-melody players in general, make one guitar sound like rhythm and lead at once.', lessons: ['c2-triads', 'c2-intervals', 'c3-majorpent'], tools: ['targets', 'cr'], topics: ['chord melody', 'double stops', 'voice leading', 'implied harmony'] },
+  'm-chug': { idea: 'Palm muting (the edge of the picking hand resting on the strings at the bridge) cuts the note short and leaves the low "chunk". Downstrokes on every 8th make every chug the same: that evenness is what makes metal rhythm guitar sound tight, and it\'s the backbone the fills hang off.', lessons: ['c1-rhythm'], tools: ['techniques'], topics: ['palm muting', 'downpicking', 'power chord'] },
+  'm-gallop': { idea: 'A gallop is one 8th note and two 16ths, over and over: long-short-short, like a horse. It fits four notes into the space of three 16ths plus one, so it drives forward. Most players pick it down-down-up or down-up-down; the goal is that the two short notes are exactly even.', lessons: ['c1-rhythm', 'c2-rhythm'], tools: ['techniques'], topics: ['gallop', 'sixteenth notes'] },
+  'm-pedal': { idea: 'A pedal point is a note that keeps sounding (or coming back) while the other notes move. In metal the open low string is the pedal: you alternate it with melody notes, so one guitar sounds like a bass note and a melody at once. Because the pedal is the key note, any notes of the minor scale above it sound right.', lessons: ['c3-natminor', 'c3-minorkeys'], tools: ['cr'], topics: ['pedal point', 'pedal tone', 'natural minor'] },
+  'm-one': { idea: 'One melody note on beat 4, then the chug on 1: the shortest possible fill. It works because the chug stops for a moment (the gap gets your attention) and the note comes from the key\'s scale. The real skill is the jump back to the chug right on time.', lessons: ['c3-natminor'], tools: ['targets'], topics: ['riff', 'fill'] },
+  'm-two': { idea: 'Two scale notes stepping toward the next chord\'s root lead the ear into the change, the same "pull" as in any style. In a chug riff that turns a list of power chords into a line that moves.', lessons: ['c3-progressions', 'c3-natminor'], tools: ['targets'], topics: ['approach note', 'passing tone'] },
+  'm-three': { idea: 'Three quick notes, picked once and hammered or pulled after that (legato), make a burst of melody between chug passages: the classic modern metal riff move. Keeping the picking hand moving in 16ths through the fill is what brings you back to the chug in time.', lessons: ['c2-rhythm', 'c3-natminor'], tools: ['cr', 'techniques'], topics: ['legato', 'hammer-on', 'pull-off', 'riff'] },
+  'm-harmony': { idea: 'A melody note with the note a 5th above it (the power-chord shape) is a harmonized line: like two guitars playing in harmony, which is the sound of melodic death metal and metalcore. It works because the 5th is the most stable interval: it thickens the melody without changing it.', lessons: ['c2-intervals'], tools: ['techniques'], topics: ['harmony', 'power chord', 'fifths'] },
+  'm-offbeat': { idea: 'Putting melody notes on the 16th off-beats (the "a" right before a beat) between chugs on the beat makes the riff syncopated: the notes jump out of the gaps and the groove bounces. Prog and metalcore riffs (Periphery, for one) live on this.', lessons: ['c2-rhythm', 'c3-rhythm'], tools: ['cr'], topics: ['syncopation', 'sixteenth notes', 'groove'] },
+  'm-mix': { idea: 'A riff that uses several moves (gallops, a pedal-point bar, a burst, a harmonized fill) sounds like a song section rather than an exercise. The rule that holds it together: the chugs never move off the grid, whatever the fill does.', lessons: ['c2-rhythm'], tools: ['cr'], topics: ['riff'] },
+  'm-yours': { idea: 'Making up fills means choosing, on the spot, a few notes from the minor scale above the pedal and getting back to the chug on the 1. Start with one note, then two, then a three-note burst; landing on time matters more than what you play.', lessons: ['c3-natminor'], tools: ['cr', 'targets'], topics: ['improvisation', 'riff'] },
+  riff: { idea: 'A longer riff is built like a sentence: a short fill idea, the same idea over the next chord, a longer burst, then a gallop into the power chord to finish. Repetition with small changes is what makes a riff memorable.', lessons: ['c3-progressions'], tools: ['cr'], topics: ['riff', 'phrasing'] },
   yours: { idea: 'Improvising fills is choosing, in the moment, one move you know (free finger, two-note lead-in, three notes, 6ths) and landing on the next chord on time. Start with the same move every bar, then vary one thing: where it starts, which note it lands on, or its rhythm. Landing on time matters more than what you play.', lessons: ['c3-majorpent'], tools: ['targets', 'cr'], topics: ['improvisation', 'fills'] },
 }
 /** the step behind a fills doc id ("fills:<style>:<key>:<chords>:<step>"), for the song player and the helper */
 export function fillStepOf(docId: string | undefined): { id: string; learn: FillLearn } | null {
   if (!docId?.startsWith('fills:')) return null
-  const id = docId.split(':').pop()!.split('-')[0]
+  const last = docId.split(':').pop()!
+  const id = /^(melody|riff)-\d/.test(last) ? last.split('-')[0] : last
   return FILL_LEARN[id] ? { id, learn: FILL_LEARN[id] } : null
 }
 
 // ---------- longer melodies: 4, 6 or 8 bars built from fills ----------
 /** A small seeded random. */
-function rnd(seed: number) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296 } }
+export function rnd(seed: number) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296 } }
 /** fill rhythms: where the notes start in the bar (after the chord on 1) */
 const CELLS_ASATO = [[2.5, 2.75, 3, 3.5], [3, 3.25, 3.5, 3.75], [2, 2.5, 2.75, 3, 3.5], [1.5, 2, 2.25, 2.5, 3.5]]
 const CELLS = [[2.5, 3, 3.5], [2, 2.5, 3.5], [1.5, 2, 3, 3.5], [2.5, 3.5], [2, 3, 3.5], [1.5, 2.5, 3, 3.5]]

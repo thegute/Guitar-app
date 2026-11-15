@@ -44,6 +44,17 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
       await page.waitForSelector('.tab-note', { timeout: 8000 })
       if (!/Asato fills .*the flick/.test(await page.evaluate(() => document.body.innerText))) bad('the Asato step should open')
       await page.screenshot({ path: path.join(OUT, 'fills-asato.png') })
+      // metal: chugs with lead fills
+      await page.locator('[data-testid=fill-back]').click()
+      await page.waitForSelector('[data-testid=fills]', { timeout: 5000 })
+      await page.locator('[data-testid=fills] button:has-text("Metal")').click()
+      const mh = await page.locator('.fills-step .fills-head b').allInnerTexts()
+      if (!mh.some(h => /The gallop/.test(h)) || !mh.some(h => /11\. Longer riffs/.test(h))) bad(`metal steps: ${mh.join(' | ')}`)
+      await page.screenshot({ path: path.join(OUT, 'fills-metal.png') })
+      await page.locator('[data-testid=fills-step-m-pedal] .fills-head').click()
+      await page.locator('[data-testid=fills-go-m-pedal]').click()
+      await page.waitForSelector('.tab-note', { timeout: 8000 })
+      if (!/Metal fills .*pedal point/.test(await page.evaluate(() => document.body.innerText))) bad('the metal step should open')
     }
     if (vp.width === 412) {
       // step 3 opens in the song player, with The idea and the band
