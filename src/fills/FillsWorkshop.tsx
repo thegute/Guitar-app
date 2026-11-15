@@ -16,6 +16,7 @@ import { launch } from '../search/launch'
 import { spell } from '../theory/progressions'
 import { FillIdea } from './FillIdea'
 import { MetalWorkshop } from './MetalWorkshop'
+import { Style2Workshop } from './Style2Workshop'
 import { saveCurrentFills, fillsRoutine } from './current'
 import { startSession } from '../sessions/session'
 import { loopOver } from './loop'
@@ -24,10 +25,10 @@ const STYLES = [
   { id: 'mayer', label: 'John Mayer soul fills', ready: true },
   { id: 'asato', label: 'Mateus Asato', ready: true },
   { id: 'metal', label: 'Metal: chugs with lead fills', ready: true },
-  { id: 'bluegrass', label: 'Tony Rice / Billy Strings', ready: false },
-  { id: 'atkins', label: 'Chet Atkins', ready: false },
-  { id: 'plini', label: 'Plini', ready: false },
-  { id: 'mancuso', label: 'Matteo Mancuso', ready: false },
+  { id: 'bluegrass', label: 'Tony Rice / Billy Strings', ready: true },
+  { id: 'atkins', label: 'Chet Atkins', ready: true },
+  { id: 'plini', label: 'Plini', ready: true },
+  { id: 'mancuso', label: 'Matteo Mancuso', ready: true },
 ]
 /** progressions that suit soul fills (semitones above the key, minor or not) */
 const PROGS: { id: string; label: string; chords: [number, boolean][] }[] = [
@@ -51,6 +52,7 @@ export function FillsWorkshop({ inst, onExit }: { inst: Instrument; onExit: () =
       <p className="panel small">The fills workshop is for guitar in standard tuning for now. Switch the instrument (or the tuning) in Settings to use it.</p>
     </div>
   )
+  if (style === 'bluegrass' || style === 'atkins' || style === 'plini' || style === 'mancuso') return <Style2Workshop key={style} inst={inst} onExit={onExit} chips={chips} style={style} />
   return style === 'metal' ? <MetalWorkshop inst={inst} onExit={onExit} chips={chips} /> : <SoftWorkshop inst={inst} onExit={onExit} style={style} chips={chips} />
 }
 
@@ -194,7 +196,7 @@ function SoftWorkshop({ inst, onExit, style, chips }: { inst: Instrument; onExit
         </div>
         <p className="small muted" style={{ margin: 0 }}>Loop your own rhythm: the looper gets these chords as a beat. Record yourself strumming them on track 1 (one bar of lights counts you in), then practise the fills over your own playing, and record them on track 2.</p>
       </div>
-      <p className="small muted">Learned at 90% or better in the song player. More styles (Mateus Asato, Tony Rice and Billy Strings, Chet Atkins, Plini, Matteo Mancuso) are on the way.</p>
+      <p className="small muted">Learned at 90% or better in the song player.</p>
     </div>
   )
 }

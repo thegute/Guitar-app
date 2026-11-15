@@ -152,3 +152,24 @@ import { handGroups } from '../src/play/handShape'
   assert.ok(adv, 'fill advice'); assert.match(adv!.fix, /fill/)
   console.log('fills current + coach: ok')
 }
+
+// bluegrass, Chet Atkins, Plini, Matteo Mancuso
+import { style2Workshop, style2Part, STYLE2 } from '../src/fills/styles2'
+{
+  let n = 0
+  for (const style of ['bluegrass', 'atkins', 'plini', 'mancuso'] as const) for (const key of STYLE2[style].keys) for (const p of STYLE2[style].progs) {
+    const w = style2Workshop({ style, key, prog: p.chords, bpm: 90 })
+    assert.ok(w.steps.length >= 6, `${style} steps`)
+    for (const st of w.steps) {
+      assert.ok(FILL_LEARN[st.id], `${style}: ${st.id} has its idea`)
+      st.song.tracks[0].bars.forEach((b, i) => {
+        assert.ok(Math.abs(b.steps.reduce((a, x) => a + x.dur, 0) - 4) < 1e-6, `${style} ${key} ${st.id} bar ${i} full`)
+        assert.ok(b.steps[0].chord, `${style} ${st.id} bar ${i} names its chord`)
+        for (const x of b.steps) for (const nn of x.notes) assert.ok(nn.fret >= 0 && nn.fret <= 19 && nn.string >= 0 && nn.string <= 5, `${style} ${key} ${st.id} ${nn.string}:${nn.fret}`)
+      })
+      n++
+    }
+    for (const bars of [4, 6, 8]) assert.equal(style2Part({ style, key, prog: p.chords, bpm: 90 }, bars, 3).tracks[0].bars.length, bars)
+  }
+  console.log(`four more styles: ok (${n} step tabs)`)
+}
