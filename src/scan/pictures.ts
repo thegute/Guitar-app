@@ -3,7 +3,7 @@
 //   the contrast (dark video tabs come out black on white), sharpen; very wide strips are cut between notes
 //   video files (and Samsung screen recordings): sample frames, skip ones where nothing changed, follow a scrolling tab
 //   sideways and stitch the new part onto a panorama; a page turn starts a new strip
-import { findStrips, matchAt, playheadX, profile, sharpen, shiftBetween, stretchContrast, toGray, type Gray, type Strip } from './image'
+import { findStrips, matchAt, playheadCols, playheadX, profile, sharpen, shiftBetween, stretchContrast, toGray, type Gray, type Strip } from './image'
 
 export interface Box { x: number; y: number; w: number; h: number } // 0..1 of the picture
 export interface Piece { b64: string; mime: string; url: string; w: number; h: number }
@@ -38,11 +38,17 @@ export function grayAt(src: Src, maxW = 1000, box?: Box): { g: Gray; scale: numb
   return { g: toGray(d.data, c.width, c.height), scale, ox: bx.x, oy: bx.y }
 }
 
+/** Find strips on raw grey first, falling back to contrast-stretched grey for faint or translucent tab overlays. */
+function findStripsRobust(g: Gray): Strip[] {
+  const s = findStrips(g)
+  return s.length ? s : findStrips(stretchContrast(g))
+}
+
 /** Where the tab is in a picture (as 0..1 boxes, one per staff), or [] when no staff lines were found. */
 export function tabBoxes(src: Src): Box[] {
   const { w, h } = sizeOf(src)
   const { g, scale } = grayAt(src, 1000)
-  return findStrips(g).map(s => toBox(s, scale, w, h))
+  return findStripsRobust(g).map(s => toBox(s, scale, w, h))
 }
 const toBox = (s: Strip, scale: number, w: number, h: number): Box => ({ x: s.left / scale / w, y: s.top / scale / h, w: (s.right - s.left) / scale / w, h: (s.bottom - s.top) / scale / h })
 /** One box around all the staves (the crop to show and adjust). */
@@ -102,7 +108,7 @@ function crop(g: Gray, x0: number, x1: number): Gray {
   const w = x1 - x0
   const px = new Float32Array(w * g.h)
   for (let y = 0; y < g.h; y++) px.set(g.px.subarray(y * g.w + x0, y * g.w + x1), y * w)
-  return { w, h: g.h, px }
+  return { w, h: g.h, px, chroma: g.chroma ? g.chroma.subarray(x0, x1) : undefined }
 }
 
 /** Screenshots → pieces for the AI: each staff cropped and enhanced (or the box you set, or the whole picture). */
@@ -112,7 +118,7 @@ export function piecesFromPictures(pics: Src[], userBox?: Box | null): { pieces:
   for (const p of pics) {
     const { w, h } = sizeOf(p)
     const { g, scale } = grayAt(p, 1000, userBox ?? undefined)
-    const strips = findStrips(g)
+    const strips = findStripsRobust(g)
     if (strips.length) {
       found += strips.length
       for (const s of strips) {
@@ -187,9 +193,9 @@ export class Stitcher {
       this.searched++
       const { w, h } = sizeOf(src)
       const { g, scale } = grayAt(src, 1000)
-      const s = findStrips(g)
+      const s = findStripsRobust(g)
       if (s.length) {
-        this.gap = (s[0].lines[s[0].lines.length - 1] - s[0].lines[0]) / (s[0].lines.length - 1) / scale
+        this.gap = s[0].lines.length > 1 ? (s[0].lines[s[0].lines.length - 1] - s[0].lines[0]) / (s[0].lines.length - 1) / scale : 10
         // room above (pick strokes, words) and below (the rhythm: stems, beams, tuplet 3s) the staff
         const b = unionBox(s.map(x => toBox(x, scale, w, h)))!
         const up = (this.gap * 2) / h, down = (this.gap * 3.5) / h
@@ -197,6 +203,19 @@ export class Stitcher {
         this.box = { ...b, y: y0, h: y1 - y0 }
       } else if (this.searched < 60) return
       else this.box = { x: 0, y: 0, w: 1, h: 1 }
+    } else if (this.kept <= 4 && !this.doneW && this.layers.length <= 1) {
+      // If the first frame caught the tab while it was still fading/sliding in horizontally, allow widening the box
+      const { w, h } = sizeOf(src)
+      const { g, scale } = grayAt(src, 1000)
+      const s = findStripsRobust(g)
+      if (s.length) {
+        const b = unionBox(s.map(x => toBox(x, scale, w, h)))!
+        if (Math.abs(b.y - this.box.y) < 0.06 && b.w > this.box.w * 1.15) {
+          const x0 = Math.min(this.box.x, b.x), x1 = Math.max(this.box.x + this.box.w, b.x + b.w)
+          this.box = { ...this.box, x: x0, w: x1 - x0 }
+          this.layers = []; this.prev = null; this.prevProf = null
+        }
+      }
     }
     this.addGray(enhance(src, this.box, this.gap || undefined), t)
   }
@@ -206,12 +225,6 @@ export class Stitcher {
     let ink = 0
     for (let i = 0; i < g.px.length; i += 5) if (g.px[i] < 0.5) ink++
     if (ink < g.px.length / 5 * 0.004) return
-    const mark = () => {
-      if (t === undefined) return
-      this.view.push({ x0: this.at, w: g.w, t })
-      const p = playheadX(g)
-      if (p !== null) this.timeline.push({ x: this.at + p, t })
-    }
     // (a "nearly the same" frame still has its shift measured: a sparse tab scrolling a little changes few pixels, and
     // stacking it in the old place would smear the numbers away)
     const prof = profile(g)
@@ -252,19 +265,27 @@ export class Stitcher {
     // a tab that moves on in jumps (a page at a time) shows the end of the last page again at the start of the new one:
     // the same strip, moved on (checked number by number, so a new page that starts with the same riff isn't taken for it)
     if (!sh && this.prev && this.layers.length) { const ov = pageOverlap(this.prev, g); if (ov) sh = { dx: ov.dx, match: 1 } }
+    const prevStatic = this.prev && sh && sh.dx === 0 ? this.prev : undefined
+    const phMask = playheadCols(g, prevStatic)
+    const mark = () => {
+      if (t === undefined) return
+      this.view.push({ x0: this.at, w: g.w, t })
+      const p = playheadX(g, prevStatic)
+      if (p !== null) this.timeline.push({ x: this.at + p, t })
+    }
     if (sh && sh.dx > 0) {
       // scrolled sideways: this frame sits further along the strip
       this.scrolled = true
       this.at += sh.dx
       this.shifts.push(sh.dx)
-      this.stack(g)
-    } else if (sh) this.stack(g) // the same page, something moved on it (a playhead)
+      this.stack(g, phMask)
+    } else if (sh) this.stack(g, phMask) // the same page, something moved on it (a playhead)
     else {
       // a new page (or the first): keep what we had, start again
       this.flush()
       this.at = 0
       this.shifts = []
-      this.stack(g)
+      this.stack(g, phMask)
     }
     mark()
     this.kept++
@@ -272,25 +293,28 @@ export class Stitcher {
   }
   /** keep a frame at the current place (at most 7 at any one place: the oldest goes). Columns no later frame can reach
    *  (left of where the newest frame starts: a tab only scrolls one way) are finished, and frames wholly left of it let go */
-  private stack(g: Gray) {
+  private stack(g: Gray, phMask?: Uint8Array | null) {
     if (this.layers.length && this.layers[0].g.h !== g.h) return
     const here = this.layers.filter(l => l.x0 === this.at)
     if (here.length >= 7) this.layers.splice(this.layers.indexOf(here[0]), 1)
     if (!this.layers.length && !this.doneW) { const st = findStrips(g); this.lineYs = st.length ? st.flatMap(x => x.lines) : null }
-    this.layers.push({ x0: this.at, g, ok: this.staffed(g) })
+    this.layers.push({ x0: this.at, g, ok: this.staffed(g, phMask) })
     this.width = Math.max(this.width, this.at + g.w)
     if (this.at > this.doneW) {
       this.append(this.compose(this.doneW, this.at))
       this.layers = this.layers.filter(l => l.x0 + l.g.w > this.at)
     }
   }
-  /** which columns of a frame show the staff (most of its lines there): a page that moves on in jumps has a blank
-   *  margin at its edges, which mustn't paint over the last page's notes where the two overlap */
-  private staffed(g: Gray): Uint8Array | null {
+  /** which columns of a frame show the staff cleanly (most of its lines there, and not covered by a playhead/cursor bar):
+   *  a page that moves on in jumps has a blank margin at its edges, and a frame with a cursor over column x yields to
+   *  clean frames at column x */
+  private staffed(g: Gray, phMask?: Uint8Array | null): Uint8Array | null {
     const ys = this.lineYs
-    if (!ys) return null
+    if (!ys && !phMask) return null
     const ok = new Uint8Array(g.w)
     for (let x = 0; x < g.w; x++) {
+      if (phMask && phMask[x]) { ok[x] = 0; continue }
+      if (!ys) { ok[x] = 1; continue }
       let n = 0
       for (const y of ys) {
         const yy = Math.round(y)
@@ -325,8 +349,14 @@ export class Stitcher {
       const on = staffed.length ? staffed : all
       const last = on[on.length - 1]
       for (let y = 0; y < h; y++) {
-        // one or two frames: the newer; three or more: the middle one
-        if (on.length < 3) { px[y * w + x - x0] = last.g.px[y * last.g.w + (x - last.x0)]; continue }
+        if (on.length === 1) { px[y * w + x - x0] = last.g.px[y * last.g.w + (x - last.x0)]; continue }
+        // With 2 frames, if one has a dark cursor/shadow and the other is clean paper, take the clean paper (true notes are dark in both)
+        if (on.length === 2) {
+          const v0 = on[0].g.px[y * on[0].g.w + (x - on[0].x0)]
+          const v1 = last.g.px[y * last.g.w + (x - last.x0)]
+          px[y * w + x - x0] = Math.abs(v0 - v1) > 0.25 ? Math.max(v0, v1) : v1
+          continue
+        }
         vals.length = 0
         for (const l of on) vals.push(l.g.px[y * l.g.w + (x - l.x0)])
         vals.sort((a, b) => a - b)
@@ -403,7 +433,7 @@ export function overlapScore(a: Gray, b: Gray, lo: number, hi: number): { dx: nu
   return best.m > -1 ? { dx: best.dx * 2, m: best.m } : null
 }
 
-/** How different two frames of the same size are, leaving out a playhead (columns dark from top to bottom in either):
+/** How different two frames of the same size are, leaving out a playhead (columns dark from top to bottom or colored in either):
  *  the share of pixels that changed clearly. A page with a playhead moving over it stays under ~1%; a new page, even of
  *  the same riff, changes many of its numbers. */
 function pageDiff(a: Gray, b: Gray): number {
@@ -412,7 +442,8 @@ function pageDiff(a: Gray, b: Gray): number {
   for (let x = 0; x < a.w; x++) {
     let da = 0, db = 0
     for (let y = 0; y < a.h; y += 2) { if (a.px[y * a.w + x] < 0.5) da++; if (b.px[y * a.w + x] < 0.5) db++ }
-    if (da > a.h * 0.4 || db > a.h * 0.4) { skip[x] = 1; if (x > 0) skip[x - 1] = 1 }
+    const ch = (a.chroma && a.chroma[x] >= 0.25) || (b.chroma && b.chroma[x] >= 0.25)
+    if (ch || da > a.h * 0.4 || db > a.h * 0.4) { skip[x] = 1; if (x > 0) skip[x - 1] = 1; if (x + 1 < a.w) skip[x + 1] = 1 }
   }
   let n = 0, d = 0
   for (let y = 0; y < a.h; y += 2) for (let x = 0; x < a.w; x += 2) {
@@ -432,7 +463,8 @@ export async function tabFromVideo(file: Blob, o: { every?: number; from?: numbe
     await new Promise<void>((res, rej) => { v.onloadeddata = () => res(); v.onerror = () => rej(new Error("That video couldn't be opened here: try an MP4 from the phone's screen recorder.")) })
     const dur = v.duration
     const from = o.from ?? 0, to = Math.min(dur, o.to ?? dur)
-    const every = o.every ?? Math.max(0.5, Math.min(1.5, (to - from) / 240))
+    // Sample at ~3–3.5 fps for short/medium clips so scrolling tabs move in small steps and every column gets 3+ frames
+    const every = o.every ?? Math.max(0.28, Math.min(0.5, (to - from) / 360))
     const st = new Stitcher(o.box ?? null)
     for (let t = from; t <= to; t += every) {
       if (o.signal?.aborted) throw new Error('Cancelled.')

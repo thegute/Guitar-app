@@ -12,6 +12,8 @@ export interface SongNote {
   tech?: string
   /** read off a picture and the reader wasn't sure of the number: shown with an amber ring until you check it */
   unsure?: boolean
+  /** runner-up fret guesses from the scanner (e.g. [6, 0] when an 8 was read on a blurry frame) */
+  alts?: number[]
 }
 export interface SongStep {
   notes: SongNote[]

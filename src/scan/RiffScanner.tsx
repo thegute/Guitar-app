@@ -145,7 +145,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     if (!doc) throw new AiError("The AI's answer didn't read as a tab: open Fix the tab text below to see it.")
     if (tempoGuess && doc.song.tempoFrom !== 'file') doc = { ...doc, song: { ...doc.song, tempo: tempoGuess, tempoFrom: 'detected' } }
     step('hand', { state: 'done' }); step('tempo', { state: 'done', note: `${Math.round(doc.song.tempo ?? 90)} BPM${doc.song.tempoFrom === 'guess' ? ' (a guess)' : ''}` })
-    setOut({ doc: { ...doc, id: newId() }, heard: false, how, text, reparse: t => songFromScan(t, title, inst, youtube) })
+    setOut({ doc: { ...doc, id: newId() }, heard: false, how, text, reparse: t => songFromScan(t, title, inst, youtube), strips: pieces.map(p => ({ url: p.url, w: p.w, h: p.h })) })
     setStages(null)
   }
 
@@ -166,6 +166,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song, youtube, updated: Date.now() }
     setOut({
       doc, heard: false, text: songTabText(song, stringNames(inst)), reparse: t => songFromScan(t, name, inst, youtube),
+      strips: pieces.map(p => ({ url: p.url, w: p.w, h: p.h })),
       how: `${how} KGuitar read ${r.notes} number${r.notes === 1 ? '' : 's'} itself.${r.unsure ? ` ${r.unsure} ${r.unsure === 1 ? 'has' : 'have'} an amber ring: check ${r.unsure === 1 ? 'it' : 'them'} against the video.` : ''}`,
     })
     setStages(null)
@@ -186,6 +187,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
         const names = stringNames(inst)
         setOut({
           doc, heard: false, text: songTabText(r.song, names), reparse: t => songFromScan(t, name, inst, youtube),
+          strips: pics.map(p => ({ url: p.url, w: p.img.naturalWidth || p.img.width, h: p.img.naturalHeight || p.img.height })),
           how: `KGuitar read ${r.notes} number${r.notes === 1 ? '' : 's'} on ${r.staves} staff${r.staves === 1 ? '' : 's'} itself${r.meter !== 4 ? ` (${r.meter}/4)` : ''}.${r.unsure ? ` ${r.unsure} ${r.unsure === 1 ? 'has' : 'have'} an amber ring: check ${r.unsure === 1 ? 'it' : 'them'} against the page.` : ''} Note lengths come from the rhythm printed under the tab, or from how the notes are spaced.`,
         })
         setStages(null)
@@ -227,7 +229,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       let timelines: { x: number; t: number }[][] | undefined
       let views: { x0: number; w: number; t: number }[][] | undefined
       if (isVideo) {
-        const v = await tabFromVideo(f, { signal, box, onProgress: (p, note) => step('frames', { pct: p, note }) })
+        const v = await tabFromVideo(f, { signal, box, from: parseTime(from), to: parseTime(to), onProgress: (p, note) => step('frames', { pct: p, note }) })
         pieces = v.pieces
         strips = v.strips
         timelines = v.timelines

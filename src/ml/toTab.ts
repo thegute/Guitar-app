@@ -91,9 +91,16 @@ export function notesToSong(notes: Note[], o: ToTabOpts): Song | null {
   const lo = o.tuning[0], hi = o.tuning[o.tuning.length - 1] + 20
   const inRange = notes.filter(n => n.midi >= lo && n.midi <= hi)
   if (!inRange.length) return null
-  // quiet ghosts of louder notes (string noise, ringing) are left out
-  const loudest = Math.max(...inRange.map(n => n.velocity))
-  const keep = inRange.filter(n => n.velocity >= loudest * 0.22)
+  // quiet ghosts of louder notes (string noise, ringing) are left out; use a local 2.5s window + 90th percentile so one loud pick spike doesn't wipe out a softer phrase
+  const sortedVels = inRange.map(n => n.velocity).sort((a, b) => a - b)
+  const loudest = sortedVels[sortedVels.length - 1]
+  const p90 = sortedVels[Math.floor((sortedVels.length - 1) * 0.9)]
+  const keep = inRange.filter(n => {
+    if (n.velocity >= loudest * 0.22) return true
+    const near = inRange.filter(m => Math.abs(m.start - n.start) <= 2.5).map(m => m.velocity).sort((a, b) => a - b)
+    const localRef = near[Math.floor((near.length - 1) * 0.85)] ?? p90
+    return n.velocity >= Math.max(loudest * 0.1, Math.min(p90 * 0.2, localRef * 0.22))
+  })
   const bpm = o.grid?.bpm ?? o.bpm ?? 90
   const pos = beatPositions(keep.map(n => n.start), o.grid, bpm)
   const ends = beatPositions(keep.map(n => n.end), o.grid, bpm)

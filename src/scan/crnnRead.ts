@@ -116,11 +116,35 @@ export type Len = { d: number; p: number; b?: number; t?: number }
 
 export interface CrnnCol {
   u: number; t: number; kind: 'note' | 'bar' | 'rest'; p: number
-  frets: { slot: number; fret: number; dead: boolean; sure: number; /** the next likeliest readings (for the audio referee) */ alts: { fret: number; dead: boolean; p: number }[] }[]
+  frets: { slot: number; fret: number; dead: boolean; sure: number; tech?: string; /** the next likeliest readings (for the audio referee) */ alts: { fret: number; dead: boolean; p: number }[] }[]
   /** length options, most likely first: quarters and probability */
   lens: Len[]
   printed: number // probability that a rhythm is printed under it
   grace: boolean; stroke: 0 | 1 | 2
+}
+
+/** Visually confusable fret pairs on blurred/compressed video frames (included in alts for the audio referee and note fixer). */
+const VISUAL_TWINS: Record<number, number[]> = {
+  0: [9, 8, 6],
+  1: [7, 4, 11],
+  2: [3, 7, 12],
+  3: [8, 5, 2],
+  4: [1, 9, 14],
+  5: [6, 8, 3],
+  6: [8, 5, 0],
+  7: [1, 2, 17],
+  8: [6, 3, 0, 9],
+  9: [0, 8, 4],
+  10: [12, 18, 19],
+  11: [14, 17, 1],
+  12: [10, 13, 15],
+  13: [18, 15, 12],
+  14: [11, 19, 4],
+  15: [16, 18, 13],
+  16: [18, 15],
+  17: [11, 7, 19],
+  18: [16, 13, 10],
+  19: [10, 18, 14],
 }
 
 /** Peaks of the column heat maps → columns, with the string heads read at each. */
@@ -139,9 +163,19 @@ export function decode(o: CrnnOut, nStr: number, thresh = 0.45): CrnnCol[] {
           const order = pr.map((p, i) => [p, i] as const).sort((a, b) => b[0] - a[0])
           const [p1, c1] = order[0], p2 = order[1][0]
           if (c1 === 0) continue
+          const topFret = c1 === 26 ? 0 : c1 - 1
+          const dead = c1 === 26
           // amber ring: top choice under 0.82, or the runner-up close behind
           const alts = order.slice(0, 3).filter(([, c]) => c > 0).map(([p, c]) => ({ fret: c === 26 ? 0 : c - 1, dead: c === 26, p }))
-          col.frets.push({ slot: s, fret: c1 === 26 ? 0 : c1 - 1, dead: c1 === 26, sure: p1 >= 0.82 && p1 - p2 >= 0.35 ? 1 : 0, alts })
+          if (!dead) {
+            const minTwinP = p1 < 0.85 ? 0.008 : 0.02
+            for (const tw of VISUAL_TWINS[topFret] ?? []) {
+              const tp = pr[tw + 1] ?? 0
+              if (tp >= minTwinP && !alts.some(a => !a.dead && a.fret === tw)) alts.push({ fret: tw, dead: false, p: Math.max(tp, 0.02) })
+              if (alts.length >= 5) break
+            }
+          }
+          col.frets.push({ slot: s, fret: topFret, dead, sure: p1 >= 0.82 && p1 - p2 >= 0.35 ? 1 : 0, alts })
         }
         const pd = softmaxAt(o.dur, 7, T, t), pdot = softmaxAt(o.dots, 3, T, t), ptup = softmaxAt(o.tup, TUPS.length, T, t)
         col.printed = 1 - pd[6]
@@ -165,6 +199,99 @@ export function decode(o: CrnnOut, nStr: number, thresh = 0.45): CrnnCol[] {
   // a note and a rest found at the same place: keep the stronger
   cols.sort((a, b) => a.u - b.u)
   return cols.filter((c, i) => !(c.kind === 'rest' && cols.some((d, j) => j !== i && d.kind === 'note' && Math.abs(d.u - c.u) < STEP * 1.5 && d.p >= c.p)))
+}
+
+/** Filter out playhead/cursor-bar phantom chords and tie-curve phantom notes, and recover slide / hammer-on / pull-off
+ *  techniques (`h`, `p`, `/`, `\`) between consecutive notes on the same string from the straightened 160px strip. */
+export function detectStripTechAndClean(cols: CrnnCol[], sv: { px: Float32Array; W: number }, nStr: number): CrnnCol[] {
+  const { px, W } = sv
+  const at = (x: number, y: number) => (x >= 0 && x < W && y >= 0 && y < FRAME_H ? px[y * W + x] : 1)
+  const cleaned: CrnnCol[] = []
+  for (const c of cols) {
+    if (c.kind !== 'note') { cleaned.push(c); continue }
+    const u = Math.round(c.u)
+    // 1. Playhead / cursor bar phantom chord: 4+ unsure notes stacked where a thin vertical line crosses inter-string midpoints
+    if (c.frets.length >= Math.min(4, nStr - 1) && c.frets.filter(f => !f.sure).length * 2 >= c.frets.length) {
+      let midDark = 0, sideLight = 0
+      for (let s = 0; s < nStr - 1; s++) {
+        const my = FRAME_TOP + s * FRAME_GAP + Math.round(FRAME_GAP / 2)
+        const cDark = Math.min(at(u - 1, my), at(u, my), at(u + 1, my))
+        const sVal = (at(u - 5, my) + at(u + 5, my)) * 0.5
+        if (cDark < 0.58) midDark++
+        if (sVal - cDark > 0.18) sideLight++
+      }
+      if (midDark >= nStr - 2 && sideLight >= nStr - 2) continue
+    }
+    // 2. Long tie / slur curve phantom single note: very low confidence note where one side of the string line has no digit stroke
+    const keptFrets = c.frets.filter(f => {
+      const topP = f.alts[0]?.p ?? 1
+      if (f.sure || topP >= 0.58) return true
+      const y0 = FRAME_TOP + f.slot * FRAME_GAP
+      let paper = 0
+      for (let dx = -6; dx <= 6; dx += 2) paper = Math.max(paper, at(u + dx, y0 - 7), at(u + dx, y0 + 7))
+      let minAbove = 1, minBelow = 1
+      for (let dx = -4; dx <= 4; dx++) {
+        for (let dy = -5; dy <= -2; dy++) minAbove = Math.min(minAbove, at(u + dx, y0 + dy))
+        for (let dy = 2; dy <= 5; dy++) minBelow = Math.min(minBelow, at(u + dx, y0 + dy))
+      }
+      // A real digit crosses both above and below the string line; a tie arc or bare line sits on only one side
+      return minAbove < paper - 0.12 && minBelow < paper - 0.12
+    })
+    if (!keptFrets.length) continue
+    cleaned.push({ ...c, frets: keptFrets.map(f => ({ ...f })) })
+  }
+  // 3. Recover slide (/ or \) and hammer-on / pull-off (h or p) marks between consecutive notes on the same string
+  const noteCols = cleaned.filter(c => c.kind === 'note')
+  for (let i = 0; i + 1 < noteCols.length; i++) {
+    const c1 = noteCols[i], c2 = noteCols[i + 1]
+    const du = c2.u - c1.u
+    if (du < 10 || du > 76) continue
+    const xa = Math.round(c1.u + 5), xb = Math.round(c2.u - 5), span = xb - xa
+    if (span < 4) continue
+    const mid = xa + Math.floor(span / 2)
+    for (const f1 of c1.frets) {
+      if (f1.dead || f1.tech) continue
+      const f2 = c2.frets.find(f => f.slot === f1.slot)
+      if (!f2 || f2.dead || f2.fret === f1.fret) continue
+      const y0 = FRAME_TOP + f1.slot * FRAME_GAP
+      let paper = 0
+      for (let x = xa; x <= xb; x++) paper = Math.max(paper, at(x, y0 - 7), at(x, y0 + 7))
+      const inkTh = paper - 0.15
+      let lAbove = 0, lBelow = 0, rAbove = 0, rBelow = 0, lN = 0, rN = 0
+      for (let x = xa; x <= xb; x++) {
+        const upMin = Math.min(at(x, y0 - 4), at(x, y0 - 3), at(x, y0 - 2))
+        const dnMin = Math.min(at(x, y0 + 2), at(x, y0 + 3), at(x, y0 + 4))
+        if (x < mid) { lN++; if (upMin < inkTh) lAbove++; if (dnMin < inkTh) lBelow++ }
+        else { rN++; if (upMin < inkTh) rAbove++; if (dnMin < inkTh) rBelow++ }
+      }
+      if (!lN || !rN) continue
+      const la = lAbove / lN, lb = lBelow / lN, ra = rAbove / rN, rb = rBelow / rN
+      // Diagonal slide stroke crosses from below-to-above or above-to-below between the two digits
+      const diagUp = lb >= 0.45 && ra >= 0.45 && la < 0.25 && rb < 0.25
+      const diagDn = la >= 0.45 && rb >= 0.45 && lb < 0.25 && ra < 0.25
+      if (diagUp || diagDn) {
+        f1.tech = f2.fret > f1.fret ? '/' : '\\'
+        continue
+      }
+      // Slur arc (h / p): continuous ink on ONE side (y0 ± 3..6) while the outer boundary (y0 ± 9) is clean paper
+      if (Math.abs(f2.fret - f1.fret) <= 5) {
+        for (const dir of [-1, 1] as const) {
+          let arcHits = 0, outHits = 0
+          for (let x = xa; x <= xb; x++) {
+            const arcMin = Math.min(at(x, y0 + dir * 3), at(x, y0 + dir * 4), at(x, y0 + dir * 5), at(x, y0 + dir * 6))
+            const oppMin = Math.min(at(x, y0 - dir * 3), at(x, y0 - dir * 4), at(x, y0 - dir * 5))
+            if (arcMin < inkTh && oppMin >= inkTh) arcHits++
+            if (at(x, y0 + dir * 9) < paper - 0.1) outHits++
+          }
+          if (arcHits >= span * 0.68 && outHits <= span * 0.15) {
+            f1.tech = f2.fret > f1.fret ? 'h' : 'p'
+            break
+          }
+        }
+      }
+    }
+  }
+  return cleaned
 }
 
 /** The lengths of a bar's columns that add up to `beats`: most likely by the network, nudged by the spacing (a longer
@@ -264,7 +391,8 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: {
         const sv = straighten(sub, { ...st, left: a, right: b }, nStr)
         if (k === 0) gap = sv.gap
         const lo = k === 0 ? -Infinity : a + ov / 2, hi = k === cuts.length - 1 ? Infinity : b - ov / 2
-        for (const c of decode(await run(sv.px, sv.W), nStr)) {
+        const rawCols = detectStripTechAndClean(decode(await run(sv.px, sv.W), nStr), sv, nStr)
+        for (const c of rawCols) {
           const x = sv.toPage(c.u)
           if (x >= lo && x < hi && x + wa >= wlo && x + wa < whi) cols.push({ ...c, x: x + wa })
         }
@@ -283,23 +411,43 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: {
     systems.push({ lines: [...r.ls].reverse(), gap: r.gap, left: r.left, right: r.right, bars: [] }) // low string first
     sysBars.push(cols.filter(c => c.kind === 'bar').map(c => c.x))
     for (const c of cols) if (c.kind === 'note') {
-      // numbers in doubt: the note heard when the playhead was over this column decides between the likely readings
-      const doubt = opts.hear && c.frets.some(f => !f.sure && f.alts.length > 1)
-      const t = doubt ? opts.hear!.when(c.x) : null
+      // numbers in doubt (or moderately confident with visual twins): the note heard when the playhead was over this column settles them
+      const checkAudio = opts.hear && c.frets.some(f => (!f.sure || (f.alts[0]?.p ?? 1) < 0.95) && f.alts.length > 1)
+      const t = checkAudio ? opts.hear!.when(c.x) : null
       const sal = t !== null && t !== undefined ? opts.hear!.at(t) : null
       for (const f of c.frets) {
-        let { fret, dead, sure } = f
-        if (sal && !sure && f.alts.length > 1) {
-          const string = nStr - 1 - f.slot
-          const base = opts.hear!.tuning[string]
-          const opt = f.alts.map(a => ({ midi: a.dead || base === undefined ? null : base + a.fret, p: a.p }))
-          const k = referee(opt, sal)
-          fret = f.alts[k].fret; dead = f.alts[k].dead
-          // the sound clearly backs it: no amber ring
+        let { fret, dead, sure, tech } = f
+        const string = nStr - 1 - f.slot
+        const base = opts.hear?.tuning[string]
+        if (sal && f.alts.length > 1 && base !== undefined) {
+          const opt = f.alts.map(a => ({ midi: a.dead ? null : base + a.fret, p: a.p }))
           const s = opt.map(o => (o.midi === null ? 0 : sal(o.midi))), top = Math.max(...s, 1e-9)
-          if (s[k] / top > 0.95 && s.every((v, i) => i === k || v / top < 0.5)) sure = 1
+          if (!sure) {
+            const k = referee(opt, sal)
+            fret = f.alts[k].fret; dead = f.alts[k].dead
+            // the sound clearly backs it: no amber ring
+            if (s[k] / top > 0.92 && s.every((v, i) => i === k || v / top < 0.55)) sure = 1
+          } else if ((f.alts[0]?.p ?? 1) < 0.95 && top > 0.25 && s[0] / top < 0.15) {
+            // The network was fairly sure (0.82..0.95), but the audio has zero support for its top pick and strong support for a visual twin
+            const k = referee(opt, sal)
+            if (k > 0 && s[k] / top > 0.82 && f.alts[k].p >= 0.03) {
+              fret = f.alts[k].fret; dead = f.alts[k].dead; sure = 0
+            } else if ((f.alts[0]?.p ?? 1) < 0.90 && s[0] < 0.05) {
+              sure = 0
+            }
+          }
         }
-        nums.push({ sys: si, string: nStr - 1 - f.slot, x: c.x, fret, sure, ...(dead ? { dead: true } : {}) })
+        const altFrets = f.alts.filter(a => !a.dead && a.fret !== fret).map(a => a.fret)
+        nums.push({
+          sys: si,
+          string,
+          x: c.x,
+          fret,
+          sure,
+          ...(dead ? { dead: true } : {}),
+          ...(tech ? { tech } : {}),
+          ...(altFrets.length ? { alts: altFrets } : {}),
+        })
       }
     }
     found.push({ cols, gap: r.gap })

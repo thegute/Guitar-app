@@ -8,7 +8,7 @@ import { readTab, fitRhythm } from '../src/scan/tabRead'
 import { readingSong, mergePages, dropLoop } from '../src/scan/tabReadSong'
 import { tuningFromText, guitarNumbers } from '../src/scan/tuningText'
 import { rhythmFromStems } from '../src/scan/stemRhythm'
-import { fitBar, straighten, timeOf } from '../src/scan/crnnRead'
+import { detectStripTechAndClean, fitBar, straighten, timeOf, type CrnnCol } from '../src/scan/crnnRead'
 import { hearing, referee, tuneTiming, viewTimeline } from '../src/scan/hear'
 import type { PdfShape } from '../src/tabs/pdfTab'
 import type { Gray } from '../src/scan/image'
@@ -221,3 +221,55 @@ console.log('fitRhythm: ok')
   assert.ok(tl.length === 2 && tl[0].t === 0.5 && tl[1].x === 1000, 'a still page is swept left to right while shown')
   console.log('referee timing without a playhead: ok')
 }
+
+// detectStripTechAndClean: slide (/), hammer-on (h), pull-off (p), cursor-bar phantom chord suppression, and tie-curve phantom suppression
+{
+  const W = 240, H = 160
+  const px = new Float32Array(W * H).fill(1)
+  // draw 6 string lines at y = 42 + 15*s
+  for (let s = 0; s < 6; s++) {
+    const y = 42 + 15 * s
+    for (let x = 0; x < W; x++) px[y * W + x] = 0.1
+  }
+  const drawDigit = (u: number, s: number) => {
+    const y0 = 42 + 15 * s
+    for (let dy = -4; dy <= 4; dy++) for (let dx = -2; dx <= 2; dx++) px[(y0 + dy) * W + (u + dx)] = 0.1
+  }
+  // 1) Slide from u=30 (fret 5) to u=60 (fret 7) on slot 2: diagonal line from (35, y0+3) to (55, y0-3)
+  drawDigit(30, 2); drawDigit(60, 2)
+  for (let x = 35; x <= 55; x++) {
+    const t = (x - 35) / 20
+    const y = Math.round(42 + 15 * 2 + 3 * (1 - 2 * t))
+    px[y * W + x] = 0.1
+  }
+  // 2) Hammer-on from u=90 (fret 5) to u=120 (fret 7) on slot 1: upper slur arc at y0 - 4
+  drawDigit(90, 1); drawDigit(120, 1)
+  for (let x = 95; x <= 115; x++) {
+    const y = 42 + 15 * 1 - 4
+    px[y * W + x] = 0.1
+  }
+  // 3) Cursor bar phantom chord at u=160: vertical line across all strings
+  for (let y = 35; y <= 125; y++) px[y * W + 160] = 0.15
+  // 4) Tie-curve phantom at u=200 on slot 3: arc only above the line (y0 - 4), nothing below the line
+  for (let x = 194; x <= 206; x++) px[(42 + 15 * 3 - 4) * W + x] = 0.15
+
+  const noteCol = (u: number, frets: { slot: number; fret: number; sure: number; p: number }[]): CrnnCol => ({
+    u, t: Math.round(u / 4), kind: 'note', p: 0.9,
+    frets: frets.map(f => ({ slot: f.slot, fret: f.fret, dead: false, sure: f.sure, alts: [{ fret: f.fret, dead: false, p: f.p }] })),
+    lens: [{ d: 0.5, p: 0.9 }], printed: 0.9, grace: false, stroke: 0,
+  })
+  const rawCols: CrnnCol[] = [
+    noteCol(30, [{ slot: 2, fret: 5, sure: 1, p: 0.95 }]),
+    noteCol(60, [{ slot: 2, fret: 7, sure: 1, p: 0.95 }]),
+    noteCol(90, [{ slot: 1, fret: 5, sure: 1, p: 0.95 }]),
+    noteCol(120, [{ slot: 1, fret: 7, sure: 1, p: 0.95 }]),
+    noteCol(160, [0, 1, 2, 3, 4, 5].map(s => ({ slot: s, fret: 0, sure: 0, p: 0.45 }))),
+    noteCol(200, [{ slot: 3, fret: 0, sure: 0, p: 0.48 }]),
+  ]
+  const cleaned = detectStripTechAndClean(rawCols, { px, W }, 6)
+  assert.equal(cleaned.length, 4, 'cursor-bar phantom chord and tie-curve phantom single note removed')
+  assert.equal(cleaned[0].frets[0].tech, '/', 'upward slide / recovered')
+  assert.equal(cleaned[2].frets[0].tech, 'h', 'hammer-on h recovered')
+  console.log('detectStripTechAndClean (slides, hammer-ons, phantom removal): ok')
+}
+

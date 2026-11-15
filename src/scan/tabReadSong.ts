@@ -226,7 +226,16 @@ export function readingSong(readings: TabReading[], tuning: number[], title: str
               notes++
               const doubt = n.sure < 0.06
               if (doubt) unsure++
-              return { string: n.string, fret: n.fret, midi: tun[n.string] + capo + n.fret, ...(n.dead ? { tech: 'x' } : {}), ...(doubt ? { unsure: true } : {}) }
+              const tech = n.dead ? 'x' : n.tech
+              const alts = n.alts?.filter(a => a !== n.fret)
+              return {
+                string: n.string,
+                fret: n.fret,
+                midi: tun[n.string] + capo + n.fret,
+                ...(tech ? { tech } : {}),
+                ...(doubt ? { unsure: true } : {}),
+                ...(alts?.length ? { alts } : {}),
+              }
             }),
           })),
         })
@@ -306,10 +315,10 @@ export function songTabText(song: Song, names: string[]): string {
     const rows = names.map(n => n.padEnd(2) + '|')
     for (const bar of t.bars.slice(b0, b0 + perLine)) {
       for (const st of bar.steps) {
-        const cell = Math.max(2, ...st.notes.map(n => String(n.fret).length)) + Math.max(0, Math.round(st.dur * 4) - 1)
+        const cell = Math.max(2, ...st.notes.map(n => String(n.fret).length + (n.tech && n.tech !== 'x' ? 1 : 0))) + Math.max(0, Math.round(st.dur * 4) - 1)
         for (let k = 0; k < names.length; k++) {
           const n = st.notes.find(m => m.string === k)
-          const tx = n ? (n.tech === 'x' ? 'x' : String(n.fret)) : ''
+          const tx = n ? (n.tech === 'x' ? 'x' : String(n.fret) + (n.tech && /^[hp/\\b~]$/.test(n.tech) ? n.tech : '')) : ''
           rows[k] += '-' + tx + '-'.repeat(Math.max(0, cell - tx.length))
         }
       }

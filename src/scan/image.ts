@@ -3,15 +3,35 @@
 //   stretchContrast + sharpen   high-contrast grey with crisp digit edges (unsharp mask)
 //   profile / shiftBetween      how far a scrolling tab moved between two frames (for stitching a panorama)
 //   sameFrame                   skip frames where nothing changed
-export interface Gray { w: number; h: number; px: Float32Array /* 0 black … 1 white */ }
+export interface Gray {
+  w: number
+  h: number
+  px: Float32Array /* 0 black … 1 white */
+  /** Per-column chromaticity (0..1, fraction of rows with RGB saturation) to catch colored playheads/cursors. */
+  chroma?: Float32Array
+}
 
 export interface Strip { top: number; bottom: number; left: number; right: number; lines: number[] }
 
-/** RGBA bytes → grey 0..1. */
+/** RGBA bytes → grey 0..1 (plus per-column chromaticity for colored playhead detection). */
 export function toGray(rgba: Uint8ClampedArray | Uint8Array, w: number, h: number): Gray {
   const px = new Float32Array(w * h)
-  for (let i = 0; i < w * h; i++) px[i] = (0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2]) / 255
-  return { w, h, px }
+  const chroma = new Float32Array(w)
+  const y0 = Math.floor(h * 0.12), y1 = Math.ceil(h * 0.85), span = Math.max(1, y1 - y0)
+  for (let y = 0; y < h; y++) {
+    const inBand = y >= y0 && y < y1
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x, k = i * 4
+      const r = rgba[k], g = rgba[k + 1], b = rgba[k + 2]
+      px[i] = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+      if (inBand) {
+        const mx = r > g ? (r > b ? r : b) : (g > b ? g : b)
+        const mn = r < g ? (r < b ? r : b) : (g < b ? g : b)
+        if (mx - mn >= 42 && mx >= 60) chroma[x] += 1 / span
+      }
+    }
+  }
+  return { w, h, px, chroma }
 }
 
 /** A photo taken a little crooked: the angle (as a slope, rise per pixel across) that lines the staff lines up with the
@@ -49,7 +69,7 @@ export function deskew(g: Gray): { g: Gray; slope: number } {
       out[y * w + x] = px[y0 * w + x] * (1 - f) + px[(y0 + 1) * w + x] * f
     }
   }
-  return { g: { w, h, px: out }, slope: best }
+  return { g: { w, h, px: out, chroma: g.chroma }, slope: best }
 }
 
 /** Is the picture mostly dark (white lines on black, like many video tabs)? */
@@ -75,19 +95,19 @@ export function findStrips(g: Gray, strings = [6, 4]): Strip[] {
  *  (a dark-mode screenshot), not when a dark video frame has a white tab strip in it. */
 export function inkDark(g: Gray): Gray {
   if (stripsOf(g, [6, 4], false).length) return g
-  if (stripsOf(g, [6, 4], true).length || isDark(g)) return { w: g.w, h: g.h, px: g.px.map(v => 1 - v) }
+  if (stripsOf(g, [6, 4], true).length || isDark(g)) return { w: g.w, h: g.h, px: g.px.map(v => 1 - v), chroma: g.chroma }
   return g
 }
 
 function stripsOf(g: Gray, strings: number[], dark: boolean): Strip[] {
   const { w, h, px } = g
-  // a pixel is "line" when it is darker (or lighter, on a dark picture) than 2 px above and below
+  // a pixel is "line" when it is darker (or lighter, on a dark picture) than 1–4 px above and below
   const lineRow = new Float32Array(h)
   const spanL = new Int32Array(h), spanR = new Int32Array(h)
-  // (a thick line, in a picture blown up from a small video, is still dark 2 px from its middle: look 4 px away too)
+  // (a thin line in a small video needs d=1..2; a thick line blown up from a small video needs d=3..4)
   const lineAt = (x: number, y: number) => {
     const v = px[y * w + x]
-    for (const d of [2, 4]) {
+    for (const d of [1, 2, 3, 4]) {
       if (y - d < 0 || y + d >= h) continue
       const a = px[(y - d) * w + x], b = px[(y + d) * w + x]
       if (dark ? v - Math.max(a, b) > 0.08 : Math.min(a, b) - v > 0.08) return true
@@ -137,6 +157,85 @@ function stripsOf(g: Gray, strings: number[], dark: boolean): Strip[] {
       break
     }
   }
+  if (out.length) return out
+
+  // Comb-filter recovery for compressed video frames where 1–2 interior string lines faded below 0.35 (e.g. H.264 wash-out
+  // on B/D strings in a Short or translucent tab overlay), while 4–5 lines sit on a strict even grid:
+  const softCand: number[] = []
+  for (let y = 2; y < h - 2; y++) {
+    if (lineRow[y] < 0.16) continue
+    if (softCand.length && y - softCand[softCand.length - 1] <= 3) {
+      if (lineRow[y] > lineRow[softCand[softCand.length - 1]]) softCand[softCand.length - 1] = y
+      continue
+    }
+    softCand.push(y)
+  }
+  if (softCand.length < 4) return out
+
+  for (const n of strings) {
+    if (n < 4) continue
+    let bestComb: { score: number; ys: number[]; mean: number } | null = null
+    for (let a = 0; a < softCand.length; a++) {
+      for (let b = a + 1; b < softCand.length; b++) {
+        const span = softCand[b] - softCand[a]
+        for (let div = 1; div < n; div++) {
+          const gap = span / div
+          if (gap < 4 || gap > Math.min(64, (h - 4) / (n - 1))) continue
+          const snapTol = gap >= 10 ? 2 : 1
+          for (let s0 = 0; s0 < n - div; s0++) {
+            const yTop = softCand[a] - s0 * gap
+            const yBot = yTop + (n - 1) * gap
+            if (yTop < 2 || yBot >= h - 2) continue
+            const ys: number[] = []
+            let strong = 0, faint = 0, onSum = 0
+            for (let s = 0; s < n; s++) {
+              const yEst = Math.round(yTop + s * gap)
+              let by = yEst, bv = lineRow[yEst]
+              for (let dy = -snapTol; dy <= snapTol; dy++) {
+                const yy = yEst + dy
+                if (yy >= 2 && yy < h - 2 && lineRow[yy] > bv) { bv = lineRow[yy]; by = yy }
+              }
+              ys.push(by)
+              onSum += bv
+              if (bv >= 0.28) strong++
+              if (bv >= 0.09) faint++
+            }
+            if (strong < Math.max(4, n - 2) || faint < n - 1) continue
+            const gaps = ys.slice(1).map((y, k) => y - ys[k])
+            const mean = gaps.reduce((p, q) => p + q, 0) / gaps.length
+            if (gaps.some(d => Math.abs(d - mean) > Math.max(1.5, mean * 0.18))) continue
+            // Midpoints between strings must be clearly weaker than the string lines themselves (rules out solid textures)
+            let offSum = 0
+            for (let s = 0; s < n - 1; s++) {
+              const my = Math.round((ys[s] + ys[s + 1]) / 2)
+              offSum += lineRow[my]
+            }
+            const onMean = onSum / n, offMean = offSum / (n - 1)
+            if (onMean < 0.28 || onMean - offMean < 0.17) continue
+            // Don't match a 4-string subset inside a 6-string staff
+            const yAbove = Math.round(ys[0] - mean), yBelow = Math.round(ys[n - 1] + mean)
+            if ((yAbove >= 2 && lineRow[yAbove] > onMean * 0.75) || (yBelow < h - 2 && lineRow[yBelow] > onMean * 0.75)) continue
+            const score = onMean - offMean * 0.6 + strong * 0.05
+            if (!bestComb || score > bestComb.score) bestComb = { score, ys, mean }
+          }
+        }
+      }
+    }
+    if (bestComb) {
+      const { ys, mean } = bestComb
+      const strongYs = ys.filter(y => lineRow[y] >= 0.25)
+      const left = Math.min(...(strongYs.length ? strongYs : ys).map(y => spanL[y]))
+      const right = Math.max(...(strongYs.length ? strongYs : ys).map(y => spanR[y]))
+      out.push({
+        top: Math.max(0, Math.round(ys[0] - mean * 2.6)),
+        bottom: Math.min(h - 1, Math.round(ys[n - 1] + mean * 1.8)),
+        left: Math.max(0, left - Math.round(mean * 2)),
+        right: Math.min(w - 1, right + Math.round(mean)),
+        lines: ys,
+      })
+      break
+    }
+  }
   return out
 }
 
@@ -153,7 +252,7 @@ export function stretchContrast(g: Gray): Gray {
   const flip = isDark(g)
   const px = new Float32Array(n)
   for (let i = 0; i < n; i++) { const v = Math.max(0, Math.min(1, (g.px[i] - base) / span)); px[i] = flip ? 1 - v : v }
-  return { w: g.w, h: g.h, px }
+  return { w: g.w, h: g.h, px, chroma: g.chroma }
 }
 
 /** Unsharp mask with a 3×3 kernel: crisp edges on the digits against the string lines. */
@@ -166,18 +265,19 @@ export function sharpen(g: Gray, amount = 1): Gray {
     const blur = (g.px[i - w - 1] + 2 * g.px[i - w] + g.px[i - w + 1] + 2 * g.px[i - 1] + 4 * g.px[i] + 2 * g.px[i + 1] + g.px[i + w - 1] + 2 * g.px[i + w] + g.px[i + w + 1]) / 16
     px[i] = Math.max(0, Math.min(1, g.px[i] + amount * (g.px[i] - blur)))
   }
-  return { w, h, px }
+  return { w, h, px, chroma: g.chroma }
 }
 
 /** Darkness per column (what scrolls sideways in a scrolling tab). */
 export function profile(g: Gray): Float32Array {
   const p = new Float32Array(g.w)
+  const ph = playheadX(g)
   for (let x = 0; x < g.w; x++) {
     let s = 0, dark = 0
     for (let y = 0; y < g.h; y++) { const v = g.px[y * g.w + x]; s += 1 - v; if (v < 0.5) dark++ }
-    // a line from top to bottom of the box is a video's playhead (it stays put while the tab moves): leave it out, or the
-    // tab would seem not to have moved
-    p[x] = dark > g.h * 0.8 ? -1 : s / g.h
+    // a line from top to bottom of the box (or a colored playhead) stays put while the tab moves: leave it out
+    const isPh = dark > g.h * 0.8 || (ph !== null && Math.abs(x - ph) <= 8) || (g.chroma ? g.chroma[x] > 0.3 : false)
+    p[x] = isPh ? -1 : s / g.h
   }
   for (let x = 0; x < g.w; x++) if (p[x] < 0) { let a = x; while (a > 0 && p[a] < 0) a--; let b = x; while (b < g.w - 1 && p[b] < 0) b++; p[x] = Math.max(0, ((p[a] < 0 ? 0 : p[a]) + (p[b] < 0 ? 0 : p[b])) / 2) }
   // take away each column's average over a wide window, so only the notes are left (not the lines or the background)
@@ -205,19 +305,99 @@ export function shiftBetween(a: Float32Array, b: Float32Array, maxShift = Math.r
   return best.match > 0.6 ? best : null
 }
 
-/** A video's playhead in a tab frame: one narrow line from top to bottom of the box (x of its middle), or null. */
-export function playheadX(g: Gray): number | null {
+/** A video's playhead in a tab frame:
+ *  1) A narrow colored cursor/highlight bar (RGB chroma spike across the staff rows),
+ *  2) A narrow dark vertical line from top to bottom of the box (or across the central staff band),
+ *  3) When `prev` is given for a static card (`dx === 0`), a narrow vertical band that moved onto column x.
+ */
+export function playheadX(g: Gray, prev?: Gray): number | null {
+  const maxW = Math.max(10, g.w * 0.012)
+  // 1. Classic full-height dark line (checked first for exact compatibility)
   const runs: [number, number][] = []
   let start = -1
   for (let x = 0; x <= g.w; x++) {
     let dark = 0
     if (x < g.w) for (let y = 0; y < g.h; y++) if (g.px[y * g.w + x] < 0.5) dark++
     const on = x < g.w && dark > g.h * 0.8
-    if (on && start < 0) start = x
-    if (!on && start >= 0) { runs.push([start, x - 1]); start = -1 }
+    if (on && start >= 0) { /* keep going */ }
+    else if (on && start < 0) start = x
+    else if (!on && start >= 0) { runs.push([start, x - 1]); start = -1 }
   }
-  const narrow = runs.filter(([a, b]) => b - a < Math.max(10, g.w * 0.012))
-  return narrow.length === 1 ? (narrow[0][0] + narrow[0][1]) / 2 : null
+  const narrow = runs.filter(([a, b]) => b - a < maxW)
+  if (narrow.length === 1) return (narrow[0][0] + narrow[0][1]) / 2
+
+  // 2. Colored playhead / highlight bar (Songsterr green/blue cursor, red/orange/cyan line)
+  if (g.chroma) {
+    const sorted = Float32Array.from(g.chroma).sort()
+    const med = sorted[g.w >> 1] ?? 0
+    const thr = Math.max(0.25, med + 0.18)
+    const cRuns: [number, number, number][] = []
+    let cs = -1, cPeak = 0
+    for (let x = 0; x <= g.w; x++) {
+      const v = x < g.w ? g.chroma[x] : 0
+      if (v >= thr) {
+        if (cs < 0) { cs = x; cPeak = v } else if (v > cPeak) cPeak = v
+      } else if (cs >= 0) {
+        cRuns.push([cs, x - 1, cPeak])
+        cs = -1; cPeak = 0
+      }
+    }
+    const maxColorW = Math.max(24, g.w * 0.04)
+    const validC = cRuns.filter(([a, b]) => b - a <= maxColorW)
+    if (validC.length === 1) return (validC[0][0] + validC[0][1]) / 2
+    if (validC.length > 1) {
+      validC.sort((a, b) => b[2] - a[2])
+      if (validC[0][2] > validC[1][2] * 1.6) return (validC[0][0] + validC[0][1]) / 2
+    }
+  }
+
+  // 3. Frame-difference playhead on a static card (when `prev` has the same dimensions)
+  if (prev && prev.w === g.w && prev.h === g.h) {
+    const y0 = Math.floor(g.h * 0.15), y1 = Math.ceil(g.h * 0.78), bh = Math.max(1, y1 - y0)
+    // Where `g` became darker (or distinctly changed) relative to `prev` along a vertical band
+    const dRuns: [number, number][] = []
+    let ds = -1
+    for (let x = 0; x <= g.w; x++) {
+      let chg = 0
+      if (x < g.w) {
+        for (let y = y0; y < y1; y++) {
+          const dv = prev.px[y * g.w + x] - g.px[y * g.w + x]
+          if (dv > 0.14) chg++
+        }
+      }
+      const on = x < g.w && chg > bh * 0.55
+      if (on && ds < 0) ds = x
+      if (!on && ds >= 0) { dRuns.push([ds, x - 1]); ds = -1 }
+    }
+    const maxDiffW = Math.max(24, g.w * 0.035)
+    const validD = dRuns.filter(([a, b]) => b - a <= maxDiffW)
+    if (validD.length === 1) return (validD[0][0] + validD[0][1]) / 2
+  }
+
+  return null
+}
+
+/** Columns tainted by a playhead line or colored cursor bar in `g` (1 = tainted, 0 = clean); null when none found. */
+export function playheadCols(g: Gray, prev?: Gray): Uint8Array | null {
+  const px = playheadX(g, prev)
+  const hasChroma = g.chroma ? g.chroma.some(v => v >= 0.26) : false
+  if (px === null && !hasChroma) return null
+  const mask = new Uint8Array(g.w)
+  let any = false
+  if (px !== null) {
+    const pad = Math.max(6, Math.round(g.w * 0.01))
+    const a = Math.max(0, Math.floor(px - pad)), b = Math.min(g.w - 1, Math.ceil(px + pad))
+    for (let x = a; x <= b; x++) { mask[x] = 1; any = true }
+  }
+  if (g.chroma) {
+    for (let x = 0; x < g.w; x++) {
+      if (g.chroma[x] >= 0.26) {
+        for (let d = -3; d <= 3; d++) if (x + d >= 0 && x + d < g.w) mask[x + d] = 1
+        any = true
+      }
+    }
+  }
+  return any ? mask : null
 }
 
 /** How well frame b matches frame a moved left by dx (the same measure shiftBetween uses). */

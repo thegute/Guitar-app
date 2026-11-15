@@ -5,7 +5,7 @@ import { strict as assert } from 'node:assert'
 import { looksLikeTab, writtenTempo } from '../src/scan/read'
 import { songFromScan } from '../src/scan/RiffScanner'
 import { current } from '../src/instrument'
-import { findStrips, profile, sameFrame, shiftBetween, stretchContrast, sharpen, type Gray } from '../src/scan/image'
+import { findStrips, playheadCols, playheadX, profile, sameFrame, shiftBetween, stretchContrast, sharpen, toGray, type Gray } from '../src/scan/image'
 import { Stitcher } from '../src/scan/pictures'
 
 let checks = 0
@@ -145,5 +145,52 @@ E|-3---------|-----------|
   for (let k = 0; k < 3; k++) st2.addGray(f2)
   st2.finish()
   ok(st2.strips.length === 2, `a page of other music is a new strip (${st2.strips.length}: ${st2.trace.join(" ")})`)
+}
+// missing-line comb recovery: a 6-string video staff where 2 interior lines (strings 2 and 4) are washed out by H.264 compression
+{
+  const g = canvas(800, 240, 0.96)
+  for (let s = 0; s < 6; s++) {
+    // strings 1 and 3 are very faint (0.86 on 0.96 paper); the other 4 are normal (0.15)
+    const ink = s === 1 || s === 3 ? 0.85 : 0.15
+    rect(g, 40, 80 + s * 14, 720, 1, ink)
+  }
+  const st = findStrips(g, [6])
+  ok(st.length === 1 && st[0].lines.length === 6, `comb-grid recovers all 6 lines even when 2 interior lines are faint (${JSON.stringify(st.map(x => x.lines))})`)
+  ok(st[0].lines.every((y, s) => Math.abs(y - (80 + s * 14)) <= 1), `reconstructed line heights match 80 + 14·s (${st[0].lines.join(',')})`)
+}
+// colored playhead detection and playhead-masked composition in Stitcher
+{
+  const W = 500, H = 120
+  const makeRgbFrame = (cursorX: number): Gray => {
+    const rgba = new Uint8ClampedArray(W * H * 4).fill(245)
+    // 6 dark staff lines at y = 25 + 10*s
+    for (let s = 0; s < 6; s++) {
+      const y = 25 + s * 10
+      for (let x = 20; x < W - 20; x++) {
+        const i = (y * W + x) * 4
+        rgba[i] = 25; rgba[i + 1] = 25; rgba[i + 2] = 25; rgba[i + 3] = 255
+      }
+    }
+    // green Songsterr-style playhead bar (3px wide, bright green: luma ~0.58 so grey threshold alone misses it, but RGB chroma catches it)
+    for (let y = 18; y <= 82; y++) {
+      for (let x = cursorX - 1; x <= cursorX + 1; x++) {
+        const i = (y * W + x) * 4
+        rgba[i] = 30; rgba[i + 1] = 215; rgba[i + 2] = 60; rgba[i + 3] = 255
+      }
+    }
+    return toGray(rgba, W, H)
+  }
+  const f1 = makeRgbFrame(120), f2 = makeRgbFrame(220), f3 = makeRgbFrame(320)
+  ok(Math.abs((playheadX(f1) ?? -1) - 120) <= 2, `colored playhead detected at x=120 (got ${playheadX(f1)})`)
+  ok(playheadCols(f2)[220] === 1 && playheadCols(f2)[100] === 0, 'playheadCols masks the cursor column')
+  const st = new Stitcher()
+  st.addGray(f1, 1.0)
+  st.addGray(f2, 2.0)
+  st.addGray(f3, 3.0)
+  st.finish()
+  ok(st.timelines.length === 1 && st.timelines[0].length === 3, `Stitcher recorded 3 playhead timeline points (${JSON.stringify(st.timelines)})`)
+  // In the composed strip, the green playhead at x=120 (which had mid-grey luma ~0.58 between lines) is replaced by clean paper (> 0.9) from the other frames!
+  const composedMid = st.strips[0].px[30 * W + 120]
+  ok(composedMid > 0.9, `Stitcher masked out the playhead column in composed strip (pixel at x=120 between lines = ${composedMid.toFixed(2)})`)
 }
 console.log(`scan image: ${checks} checks, 0 failed`)

@@ -23,6 +23,8 @@ import { guessBarChords } from '../tabs/harmony'
 import { detectKey } from '../tabs/keyDetect'
 import { flatten } from '../tabs/model'
 import { useInstrument } from '../instrument'
+import { songTabText } from './tabReadSong'
+import { stringNames } from '../tabs/importer'
 
 export type StageState = 'wait' | 'run' | 'done' | 'skip' | 'fail'
 export interface Stage { id: string; label: string; state: StageState; note?: string; pct?: number }
@@ -93,6 +95,8 @@ export interface ScanOut {
   sound?: { x: Float32Array; sr: number; from?: number }
   /** bars where the chord and the notes disagree (0-based) */
   check?: number[]
+  /** the stitched video tab strip(s) or picture(s) that were read, so you can compare them directly above the tab */
+  strips?: { url: string; w: number; h: number }[]
 }
 
 /** A scan from sound still working in the background: the better version, the AI's second opinion, downloads. */
@@ -134,6 +138,7 @@ export function ScanResult({ out, live, onUseInJam, onAgain }: { out: ScanOut; l
   const [tempoOpen, setTempoOpen] = useState(false)
   const [text, setText] = useState(out.text ?? '')
   const [edit, setEdit] = useState(false)
+  const [showStrips, setShowStrips] = useState(false)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState('')
   const [title, setTitle] = useState(out.doc.title)
@@ -208,8 +213,19 @@ export function ScanResult({ out, live, onUseInJam, onAgain }: { out: ScanOut; l
           <button className="btn" onClick={toChain} data-testid="scan-chain"><Ico n="plus" /> Add to my lick chain</button>
           <button className="btn" disabled={busy === 'pad'} onClick={() => void toPad()} data-testid="scan-pad"><Ico n="drum" /> {busy === 'pad' ? 'Putting it on a pad…' : 'Sample to a pad'}</button>
           {otherTuning && <button className={`btn${adapt ? ' on' : ''}`} aria-pressed={adapt} onClick={() => setAdapt(!adapt)} data-testid="scan-adapt">{adapt ? 'Back to its own tuning' : 'Play it in my tuning'}</button>}
+          {out.strips && out.strips.length > 0 && <button className={`btn ghost${showStrips ? ' on' : ''}`} onClick={() => setShowStrips(!showStrips)} aria-expanded={showStrips} data-testid="scan-strip-toggle">{showStrips ? 'Hide scanned strip' : 'Show scanned strip'}</button>}
           {out.text !== undefined && <button className="btn ghost" onClick={() => setEdit(!edit)} aria-expanded={edit}>Fix the tab text</button>}
           <button className="btn ghost" onClick={onAgain}>Scan something else</button>
+        </div>
+      )}
+      {showStrips && out.strips && out.strips.length > 0 && (
+        <div className="scan-strips panel stack" style={{ gap: 6, overflowX: 'auto', maxWidth: '100%' }} data-testid="scan-strips">
+          <span className="small muted">Stitched tab strip from the scan (scroll sideways to compare with the notes below):</span>
+          <div className="row" style={{ gap: 8, flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 4 }}>
+            {out.strips.map((st, idx) => (
+              <img key={idx} src={st.url} alt={`Scanned tab strip ${idx + 1}`} style={{ height: 110, width: 'auto', borderRadius: 6, background: '#fff', flex: 'none' }} />
+            ))}
+          </div>
         </div>
       )}
       {edit && (
@@ -221,7 +237,7 @@ export function ScanResult({ out, live, onUseInJam, onAgain }: { out: ScanOut; l
       {note && <p className="small" role="status" style={{ margin: 0 }} data-testid="scan-note">{note}</p>}
       {check.length > 0 && <p className="small" style={{ margin: 0 }} data-testid="scan-checkbars"><b>Check bar{check.length > 1 ? 's' : ''} {check.map(b => b + 1).join(', ')}</b> (dashed): the chord heard there and the notes don't agree.</p>}
       {strum && <p className="small" style={{ margin: 0 }}>Strum heard: <b>{strum.label.replace(/^As heard /, '')}</b> (shown over the chords in Play).</p>}
-      <ScanPlayer doc={doc} marks={check} />
+      <ScanPlayer doc={doc} marks={check} onChangeSong={s => { setFixed({ ...doc, song: s }); setText(songTabText(s, stringNames(inst))) }} />
       {uniq.length >= 2 && (
         <Fold id="scanChords" title={`The chords (${uniq.join(' ')})`} hint="Each chord's shape and how to move between them with the least hand movement (voice leading).">
           <VoiceLeadNeck chords={uniq} tuning={inst.midis} where="scan" compact />

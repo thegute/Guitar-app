@@ -13,7 +13,7 @@ import { findStrips, type Gray } from './image'
 import { TEMPLATES_B64, TEMPLATE_COUNT, TEMPLATE_W as TW, TEMPLATE_H as TH } from './digitTemplates'
 import { pixelRhythm } from './pixelRhythm'
 
-export interface ReadNote { string: number; fret: number; x: number; sure: number; dead?: boolean }
+export interface ReadNote { string: number; fret: number; x: number; sure: number; dead?: boolean; tech?: string; alts?: number[] }
 export interface ReadStep { x: number; notes: ReadNote[]; dur: number; /** pick / strum direction printed over it */ stroke?: 'down' | 'up'; /** a grace note (small, no stem) */ grace?: boolean }
 export interface ReadBar { steps: ReadStep[]; beats: number; x0: number; x1: number }
 export interface ReadSystem { lines: number[]; gap: number; left: number; right: number; bars: ReadBar[]; /** which part (Guitar 1, 2 …) when a system stacks several staves; 0 when there is one */ part?: number; partName?: string }
@@ -423,6 +423,12 @@ export function readTab(g: Gray, opts: ReadOpts = {}): TabReading {
   for (const c of cands) if (c.cls!.score < doubt && c.cls!.score >= floor) c.cls = { ...c.cls!, sure: Math.min(c.cls!.sure, 0.03) }
   // join the parts of two-digit numbers, drop marks that aren't digits (letters, ties, dots)
   const nums: Num[] = []
+  const topAlts = (all: Float32Array, chosen: number) =>
+    Array.from({ length: 10 }, (_, d) => [d, all[d]] as const)
+      .filter(([d, sc]) => d !== chosen && sc >= floor - 0.1)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([d]) => d)
   for (let i = 0; i < cands.length; i++) {
     const c = cands[i]
     if (c.cls!.score < floor) continue
@@ -430,13 +436,15 @@ export function readTab(g: Gray, opts: ReadOpts = {}): TabReading {
       const d = cands[i + 1]
       if (d.cls!.score < floor) continue
       const fret = c.cls!.d * 10 + d.cls!.d
-      if (c.cls!.d !== DEAD && d.cls!.d !== DEAD && fret <= 24) nums.push({ sys: c.sys, string: c.string, x: (c.x + d.x) / 2, fret, sure: Math.min(c.cls!.sure, d.cls!.sure, c.cls!.score - floor, d.cls!.score - floor) })
+      const alts2 = topAlts(d.cls!.all, d.cls!.d).map(u => c.cls!.d * 10 + u).filter(f => f <= 24)
+      if (c.cls!.d !== DEAD && d.cls!.d !== DEAD && fret <= 24) nums.push({ sys: c.sys, string: c.string, x: (c.x + d.x) / 2, fret, sure: Math.min(c.cls!.sure, d.cls!.sure, c.cls!.score - floor, d.cls!.score - floor), ...(alts2.length ? { alts: alts2 } : {}) })
       i++
       continue
     }
     if (c.parts === 2) continue
     const dead = c.cls!.d === DEAD
-    nums.push({ sys: c.sys, string: c.string, x: c.x, fret: dead ? 0 : c.cls!.d, sure: Math.min(c.cls!.sure, c.cls!.score - floor), ...(dead ? { dead } : {}) })
+    const alts1 = dead ? [] : topAlts(c.cls!.all, c.cls!.d)
+    nums.push({ sys: c.sys, string: c.string, x: c.x, fret: dead ? 0 : c.cls!.d, sure: Math.min(c.cls!.sure, c.cls!.score - floor), ...(dead ? { dead } : {}), ...(alts1.length ? { alts: alts1 } : {}) })
   }
   // rhythm marks under each staff (stems, beams): read them from the picture when they're there
   systems.forEach((s2, i) => { (s2 as ReadSystem & { limit?: number }).limit = systems[i + 1] ? Math.min(...systems[i + 1].lines) : undefined })
@@ -450,7 +458,7 @@ export function readTab(g: Gray, opts: ReadOpts = {}): TabReading {
 }
 
 /** A number read on a string line: which staff, which string (0 = lowest), where across, the fret, how sure. */
-export type Num = { sys: number; string: number; x: number; fret: number; sure: number; dead?: boolean; /** printed in brackets */ paren?: boolean }
+export type Num = { sys: number; string: number; x: number; fret: number; sure: number; dead?: boolean; /** printed in brackets */ paren?: boolean; tech?: string; alts?: number[] }
 export interface AssembleOpts {
   beats?: number
   /** a printed time signature in force at this point of a staff (beats per bar, in quarter notes) */
@@ -501,7 +509,7 @@ export function assemble(systems: ReadSystem[], sysBars: number[][], nums: Num[]
         if (!st) { st = { x: n.x, notes: [], dur: 1 }; steps.push(st) }
         // one note per string per column: keep the surer reading
         const same = st.notes.findIndex(m => m.string === n.string)
-        const note: ReadNote = { string: n.string, fret: n.fret, x: n.x, sure: n.sure, ...(n.dead ? { dead: true } : {}) }
+        const note: ReadNote = { string: n.string, fret: n.fret, x: n.x, sure: n.sure, ...(n.dead ? { dead: true } : {}), ...(n.tech ? { tech: n.tech } : {}), ...(n.alts?.length ? { alts: n.alts } : {}) }
         if (same >= 0) { if (st.notes[same].sure < n.sure) st.notes[same] = note } else st.notes.push(note)
       }
       steps.sort((a, b) => a.x - b.x)
