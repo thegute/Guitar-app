@@ -11,7 +11,8 @@ import { pcLabel } from '../learn/targets'
 import type { Song } from '../tabs/model'
 import { FILL_LEARN } from './make'
 import { FillIdea } from './FillIdea'
-import { saveCurrentFills } from './current'
+import { saveCurrentFills, fillsRoutine } from './current'
+import { startSession } from '../sessions/session'
 import { loopOver } from './loop'
 import { METAL_KEYS, METAL_PROGS, metalRiff, metalWorkshop } from './metal'
 
@@ -73,6 +74,7 @@ export function MetalWorkshop({ inst, onExit, chips }: { inst: Instrument; onExi
           </label>
         </div>
         <p className="small muted" style={{ margin: 0 }}>{ws.chords.join(' – ')} · start slow (the speed trainer in the song player takes it up as you get it clean).</p>
+        <button className="btn" data-testid="fills-routine" onClick={() => { countUse('fills:routine'); void fillsRoutine(ws.steps.map(st => ({ id: st.id, title: st.title, doc: { id: docFor(st.id), title: st.song.title, source: 'lesson', inst: inst.id, key: { root: key, minor: true }, song: st.song, updated: Date.now() } })), best).then(startSession) }}>10-minute fills routine</button>
         {next && <button className="btn primary" data-testid="fills-next" onClick={() => openStep(next.id, next.song, next.inTime)}>Next: {next.title}</button>}
       </div>
       <div className="panel stack" style={{ gap: 8 }} data-testid="fills-map">

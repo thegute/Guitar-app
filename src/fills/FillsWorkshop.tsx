@@ -16,7 +16,8 @@ import { launch } from '../search/launch'
 import { spell } from '../theory/progressions'
 import { FillIdea } from './FillIdea'
 import { MetalWorkshop } from './MetalWorkshop'
-import { saveCurrentFills } from './current'
+import { saveCurrentFills, fillsRoutine } from './current'
+import { startSession } from '../sessions/session'
 import { loopOver } from './loop'
 
 const STYLES = [
@@ -134,6 +135,7 @@ function SoftWorkshop({ inst, onExit, style, chips }: { inst: Instrument; onExit
           </label>
         </div>
         <p className="small muted" style={{ margin: 0 }}>{chords.join(' – ')} · one bar each. In the song player you can slow it down further, loop a bar, or turn on the speed trainer.</p>
+        <button className="btn" data-testid="fills-routine" onClick={() => { countUse('fills:routine'); void fillsRoutine(ws.steps.map(st => ({ id: st.id, title: st.title, doc: { id: docFor(st.id), title: st.song.title, source: 'lesson', inst: inst.id, key: { root: wkey, minor: false }, song: st.song, updated: Date.now() } })), best).then(startSession) }}>10-minute fills routine</button>
         {nextStep && <button className="btn primary" data-testid="fills-next" onClick={() => practise(ws.steps.indexOf(nextStep))}>Next: {nextStep.title}</button>}
       </div>
 

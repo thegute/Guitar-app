@@ -31,3 +31,24 @@ export function nextFills(c = loadCurrentFills()): { title: string; why: string;
     started,
   }
 }
+
+/** The daily 10-minute fills routine over the workshop you're on: the shapes to warm up, your next step, landing on
+ *  chord tones (Target notes, voice leading), then your own fills in the gaps. The steps' tabs are saved first so the
+ *  session can open each one. */
+export async function fillsRoutine(steps: { id: string; title: string; doc: import('../tabs/library').SongDoc }[], bestOf: (id: string) => number): Promise<import('../sessions/session').Session> {
+  const { saveSong } = await import('../tabs/library')
+  const warm = steps[0]
+  const next = steps.find(s => bestOf(s.id) < 90) ?? steps[steps.length - 1]
+  const yours = steps.find(s => /yours$/.test(s.id)) ?? steps[steps.length - 1]
+  for (const s of [warm, next, yours]) await saveSong(s.doc)
+  const go = (s: typeof warm) => ({ go: { song: s.doc.id, loop: null } })
+  return {
+    id: `fills-${Date.now().toString(36)}`, title: 'Fills routine · 10 min',
+    steps: [
+      { title: `Warm up: ${warm.title.replace(/^\d+\.\s*/, '')}`, minutes: 2, target: go(warm), tip: 'Easy and clean: get the shapes under your fingers.' },
+      { title: next.title.replace(/^\d+\.\s*/, ''), minutes: 4, target: go(next), tip: 'Your step for today. Slow until it\'s clean, then let the speed trainer push it.' },
+      { title: 'Land on the chord tones', minutes: 2, target: { go: { tool: 'targets' } }, tip: 'Target notes: land on each chord\'s tones as it arrives. This is what makes the fills land.' },
+      { title: 'Your own fills', minutes: 2, target: go(yours), tip: 'Make them up: one move per bar, and land on the next chord on the 1.' },
+    ],
+  }
+}
