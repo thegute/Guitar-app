@@ -40,8 +40,11 @@ Only make one when the owner asks. Updates install over each other because the s
 If a step turns out risky, stop at a working, tested point and write down where you got to rather than leaving it half-wired.
 
 ## Build on what's there (owner rule, 2026-11-14)
-- Build on what already exists; don't replace it. Every feature Claude built stays: the coach, fills workshop, Target notes, ear
-  training, Call and response, looper, beat maker, Riff Scanner, Game Mode, theory course, sounds, the layout and the look.
-- Improve things by extending them (new options, better accuracy, faster code, fixed bugs), keeping how they look and behave
-  unless the owner asks for a change. Never delete, hide or redesign a feature, screen or setting without asking him first.
-- If the new engine needs an old piece rewired, keep the old behaviour working (same buttons, same results) and note it in the log.
+- Claude's work is the foundation: build on it, don't throw it away. Every existing feature stays unless the owner says otherwise
+  (the coach, fills workshop, Target notes, ear training, Call and response, looper, beat maker, Riff Scanner, Game Mode, theory
+  course, sounds, the layout and the look).
+- When the OWNER asks for a change, make it, even if that means altering, reworking or redesigning something Claude built. His
+  requests come first.
+- On your own initiative: improve by extending (new options, better accuracy, faster code, fixed bugs) and keep how things look
+  and behave. Before deleting, hiding or redesigning a feature, screen or setting that he didn't ask about, ask him first.
+- If the new engine needs an old piece rewired, keep its behaviour working (same buttons, same results) and note it in the log.
