@@ -24,7 +24,7 @@ async function newPage(browser, viewport) {
   await page.addInitScript(() => {
     try { if (window.top !== window || sessionStorage.getItem('seeded')) return } catch { return }
     localStorage.clear()
-    localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:askBubble', 'false'); localStorage.setItem('kg:getReady', '0')
+    localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:askBubble', 'false'); localStorage.setItem('kg:looperBubble', 'false'); localStorage.setItem('kg:getReady', '0')
     localStorage.setItem('kg:tab2', '"progressions"'); localStorage.setItem('kg:sub:jam', '"beats"')
     sessionStorage.setItem('seeded', '1')
   })

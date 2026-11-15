@@ -1421,7 +1421,7 @@ export function PlayScreen() {
       {loop ? (
         <span className="loop-chip" data-find="loop"><Ico n="loop" /> {loop.from === loop.to ? `Bar ${loop.from + 1}` : `Bars ${loop.from + 1}–${loop.to + 1}`}<button onClick={() => setLoop(undefined)} aria-label="Stop looping">✕</button></span>
       ) : (
-        <button className="btn sm" data-find="loop" aria-pressed={!!selecting} onClick={() => setSelecting(selecting ? null : {})}><Ico n="loop" /> Loop</button>
+        <button className="btn sm" data-find="loop" aria-pressed={!!selecting} onClick={() => setSelecting(selecting ? null : {})} aria-label="Loop"><Ico n="loop" /> <span className="tl-label">Loop</span></button>
       )}
       <button className={`btn sm hear${playAt >= 0 ? ' on' : ''}${loadingSnd ? ' loading' : ''}`} data-find="hear" onClick={() => preview()} aria-pressed={playAt >= 0} aria-busy={loadingSnd}>
         {loadingSnd ? <><span className="spin" aria-hidden />Loading sounds…</> : playAt >= 0 ? <><Ico n="stop" fill /> Stop</> : <><Ico n="play" fill /> Hear it</>}

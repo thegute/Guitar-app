@@ -2937,3 +2937,6 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .fl-big.s-loop { background: var(--mint); color: #002a1c; }
 .fl-tracks { gap: 6px; align-items: center; flex-wrap: wrap; }
 .fl-note, .fl-help { margin: 0; }
+@media (max-width: 440px) { .tab-tools { gap: 4px; } .tab-tools .chip { padding: 0 8px; } .coach-btn { padding: 0 8px; } }
+@media (max-width: 380px) { .tl-label { display: none; } }
+@media (max-width: 440px) { .tab-tools { gap: 3px; } .tab-tools .chip { padding: 0 7px; } .tab-tools .btn.sm { padding-left: 8px; padding-right: 8px; } }

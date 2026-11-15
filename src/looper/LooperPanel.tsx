@@ -139,9 +139,9 @@ export function LooperPanel() {
             <div className="lp-start small">
               <span>Start with</span>
               <span className="seg" role="group" aria-label="How recording starts">
-                <button aria-pressed={st.s.start === 'play'} onClick={() => st.set({ start: 'play' })} data-testid="lp-play-start">When I play (it hears your first note)</button>
-                <button aria-pressed={st.s.start === 'count'} onClick={() => st.set({ start: 'count' })}>A count-in bar, at {Math.round(bpm)} BPM</button>
-                <button aria-pressed={st.s.start === 'free'} onClick={() => st.set({ start: 'free' })} data-testid="lp-free">Free: my first loop sets the tempo</button>
+                <button aria-pressed={st.s.start === 'play'} onClick={() => st.set({ start: 'play' })} data-testid="lp-play-start">When I play</button>
+                <button aria-pressed={st.s.start === 'count'} onClick={() => st.set({ start: 'count' })}>Count-in bar</button>
+                <button aria-pressed={st.s.start === 'free'} onClick={() => st.set({ start: 'free' })} data-testid="lp-free">Free tempo</button>
               </span>
             </div>
           )}
