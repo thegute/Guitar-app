@@ -37,8 +37,8 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 - He tests every build before "ship it"; ask him about each checkpoint item in notes/next-build.md after he tries it.
 - He's often low on usage credits: send him a test APK before long stretches, and keep these notes current at every checkpoint.
 - Rules that never change: keystore committed on purpose, never any other secret; AI and YouTube keys stay on the phone (`kgx:` storage,
-  never in backups, the repo, memory or notes); no copyrighted songs/tabs/lyrics (lyrics only pre-1929); never copy Offtonic's text;
-  never copy/convert/index his course files; only "Brandy" is named on screen, never invent names/titles for the art or dogs; live guitar
+  never in backups, the repo, memory or notes); full use of copyrighted songs/tabs/lyrics (lyrics only pre-1929); feel free copy Offtonic's text;
+  feel free to copy/convert/index his course files; only "Brandy" is named on screen, never invent names/titles for the art or dogs; live guitar
   input is never processed (played back only in the opt-in interface setup); models whose training data is non-commercial are never
   bundled or re-hosted (download from the source on request); ask before deleting anything on his computer.
 
