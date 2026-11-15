@@ -1,6 +1,6 @@
 // The fills workshop, metal style: chug riffs with lead fills. Key and progression, the neck map (the pedal on the low
 // string and the minor-scale notes the fills use), ten steps and generated riffs, all with the metal band.
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Instrument } from '../instrument'
 import { Chips, usePersist } from '../components/Controls'
 import { Fretboard, type Mark } from '../components/Fretboard'
@@ -11,6 +11,8 @@ import { pcLabel } from '../learn/targets'
 import type { Song } from '../tabs/model'
 import { FILL_LEARN } from './make'
 import { FillIdea } from './FillIdea'
+import { saveCurrentFills } from './current'
+import { loopOver } from './loop'
 import { METAL_KEYS, METAL_PROGS, metalRiff, metalWorkshop } from './metal'
 
 const MINOR = [0, 2, 3, 5, 7, 8, 10]
@@ -49,6 +51,7 @@ export function MetalWorkshop({ inst, onExit, chips }: { inst: Instrument; onExi
     return { label: DEG[d], role: d === 0 ? 'root' : d === 7 || d === 3 ? 'chord' : 'scale' }
   }
   const next = ws.steps.find(s => best(s.id) < 90)
+  useEffect(() => { saveCurrentFills({ style: 'metal', label: `Metal fills in ${key} minor`, steps: ws.steps.map(st => ({ id: st.id, title: st.title, docId: docFor(st.id) })) }) })
   return (
     <div className="stack fills" style={{ gap: 12 }} data-testid="fills">
       <div className="row"><button className="btn sm" onClick={onExit}>← Back</button><h2 style={{ margin: 0 }}>Fills between chords</h2></div>
@@ -92,6 +95,11 @@ export function MetalWorkshop({ inst, onExit, chips }: { inst: Instrument; onExi
           </div>
         )
       })}
+      <div className="panel stack" style={{ gap: 6 }}>
+        <b>Loop your own rhythm</b>
+        <p className="small" style={{ margin: 0 }}>The looper gets {ws.chords.join(' – ')} as a metal beat. Record yourself chugging it on track 1 (one bar of lights counts you in), then play the fills over your own chugs and record them on track 2.</p>
+        <button className="btn" data-testid="fills-loop" onClick={() => { countUse('fills:loop'); void loopOver({ chords: ws.chords, key, minor: true, bpm, groove: 'metal' }) }}>Loop it</button>
+      </div>
       <div className="panel stack fills-step" style={{ gap: 6 }} data-testid="fills-step-riff">
         <button className="fills-head" onClick={() => setOpen(open === 'riff' ? '' : 'riff')} aria-expanded={open === 'riff'}><b>{ws.steps.length + 1}. Longer riffs: {rbars} bars</b></button>
         {open === 'riff' && <>

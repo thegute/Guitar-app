@@ -35,6 +35,13 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
     await page.locator('[data-testid=fills] select').nth(1).selectOption('A')
     const chipsA = await page.locator('[data-testid=fills-map] button[data-chord]').allInnerTexts()
     if (chipsA.join(' ') !== 'A F#m D E') bad(`${vp.width}: key A shells ${chipsA}`)
+    if (vp.width === 360) {
+      await page.locator('[data-testid=fills-loop]').click()
+      await page.waitForSelector('text=4-track looper', { timeout: 8000 }).catch(() => bad('Loop your own rhythm should open the looper'))
+      const bpm = await page.locator('.lp-bpm b, [data-testid=lp-bpm]').first().innerText().catch(() => '')
+      console.log(`  looper opened (${bpm || 'bpm ?'})`)
+      await page.screenshot({ path: path.join(OUT, 'fills-loop.png') })
+    }
     if (vp.width === 840) {
       await page.locator('[data-testid=fills] button:has-text("Mateus Asato")').click()
       const heads = await page.locator('.fills-step .fills-head b').allInnerTexts()

@@ -2,6 +2,7 @@
 // the built-in coach: rules over what KGuitar measured (trouble.ts). It always works, with no key and no network; the
 // AI coach (listen.ts) starts from the same facts and adds what it hears.
 import type { Trouble, TroubleKind } from './trouble'
+import { playable, type FlatStep } from '../tabs/model'
 
 export interface Advice {
   /** the kind word first */
@@ -115,3 +116,40 @@ export function coachPrefs(): CoachPrefs {
   try { return { ai: 'auto', voice: true, auto: true, ...(JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<CoachPrefs>) } } catch { return { ai: 'auto', voice: true, auto: true } }
 }
 export function saveCoachPrefs(p: Partial<CoachPrefs>) { try { localStorage.setItem(KEY, JSON.stringify({ ...coachPrefs(), ...p })) } catch { /* storage full */ } }
+
+/** In the fills workshop the coach knows what the bar is made of (a chord, then a fill into the next chord), so when
+ *  the trouble is in the fill, or in landing after it, it says so in those words. Null when it isn't about a fill. */
+export function fillAdvice(t: Trouble, flat: FlatStep[], mode: 'wait' | 'time', speed: number): Advice | null {
+  const i = t.spot.flat
+  const st = flat[i]?.step
+  if (!st) return null
+  const n = playable(st).length
+  const prev = flat[i - 1]?.step
+  const prevSingle = !!prev && playable(prev).length === 1
+  const at = mode === 'time' ? ` at ${Math.round(Math.min(speed, 0.7) * 100)}%` : ', slowly'
+  const bar = t.bar + 1
+  // landing: the chord on 1 right after a fill
+  if (n >= 2 && prevSingle && st.chord) {
+    return {
+      good: t.good ? `Bars ${t.good.from + 1}–${t.good.to + 1} were clean.` : 'The fills are coming along.',
+      fix: `Bar ${bar}: the ${st.chord} chord after the fill comes in late. The fill is taking too long: start it on time, or leave its first note out, so your hand is on the chord shape by the 1.`,
+      drill: `Play just the last note of the fill and the ${st.chord} chord, ten times, landing on the beat. Then add the fill's notes back one at a time${at}.`,
+      spoken: `In bar ${bar}, you land on the ${st.chord} chord late. The fill is a bit too long: play just its last note into the chord, then add the others back.`,
+      kind: t.kind, bar: t.bar, primary: 'drill', from: 'rules',
+    }
+  }
+  // inside the fill: single notes after the bar's chord
+  if (n === 1) {
+    const late = t.kind === 'drag' || t.kind === 'rush'
+    return {
+      good: t.good ? `Bars ${t.good.from + 1}–${t.good.to + 1} were clean.` : 'The chords are there.',
+      fix: late
+        ? `Bar ${bar}: the fill ${t.kind === 'drag' ? 'drags behind' : 'rushes ahead of'} the band. Keep strumming in the air through it: down on the beats, up on the "and"s, and pick each fill note on the stroke it falls on.`
+        : `Bar ${bar}: the fill. Learn it on its own first: just the fill notes and the next chord, until your fingers know the shape.`,
+      drill: `Loop bar ${bar}${at}. Say the count out loud ("3 and 4 and") and play each fill note on its word.`,
+      spoken: late ? `In bar ${bar}, the fill ${t.kind === 'drag' ? 'is behind' : 'is ahead of'} the band. Keep your strumming hand moving through it, and play each note on its stroke.` : `In bar ${bar}, the fill isn't there yet. Play just the fill and the next chord, slowly, until it's in your fingers.`,
+      kind: t.kind, bar: t.bar, primary: 'drill', from: 'rules',
+    }
+  }
+  return null
+}

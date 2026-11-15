@@ -12,14 +12,15 @@ import { currentFocus, pathSteps, z2h } from '../learn/zeroHero'
 import { allSongStats, dueReviews, troubleBars, ago } from '../play/songStats'
 import { getSong, type SongDoc } from '../tabs/library'
 import { kindWords, loadMemory, openSpots } from '../coach/memory'
+import { nextFills } from '../fills/current'
 
 export type PracticeLen = 10 | 20 | 30
 /** One line of the plan, for the card: what and why. */
-export interface PracticePart { kind: 'warm' | 'plan' | 'fix' | 'song'; title: string; why: string; minutes: number }
+export interface PracticePart { kind: 'warm' | 'plan' | 'fix' | 'fills' | 'song'; title: string; why: string; minutes: number }
 export interface PracticePlan { session: Session; parts: PracticePart[] }
 
 const DAY = 864e5
-const SHARE: Record<PracticePart['kind'], number> = { warm: 3, plan: 5, fix: 5, song: 7 }
+const SHARE: Record<PracticePart['kind'], number> = { warm: 3, plan: 5, fix: 5, fills: 5, song: 7 }
 const readJSON = <T,>(k: string, d: T): T => { try { const v = localStorage.getItem(k); return v ? (JSON.parse(v) as T) : d } catch { return d } }
 const barsText = (l: { from: number; to: number }) => (l.from === l.to ? `bar ${l.from + 1}` : `bars ${l.from + 1}–${l.to + 1}`)
 
@@ -74,6 +75,12 @@ export async function practicePlan(inst: Instrument, total: PracticeLen = 20, no
       step: { title: `Fix ${where} of ${s.title}`, target: { go: { song: id, loop: { from: t.from, to: t.to }, speed: 0.7 } }, tip: `Loop ${where} at 70% until you get it right 3 times in a row, then speed up.` },
     })
     break
+  }
+
+  // 3b. the fills workshop you're working through (once you've started one)
+  const fl = guitar ? nextFills() : null
+  if (fl?.started && (total > 10 || !picks.some(p => p.part.kind === 'fix'))) {
+    picks.push({ part: { kind: 'fills', title: fl.title, why: fl.why }, step: { title: fl.title, target: fl.target, tip: 'With the band. Slow first: land every chord on the 1, then let the speed trainer take it up.' } })
   }
 
   // 4. a song: due for review, else the one you were on, else the songbook

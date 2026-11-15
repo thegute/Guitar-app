@@ -118,3 +118,37 @@ import { metalWorkshop, metalRiff, METAL_KEYS, METAL_PROGS } from '../src/fills/
   assert.equal(fillStepOf('fills:metal:E:i-vi-vii:m-gallop')?.id, 'm-gallop'); assert.equal(fillStepOf('fills:metal:E:i-vi-vii:riff-4-2')?.id, 'riff')
   console.log(`metal: ok (${n} step tabs)`)
 }
+
+// the workshop you're on: next step, the Practice button, the coach's fill advice
+import { saveCurrentFills, nextFills } from '../src/fills/current'
+import { recordRun } from '../src/play/songStats'
+import { fillAdvice } from '../src/coach/advice'
+import { flatten } from '../src/tabs/model'
+import { findTrouble } from '../src/coach/trouble'
+import { handGroups } from '../src/play/handShape'
+{
+  localStorage.removeItem('kg:fills:current')
+  assert.equal(nextFills(), null)
+  const ws = workshop({ chords: ['G', 'Em', 'C', 'D'], key: 'G', bpm: 70, style: 'mayer' })
+  const steps = ws.steps.map(s => ({ id: s.id, title: s.title, docId: `fills:mayer:G:G-Em-C-D:${s.id}` }))
+  saveCurrentFills({ style: 'mayer', label: 'John Mayer soul fills over G Em C D', steps })
+  let nf = nextFills()!
+  assert.equal(nf.started, false); assert.deepEqual(nf.target, { go: { tool: 'fills' } })
+  recordRun(steps[0].docId, { title: 's', inst: 'guitar' }, { score: 95, mode: 'wait', speed: 1, full: true }, { miss: {}, hit: {} })
+  recordRun(steps[1].docId, { title: 's', inst: 'guitar' }, { score: 60, mode: 'wait', speed: 1, full: true }, { miss: {}, hit: {} })
+  nf = nextFills()!
+  assert.ok(nf.started); assert.match(nf.title, /Know the notes/); assert.match(nf.why, /60%/)
+  assert.deepEqual(nf.target, { go: { song: steps[1].docId, loop: null } })
+  // the coach: a late landing after a fill, and trouble inside a fill
+  const two = ws.steps.find(s => s.id === 'two')!.song
+  const flat = flatten(two.tracks[0])
+  const groups = handGroups(flat, two.tracks[0].tuning)
+  const states = new Uint8Array(flat.length).fill(1)
+  // bar 2's chord (after bar 1's fill) late, and the fill before it too
+  const b2 = flat.findIndex(f => f.bar === 1 && f.step.chord)
+  states[b2] = 2; states[b2 - 1] = 2; states[b2 - 2] = 2
+  const t = findTrouble({ states, flat, groups, mode: 'wait' })!
+  const adv = fillAdvice(t, flat, 'wait', 1)
+  assert.ok(adv, 'fill advice'); assert.match(adv!.fix, /fill/)
+  console.log('fills current + coach: ok')
+}

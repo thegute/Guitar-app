@@ -7,10 +7,11 @@ import { activeLens } from './lens'
 import { checkupDue, checkupSession, markCheckup, weekReport } from './checkup'
 import { startSession } from '../sessions/session'
 import { levelAdvice, loadBest } from '../learn/targets'
+import { nextFills } from '../fills/current'
 
 export function hasCoachToday(inst?: string): boolean {
   const m = loadMemory()
-  return checkupDue(m) || Object.keys(loadBest()).length > 0 || openSpots(m, inst).length > 0 || habits(m).length > 0 || ceilingsNow(m).length > 0
+  return checkupDue(m) || Object.keys(loadBest()).length > 0 || !!nextFills()?.started || openSpots(m, inst).length > 0 || habits(m).length > 0 || ceilingsNow(m).length > 0
 }
 
 export function CoachToday() {
@@ -21,6 +22,10 @@ export function CoachToday() {
   const tones = Object.keys(best).length > 0 && adv.done < 6 && (
     <p className="small">Chord tones: {adv.text} <button className="btn sm" data-testid="coach-targets" onClick={() => launch({ go: { tool: 'targets' } })}>Target notes</button></p>
   )
+  const fl = inst.id === 'guitar' ? nextFills() : null
+  const fills = fl?.started && (
+    <p className="small">{fl.title}. {fl.why}. <button className="btn sm" data-testid="coach-fills" onClick={() => launch(fl.target)}>Go</button></p>
+  )
   const due = checkupDue(m), check = due ? checkupSession(m, inst.id) : null
   const checkup = check && (
     <div className="coach-checkup" data-testid="coach-checkup">
@@ -29,7 +34,7 @@ export function CoachToday() {
       <button className="btn sm primary" data-testid="coach-checkup-go" onClick={() => { markCheckup(); startSession(check) }}>Start the check-up</button>
     </div>
   )
-  if (!spots.length && !hs.length && !cs.length) return (checkup || tones) ? <div className="coach-today" data-testid="coach-today">{checkup}{tones}</div> :  <p className="small muted">Nothing yet. After a run in the song player, the coach's trouble spots and your speeds show up here.</p>
+  if (!spots.length && !hs.length && !cs.length) return (checkup || tones || fills) ? <div className="coach-today" data-testid="coach-today">{checkup}{tones}{fills}</div> :  <p className="small muted">Nothing yet. After a run in the song player, the coach's trouble spots and your speeds show up here.</p>
   return (
     <div className="coach-today" data-testid="coach-today">
       {checkup}
@@ -49,6 +54,7 @@ export function CoachToday() {
       {hs.length > 0 && <p className="small">Keeps coming back: {hs.map(h => h.words).join(', and ')}.</p>}
       {cs.length > 0 && <p className="small muted">Top clean speed this week: {cs.map(c => `${c.words} ${Math.round(c.speed * 100)}%${c.speed > c.from ? ` (up from ${Math.round(c.from * 100)}%)` : ''}`).join(' · ')}.</p>}
       {tones}
+      {fills}
       {lens && <p className="small muted">Listening for your style: {lens.title}.</p>}
     </div>
   )

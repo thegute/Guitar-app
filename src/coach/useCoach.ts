@@ -8,7 +8,7 @@ import type { NoteListener } from '../tabs/follow'
 import { aiSettings } from '../assistant/providers'
 import { speak, stopSpeaking } from '../assistant/speak'
 import { barFacts, explain, findTrouble, MissStreak, type PassData, type Trouble } from './trouble'
-import { coachPrefs, ruleAdvice, type Advice } from './advice'
+import { coachPrefs, fillAdvice, ruleAdvice, type Advice } from './advice'
 import { aiAdvice, type CoachContext } from './listen'
 import { activeLens } from './lens'
 import { endurance, sessionRuns } from './endurance'
@@ -86,7 +86,7 @@ export function useCoach(a: CoachArgs) {
 
   const show = useCallback((t: Trouble, why: CoachState['why'], wantAi: boolean) => {
     const A = args.current, prefs = coachPrefs()
-    const rules = ruleAdvice(t, { tuning: A.tuning, mode: A.mode, speed: A.speed })
+    const rules = (A.song?.id.startsWith('fills:') ? fillAdvice(t, A.flat, A.mode, A.speed) : null) ?? ruleAdvice(t, { tuning: A.tuning, mode: A.mode, speed: A.speed })
     abort.current?.abort()
     setNote(null)
     // remembered across sessions (a drill's own bars aren't the song's)

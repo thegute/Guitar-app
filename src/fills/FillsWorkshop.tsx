@@ -1,7 +1,7 @@
 // Learn → Explore → Fills between chords: the workshop. Pick a style, a key and a progression; the shape map shows each
 // chord's shell, its notes and the free-finger notes around it; nine steps teach the fills one idea at a time, each one
 // a looping tab you practise in Play with the band, the mic, speed control and the coach.
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Instrument } from '../instrument'
 import { Chips, usePersist } from '../components/Controls'
 import { Fretboard, type Mark } from '../components/Fretboard'
@@ -16,6 +16,8 @@ import { launch } from '../search/launch'
 import { spell } from '../theory/progressions'
 import { FillIdea } from './FillIdea'
 import { MetalWorkshop } from './MetalWorkshop'
+import { saveCurrentFills } from './current'
+import { loopOver } from './loop'
 
 const STYLES = [
   { id: 'mayer', label: 'John Mayer soul fills', ready: true },
@@ -104,6 +106,7 @@ function SoftWorkshop({ inst, onExit, style, chips }: { inst: Instrument; onExit
     launch({ jam: { page: 'jam' } })
   }
   const nextStep = ws.steps.find(s => best(s.id) < 90)
+  useEffect(() => { saveCurrentFills({ style, label: `${STYLES.find(x => x.id === style)?.label ?? 'Fills'} over ${chords.join(' ')}`, steps: ws.steps.map(st => ({ id: st.id, title: st.title, docId: docFor(st.id) })) }) })
 
   return (
     <div className="stack fills" style={{ gap: 12 }} data-testid="fills">
@@ -183,7 +186,11 @@ function SoftWorkshop({ inst, onExit, style, chips }: { inst: Instrument; onExit
       <div className="panel stack" style={{ gap: 6 }}>
         <b>Jam over it</b>
         <p className="small" style={{ margin: 0 }}>Drums, bass and chords play {chords.join(' – ')} in Jam, round and round, so you can try your own fills freely. Every step above has the band too.</p>
-        <button className="btn" data-testid="fills-jam" onClick={jamOver}>Jam over {chords.join(' ')}</button>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn" data-testid="fills-jam" onClick={jamOver}>Jam over {chords.join(' ')}</button>
+          <button className="btn" data-testid="fills-loop" onClick={() => { countUse('fills:loop'); void loopOver({ chords, key: wkey, minor: false, bpm, groove: 'halftime' }) }}>Loop your own rhythm</button>
+        </div>
+        <p className="small muted" style={{ margin: 0 }}>Loop your own rhythm: the looper gets these chords as a beat. Record yourself strumming them on track 1 (one bar of lights counts you in), then practise the fills over your own playing, and record them on track 2.</p>
       </div>
       <p className="small muted">Learned at 90% or better in the song player. More styles (Mateus Asato, Tony Rice and Billy Strings, Chet Atkins, Plini, Matteo Mancuso) are on the way.</p>
     </div>
