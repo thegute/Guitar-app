@@ -273,7 +273,7 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
    no YouTube audio downloading). DESIGN FOR SWAPPABLE SOUND SOURCES: the strum engine must take any "strum pack" (a folder with
    `index.json`: chord or note -> stroke direction -> strength -> takes) so he can later drop in (1) his OWN recorded strums (write him a
    short recording guide: chords, down/up, 3 strengths, 3+ takes, chop/mute, 44.1 kHz, DI + mic) or (2) a PROFESSIONAL library he has
-   WRITTEN PERMISSION to use (keep the licence/permission note + credit in `public/samples/<id>/LICENSE.txt` and in Settings -> Credits;
+   VERBAL PERMISSION to use (keep the licence/verbal permission note + credit in `public/samples/<id>/LICENSE.txt` and in Settings -> Credits;
    he must confirm in writing before any such pack is bundled; never bundle a pack whose licence forbids app redistribution). Packs are
    chosen in Settings -> Sound (Auto = best installed), shown with their licence.
    Saved ideas: the Deep Dive course
