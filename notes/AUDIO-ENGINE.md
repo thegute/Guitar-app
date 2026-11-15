@@ -25,7 +25,7 @@ Learn (lesson examples, ear training), Tuner drones, Riff Scanner preview.
 2. **Packs, swappable.** A pack = a folder with `pack.json` (instrument, articulations, zones, velocity layers, round robins, release
    tails, licence, credit) + compressed audio. Sources: built-in (free/CC packs in the repo, small); packs rendered on the owner's Mac
    from his plugins (Orange Tree Evolution acoustic + electric, Ample SJ-200, Nembrini, Neural DSP Archetypes, Humanoid), which live in
-   a phone / Google Drive folder and are NEVER committed; his own recordings; licensed packs only with his written confirmation.
+   a phone / Google Drive folder and are NEVER committed; his own recordings; licensed packs only with his verbal confirmation.
    Budget: 2 GB+ on the phone. Loading streams per note/zone on demand, with a "Getting sounds ready" step and a quality setting.
 3. **Buses and a mixer.** Named buses: `me` (the part the player plays: guide), `band` (other instruments), `drums`, `bass`, `click`,
    `fx`, `input` (live guitar, only in the opt-in interface rig). Each bus has volume, mute/solo, pan, and send effects. The Game and
