@@ -17,6 +17,7 @@ import { IconDice, IconLock, IconPlay, IconStop, IconPencil } from '../component
 import { useHint } from '../components/Fold'
 import { Win, WinArea } from '../components/Win'
 import { chordInfo as readChord } from '../tabs/harmony'
+import { ImprovCoach } from '../coach/ImprovCoach'
 import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
 import { bassPacks, bassPackFor, BASS_LABEL, BASS_PACK, STYLE_BASS, type BassKind } from '../audio/packSounds'
 import { loadPrivatePack } from '../engine/packs'
@@ -527,6 +528,13 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
               onHear={c => { void audio().resume(); const sh = shapesFor(c, inst); strum(midisOf(sh[rank(sh, shapePref, 1)] ?? sh[0])) }}
               onUse={(cs, m) => { setMode(m); load(cs.map(({ midis: _m, ...c }) => ({ ...c, beats: rate }))); document.querySelector('[data-win="gen"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }} />
           </Win>
+          {prog.length >= 2 && info && (
+            <Win id="improv" title="Improv coach" className="panel" hint="Solo over the band and the coach listens: how much was in the scale, whether you landed on the chords when they changed, your range, your use of space and repeated ideas, and the one thing to work on next.">
+              <ImprovCoach playing={playing} loopBeats={loopBeats} keyPcs={info.pcs} keyName={tip ? `${tip.root} ${scaleById(tip.scale).label}` : tonic}
+                chords={prog.map((c, i) => ({ start: startOf(i), beats: c.beats ?? 4, symbol: c.symbol, pcs: readChord(c.symbol)?.pcs ?? [] }))}
+                clock={() => { const t = transport.current; return t?.playing ? { T0: t.T0, spb: t.spb } : null }} />
+            </Win>
+          )}
           {prog.length >= 2 && (
             <Win id="voice" title="Voice leading: chord shapes that barely move" className="panel" hint="Each chord in a shape close to the last one: gold rings are notes both chords share (keep that finger down), gold arrows are the 3rds and 7ths moving a fret or two. It follows the loop while it plays. Practise the changes opens it as a tab in Play.">
               <VoiceLeadNeck chords={prog.map(c => c.symbol)} at={playing && pos.chord >= 0 ? active : undefined} tuning={inst.midis} where="jam" bpm={bpm} />

@@ -5,6 +5,8 @@ import { courseLesson } from '../course'
 import { launch } from '../search/launch'
 import { InYourBooks } from '../books/InYourBooks'
 import type { FillLearn } from './make'
+import { TeachBack } from '../coach/TeachBack'
+import { pointsOf } from '../coach/teachGrade'
 
 const TOOL: Record<FillLearn['tools'][number], string> = { targets: 'Target notes', cr: 'Call and response', techniques: 'Technique (hammer-ons, slides)' }
 
@@ -21,6 +23,7 @@ export function FillIdea({ learn, compact }: { learn: FillLearn; compact?: boole
           {learn.video && <a className="btn sm" href={`https://www.youtube.com/watch?v=${learn.video.id}`} target="_blank" rel="noreferrer">Watch: {learn.video.title}</a>}
         </div>
         {!compact && <InYourBooks topics={learn.topics} max={3} />}
+        {!compact && <details className="small"><summary>Explain it back</summary><TeachBack id={`fill:${learn.topics[0] ?? 'idea'}`} title="why this works" points={pointsOf(learn.idea)} /></details>}
       </>}
     </div>
   )

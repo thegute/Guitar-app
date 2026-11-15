@@ -2940,3 +2940,6 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 @media (max-width: 440px) { .tab-tools { gap: 4px; } .tab-tools .chip { padding: 0 8px; } .coach-btn { padding: 0 8px; } }
 @media (max-width: 380px) { .tl-label { display: none; } }
 @media (max-width: 440px) { .tab-tools { gap: 3px; } .tab-tools .chip { padding: 0 7px; } .tab-tools .btn.sm { padding-left: 8px; padding-right: 8px; } }
+.teach-points { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.teach-points .ok { color: var(--mint-text, var(--mint)); }
+.teach-points .miss { opacity: .8; }

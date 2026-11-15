@@ -12,6 +12,7 @@ import type { AskContext } from './bus'
 import { screenCommand, screenInfo, type ScreenInfo } from './screen'
 import { GUIDE } from '../learn/guide'
 import { searchBooks, shelfNow } from '../books/store'
+import { groundFor } from './ground'
 
 export interface BeatChange { starter?: string; bpm?: number; key?: string; minor?: boolean; patterns?: string[]; swing?: number }
 /** a change to Play: loop (0-based bars, null = stop) and/or speed; `label` is the button text */
@@ -197,9 +198,14 @@ export async function plan(q: string, results: Result[], ctx: AskContext = 'gene
   const fromBooks = shelfNow().length && q.trim().split(/\s+/).length >= 2 ? await searchBooks(q, 3).catch(() => []) : []
   const booksText = shelfNow().length ? `\nHIS OWN BOOKS (on his phone): ${shelfNow().map(b => b.title).join('; ')}.${fromBooks.length ? `\nPAGES FROM HIS BOOKS THAT MATCH THIS QUESTION (scanned text, may have OCR slips; teach from them in your own words when they help, and say which book and page so he can read more): ${fromBooks.map(h => `[${h.book.title}, page ${h.page}${h.chapter ? `, ${h.chapter}` : ''}] ${h.snippet}`).join('\n')}` : ''}` : ''
   const readMore = fromBooks.slice(0, 2).map(h => `Read more: ${h.book.title}, page ${h.page}`)
-  if (!activeProvider()) { const l = local(); return { ...l, ...(readMore.length ? { ideas: [...(l.ideas ?? []), ...readMore] } : {}), note: 'Built-in helper. Add a free AI key in Settings → You → AI helper for smarter answers.' } }
+  // KGuitar's own lessons on it: the AI teaches the same way, and the lesson opens from the answer
+  const ground = /\b(what|why|how|explain|tell|mean|difference|teach)\b/i.test(q) ? groundFor(q, 2) : []
+  const groundText = ground.length ? `\nKGUITAR'S OWN LESSONS ON THIS (teach consistently with them, in your own words; mention the lesson by name so he can open it): ${ground.map(g => `[${g.kind === 'lesson' ? `Course lesson "${g.title}"` : `Fills workshop idea (${g.title})`}] ${g.excerpt}`).join('\n')}` : ''
+  const lessonOpen = ground.find(g => g.kind === 'lesson')
+  const lessonResult = lessonOpen ? { id: `lesson:${lessonOpen.id}`, kind: 'feature' as const, title: `Lesson: ${lessonOpen.title}`, where: 'Learn → Course', text: '', target: { go: { lesson: lessonOpen.id } }, score: 90 } : undefined
+  if (!activeProvider()) { const l = local(); if (!l.open && lessonResult) l.open = lessonResult; return { ...l, ...(readMore.length ? { ideas: [...(l.ideas ?? []), ...readMore] } : {}), note: 'Built-in helper. Add a free AI key in Settings → You → AI helper for smarter answers.' } }
   try {
-    const raw = await ask(SYSTEM(ctx, beat ? beatSummary(beat) : '', results, screen, how, booksText), [...past.flatMap(p => [{ role: 'user' as const, text: p.q }, { role: 'assistant' as const, text: JSON.stringify({ reply: p.a }) }]), { role: 'user', text: q }], { json: true, maxTokens: how === 'voice' ? 900 : 2400, ...(onReply ? { onText: (raw: string) => { const r = partialReply(raw); if (r) onReply(r) } } : {}) })
+    const raw = await ask(SYSTEM(ctx, beat ? beatSummary(beat) : '', results, screen, how, booksText + groundText), [...past.flatMap(p => [{ role: 'user' as const, text: p.q }, { role: 'assistant' as const, text: JSON.stringify({ reply: p.a }) }]), { role: 'user', text: q }], { json: true, maxTokens: how === 'voice' ? 900 : 2400, ...(onReply ? { onText: (raw: string) => { const r = partialReply(raw); if (r) onReply(r) } } : {}) })
     const j = JSON.parse(raw.replace(/^[^{]*/, '').replace(/[^}]*$/, '')) as { reply?: string; open?: string | null; session?: { title: string; steps: { title: string; minutes: number; use: string; tip?: string }[] } | null; beat?: BeatChange | null; play?: { loop?: number[] | null; speed?: number | null } | null; ideas?: string[] | null }
     const ans: Answer = { reply: j.reply || 'Here you go.', ai: true }
     if (j.open) { const r = results.find(x => x.id === j.open); const t = r ? null : targetOf(j.open, results); ans.open = r ?? (t ? { id: j.open, kind: 'feature', title: PLACES.find(p => p[0] === j.open)?.[1] ?? j.open, where: '', text: '', target: t, score: 100 } : undefined) }
@@ -213,6 +219,7 @@ export async function plan(q: string, results: Result[], ctx: AskContext = 'gene
     }
     if (j.beat && ctx === 'beat') ans.beat = { ...j.beat, patterns: (j.beat.patterns ?? []).filter(p => PATTERNS.some(x => x.id === p)) }
     if (j.ideas?.length) ans.ideas = j.ideas.slice(0, 6)
+    if (!ans.open && lessonResult) ans.open = lessonResult
     if (readMore.length && how === 'typed') ans.ideas = [...(ans.ideas ?? []), ...readMore].slice(0, 7)
     if (j.play && screen?.can?.length) {
       const c: Omit<PlayChange, 'label'> = {}

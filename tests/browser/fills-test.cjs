@@ -87,8 +87,14 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
       if (!/Metal fills .*pedal point/.test(await page.evaluate(() => document.body.innerText))) bad('the metal step should open')
     }
     if (vp.width === 412) {
-      // step 3 opens in the song player, with The idea and the band
+      // step 3 opens in the song player, with The idea and the band; first, explain the idea back
       await page.locator('[data-testid=fills-step-free] .fills-head').click()
+      await page.locator('[data-testid=fills-step-free] summary:has-text("Explain it back")').click()
+      await page.locator('[data-testid=fills-step-free] [data-testid=teach-text]').fill('A free finger adds a note next to a chord tone like a sus2 or sus4 and then hammers on or pulls off into the chord note, so the chord breathes and keeps ringing.')
+      await page.locator('[data-testid=fills-step-free] [data-testid=teach-check]').click()
+      const say = await page.locator('[data-testid=fills-step-free] [data-testid=teach-say]').innerText().catch(() => '')
+      if (!/^\d+%/.test(say)) bad(`teach-back: "${say}"`)
+      console.log(`  teach-back: ${say}`)
       await page.locator('[data-testid=fills-go-free]').click()
       await page.waitForSelector('.tab-note', { timeout: 8000 })
       await page.locator('.song-check button:has-text("Got it")').click({ timeout: 2500 }).catch(() => {})

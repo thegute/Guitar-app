@@ -3,6 +3,7 @@
 // week · use it · check (recall, apply, hear, play + explain it back to the teacher) · go deeper. Finishing schedules
 // short reviews after 1, 3, 7 and 30 days.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { TeachBack } from '../coach/TeachBack'
 import type { Instrument } from '../instrument'
 import type { Go } from '../learn/path'
 import type { LessonEx } from '../learn/lessonExtras'
@@ -106,7 +107,7 @@ function StepBody({ step, inst, lesson, onGo, onExercise }: { step: Step; inst: 
     )
     case 'practice': return <PracticeStep step={step} lesson={lesson} done={p.steps} onGo={onGo} onExercise={onExercise} />
     case 'use': return <div className="stack">{blocks(step.blocks)}{tasks(step.tasks)}</div>
-    case 'check': return <CheckStep step={step} onGo={onGo} onExercise={onExercise} />
+    case 'check': return <CheckStep step={step} lessonId={lesson.id} onGo={onGo} onExercise={onExercise} />
     case 'deeper': return (
       <div className="stack">
         {step.video && <LessonVideoCard video={step.video} />}
@@ -164,7 +165,7 @@ function PracticeStep({ step, lesson, done, onGo, onExercise }: { step: Extract<
   )
 }
 
-function CheckStep({ step, onGo, onExercise }: { step: Extract<Step, { kind: 'check' }>; onGo: (g: Go) => void; onExercise: (ex: LessonEx) => void }) {
+function CheckStep({ step, lessonId, onGo, onExercise }: { step: Extract<Step, { kind: 'check' }>; lessonId: string; onGo: (g: Go) => void; onExercise: (ex: LessonEx) => void }) {
   const st = stars()
   const [showPoints, setShowPoints] = useState(false)
   return (
@@ -189,6 +190,7 @@ function CheckStep({ step, onGo, onExercise }: { step: Extract<Step, { kind: 'ch
           <button className="btn sm ghost" onClick={() => setShowPoints(v => !v)}>{showPoints ? 'Hide' : 'What a good answer covers'}</button>
         </div>
         {showPoints && <ul className="lesson-list">{step.explain.points.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+        <TeachBack id={`lesson:${lessonId}`} title="it" points={step.explain.points} />
       </section>
     </div>
   )

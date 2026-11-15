@@ -320,3 +320,43 @@ import { findQuiz } from '../src/learn/quiz'
   assert.equal(earStatus().next?.id, 'l1-pitch')
   console.log('call and response, ear path: ok')
 }
+
+// ---- teach-back and grounding
+import { gradeTeachBack, pointsOf } from '../src/coach/teachGrade'
+import { groundFor } from '../src/assistant/ground'
+{
+  const pts = ['A triad is three notes: the root, the 3rd and the 5th.', 'The 3rd decides whether it is major or minor.', 'Inversions put a different note on the bottom.']
+  const good = gradeTeachBack('A triad has three notes, root third and fifth. The third tells you if the chord is major or minor. An inversion puts another note at the bottom.', pts)
+  assert.equal(good.score, 100, JSON.stringify(good))
+  const half = gradeTeachBack('A triad is three notes, a root, a 3rd and a 5th.', pts)
+  assert.ok(half.score < 70 && half.missed.length >= 1, JSON.stringify(half))
+  assert.equal(gradeTeachBack('', pts).score, 0)
+  assert.equal(pointsOf('One short. This is a longer sentence that counts as a point. And another sentence that is long enough to count.').length, 2)
+  assert.equal(groundFor('what is the minor pentatonic scale')[0]?.id, 'c3-minorpent')
+  assert.equal(groundFor('what time is it').length, 0)
+  console.log('teach-back + grounding: ok')
+}
+
+// ---- the improv coach
+import { analyseImprov } from '../src/coach/improv'
+{
+  const chords = [{ start: 0, beats: 4, pcs: [7, 11, 2], symbol: 'G' }, { start: 4, beats: 4, pcs: [4, 7, 11], symbol: 'Em' }, { start: 8, beats: 4, pcs: [0, 4, 7], symbol: 'C' }, { start: 12, beats: 4, pcs: [2, 6, 9], symbol: 'D' }]
+  const G = [7, 9, 11, 0, 2, 4, 6]
+  // a good solo: in the key, chord tones on each change, a repeated idea, gaps
+  const good: { beat: number; midi: number }[] = []
+  for (let L = 0; L < 3; L++) for (const [i, c] of chords.entries()) {
+    const at = L * 16 + c.start, root = 60 + c.pcs[0]
+    good.push({ beat: at, midi: root }, { beat: at + 0.5, midi: root + 2 }, { beat: at + 1, midi: root + 4 }, { beat: at + 2.5, midi: 55 + i * 4 + L })
+  }
+  const r = analyseImprov(good.map(x => ({ ...x, midi: G.includes(x.midi % 12) ? x.midi : x.midi + 1 })), chords, 16, G, 'G major')
+  assert.ok(r.inKey >= 90, JSON.stringify(r)); assert.ok(r.landed >= r.changes - 1)
+  // all over the place: out of the scale
+  const wild = Array.from({ length: 40 }, (_, k) => ({ beat: k * 0.5, midi: 60 + ((k * 5) % 12) }))
+  assert.equal(analyseImprov(wild, chords, 16, G, 'G major').focus, 'scale')
+  // in the scale, never landing on a chord tone at the changes
+  const off = Array.from({ length: 48 }, (_, k) => ({ beat: k * 0.25 + 0.1, midi: [69, 72, 64][k % 3] }))
+  const ro = analyseImprov(off.map(x => (x.beat % 4 < 0.6 ? { ...x, midi: 69 } : x)), chords, 16, G, 'G major')
+  assert.ok(['land', 'space'].includes(ro.focus), ro.focus)
+  assert.equal(analyseImprov([], chords, 16, G, 'G major').focus, 'more')
+  console.log('improv coach: ok')
+}
