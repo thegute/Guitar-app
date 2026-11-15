@@ -1,7 +1,7 @@
 // The Jam backing track: chords (strummed or picked) in a chosen guitar sound, bass, drums and click, plus your
 // recorded loop layers, all locked to one clock so recordings line up with the progression.
 import { liveSound, quietSound } from './stopAll'
-import { audio, route, type Category } from './engine'
+import { audio, route, setDelayTempo, type Category } from './engine'
 import { playClick } from './metronome'
 import { playGrooveBar, loadKit, grooveOf, type KitId } from './drums'
 import { playHit, strumPattern, type Handle } from './strums'
@@ -9,6 +9,7 @@ import { BassPlayer, bassLine, type BassChord } from './bass'
 import { loadBank, loadSound, soundInfo, type SoundId } from './pluck'
 import { bassPackFor, type BassKind } from './packSounds'
 import { loadPrivatePack } from '../engine/packs'
+import { isSwungGroove, subscribeScheduler, updateClockState } from '../engine/clock'
 
 export interface JamChord {
   midis: number[]
@@ -55,7 +56,7 @@ export class JamTransport {
   playing = false
   private nextBeat = 0
   private countIn = 0
-  private timer: ReturnType<typeof setInterval> | null = null
+  private unsub: (() => void) | null = null
   private ringing: Handle[] = []
   private bassHits = new WeakSet<Handle>()
   layers: Layer[] = []
@@ -96,6 +97,8 @@ export class JamTransport {
     const b = (now - this.T0) / this.spb
     this.bpm = bpm
     this.T0 = now - b * this.spb
+    setDelayTempo(bpm)
+    updateClockState({ bpm })
   }
   get loopDur() { return this.loopBeats * this.spb }
 
@@ -118,6 +121,10 @@ export class JamTransport {
     this.bpm = bpm
     this.strum = strum
     this.drums = drums
+    if (this.playing) {
+      setDelayTempo(bpm)
+      updateClockState({ bpm, groove: drums })
+    }
   }
 
   setMix(m: { chords: boolean; drums: boolean; click: boolean; loop?: boolean; bass?: boolean }) {
@@ -140,16 +147,16 @@ export class JamTransport {
     this.T0 = ctx.currentTime + 0.15 + countIn * this.spb
     this.nextBeat = -countIn
     this.playing = true
-    this.schedule()
-    this.timer = setInterval(() => this.schedule(), 25)
+    setDelayTempo(this.bpm)
+    updateClockState({ bpm: this.bpm, meter: 4, groove: this.drums, playing: true, source: 'jam' })
+    this.unsub = subscribeScheduler((_now, horizon) => this.schedule(horizon))
     for (const l of this.layers) this.startLayer(l, this.T0)
     return this.T0
   }
 
   stop() {
     quietSound(this)
-    if (this.timer) clearInterval(this.timer)
-    this.timer = null
+    if (this.unsub) { this.unsub(); this.unsub = null }
     const now = audio().currentTime
     this.ringing.forEach(h => h.stop(now))
     this.ringing = []
@@ -246,18 +253,18 @@ export class JamTransport {
     return { root: c.root ?? (c.midis[0] ?? 40) % 12, tones: c.tones ?? [0, 4, 7] }
   }
 
-  private schedule() {
-    const ctx = audio()
-    const horizon = ctx.currentTime + 0.3
+  private schedule(horizon = audio().currentTime + 0.25) {
     const pat = strumPattern(this.strum)
     const first = pat.hits[0]?.[1] === 'B' || /^a/.test(pat.hits[0]?.[1] ?? '') ? 'B' : 'D'
+    const swung = isSwungGroove(this.drums)
     while (this.T0 + this.nextBeat * this.spb <= horizon) {
       const b = this.nextBeat
       const t = this.T0 + b * this.spb
       this.nextBeat++
       if (b < 0) {
-        // count-in clicks always sound
+        // count-in clicks always sound; swung/shuffle grooves subdivide the last two beats ("3 & 4 &")
         playClick(t, 'wood', (b + this.countIn) % 4 === 0 ? 'accent' : 'beat', 0.9)
+        if (swung && b >= -2) playClick(t + (2 / 3) * this.spb, 'wood', 'sub', 0.42)
         continue
       }
       const lb = b % this.loopBeats

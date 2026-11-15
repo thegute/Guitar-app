@@ -2,17 +2,18 @@
 // reporting which step is sounding so the tab can highlight along.
 import { liveSound, quietSound } from './stopAll'
 import { bendOf, isRelease } from '../licks/notation'
-import { audio } from './engine'
+import { audio, setDelayTempo } from './engine'
 import { playNote, strum, isPowerChord, activeSound, soundInfo, type SoundId } from './pluck'
 import type { FlatStep } from '../tabs/model'
 import { BandVoices, type BandEvent } from './band'
 import type { TempoMap } from '../play/tempoMap'
-import { playClick, type ClickSound } from './metronome'
+import { playClick, scheduleCountIn, type ClickSound } from './metronome'
+import { planCountIn, subscribeScheduler, updateClockState } from '../engine/clock'
 
 export class TabPlayer {
   onStep?: (flatIdx: number) => void
   onEnd?: () => void
-  private timer: ReturnType<typeof setInterval> | null = null
+  private unsub: (() => void) | null = null
   private raf = 0
   private queue: { t: number; i: number; spb: number; dur: number }[] = []
   /** the step sounding now: when it started (audio time), its seconds per beat and length in beats (for a smooth playhead) */
@@ -66,15 +67,18 @@ export class TabPlayer {
     const spbAt = (b: number) => (map ? map.spbAt(b, bpm) : 60 / bpm)
     if (this.countIn > 0) {
       const spb = spbAt(beatAt[i] ?? 0)
-      for (let k = 0; k < this.countIn; k++) {
-        playClick(t + k * spb, this.clickSound, k % this.meter === 0 ? 'accent' : 'beat', 0.8)
-        this.counts.push({ t: t + k * spb, n: k + 1 })
+      const plan = planCountIn({ beats: this.countIn, bpm: 60 / spb, meter: this.meter })
+      scheduleCountIn(t, plan, this.clickSound, 0.9)
+      for (const c of plan.clicks) {
+        if (c.countNumber > 0) this.counts.push({ t: t + c.offsetSec, n: c.countNumber })
       }
-      t += this.countIn * spb
+      t += plan.durationSec
       this.counts.push({ t, n: 0 })
     }
-    const schedule = () => {
-      while (t < ctx.currentTime + 0.3) {
+    setDelayTempo(bpm)
+    updateClockState({ bpm, meter: this.meter, playing: true, source: 'tab' })
+    const schedule = (_now = ctx.currentTime, horizon = ctx.currentTime + 0.25) => {
+      while (t < horizon) {
         if (i >= to) {
           if (loopFrom === undefined) break
           i = loopFrom
@@ -135,8 +139,7 @@ export class TabPlayer {
       if (loopFrom === undefined && i >= to && !this.endAt) this.endAt = t + 0.2
       if (this.all.length > 400) this.all.splice(0, 200)
     }
-    schedule()
-    this.timer = setInterval(schedule, 60)
+    this.unsub = subscribeScheduler((now, horizon) => schedule(now, horizon))
     const tick = () => {
       const now = ctx.currentTime
       let last = -1
@@ -162,8 +165,7 @@ export class TabPlayer {
 
   stop() {
     quietSound(this)
-    if (this.timer) clearInterval(this.timer)
-    this.timer = null
+    if (this.unsub) { this.unsub(); this.unsub = null }
     cancelAnimationFrame(this.raf)
     const now = audio().currentTime
     for (const h of this.all) h.stop(now)

@@ -112,7 +112,7 @@ export function useInTime(a: Args) {
       v.play()
     } else {
       clock = new InternalClock(fromBeat, toBeat, A.songBpm * speed, {
-        loop: !!A.loop, click: A.click, countIn: 4, tempo: A.tempo, meter: A.meter,
+        loop: !!A.loop, click: A.click, countIn: A.meter ?? 4, autoTwoBars: true, tempo: A.tempo, meter: A.meter,
         guide: A.guide ? { steps: tl.steps, flat: A.flat, sound: A.sound } : undefined,
         band: A.band,
         onWrap: () => {
@@ -150,9 +150,9 @@ export function useInTime(a: Args) {
       const ctx = audio()
       const b = r.clock.beatAt(ctx.currentTime)
       if (b !== null) {
-        // the count-in: big 4 3 2 1 over the tab
+        // the count-in: big 4 3 2 1 (or 8..1 at fast tempos) over the tab
         const ci = b < r.fromBeat - 0.02 ? Math.ceil(r.fromBeat - b - 0.02) : 0
-        setCountIn(ci <= 4 ? ci : 0)
+        setCountIn(ci <= 12 ? ci : 0)
         // a new pass started: clear the marks of the old one
         if (r.loop && b < r.lastBeat - 0.5) {
           setWraps(w => w + 1)

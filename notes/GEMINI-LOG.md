@@ -1,3 +1,6 @@
 # Gemini week log (newest first)
 
+- 2026-11-15: **Engine Week Part 1 — Shared Clock, Audio-Thread Lookahead Scheduler, App Speed & Musical Count-In**:
+  - Added `src/engine/clock.ts`: unified `LOOKAHEAD_SEC = 0.25` (250 ms) scheduler driven by an audio-thread pulse (~50×/s) from `src/engine/worklets/master.worklet.js` with a 20 ms timer safety net; `BeatTimelineClock` with phase-locked `setBpm` / `setSpeed`, loop wrapping, and Guitar Pro `TempoMap` support; shared app speed (`kg:appSpeed`) and live clock state; musical count-in (`planCountIn` / `countInBeatsFor` / `isSwungGroove`) that automatically gives 2 bars at fast tempos (≥ 130 BPM) when `autoTwoBars` is set and subdivides the final two beats (`3 & 4 &`) on swung/compound grooves; and the scheduled backing-note registry (`recordBackingNote` / `backingNotesAt`) wired into `src/audio/pluck.ts` and `src/audio/stopAll.ts` to feed Part 2's speaker bleed suppression.
+  - Wired `Metronome` (`src/audio/metronome.ts`), `InternalClock` (`src/play/inTime.ts`, `src/play/useInTime.ts`), `TabPlayer` (`src/audio/tabPlayer.ts`), `JamTransport` (`src/audio/jam.ts`), and `StudioTransport` (`src/studio/transport.ts`) onto the shared scheduler and console tape-delay tempo sync.
 - 2026-11-14: branch `gemini-week` created from big-update at the test-52 state; `claude-safe` holds the same state as a backup.

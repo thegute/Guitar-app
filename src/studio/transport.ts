@@ -1,9 +1,9 @@
 // Plays a beat: drums, instrument tracks and recorded loops on one clock, looping. Schedules a little ahead on the
 // audio clock (so timing is exact even when the screen is busy) and tells the screen where the playhead is.
 import { liveSound, quietSound } from '../audio/stopAll'
-import { audio, masterInput } from '../audio/engine'
+import { audio, masterInput, setDelayTempo } from '../audio/engine'
 import { playDrum, prepareKit, type Voice } from '../audio/drums'
-import { playClick } from '../audio/metronome'
+import { playClick, scheduleCountIn } from '../audio/metronome'
 import type { Handle } from '../audio/pluck'
 import { STEPS_PER_BAR, allRows, beatInPart, curPart, partsMade, playOrder, totalSteps, type Beat, type PartId } from './beat'
 import { instr, loadInstr, playInstr } from './sounds'
@@ -11,6 +11,7 @@ import { isPlain, isUserPad, type PadDef } from './pads'
 import { playPad } from './padPlay'
 import { loadSampleBuf } from './padSamples'
 import { PerformFx } from './fx'
+import { planCountIn, subscribeScheduler, updateClockState } from '../engine/clock'
 
 /** A generated room reverb (a few seconds of decaying noise), shared by every track. */
 function makeReverb(ctx: AudioContext) {
@@ -50,7 +51,7 @@ export class StudioTransport {
   custom = new Map<Voice, AudioBuffer>()
   /** files from your phone chosen in a pad's settings, by uri (loaded by the screen) */
   files = new Map<string, AudioBuffer>()
-  private timer: ReturnType<typeof setInterval> | null = null
+  private unsub: (() => void) | null = null
   private raf = 0
   private next = 0
   private nextT = 0
@@ -140,6 +141,8 @@ export class StudioTransport {
       const ctx = audio()
       this.t0 = ctx.currentTime - pos * this.stepDur
       this.restartLayers()
+      setDelayTempo(beat.bpm)
+      updateClockState({ bpm: beat.bpm, swing: beat.swing })
     }
   }
 
@@ -159,16 +162,16 @@ export class StudioTransport {
     const ctx = audio()
     void ctx.resume()
     this.playing = true
-    const spb = 60 / this.beat.bpm
     const t = ctx.currentTime + 0.08
-    for (let k = 0; k < countIn; k++) playClick(t + k * spb, 'wood', k % 4 === 0 ? 'accent' : 'beat', 0.9)
-    this.t0 = t + countIn * spb
+    const plan = planCountIn({ beats: countIn, bpm: this.beat.bpm, meter: 4, swing: this.beat.swing })
+    if (plan.totalBeats > 0) scheduleCountIn(t, plan, 'wood', 1)
+    this.t0 = t + plan.durationSec
     this.next = 0
     this.nextT = this.t0
     this.restartLayers()
-    const tick = () => this.schedule()
-    tick()
-    this.timer = setInterval(tick, 25)
+    setDelayTempo(this.beat.bpm)
+    updateClockState({ bpm: this.beat.bpm, swing: this.beat.swing, meter: 4, playing: true, source: 'beat' })
+    this.unsub = subscribeScheduler((_now, horizon) => this.schedule(horizon))
     const frame = () => {
       const now = ctx.currentTime
       let last = -1
@@ -194,9 +197,9 @@ export class StudioTransport {
     this.next = Math.max(0, Math.ceil((ctx.currentTime + 0.02 - t0) / this.stepDur))
     this.nextT = this.t0 + this.next * this.stepDur
     this.restartLayers()
-    const tick = () => this.schedule()
-    tick()
-    this.timer = setInterval(tick, 25)
+    setDelayTempo(this.beat.bpm)
+    updateClockState({ bpm: this.beat.bpm, swing: this.beat.swing, meter: 4, playing: true, source: 'beat' })
+    this.unsub = subscribeScheduler((_now, horizon) => this.schedule(horizon))
     const frame = () => {
       const now = ctx.currentTime
       let last = -1
@@ -209,10 +212,9 @@ export class StudioTransport {
   /** The absolute step (counting from the start) at audio time `t`. */
   stepAt(t: number) { return (t - this.t0) / this.stepDur }
 
-  private schedule() {
-    const ctx = audio()
+  private schedule(horizon = audio().currentTime + 0.25) {
     const n = totalSteps(this.beat)
-    while (this.nextT < ctx.currentTime + 0.12) {
+    while (this.nextT < horizon) {
       const s = this.next % n
       const t = this.nextT + this.swingOff(s)
       // which part plays this time round (the song chain), else the one you're editing
@@ -324,8 +326,7 @@ export class StudioTransport {
 
   stop() {
     quietSound(this)
-    if (this.timer) clearInterval(this.timer)
-    this.timer = null
+    if (this.unsub) { this.unsub(); this.unsub = null }
     cancelAnimationFrame(this.raf)
     const now = audio().currentTime
     this.held.forEach(h => h.stop(now))

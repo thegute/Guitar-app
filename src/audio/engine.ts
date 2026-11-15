@@ -14,6 +14,7 @@
 // - The live guitar (interface setup, rig.ts) joins at `finalOut()`: after the master, before the mono fold.
 import { monoOut, onRig } from './rig'
 import { busChain, makeReturns, SEND_DEFAULTS, type Returns, type Send } from '../engine/console'
+import { notifyAudioPulse, setClockTimeProvider } from '../engine/clock'
 
 let ctx: AudioContext | null = null
 /** what features call "the output": the master's input */
@@ -41,7 +42,10 @@ function loadMaster(c: AudioContext) {
   c.audioWorklet.addModule(new URL('../engine/worklets/master.worklet.js', import.meta.url).href).then(() => {
     if (!masterIn || !finalIn || masterNode) return
     const node = new AudioWorkletNode(c, 'kg-master', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: 'explicit', channelInterpretation: 'speakers' })
-    node.port.onmessage = e => { masterMeter.glue = e.data.glue; masterMeter.limit = e.data.limit }
+    node.port.onmessage = e => {
+      if (typeof e.data?.pulse === 'number') { notifyAudioPulse(e.data.pulse); return }
+      masterMeter.glue = e.data.glue; masterMeter.limit = e.data.limit
+    }
     // swap in without a gap: connect the new path, then drop the stand-in
     masterIn.connect(node).connect(finalIn)
     masterIn.disconnect(fallback!)
@@ -54,6 +58,7 @@ function loadMaster(c: AudioContext) {
 export function audio(): AudioContext {
   if (!ctx) {
     ctx = new AudioContext({ latencyHint: 'interactive' })
+    setClockTimeProvider(() => ctx!.currentTime)
     masterIn = ctx.createGain()
     masterIn.channelCount = 2
     // the stand-in: a fast brickwall just under full scale (transparent until something would clip)

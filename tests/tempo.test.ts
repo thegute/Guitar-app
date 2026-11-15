@@ -205,11 +205,66 @@ ok(tapBpm([0, 500, 1000]) === null, 'tap tempo needs 4 taps')
   ok(!flat.changes && Math.abs(flat.sec(3) - 2) < 1e-9, 'one tempo')
 }
 
+import {
+  BeatTimelineClock, planCountIn, countInBeatsFor, isSwungGroove,
+  notifyAudioPulse, subscribeScheduler, setAppSpeed, getAppSpeed,
+  recordBackingNote, backingNotesAt, clearBackingNotes,
+} from '../src/engine/clock'
+
 // a pasted text tab gets a guessed tempo
 {
   const doc = songFromText(`e|-0-1-3-1-0-1-3-0-|\nB|-----------------|\nG|-----------------|\nD|-----------------|\nA|-----------------|\nE|-----------------|`, 'Guess me', current())!
   ok(!!doc && doc.song.tempoFrom === 'guess' && (doc.song.tempo ?? 0) >= 60, `pasted tab tempo guessed (${doc?.song.tempo}, ${doc?.song.tempoFrom})`)
   void _g
+}
+
+// ---------- shared master clock, app speed, musical count-in & scheduled note registry ----------
+{
+  // BeatTimelineClock: exact beat <-> time, phase-locked setBpm and setSpeed, TempoMap + loop wrap
+  const map = new TempoMap(120, [{ beat: 4, bpm: 60 }])
+  const clk = new BeatTimelineClock({ fromBeat: 0, toBeat: 8, bpm: 120, speed: 1, t0: 10, tempo: map })
+  ok(Math.abs(clk.timeOf(4) - 12) < 1e-9, 'BeatTimelineClock: 4 beats at 120 BPM = +2s')
+  ok(Math.abs(clk.timeOf(6) - 14) < 1e-9, 'BeatTimelineClock: next 2 beats at 60 BPM = +2s more')
+  ok(Math.abs(clk.beatAt(13) - 5) < 1e-9, 'BeatTimelineClock: beatAt(13s) = beat 5')
+  // Phase-locked speed change at t = 13s (beat 5): switching to 0.5x speed keeps beatAt(13s) === 5
+  clk.setSpeed(0.5, 13)
+  ok(Math.abs(clk.beatAt(13) - 5) < 1e-9, 'BeatTimelineClock: setSpeed(0.5) preserves exact playhead beat')
+  ok(Math.abs(clk.spb(5) - 2) < 1e-9, 'BeatTimelineClock: spb at 60 BPM * 0.5 speed = 2.0s')
+  // Count-in before t0 returns negative beat relative to fromBeat
+  const clk2 = new BeatTimelineClock({ fromBeat: 4, toBeat: 12, bpm: 120, t0: 5 })
+  ok(Math.abs(clk2.beatAt(4) - 2) < 1e-9, 'BeatTimelineClock: 1s before t0 at 120 BPM is 2 beats before fromBeat')
+  const wrapAt = clk2.wrap(60)
+  ok(Math.abs(wrapAt - 9) < 1e-9 && Math.abs(clk2.spb() - 1) < 1e-9, 'BeatTimelineClock: wrap advances t0 to end of pass and updates tempo')
+
+  // Musical count-in: 2 bars automatically at fast tempos (>= 130 BPM) when autoTwoBars is true
+  ok(countInBeatsFor(110, 4, 4, true) === 4, 'countInBeatsFor: 1 bar (4 beats) at 110 BPM')
+  ok(countInBeatsFor(140, 4, 4, true) === 8, 'countInBeatsFor: 2 bars (8 beats) automatically at 140 BPM')
+  ok(countInBeatsFor(140, 4, 4, false) === 4, 'countInBeatsFor: explicit 4 beats when autoTwoBars is false')
+  ok(isSwungGroove('shuffle') && isSwungGroove('blues') && !isSwungGroove('rock'), 'isSwungGroove recognises shuffle/blues')
+  const swungPlan = planCountIn({ beats: 4, bpm: 120, meter: 4, groove: 'shuffle' })
+  ok(swungPlan.subdivided && swungPlan.clicks.length === 6, `swung count-in subdivides the last two beats (got ${swungPlan.clicks.length} clicks)`)
+  const subBeats = swungPlan.clicks.filter(c => c.kind === 'sub').map(c => c.offsetBeats)
+  ok(subBeats.length === 2 && Math.abs(subBeats[0] - (2 + 2 / 3)) < 1e-6 && Math.abs(subBeats[1] - (3 + 2 / 3)) < 1e-6, 'swung count-in places "&" at 2/3 of beats 3 and 4')
+
+  // Audio-thread pulse driving subscribeScheduler with 250 ms lookahead
+  let pulsedHorizon = 0
+  const unsub = subscribeScheduler((_now, horizon) => { pulsedHorizon = horizon }, false)
+  notifyAudioPulse(42.0)
+  unsub()
+  ok(Math.abs(pulsedHorizon - 42.25) < 1e-6, 'notifyAudioPulse drives scheduler with 250 ms lookahead')
+
+  // App speed persistence
+  setAppSpeed(0.75)
+  ok(getAppSpeed() === 0.75, 'setAppSpeed / getAppSpeed round-trip')
+  setAppSpeed(1)
+
+  // Scheduled backing-note registry for bleed suppression
+  clearBackingNotes()
+  recordBackingNote(10.0, [40, 47, 52], 0.8, 0.5, 'backing')
+  const bleedAtMic = backingNotesAt(10.05 + 0.04, 0.04) // 50 ms into the note after 40 ms speaker->mic latency
+  ok(bleedAtMic.length === 3 && bleedAtMic.every(n => n.strength > 0.5), 'backingNotesAt finds active chord notes at scheduledTime + latency')
+  ok(backingNotesAt(12.0, 0.04).length === 0, 'backingNotesAt expires after note duration')
+  clearBackingNotes()
 }
 console.log(`tempo: ${checks} checks, ${failed} failed`)
 if (failed) process.exit(1)

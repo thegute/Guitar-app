@@ -1,12 +1,17 @@
 // Leaving a page stops whatever it was playing (a tab preview, an exercise, a jam loop, a beat, the metronome, a
 // drone, the helper's voice). Players add themselves while they play; App, Learn and Songs call stopAllSounds() when
 // you move to another page. Settings → Sound can keep the metronome going while you look around.
+import { clearBackingNotes, updateClockState } from '../engine/clock'
+
 interface Stoppable { stop(): void; kind?: string; /** true = keep playing across pages (the looper with loops in it) */ keep?: () => boolean }
 const live = new Set<Stoppable>()
 const labels = new Map<Stoppable, string>()
 const extra = new Set<() => void>()
 const watchers = new Set<() => void>()
-const changed = () => watchers.forEach(f => { try { f() } catch { /* noop */ } })
+const changed = () => {
+  if (!live.size) updateClockState({ playing: false, source: null })
+  watchers.forEach(f => { try { f() } catch { /* noop */ } })
+}
 /** A player started (call from its start/play). `label` names it in the "playing" pill (Metronome, Jam band …). */
 export function liveSound(p: Stoppable, label?: string) { queueMicrotask(() => { live.add(p); if (label) labels.set(p, label); changed() }) }
 /** A player stopped by itself. */
@@ -18,6 +23,7 @@ export function onLiveChange(f: () => void) { watchers.add(f); return () => { wa
 export function stopEverything() {
   for (const p of [...live]) { try { p.stop() } catch { /* already stopped */ } live.delete(p); labels.delete(p) }
   extra.forEach(f => { try { f() } catch { /* noop */ } })
+  clearBackingNotes()
   changed()
 }
 /** Something else that should stop on leaving a page (a video, the helper's voice); returns an unsubscribe. */
@@ -32,5 +38,6 @@ export function stopAllSounds() {
     live.delete(p); labels.delete(p)
   }
   extra.forEach(f => { try { f() } catch { /* noop */ } })
+  if (!live.size) clearBackingNotes()
   changed()
 }

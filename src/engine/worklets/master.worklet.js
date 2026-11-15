@@ -92,6 +92,9 @@ class KGMaster extends AudioWorkletProcessor {
     // meters for the app (peak GR of each block, sent ~20×/s)
     this.meterEvery = Math.round(sr / 20 / 128)
     this.meterN = 0; this.maxGlue = 0; this.maxLim = 0
+    // audio-thread clock pulse (~50×/s, every ~20 ms) for the shared transport scheduler
+    this.pulseEvery = Math.max(1, Math.round(sr / 50 / 128))
+    this.pulseN = 0
   }
 
   truePeak(x, hist) {
@@ -117,6 +120,10 @@ class KGMaster extends AudioWorkletProcessor {
 
   process(inputs, outputs, params) {
     const inp = inputs[0], out = outputs[0]
+    if (++this.pulseN >= this.pulseEvery) {
+      this.pulseN = 0
+      this.port.postMessage({ pulse: currentTime })
+    }
     if (!out || !out.length) return true
     const oL = out[0], oR = out[1] || out[0]
     const iL = inp && inp[0] ? inp[0] : null

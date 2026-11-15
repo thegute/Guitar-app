@@ -2,11 +2,12 @@
 // you play is judged early / on time / late. Includes the speed trainer for looped sections.
 import { accepted, bendAlso } from '../tabs/bends'
 import { TempoMap } from './tempoMap'
-import { audio, bus } from '../audio/engine'
-import { playClick } from '../audio/metronome'
+import { audio, bus, setDelayTempo } from '../audio/engine'
+import { playClick, scheduleCountIn } from '../audio/metronome'
 import { playNote, type SoundId } from '../audio/pluck'
 import { pickupShift, playable, type FlatStep } from '../tabs/model'
 import { BandVoices, type BandEvent } from '../audio/band'
+import { BeatTimelineClock, planCountIn, subscribeScheduler, updateClockState } from '../engine/clock'
 
 export interface TimedStep {
   flat: number
@@ -99,12 +100,8 @@ export interface Clock {
 
 /** The app's own clock: count-in, then steady beats, looping [fromBeat, toBeat) if asked. Clicks optional. */
 export class InternalClock implements Clock {
-  private t0 = 0
-  private spbNow: number
-  /** the song's tempo changes (constant when it has none); `k` = seconds multiplier for the playback speed */
-  private map: TempoMap
-  private k: number
-  private timer: ReturnType<typeof setInterval> | null = null
+  private core: BeatTimelineClock
+  private unsub: (() => void) | null = null
   private nextClick = 0
   private guideNext = 0
   private bandNext = 0
@@ -116,34 +113,43 @@ export class InternalClock implements Clock {
     private fromBeat: number,
     private toBeat: number,
     bpm: number,
-    private opts: { loop: boolean; click: boolean; countIn: number; guide?: { steps: TimedStep[]; flat: FlatStep[]; sound?: SoundId }; band?: BandEvent[]; onWrap?: () => number | void; tempo?: TempoMap; meter?: number },
+    private opts: { loop: boolean; click: boolean; countIn: number; autoTwoBars?: boolean; groove?: string; swing?: number; guide?: { steps: TimedStep[]; flat: FlatStep[]; sound?: SoundId }; band?: BandEvent[]; onWrap?: () => number | void; tempo?: TempoMap; meter?: number },
   ) {
-    this.map = opts.tempo ?? new TempoMap(bpm)
-    this.k = this.map.base / bpm
-    this.spbNow = this.map.spbAt(fromBeat, bpm)
+    const map = opts.tempo ?? new TempoMap(bpm)
+    const meter = opts.meter ?? 4
+    const spb0 = map.spbAt(fromBeat, bpm)
+    const plan = planCountIn({
+      beats: opts.countIn,
+      bpm: 60 / spb0,
+      meter,
+      groove: opts.groove,
+      swing: opts.swing,
+      autoTwoBars: opts.autoTwoBars,
+    })
     const ctx = audio()
-    this.t0 = ctx.currentTime + 0.15 + opts.countIn * this.spbNow
-    // count-in clicks
-    for (let i = 0; i < opts.countIn; i++) playClick(this.t0 - (opts.countIn - i) * this.spbNow, 'wood', i === 0 ? 'accent' : 'beat', 0.9)
+    const startAt = ctx.currentTime + 0.15
+    const t0 = startAt + plan.durationSec
+    this.core = new BeatTimelineClock({ fromBeat, toBeat, bpm, t0, tempo: map, meter, swing: opts.swing })
+    if (plan.totalBeats > 0) scheduleCountIn(startAt, plan, 'wood', 1)
     this.nextClick = Math.ceil(fromBeat)
     this.guideNext = 0
-    this.timer = setInterval(() => this.schedule(), 40)
-    this.schedule()
+    setDelayTempo(bpm)
+    updateClockState({ bpm, meter, groove: opts.groove ?? '', swing: opts.swing ?? 0, playing: true, source: 'play' })
+    this.unsub = subscribeScheduler((now, horizon) => this.schedule(now, horizon))
   }
-  private len() { return this.toBeat - this.fromBeat }
   /** absolute audio time of beat b within the current pass */
-  private timeOf(b: number) { return this.t0 + (this.map.sec(b) - this.map.sec(this.fromBeat)) * this.k }
-  private schedule() {
+  private timeOf(b: number) { return this.core.timeOf(b) }
+  private schedule(now = audio().currentTime, horizon = now + 0.25) {
     if (this.stopped) return
-    const ctx = audio()
-    const horizon = ctx.currentTime + 0.25
     // wrap: start the next pass (maybe at a new tempo)
     while (this.opts.loop && this.timeOf(this.toBeat) <= horizon) {
-      const wrapAt = this.timeOf(this.toBeat)
       const newBpm = this.opts.onWrap?.()
       this.passes++
-      if (typeof newBpm === 'number' && newBpm > 0) this.k = this.map.base / newBpm
-      this.t0 = wrapAt
+      this.core.wrap(typeof newBpm === 'number' && newBpm > 0 ? newBpm : undefined)
+      if (typeof newBpm === 'number' && newBpm > 0) {
+        setDelayTempo(newBpm)
+        updateClockState({ bpm: newBpm })
+      }
       this.nextClick = Math.ceil(this.fromBeat)
       this.guideNext = 0
       this.bandNext = 0
@@ -151,7 +157,7 @@ export class InternalClock implements Clock {
     if (this.opts.click) {
       while (this.nextClick < this.toBeat && this.timeOf(this.nextClick) <= horizon) {
         const t = this.timeOf(this.nextClick)
-        if (t >= ctx.currentTime - 0.01) playClick(t, 'wood', Math.round(this.nextClick) % (this.opts.meter ?? 4) === 0 ? 'accent' : 'beat', 0.55)
+        if (t >= now - 0.01) playClick(t, 'wood', Math.round(this.nextClick) % (this.opts.meter ?? 4) === 0 ? 'accent' : 'beat', 0.55)
         this.nextClick++
       }
     }
@@ -162,7 +168,7 @@ export class InternalClock implements Clock {
       while (this.bandNext < band.length && band[this.bandNext].beat < this.toBeat - 1e-6 && this.timeOf(band[this.bandNext].beat) <= horizon) {
         const e = band[this.bandNext]
         const t = this.timeOf(e.beat)
-        if (t >= ctx.currentTime - 0.01) this.voices.play(e, t, this.map.spbAt(e.beat) * this.k)
+        if (t >= now - 0.01) this.voices.play(e, t, this.core.spb(e.beat))
         this.bandNext++
       }
     }
@@ -172,25 +178,21 @@ export class InternalClock implements Clock {
       while (this.guideNext < inRange.length && this.timeOf(inRange[this.guideNext].beat) <= horizon) {
         const s = inRange[this.guideNext]
         const t = this.timeOf(s.beat)
-        if (t >= ctx.currentTime - 0.01) s.midis.forEach((m, k) => playNote(m, t + (s.chord ? k * 0.012 : 0), s.chord ? 0.3 : 0.4, bus('me'), { sound: g.sound }))
+        if (t >= now - 0.01) s.midis.forEach((m, k) => playNote(m, t + (s.chord ? k * 0.012 : 0), s.chord ? 0.3 : 0.4, bus('me'), { sound: g.sound }))
         this.guideNext++
       }
     }
   }
   beatAt(ctxTime: number) {
     if (this.stopped) return null
-    // before the first beat (count-in) the beat goes below fromBeat at the first tempo
-    const dt = (ctxTime - this.t0) / this.k
-    const b = dt < 0 ? this.fromBeat + (dt * this.map.bpmAt(this.fromBeat)) / 60 : this.map.beat(this.map.sec(this.fromBeat) + dt)
-    this.spbNow = this.map.spbAt(Math.max(this.fromBeat, b)) * this.k
-    return b
+    return this.core.beatAt(ctxTime)
   }
-  spb() { return this.spbNow }
+  spb() { return this.core.spb() }
   stop() {
     this.stopped = true
-    if (this.timer) clearInterval(this.timer)
-    this.timer = null
+    if (this.unsub) { this.unsub(); this.unsub = null }
     this.voices.stop(audio().currentTime)
+    updateClockState({ playing: false, source: null })
   }
 }
 

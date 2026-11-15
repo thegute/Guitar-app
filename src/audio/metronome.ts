@@ -1,7 +1,8 @@
-// Sample-accurate metronome: a lookahead scheduler on the AudioContext clock.
+// Sample-accurate metronome: a lookahead scheduler on the shared audio-thread clock.
 import { liveSound, quietSound } from './stopAll'
-import { audio, route } from './engine'
+import { audio, route, setDelayTempo } from './engine'
 import { playDrum, playGrooveBar, loadKit } from './drums'
+import { subscribeScheduler, updateClockState, type CountInPlan } from '../engine/clock'
 
 export type Accent = 0 | 1 | 2 // muted, normal, accented
 /** click / wood / beep are synthesized; sticks, cowbell and hihat come from the recorded drum kit */
@@ -36,32 +37,33 @@ export class Metronome {
   private beat = 0
   private sub = 0
   private bar = 0
-  private timer: ReturnType<typeof setInterval> | null = null
+  private unsub: (() => void) | null = null
   /** recent scheduled ticks, read by the UI to animate in time with the audio */
   ticks: Tick[] = []
 
   start(at?: number) {
     liveSound(this, 'Metronome')
+    if (this.unsub) { this.unsub(); this.unsub = null }
     const ctx = audio()
     this.running = true
     this.beat = 0
     this.sub = 0
     this.bar = 0
     this.next = at ?? ctx.currentTime + 0.08
-    this.timer = setInterval(() => this.schedule(), 20)
-    this.schedule()
+    setDelayTempo(this.bpm)
+    updateClockState({ bpm: this.bpm, speed: 1, meter: this.beatsPerBar, groove: this.groove, playing: true, source: 'metronome' })
+    this.unsub = subscribeScheduler((_now, horizon) => this.schedule(horizon))
   }
   stop() {
     quietSound(this)
     this.running = false
-    if (this.timer) clearInterval(this.timer)
-    this.timer = null
+    if (this.unsub) { this.unsub(); this.unsub = null }
     this.ticks = []
   }
 
-  private schedule() {
-    const ctx = audio()
-    while (this.next < ctx.currentTime + 0.12) {
+  private schedule(horizon = audio().currentTime + 0.25) {
+    if (!this.running) return
+    while (this.next < horizon) {
       const t: Tick = { time: this.next, beat: this.beat, sub: this.sub, bar: this.bar }
       this.click(t)
       this.ticks.push(t)
@@ -78,6 +80,8 @@ export class Metronome {
           this.bar++
           if (this.trainer.on && this.bar % this.trainer.everyBars === 0 && this.bpm < this.trainer.max) {
             this.bpm = Math.min(this.trainer.max, this.bpm + this.trainer.step)
+            setDelayTempo(this.bpm)
+            updateClockState({ bpm: this.bpm })
             this.onBpm?.(this.bpm)
           }
         }
@@ -103,6 +107,13 @@ export class Metronome {
     if (t.sub === 0 && accent === 0) return
     const level = t.sub > 0 ? 0.35 : accent === 2 ? 1 : 0.6
     playClick(t.time, this.sound, t.sub > 0 ? 'sub' : accent === 2 ? 'accent' : 'beat', level * this.volume)
+  }
+}
+
+/** Schedule a planned musical count-in (`planCountIn` from `engine/clock.ts`) on the audio clock. */
+export function scheduleCountIn(startTime: number, plan: CountInPlan, sound: ClickSound = 'wood', levelScale = 1, dest?: AudioNode) {
+  for (const c of plan.clicks) {
+    playClick(startTime + c.offsetSec, sound, c.kind, c.level * levelScale, dest)
   }
 }
 

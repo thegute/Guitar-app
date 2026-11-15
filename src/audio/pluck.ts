@@ -1,11 +1,12 @@
 // Guitar sounds: recorded and amp-rendered sample banks (public/samples/<id>/), with a Karplus–Strong synth as the
 // instant fallback while a bank loads. The amp tones were rendered offline from the owner's own amp captures and cab /
 // body impulse responses (tools/render_tones.py); only the finished notes ship. Live guitar input is never processed here.
-import { audio, out, route } from './engine'
+import { audio, bus, out, route } from './engine'
 import { monoOut } from './rig'
 import { playPack, packLoaded, loadPrivatePack, playPackChord, privatePacks } from '../engine/packs'
 import { packSounds, setPackSounds, FIRST_CHOICE, setBassPacks, bassPackFor, type BuiltInSound, type BassKind } from './packSounds'
 import { strumNotes } from '../engine/strumLogic'
+import { recordBackingNote } from '../engine/clock'
 import { midiToFreq } from '../theory/notes'
 
 const cache = new Map<string, AudioBuffer>()
@@ -322,6 +323,7 @@ export function playNote(midi: number, when = 0, gain = 0.8, dest?: AudioNode, o
   const id = opts.sound ?? activeSound()
   const bank = banks.get(baseOf(id))
   const t = when || audio().currentTime
+  recordBackingNote(t, [midi], gain, opts.pm ? 0.16 : 0.65, dest === bus('me') ? 'guide' : 'backing')
   const fromPack = packNote(id, midi, t, gain, dest, opts)
   if (fromPack) return fromPack
   if (bank) {
@@ -385,6 +387,8 @@ export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: 
   const id = opts.sound ?? activeSound()
   const bank = banks.get(baseOf(id))
   const gain = (opts.gain ?? 0.7) * (opts.up ? 0.75 : 1)
+  const role = opts.dest === bus('me') ? 'guide' : 'backing'
+  recordBackingNote(t0, midis, gain, opts.pm ? 0.16 : 0.65, role)
   // a pack with whole recorded chords (an amp tone re-amped from DI chords): play the real chord when it has this one
   const pk = packFor(id)
   if (pk && packLoaded(pk) && !opts.pm) {
@@ -445,6 +449,7 @@ export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: 
  *  line's style picks which: reggae the Sixties, bluegrass the upright …), else the built-in bass bank. */
 export function playBass(midi: number, when: number, gain: number, dest?: AudioNode, kind?: BassKind): Handle {
   const t = when || audio().currentTime
+  recordBackingNote(t, [midi], gain, 0.55, 'backing')
   const pk = bassPackFor(kind)
   if (pk) {
     if (packLoaded(pk)) {
@@ -468,6 +473,7 @@ export function playFromBank(id: string, midi: number, when: number, gain: numbe
   const bank = banks.get(id)
   const ctx = audio()
   const t = Math.max(when || ctx.currentTime, ctx.currentTime)
+  recordBackingNote(t, [midi], gain, 0.55, 'backing')
   const to = dest ?? route('any', 'keys')
   if (!bank?.groups.notes) { void loadBank(id); return synthNote(midi, t, gain * 0.7, to) }
   const g = bank.groups.notes
