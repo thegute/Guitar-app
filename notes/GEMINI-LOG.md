@@ -1,5 +1,9 @@
 # Gemini week log (newest first)
 
+- 2026-11-15 (Claude, owner's bug): **voice helper couldn't hear him with the pedal plugged in** (Android's speech
+  recognizer listens to the USB pedal, which has no mic). `ListenPlugin.java`: when a USB / line input is connected,
+  record the built-in mic ourselves (AudioRecord + setPreferredDevice) and feed it to the recognizer
+  (EXTRA_AUDIO_SOURCE, Android 13+); falls back to the normal way if the recognizer refuses. Untested on a real phone.
 - 2026-11-15 (Claude, owner's bug report): **Note follower skipped ahead** ("thinks I hit a note I didn't", Game mode and
   Wait for me, electric through the Pocket Master; in every build, so it was Claude's detector, not the engine week).
   Fixed in `noteDetect.ts` (ghost attacks = pedal echoes / ringing can't count as a new note; legato only when the old
