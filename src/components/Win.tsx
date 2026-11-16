@@ -212,14 +212,48 @@ export function useWinShow() {
   }
 }
 
-/** Shown once (until "Got it"): how to move, resize and hide the boxes. */
-export function LayoutHint({ text }: { text?: string }) {
-  const [seen, setSeen] = useState(() => { try { return localStorage.getItem('kg:layoutHint') === '1' } catch { return true } })
-  if (seen) return null
+/** "Arrange" mode: the ☰ Move, – Hide and ◢ resize handles on every box (and Play's panel Move buttons) are tucked away
+ *  until it's switched on, so the screens stay calm. Remembered (kg:arrange); CSS keys off html[data-arrange]. */
+const arrangeOn = () => { try { return localStorage.getItem('kg:arrange') === '1' } catch { return false } }
+export function setArrange(on: boolean) {
+  try { localStorage.setItem('kg:arrange', on ? '1' : '0') } catch { /* noop */ }
+  if (typeof document !== 'undefined') { if (on) document.documentElement.dataset.arrange = '1'; else delete document.documentElement.dataset.arrange }
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('kg:arrange'))
+}
+if (typeof document !== 'undefined' && arrangeOn()) document.documentElement.dataset.arrange = '1'
+
+const HOW = 'You can arrange this screen. Tap a box\'s name to fold it up (tap again to open it). Switch Arrange on, then drag ☰ Move to put a box somewhere else (on a big screen, beside another one). Drag the handle under a box down for taller, or sideways for narrower so boxes sit side by side. – Hide tucks it into the tray at the bottom (tap it there to bring it back).'
+
+/** The Arrange switch on its own (Play keeps it in Options so its screen gets no extra row). */
+export function ArrangeSwitch() {
+  const [on, setOn] = useState(arrangeOn)
+  useEffect(() => { const f = () => setOn(arrangeOn()); window.addEventListener('kg:arrange', f); return () => window.removeEventListener('kg:arrange', f) }, [])
   return (
-    <div className="layout-hint" role="note">
-      <span>{text ?? 'You can arrange this screen. Tap a box\'s name to fold it up (tap again to open it). Drag ☰ Move to put a box somewhere else (on a big screen, beside another one). Drag the handle under a box down for taller, or sideways for narrower so boxes sit side by side. – Hide tucks it into the tray at the bottom (tap it there to bring it back).'}</span>
-      <button className="btn sm" onClick={() => { try { localStorage.setItem('kg:layoutHint', '1') } catch { /* noop */ } setSeen(true) }}>Got it</button>
+    <button className="arrange-toggle" aria-pressed={on} onClick={() => setArrange(!on)} title="Show the Move, Hide and resize handles on each box">
+      <span aria-hidden>⠿</span> Arrange{on ? ': on' : ''}
+    </button>
+  )
+}
+
+/** A slim bar at the top of an arrangeable screen: the Arrange switch, and (until "Got it") a one-line tip that opens into the full how-to.
+ *  `quiet`: no bar at all once the tip has been dismissed (Play: the switch lives in its Options). */
+export function LayoutHint({ text, quiet }: { text?: string; quiet?: boolean }) {
+  const [seen, setSeen] = useState(() => { try { return localStorage.getItem('kg:layoutHint') === '1' } catch { return true } })
+  const [open, setOpen] = useState(false)
+  if (seen && quiet) return null
+  return (
+    <div className={`layout-bar${seen ? '' : ' layout-hint'}`} role={seen ? undefined : 'note'}>
+      {!seen && (
+        <span className="layout-tip">
+          <span aria-hidden>💡</span> You can rearrange this screen.{' '}
+          <button className="linkish" onClick={() => setOpen(o => !o)} aria-expanded={open}>{open ? 'Less' : 'How?'}</button>
+          {open && <span className="layout-how">{' '}{(text ?? HOW)}</span>}
+        </span>
+      )}
+      <span className="layout-actions">
+        <ArrangeSwitch />
+        {!seen && <button className="btn sm" onClick={() => { try { localStorage.setItem('kg:layoutHint', '1') } catch { /* noop */ } setSeen(true) }}>Got it</button>}
+      </span>
     </div>
   )
 }

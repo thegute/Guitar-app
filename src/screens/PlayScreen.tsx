@@ -60,7 +60,7 @@ import { TabPlayer } from '../audio/tabPlayer'
 import { keyPrefersFlats, pcName } from '../theory/notes'
 import { setTuning, useInstrument } from '../instrument'
 import { Splitter } from '../components/Splitter'
-import { LayoutHint } from '../components/Win'
+import { ArrangeSwitch, LayoutHint } from '../components/Win'
 import { onLeavePage } from '../audio/stopAll'
 import { FingerBox } from '../components/FingerBox'
 import { FloatPicker } from '../float/FloatLayer'
@@ -1523,8 +1523,9 @@ export function PlayScreen() {
             <span className="small muted">or pinch the tab</span>
           </div>
           <label className="opt-row opt-check" data-find="tidy"><input type="checkbox" checked={tidy} onChange={() => setTidy(!tidy)} /><span><b>Tidy up while I play</b><span className="small muted">When you start (Listen or In time), the other panels and the menu fold away so the tab is bigger; they come back when you stop. A playing video stays.</span></span></label>
-          <div className="opt-row" data-find="panels"><span><b>Move the panels</b><span className="small muted">Drag <b>☰ Move</b> on a panel's bar (the video and readout, Scales &amp; chords) to put it above or below the tab{wide ? ', or on the left or right' : ''}. Drag the bar itself to make it bigger or smaller.</span></span>
-            {movedLayout && <button className="btn sm" onClick={() => setLay({ ...lay, order: undefined, sideLeft: undefined, soloTop: undefined })}>Put them back</button>}</div>
+          <div className="opt-row" data-find="panels"><span><b>Move the panels</b><span className="small muted">Switch <b>Arrange</b> on, then drag <b>☰ Move</b> on a panel's bar (the video and readout, Scales &amp; chords) to put it above or below the tab{wide ? ', or on the left or right' : ''}. Drag the bar itself to make it bigger or smaller.</span></span>
+            <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}><ArrangeSwitch />
+            {movedLayout && <button className="btn sm" onClick={() => setLay({ ...lay, order: undefined, sideLeft: undefined, soloTop: undefined })}>Put them back</button>}</span></div>
           <label className="opt-row opt-check" data-find="split"><input type="checkbox" checked={split} onChange={() => setSplitPref(split ? 'off' : 'on')} /><span><b>Split screen</b><span className="small muted">Video and readout on top, the tab below (automatic when the Fold is half-folded).</span></span></label>
         </section>
 
@@ -1649,7 +1650,7 @@ export function PlayScreen() {
         onOpen={o => setLay({ ...lay, side: o, focus: false })} closedLabel="Video & readout" />
 
       <section className="play-tab">
-        <LayoutHint text="Arrange this screen: drag the bars between the boxes (the video, the tab, Scales & chords) to make them bigger or smaller, drag ☰ Move on a bar to put that box somewhere else, drag one all the way closed or tap its arrow to hide it, and tap the bar again to bring it back." />
+        <LayoutHint quiet text="Arrange this screen: drag the bars between the boxes (the video, the tab, Scales & chords) to make them bigger or smaller, drag ☰ Move on a bar to put that box somewhere else, drag one all the way closed or tap its arrow to hide it, and tap the bar again to bring it back." />
         {!sideOpen && readout(true)}
         {!sideOpen && micError && <p className="notice small">{micError}</p>}
         {tabTools}
