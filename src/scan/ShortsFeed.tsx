@@ -7,9 +7,13 @@ import { usePersist } from '../components/Controls'
 import { usePedals } from '../controls/pedals'
 import { loadApi, type YTPlayer } from '../components/YouTubePlayer'
 import { ScanVideo } from './RiffScanner'
-import { SHORT_STYLES, QuotaError, channelFrom, channelShorts, curate, defaultsPending, ensureDefaultFollows, findTabChannels, followed, searchShorts, setFollowed, setYoutubeKey, unfollow, youtubeKey, type ChannelPick, type Short } from './shorts'
+import { SHORT_STYLES, PRIORITY_CHANNELS, QuotaError, channelFrom, channelShorts, curate, defaultsPending, ensureDefaultFollows, findTabChannels, followed, isPriority, mixPriority, priorityShorts, searchShorts, setFollowed, setYoutubeKey, unfollow, youtubeKey, type ChannelPick, type Short } from './shorts'
 
 const FEED_KEY = 'kg:shortsFeed'
+const FEED_VER_KEY = 'kg:shortsFeedVer'
+/** bumped when the feed's make-up changes, so an old saved feed is refreshed once (2: Mr. Tabs / Level Up share) */
+const FEED_VER = '2'
+const savedVer = () => { try { return localStorage.getItem(FEED_VER_KEY) ?? '' } catch { return '' } }
 const QUOTA_KEY = 'kg:shortsQuota'
 const today = () => new Date().toISOString().slice(0, 10)
 /** searches made today (each costs 100 of the 10,000 free daily units) */
@@ -28,7 +32,8 @@ export function ShortsFeed({ onListen, onUseInJam }: { onListen: () => void; onU
   const [, bump] = useState(0)
   const hasKey = !!youtubeKey()
   const chs = followed()
-  const list = style === 'all' ? feed : feed.filter(s => s.style === style)
+  // a style picked: its Shorts, with Mr. Tabs / Level Up Guitar Tabs still making up their share
+  const list = style === 'all' ? feed : mixPriority(feed.filter(s => s.style === style && !isPriority(s)), feed.filter(s => isPriority(s)))
   const i = Math.max(0, Math.min(list.length - 1, at))
   const cur = list[i]
 
@@ -37,6 +42,11 @@ export function ShortsFeed({ onListen, onUseInJam }: { onListen: () => void; onU
     setBusy(true); setMsg('')
     const got: Short[] = []
     let note = ''
+    // Mr. Tabs and Level Up Guitar Tabs every time (owner 2026-11-16), and the channels he follows
+    const extra = Promise.all([
+      priorityShorts().catch(() => [] as Short[]),
+      channelShorts(followed().filter(c => !PRIORITY_CHANNELS.some(p => p.id === c.id))).catch(() => [] as Short[]),
+    ])
     if (hasKey && searchesToday() < 95) {
       // two of his styles per load (or the one picked), so the daily searches go a long way
       const styles = style === 'all' ? SHORT_STYLES.slice().sort(() => Math.random() - 0.5).slice(0, 2) : SHORT_STYLES.filter(s => s.id === style)
@@ -48,19 +58,21 @@ export function ShortsFeed({ onListen, onUseInJam }: { onListen: () => void; onU
         }
       }
     } else if (hasKey) note = "Today's YouTube searches are nearly used up: showing the channels you follow."
-    if (!got.length || note) got.push(...(await channelShorts().catch(() => [])))
+    const [pri, fol] = await extra
+    got.push(...pri, ...fol)
     const fresh = curate(got)
     if (!fresh.length) { setMsg(note || (hasKey ? 'No guitar Shorts came back: try another style.' : 'Add your YouTube key or follow some channels first.')); setBusy(false); return }
     const next = more ? [...feed, ...fresh.filter(s => !feed.some(f => f.id === s.id))] : fresh
     setFeed(next)
-    try { localStorage.setItem(FEED_KEY, JSON.stringify(next.slice(-300))) } catch { /* storage */ }
+    try { localStorage.setItem(FEED_KEY, JSON.stringify(next.slice(-300))); localStorage.setItem(FEED_VER_KEY, FEED_VER) } catch { /* storage */ }
     if (!more) setAt(0)
     setMsg(note)
     setBusy(false)
   }
-  useEffect(() => { if (!feed.length && (hasKey || chs.length)) void load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  // the channels followed from the start (Mr. Tabs, Level Up Guitar Tabs, Kenneth Acoustic): found by name once
-  useEffect(() => { if (defaultsPending().length) void ensureDefaultFollows().then(a => { if (a.length) bump(n => n + 1) }) }, [])
+  // a feed saved before Mr. Tabs / Level Up got their share is refreshed once
+  useEffect(() => { if ((!feed.length || savedVer() !== FEED_VER) && (hasKey || chs.length)) void load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // the channels followed from the start (Mr. Tabs, Level Up Guitar Tabs, Kenneth Acoustic, GuitarZero2Hero Express)
+  useEffect(() => { if (defaultsPending().length) void ensureDefaultFollows().then(a => { if (a.length) { bump(n => n + 1); if (!feed.length && !busy) void load() } }) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const go = (d: number) => {
     setScan(false)

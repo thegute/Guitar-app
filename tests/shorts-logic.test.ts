@@ -57,4 +57,18 @@ ok(c.slice(0, 3).filter(s => s.style).length >= 2 && styled >= 5, `his styles co
   ok(defaultsPending().length === 3, 'the other three are still to find')
   ok(defaultsPending().some(d => d.id === 'UC57CDvpwqAxHrJvVkZbaBxA'), 'GuitarZero2Hero Express is followed by its channel id')
 }
+// Mr. Tabs + Level Up Guitar Tabs: at least 33% of the feed when available, and small channel sets keep all videos
+{
+  const mt = (i: number) => ({ ...S(`mt${i}`, `Song ${i}`, 'UC_cm0YPagB8p2nXd8Z8Y_TA'), channel: 'Mr. Tabs', source: 'channels' as const })
+  const lu = (i: number) => ({ ...S(`lu${i}`, `Short ${i}`, 'UCqjPZuezV_ohA6gk-30OSPQ'), channel: 'Level Up Guitar Tabs', source: 'channels' as const })
+  const other = (i: number) => S(`ot${i}`, `Bluegrass lick ${i} #guitar`, `UCother${i % 12}`)
+  const pile = [...Array.from({ length: 12 }, (_, i) => mt(i)), ...Array.from({ length: 12 }, (_, i) => lu(i)), ...Array.from({ length: 30 }, (_, i) => other(i))]
+  const curated = curate(pile, rnd)
+  const priCount = curated.filter(s => s.channel === 'Mr. Tabs' || s.channel === 'Level Up Guitar Tabs').length
+  ok(curated.length >= 40 && priCount / curated.length >= 0.33, `Mr. Tabs + Level Up >= 33% of feed (${priCount}/${curated.length} = ${Math.round((priCount / curated.length) * 100)}%)`)
+  // only 3 followed channels: spreadChannels keeps videos instead of dropping them after the first few
+  const small = [...Array.from({ length: 5 }, (_, i) => mt(i)), ...Array.from({ length: 5 }, (_, i) => lu(i)), ...Array.from({ length: 4 }, (_, i) => ({ ...S(`ka${i}`, `Tune ${i}`, 'UCKK6N8sPcFjX_HijYC1u3Dw'), source: 'channels' as const }))]
+  const kept = curate(small, rnd)
+  ok(kept.length >= 10, `small followed-only feed keeps videos instead of dropping them (${kept.length}/${small.length})`)
+}
 console.log(`shorts feed: ${checks} checks, 0 failed`)

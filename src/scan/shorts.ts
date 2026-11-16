@@ -7,7 +7,7 @@
 // channel more than once in any 10 in a row.
 import { Capacitor, CapacitorHttp } from '@capacitor/core'
 
-export interface Short { id: string; title: string; channel: string; channelId: string; secs?: number; source: 'search' | 'channels'; style?: string }
+export interface Short { id: string; title: string; channel: string; channelId: string; secs?: number; source: 'search' | 'channels'; style?: string; /** a full-length video, not a Short */ long?: boolean }
 
 const KEY = 'kgx:youtube'
 export const youtubeKey = (): string => { try { return localStorage.getItem(KEY) ?? '' } catch { return '' } }
@@ -31,14 +31,29 @@ export function shuffle<T>(a: T[], rnd = Math.random): T[] {
   return x
 }
 
-/** No channel more than once in any `win` in a row: later ones wait their turn (or are dropped if they never fit). */
+// ---------- the two tab channels he wants a big share of the feed from (owner 2026-11-16: "at least 33%") ----------
+// Channel ids checked on YouTube 2026-11-16 (@Mr.Tabs.Guitar.Lessons, @LevelUpGuitarTabs).
+export const PRIORITY_CHANNELS: { id: string; name: string; handle: string; words: RegExp }[] = [
+  { id: 'UC_cm0YPagB8p2nXd8Z8Y_TA', name: 'Mr. Tabs', handle: '@Mr.Tabs.Guitar.Lessons', words: /^\s*mr\.?\s*tabs\b/i },
+  { id: 'UCqjPZuezV_ohA6gk-30OSPQ', name: 'Level Up Guitar Tabs', handle: '@LevelUpGuitarTabs', words: /level\s*up\s*guitar\s*tabs/i },
+]
+/** The share of the feed that goes to them (when there are enough of their videos). */
+export const PRIORITY_SHARE = 0.4
+/** which of the two it is (-1: neither) */
+export const priorityOf = (s: { channelId: string; channel: string }) => { const i = PRIORITY_CHANNELS.findIndex(p => p.id === s.channelId); return i >= 0 ? i : PRIORITY_CHANNELS.findIndex(p => p.words.test(s.channel)) }
+export const isPriority = (s: { channelId: string; channel: string }) => priorityOf(s) >= 0
+
+/** No channel more than once in any `win` in a row: later ones wait their turn (or are dropped if they never fit).
+ *  With fewer channels than `win` in the pile the window shrinks to their number (a few followed channels take turns
+ *  instead of most of their videos being dropped). Mr. Tabs / Level Up only have to skip 2 before coming back. */
 export function spreadChannels(list: Short[], win = 10): Short[] {
   const out: Short[] = []
   let wait = list.slice()
+  const w = Math.max(1, Math.min(win, new Set(list.map(s => s.channelId)).size))
   let guard = 0
   while (wait.length && guard++ < list.length * 3) {
-    const recent = new Set(out.slice(-(win - 1)).map(s => s.channelId))
-    const i = wait.findIndex(s => !recent.has(s.channelId))
+    const fits = (s: Short) => { const k = isPriority(s) ? Math.min(3, w) : w; return k <= 1 || !out.slice(-(k - 1)).some(x => x.channelId === s.channelId) }
+    const i = wait.findIndex(fits)
     if (i < 0) break
     out.push(wait[i])
     wait = wait.filter((_, k) => k !== i)
@@ -46,16 +61,32 @@ export function spreadChannels(list: Short[], win = 10): Short[] {
   return out
 }
 
-/** Guitar Shorts only (no djent / math rock), his styles first-ish: boosted ones are spread through the start. */
+/** Put `pri` through `rest` so they make up `share` of the list (from the very first item), while they last. */
+export function mixPriority<T>(rest: T[], pri: T[], share = PRIORITY_SHARE): T[] {
+  const a = rest.slice(), p = pri.slice(), out: T[] = []
+  let n = 0
+  while (a.length || p.length) {
+    if (p.length && (!a.length || n < Math.ceil(share * (out.length + 1)))) { out.push(p.shift()!); n++ } else out.push(a.shift()!)
+  }
+  return out
+}
+
+/** Guitar Shorts only (no djent / math rock), his styles first-ish: boosted ones are spread through the start, and
+ *  Mr. Tabs / Level Up Guitar Tabs make up about 40% of it (every 2nd or 3rd video) while there are enough of theirs. */
 export function curate(list: Short[], rnd = Math.random): Short[] {
   const seen = new Set<string>()
-  const ok = list.filter(s => !seen.has(s.id) && (seen.add(s.id), true) && (s.source === 'channels' || GUITAR.test(s.title) || SHORT_STYLES.some(st => st.words.test(s.title))) && !NOT.test(s.title))
+  const ok = list.filter(s => !seen.has(s.id) && (seen.add(s.id), true) && (s.source === 'channels' || isPriority(s) || GUITAR.test(s.title) || SHORT_STYLES.some(st => st.words.test(s.title))) && !NOT.test(s.title))
   for (const s of ok) s.style ??= SHORT_STYLES.find(st => st.words.test(s.title))?.id
-  const boosted = shuffle(ok.filter(s => s.style), rnd), rest = shuffle(ok.filter(s => !s.style), rnd)
+  const pri = ok.filter(isPriority), others = ok.filter(s => !isPriority(s))
+  const boosted = shuffle(others.filter(s => s.style), rnd), rest = shuffle(others.filter(s => !s.style), rnd)
   // two boosted for every other one
   const mixed: Short[] = []
   while (boosted.length || rest.length) { if (boosted.length) mixed.push(boosted.shift()!); if (boosted.length) mixed.push(boosted.shift()!); if (rest.length) mixed.push(rest.shift()!) }
-  return spreadChannels(mixed)
+  // the two tab channels taking turns (Shorts before their long lessons), then woven through
+  const byCh = PRIORITY_CHANNELS.map((_, c) => shuffle(pri.filter(s => priorityOf(s) === c), rnd).sort((x, y) => Number(!!x.long) - Number(!!y.long)))
+  const pOrder: Short[] = []
+  for (let k = 0; byCh.some(l => k < l.length); k++) for (const l of byCh) if (l[k]) pOrder.push(l[k])
+  return spreadChannels(mixPriority(mixed, pOrder))
 }
 
 const iso = (d: string) => { const m = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(d); return m ? (+(m[1] ?? 0)) * 3600 + (+(m[2] ?? 0)) * 60 + (+(m[3] ?? 0)) : 0 }
@@ -117,24 +148,58 @@ export async function channelShorts(chs = followed(), signal?: AbortSignal): Pro
   await Promise.all(chs.map(async c => {
     try {
       const xml = await getText(`https://www.youtube.com/feeds/videos.xml?channel_id=${c.id}`, signal)
-      for (const e of xml.split('<entry>').slice(1)) {
-        const id = /<yt:videoId>([\w-]{11})<\/yt:videoId>/.exec(e)?.[1]
-        const title = /<title>([^<]*)<\/title>/.exec(e)?.[1]
-        if (id && title) out.push({ id, title: decode(title), channel: c.name, channelId: c.id, source: 'channels' })
-      }
+      out.push(...parseFeed(xml, c))
     } catch { /* that channel's feed didn't load */ }
   }))
   return out
 }
+/** A channel's public upload feed (its link says whether each one is a Short). Pure: tested. */
+export function parseFeed(xml: string, c: Channel): Short[] {
+  const out: Short[] = []
+  for (const e of xml.split('<entry>').slice(1)) {
+    const id = /<yt:videoId>([\w-]{11})<\/yt:videoId>/.exec(e)?.[1]
+    const title = /<title>([^<]*)<\/title>/.exec(e)?.[1]
+    const href = /<link rel="alternate" href="([^"]+)"/.exec(e)?.[1] ?? ''
+    if (id && title) out.push({ id, title: decode(title), channel: c.name, channelId: c.id, source: 'channels', ...(/\/watch\?/.test(href) ? { long: true } : {}) })
+  }
+  return out
+}
 
-// ---------- channels followed from the start (owner 2026-11-11), found by name ----------
-// Their exact YouTube handles aren't known for sure, so each is looked up: with the key, a channel search by name (the
+/** Mr. Tabs and Level Up Guitar Tabs, always (owner 2026-11-16), followed or not. With the key: their uploads list
+ *  (playlistItems, 1 unit each, works in a browser too) plus lengths (1 unit); without it: their public feeds. */
+export async function priorityShorts(key = youtubeKey(), signal?: AbortSignal): Promise<Short[]> {
+  if (key) {
+    try {
+      const out: Short[] = []
+      await Promise.all(PRIORITY_CHANNELS.map(async c => {
+        const r = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=UU${c.id.slice(2)}&key=${encodeURIComponent(key)}`, { signal })
+        const j = await r.json().catch(() => ({})) as { items?: { snippet: { title: string; resourceId: { videoId: string } } }[] }
+        if (!r.ok) throw new Error(String(r.status))
+        for (const it of j.items ?? []) if (it.snippet?.resourceId?.videoId && !/^(private|deleted) video$/i.test(it.snippet.title)) out.push({ id: it.snippet.resourceId.videoId, title: decode(it.snippet.title), channel: c.name, channelId: c.id, source: 'channels' })
+      }))
+      // their lengths, and whether they can play inside KGuitar (50 at a time)
+      const info = new Map<string, { secs: number; embeddable: boolean }>()
+      for (let i = 0; i < out.length; i += 50) {
+        const v = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=contentDetails,status&id=${out.slice(i, i + 50).map(s => s.id).join(',')}&key=${encodeURIComponent(key)}`, { signal })
+        const vj = await v.json().catch(() => ({})) as { items?: { id: string; contentDetails: { duration: string }; status: { embeddable: boolean } }[] }
+        for (const it of vj.items ?? []) info.set(it.id, { secs: iso(it.contentDetails.duration), embeddable: it.status.embeddable })
+      }
+      const list = out.filter(s => info.get(s.id)?.embeddable !== false).map(s => { const d = info.get(s.id); return d ? { ...s, secs: d.secs, ...(d.secs > 180 ? { long: true } : {}) } : s })
+      if (list.length) return list
+    } catch (e) { if (signal?.aborted) throw e /* else: their public feeds */ }
+  }
+  return channelShorts(PRIORITY_CHANNELS.map(c => ({ id: c.id, name: c.name })), signal)
+}
+
+// ---------- channels followed from the start (owner 2026-11-11) ----------
+// Each is looked up by its channel id when known (checked on YouTube); else with the key, a channel search by name (the
 // best match); without it, on the phone, the likely @handles. Found ones join the follow list (he can remove any);
 // one he removed is never added back. State: kg:shortsDefaults = { name: 'added' | 'removed' | number (tries) }.
 export const DEFAULT_FOLLOWS: { name: string; query: string; handles: string[]; id?: string }[] = [
-  { name: 'Mr. Tabs', query: 'Mr. Tabs guitar', handles: ['@MrTabs', '@mrtabsguitar'] },
-  { name: 'Level Up Guitar Tabs', query: 'Level Up Guitar Tabs', handles: ['@LevelUpGuitarTabs', '@levelupguitartabs'] },
-  { name: 'Kenneth Acoustic', query: 'Kenneth Acoustic guitar', handles: ['@KennethAcoustic', '@kennethacoustic'] },
+  // ids and handles checked on YouTube 2026-11-16
+  { name: 'Mr. Tabs', query: 'Mr. Tabs guitar', handles: ['@Mr.Tabs.Guitar.Lessons'], id: 'UC_cm0YPagB8p2nXd8Z8Y_TA' },
+  { name: 'Level Up Guitar Tabs', query: 'Level Up Guitar Tabs', handles: ['@LevelUpGuitarTabs'], id: 'UCqjPZuezV_ohA6gk-30OSPQ' },
+  { name: 'Kenneth Acoustic', query: 'Kenneth Acoustic guitar', handles: ['@KennethAcoustic'], id: 'UCKK6N8sPcFjX_HijYC1u3Dw' },
   // owner 2026-11-11: tab Shorts and full song tab tutorials (handle and channel id checked on YouTube)
   { name: 'GuitarZero2Hero Express', query: 'GuitarZero2Hero Express', handles: ['@guitarzero2heroexpress'], id: 'UC57CDvpwqAxHrJvVkZbaBxA' },
 ]
@@ -165,6 +230,13 @@ export async function channelByName(q: string, key = youtubeKey(), signal?: Abor
 /** Find and follow the starting channels not added yet. Returns the ones added this time. */
 export async function ensureDefaultFollows(signal?: AbortSignal): Promise<Channel[]> {
   const added: Channel[] = []
+  // found earlier by a name search (which may have picked a look-alike): put the checked channel in its place
+  for (const d of DEFAULT_FOLLOWS) {
+    if (!d.id || defState()[d.name] !== 'added' || followed().some(c => c.id === d.id)) continue
+    const k = d.name.toLowerCase()
+    setFollowed([...followed().filter(c => !c.name.toLowerCase().includes(k.replace(/\.$/, ''))), { id: d.id, name: d.name }])
+    added.push({ id: d.id, name: d.name })
+  }
   for (const d of defaultsPending()) {
     const s = defState()
     let ch: Channel | null = null
