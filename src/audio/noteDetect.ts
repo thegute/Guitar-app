@@ -399,7 +399,10 @@ export class NoteDetector {
           if (boosted && before && plain[c] < 1.2 * before[c]) continue
           if (!boosted && before && (!audible(c) || shadowed(c))) continue
           // just the 3rd or 5th overtone of a lower note that's really sounding (a 5th or major 3rd below)?
-          if ((rawPlain[c - 19] ?? 0) > 0.8 * rawPlain[c] || (rawPlain[c - 28] ?? 0) > 0.8 * rawPlain[c]) continue
+          // (in "what the pick added", so strings still ringing in an arpeggio don't count; with the app's own sound
+          // coming back into the mic, the whole sound is checked too)
+          if ((S[c - 19] ?? 0) > 0.8 * S[c] || (S[c - 28] ?? 0) > 0.8 * S[c]) continue
+          if (suppressedBleed.size && ((rawPlain[c - 19] ?? 0) > 0.8 * rawPlain[c] || (rawPlain[c - 28] ?? 0) > 0.8 * rawPlain[c])) continue
           // single notes must be near the top: distortion and echoes put plenty of other notes at a third of it
           if (sc >= top * share && contrast(c) >= 1.35 && sc > bestExpScore) { bestExpScore = sc; bestExp = e }
         }

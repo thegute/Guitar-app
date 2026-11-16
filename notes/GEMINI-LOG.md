@@ -1,5 +1,14 @@
 # Gemini week log (newest first)
 
+- 2026-11-15 (Claude, owner's bug report): **Note follower skipped ahead** ("thinks I hit a note I didn't", Game mode and
+  Wait for me, electric through the Pocket Master; in every build, so it was Claude's detector, not the engine week).
+  Fixed in `noteDetect.ts` (ghost attacks = pedal echoes / ringing can't count as a new note; legato only when the old
+  note faded; single notes need 55% of the loudest; note-now checked before the next; octave-above-last = overtone),
+  `follow.ts` matchNote (legato never looks ahead; look-ahead needs the exact note and not the note just played; ±1 octave,
+  ±2 on low strings) and `inTime.ts` matchTimed (same octave limit). Gemini's bleed suppression kept; its rawPlain
+  overtone guard now applies only while bleed is being suppressed (it cost ringing arpeggios on high gain 13/16 → 4/16).
+  New bench `npm run test:skip` (tests/skip-eval.ts): false moves ahead 206 → 41; `test:detect` 2235/2240, false
+  "wrong note" 104 → 67. Please run both after any change to noteDetect / follow / listener.
 - 2026-11-15: **Riff Scanner Overhaul — Video On-Screen Tab Scanning, Playhead Masking, Comb-Grid Staff Recovery, Technique Detection & One-Tap Note Fixer**:
   - **Root Causes Diagnosed & Fixed (`src/scan/image.ts`, `src/scan/pictures.ts`, `src/scan/crnnRead.ts`, `src/scan/tabRead.ts`, `src/scan/tabReadSong.ts`, `src/scan/RiffScanner.tsx`, `src/scan/ScanParts.tsx`, `src/scan/ScanPlayer.tsx`, `src/ml/toTab.ts`):**
     1. **Comb-Grid Staff Line Reconstruction (`src/scan/image.ts`, `src/scan/pictures.ts`):** H.264/WebM video compression and dense digit runs frequently washed out 1–2 interior string lines below the strict `0.35` row-contrast threshold, causing `findStrips()` to miss the 6-line tab completely or drop windows. Added `d = [1, 2, 3, 4]` local contrast in `lineAt()`, `findStripsRobust()` contrast-stretched fallback, early horizontal crop-box widening in `Stitcher.add`, and periodic 6-line comb-grid interpolation when `>= n - 2` lines are strong and `onMean - offMean >= 0.17`.
