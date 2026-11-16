@@ -31,13 +31,25 @@ export interface Watched {
 /** Read Gemini's answer. */
 export function parseWatched(text: string): Watched {
   const t = text.replace(/```[a-z]*\n?|```/g, '')
-  const line = (k: string) => new RegExp(`^\\s*${k}:\\s*(.*)$`, 'im').exec(t)?.[1]?.trim() ?? ''
+  const line = (k: string) => new RegExp(`^\\s*(?:[-*]\\s*)?\\*{0,2}${k}:\\*{0,2}\\s*(.*)$`, 'im').exec(t)?.[1]?.trim() ?? ''
   const src = line('SOURCE').toLowerCase()
   const tempo = Number(/\d{2,3}/.exec(line('TEMPO'))?.[0])
   const sig = /(\d{1,2})\s*\/\s*(\d{1,2})/.exec(line('TIME'))
   const chords = line('CHORDS').split(/[\s|,]+/).filter(c => /^[A-G][#b]?[^\s]*$/.test(c))
-  const i = t.search(/^\s*TAB:\s*$/im)
-  const tab = i >= 0 ? t.slice(t.indexOf('\n', i) + 1).trim() : t.split('\n').filter(l => /^\s*[A-Ga-g][#b]?\s*\|/.test(l) || /^\s+[A-G]/.test(l)).join('\n')
+  const tabMatch = /^\s*(?:[-*]\s*)?\*{0,2}TAB:\*{0,2}\s*(.*)$/im.exec(t)
+  let tab = ''
+  if (tabMatch) {
+    const rest = t.slice(tabMatch.index + tabMatch[0].length).trim()
+    tab = tabMatch[1]?.trim() ? `${tabMatch[1].trim()}\n${rest}`.trim() : rest
+  } else {
+    // Keep blank lines between tab systems so multi-system tabs don't merge into an 18-line block.
+    const kept: string[] = []
+    for (const ln of t.split('\n')) {
+      if (/^\s*[A-Ga-g][#b]?\s*\|/.test(ln) || (/^\s+[A-G]/.test(ln) && !/:/.test(ln))) kept.push(ln)
+      else if (!ln.trim() && kept.length && kept[kept.length - 1] !== '') kept.push('')
+    }
+    tab = kept.join('\n').trim()
+  }
   return {
     source: /screen/.test(src) ? 'screen' : /sound/.test(src) ? 'sound' : looksLikeTab(tab) ? 'sound' : 'none',
     tempo: tempo >= 30 && tempo <= 300 ? tempo : null,
@@ -59,8 +71,9 @@ export function parseTime(s: string): number | undefined {
 }
 
 export async function watchLink(url: string, o: { inst: string; strings: string; singing?: boolean; from?: number; to?: number; signal?: AbortSignal }): Promise<Watched> {
-  const short = o.from !== undefined && o.to !== undefined && o.to - o.from <= 180
-  const text = await watchVideo(url, WATCH_PROMPT(o.inst, o.strings, !!o.singing), { from: o.from, to: o.to, detail: short, signal: o.signal })
+  const isShort = /\/shorts\//.test(url)
+  const bounded = o.from !== undefined && o.to !== undefined && o.to - o.from <= 180
+  const text = await watchVideo(url, WATCH_PROMPT(o.inst, o.strings, !!o.singing), { from: o.from, to: o.to, detail: isShort || bounded, highRes: true, signal: o.signal })
   return parseWatched(text)
 }
 

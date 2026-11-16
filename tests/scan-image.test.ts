@@ -193,4 +193,31 @@ E|-3---------|-----------|
   const composedMid = st.strips[0].px[30 * W + 120]
   ok(composedMid > 0.9, `Stitcher masked out the playhead column in composed strip (pixel at x=120 between lines = ${composedMid.toFixed(2)})`)
 }
+// 3px-gap compact staff detection (e.g., 16:9 YouTube video inside a portrait phone screen grab)
+{
+  const g = canvas(400, 120, 0.08)
+  staff(g, 20, 60, 340, 3, 6, 0.92, 0.08, notes(12, 340))
+  const s = findStrips(g, [6])
+  ok(s.length === 1 && s[0].lines.length === 6, `compact 3px-gap staff found (${JSON.stringify(s.map(x => x.lines))})`)
+}
+// parseWatched: markdown bold headers and multi-system blank lines preserved
+{
+  const { parseWatched } = await import('../src/scan/link')
+  const w1 = parseWatched('**SOURCE:** screen\n**TEMPO:** 112 BPM\n**TIME:** 4/4\n**KEY:** G\n**CHORDS:** G C D\n**TAB:**\ne|-0-2-3-|\nB|-3-----|\nG|-------|\nD|-------|\nA|-------|\nE|-------|')
+  ok(w1.source === 'screen' && w1.tempo === 112 && w1.chords.length === 3 && looksLikeTab(w1.tab), 'parseWatched handles markdown bold headers')
+  const w2 = parseWatched('SOURCE: screen\nTEMPO: 100\n\ne|-0-|\nB|-1-|\nG|-0-|\nD|-2-|\nA|-3-|\nE|---|\n\ne|-3-|\nB|-0-|\nG|-0-|\nD|-0-|\nA|-2-|\nE|-3-|')
+  ok(w2.tab.includes('\n\n') && songFromScan(w2.tab, 'Multi', current())!.song.tracks[0].bars.length >= 2, 'parseWatched keeps blank lines between multiple tab systems')
+}
+// songTabText: high string ("e |") on top, low string ("E |") on bottom, round-trips with stringNames(inst)
+{
+  const { songTabText } = await import('../src/scan/tabReadSong')
+  const { stringNames } = await import('../src/tabs/importer')
+  const inst = current()
+  const names = stringNames(inst)
+  const doc = songFromScan('e|-0-2-|\nB|-----|\nG|-----|\nD|-----|\nA|-----|\nE|-3---|', 'Order check', inst)!
+  const txt = songTabText(doc.song, names)
+  const lines = txt.split('\n')
+  ok(lines[0].startsWith('e |') && lines[0].includes('0') && lines[0].includes('2'), `songTabText puts high e notes on top ("${lines[0]}")`)
+  ok(lines[5].startsWith('E |') && lines[5].includes('3'), `songTabText puts low E notes on bottom ("${lines[5]}")`)
+}
 console.log(`scan image: ${checks} checks, 0 failed`)

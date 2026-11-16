@@ -47,7 +47,7 @@ function findStripsRobust(g: Gray): Strip[] {
 /** Where the tab is in a picture (as 0..1 boxes, one per staff), or [] when no staff lines were found. */
 export function tabBoxes(src: Src): Box[] {
   const { w, h } = sizeOf(src)
-  const { g, scale } = grayAt(src, 1000)
+  const { g, scale } = grayAt(src, 1400)
   return findStripsRobust(g).map(s => toBox(s, scale, w, h))
 }
 const toBox = (s: Strip, scale: number, w: number, h: number): Box => ({ x: s.left / scale / w, y: s.top / scale / h, w: (s.right - s.left) / scale / w, h: (s.bottom - s.top) / scale / h })
@@ -189,10 +189,10 @@ export class Stitcher {
   add(src: Src, t?: number) {
     this.frames++
     if (!this.box) {
-      // look for staff lines (on every frame until found, but give up after 60 tries: then read whole frames)
+      // look for staff lines (on every frame until found, but give up after 90 tries: then read whole frames)
       this.searched++
       const { w, h } = sizeOf(src)
-      const { g, scale } = grayAt(src, 1000)
+      const { g, scale } = grayAt(src, 1400)
       const s = findStripsRobust(g)
       if (s.length) {
         this.gap = s[0].lines.length > 1 ? (s[0].lines[s[0].lines.length - 1] - s[0].lines[0]) / (s[0].lines.length - 1) / scale : 10
@@ -201,12 +201,12 @@ export class Stitcher {
         const up = (this.gap * 2) / h, down = (this.gap * 3.5) / h
         const y0 = Math.max(0, b.y - up), y1 = Math.min(1, b.y + b.h + down)
         this.box = { ...b, y: y0, h: y1 - y0 }
-      } else if (this.searched < 60) return
+      } else if (this.searched < 90) return
       else this.box = { x: 0, y: 0, w: 1, h: 1 }
     } else if (this.kept <= 4 && !this.doneW && this.layers.length <= 1) {
       // If the first frame caught the tab while it was still fading/sliding in horizontally, allow widening the box
       const { w, h } = sizeOf(src)
-      const { g, scale } = grayAt(src, 1000)
+      const { g, scale } = grayAt(src, 1400)
       const s = findStripsRobust(g)
       if (s.length) {
         const b = unionBox(s.map(x => toBox(x, scale, w, h)))!

@@ -284,20 +284,24 @@ export function readPdfShapes(pages: PdfPage[], tuning: number[], title: string)
 }
 
 /** Good enough to use without asking the AI: a real tab was found, and most of it read cleanly. */
-export const trustReading = (r: PictureReading | null) => !!r && r.notes >= 6 && r.unsure <= r.notes * 0.35
+export const trustReading = (r: PictureReading | null) => !!r && r.notes >= 4 && r.unsure <= Math.max(2, r.notes * 0.55)
 
 /** A picture (an <img> that has loaded) → grey pixels for the reader. Small pictures are enlarged so a tab's numbers are
  *  at least ~20 pixels tall (screenshots of a phone screen), big ones kept (a 300 dpi page is fine as it is). */
-export function grayOf(img: HTMLImageElement | HTMLCanvasElement, minWidth = 1600): Gray {
+export function grayOf(img: HTMLImageElement | HTMLCanvasElement, minWidth = 1600, box?: { x: number; y: number; w: number; h: number } | null): Gray {
   const w0 = 'naturalWidth' in img ? img.naturalWidth : img.width, h0 = 'naturalHeight' in img ? img.naturalHeight : img.height
-  const s = Math.min(3, Math.max(1, minWidth / Math.max(1, w0)))
-  const w = Math.round(w0 * s), h = Math.round(h0 * s)
+  const sx = box ? Math.max(0, Math.round(box.x * w0)) : 0
+  const sy = box ? Math.max(0, Math.round(box.y * h0)) : 0
+  const sw = box ? Math.max(1, Math.min(w0 - sx, Math.round(box.w * w0))) : w0
+  const sh = box ? Math.max(1, Math.min(h0 - sy, Math.round(box.h * h0))) : h0
+  const s = Math.min(4, Math.max(1, minWidth / Math.max(1, sw)))
+  const w = Math.round(sw * s), h = Math.round(sh * s)
   const c = document.createElement('canvas')
   c.width = w; c.height = h
   const x = c.getContext('2d', { willReadFrequently: true })!
   x.fillStyle = '#fff'; x.fillRect(0, 0, w, h)
   x.imageSmoothingQuality = 'high'
-  x.drawImage(img, 0, 0, w, h)
+  x.drawImage(img, sx, sy, sw, sh, 0, 0, w, h)
   const d = x.getImageData(0, 0, w, h).data
   const px = new Float32Array(w * h)
   for (let i = 0; i < w * h; i++) px[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) / 255
@@ -311,18 +315,19 @@ export function songTabText(song: Song, names: string[]): string {
   const t = song.tracks[0]
   const lines: string[] = []
   const perLine = 4
+  const asc = [...names].reverse()
   for (let b0 = 0; b0 < t.bars.length; b0 += perLine) {
-    const rows = names.map(n => n.padEnd(2) + '|')
+    const rows = asc.map(n => n.padEnd(2) + '|')
     for (const bar of t.bars.slice(b0, b0 + perLine)) {
       for (const st of bar.steps) {
         const cell = Math.max(2, ...st.notes.map(n => String(n.fret).length + (n.tech && n.tech !== 'x' ? 1 : 0))) + Math.max(0, Math.round(st.dur * 4) - 1)
-        for (let k = 0; k < names.length; k++) {
+        for (let k = 0; k < asc.length; k++) {
           const n = st.notes.find(m => m.string === k)
           const tx = n ? (n.tech === 'x' ? 'x' : String(n.fret) + (n.tech && /^[hp/\\b~]$/.test(n.tech) ? n.tech : '')) : ''
           rows[k] += '-' + tx + '-'.repeat(Math.max(0, cell - tx.length))
         }
       }
-      for (let k = 0; k < names.length; k++) rows[k] += '-|'
+      for (let k = 0; k < asc.length; k++) rows[k] += '-|'
     }
     lines.push(rows.reverse().join('\n'))
   }

@@ -346,7 +346,7 @@ export function ttsModel(): string {
  * on the free tier) and answers about it. `from`/`to` (seconds) limit it to a part. Only Gemini can do this.
  * Long jobs: waits up to `timeoutMs` (default 4 minutes); Cancel with `signal`.
  */
-export async function watchVideo(url: string, prompt: string, o: { from?: number; to?: number; detail?: boolean; maxTokens?: number; timeoutMs?: number; signal?: AbortSignal } = {}): Promise<string> {
+export async function watchVideo(url: string, prompt: string, o: { from?: number; to?: number; detail?: boolean; highRes?: boolean; maxTokens?: number; timeoutMs?: number; signal?: AbortSignal } = {}): Promise<string> {
   const v = aiSettings()
   const key = v.keys.gemini
   if (!key) throw new AiError('Watching a YouTube video needs a free Google Gemini key (Settings → You → AI helper).')
@@ -361,7 +361,7 @@ export async function watchVideo(url: string, prompt: string, o: { from?: number
     const vm = extras ? meta : Object.fromEntries(Object.entries(meta).filter(([k]) => k !== 'fps'))
     return {
     contents: [{ role: 'user', parts: [{ file_data: { file_uri: url }, ...(Object.keys(vm).length ? { video_metadata: vm } : {}) }, { text: prompt }] }],
-    generationConfig: { maxOutputTokens: o.maxTokens ?? 8000, ...(extras && o.detail ? { mediaResolution: 'MEDIA_RESOLUTION_HIGH' } : {}), ...geminiThinking(model) },
+    generationConfig: { maxOutputTokens: o.maxTokens ?? 8000, ...(extras && (o.detail || o.highRes) ? { mediaResolution: 'MEDIA_RESOLUTION_HIGH' } : {}), ...geminiThinking(model) },
     }
   }
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`

@@ -68,12 +68,14 @@ export function RiffScanner({ listen, onUseInJam, startMode }: {
 }
 
 /** Screenshots, or a video / audio file → a tab. */
-export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onListen, initialLink, autoRead = false, title }: {
+export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onListen, initialLink, autoRead = false, autoLink = false, title }: {
   onUseInJam?: (chords: string[]) => void
   youtube?: string
   initialPics?: { name: string; url: string }[]
   /** read initialPics straight away (pages picked from a book: one tap, not two) */
   autoRead?: boolean
+  /** scan initialLink straight away (tapped "Scan this Short" in the Shorts feed) */
+  autoLink?: boolean
   /** the song's name when it's read (e.g. the book and its pages) */
   title?: string
   /** offer a YouTube link (Gemini watches it → KGuitar grabs its screen → your screen recording) */
@@ -112,6 +114,15 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     autoDone.current = true
     void scanPictures()
   }, [autoRead, ready, pics.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  // tapped "Scan this Short": kick off link scan right away if Gemini is configured, else open the on-screen grabber
+  const autoLinkDone = useRef('')
+  useEffect(() => {
+    const u = initialLink?.trim()
+    if (!autoLink || !u || autoLinkDone.current === u || !youtubeId(u)) return
+    autoLinkDone.current = u
+    if (canAskGemini()) void scanLink(u)
+    else { setWhy('Set up a free Gemini key for automatic watching, or let KGuitar grab the tab right from the screen.'); setPhase('grab') }
+  }, [autoLink, initialLink]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function addUrls(list: { name: string; url: string }[]) {
     const add: Pic[] = []
@@ -181,7 +192,8 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     await new Promise(r => setTimeout(r, 30))
     try {
       const { readTabPicturesBest, trustReading, grayOf, songTabText } = await import('./tabReadSong')
-      const r = await readTabPicturesBest(pics.map(p => grayOf(p.img)), inst.midis, name)
+      let r = await readTabPicturesBest(pics.map(p => grayOf(p.img, 1600, box)), inst.midis, name)
+      if (!r && box) r = await readTabPicturesBest(pics.map(p => grayOf(p.img)), inst.midis, name)
       if (r && (trustReading(r) || !ready)) {
         const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song: r.song, youtube, updated: Date.now() }
         const names = stringNames(inst)
@@ -265,8 +277,8 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
   const linkUrl = youtubeId(link) ? link.trim() : ''
   const strNames = [...inst.tuning.notes].reverse().map((n, i) => { const x = n.replace(/-?\d+$/, ''); return i === 0 && inst.strings === 6 ? 'e' : x }).map(x => `${x}|`).join(', ')
   // 1 Gemini watches the link
-  async function scanLink() {
-    if (!linkUrl) return
+  async function scanLink(targetUrl = linkUrl) {
+    if (!targetUrl) return
     setPhase(null); setWhy('')
     const signal = begin([
       { id: 'watch', label: 'Gemini is watching the video', state: 'run' },
@@ -277,20 +289,20 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     const tick = setInterval(() => step('watch', { note: `${Math.round((Date.now() - t0) / 1000)} s (a whole song can take a minute or two)` }), 1000)
     try {
       if (!canAskGemini()) throw new AiError('Gemini needs its free key to watch videos.')
-      const w = await watchLink(linkUrl, { inst: inst.isUke ? 'ukulele' : 'guitar', strings: strNames, from: parseTime(from), to: parseTime(to), signal })
+      const w = await watchLink(targetUrl, { inst: inst.isUke ? 'ukulele' : 'guitar', strings: strNames, from: parseTime(from), to: parseTime(to), signal })
       clearInterval(tick)
       if (w.source === 'none' || (!w.tab && w.chords.length < 2)) throw new AiError("Gemini watched it but found no guitar part it could write down.")
       step('watch', { state: 'done', note: w.source === 'screen' ? 'read the tab on screen' : 'worked it out from the sound' })
       step('hand', { state: 'run' })
       const title = 'Scanned riff'
-      let doc = w.tab ? songFromScan(w.tab, title, inst, linkUrl) : null
+      let doc = w.tab ? songFromScan(w.tab, title, inst, targetUrl) : null
       const chordsOnly = !doc
-      if (!doc) doc = songFromText(chartText(w.chords), title, inst, linkUrl)
+      if (!doc) doc = songFromText(chartText(w.chords), title, inst, targetUrl)
       if (!doc) throw new AiError("Gemini's answer didn't read as a tab or chords.")
-      doc = { ...doc, id: newId(), youtube: linkUrl, song: { ...doc.song, ...(w.tempo ? { tempo: w.tempo, tempoFrom: 'ai' as const } : {}), ...(w.timeSig ? withSig(w.timeSig) : {}) } }
+      doc = { ...doc, id: newId(), youtube: targetUrl, song: { ...doc.song, ...(w.tempo ? { tempo: w.tempo, tempoFrom: 'ai' as const } : {}), ...(w.timeSig ? withSig(w.timeSig) : {}) } }
       step('hand', { state: 'done' }); step('tempo', { state: 'done', note: `${Math.round(doc.song.tempo ?? 90)} BPM${w.timeSig ? `, ${w.timeSig.join('/')}` : ''}` })
       setOut({
-        doc, heard: w.source !== 'screen' || chordsOnly, text: w.tab || undefined, reparse: t => songFromScan(t, title, inst, linkUrl),
+        doc, heard: w.source !== 'screen' || chordsOnly, text: w.tab || undefined, reparse: t => songFromScan(t, title, inst, targetUrl),
         how: w.source === 'screen' ? 'Gemini watched the video and read the tab on screen.' : chordsOnly ? 'Gemini watched the video and wrote down the chords it heard.' : 'Gemini watched the video and worked the part out from the sound.',
       })
       setStages(null)
@@ -308,7 +320,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     const f = parseTime(from) ?? 0, t = parseTime(to)
     const secs = Math.min(300, Math.max(10, t !== undefined ? t - f + 2 : 180))
     try {
-      session.current = await startGrab({ seconds: secs, fps: 2 })
+      session.current = await startGrab({ seconds: secs, fps: 3 })
       session.current.onStopped(() => void stopGrabbing())
       ytApi.current?.seek(f); ytApi.current?.play()
       const t0 = Date.now()

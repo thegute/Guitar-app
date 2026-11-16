@@ -158,8 +158,9 @@ type Ort = typeof import('onnxruntime-web')
 let ortP: Promise<Ort> | null = null
 export async function ortWeb(): Promise<Ort> {
   ortP ??= import('onnxruntime-web').then(o => {
-    // the WebAssembly files come from the CDN at exactly this version (they're big, and only the web needs them)
-    o.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/'
+    // Production builds already bundle the WebAssembly file in assets/ (offline-safe in Android WebView too).
+    // Vite dev mode serves from node_modules/.vite/deps where .wasm isn't copied, so dev keeps the CDN path.
+    if (import.meta.env.DEV) o.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/'
     o.env.wasm.numThreads = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 2) : 1
     return o
   })

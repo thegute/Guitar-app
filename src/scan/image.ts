@@ -149,7 +149,7 @@ function stripsOf(g: Gray, strings: number[], dark: boolean): Strip[] {
       const ys = cand.slice(i, i + n)
       const gaps = ys.slice(1).map((y, k) => y - ys[k])
       const mean = gaps.reduce((a, b) => a + b, 0) / gaps.length
-      if (mean < 4 || gaps.some(d => Math.abs(d - mean) > Math.max(1.5, mean * 0.18))) continue
+      if (mean < 3 || gaps.some(d => Math.abs(d - mean) > Math.max(1.5, mean * 0.18))) continue
       // the next line (if any) isn't part of this staff
       const left = Math.min(...ys.map(y => spanL[y])), right = Math.max(...ys.map(y => spanR[y]))
       out.push({ top: Math.max(0, Math.round(ys[0] - mean * 2.6)), bottom: Math.min(h - 1, Math.round(ys[n - 1] + mean * 1.8)), left: Math.max(0, left - Math.round(mean * 2)), right: Math.min(w - 1, right + Math.round(mean)), lines: ys })
@@ -164,7 +164,7 @@ function stripsOf(g: Gray, strings: number[], dark: boolean): Strip[] {
   const softCand: number[] = []
   for (let y = 2; y < h - 2; y++) {
     if (lineRow[y] < 0.16) continue
-    if (softCand.length && y - softCand[softCand.length - 1] <= 3) {
+    if (softCand.length && y - softCand[softCand.length - 1] <= 2) {
       if (lineRow[y] > lineRow[softCand[softCand.length - 1]]) softCand[softCand.length - 1] = y
       continue
     }
@@ -180,7 +180,7 @@ function stripsOf(g: Gray, strings: number[], dark: boolean): Strip[] {
         const span = softCand[b] - softCand[a]
         for (let div = 1; div < n; div++) {
           const gap = span / div
-          if (gap < 4 || gap > Math.min(64, (h - 4) / (n - 1))) continue
+          if (gap < 3 || gap > Math.min(64, (h - 4) / (n - 1))) continue
           const snapTol = gap >= 10 ? 2 : 1
           for (let s0 = 0; s0 < n - div; s0++) {
             const yTop = softCand[a] - s0 * gap
@@ -211,7 +211,7 @@ function stripsOf(g: Gray, strings: number[], dark: boolean): Strip[] {
               offSum += lineRow[my]
             }
             const onMean = onSum / n, offMean = offSum / (n - 1)
-            if (onMean < 0.28 || onMean - offMean < 0.17) continue
+            if (onMean < 0.28 || onMean - offMean < (mean < 4 ? 0.22 : 0.17)) continue
             // Don't match a 4-string subset inside a 6-string staff
             const yAbove = Math.round(ys[0] - mean), yBelow = Math.round(ys[n - 1] + mean)
             if ((yAbove >= 2 && lineRow[yAbove] > onMean * 0.75) || (yBelow < h - 2 && lineRow[yBelow] > onMean * 0.75)) continue
