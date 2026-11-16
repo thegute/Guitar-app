@@ -51,12 +51,18 @@ export type FollowResult = { kind: 'hit'; step: number; skipped: number } | { ki
 
 /** Matches played notes to the tab, step by step. Pitch classes match in any octave by default
  *  (phone mics often hear a low string an octave up). */
-export function matchNote(steps: FollowStep[], idx: number, midi: number, strictOctave = false, sinceHit = Infinity): FollowResult {
+export function matchNote(steps: FollowStep[], idx: number, midi: number, strictOctave = false, sinceHit = Infinity, attack = true): FollowResult {
   if (idx >= steps.length) return { kind: 'done' }
   const same = (a: number, b: number) => (strictOctave ? a === b : ((a - b) % 12 + 12) % 12 === 0)
-  for (let look = 0; look <= 2 && idx + look < steps.length; look++) {
+  // looking ahead needs the exact note (a low note may read an octave up), a fresh pick, and not the note just
+  // played (it's still ringing, and a pedal's delay repeats it): otherwise the cursor ran ahead on its own
+  const exact = (m: number) => m === midi || (m < 52 && m + 12 === midi)
+  const prev = idx > 0 ? accepted(steps[idx - 1]) : []
+  for (let look = 0; look <= (attack ? 2 : 0) && idx + look < steps.length; look++) {
     // look ahead one or two steps in case a note was missed, but only accept that when it is unambiguous
-    if (accepted(steps[idx + look]).some(m => same(m, midi))) {
+    // the note now may read an octave off (two on the low strings: phone mics, amp tones), not more: that's an overtone
+    if (accepted(steps[idx + look]).some(m => (look ? exact(m) : same(m, midi) && Math.abs(m - midi) <= (m < 52 ? 24 : 12)))) {
+      if (look > 0 && prev.some(m => same(m, midi))) break
       if (look > 0 && steps.slice(idx, idx + look).some(st => accepted(st).some(m => same(m, midi)))) continue
       return { kind: 'hit', step: idx + look, skipped: look }
     }

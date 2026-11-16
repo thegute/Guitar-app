@@ -593,7 +593,7 @@ export function PlayScreen() {
   const backingOffered = useRef(new Set<string>())
   const offerBacking = useRef<(asked?: string, force?: boolean) => void>(() => {})
   /** Wait-for-me mode: a single note was heard. */
-  const onNote = useCallback((heardMidi: number) => {
+  const onNote = useCallback((heardMidi: number, attack = true) => {
     const { pos, follow, strict, loopRange } = ref.current
     // strummed chords are checked by onChord (the whole chord), not by one note
     if (follow.steps[pos]?.chord) return
@@ -601,7 +601,7 @@ export function PlayScreen() {
     const midi = (follow.steps[pos] && taughtAlias(ref.current.kind, follow.steps[pos].midis, heardMidi)) ?? heardMidi
     // inside a loop, only look as far as the loop's last note
     const steps = loopRange ? follow.steps.slice(0, loopRange.b + 1) : follow.steps
-    const r = matchNote(steps, pos, midi, strict, (performance.now() - lastHitMs.current) / 1000)
+    const r = matchNote(steps, pos, midi, strict, (performance.now() - lastHitMs.current) / 1000, attack)
     const fi = follow.idx[r.kind === 'hit' ? r.step : pos]
     coachRef.current?.heard()
     if (r.kind === 'hit') { lastHitMs.current = performance.now(); if (fi !== undefined) coachRef.current?.hit(fi); hitAt(r.step, r.skipped, midi) }
@@ -679,7 +679,7 @@ export function PlayScreen() {
         // the coach is talking: on the phone's mic its voice isn't your guitar; on a USB input, playing on cuts it off
         if (isSpeaking()) { if (!l.external) return; stopSpeaking() }
         if (modeRef.current === 'time') { if (inTimeRef.current.running) inTimeRef.current.played(e.attack ? lastOnset.current : e.time, { midi: e.midi }) }
-        else onNote(e.midi)
+        else onNote(e.midi, e.attack)
       }
       l.onChord = (chroma, at) => {
         if (talkingNow() || (isSpeaking() && !l.external)) return
