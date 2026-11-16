@@ -42,6 +42,11 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
   input is never processed (played back only in the opt-in interface setup); models whose training data is non-commercial are never
   bundled or re-hosted (download from the source on request); ask before deleting anything on his computer.
 
+## OWNER'S PLAN (2026-11-15 23:07, his order): 1 Gemini finishes the sound engine -> 2 harvest humbucker tones (rock, jazz, prog
+## metal) -> 3 re-record better acoustic sounds for the new engine -> 4 Strum Machine with these sounds "and more" -> 5 looper rework
+## -> 6 phone/tablet sync. ALONGSIDE: keep improving the Riff Scanner ("still isn't good enough"); a UX redesign to look and feel more
+## professional and intuitive; finish the Learn lessons (theory course levels 4-8 + the Deep Dive units).
+
 ## SYNC PHONE <-> TABLET (owner 2026-11-15 23:02): "save all my settings and sound files and songs and progress between my
 ## phone and my tablet". Today Backup (Settings -> Backup) carries settings, progress and songs only, by hand through Drive.
 ## Wanted: everything (recordings, looper takes, pad samples, Then vs now, imported packs/books stay private) kept in step.
