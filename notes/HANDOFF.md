@@ -45,6 +45,8 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
 ## SYNC PHONE <-> TABLET (owner 2026-11-15 23:02): "save all my settings and sound files and songs and progress between my
 ## phone and my tablet". Today Backup (Settings -> Backup) carries settings, progress and songs only, by hand through Drive.
 ## Wanted: everything (recordings, looper takes, pad samples, Then vs now, imported packs/books stay private) kept in step.
+## 23:03: "play one day on my phone then a few hours later pick up on my tablet and have it synced" = automatic, no manual
+## backup. Plan: his own Google Drive (app-private folder), push on pause/close, pull on open, merge progress (add minutes).
 
 ## LOOPER REWORK (owner 2026-11-15 22:57, first job after the sound engine is built)
 "It sounds terrible... doesn't really capture how my tone actually sounds... they ALL are terrible and need a rework."
