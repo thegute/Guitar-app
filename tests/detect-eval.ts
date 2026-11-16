@@ -235,12 +235,12 @@ function oldDetector(x: Float32Array, external: boolean, onNote: (m: number, t: 
   }
 }
 
-function follow(steps: FollowStep[], run: (expect: (midis: number[], after: number[]) => void, onEvent: (midi: number, time?: number) => void) => void) {
+function follow(steps: FollowStep[], run: (expect: (midis: number[], after: number[]) => void, onEvent: (midi: number, time?: number, attack?: boolean) => void) => void) {
   let idx = 0, wrong = 0, hitTime = -Infinity
   const expectNow = (exp: (midis: number[], after: number[]) => void) => exp(accepted(steps[idx]), accepted(steps[idx + 1]))
   let setExp: ((m: number[], a: number[]) => void) | null = null
-  run(exp => { setExp = exp; expectNow(exp) }, (midi, time = Infinity) => {
-    const r = matchNote(steps, idx, midi, false, time - hitTime)
+  run(exp => { setExp = exp; expectNow(exp) }, (midi, time = Infinity, attack = true) => {
+    const r = matchNote(steps, idx, midi, false, time - hitTime, attack)
     if (r.kind === 'hit') { idx = r.step + 1; hitTime = time }
     else if (r.kind === 'miss') { wrong++; if (process.env.WHY) console.log(`      wrong: heard ${midi}, wanted ${accepted(steps[idx]).join('/')} (step ${idx}, before it ${accepted(steps[idx - 1]).join('/')})`) }
     if (setExp) expectNow(setExp)
@@ -262,7 +262,7 @@ for (const c of CONDS) {
     const o = process.env.NOOLD ? { got: 0, wrong: 0 } : follow(steps, (_exp, ev) => oldDetector(x, c.external, m => ev(m)))
     const n = follow(steps, (exp, ev) => {
       const d = new NoteDetector(SR)
-      d.onNote = e => ev(e.midi, e.time)
+      d.onNote = e => ev(e.midi, e.time, e.attack)
       exp((m, a) => d.expect(m, a))
       const chunk = 512
       for (let i = 0; i < x.length; i += chunk) d.push(x.subarray(i, Math.min(x.length, i + chunk)))
@@ -286,6 +286,7 @@ if (process.env.DEBUG) {
   d.expect([want[0]], [want[1]])
   const onsets: number[] = []
   d.onOnset = t => onsets.push(t)
+  if (process.env.FLUX) (d as unknown as NoteDetector).debugOnset = o => console.log(`   onset @${o.at.toFixed(2)} flux ${o.flux.toFixed(0)} rise ${(o.post / Math.max(1e-4, o.pre)).toFixed(2)}`)
   if (process.env.DEBUG2) d.debug = x => { const t = d.time; if (t > +process.env.DEBUG2! && t < +process.env.DEBUG2! + 1.2) console.log(`    @${t.toFixed(2)} best ${x.best} top ${JSON.stringify(x.ranked)} exp ${JSON.stringify(x.exp)}`) }
   d.onNote = e => { console.log(`  note ${e.midi} at ${e.time.toFixed(3)} ${e.attack ? 'attack' : 'legato'} exp=${e.expected} conf=${e.conf.toFixed(2)}  (want ${want[k]})`); if (e.expected) { k = Math.max(k + 1, want.indexOf(e.midi, k) + 1); d.expect([want[k]].filter(x => x !== undefined), [want[k + 1]].filter(x => x !== undefined)) } }
   for (let i = 0; i < x.length; i += 512) d.push(x.subarray(i, Math.min(x.length, i + 512)))

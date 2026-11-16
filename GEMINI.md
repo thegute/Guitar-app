@@ -39,6 +39,12 @@ Only make one when the owner asks. Updates install over each other because the s
 4. Sampler in an AudioWorklet (per-string voices; hammer-ons/slides from the ringing string).
 If a step turns out risky, stop at a working, tested point and write down where you got to rather than leaving it half-wired.
 
+## Next job: finish the sound engine (owner 2026-11-15)
+The engine-week plan above is done. The owner now wants the sound engine finished: follow **notes/SOUND-ENGINE-FINISH.md**
+(8 steps, in order, each measured with the sound lab, with the note-detection benches `npm run test:skip` and
+`npm run test:detect` kept green). His bug report about the cursor skipping ahead is fixed (see the log); don't loosen
+`noteDetect.ts` / `follow.ts` matching without those benches.
+
 ## Build on what's there (owner rule, 2026-11-14)
 - Claude's work is the foundation: build on it, don't throw it away. Every existing feature stays unless the owner says otherwise
   (the coach, fills workshop, Target notes, ear training, Call and response, looper, beat maker, Riff Scanner, Game Mode, theory

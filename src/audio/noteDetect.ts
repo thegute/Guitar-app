@@ -55,6 +55,11 @@ export interface DetectedNote {
   conf: number
 }
 
+/** how close to the loudest note a single tab note must be to count (tuned with tests/skip-eval.ts + detect-eval.ts) */
+const SINGLE_SHARE = 0.55
+/** an attack weaker than this share of the last real pick, that raised the level less than RISE times, is a ghost */
+const GHOST_FLUX = 0.5, GHOST_RISE = 1.4
+
 export class NoteDetector {
   onNote?: (n: DetectedNote) => void
   onOnset?: (time: number) => void
@@ -90,11 +95,19 @@ export class NoteDetector {
   private mag = new Float32Array(4096)
   private wh = new Float32Array(4096)
   private pre = new Float64Array(4097)
-  private pending: { at: number; ready: number; n: number; before: Float32Array; first?: number; fluxRatio: number }[] = []
+  private pending: { at: number; ready: number; n: number; before: Float32Array; first?: number; fluxRatio: number; flux: number; pre: number }[] = []
+  /** for tests: each attack's strength (spectral flux) and the loudness just before it */
+  debugOnset?: (d: { at: number; flux: number; pre: number; post: number }) => void
   private expected: number[] = []
   private current: number[] = []
   private lastEmit: { midi: number; time: number } | null = null
   private legato: { midi: number; count: number } | null = null
+  /** the last real pick: how hard its attack was and when (echo check) */
+  private pick = { flux: 0, at: -9 }
+  /** notes picked in the last moments: a pedal's delay repeats them, a ringing string can sound them again */
+  private picked: { midi: number; at: number }[] = []
+  /** the salience of the newest analysis (for the legato check) */
+  private lastPlain: Float32Array | null = null
   private hopsSinceFrame = 0
   private recent: number[] = []
   private quietSince = 0
@@ -174,22 +187,34 @@ export class NoteDetector {
       const n = low ? 4096 : 2048
       // what was already sounding (ringing strings) just before the pick
       const before = this.salience(2048)
-      this.pending.push({ at, ready: this.w + Math.round(0.012 * this.sr) + n - 512, n, before, fluxRatio: this.lastFluxRatio })
+      this.pending.push({ at, ready: this.w + Math.round(0.012 * this.sr) + n - 512, n, before, fluxRatio: this.lastFluxRatio, flux: fl, pre: Math.min(...this.recent) })
       this.legato = null
     }
 
     // ---- analyse pending attacks ----
     while (this.pending.length && this.w >= this.pending[0].ready) {
       const p = this.pending.shift()!
+      if (p.first === undefined) this.debugOnset?.({ at: p.at, flux: p.flux, pre: p.pre, post: level })
       if (!loud && this.quietSince > 4) continue
+      // a weak "attack" that hardly raised the volume, soon after a real pick, is most likely a delay/reverb repeat
+      // or the string ringing on: it may not count as playing a note you just played (that's what skipped ahead)
+      const ghost = p.at - this.pick.at < 2.2 && p.flux < GHOST_FLUX * this.pick.flux && level < GHOST_RISE * Math.max(1e-4, p.pre)
       const r = this.analyse(p.first === undefined ? p.n : 4096, p.before, undefined, p.at, p.fluxRatio, level)
-      if (r?.expected) { this.emit(r.midi, p.at, true, true, r.conf); continue }
+      const sameAsPicked = (m: number) => this.picked.some(q => p.at - q.at < 2.2 && ((q.midi - m) % 12 + 12) % 12 === 0)
+      // a ghost can only be the note the tab wants now (never a wrong note, never one further ahead), and only when
+      // the string really changed note (a hammer-on or pull-off: the note before stopped and this one is on top).
+      // The note still ringing coming round again (an echo) never counts.
+      const pc = (a: number, b: number) => ((a - b) % 12 + 12) % 12 === 0
+      if (ghost && (!r || !r.expected || (this.lastEmit && pc(this.lastEmit.midi, r.midi)) || !this.current.some(c => pc(c, r.midi))
+        || (sameAsPicked(r.midi) && !this.legatoClear(r.midi)))) continue
+      if (!ghost && p.first === undefined) this.pick = { flux: p.flux, at: p.at }
+      if (r?.expected) { this.notePicked(r.midi, p.at); this.emit(r.midi, p.at, true, true, r.conf); continue }
       if (p.first === undefined) {
         // not what the tab wants? listen once more, a little later and longer, before calling it a wrong note
         if (r) this.pending.push({ ...p, ready: this.w + Math.round(0.045 * this.sr), first: r.midi })
         continue
       }
-      if (r && ((r.midi - p.first) % 12 + 12) % 12 === 0 && r.conf >= 0.45) this.emit(r.midi, p.at, true, false, r.conf)
+      if (r && ((r.midi - p.first) % 12 + 12) % 12 === 0 && r.conf >= 0.45) { this.notePicked(r.midi, p.at); this.emit(r.midi, p.at, true, false, r.conf) }
     }
 
     // ---- live readout and legato changes, ~40 times a second ----
@@ -199,7 +224,7 @@ export class NoteDetector {
       // hammer-ons, pull-offs and slides can only confirm the note you're on, not one further ahead
       const r = loud ? this.analyse(2048, null, this.current, now, 1, level) : null
       this.onFrame?.({ midi: r && r.conf > 0.35 ? r.midi : null, level })
-      if (r && !busy && r.conf > 0.6) {
+      if (r && !busy && r.conf > 0.6 && this.legatoClear(r.midi)) {
         const same = (a: number, b: number) => (this.strictOctave ? a === b : ((a - b) % 12 + 12) % 12 === 0)
         const last = this.lastEmit
         if (!last || !same(last.midi, r.midi)) {
@@ -263,6 +288,7 @@ export class NoteDetector {
   private analyse(n: number, before?: Float32Array | null, only?: number[], atTime = this.time, fluxRatio = 1, rmsLevel = 0): { midi: number; expected: boolean; conf: number } | null {
     const rawPlain = this.salience(n)
     const plain = new Float32Array(rawPlain)
+    this.lastPlain = plain
     const bleed = this.bleedAt ? this.bleedAt(atTime) : []
     const suppressedBleed = new Set<number>()
     if (bleed.length > 0) {
@@ -354,20 +380,33 @@ export class NoteDetector {
       const contrast = (m: number) => (S[m] - floor) / Math.max(top * 0.04, Math.max(S[m - 1] ?? 0, S[m + 1] ?? 0) - floor)
       // expected notes: accept when the note clearly stands out
       let bestExp = -1, bestExpScore = 0
-      for (const e of only ?? this.expected) {
+      const share = this.current.length > 1 ? 0.3 : SINGLE_SHARE
+      // the note the tab wants now comes first: the one after only counts when the one now isn't there
+      // (an overtone of the note now is easily louder than the note now with distortion)
+      const lastM = this.lastEmit?.midi
+      for (const group of only ? [only] : [this.current, this.expected.filter(e => !this.current.includes(e))]) {
+      if (bestExp >= 0) break
+      for (const e of group) {
         if (suppressedBleed.has(e)) continue
         // an octave off only counts for low notes (a phone mic often hears a low string an octave up)
         const cands = this.strictOctave ? [e] : e < 52 ? [e, e + 12] : [e]
         for (const c of cands) {
           if (suppressedBleed.has(c)) continue
+          // an octave or two above the note just played (still ringing, or its echo) is its overtone, not a new note
+          if (lastM !== undefined && c > lastM && (c - lastM) % 12 === 0 && !this.current.includes(lastM) && (S[lastM] ?? 0) > 0.5 * S[c]) continue
           const sc = S[c] - floor
           // in the plain view after a pick, the note must also have got louder (picked again, not just ringing on)
           if (boosted && before && plain[c] < 1.2 * before[c]) continue
           if (!boosted && before && (!audible(c) || shadowed(c))) continue
           // just the 3rd or 5th overtone of a lower note that's really sounding (a 5th or major 3rd below)?
-          if ((rawPlain[c - 19] ?? 0) > 0.8 * rawPlain[c] || (rawPlain[c - 28] ?? 0) > 0.8 * rawPlain[c]) continue
-          if (sc >= top * 0.3 && contrast(c) >= 1.35 && sc > bestExpScore) { bestExpScore = sc; bestExp = e }
+          // (in "what the pick added", so strings still ringing in an arpeggio don't count; with the app's own sound
+          // coming back into the mic, the whole sound is checked too)
+          if ((S[c - 19] ?? 0) > 0.8 * S[c] || (S[c - 28] ?? 0) > 0.8 * S[c]) continue
+          if (suppressedBleed.size && ((rawPlain[c - 19] ?? 0) > 0.8 * rawPlain[c] || (rawPlain[c - 28] ?? 0) > 0.8 * rawPlain[c])) continue
+          // single notes must be near the top: distortion and echoes put plenty of other notes at a third of it
+          if (sc >= top * share && contrast(c) >= 1.35 && sc > bestExpScore) { bestExpScore = sc; bestExp = e }
         }
+      }
       }
       if (this.debug) {
         const ranked = Array.from({ length: 67 }, (_, i) => [i + 34, +(((S[i + 34] - floor) / top).toFixed(2))] as [number, number]).sort((a, b) => b[1] - a[1]).slice(0, 5)
@@ -379,6 +418,31 @@ export class NoteDetector {
       if (!fallback && !suppressedBleed.has(best) && !isOvertoneOfBleed && contrast(best) >= 1.25 && (boosted || !before || (audible(best) && !shadowed(best)))) fallback = { midi: best, expected: false, conf: Math.min(1, (contrast(best) - 1) / 1.5) }
     }
     return fallback
+  }
+
+  private notePicked(midi: number, at: number) {
+    this.picked = this.picked.filter(q => at - q.at < 2.2)
+    this.picked.push({ midi, at })
+  }
+
+  /** A hammer-on, pull-off or slide changes the string's pitch: the new note is now the strongest one and the note
+   *  before has (nearly) stopped. Without this, overtones of a note still ringing (distortion makes plenty) were read
+   *  as the next note of the tab and the cursor moved on by itself. */
+  private legatoClear(midi: number): boolean {
+    const P = this.lastPlain
+    if (!P) return false
+    let top = 34
+    for (let m = 35; m <= 100; m++) if (P[m] > P[top]) top = m
+    const pc = (a: number, b: number) => ((a - b) % 12 + 12) % 12 === 0
+    // the new note is the loudest (an octave apart counts the same: low notes often read an octave up)
+    if (!(top === midi || (pc(top, midi) && Math.abs(top - midi) === 12))) return false
+    // and the note it came from has faded under it
+    const last = this.lastEmit
+    if (last && !pc(last.midi, midi)) {
+      const o = Math.max(P[last.midi] ?? 0, P[last.midi + 12] ?? 0)
+      if (o > 0.6 * P[midi]) return false
+    }
+    return true
   }
 
   private emit(midi: number, time: number, attack: boolean, expected: boolean, conf: number) {
