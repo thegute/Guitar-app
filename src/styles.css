@@ -2573,15 +2573,16 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .float-picker { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* ---------- Now playing (components/NowPlaying.tsx): back to your song from any screen ---------- */
-.now-playing { position: sticky; bottom: 8px; z-index: 31; display: flex; align-items: center; gap: 10px; width: min(560px, 100%); margin: 14px auto 0; padding: 8px 10px 8px 8px;
-  border-radius: var(--r-lg); border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 96%, transparent); color: var(--ink); box-shadow: var(--shadow); text-align: left; min-height: 52px; }
-[data-theme='psy'] .now-playing { background: rgba(28, 6, 65, .96); border-color: rgba(0, 229, 255, .45); }
-.np-icon { width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); }
-.np-text { display: grid; min-width: 0; flex: 1; line-height: 1.2; }
-.np-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.now-playing { position: sticky; bottom: 0; z-index: 31; display: flex; align-items: center; gap: 8px; width: min(560px, 100%); margin: 10px auto 0; padding: 4px 8px 4px 6px;
+  border-radius: var(--r-md) var(--r-md) 0 0; border: 1px solid var(--line); border-bottom: 0; background: color-mix(in srgb, var(--surface) 97%, transparent); color: var(--ink); text-align: left; min-height: 44px; }
+[data-theme='psy'] .now-playing { background: rgba(28, 6, 65, .97); border-color: rgba(0, 229, 255, .35); }
+.np-icon { width: 30px; height: 30px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); }
+.np-text { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex: 1; line-height: 1.2; }
+.np-text .small { flex: none; font-size: 12px; }
+.np-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; min-width: 0; }
 .np-go { font: 700 13px var(--ui); color: var(--ink); padding: 0 6px; text-decoration: underline; text-underline-offset: 3px; }
 .now-playing .np-open { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; background: none; border: 0; color: inherit; padding: 0; text-align: left; font: inherit; cursor: pointer; min-height: 44px; }
-.now-playing .np-close { flex: none; width: var(--h-md); height: var(--h-md); min-height: 0; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; padding: 0; }
+.now-playing .np-close { flex: none; width: 34px; height: 34px; min-height: 0; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer; padding: 0; }
 .now-playing .np-close:hover, .now-playing .np-close:focus-visible { color: var(--ink); border-color: var(--ink-3); }
 
 /* ---------- tidy-grid windows (components/Win.tsx): narrow windows sit side by side ---------- */
