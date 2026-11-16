@@ -42,6 +42,13 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
   input is never processed (played back only in the opt-in interface setup); models whose training data is non-commercial are never
   bundled or re-hosted (download from the source on request); ask before deleting anything on his computer.
 
+## LOOPER REWORK (owner 2026-11-15 22:57, first job after the sound engine is built)
+"It sounds terrible... doesn't really capture how my tone actually sounds... they ALL are terrible and need a rework."
+- Every track (not just bass / rhythm): record exactly what the pedal sends (stereo, no voice filters, no resampling), play
+  it back untouched (no room / compressor / ducking colouring it). Measure: loop vs a direct recording of the same input.
+- Trim: cut the dead space at the end (and start) of a loop, by hand.
+- Bass track: the octave-down guitar sounds fake; find a real fix. Rhythm and lead tracks reworked too.
+
 ## NEW TOP OF THE QUEUE (owner 2026-11-09 00:14): these 4 come BEFORE everything else (incl. the Learn overhaul, which follows them):
 ## 1. Songs tab refinement: My songs vs Songbook is confusing; consider ONE library; Songbook's "pick a style and level" is clunky.
 ##    Every song added any way gets a style + difficulty (asked, or worked out by analysing the song) and the list sorts/searches/filters by them.
