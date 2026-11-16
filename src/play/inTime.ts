@@ -253,7 +253,8 @@ export function matchTimed(
     if (s.beat < beat - win || taken.has(i)) continue
     // strummed chords are judged by what rang out (all their notes), single notes by pitch
     const ok = s.chord ? !!played.chordOk && played.chordOk(s.midis)
-      : played.midi !== undefined && accepted(s).some(m => (strictOctave ? m === played.midi : (m - played.midi!) % 12 === 0))
+      // an octave off counts (two on the low strings); further off is an overtone of something else ringing
+      : played.midi !== undefined && accepted(s).some(m => (strictOctave ? m === played.midi : (m - played.midi!) % 12 === 0 && Math.abs(m - played.midi!) <= (m < 52 ? 24 : 12)))
     if (!ok) continue
     const errMs = (beat - s.beat) * spb * 1000
     if (!best || Math.abs(errMs) < Math.abs(best.errMs)) best = { step: i, errMs }
