@@ -227,8 +227,8 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
 - [ ] Play: a metronome with a volume SLIDER (silence ↔ loud) on screen while playing a tab, part of the same "sounds while
       I play" mixer as the backing track / Strum Machine (me / band / click buses).
 - [ ] Play: the highlight moves in time with the beat THROUGH RESTS too (In time: a rest gets its turn on the beat).
-- [ ] Add a song: a 2-page tab PDF came in as one 2-note chord. Redo the PDF tab reader (with the Riff Scanner overhaul).
-- [ ] My books (json book pack): tab pages unreadable (one number per line), some pages empty. Keep the page LAYOUT
+- [?] (maybe fixed by vectorTab; owner to resend the PDF, 2026-11-15) Add a song: a 2-page tab PDF came in as one 2-note chord. Redo the PDF tab reader (with the Riff Scanner overhaul).
+- [x] (books/pageText.ts, checked 2026-11-15) My books (json book pack): tab pages unreadable (one number per line), some pages empty. Keep the page LAYOUT
       (monospace, line positions), show the book's PICTURES in the page viewer (pack needs page images), and the new Riff
       Scanner must read tabs printed in his books. Waiting for his screenshots.
 - Sounds: owner prefers the Ample (SJ) acoustic over Flatpick 6 after re-listening → Ample = primary acoustic, Flatpick 6
@@ -247,7 +247,7 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
       "Read this page's tab" reads right where you tapped (it went to a tucked-away window and needed a second tap).
 - [x] Sultans PDF: a Songsterr print draws its fret numbers as shapes; the time signature's 4 / 4 became a bogus chord.
       Now: drawn numbers → the picture reader, and a Songsterr print offers the real song from Songsterr.
-- [ ] Stage 4: read DRAWN tab numbers ourselves (Songsterr / Guitar Pro prints): the glyph outlines are vectors, so match them
+- [x] (built: src/scan/vectorTab.ts readGlyph/readVectorTab, checked 2026-11-15) Stage 4: read DRAWN tab numbers ourselves (Songsterr / Guitar Pro prints): the glyph outlines are vectors, so match them
       to digit shapes (Roboto) on the string lines, and read the rhythm stems under the staff → exact tab, no AI.
 - [ ] Pedal effects to rival the Pocket Master (owner 2026-11-12): amps = NAM captures of his Archetypes; cabs + reverbs =
       convolution with real impulse responses (his IR folder, Logic Space Designer / ChromaVerb and the Archetypes' own
@@ -273,3 +273,9 @@ Mac harvest (no Logic work; packs to his phone/Drive, 2 GB+ OK):
       and the Playbox arpeggio / strum patterns are too hidden (patterns only in Band line → Strum list; Inspire me below
       Progression). Plan with him: an Arpeggio button in Inspire me, pattern picker visible, search entries, fewer windows.
 - [x] "Playing" pill (`components/SoundPill.tsx`, `stopAll.ts` labels): whatever makes sound, one Stop, every screen.
+
+## Checked against the code 2026-11-15 (owner caught a stale list)
+- BUILT: smart tips (tips/tips.ts, kg:tipsMode dot/always/ask/off), Get a sound pads from songs/YouTube, chord pads (pads.ts 'chord'),
+  swing (beat.ts), STARTERS, Inspire me palettes, vector tab reader, book page cleanup, style chips in Songs.
+- NOT BUILT: stems as faders in Play/Game, voice "record this", Guitarcatcher, looper real bass, phone stompbox, auto style+level +
+  300 songs, Jam reorganisation, left-handed mode. Before listing open items to the owner, grep the code first.
