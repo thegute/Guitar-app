@@ -42,6 +42,10 @@ automatically), then `notes/next-build.md` (every change waiting for "ship it", 
   input is never processed (played back only in the opt-in interface setup); models whose training data is non-commercial are never
   bundled or re-hosted (download from the source on request); ask before deleting anything on his computer.
 
+## SYNC PHONE <-> TABLET (owner 2026-11-15 23:02): "save all my settings and sound files and songs and progress between my
+## phone and my tablet". Today Backup (Settings -> Backup) carries settings, progress and songs only, by hand through Drive.
+## Wanted: everything (recordings, looper takes, pad samples, Then vs now, imported packs/books stay private) kept in step.
+
 ## LOOPER REWORK (owner 2026-11-15 22:57, first job after the sound engine is built)
 "It sounds terrible... doesn't really capture how my tone actually sounds... they ALL are terrible and need a rework."
 - Every track (not just bass / rhythm): record exactly what the pedal sends (stereo, no voice filters, no resampling), play
