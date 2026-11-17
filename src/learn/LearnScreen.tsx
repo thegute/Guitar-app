@@ -189,7 +189,8 @@ export function LearnScreen() {
     else if ('books' in g) push({ k: 'books', ...g.books })
     else if ('guide' in g) push({ k: 'guide', sec: g.guide })
     else if ('licks' in g) push({ k: 'licks', sel: g.licks })
-    else void openExercise(g.exercise)
+    else if (g.exercise === 'spider' || g.exercise === 'penta1') void openExercise(g.exercise)
+    else showExercise(g.exercise)
   }
   // links from other screens (search): start from Learn's home so Back comes here
   const launchRef = useRef(launch)

@@ -24,7 +24,8 @@ import { EX_TYPES, LEVELS, TECHS, exerciseCatalog, keyName, keysFor, type Exerci
 import { spell } from './build'
 import { useScreenInfo } from '../assistant/screen'
 import { suggestExercises } from './suggest'
-import { planBurstSteps, type BurstConfig, type BurstStep } from './drillLab'
+import { bestBpmFor, planBurstSteps, recordBestBpm, type BurstConfig, type BurstStep } from './drillLab'
+import { rig } from '../audio/rig'
 
 interface Filters { level: 'all' | Level; type: string; tech: string; fav: boolean }
 const NO_FILTER: Filters = { level: 'all', type: 'all', tech: 'all', fav: false }
@@ -210,6 +211,9 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
   const [liveBpm, setLiveBpm] = useState<number | null>(null)
   const player = useRef<TabPlayer | null>(null)
   const burstRef = useRef<{ steps: BurstStep[]; idx: number } | null>(null)
+  const inputKind = rig() === 'pedal' ? 'pedal' : 'mic'
+  const [bestBpm, setBestBpm] = useState<number | null>(() => bestBpmFor(ex.code, inputKind))
+  useEffect(() => { setBestBpm(bestBpmFor(ex.code, inputKind)) }, [ex.code, inputKind])
   const sound: SoundId = soundPick === 'auto' ? activeSound(soundForProgram(track?.program)) : soundPick
   useEffect(() => () => { burstRef.current = null; player.current?.stop() }, [])
   useEffect(() => { burstRef.current = null; player.current?.stop(); setPlaying(false); setCount(0); setAt(0); setLiveBpm(null); setStatus('') }, [song])
@@ -240,10 +244,13 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
             setAt(0)
             launch(cur.idx + 1, 0)
           } else {
+            const top = steps[steps.length - 1].bpm
+            const isPb = recordBestBpm(ex.code, top, inputKind)
+            setBestBpm(bestBpmFor(ex.code, inputKind))
             burstRef.current = null
             setLiveBpm(null)
             setPlaying(false)
-            setStatus(`Burst finished (reached ${steps[steps.length - 1].bpm} BPM). Tap Play to go again.`)
+            setStatus(`Burst finished (reached ${top} BPM${isPb ? ' · new personal best!' : ''}). Tap Play to go again.`)
             setAt(0)
           }
         }
@@ -342,7 +349,7 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
   const head = (
     <div className="ex-card-head">
       <span className={`ex-chord${!chordNow && !count ? ' ex-name' : ''}`}>{count > 0 ? <span className="ex-count-in">{count}</span> : chordNow || ex.name}</span>
-      <span className="small muted">{ex.kind} <b>{ex.code}</b> · {shownBpm} BPM{capo ? ` · capo ${capo}` : ''}</span>
+      <span className="small muted">{ex.kind} <b>{ex.code}</b> · {shownBpm} BPM{bestBpm ? ` · Best ${bestBpm}` : ''}{capo ? ` · capo ${capo}` : ''}</span>
     </div>
   )
   const misfit = <p className="notice">This one doesn't fit your {inst.noun} in this key. Try another key, or the next exercise.</p>
@@ -415,8 +422,11 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
           <span className="small muted ex-burst-summary">{bpm} → {Math.min(240, bpm + (burst.steps - 1) * burst.stepBpm)} BPM</span>
         </div>
       )}
-      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <button className="btn primary" onClick={() => void playAlong()} disabled={!song}>Play along (it listens)</button>
+        {(!bestBpm || bpm > bestBpm) && (
+          <button className="btn" onClick={() => { if (recordBestBpm(ex.code, bpm, inputKind)) { setBestBpm(bestBpmFor(ex.code, inputKind)); setStatus(`Logged clean best: ${bpm} BPM`) } }} data-testid="ex-log-bpm">✓ Log {bpm} BPM</button>
+        )}
         {lick?.must && <button className="btn" onClick={() => learnGo({ licks: lick.id })}><Ico n="book" /> How to play it, step by step</button>}
       </div>
       </Win>

@@ -2,16 +2,17 @@
 //   - Scale builder: any key, scale, position/3NPS/one-string layout, sequence pattern, subdivision
 //   - Stretch rack: progressive finger-span shapes across strings, descending toward the nut, or anchored
 //   - Rhythm lab: odd meters (5/4, 7/4, 3/4, 4/4) and Metal/Prog picking grids with palm mutes & accents
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useInstrument } from '../instrument'
 import { EX_SCALES } from '../tabs/exercises'
-import type { SongDoc } from '../tabs/library'
+import { saveSong, type SongDoc } from '../tabs/library'
 import { Chips, KeyPicker, usePersist } from '../components/Controls'
 import { Preview } from '../components/ProgressionTabs'
+import { rig } from '../audio/rig'
 import {
   RHYTHM_FEELS, SCALE_PATTERNS, STRETCH_SHAPES, SUBS,
-  rhythmLabSong, scaleBuilderSong, stretchRackSong,
-  type RhythmFeel, type ScaleLayout, type ScalePattern, type StretchMode, type StretchShape, type SubId,
+  bestBpmFor, removeLabDrill, rhythmLabSong, saveLabDrill, savedLabDrills, scaleBuilderSong, stretchRackSong,
+  type RhythmFeel, type SavedLabDrill, type ScaleLayout, type ScalePattern, type StretchMode, type StretchShape, type SubId,
 } from './drillLab'
 
 type LabMode = 'scale' | 'stretch' | 'rhythm'
@@ -44,6 +45,9 @@ export function DrillLabPanel({ onOpen }: { onOpen: (d: SongDoc) => void }) {
   const [rhBars, setRhBars] = usePersist<2 | 4>('dl:rh:bars', 2)
   const [rhBpm, setRhBpm] = usePersist('dl:rh:bpm', 80)
 
+  const [saved, setSaved] = useState<SavedLabDrill[]>(() => savedLabDrills())
+  const [saveMsg, setSaveMsg] = useState('')
+
   const scaleDef = EX_SCALES.find(s => s.id === scaleId) ?? EX_SCALES[0]
   const maxPos = /pentatonic|blues/.test(scaleDef.id) ? 5 : 7
   const safePos = pos >= maxPos ? 0 : pos
@@ -61,7 +65,7 @@ export function DrillLabPanel({ onOpen }: { onOpen: (d: SongDoc) => void }) {
         song: res.song,
         updated: Date.now(),
       }
-      return { doc, minor: res.minor }
+      return { doc, minor: res.minor, bpm: scBpm }
     }
     if (mode === 'stretch') {
       const res = stretchRackSong({ startFret: stFret, shape: stShape, mode: stMode, legato: stLegato, bpm: stBpm }, inst.midis)
@@ -74,7 +78,7 @@ export function DrillLabPanel({ onOpen }: { onOpen: (d: SongDoc) => void }) {
         song: res.song,
         updated: Date.now(),
       }
-      return { doc, minor: false }
+      return { doc, minor: false, bpm: stBpm }
     }
     const res = rhythmLabSong({ meter: rhMeter, sub: rhSub, feel: rhFeel, root: rhRoot, bars: rhBars, bpm: rhBpm }, inst.midis)
     if (!res) return null
@@ -87,16 +91,70 @@ export function DrillLabPanel({ onOpen }: { onOpen: (d: SongDoc) => void }) {
       song: res.song,
       updated: Date.now(),
     }
-    return { doc, minor: true }
+    return { doc, minor: true, bpm: rhBpm }
   }, [mode, inst, scRoot, scaleDef.id, layout, safePos, pattern, scSub, scBpm, stFret, stShape, stMode, stLegato, stBpm, rhMeter, rhSub, rhFeel, rhRoot, rhBars, rhBpm])
+
+  const inputKind = rig() === 'pedal' ? 'pedal' : 'mic'
+  const best = built ? bestBpmFor(built.doc.id, inputKind) : null
+
+  async function saveCurrentPreset() {
+    if (!built) return
+    const params: Record<string, string | number | boolean> = mode === 'scale'
+      ? { scRoot, scaleId: scaleDef.id, layout, pos: safePos, pattern, scSub, scBpm }
+      : mode === 'stretch'
+        ? { stFret, stShape, stMode, stLegato, stBpm }
+        : { rhMeter, rhFeel, rhSub, rhRoot, rhBars, rhBpm }
+    try { await saveSong(built.doc) } catch { /* saved list still works */ }
+    setSaved(saveLabDrill({ id: built.doc.id, title: built.doc.title, mode, docId: built.doc.id, bpm: built.bpm, params }))
+    setSaveMsg('Saved! Added to your presets and Today\'s practice.')
+  }
+
+  function applyPreset(p: SavedLabDrill) {
+    setMode(p.mode)
+    if (p.mode === 'scale') {
+      setScRoot(String(p.params.scRoot ?? 'A'))
+      setScaleId(String(p.params.scaleId ?? 'minor pentatonic'))
+      setLayout((p.params.layout as ScaleLayout) ?? '3nps')
+      setPos(Number(p.params.pos ?? 0))
+      setPattern((p.params.pattern as ScalePattern) ?? 'fours')
+      setScSub((p.params.scSub as SubId) ?? '16')
+      setScBpm(Number(p.params.scBpm ?? 80))
+    } else if (p.mode === 'stretch') {
+      setStFret(Number(p.params.stFret ?? 5))
+      setStShape((p.params.stShape as StretchShape) ?? '124')
+      setStMode((p.params.stMode as StretchMode) ?? 'across')
+      setStLegato(Boolean(p.params.stLegato))
+      setStBpm(Number(p.params.stBpm ?? 66))
+    } else {
+      setRhMeter((Number(p.params.rhMeter ?? 7) as 3 | 4 | 5 | 7))
+      setRhFeel((p.params.rhFeel as RhythmFeel) ?? 'odd')
+      setRhSub((p.params.rhSub as SubId) ?? '16')
+      setRhRoot(String(p.params.rhRoot ?? 'E'))
+      setRhBars((Number(p.params.rhBars ?? 2) as 2 | 4))
+      setRhBpm(Number(p.params.rhBpm ?? 80))
+    }
+    setSaveMsg('')
+  }
 
   return (
     <div className="stack" style={{ gap: 10 }} data-testid="drill-lab">
       <div className="seg" role="group" aria-label="Drill builder mode">
         {([['scale', 'Scale builder'], ['stretch', 'Stretch rack'], ['rhythm', 'Rhythm lab']] as const).map(([id, label]) => (
-          <button key={id} aria-pressed={mode === id} onClick={() => setMode(id)}>{label}</button>
+          <button key={id} aria-pressed={mode === id} onClick={() => { setMode(id); setSaveMsg('') }}>{label}</button>
         ))}
       </div>
+
+      {saved.length > 0 && (
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }} data-testid="drill-lab-saved">
+          <span className="small muted">Saved:</span>
+          {saved.map(p => (
+            <span key={p.id} className="row" style={{ gap: 2 }}>
+              <button className={`chip${built?.doc.id === p.id ? ' on' : ''}`} aria-pressed={built?.doc.id === p.id} onClick={() => applyPreset(p)}>{p.title.replace(/^(Scale|Stretch|Rhythm) lab · /, '')}</button>
+              <button className="btn icon-btn" aria-label={`Remove ${p.title}`} onClick={() => setSaved(removeLabDrill(p.id))} style={{ minHeight: 28, minWidth: 28, padding: '0 6px' }}>✕</button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {mode === 'scale' && (
         <div className="stack" style={{ gap: 8 }}>
@@ -213,9 +271,12 @@ export function DrillLabPanel({ onOpen }: { onOpen: (d: SongDoc) => void }) {
 
       {built ? (
         <>
-          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <button className="btn primary" onClick={() => onOpen(built.doc)}>Open in Play</button>
+            <button className="btn" onClick={() => void saveCurrentPreset()} data-testid="drill-lab-save">★ Save preset</button>
+            {best && <span className="small muted">Best: {best} BPM</span>}
           </div>
+          {saveMsg && <p className="small muted" role="status" style={{ margin: 0 }}>{saveMsg}</p>}
           <Preview doc={built.doc} minor={built.minor} />
         </>
       ) : (

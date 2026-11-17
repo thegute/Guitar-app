@@ -13,14 +13,16 @@ import { allSongStats, dueReviews, troubleBars, ago } from '../play/songStats'
 import { getSong, type SongDoc } from '../tabs/library'
 import { kindWords, loadMemory, openSpots } from '../coach/memory'
 import { nextFills } from '../fills/current'
+import { bestBpmFor, savedLabDrills } from '../exercises/drillLab'
+import { rig } from '../audio/rig'
 
 export type PracticeLen = 10 | 20 | 30
 /** One line of the plan, for the card: what and why. */
-export interface PracticePart { kind: 'warm' | 'plan' | 'fix' | 'fills' | 'song'; title: string; why: string; minutes: number }
+export interface PracticePart { kind: 'warm' | 'plan' | 'fix' | 'fills' | 'drill' | 'song'; title: string; why: string; minutes: number }
 export interface PracticePlan { session: Session; parts: PracticePart[] }
 
 const DAY = 864e5
-const SHARE: Record<PracticePart['kind'], number> = { warm: 3, plan: 5, fix: 5, fills: 5, song: 7 }
+const SHARE: Record<PracticePart['kind'], number> = { warm: 3, plan: 5, fix: 5, fills: 5, drill: 4, song: 7 }
 const readJSON = <T,>(k: string, d: T): T => { try { const v = localStorage.getItem(k); return v ? (JSON.parse(v) as T) : d } catch { return d } }
 const barsText = (l: { from: number; to: number }) => (l.from === l.to ? `bar ${l.from + 1}` : `bars ${l.from + 1}–${l.to + 1}`)
 
@@ -36,13 +38,25 @@ export function spread(kinds: PracticePart['kind'][], total: number): number[] {
 
 export async function practicePlan(inst: Instrument, total: PracticeLen = 20, now = Date.now()): Promise<PracticePlan> {
   const guitar = inst.id === 'guitar'
+  const inputKind = rig() === 'pedal' ? 'pedal' : 'mic'
   const picks: { part: Omit<PracticePart, 'minutes'>; step: Omit<Step, 'minutes'> }[] = []
 
-  // 1. warm-up
+  // 1. warm-up (use Burst personal best if recorded)
   const warm = suggestExercises(exerciseCatalog(inst), guitar).find(s => s.why.startsWith('Warm'))?.ex
+  const warmBest = warm ? bestBpmFor(warm.code, inputKind) : null
   picks.push({
-    part: { kind: 'warm', title: warm ? `Warm up: ${warm.name}` : 'Warm up', why: 'Slow and clean wakes your hands up' },
-    step: { title: warm ? `Warm up: ${warm.name}` : 'Warm up', target: { exercise: warm ? warm.code : 'type:warmup' }, tip: 'Slow and clean with the metronome. Three clean times, then add 5 BPM.' },
+    part: {
+      kind: 'warm',
+      title: warm ? `Warm up: ${warm.name}` : 'Warm up',
+      why: warmBest ? `Burst best ${warmBest} BPM · start clean around ${Math.max(40, Math.round(warmBest * 0.75))} BPM` : 'Slow and clean wakes your hands up',
+    },
+    step: {
+      title: warm ? `Warm up: ${warm.name}` : 'Warm up',
+      target: { exercise: warm ? warm.code : 'type:warmup' },
+      tip: warmBest
+        ? `Turn on Burst (+5 BPM) around ${Math.max(40, Math.round(warmBest * 0.75))} BPM to push past your ${warmBest} BPM best.`
+        : 'Slow and clean with the metronome. Three clean times (or use Burst), then add 5 BPM.',
+    },
   })
 
   // 2. your plan (not in a 10-minute practice)
@@ -81,6 +95,16 @@ export async function practicePlan(inst: Instrument, total: PracticeLen = 20, no
   const fl = guitar ? nextFills() : null
   if (fl?.started && (total > 10 || !picks.some(p => p.part.kind === 'fix'))) {
     picks.push({ part: { kind: 'fills', title: fl.title, why: fl.why }, step: { title: fl.title, target: fl.target, tip: 'With the band. Slow first: land every chord on the 1, then let the speed trainer take it up.' } })
+  }
+
+  // 3c. saved custom Drill Lab preset (when you starred one in Drill Lab)
+  const lab = total > 10 ? savedLabDrills()[0] : undefined
+  if (lab) {
+    const labBest = bestBpmFor(lab.docId, inputKind)
+    picks.push({
+      part: { kind: 'drill', title: lab.title, why: labBest ? `Your saved Drill Lab preset · best ${labBest} BPM` : 'Your saved Drill Lab preset' },
+      step: { title: lab.title, target: { go: { song: lab.docId, speed: 0.8 } }, tip: 'Use Speed trainer in In time to step the tempo up cleanly.' },
+    })
   }
 
   // 4. a song: due for review, else the one you were on, else the songbook

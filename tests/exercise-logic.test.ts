@@ -1,13 +1,15 @@
+import './test-env'
 // Practice-tab library: every exercise builds, fits the instrument and spells the right notes.
 import { buildExercise, scalePosition, EX_SCALES, EX_ARPS, EX_LICKS, EX_SEQUENCES, EX_WARMUPS, ESSENTIALS } from '../src/tabs/exercises'
 import {
   RHYTHM_FEELS, SCALE_PATTERNS, STRETCH_SHAPES,
-  planBurstSteps, rhythmLabSong, scaleBuilderSong, stretchRackSong,
+  bestBpmFor, planBurstSteps, recordBestBpm, removeLabDrill,
+  rhythmLabSong, saveLabDrill, savedLabDrills, scaleBuilderSong, stretchRackSong,
 } from '../src/exercises/drillLab'
-import { INSTRUMENTS } from '../src/instrument'
+import { INSTRUMENTS, current as currentInst, generateShapes } from '../src/instrument'
+import { practicePlan } from '../src/sessions/practice'
 import { noteToMidi, pc } from '../src/theory/notes'
 import { Scale } from 'tonal'
-import { generateShapes } from '../src/instrument'
 
 let fails = 0
 const bad = (m: string) => { fails++; if (fails < 30) console.log('FAIL', m) }
@@ -97,6 +99,30 @@ eq('burst restBeforeBars', burst.map(b => b.restBeforeBars), [0, 0, 1, 0, 1, 0, 
 const capped = planBurstSteps(230, { on: true, stepBpm: 15, steps: 3, reps: 1, restBars: 2 })
 eq('burst cap 240', capped.map(b => b.bpm), [230, 240, 240])
 eq('burst rest 2 bars', capped.map(b => b.restBeforeBars), [0, 2, 2])
+
+localStorage.clear()
+eq('best initially null', bestBpmFor('WU-1', 'mic'), null)
+eq('record new best 110', recordBestBpm('WU-1', 110, 'mic'), true)
+eq('record slower 105 ignored', recordBestBpm('WU-1', 105, 'mic'), false)
+eq('best stayed 110', bestBpmFor('WU-1', 'mic'), 110)
+eq('pedal isolated from mic', bestBpmFor('WU-1', 'pedal'), null)
+eq('record pedal best 120', recordBestBpm('WU-1', 120, 'pedal'), true)
+eq('pedal best 120', bestBpmFor('WU-1', 'pedal'), 120)
+
+const savedList = saveLabDrill({
+  id: 'lab:rhythm:guitar:std:7:odd:16:E:2',
+  title: 'Rhythm lab · 7/4 Odd meter (E)',
+  mode: 'rhythm',
+  docId: 'lab:rhythm:guitar:std:7:odd:16:E:2',
+  bpm: 92,
+  params: { rhMeter: 7, rhFeel: 'odd', rhSub: '16', rhRoot: 'E', rhBars: 2, rhBpm: 92 },
+})
+eq('saved lab count', savedList.length, 1)
+eq('saved lab reload', savedLabDrills()[0].title, 'Rhythm lab · 7/4 Odd meter (E)')
+const planWithLab = await practicePlan(currentInst(), 20)
+eq('practicePlan includes drill step', planWithLab.parts.some(p => p.kind === 'drill' && p.title.includes('7/4 Odd meter')), true)
+eq('remove saved lab', removeLabDrill('lab:rhythm:guitar:std:7:odd:16:E:2').length, 0)
+localStorage.clear()
 console.log('drill lab checks:', labChecks)
 
 console.log(fails ? `\n${fails} FAILED` : '\nall passed')

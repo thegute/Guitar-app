@@ -367,3 +367,69 @@ export function planBurstSteps(baseBpm: number, cfg: BurstConfig): BurstStep[] {
   }
   return out
 }
+
+// ───────────────────────────── Speed log & saved Drill Lab presets
+
+export interface DrillBest { bpm: number; input: string; at: number }
+export interface SavedLabDrill {
+  id: string
+  title: string
+  mode: 'scale' | 'stretch' | 'rhythm'
+  docId: string
+  bpm: number
+  at: number
+  params: Record<string, string | number | boolean>
+}
+
+const BEST_KEY = 'kg:exBest'
+const LAB_SAVED_KEY = 'kg:labSaved'
+
+function lsRead<T>(k: string, d: T): T {
+  try {
+    if (typeof localStorage === 'undefined') return d
+    const raw = localStorage.getItem(k)
+    return raw ? (JSON.parse(raw) as T) : d
+  } catch { return d }
+}
+function lsWrite(k: string, v: unknown) {
+  try { if (typeof localStorage !== 'undefined') localStorage.setItem(k, JSON.stringify(v)) } catch { /* private */ }
+}
+
+/** Highest clean BPM logged for an exercise/drill on a given input ('mic' | 'usb' | 'pedal'). */
+export function loadDrillBests(): Record<string, DrillBest> {
+  return lsRead<Record<string, DrillBest>>(BEST_KEY, {})
+}
+
+export function bestBpmFor(code: string, input = 'mic'): number | null {
+  const map = loadDrillBests()
+  return map[`${code}|${input}`]?.bpm ?? null
+}
+
+/** Save a clean BPM milestone. Returns true if it beat the previous best for this code + input. */
+export function recordBestBpm(code: string, bpm: number, input = 'mic', now = Date.now()): boolean {
+  const clean = Math.max(30, Math.min(240, Math.round(bpm)))
+  const map = loadDrillBests()
+  const key = `${code}|${input}`
+  const prev = map[key]?.bpm ?? 0
+  if (clean <= prev) return false
+  map[key] = { bpm: clean, input, at: now }
+  lsWrite(BEST_KEY, map)
+  return true
+}
+
+export function savedLabDrills(): SavedLabDrill[] {
+  return lsRead<SavedLabDrill[]>(LAB_SAVED_KEY, [])
+}
+
+export function saveLabDrill(entry: Omit<SavedLabDrill, 'at'>, now = Date.now()): SavedLabDrill[] {
+  const next: SavedLabDrill[] = [{ ...entry, at: now }, ...savedLabDrills().filter(x => x.id !== entry.id)].slice(0, 10)
+  lsWrite(LAB_SAVED_KEY, next)
+  return next
+}
+
+export function removeLabDrill(id: string): SavedLabDrill[] {
+  const next = savedLabDrills().filter(x => x.id !== id)
+  lsWrite(LAB_SAVED_KEY, next)
+  return next
+}
+

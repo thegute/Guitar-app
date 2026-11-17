@@ -12,7 +12,7 @@ export type Go =
   | { lesson: string }
   | { tool: 'ear' | 'caged' | 'changes' | 'rhythm' | 'circle' | 'lessons' | 'settings' | 'progress' | 'guide' | 'techniques' | 'bends' | 'targets' | 'cr' | 'earpath' | 'fills' | 'videos' | 'recordings' | 'chainer' }
   | { tab: 'play' | 'progressions' | 'tuner' }
-  | { exercise: 'spider' | 'penta1' }
+  | { exercise: 'spider' | 'penta1' | `type:${string}` }
   /** a saved song; loop null = stop looping; speed = playback speed to start at */
   | { song: string; loop?: { from: number; to: number } | null; speed?: number }
   | { songbook: { song: string; part: string } }

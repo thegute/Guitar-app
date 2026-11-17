@@ -37,8 +37,16 @@ export function suggestExercises(all: Exercise[], guitar: boolean): Suggestion[]
   }
   // 3. something at your level, then one a step up
   const goals = profile()?.goals ?? []
-  const wantType = goals.includes('fingerpick') ? 'fingerstyle' : goals.includes('lead') ? 'scales' : goals.includes('strum') || goals.includes('rhythm') ? 'strumming' : null
-  if (out.length < 3) add(pickOf(all.filter(e => (wantType ? e.type === wantType : e.type !== 'warmup') && near(e, lvl)), 'level'), wantType ? 'For what you want to get better at' : 'At your level')
+  const wantTypes: string[] | null = goals.includes('fingerpick')
+    ? ['fingerstyle', 'picking']
+    : goals.includes('lead')
+      ? (lvl >= 2 ? ['scales', 'sequences', 'picking', 'legato', 'tapping'] : ['scales', 'picking'])
+      : goals.includes('rhythm')
+        ? (lvl >= 2 ? ['rhythm', 'strumming'] : ['strumming', 'rhythm'])
+        : goals.includes('strum')
+          ? ['strumming']
+          : null
+  if (out.length < 3) add(pickOf(all.filter(e => (wantTypes ? wantTypes.includes(e.type) : e.type !== 'warmup') && near(e, lvl)), 'level'), wantTypes ? 'For what you want to get better at' : 'At your level')
   if (out.length < 3) add(pickOf(all.filter(e => e.type !== 'warmup' && e.level === Math.min(4, lvl + 1)), 'next'), 'A step further')
   if (out.length < 3) add(pickOf(all.filter(e => !!e.start), 'start'), 'A good one to know')
   return out.slice(0, 3)

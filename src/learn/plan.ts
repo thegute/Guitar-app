@@ -98,8 +98,14 @@ function goalSteps(inst: Instrument, d: DayLog, day: number, goals: Goal[]): Pla
       out.push(songbookStep(inst, day + 1, 'strum', t => `Strum along: "${t}"`, 'Follow the strum arrows and count out loud.', 6, kinds('words')))
     }
     if (g === 'fingerpick') out.push(songbookStep(inst, day + 2, 'pick', t => `Fingerpick "${t}"`, 'Slow and even: the thumb never stops.', 6, p => p.kind === 'rhythm' && /travis|pinch|arp/.test(p.pattern ?? '')))
-    if (g === 'lead') out.push(songbookStep(inst, day + 3, 'lead', t => `Melody: "${t}"`, 'Wait for me first, then In time.', 6, kinds('melody', 'octaves')))
-    if (g === 'rhythm') out.push(songbookStep(inst, day + 4, 'timing', t => `In time: "${t}"`, 'Switch Play to In time and aim for green "perfect" hits.', 6, kinds('rhythm', 'words')))
+    if (g === 'lead') {
+      out.push(songbookStep(inst, day + 3, 'lead', t => `Melody: "${t}"`, 'Wait for me first, then In time.', 6, kinds('melody', 'octaves')))
+      out.push({ id: 'lead-drill', title: 'Speed & sequence drill', detail: 'Pick a scale sequence or stretch drill and step up with Burst mode.', minutes: 4, go: { exercise: 'type:sequences' }, done: cnt(d, 'exerciseNotes') >= 30 })
+    }
+    if (g === 'rhythm') {
+      out.push(songbookStep(inst, day + 4, 'timing', t => `In time: "${t}"`, 'Switch Play to In time and aim for green "perfect" hits.', 6, kinds('rhythm', 'words')))
+      out.push({ id: 'rhythm-drill', title: 'Rhythm & subdivision drill', detail: 'Gallops, displacements or odd meters against the click.', minutes: 4, go: { exercise: 'type:rhythm' }, done: cnt(d, 'exerciseNotes') >= 30 })
+    }
     if (g === 'theory') {
       const read = lessonsRead()
       const lesson = lessonsFor(inst.id).find(l => !read.has(l.id)) ?? lessonsFor(inst.id)[0]
@@ -156,7 +162,7 @@ function plainPlan(inst: Instrument, away: boolean, d = todayLog()): PlanStep[] 
     { id: 'tune', title: 'Tune up', detail: `Every session starts in tune.`, minutes: 1, go: { tab: 'tuner' }, done: min(d, 'tuner') > 0.05 },
     beginner
       ? { id: 'changes', title: 'One-minute chord changes', detail: 'Two chords, 60 seconds: the fastest way to get chords smooth.', minutes: 2, go: { tool: 'changes' }, done: cnt(d, 'changesRounds') >= 1 }
-      : { id: 'warmup', title: 'Warm-up tab', detail: 'The spider walk in Play, with the mic following you. Slow and clean.', minutes: 3, go: { exercise: 'spider' }, done: cnt(d, 'exerciseNotes') >= 30 },
+      : { id: 'warmup', title: 'Warm-up tab', detail: 'The spider walk in Play (or try Burst mode in Exercises). Slow and clean.', minutes: 3, go: { exercise: 'spider' }, done: cnt(d, 'exerciseNotes') >= 30 },
     { id: 'quiz', title: q.title, detail: quizDetail ?? `Course quiz. Use play mode: answer on your ${n}.`, minutes: 4, go: { quiz: q.id }, done: d.done.includes(q.id) },
     song,
     ...(last.id === 'changes' && beginner ? [] : [last]),
