@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PsyDog } from '../components/PsyArt'
 import { TabView, type LabelMode } from '../components/TabView'
 import { ChordDiagram } from '../components/ChordDiagram'
+import { ProgressionDiagrams, progressionFromTrack, voicingFromFrets } from '../components/ProgressionDiagrams'
 import { useChordPeek } from '../components/ChordPeek'
 import { YouTubePlayer } from '../components/YouTubePlayer'
 import { HarmonyPanel, stringLabel } from '../components/HarmonyPanel'
@@ -450,6 +451,7 @@ export function PlayScreen() {
   const tips = useMemo(() => (keyData ? improvisationScales(key, keyData.weights) : []), [key, keyData])
   const guesses = useMemo(() => (track ? guessBarChords(track, key, flats) : []), [track, key, flats])
   const timeline = useMemo(() => (track ? chordTimeline(track, doc?.chords ?? {}, guesses) : { spans: [], at: new Int32Array(0) }), [track, doc?.chords, guesses])
+  const progDiagrams = useMemo(() => (track ? progressionFromTrack(track, inst, timeline.spans) : []), [track, inst, timeline.spans])
   // song check: what this song asks of you (shown the first time you open a song, and from the title)
   const check = useMemo(() => (doc && track ? checkSong(doc.song, track, inst, [...new Set(timeline.spans.map(s => s.name))], profile()?.level ?? 2) : null),
     [doc?.song, track, inst, timeline.spans]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1311,9 +1313,10 @@ export function PlayScreen() {
   const chordName = cursorFlat >= 0 ? (flat[cursorFlat].step.chord ?? timeline.spans[curSpan]?.name) : undefined
   const chordVoicing = wantChord ? (() => {
     const frets = track.tuning.map((_, s) => expected.find(n => n.string === s)?.fret ?? -1)
-    const played = frets.filter(f => f > 0)
-    return { frets, fingers: frets.map(() => 0), barres: [], baseFret: played.length ? Math.min(...played) : 1, midi: [] }
+    return voicingFromFrets(frets, chordName, inst)
   })() : null
+  const activeProgStep = mode === 'time' && inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat
+  const activeProgIdx = progDiagrams.findIndex(d => d.stepIndices?.includes(activeProgStep))
   const where = (n: SongNote) => `${n.fret === 0 ? 'open' : `fret ${n.fret}`}, ${stringLabel(track.tuning, n.string, flats)} string`
 
   const readout = (mini: boolean) => (
@@ -1429,6 +1432,11 @@ export function PlayScreen() {
           </>
         )}
       </div>
+      {!mini && progDiagrams.length >= 2 && (wantChord || isSheet) && (
+        <div className="readout-prog">
+          <ProgressionDiagrams items={progDiagrams} activeIndex={activeProgIdx} tuning={track.tuning} capo={track.capo} size={0.54} compact />
+        </div>
+      )}
     </div>
   )
 
@@ -1888,6 +1896,7 @@ export function PlayScreen() {
           tips={tips}
           flats={flats}
           spans={timeline.spans}
+          progDiagrams={progDiagrams}
           curSpan={(inTime.running || playAt >= 0) && liveSpan >= 0 ? liveSpan : curSpan}
           expected={expected.map(n => ({ ...n }))}
           nearFrets={nearFrets}

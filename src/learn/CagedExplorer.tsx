@@ -5,6 +5,7 @@ import { Scale } from 'tonal'
 import { TuningExplain } from '../components/TuningExplain'
 import { Fretboard, type Mark } from '../components/Fretboard'
 import { ChordDiagram } from '../components/ChordDiagram'
+import { ProgressionDiagrams, voicingFromFrets } from '../components/ProgressionDiagrams'
 import { Chips, KeyPicker, usePersist } from '../components/Controls'
 import { strum } from '../audio/pluck'
 import { audio } from '../audio/engine'
@@ -112,9 +113,20 @@ export function CagedExplorer({ inst, onExit, onQuiz }: { inst: Instrument; onEx
           <LayerNeck rootPc={r} minor={minor} inst={inst} where="caged" shape={shape.letter} noLinks={['caged']} />
         )}
         {sel === 'all' ? (
-          <p className="small muted" style={{ margin: 0 }}>
-            Each dot is labelled with its shape. Red dots are the root ({name}). Notice how each shape shares notes with the next one: that's how they link up.
-          </p>
+          <div className="stack" style={{ gap: 8 }}>
+            <ProgressionDiagrams
+              items={shapes.map(sh => ({
+                name: `${name} · ${sh.letter}`,
+                voicing: voicingFromFrets(sh.frets, name, inst),
+              }))}
+              size={0.72}
+              onSelect={(_, idx) => { const picked = shapes[idx]; if (picked) setSel(picked.letter) }}
+              label={`All ${sys} shapes for ${name}`}
+            />
+            <p className="small muted" style={{ margin: 0 }}>
+              Each dot is labelled with its shape. Red dots are the root ({name}). Tap any chord box above to hear it and inspect its 5 layers.
+            </p>
+          </div>
         ) : shape && (
           <div className="caged-detail">
             {voicing && <Zoomable id="cagedChord" max={2.2}><ChordDiagram name={`${name} · ${shape.letter} shape`} voicing={voicing} onClick={() => hear()} size={0.95} /></Zoomable>}

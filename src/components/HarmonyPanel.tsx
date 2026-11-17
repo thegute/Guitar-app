@@ -2,6 +2,7 @@
 // and the fretboard showing scales, arpeggios, triads, or the notes that connect one chord to the next.
 import { LayerNeck } from './LayerNeck'
 import { VoiceLeadNeck } from './VoiceLeadNeck'
+import { ProgressionDiagrams, progressionFromChords, type ProgDiagramItem } from './ProgressionDiagrams'
 import { targetView } from '../theory/targets'
 import { cagedShapes } from '../learn/caged'
 import { useInstrument, type Instrument } from '../instrument'
@@ -30,6 +31,8 @@ interface Props {
   tips: ImproTip[]
   flats: boolean
   spans: ChordSpan[]
+  /** all chord fingerings in this progression (computed from tab/spans) */
+  progDiagrams?: ProgDiagramItem[]
   /** span the tab is in now */
   curSpan: number
   /** the notes the tab wants next */
@@ -212,6 +215,13 @@ export function HarmonyPanel(p: Props) {
   }
 
   const chordChips = diatonicChords(keyGuess, flats)
+  const diagrams = useMemo(
+    () => (p.progDiagrams?.length ? p.progDiagrams : spans.length ? progressionFromChords(spans.map(sp => sp.name), { ...inst, midis: tuning }, { collapseRepeats: true }) : []),
+    [p.progDiagrams, spans, inst, tuning],
+  )
+  const activeDiagIdx = span
+    ? diagrams.findIndex(it => (it.stepIndices?.some(idx => idx >= span.start && idx < span.end)) || it.name === span.name)
+    : -1
 
   return (
     <div className={`harmony${compact ? ' compact' : ''}`}>
@@ -237,6 +247,21 @@ export function HarmonyPanel(p: Props) {
         </div>
         <button className="btn sm" aria-pressed={editing} onClick={() => setEditing(e => !e)} aria-label="Edit chords">✎</button>
       </div>
+      {diagrams.length > 0 && (
+        <ProgressionDiagrams
+          items={diagrams}
+          activeIndex={activeDiagIdx}
+          tuning={tuning}
+          size={0.62}
+          compact={compact}
+          onSelect={it => {
+            const target = p.progDiagrams?.length
+              ? spans.findIndex(sp => it.stepIndices?.some(idx => idx >= sp.start && idx < sp.end) || sp.name === it.name)
+              : (it.stepIndices?.[0] ?? -1)
+            if (target >= 0) { setPinned(target); setEditing(false) }
+          }}
+        />
+      )}
 
       {keyOpen && (
         <div className="h-sub">

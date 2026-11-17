@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Instrument } from '../instrument'
 import { Chips, usePersist } from '../components/Controls'
 import { Fretboard, type Mark } from '../components/Fretboard'
+import { ProgressionDiagrams, progressionFromChords } from '../components/ProgressionDiagrams'
+import { Win, WinArea } from '../components/Win'
 import { JamTransport } from '../audio/jam'
 import { acquireListener, type ListenerSession } from '../engine/listener'
 import { audio, keepAwake } from '../audio/engine'
@@ -185,69 +187,78 @@ export function TargetNotes({ inst, onExit }: { inst: Instrument; onExit: () => 
     if (next && midi === path[(ci + 1) % chords.length]) return { label: pcLabel(midi), role: 'next' }
     return null
   }
+  const progDiagrams = useMemo(
+    () => progressionFromChords(prog.chords.map(c => c.symbol), inst),
+    [prog.chords, inst],
+  )
   const hint = TARGET_KINDS.find(k => k.id === kind)?.hint
 
   return (
     <div className="stack target-notes" style={{ gap: 12 }} data-testid="target-notes">
       <div className="row"><button className="btn sm" onClick={() => { stop(); onExit() }}>← Back</button><h2 style={{ margin: 0 }}>Target notes</h2></div>
-      <div className="panel stack" style={{ gap: 10 }}>
-      {!on && <>
-      <div className="tn-level" data-testid="tn-level">
-        <div className="tn-steps">{LEVELS.map(k => <span key={k} className={(best[k] ?? 0) >= 80 ? 'ok' : k === adv.next ? 'now' : ''} title={TARGET_KINDS.find(x => x.id === k)?.label}>{TARGET_KINDS.find(x => x.id === k)?.label}</span>)}</div>
-        <p className="small" style={{ margin: 0 }}>{adv.text}</p>
-        {kind !== adv.next && <button className="btn sm" data-testid="tn-next" onClick={() => setKind(adv.next)}>Practise {TARGET_KINDS.find(x => x.id === adv.next)?.label.toLowerCase()}</button>}
-      </div>
-      <p className="small muted" style={{ margin: 0 }}>A band plays the chords. Land on the target note as each chord arrives: that is how a solo follows the changes.</p>
-      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <label className="field" style={{ flex: '2 1 180px' }}><span>Chords</span>
-          <select className="select" value={src} onChange={e => setSrc(e.target.value)} data-testid="tn-prog">
-            {jam && <option value="jam">Your Jam progression ({jam.chords.map(c => c.symbol).join(' ')})</option>}
-            {STARTER_PROGS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-          </select>
-        </label>
-        {src !== 'jam' && <label className="field" style={{ flex: '1 1 80px' }}><span>Key</span>
-          <select className="select" value={key} onChange={e => setKey(e.target.value)}>{SHARPS.map(k => <option key={k} value={k}>{k}</option>)}</select>
-        </label>}
-      </div>
-      <Chips label="Target" items={TARGET_KINDS.map(k => ({ id: k.id, label: k.label }))} value={kind} onChange={setKind} wrap />
-      {hint && <p className="small" style={{ margin: 0 }}>{hint}</p>}
-      <Chips label="Where" items={ZONES} value={from} onChange={setFrom} wrap />
-      <Chips label="Count it when" items={WINDOWS} value={win} onChange={setWin} wrap />
-      </>}
-      <div className="row tn-tempo" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span className="small">Speed</span>
-        <button className="btn sm" aria-label="Slower" data-testid="tn-slower" onClick={() => changeBpm(bpm - 4)}>−</button>
-        <b data-testid="tn-bpm">{bpm} BPM</b>
-        <button className="btn sm" aria-label="Faster" data-testid="tn-faster" onClick={() => changeBpm(bpm + 4)}>+</button>
-        <label className="row small" style={{ gap: 6, flexWrap: 'nowrap' }}><input type="checkbox" checked={trainer} onChange={e => setTrainer(e.target.checked)} /> <span>Speed trainer{on ? '' : ' (up after two good laps, down after a rough one)'}</span></label>
-      </div>
-      <div className="row" style={{ gap: 8 }}>
-        <button className={`btn${on ? '' : ' primary'}`} data-testid="tn-go" onClick={() => (on ? stop() : void start())}>{on ? 'Stop' : 'Start'}</button>
-        {!on && <button className="btn" onClick={preview}>▶ Hear the targets</button>}
-      </div>
-      {err && <p className="notice small">{err}</p>}
-      </div>
+      <WinArea area="targetNotes">
+        <Win id="tn-setup" title="Setup & tempo" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }}>
+          {!on && <>
+          <div className="tn-level" data-testid="tn-level">
+            <div className="tn-steps">{LEVELS.map(k => <span key={k} className={(best[k] ?? 0) >= 80 ? 'ok' : k === adv.next ? 'now' : ''} title={TARGET_KINDS.find(x => x.id === k)?.label}>{TARGET_KINDS.find(x => x.id === k)?.label}</span>)}</div>
+            <p className="small" style={{ margin: 0 }}>{adv.text}</p>
+            {kind !== adv.next && <button className="btn sm" data-testid="tn-next" onClick={() => setKind(adv.next)}>Practise {TARGET_KINDS.find(x => x.id === adv.next)?.label.toLowerCase()}</button>}
+          </div>
+          <p className="small muted" style={{ margin: 0 }}>A band plays the chords. Land on the target note as each chord arrives: that is how a solo follows the changes.</p>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <label className="field" style={{ flex: '2 1 180px' }}><span>Chords</span>
+              <select className="select" value={src} onChange={e => setSrc(e.target.value)} data-testid="tn-prog">
+                {jam && <option value="jam">Your Jam progression ({jam.chords.map(c => c.symbol).join(' ')})</option>}
+                {STARTER_PROGS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+            </label>
+            {src !== 'jam' && <label className="field" style={{ flex: '1 1 80px' }}><span>Key</span>
+              <select className="select" value={key} onChange={e => setKey(e.target.value)}>{SHARPS.map(k => <option key={k} value={k}>{k}</option>)}</select>
+            </label>}
+          </div>
+          <Chips label="Target" items={TARGET_KINDS.map(k => ({ id: k.id, label: k.label }))} value={kind} onChange={setKind} wrap />
+          {hint && <p className="small" style={{ margin: 0 }}>{hint}</p>}
+          <Chips label="Where" items={ZONES} value={from} onChange={setFrom} wrap />
+          <Chips label="Count it when" items={WINDOWS} value={win} onChange={setWin} wrap />
+          </>}
+          <div className="row tn-tempo" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="small">Speed</span>
+            <button className="btn sm" aria-label="Slower" data-testid="tn-slower" onClick={() => changeBpm(bpm - 4)}>−</button>
+            <b data-testid="tn-bpm">{bpm} BPM</b>
+            <button className="btn sm" aria-label="Faster" data-testid="tn-faster" onClick={() => changeBpm(bpm + 4)}>+</button>
+            <label className="row small" style={{ gap: 6, flexWrap: 'nowrap' }}><input type="checkbox" checked={trainer} onChange={e => setTrainer(e.target.checked)} /> <span>Speed trainer{on ? '' : ' (up after two good laps, down after a rough one)'}</span></label>
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <button className={`btn${on ? '' : ' primary'}`} data-testid="tn-go" onClick={() => (on ? stop() : void start())}>{on ? 'Stop' : 'Start'}</button>
+            {!on && <button className="btn" onClick={preview}>▶ Hear the targets</button>}
+          </div>
+          {err && <p className="notice small">{err}</p>}
+        </Win>
 
-      <div className="tn-now" aria-live="polite">
-        {now && now.chord < 0 ? <b className="tn-count">{now.countIn}</b> : cur && (
-          <>
-            <div className="tn-chord"><b>{cur.symbol}</b> <span className="small muted">next {next?.symbol}</span></div>
-            <p className="tn-target" data-testid="tn-target" data-midi={path[ci]} data-chord={ci}>{stepWords(cur, path[ci], ci > 0 ? path[ci - 1] : undefined)}</p>
-          </>
-        )}
-        <div className="tn-strip">
-          {chords.map((c, i) => (
-            <span key={i} className={`tn-cell${on && i === ci ? ' now' : ''}${marks[i] === true ? ' ok' : marks[i] === false ? ' miss' : ''}`}>
-              <b>{c.symbol}</b><span className="small">{pcLabel(path[i])}</span>
-            </span>
-          ))}
-        </div>
-        {laps.length > 0 && <p className="small muted" style={{ margin: 0 }}>Laps: {laps.map(l => `${l}%`).join(' · ')}{hits ? ` · ${hits} landed` : ''}</p>}
-      </div>
-      <div className="panel">
-      <Fretboard tuning={inst.midis} fromFret={Math.max(0, from - (from ? 1 : 0))} toFret={from + 5} markFor={markFor} zoomId="targets" />
-      <p className="small muted" style={{ margin: 0 }}>Ringed: the target now. Teal ring: the next chord's target. {kind !== 'any' && 'Faint: the other notes of this chord.'}</p>
-      </div>
+        <Win id="tn-now" title="Progression & targets" className="panel" bodyClass="tn-now stack" bodyStyle={{ gap: 8 }}>
+          <div aria-live="polite" className="stack" style={{ gap: 6 }}>
+            {now && now.chord < 0 ? <b className="tn-count">{now.countIn}</b> : cur && (
+              <>
+                <div className="tn-chord"><b>{cur.symbol}</b> <span className="small muted">next {next?.symbol}</span></div>
+                <p className="tn-target" data-testid="tn-target" data-midi={path[ci]} data-chord={ci}>{stepWords(cur, path[ci], ci > 0 ? path[ci - 1] : undefined)}</p>
+              </>
+            )}
+            <div className="tn-strip">
+              {chords.map((c, i) => (
+                <span key={i} className={`tn-cell${on && i === ci ? ' now' : ''}${marks[i] === true ? ' ok' : marks[i] === false ? ' miss' : ''}`}>
+                  <b>{c.symbol}</b><span className="small">{pcLabel(path[i])}</span>
+                </span>
+              ))}
+            </div>
+            {progDiagrams.length > 0 && <ProgressionDiagrams items={progDiagrams} activeIndex={on ? ci : -1} tuning={inst.midis} size={0.68} />}
+            {laps.length > 0 && <p className="small muted" style={{ margin: 0 }}>Laps: {laps.map(l => `${l}%`).join(' · ')}{hits ? ` · ${hits} landed` : ''}</p>}
+          </div>
+        </Win>
+        <Win id="tn-neck" title="Target notes on the neck" className="panel" bodyClass="stack" bodyStyle={{ gap: 6 }}>
+          <Fretboard tuning={inst.midis} fromFret={Math.max(0, from - (from ? 1 : 0))} toFret={from + 5} markFor={markFor} zoomId="targets" />
+          <p className="small muted" style={{ margin: 0 }}>Ringed: the target now. Teal ring: the next chord's target. {kind !== 'any' && 'Faint: the other notes of this chord.'}</p>
+        </Win>
+      </WinArea>
     </div>
   )
 }

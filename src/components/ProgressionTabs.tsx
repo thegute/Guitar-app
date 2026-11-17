@@ -14,6 +14,7 @@ import { TabView } from './TabView'
 import { usePersist } from './Controls'
 import { TabPlayer } from '../audio/tabPlayer'
 import { keyPrefersFlats } from '../theory/notes'
+import { ProgressionDiagrams, collapseDiagramSequence, progressionFromChords, voicingForChordName, voicingFromFrets } from './ProgressionDiagrams'
 
 interface Props {
   chords: ProgChord[]
@@ -65,10 +66,25 @@ export function ProgressionTabs({ chords, voicings, tonic, mode, bpm, onOpen, su
   const minor = ['minor', 'dorian', 'phrygian', 'harmonic'].includes(mode)
   const pat = pickPattern(patId)
   const pickDoc = useMemo(() => pickingDoc(chords, patId, inst, bpm, tonic, mode, voicings), [chords, patId, inst, bpm, tonic, mode, voicings])
+  const diagrams = useMemo(() => {
+    if (voicings && voicings.some(Boolean)) {
+      const raw = chords.map((c, i) => {
+        const v = voicings[i]
+        return {
+          name: c.symbol,
+          voicing: v ? voicingFromFrets(v.frets, c.symbol, inst, v.fingers) : voicingForChordName(c.symbol, inst),
+          bar: i,
+        }
+      }).filter((x): x is { name: string; voicing: NonNullable<typeof x.voicing>; bar: number } => !!x.voicing)
+      return collapseDiagramSequence(raw)
+    }
+    return progressionFromChords(chords.map(c => c.symbol), inst)
+  }, [chords, voicings, inst])
   if (!chords.length) return null
   const groups: [string, string][] = [['travis', 'Travis picking'], ['arpeggio', 'Arpeggios'], ['fingerstyle', 'Fingerstyle, slack key and classical'], ['bluegrass', 'Bluegrass and folk rhythm'], ['reggae', 'Reggae'], ['strum', 'Strumming']]
   return (
     <div className="stack prog-tabs" style={{ gap: 6 }}>
+      {diagrams.length > 0 && <ProgressionDiagrams items={diagrams} tuning={inst.midis} size={0.68} />}
       <label className="field">
         <span>Pattern</span>
         <select className="select" value={patId} onChange={e => { setPatId(e.target.value); setShow(true) }}>

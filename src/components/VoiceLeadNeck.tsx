@@ -4,6 +4,7 @@
 // "Practise the changes" tab in Play (Wait for me listens for each chord).
 import { useMemo, useState } from 'react'
 import { Fretboard, type Mark } from './Fretboard'
+import { ProgressionDiagrams, voicingFromFrets } from './ProgressionDiagrams'
 import { Chips, usePersist } from './Controls'
 import { Ico } from './Icon'
 import { chordInfo, type ChordInfo } from '../tabs/harmony'
@@ -42,6 +43,15 @@ export function VoiceLeadNeck({ chords, at, tuning, where, flats = false, compac
   const infos = useMemo(() => chords.map(c => chordInfo(c)).filter((c): c is ChordInfo => !!c), [chords])
   const z = ZONES.find(x => x.id === zone)?.z ?? ZONES[1].z
   const steps = useMemo(() => (infos.length >= 2 ? voiceLead(infos, tuning, z, size === '4' ? 4 : 3) : []), [infos, tuning, z, size])
+  const items = useMemo(() => steps.map((step, idx) => {
+    const frets = tuning.map(() => -1)
+    for (const n of step.voicing.notes) frets[n.s] = n.f
+    return {
+      name: infos[idx]?.name ?? chords[idx] ?? '',
+      voicing: { ...voicingFromFrets(frets, infos[idx]?.name), midi: step.voicing.notes.map(n => n.midi) },
+      stepIndices: [idx],
+    }
+  }), [steps, infos, chords, tuning])
   if (infos.length < 2) return <p className="small muted" style={{ margin: 0 }}>Voice leading needs at least two chords.</p>
   if (!steps.length) return <p className="small muted" style={{ margin: 0 }}>No compact shapes for these chords here: try another part of the neck.</p>
   const i = ((at ?? own) % steps.length + steps.length) % steps.length
@@ -73,6 +83,9 @@ export function VoiceLeadNeck({ chords, at, tuning, where, flats = false, compac
         {steppable && at === undefined && <button className="btn sm" onClick={() => setOwn(i + 1)} aria-label="Next chord">›</button>}
         <button className="btn sm" onClick={hear}><Ico n="play" /> Hear the change</button>
       </div>
+      <ProgressionDiagrams items={items} activeIndex={i} size={0.68} tuning={tuning}
+        onSelect={(_, idx) => { if (steppable && at === undefined) setOwn(idx) }}
+        label="All chord shapes in this progression" />
       <Fretboard tuning={tuning} fromFret={lo} toFret={Math.max(hi, lo + 5)} markFor={markFor} arrows={arrows} zoomId={`vl-${where}`} compact={compact}
         onTap={(m) => { const ctx = audio(); void ctx.resume(); strum([m], ctx.currentTime + 0.01) }} />
       <p className="small" style={{ margin: 0 }} role="status">{describeChange(st, name) || 'Same shape: nothing moves.'}</p>

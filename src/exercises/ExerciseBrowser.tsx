@@ -6,11 +6,12 @@ import { groupAt, handGroups } from '../play/handShape'
 import { toggleCard, useShownCards } from '../float/bus'
 import { pcName } from '../theory/notes'
 import { Ico } from '../components/Icon'
-import { Win } from '../components/Win'
+import { Win, WinArea } from '../components/Win'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useInstrument } from '../instrument'
 import { usePersist } from '../components/Controls'
 import { Fretboard, type Mark } from '../components/Fretboard'
+import { ProgressionDiagrams, progressionFromTrack } from '../components/ProgressionDiagrams'
 import { TabView } from '../components/TabView'
 import { TabPlayer } from '../audio/tabPlayer'
 import { audio } from '../audio/engine'
@@ -97,7 +98,7 @@ export function ExerciseBrowser({ group, suggest = true }: { group?: string; sug
     setTimeout(() => document.querySelector('[data-win="ex-pick"]')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
   }
   const suggWin = (
-    <Win id="ex-sugg" title="Suggested for you" className="panel" resizable={false}>
+    <Win id="ex-sugg" title="Suggested for you" className="panel">
       <div className="ex-sugg">
         {sugg.map(s => (
           <button key={s.ex.code} className={`ex-sugg-card${s.ex.code === code ? ' on' : ''}`} onClick={() => showSugg(s.ex.code)}>
@@ -113,11 +114,13 @@ export function ExerciseBrowser({ group, suggest = true }: { group?: string; sug
   if (!ex) {
     return (
       <div className="stack ex-browser">
-        <section className="panel stack ex-controls">
-          <FilterBar f={f} setF={setF} groups={groups} techs={techsHere} typeCounts={typeCounts} jam={jam} />
-          <p className="notice" style={{ margin: 0 }}>No exercises match those filters{f.fav ? ' (favourites only is on)' : ''}.</p>
-          <button className="btn" onClick={() => setF(NO_FILTER)}>Show all exercises</button>
-        </section>
+        <WinArea area="exercises">
+          <Win id="ex-find" title="Filter" className="panel" bodyClass="stack ex-controls">
+            <FilterBar f={f} setF={setF} groups={groups} techs={techsHere} typeCounts={typeCounts} jam={jam} />
+            <p className="notice" style={{ margin: 0 }}>No exercises match those filters{f.fav ? ' (favourites only is on)' : ''}.</p>
+            <button className="btn" onClick={() => setF(NO_FILTER)}>Show all exercises</button>
+          </Win>
+        </WinArea>
       </div>
     )
   }
@@ -393,6 +396,8 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
     })
   }
 
+  const progDiagrams = useMemo(() => (track ? progressionFromTrack(track, inst) : []), [track, inst])
+  const activeProgIdx = progDiagrams.findIndex(d => d.stepIndices?.includes(at))
   const worksTags = useMemo(() => worksOverForExercise(ex), [ex])
   const shownBpm = liveBpm ?? bpm
   const head = (
@@ -408,7 +413,7 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
       <Win id="ex-find" title="Find an exercise" className="panel ex-controls" bodyClass="stack">
       {filters}
       </Win>
-      <Win id="ex-pick" title="Play it" className="panel ex-controls" bodyClass="stack" resizable={false}>
+      <Win id="ex-pick" title="Play it" className="panel ex-controls" bodyClass="stack">
       {controls}
       <p className="ex-desc"><b>{LEVELS[ex.level]}</b> · {EX_TYPES.find(t => t.id === ex.type)?.label} · {ex.about}</p>
       <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -483,11 +488,23 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
         {lick?.must && <button className="btn" onClick={() => learnGo({ licks: lick.id })}><Ico n="book" /> How to play it, step by step</button>}
       </div>
       </Win>
-      <Win id="ex-neck" title="On the neck" className="panel ex-card">
+      <Win id="ex-neck" title="On the neck" className="panel ex-card" bodyClass="stack">
         {head}
         {song && track ? (
-          <Fretboard tuning={track.tuning} fromFret={neck.from} toFret={neck.to} markFor={markFor} zoomId="exercise" compact
-            onTap={m => { const ctx = audio(); void ctx.resume(); playNote(m + capo, ctx.currentTime + 0.01, 0.75, undefined, { sound }) }} />
+          <>
+            {progDiagrams.length > 0 && (
+              <ProgressionDiagrams
+                items={progDiagrams}
+                activeIndex={activeProgIdx}
+                tuning={track.tuning}
+                capo={capo}
+                size={0.78}
+                onSelect={it => { if (it.stepIndices?.length) seek(it.stepIndices[0]) }}
+              />
+            )}
+            <Fretboard tuning={track.tuning} fromFret={neck.from} toFret={neck.to} markFor={markFor} zoomId="exercise" compact
+              onTap={m => { const ctx = audio(); void ctx.resume(); playNote(m + capo, ctx.currentTime + 0.01, 0.75, undefined, { sound }) }} />
+          </>
         ) : misfit}
       </Win>
       <Win id="ex-tab" title="Tab" className="panel ex-card">

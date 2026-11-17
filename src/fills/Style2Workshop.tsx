@@ -3,6 +3,8 @@
 import { useEffect, useMemo, type ReactNode } from 'react'
 import type { Instrument } from '../instrument'
 import { Chips, usePersist } from '../components/Controls'
+import { ProgressionDiagrams, progressionFromChords } from '../components/ProgressionDiagrams'
+import { Win, WinArea } from '../components/Win'
 import { openInPlay } from '../nav'
 import { songStats } from '../play/songStats'
 import { countUse } from '../usage'
@@ -27,6 +29,7 @@ export function Style2Workshop({ inst, onExit, chips, style }: { inst: Instrumen
   const label = `${S.label} fills (${k})`
   const ws = useMemo(() => style2Workshop({ style, key: k, prog, bpm, title: label }), [style, k, prog, bpm, label])
   const part = useMemo(() => style2Part({ style, key: k, prog, bpm, title: label }, pbars, pseed), [style, k, prog, bpm, label, pbars, pseed])
+  const chordDiagrams = useMemo(() => progressionFromChords(ws.chords, inst, { collapseRepeats: true }), [ws.chords, inst])
   const docFor = (id: string) => `fills:${style}:${k}:${progId}:${id}`
   const best = (id: string) => songStats(docFor(id))?.best ?? 0
   const put = (kk: string, v: unknown) => { try { localStorage.setItem('kg:' + kk, JSON.stringify(v)) } catch { /* storage */ } }
@@ -42,7 +45,8 @@ export function Style2Workshop({ inst, onExit, chips, style }: { inst: Instrumen
   return (
     <div className="stack fills" style={{ gap: 12 }} data-testid="fills">
       <div className="row"><button className="btn sm" onClick={onExit}>← Back</button><h2 style={{ margin: 0 }}>Fills between chords</h2></div>
-      <div className="panel stack" style={{ gap: 10 }}>
+      <WinArea area={`fills-${style}`}>
+      <Win id="fills-setup" title={`${S.label} fills`} className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }}>
         <p className="small" style={{ margin: 0 }}>{S.intro} {ws.steps.length} steps; each one opens in the song player with a band, the mic and speed control.</p>
         {chips}
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -60,41 +64,46 @@ export function Style2Workshop({ inst, onExit, chips, style }: { inst: Instrumen
           </label>
         </div>
         <p className="small muted" style={{ margin: 0 }}><span data-chord-list>{ws.chords.join(' – ')}</span> · one bar each.</p>
+        <ProgressionDiagrams items={chordDiagrams} tuning={inst.midis} size={0.68} />
         <button className="btn" data-testid="fills-routine" onClick={() => { countUse('fills:routine'); void fillsRoutine(ws.steps.map(st => ({ id: st.id, title: st.title, doc: docOf(st.id, st.song) })), best).then(startSession) }}>10-minute fills routine</button>
         {next && <button className="btn primary" data-testid="fills-next" onClick={() => openStep(next.id, next.song, next.inTime)}>Next: {next.title}</button>}
-      </div>
+      </Win>
       {ws.steps.map(st => {
         const b = best(st.id), isOpen = open === st.id
         return (
-          <div key={st.id} className={`panel stack fills-step${b >= 90 ? ' done' : ''}`} style={{ gap: 6 }} data-testid={`fills-step-${st.id}`}>
-            <button className="fills-head" onClick={() => setOpen(isOpen ? '' : st.id)} aria-expanded={isOpen}><b>{b >= 90 ? '✓ ' : ''}{st.title}</b>{b > 0 && <span className="small muted">best {b}%</span>}</button>
-            {isOpen && <>
-              <p className="small" style={{ margin: 0 }}>{st.why}</p>
-              <ol className="small fills-how">{st.how.map((h, i) => <li key={i}>{h}</li>)}</ol>
-              <p className="small muted" style={{ margin: 0 }}>Listen for: {st.listen}</p>
-              {FILL_LEARN[st.id] && <FillIdea learn={FILL_LEARN[st.id]} />}
-              <button className="btn primary" data-testid={`fills-go-${st.id}`} onClick={() => openStep(st.id, st.song, st.inTime)}>Practise it{st.inTime ? ' (In time)' : ''}</button>
-            </>}
-          </div>
+          <Win key={st.id} id={`step-${st.id}`} title={st.title} className={`panel fills-step${b >= 90 ? ' done' : ''}`} bodyClass="stack" bodyStyle={{ gap: 6 }}>
+            <div className="stack" style={{ gap: 6 }} data-testid={`fills-step-${st.id}`}>
+              <button className="fills-head" onClick={() => setOpen(isOpen ? '' : st.id)} aria-expanded={isOpen}><b>{b >= 90 ? '✓ ' : ''}{st.title}</b>{b > 0 && <span className="small muted">best {b}%</span>}</button>
+              {isOpen && <>
+                <p className="small" style={{ margin: 0 }}>{st.why}</p>
+                <ol className="small fills-how">{st.how.map((h, i) => <li key={i}>{h}</li>)}</ol>
+                <p className="small muted" style={{ margin: 0 }}>Listen for: {st.listen}</p>
+                {FILL_LEARN[st.id] && <FillIdea learn={FILL_LEARN[st.id]} />}
+                <button className="btn primary" data-testid={`fills-go-${st.id}`} onClick={() => openStep(st.id, st.song, st.inTime)}>Practise it{st.inTime ? ' (In time)' : ''}</button>
+              </>}
+            </div>
+          </Win>
         )
       })}
-      <div className="panel stack fills-step" style={{ gap: 6 }} data-testid="fills-step-part">
-        <button className="fills-head" onClick={() => setOpen(open === 'part' ? '' : 'part')} aria-expanded={open === 'part'}><b>{ws.steps.length + 1}. Longer parts: {pbars} bars</b></button>
-        {open === 'part' && <>
-          <p className="small" style={{ margin: 0 }}>A part made of the moves, one per bar, ending at home. Make as many as you like.</p>
-          <Chips label="Length" items={[{ id: 4 as const, label: '4 bars' }, { id: 6 as const, label: '6 bars' }, { id: 8 as const, label: '8 bars' }]} value={pbars} onChange={setPbars} />
-          <div className="row" style={{ gap: 8 }}>
-            <button className="btn primary" data-testid="fills-go-part" onClick={() => openStep(`part-${pbars}-${pseed}`, part)}>Practise it</button>
-            <button className="btn" data-testid="fills-new-part" onClick={() => setPseed(x => x + 1)}>New part</button>
-          </div>
-          <FillIdea learn={FILL_LEARN.part} />
-        </>}
-      </div>
-      <div className="panel stack" style={{ gap: 6 }}>
-        <b>Loop your own rhythm</b>
+      <Win id="step-part" title={`${ws.steps.length + 1}. Longer parts`} className="panel fills-step" bodyClass="stack" bodyStyle={{ gap: 6 }}>
+        <div className="stack" style={{ gap: 6 }} data-testid="fills-step-part">
+          <button className="fills-head" onClick={() => setOpen(open === 'part' ? '' : 'part')} aria-expanded={open === 'part'}><b>{ws.steps.length + 1}. Longer parts: {pbars} bars</b></button>
+          {open === 'part' && <>
+            <p className="small" style={{ margin: 0 }}>A part made of the moves, one per bar, ending at home. Make as many as you like.</p>
+            <Chips label="Length" items={[{ id: 4 as const, label: '4 bars' }, { id: 6 as const, label: '6 bars' }, { id: 8 as const, label: '8 bars' }]} value={pbars} onChange={setPbars} />
+            <div className="row" style={{ gap: 8 }}>
+              <button className="btn primary" data-testid="fills-go-part" onClick={() => openStep(`part-${pbars}-${pseed}`, part)}>Practise it</button>
+              <button className="btn" data-testid="fills-new-part" onClick={() => setPseed(x => x + 1)}>New part</button>
+            </div>
+            <FillIdea learn={FILL_LEARN.part} />
+          </>}
+        </div>
+      </Win>
+      <Win id="fills-loop" title="Loop your own rhythm" className="panel" bodyClass="stack" bodyStyle={{ gap: 6 }}>
         <p className="small" style={{ margin: 0 }}>The looper gets {ws.chords.join(' – ')} as a beat. Record yourself playing the rhythm on track 1 (one bar of lights counts you in), then practise the fills over your own playing.</p>
         <button className="btn" data-testid="fills-loop" onClick={() => { countUse('fills:loop'); void loopOver({ chords: ws.chords, key: k, minor: false, bpm, groove: S.groove }) }}>Loop it</button>
-      </div>
+      </Win>
+      </WinArea>
     </div>
   )
 }

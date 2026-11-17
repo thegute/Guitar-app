@@ -27,6 +27,7 @@ import {
 } from '../src/sessions/session'
 import { playAction, takePlayAction } from '../src/nav'
 import type { ProgChord } from '../src/theory/progressions'
+import { voicingFromFrets, progressionFromTrack, progressionFromChords } from '../src/components/ProgressionDiagrams'
 
 const inst = current()
 const validTagIds = new Set(WORKS_OVER_TAGS.map(t => t.id))
@@ -163,4 +164,32 @@ const validTagIds = new Set(WORKS_OVER_TAGS.map(t => t.id))
   assert.equal(got!.trainer?.step, 0.05)
   assert.equal(got!.trainer?.pass, 90)
   console.log('loop + speed ramp bridge: ok')
+}
+
+// 5. Full progression chord diagrams + fingerings + barres (e.g. CH-26 Bb to F)
+{
+  const bb = voicingFromFrets([-1, 1, 3, 3, 3, 1], 'Bb', inst)
+  assert.ok(bb.barres.includes(1), `Bb barre shape includes barre at fret 1, got ${JSON.stringify(bb.barres)}`)
+  assert.ok(bb.fingers.some(f => f > 0), `Bb voicing has finger numbers, got ${JSON.stringify(bb.fingers)}`)
+
+  const f = voicingFromFrets([1, 3, 3, 2, 1, 1], 'F', inst)
+  assert.ok(f.barres.includes(1), `F barre shape includes barre at fret 1, got ${JSON.stringify(f.barres)}`)
+  assert.ok(f.fingers.some(fn => fn > 0), `F voicing has finger numbers, got ${JSON.stringify(f.fingers)}`)
+
+  const catalog = exerciseCatalog(inst)
+  const ch26 = catalog.find(e => e.code === 'CH-26')
+  assert.ok(ch26, 'CH-26 exercise exists in catalog')
+  const song = ch26!.make({ root: ch26!.key ?? 'C', inst, bpm: ch26!.bpm })
+  assert.ok(song && song.tracks[0], 'CH-26 builds a song track')
+  const diags = progressionFromTrack(song!.tracks[0], inst)
+  assert.equal(diags.length, 2, `CH-26 Bb-F-Bb-F collapses cleanly to 2 diagrams (Bb & F), got ${diags.map(d => d.name).join(', ')}`)
+  assert.equal(diags[0].name, 'Bb')
+  assert.equal(diags[1].name, 'F')
+  assert.ok(diags[0].voicing.fingers.some(fn => fn > 0), 'CH-26 Bb diagram has finger numbers')
+  assert.ok(diags[1].voicing.fingers.some(fn => fn > 0), 'CH-26 F diagram has finger numbers')
+
+  const viaNames = progressionFromChords(['G', 'Em', 'C', 'D'], inst)
+  assert.equal(viaNames.length, 4)
+  assert.deepEqual(viaNames.map(d => d.name), ['G', 'Em', 'C', 'D'])
+  console.log('full progression chord diagrams + fingerings: ok')
 }
