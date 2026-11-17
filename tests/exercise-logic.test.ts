@@ -1,5 +1,9 @@
 // Practice-tab library: every exercise builds, fits the instrument and spells the right notes.
 import { buildExercise, scalePosition, EX_SCALES, EX_ARPS, EX_LICKS, EX_SEQUENCES, EX_WARMUPS, ESSENTIALS } from '../src/tabs/exercises'
+import {
+  RHYTHM_FEELS, SCALE_PATTERNS, STRETCH_SHAPES,
+  planBurstSteps, rhythmLabSong, scaleBuilderSong, stretchRackSong,
+} from '../src/exercises/drillLab'
 import { INSTRUMENTS } from '../src/instrument'
 import { noteToMidi, pc } from '../src/theory/notes'
 import { Scale } from 'tonal'
@@ -48,5 +52,52 @@ const bari = INSTRUMENTS.baritone.tunings[0].notes.map(noteToMidi)
 eq('baritone G shape', generateShapes('G', 'major', bari)[0]?.frets, [0, 0, 0, 3])
 const tenor = INSTRUMENTS.tenor.tunings[0].notes.map(noteToMidi)
 eq('tenor C shape', generateShapes('C', 'major', tenor)[0]?.frets, [0, 0, 0, 3])
+
+// Drill Lab: Scale builder, Stretch rack, Rhythm lab, Burst mode
+let labChecks = 0
+function checkLabSong(tag: string, s: ReturnType<typeof scaleBuilderSong>, tuning: number[], expectedMeter = 4) {
+  labChecks++
+  if (!s) { bad(`${tag}: returned null`); return }
+  const tr = s.song.tracks[0]
+  if (!tr.bars.length) bad(`${tag}: no bars`)
+  tr.bars.forEach((b, bi) => {
+    const len = b.steps.reduce((a, st) => a + st.dur, 0)
+    if (Math.abs(len - expectedMeter) > 0.01) bad(`${tag}: bar ${bi + 1} len ${len} != ${expectedMeter}`)
+    for (const st of b.steps) for (const n of st.notes) {
+      if (n.fret < 0 || n.fret > 22) bad(`${tag}: fret ${n.fret} out of 0..22`)
+      if (n.midi !== tuning[n.string] + n.fret) bad(`${tag}: midi mismatch`)
+    }
+  })
+}
+
+for (const tuning of [guitar, bari, tenor]) {
+  for (const layout of ['position', '3nps', 'oneString'] as const) {
+    for (const pat of SCALE_PATTERNS) {
+      checkLabSong(`scale ${layout}/${pat.id}`, scaleBuilderSong({ root: 'A', scale: 'harmonic minor', position: 0, layout, pattern: pat.id, sub: '16', bpm: 80 }, tuning), tuning)
+    }
+  }
+  for (const sh of STRETCH_SHAPES) {
+    for (const mode of ['across', 'descend', 'anchor'] as const) {
+      for (const legato of [false, true]) {
+        checkLabSong(`stretch ${sh.id}/${mode}/${legato}`, stretchRackSong({ startFret: 5, shape: sh.id, mode, legato, bpm: 66 }, tuning), tuning)
+      }
+    }
+  }
+  for (const meter of [3, 4, 5, 7] as const) {
+    for (const feel of RHYTHM_FEELS) {
+      checkLabSong(`rhythm ${meter}/4 ${feel.id}`, rhythmLabSong({ meter, sub: '16', feel: feel.id, root: 'E', bars: 2, bpm: 80 }, tuning), tuning, meter)
+    }
+  }
+}
+
+const burst = planBurstSteps(100, { on: true, stepBpm: 10, steps: 4, reps: 2, restBars: 1 })
+eq('burst count', burst.length, 8)
+eq('burst bpms', burst.map(b => b.bpm), [100, 100, 110, 110, 120, 120, 130, 130])
+eq('burst restBeforeBars', burst.map(b => b.restBeforeBars), [0, 0, 1, 0, 1, 0, 1, 0])
+const capped = planBurstSteps(230, { on: true, stepBpm: 15, steps: 3, reps: 1, restBars: 2 })
+eq('burst cap 240', capped.map(b => b.bpm), [230, 240, 240])
+eq('burst rest 2 bars', capped.map(b => b.restBeforeBars), [0, 2, 2])
+console.log('drill lab checks:', labChecks)
+
 console.log(fails ? `\n${fails} FAILED` : '\nall passed')
 process.exit(fails ? 1 : 0)

@@ -18,6 +18,7 @@ import {
   type ChordEvent, type Hit, type Make, type RelChord,
 } from './build'
 import { FS_COMBOS, FS_ETUDES, FS_PROGS, fromLush } from './fingerstyle'
+import { scaleBuilderSong } from './drillLab'
 
 export type Level = 1 | 2 | 3 | 4
 export const LEVELS = ['', 'Beginner', 'Intermediate', 'Advanced', 'Expert'] as const
@@ -475,6 +476,37 @@ function buildDefs(inst: Instrument): Def[] {
   add({ type: 'warmup', kind: 'Drill', name: 'Four-finger stretch (frets 5-7-8-10)', level: 3, tech: ['stretch', 'alt'], bpm: 60,
     about: 'The span of a three-notes-per-string scale. Lower the thumb, keep the fingers curved and relax between strings.',
     make: fromLine('Four-finger stretch', t => seq([...[...t.keys()].flatMap(s => [5, 7, 8, 10].map(f => [s, f] as [number, number])), ...[...t.keys()].reverse().flatMap(s => [10, 8, 7, 5].map(f => [s, f] as [number, number]))], 0.25)) })
+  add({ type: 'warmup', kind: 'Drill', name: 'Stretch rack: progressive neck descent (7-9-11 → 1-3-5)', level: 3, tech: ['stretch', 'shift', 'indep'], bpm: 60,
+    about: 'Start comfortable at frets 7-9-11 and step down toward the nut where frets get wider. Stop if your wrist strains.',
+    make: fromLine('Stretch rack descent', t => seq([7, 5, 3, 1].flatMap(b => [...t.keys()].flatMap(s => [b, b + 2, b + 4].map(f => [s, f] as [number, number]))), 1 / 3)) })
+  add({ type: 'warmup', kind: 'Drill', name: 'Stretch rack: pinky reach (frets 5-6-8-10)', level: 3, tech: ['stretch', 'indep', 'alt'], bpm: 60,
+    about: 'Stretch between ring and pinky without pulling your index finger off the 5th fret.',
+    make: fromLine('Pinky reach 5-6-8-10', t => seq([...[...t.keys()].flatMap(s => [5, 6, 8, 10].map(f => [s, f] as [number, number])), ...[...t.keys()].reverse().flatMap(s => [10, 8, 6, 5].map(f => [s, f] as [number, number]))], 0.25)) })
+  add({ type: 'warmup', kind: 'Drill', name: 'Stretch rack: wide five-fret span (5-7-9-10)', level: 4, tech: ['stretch', 'indep'], bpm: 60,
+    about: 'Two whole-step stretches between fingers 1, 2 and 3, keeping your hand loose and thumb low.',
+    make: fromLine('Wide five-fret span', t => seq([...[...t.keys()].flatMap(s => [5, 7, 9, 10].map(f => [s, f] as [number, number])), ...[...t.keys()].reverse().flatMap(s => [10, 9, 7, 5].map(f => [s, f] as [number, number]))], 0.25)) })
+  add({ type: 'warmup', kind: 'Drill', name: 'Stretch rack: giant whole-step ladder (5-7-9-11)', level: 4, tech: ['stretch', 'indep', 'alt'], bpm: 56,
+    about: 'One-fret-skipped between every finger across every string. Start light and relaxed; speed is optional.',
+    make: fromLine('Giant stretch 5-7-9-11', t => seq([...[...t.keys()].flatMap(s => [5, 7, 9, 11].map(f => [s, f] as [number, number])), ...[...t.keys()].reverse().flatMap(s => [11, 9, 7, 5].map(f => [s, f] as [number, number]))], 0.25)) })
+  add({ type: 'warmup', kind: 'Drill', name: 'Stretch rack: diagonal 1-2-4 climb', level: 3, tech: ['stretch', 'skip', 'indep'], bpm: 60,
+    about: 'Each finger climbs both a string and a wider fret spacing (5 → 7 → 9 → 11), teaching oblique finger independence.',
+    make: fromLine('Diagonal stretch climb', t => {
+      const pairs: [number, number][] = []
+      for (let s = 0; s + 2 < t.length; s++) {
+        pairs.push([s, 5], [s + 1, 7], [s + 2, 9], [s + 1, 7])
+      }
+      for (let s = t.length - 3; s >= 0; s--) {
+        pairs.push([s + 2, 9], [s + 1, 7], [s, 5], [s + 1, 7])
+      }
+      return pairs.length ? seq(pairs, 0.25) : null
+    }) })
+  add({ type: 'warmup', kind: 'Drill', name: 'Anchored spider: independent pairs', level: 2, tech: ['indep', 'alt'], bpm: 66,
+    about: 'Alternate between low and high fingers across adjacent strings (5-6 on one, 7-8 on the next) so fingers move cleanly one by one.',
+    make: fromLine('Anchored spider', t => {
+      const pairs: [number, number][] = []
+      for (let s = 0; s + 1 < t.length; s++) pairs.push([s, 5], [s, 6], [s + 1, 7], [s + 1, 8], [s, 6], [s + 1, 8], [s, 5], [s + 1, 7])
+      return pairs.length ? seq(pairs, 0.25) : null
+    }) })
 
   // ── Picking
   add({ type: 'picking', kind: 'Drill', name: 'Open strings, down-up', level: 1, tech: ['alt'], bpm: 80, start: true,
@@ -519,8 +551,28 @@ function buildDefs(inst: Instrument): Def[] {
       'Four fast notes, then a rest. Short bursts build speed without tension; relax in the gaps.'],
     ['Sextuplet bursts', 4, 'sx 1:8 1:5 2:8 2:5 3:7 3:5 q r sx 3:5 3:7 2:5 2:8 1:5 1:8 q r sx 1:8 1:5 2:8 2:5 3:7 3:5 sx 4:7 4:5 3:7 3:5 2:8 2:5 h 2:5~', ['alt', 'speed'],
       'Six notes in one beat: real shred speed. Only push the tempo when the bursts are clean at the slow speed.'],
+    ['Inside/outside switch (alternate picking)', 3, 's 2:5 2:8 1:5 1:8 2:5 2:8 1:5 1:8 1:8 1:5 2:8 2:5 1:8 1:5 2:8 2:5 3:5 3:7 2:5 2:8 3:5 3:7 2:5 2:8 2:8 2:5 3:7 3:5 2:8 2:5 3:7 3:5 h 3:5~', ['alt'],
+      'Switches cleanly between outside crossing (bars 1 & 3) and inside crossing (bars 2 & 4) so neither pick stroke feels clumsy.'],
+    ['One-note-per-string alternate pedal', 3, 's 4:7 3:5 4:7 2:5 4:7 1:5 4:7 2:5 4:7 3:5 4:7 2:5 4:7 1:5 4:7 2:5 4:7 3:7 4:7 2:8 4:7 1:8 4:7 2:8 4:7 3:7 4:7 2:8 4:7 1:8 4:7 2:8 h 4:7~', ['alt', 'skip'],
+      'Every note changes strings! Alternate down-up without letting the unused strings ring out.'],
+    ['Six-note alternate cell (A natural minor)', 3, 'sx ' + Array(4).fill('1:8 1:7 1:5 2:8 1:5 1:7').join(' ') + ' ' + Array(4).fill('2:10 2:8 2:6 3:9 2:6 2:8').join(' ') + ' q 2:5~', ['alt', 'speed'],
+      'A classic neoclassical sextuplet cell on the top two strings: three notes down, one note on the string below, two back up.'],
+    ['Three-note crossing trigger (odd beat changes)', 3, 's ' + Array(2).fill('3:5 3:7 3:9 2:6 2:8 2:10 1:7 1:8 1:10 2:10 2:8 2:6 3:9 3:7 3:5 4:7').join(' ') + ' h 4:7~', ['alt', 'economy'],
+      'Three notes per string grouped in sixteenths: every string crossing flips between downstroke and upstroke.'],
+    ['Petrucci-style 3NPS 16th run (1-2-3-2-3-4)', 4, 's 6:5 6:7 6:8 6:7 6:8 5:5 5:7 5:8 5:7 5:8 4:5 4:7 4:9 4:7 4:9 3:5 3:7 3:9 3:7 3:9 2:6 2:8 2:10 2:8 2:10 1:7 1:8 1:10 1:8 1:10 1:12 1:10 h 1:8~', ['alt', 'speed'],
+      'Overlapping 3-note-per-string steps in straight 16ths: tests whether your picking stays locked through string changes.'],
+    ['Economy cascade: 3NPS sweeps ascending', 3, 't 6:5 6:7 6:8 5:5 5:7 5:8 4:5 4:7 4:9 5:5 5:7 5:8 4:5 4:7 4:9 3:5 3:7 3:9 4:5 4:7 4:9 3:5 3:7 3:9 2:6 2:8 2:10 3:5 3:7 3:9 2:6 2:8 2:10 1:7 1:8 1:10 h 1:12~', ['economy', 'sweep'],
+      'Down-up-down on each string pushes straight down onto the next string cleanly without hopping over it.'],
+    ['Harmonic minor neoclassical pedal (A harmonic minor)', 4, 's 1:12 1:5 1:13 1:5 1:12 1:5 1:10 1:5 1:9 1:5 1:10 1:5 1:12 1:5 1:13 1:5 1:16 1:5 1:17 1:5 1:16 1:5 1:13 1:5 1:12 1:5 1:10 1:5 1:9 1:5 1:10 1:5 h 1:12~', ['alt', 'shift', 'speed'],
+      'Classical pedal-point climb using the major 7th (G#) of A harmonic minor. Alternate pick every note cleanly.'],
+    ['Bach-style arpeggio study (Am moto perpetuo)', 4, 's 3:5 2:5 1:5 1:8 1:5 2:5 3:5 2:5 3:4 2:6 1:4 1:7 1:4 2:6 3:4 2:6 3:5 2:5 1:5 1:12 1:8 1:5 2:5 3:5 4:7 3:5 2:5 1:8 1:5 2:5 3:5 4:7 h 3:5~', ['alt', 'sweep'],
+      'Sixteenth-note baroque counterpoint study (inspired by J.S. Bach & C.P.E. Bach): alternate pick or sweep between broken chords.'],
+    ['Paganini Caprice 24 motif (A minor)', 4, 's 1:5 1:5 1:8 1:7 1:5 1:12 1:8 1:5 1:4 1:5 1:7 1:5 2:9 2:5 3:9 3:5 1:12 1:10 1:8 1:7 1:8 1:5 2:8 2:6 2:5 2:6 2:8 2:5 3:7 3:5 3:4 3:5 h 4:7~', ['alt', 'skip', 'speed'],
+      'The famous classical theme arranged for alternate picking and crisp string skips. Keep each note dry and distinct.'],
+    ['Vivaldi Presto string-crossing motif (A minor)', 4, 's 1:12 2:10 1:13 2:10 1:12 2:10 1:8 2:10 1:10 2:8 1:12 2:8 1:10 2:8 1:7 2:8 1:8 2:6 1:10 2:6 1:8 2:6 1:5 2:6 1:7 2:5 1:8 2:5 1:7 2:5 1:4 2:5 h 1:5~', ['alt', 'skip', 'speed'],
+      'Baroque 16th-note crossing motif: the top note moves down the harmonic minor scale against a fixed string-below anchor.'],
   ]
-  for (const [name, level, tab, tech, about] of pk) add({ type: 'picking', kind: 'Drill', name, level, tech: [...new Set([...tech, ...tabTech(tab, 80)])], bpm: level >= 3 ? 70 : 80, key: 'A', minor: true, about, make: fromTab(tab, { name, ref: 'A', minor: true }) })
+  for (const [name, level, tab, tech, about] of pk) add({ type: 'picking', kind: 'Drill', name, level, tech: [...new Set([...tech, ...tabTech(tab, 80)])], bpm: level >= 4 ? 66 : level >= 3 ? 70 : 80, key: 'A', minor: true, about, make: fromTab(tab, { name, ref: 'A', minor: true }) })
   const pkG: [string, Level, string, string[], string, number][] = [
     ['String-skipping arpeggios: Am – C – G', 3, 'e 4:7 2:5 3:5 1:5 3:5 2:5 4:7 r 5:3 3:5 4:5 2:5 4:5 3:5 5:3 r 6:3 4:5 5:5 3:7 5:5 4:5 6:3 r h 4:7+3:5+2:5', ['skip', 'alt'],
       'Chord tones with a string skipped between them: a wide, open sound. Mute the skipped strings with the side of your fingers.', 70],
@@ -538,6 +590,12 @@ function buildDefs(inst: Instrument): Def[] {
       'The major shape: only the B string changes. Keep the pick angled slightly so it glides.', 50],
     ['Six-string sweep: C major', 4, 'sx ' + Array(4).fill('6:8 5:10 4:10 3:9 2:8 1:8 1:12h 1:8p 2:8 3:9 4:10 5:10').join(' ') + ' h 6:8', ['sweep', 'speed'],
       'All six strings, root on the low E: the big neoclassical sweep. Each note must stop as the next one starts.', 50],
+    ['Four-string sweep: Am7 & Cmaj7', 3, 's ' + Array(2).fill('4:10 3:9 2:10 1:8 1:12h 1:8p 2:10 3:9 4:10 r 4:10 3:9 2:8 1:7 1:12h 1:7p 2:8 3:9').join(' ') + ' h 4:10+3:9+2:10', ['sweep', 'shift'],
+      'Sweeping across the top four strings for 7th chords: roll lightly across adjacent frets and lift each finger right after picking.', 60],
+    ['Four-string sweep: diminished 7th climb', 4, 's 4:10 3:11 2:10 1:11 1:8p 2:10 3:8 4:7 4:10 3:11 2:10 1:11 1:14h 1:11p 2:10 3:11 4:13 3:14 2:13 1:14 1:17h 1:14p 2:13 3:14 h 4:13~', ['sweep', 'shift', 'speed'],
+      'The diminished 7th shape repeats every three frets up the neck: slide smoothly between inversions.', 60],
+    ['Neoclassical sweep cadence: Am – Dm – E7 – Am', 4, 't ' + ['3:14 2:13 1:12 1:17h 1:12p 2:13', '3:14 2:15 1:13 1:17h 1:13p 2:15', '3:13 2:12 1:10 1:16h 1:10p 2:12', '3:14 2:13 1:12 1:17h 1:12p 2:13'].map(g => `${g} ${g}`).join(' ') + ' h 3:14+2:13+1:12', ['sweep', 'shift'],
+      'Classical harmonic-minor chord progression (i – iv – V7 – i) connected by three-string sweep arpeggios.', 60],
     ['Hybrid picking: bass and double stops', 2, 'e 6:3 2:3+1:3 5:2 2:3+1:3 4:0 2:3+1:3 5:2 2:3+1:3 6:3 2:3+1:3 5:2 2:3+1:3 h 6:3+2:3+1:3', ['hybrid'],
       'Pick the bass notes, snap the two top strings with your middle and ring fingers. The country "chicken" sound starts here.', 80],
     ['Hybrid banjo roll', 3, 'e 3:0 2:3 1:3 3:0 2:3 1:3 3:0 2:3 3:0 2:1 1:0 3:0 2:1 1:0 3:0 2:1 3:0 2:3 1:3 3:0 2:3 1:3 3:0 2:3 h 3:0+2:3+1:3', ['hybrid', 'cross'],
@@ -545,7 +603,7 @@ function buildDefs(inst: Instrument): Def[] {
   ]
   for (const [name, level, tab, tech, about, bpm] of pkG) {
     const key = /banjo|bass and double/.test(name) ? 'G' : name.includes('C major') ? 'C' : 'A'
-    const minor = /minor|Am –/.test(name)
+    const minor = /minor|Am|Neoclassical|diminished/.test(name)
     add({ type: 'picking', kind: 'Drill', name, level, tech: [...new Set([...tech, ...tabTech(tab, bpm)])], bpm, key, minor, guitarOnly: true, about,
       make: fromTab(tab, { name, ref: key, minor, move: key === 'G' ? 'capo' : 'shift' }) })
   }
@@ -613,6 +671,28 @@ function buildDefs(inst: Instrument): Def[] {
       down.forEach((p, i) => out.push(ev(1 / 3, nt(p.string, p.fret, i > 0 && down[i - 1].string === p.string ? 'p' : undefined))))
       return out
     }, { keyed: true, minor: true }) })
+  const lgShred: [string, Level, string, string[], string][] = [
+    ['Legato 6-note sextuplet cell (3NPS)', 3, 'sx ' + Array(4).fill('2:6h 2:8h 2:10p 2:8p 2:6h 2:8').join(' ') + ' ' + Array(4).fill('1:7h 1:8h 1:10p 1:8p 1:7h 1:8').join(' ') + ' q 1:10~', ['hammer', 'pull', 'speed'],
+      'Pick once per beat and let the left hand roll six even notes without losing volume on the pull-offs.'],
+    ['3NPS rolling legato: 1-2-3-2-3-4 ascending', 3, 'sx 6:5h 6:7h 6:8p 6:7h 6:8 5:5h 5:7h 5:8p 5:7h 5:8 4:5h 4:7h 4:9p 4:7h 4:9 3:5h 3:7h 3:9p 3:7h 3:9 2:6h 2:8h 2:10p 2:8h 2:10 1:7h 1:8h 1:10p 1:8h 1:10 h 1:12~', ['hammer', 'pull', 'speed'],
+      'Rolling three-note-per-string legato across all six strings: pick only the string changes so it sounds liquid and connected.'],
+    ['Descending pull-off cascade (all strings)', 3, 't 1:10p 1:8p 1:7 2:10p 2:8p 2:6 3:9p 3:7p 3:5 4:9p 4:7p 4:5 5:8p 5:7p 5:5 6:8p 6:7p 6:5 5:5h 5:7h 5:8 4:5h 4:7h 4:9 3:5h 3:7h 3:9 2:6h 2:8h 2:10 1:7h 1:8h 1:10 h 1:12~', ['pull', 'hammer'],
+      'Flick sideways on every pull-off so the lower notes ring just as loud as the picked first note.'],
+    ['String-skipping legato arpeggios (Am – F – G)', 4, 't 4:7h 4:10h 2:8h 2:10p 2:8 4:10p 4:7 2:8h 2:10 5:8h 5:12h 3:9h 3:10p 3:9 5:12p 5:8 3:9h 3:10 5:10h 5:14h 3:10h 3:12p 3:10 5:14p 5:10 3:10h 3:12 h 1:12~', ['hammer', 'pull', 'skip'],
+      'Satriani-style wide-interval legato: skip the middle string and hammer cleanly onto the next chord shape.'],
+    ['Wide-stretch 3NPS legato (frets 5-7-9)', 4, 't 3:5h 3:7h 3:9h 2:5h 2:7h 2:9h 1:5h 1:7h 1:9p 1:7p 1:5 2:9p 2:7p 2:5 3:9p 3:7p 3:5 h 4:7~', ['hammer', 'pull', 'stretch'],
+      'Whole-step stretch shapes in three-notes-per-string legato: keep the palm off the bottom of the neck so fingers reach effortlessly.'],
+    ['Horizontal one-string legato + slide loop', 3, 's 2:5h 2:6h 2:8/ 2:10p 2:8p 2:6\\ 2:5h 2:6h 2:8/ 2:10h 2:12h 2:13p 2:12p 2:10\\ 2:8p 2:6\\ q 2:5~', ['hammer', 'pull', 'slide', 'shift'],
+      'Combine hammer-ons, slides, and pull-offs along a single string to break out of vertical box shapes.'],
+    ['Symmetrical diminished legato climb', 4, 's 2:5h 2:8/ 2:11p 2:8h 2:11h 2:14p 2:11p 2:8 1:5h 1:8/ 1:11p 1:8h 1:11h 1:14p 1:11p 1:8 h 1:17~', ['hammer', 'pull', 'slide', 'stretch'],
+      'Minor-third stretches climb every three frets cleanly using slurs and slides.'],
+    ['Fusion four-note stretch legato (two strings)', 4, 's 2:5h 2:7h 2:8h 2:10 1:5h 1:7h 1:8h 1:10 1:10p 1:8p 1:7p 1:5 2:10p 2:8p 2:7p 2:5 2:5h 2:7h 2:8h 2:10 1:5h 1:7h 1:8h 1:10 h 1:12~', ['hammer', 'pull', 'stretch'],
+      'Four-note-per-string fusion phrasing: smooth, horn-like legato across wide spans.'],
+  ]
+  for (const [name, level, tab, tech, about] of lgShred) {
+    add({ type: 'legato', kind: 'Drill', name, level, tech: [...new Set([...tech, ...tabTech(tab, 76)])], bpm: 70, key: 'A', minor: true, about,
+      guitarOnly: name.includes('all strings') || name.includes('3-2-3-4') || name.includes('rolling'), make: fromTab(tab, { name, ref: 'A', minor: true }) })
+  }
 
   // ── Bends and vibrato
   const bv: [string, Level, string, string][] = [
@@ -660,11 +740,21 @@ function buildDefs(inst: Instrument): Def[] {
       'Tap the high note with a picking-hand finger, pull off to the 5th fret, hammer the 8th. Rest the pick in your palm.', 'A'],
     ['Tapped arpeggios: Am – F – C – G', 4, 't ' + ['3:14t 3:5p 3:9h', '3:17t 3:10p 3:14h', '3:12t 3:5p 3:9h', '3:16t 3:7p 3:12h'].map(g => Array(4).fill(g).join(' ')).join(' ') + ' h 3:14t 3:5p',
       'A tapped arpeggio on the G string for each chord. Mute the other strings with the side of the fretting hand.', 'A'],
+    ['Two-hand scalar tapping (four notes per string)', 3, 's 3:5 3:7h 3:9h 3:12t 3:9p 3:7p 3:5p 2:5 2:6h 2:8h 2:12t 2:8p 2:6p 2:5p 1:5 1:7h 1:8h 1:12t 1:8p 1:7p 1:5p q 1:12t~',
+      'Fret three notes per string with your left hand and tap the fourth note on the 12th fret with your picking hand.', 'A'],
+    ['Moving pedal tap climb (Van Halen style)', 3, 't 2:12t 2:5p 2:8h 2:12t 2:5p 2:8h 2:13t 2:5p 2:8h 2:13t 2:5p 2:8h 2:15t 2:5p 2:8h 2:15t 2:5p 2:8h 2:17t 2:5p 2:8h 2:17t 2:5p 2:8h q 2:17t~',
+      'Keep the left-hand 5th and 8th frets anchored while the tapping finger walks up the B string.', 'A'],
+    ['Double-tap eight-finger loop (Am7)', 4, 's 1:5 1:8h 1:12t 1:15t 1:12p 1:8p 1:5p 1:8h 2:5 2:8h 2:13t 2:15t 2:13p 2:8p 2:5p 2:8h h 1:12t~',
+      'Two left-hand notes followed by two right-hand tapped notes: an eight-finger arpeggio cascade.', 'A'],
+    ['String-crossing tapped arpeggios: Am – G – F – E7', 4, 't 4:7 4:10h 4:14t 2:8 2:10h 2:13t 4:5 4:9h 4:12t 2:7 2:8h 2:12t 4:3 4:7h 4:10t 2:5 2:6h 2:10t 4:2 4:6h 4:9t 2:3 2:5h 2:9t h 4:7~',
+      'Tap across two strings using hammer-ons from nowhere when switching to the B string.', 'A'],
+    ['Tapped pentatonic box extension', 3, 's 2:5 2:8h 2:10t 2:8p 1:5 1:8h 1:12t 1:8p 1:5 1:8h 1:10t 1:8p 2:5 2:8h 2:10t 2:8p q 2:5~',
+      'Stay in pentatonic box 1 and reach up to tap box 2 notes cleanly on top without shifting left-hand position.', 'A'],
   ]
   for (const [name, level, tab, about, key] of th) add({ type: 'tapping', kind: 'Drill', name, level, tech: tabTech(tab, 70), bpm: 70, key, minor: !!key, about,
-    guitarOnly: name.startsWith('Tapped'), make: fromTab(tab, { name, ref: key, minor: !!key }) })
+    guitarOnly: name.startsWith('Tapped') || name.includes('Two-hand') || name.includes('String-crossing') || name.includes('Double-tap'), make: fromTab(tab, { name, ref: key, minor: !!key }) })
 
-  // ── Rhythm and timing (one note, the open A; gallops palm-muted on the low E)
+  // ── Rhythm and timing (one note, the open A; gallops palm-muted on the low E; A = accented octave)
   const N16 = (n: number, x = 'N') => Array(n).fill(x).join(' ')
   const rh: [string, Level, string, string, number?][] = [
     ['Quarter notes', 1, `q ${N16(8)}`, 'Four even notes a bar. Tap your foot and play exactly with it.'],
@@ -689,10 +779,17 @@ function buildDefs(inst: Instrument): Def[] {
     ['Quarter-note triplets', 3, `${'t N r N r N r '.repeat(4)}`.trim(), 'Three notes over two beats: it sounds like the music is floating. Count triplets, play every other one.'],
     ['Sixteenth rests', 4, `s ${'N r N N r N r N N r N N r N r N '.repeat(2)}`.trim(), 'Sixteenths with gaps: precision funk rhythm. Keep the strumming hand moving even when it doesn\'t hit.'],
     ['Three over four', 4, `s ${'N r r N r r N r r N r r N r r N '.repeat(2)}`.trim(), 'A note every three sixteenths: a pattern of three across beats of four. Prog and math rock live here.'],
+    ['Seven beats a bar (7/4: 2+2+3)', 3, `${'q A M A M A M M '.repeat(2)}`.trim(), 'Odd meter grouped as 1-2, 1-2, 1-2-3: punch the accented notes and keep the muted pulse tight.', 7],
+    ['Seven beats a bar (7/4: 3+2+2)', 3, `${'q A M M A M A M '.repeat(2)}`.trim(), 'Seven-four felt as 1-2-3, 1-2, 1-2: a rolling prog-rock groove.', 7],
+    ['Five beats a bar (5/4 palm-mute groove)', 3, `${'e A M A M M A M A M M '.repeat(2)}`.trim(), 'Driving eighth notes in 5/4 (3+2 feel) with sharp unmuted accents.', 5],
+    ['Five-over-four accent displacement', 4, 's A M M M M A M M M M A M M M M A | s M M M M A M M M M A M M M M A M', 'Sixteenths accented in groups of five across two 4/4 bars: accents shift across beats.', 4],
+    ['Six-over-four polyrhythm accents', 4, 's A M M M M M A M M M M M A M M M | s M M A M M M M M A M M M M M A M', 'Six-sixteenth accents floating over four quarter beats: track where beat 1 lands on bar 3.', 4],
+    ['Subdivision pyramid (4ths → 8ths → triplets → 16ths → 6s)', 3, 'q N N N N e N N N N N N N N t N N N N N N N N N N N N s N N N N N N N N N N N N N N N N sx N N N N N N N N N N N N N N N N N N N N N N N N', 'Step cleanly through every rhythmic gear without speeding up or slowing down the click.'],
+    ['Prog palm-mute & accent grid', 4, `${'s A M M M A M M M A M M A M M M M '.repeat(2)}`.trim(), 'Tight 16th-note chugs punctuated by 3-3-2-4 accents: crisp picking-hand lift off the bridge.', 4],
   ]
   for (const [name, level, text, about, meter] of rh) {
-    const tab = text.replace(/\bN\b/g, '5:0').replace(/\bM\b/g, '6:0m')
-    add({ type: 'rhythm', kind: 'Rhythm', name, level, tech: name.includes('allop') ? ['timing', 'pm'] : ['timing'], bpm: level >= 3 ? 70 : 80, meter, about, start: name === 'Quarter notes',
+    const tab = text.replace(/\bN\b/g, '5:0').replace(/\bM\b/g, '6:0m').replace(/\bA\b/g, '4:2')
+    add({ type: 'rhythm', kind: 'Rhythm', name, level, tech: name.includes('allop') || name.includes('mute') || name.includes('7/4') || name.includes('5/4') || name.includes('accent') ? ['timing', 'pm'] : ['timing'], bpm: level >= 3 ? 70 : 80, meter, about, start: name === 'Quarter notes',
       make: fromTab(tab, { name, meter }) })
   }
   // strummed rhythm patterns from the picking patterns: bluegrass bass-strum and reggae chops
@@ -759,6 +856,25 @@ function buildDefs(inst: Instrument): Def[] {
           key: SCALE_KEY[scale], minor: s.minor, about: SEQ_ABOUT[sq.id], make: fromSpec({ kind: 'sequence', type: sq.id, position: pos, scale }) })
       }
     }
+  }
+  const sqLab: [string, Level, string, string, boolean, Parameters<typeof scaleBuilderSong>[0]['layout'], Parameters<typeof scaleBuilderSong>[0]['pattern'], Parameters<typeof scaleBuilderSong>[0]['sub'], string[], string][] = [
+    ['Three-notes-per-string major climb (in 4s)', 3, 'major', 'G', false, '3nps', 'fours', '16', ['alt', 'stretch', 'theory'],
+      'Three notes on every string climbed in groups of four: builds wide stretches and diagonal neck flow.'],
+    ['Harmonic minor neoclassical pedal run', 4, 'harmonic minor', 'A', true, '3nps', 'pedal', '16', ['alt', 'speed', 'theory'],
+      'Every melody note alternates back to the root pedal on the lowest note: classic neoclassical phrasing.'],
+    ['Phrygian dominant 6-note scalar roll', 4, 'phrygian dominant', 'E', false, '3nps', 'sextuplets', 'sx', ['alt', 'speed', 'theory'],
+      'Six-note scalar cascades (1-2-3-4-3-2) through the exotic Spanish/metal sound of phrygian dominant.'],
+    ['Minor pentatonic string-skipping sequence', 3, 'minor pentatonic', 'A', true, 'position', 'skip', '16', ['skip', 'alt', 'theory'],
+      'Hop cleanly across a skipped string inside box 1 for wide modern intervals without moving position.'],
+    ['Dorian rolling legato cascade (h/p)', 3, 'dorian', 'D', true, '3nps', 'legato', 't', ['hammer', 'pull', 'theory'],
+      'Three notes per string in triplets, picking only string changes while hammering up and pulling down.'],
+  ]
+  for (const [name, level, scale, key, minor, layout, pattern, sub, tech, about] of sqLab) {
+    add({ type: 'sequences', kind: 'Sequence', name, level, tech, bpm: level >= 4 ? 72 : 80, key, minor, about,
+      make: ({ root, inst: i, bpm: b }) => {
+        const res = scaleBuilderSong({ root, scale, position: 0, layout, pattern, sub, bpm: b }, i.midis)
+        return res ? { ...res.song, title: name } : null
+      } })
   }
 
   // ── Arpeggios
