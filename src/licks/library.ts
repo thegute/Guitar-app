@@ -2,6 +2,7 @@
 // notation.ts). The must-know ones carry a full breakdown. Nothing here is copied from a recording: the styles are
 // named after the players who shaped them, the notes are written for this app.
 import type { LickStyleId } from './styles'
+import { CLASSIC_LICKS } from './classicLicks'
 
 export type LickKind = 'lick' | 'arpeggio' | 'run' | 'riff' | 'ending' | 'double-stop' | 'turnaround'
 export interface Breakdown {
@@ -602,11 +603,12 @@ export const LICKS: LickDef[] = [
     { id: 'pc-climb', name: 'Sixteenth climb', level: 3, kind: 'run', chord: 'E', tab: 's 4:6 4:7 4:9 3:6 3:8 3:9 2:7 2:9 2:10 1:7 1:9 1:11 1:12 1:11 1:9 1:7 | q 2:9 2:7 h 3:8~' },
     { id: 'pc-resolve', name: 'Floating resolution', level: 1, kind: 'ending', chord: 'Emaj7', tab: 'q 2:9+1:11 2:7+1:9 h 2:9+1:7~ | w 5:7+4:6+3:8+2:7+1:7' },
   ]),
+  ...CLASSIC_LICKS,
 ]
 
 export const lickById = (id: string) => LICKS.find(l => l.id === id)
 
-// ── every style gets 10–25 must-know licks: the hand-written breakdowns first, then a breakdown made from the tab
+// ── every style gets up to 45 must-know licks: the hand-written breakdowns first, then a breakdown made from the tab
 import { parseLick } from './notation'
 const TECH: [string, string][] = [['b1½', 'big bend'], ['b½', 'half-step bend'], ['b¼', 'quarter bend'], ['pb', 'pre-bend'], ['b', 'whole-step bend'], ['h', 'hammer-on'], ['p', 'pull-off'], ['/', 'slide'], ['\\', 'slide down'], ['r', 'release'], ['~', 'vibrato'], ['PM', 'palm mute'], ['harm', 'harmonic'], ['T', 'tap'], ['x', 'dead note']]
 const STRING = ['', 'high E', 'B', 'G', 'D', 'A', 'low E']
@@ -641,6 +643,6 @@ function autoBreakdown(l: LickDef): Breakdown {
 }
 for (const id of [...new Set(LICKS.map(l => l.style))]) {
   const own = LICKS.filter(l => l.style === id).sort((a, b) => Number(!!b.must) - Number(!!a.must) || a.level - b.level)
-  own.slice(0, 25).forEach(l => { if (!l.must) l.must = autoBreakdown(l) })
+  own.slice(0, 45).forEach(l => { if (!l.must) l.must = autoBreakdown(l) })
 }
 export const mustKnow = () => LICKS.filter(l => l.must)

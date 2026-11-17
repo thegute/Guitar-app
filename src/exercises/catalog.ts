@@ -1066,7 +1066,10 @@ function buildDefs(inst: Instrument): Def[] {
 
 const KIND: Record<string, string> = { lick: 'Lick', arpeggio: 'Arpeggio', run: 'Run', riff: 'Riff', ending: 'Ending', 'double-stop': 'Double stops', turnaround: 'Turnaround' }
 function lickAbout(l: LickDef) {
-  if (l.must) return l.must.about.split(/(?<=\.)\s/)[0]
+  if (l.must) {
+    const first = l.must.about.split(/(?<=\.)\s+(?=[A-Z])/)[0]
+    return first.length >= 15 ? first : l.must.about
+  }
   const tech = tabTech(l.tab, l.bpm ?? lickStyle(l.style).bpm).filter(t => t !== 'speed').map(t => TECHS.find(x => x.id === t)?.label.toLowerCase()).filter(Boolean)
   return `${KIND[l.kind] ?? 'Lick'}${l.chord ? ` over ${l.chord.split(' ')[0]}` : ''}${tech.length ? ` with ${tech.slice(0, 3).join(', ')}` : ''}.`
 }
