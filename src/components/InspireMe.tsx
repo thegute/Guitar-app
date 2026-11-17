@@ -16,7 +16,7 @@ type Chord = ProgChord & { midis: number[] }
 const MOODS = [{ id: 'any', label: 'Any mood' }, { id: 'major', label: 'Bright' }, { id: 'minor', label: 'Moody' }] as const
 const COLOURS = [{ id: 'any', label: 'Any colour' }, { id: 'simple', label: 'Simple' }, { id: 'colour', label: 'Colourful' }, { id: 'lush', label: 'Lush' }] as const
 
-export function InspireMe({ tonic, onHear, onUse }: { tonic: string; onHear: (c: Chord) => void; onUse: (chords: Chord[], mode: 'major' | 'minor') => void }) {
+export function InspireMe({ tonic, onHear, onUse, onArp }: { tonic: string; onHear: (c: Chord) => void; onUse: (chords: Chord[], mode: 'major' | 'minor') => void; onArp?: (chords: Chord[], mode: 'major' | 'minor') => void }) {
   const [mood, setMood] = usePersist<'any' | 'major' | 'minor'>('inspireMood', 'any')
   const [colour, setColour] = usePersist<'any' | Colour>('inspireColour', 'any')
   const [setId, setSetId] = usePersist('inspireSet', '')
@@ -101,6 +101,7 @@ export function InspireMe({ tonic, onHear, onUse }: { tonic: string; onHear: (c:
         </div>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <button className="btn primary" onClick={() => onUse(picked.length ? picked : chords, set?.mode ?? 'major')} data-testid="inspire-use"><Ico n="play" /> Play {picked.length ? 'my order' : 'these'} with the band</button>
+          {onArp && <button className="btn" onClick={() => onArp(picked.length ? picked : chords, set?.mode ?? 'major')} data-testid="inspire-arp">Arpeggiate</button>}
           <button className="btn" onClick={shuffle} data-testid="inspire-shuffle">Shuffle</button>
           {order.length > 0 && <button className="btn ghost" onClick={() => setOrder([])}>Clear my order</button>}
         </div>

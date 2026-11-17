@@ -367,19 +367,28 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
 
   const transportRow = (
     <div className="stack" style={{ gap: 8 }}>
-      <div className="row">
+      <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <button className={`btn big${playing ? '' : ' primary'}`} disabled={loadingSounds} onClick={() => (playing ? stopAll() : void playWhenReady())} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           {playing ? <IconStop /> : <IconPlay />} {playing ? 'Stop' : loadingSounds ? 'Loading sounds…' : 'Play loop'}
         </button>
         <Field label={`Tempo ${bpm} BPM`}>
-          <input type="range" min={50} max={200} value={bpm} onChange={e => setBpm(+e.target.value)} style={{ accentColor: 'var(--amber)', width: 170 }} aria-label="Loop tempo" />
+          <input type="range" min={50} max={200} value={bpm} onChange={e => setBpm(+e.target.value)} style={{ accentColor: 'var(--amber)', width: 160 }} aria-label="Loop tempo" />
         </Field>
+        <Field label="Pattern">
+          <select className="select" value={strumId} onChange={e => setStrumId(e.target.value)} data-testid="jam-pattern">
+            <option value="auto">Match the style ({STRUMS.find(s => s.id === STYLE_DEFAULTS[style].strum)?.label})</option>
+            {STRUMS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+          </select>
+        </Field>
+        <button className="btn" onClick={() => void loopIt()} disabled={!prog.length} data-testid="jam-loop-it" title="Turn this progression into a beat and open the 4-track looper on it">
+          <Ico n="loop" /> Loop over it
+        </button>
         {pos.countIn > 0 && <span className="count-in readout">{pos.countIn}</span>}
       </div>
       <button className="band-line" aria-expanded={bandOpen} onClick={() => setBandOpen(!bandOpen)}>
         <span className="small muted">Band</span>
         <span className="band-parts">
-          <b>{soundInfo(tone).label}</b> · {STRUMS.find(x => x.id === strumKind)?.label ?? strumKind} · {drums === 'off' ? 'no drums' : `${GROOVES.find(g => g.id === drums)?.label ?? drums} drums (${kitInfo(kit).label.toLowerCase()})`} · {bassLine === 'off' ? 'no bass' : `${BASSLINES.find(b => b.id === bassLine)?.label ?? bassLine} bass`}
+          <b>{soundInfo(tone).label}</b> · {drums === 'off' ? 'no drums' : `${GROOVES.find(g => g.id === drums)?.label ?? drums} drums (${kitInfo(kit).label.toLowerCase()})`} · {bassLine === 'off' ? 'no bass' : `${BASSLINES.find(b => b.id === bassLine)?.label ?? bassLine} bass`}
         </span>
         <IconPencil />
       </button>
@@ -389,12 +398,6 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
           <select className="select" value={toneId} onChange={e => { const v = e.target.value as 'auto' | SoundId; setToneId(v); strumNotes(midisOf(chosen[Math.max(0, selected)]), 0, { sound: v === 'auto' ? styleTone : v }) }} title={soundInfo(tone).hint}>
             <option value="auto">Match the style ({soundInfo(styleTone).label})</option>
             {allSounds().map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-          </select>
-        </Field>
-        <Field label="Strum">
-          <select className="select" value={strumId} onChange={e => setStrumId(e.target.value)}>
-            <option value="auto">Match the style ({STRUMS.find(s => s.id === STYLE_DEFAULTS[style].strum)?.label})</option>
-            {STRUMS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
           </select>
         </Field>
         <Field label="Drums">
@@ -510,7 +513,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
       {page === 'jam' && (
         <>
           {optionsOpen && options}
-          <WinArea area="jam" defaultHidden={['voice', 'circle', 'maketab']}>
+          <WinArea area="jam" defaultHidden={['famous', 'improv', 'voice', 'circle', 'maketab']}>
           <Win id="gen" title="Progression" className="panel" bodyClass="stack">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <span className="row" style={{ gap: 6, minWidth: 0 }}><span className="small muted">{summary}</span>{cardsHint}</span>
@@ -526,7 +529,8 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
           <Win id="inspire" title="Inspire me: chords that sound good together" className="panel" hint="A set of up to 8 chords that work together, like keys on Playbox: play them in any order. Roll by mood and colour, keep the ones you like with the lock, add them to your own order with +, then play it with the band. Each chord shows its number in the key, so you learn why it works.">
             <InspireMe tonic={tonic}
               onHear={c => { void audio().resume(); const sh = shapesFor(c, inst); strum(midisOf(sh[rank(sh, shapePref, 1)] ?? sh[0])) }}
-              onUse={(cs, m) => { setMode(m); load(cs.map(({ midis: _m, ...c }) => ({ ...c, beats: rate }))); document.querySelector('[data-win="gen"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }} />
+              onUse={(cs, m) => { setMode(m); load(cs.map(({ midis: _m, ...c }) => ({ ...c, beats: rate }))); document.querySelector('[data-win="gen"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
+              onArp={(cs, m) => { setMode(m); if (!/^arp-|^roll$|^arpeggio$/.test(strumId)) setStrumId('arp-zigzag'); load(cs.map(({ midis: _m, ...c }) => ({ ...c, beats: rate }))); document.querySelector('[data-win="gen"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }} />
           </Win>
           {prog.length >= 2 && info && (
             <Win id="improv" title="Improv coach" className="panel" hint="Solo over the band and the coach listens: how much was in the scale, whether you landed on the chords when they changed, your range, your use of space and repeated ideas, and the one thing to work on next.">
@@ -547,12 +551,6 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
           <Win id="maketab" title="Make a tab from these chords" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
             <p className="small muted" style={{ margin: 0 }}>Fingerpicking, licks and solos, chord melody or riffs over <b><ChordList names={prog.map(c => c.symbol)} /></b>: the tab maker is in Learn → Exercises → Make your own, and it uses this progression.</p>
             <div className="row"><button className="btn" onClick={() => { try { localStorage.setItem('kg:exSection', JSON.stringify('make')); localStorage.setItem('kg:tm:useJam', 'true') } catch { /* private */ } setSubPage('learn', 'exercises'); go('learn'); setTimeout(() => document.querySelector('[data-win="ex-licks"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400) }} data-testid="jam-make-tab"><Ico n="file" /> Open the tab maker</button></div>
-          </Win>
-          <Win id="looper" title="Loop over it" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
-            <p className="small muted" style={{ margin: 0 }}>Turns this progression into a beat (drums, keys and bass on these chords, at {bpm} BPM) and opens the 4-track looper on it: record rhythm, embellishments, a bassline and a lead over it.</p>
-            <div className="row" style={{ gap: 8 }}>
-              <button className="btn primary" onClick={() => void loopIt()} disabled={!prog.length} data-testid="jam-loop-it"><Ico n="loop" /> Loop over this progression</button>
-            </div>
           </Win>
           <Win id="famous" title={`Famous progressions in ${tonic}`} className="panel">
             <div className="stack" style={{ gap: 8 }}>
