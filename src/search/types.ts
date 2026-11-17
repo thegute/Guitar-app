@@ -19,6 +19,8 @@ export interface PlayAction {
   loop?: { from: number; to: number } | null
   /** playback speed, 1 = the song's tempo */
   speed?: number
+  /** arm Speed trainer / Smart Speed Ramp in In time mode */
+  trainer?: { on: boolean; start?: number; step?: number; target?: number; pass?: number; down?: number; min?: number; ramp?: boolean }
 }
 export type JamPage = 'jam' | 'solo' | 'tab' | 'find' | 'beats' | 'loop'
 export interface JamTarget { key?: string; mode?: ModeId; style?: Style; bpm?: number; page?: JamPage }

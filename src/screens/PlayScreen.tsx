@@ -1176,14 +1176,21 @@ export function PlayScreen() {
   useBack(stand, () => setStand(false))
   // ---- search: open what was asked for and point at it (it flashes)
   const [findAt, setFindAt] = useState<{ f: PlayFocus; n: number } | null>(null)
+  const pendingLoop = useRef<{ from: number; to: number } | null | undefined>(undefined)
   const applyRef = useRef<(a: PlayAction) => void>(() => {})
   applyRef.current = (a: PlayAction) => {
     if (a.mode && !inTime.running && !listening) setMode(a.mode)
-    if (a.loop !== undefined && track) {
-      if (!a.loop) setLoop(undefined)
-      else { const n = track.bars.length; const f = Math.max(0, Math.min(n - 1, a.loop.from)), t = Math.max(f, Math.min(n - 1, a.loop.to)); setLoop({ from: f, to: t }) }
+    if (a.loop !== undefined) {
+      if (track) {
+        if (!a.loop) setLoop(undefined)
+        else { const n = track.bars.length; const f = Math.max(0, Math.min(n - 1, a.loop.from)), t = Math.max(f, Math.min(n - 1, a.loop.to)); setLoop({ from: f, to: t }) }
+        pendingLoop.current = undefined
+      } else {
+        pendingLoop.current = a.loop
+      }
     }
     if (a.speed) setSpeed(Math.max(0.25, Math.min(1.5, Math.round(a.speed * 20) / 20)))
+    if (a.trainer) setTrainer(cur => ({ ...cur, ...a.trainer }))
     if (a.coach?.backing !== undefined) { offerBacking.current(a.coach.backing, true); return }
     if (a.coach?.act) { if (coach.state) coachActsRef.current()[0]?.run() } else if (a.coach) coach.ask(a.coach.bar)
     if (a.open === 'options') setOpts(true)
@@ -1194,6 +1201,13 @@ export function PlayScreen() {
     else if (focus && a.focus && a.focus !== 'full') setLay({ ...lay, focus: false })
     if (a.focus) setFindAt(f => ({ f: a.focus!, n: (f?.n ?? 0) + 1 }))
   }
+  useEffect(() => {
+    if (!track || pendingLoop.current === undefined) return
+    const l = pendingLoop.current
+    pendingLoop.current = undefined
+    if (!l) setLoop(undefined)
+    else { const n = track.bars.length; const f = Math.max(0, Math.min(n - 1, l.from)), t = Math.max(f, Math.min(n - 1, l.to)); setLoop({ from: f, to: t }) }
+  }, [track]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const first = takePlayAction()
     const t = first ? setTimeout(() => applyRef.current(first), 0) : 0

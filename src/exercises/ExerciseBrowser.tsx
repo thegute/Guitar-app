@@ -17,7 +17,7 @@ import { audio } from '../audio/engine'
 import { allSounds, activeSound, loadSound, playNote, soundForProgram, type SoundId } from '../audio/pluck'
 import { flatten, type FlatStep, type Song, type SongNote, type SongTrack } from '../tabs/model'
 import { saveSong, type SongDoc } from '../tabs/library'
-import { learnGo, onOpenExercise, openInPlay, takePendingExercise } from '../nav'
+import { learnGo, onOpenExercise, openInPlay, playAction, takePendingExercise } from '../nav'
 import { keyPrefersFlats, pc } from '../theory/notes'
 import { lickById } from '../licks/library'
 import { EX_TYPES, LEVELS, TECHS, exerciseCatalog, keyName, keysFor, type Exercise, type Level } from './catalog'
@@ -26,9 +26,10 @@ import { useScreenInfo } from '../assistant/screen'
 import { suggestExercises } from './suggest'
 import { bestBpmFor, planBurstSteps, recordBestBpm, type BurstConfig, type BurstStep } from './drillLab'
 import { rig } from '../audio/rig'
+import { WORKS_OVER_TAGS, currentJamProfile, exerciseMatchesWorksOver, worksOverForExercise, worksOverSummary, type JamProfile, type WorksOverId } from '../licks/worksOver'
 
-interface Filters { level: 'all' | Level; type: string; tech: string; fav: boolean }
-const NO_FILTER: Filters = { level: 'all', type: 'all', tech: 'all', fav: false }
+interface Filters { level: 'all' | Level; type: string; tech: string; worksOver?: 'all' | 'jam' | WorksOverId; fav: boolean }
+const NO_FILTER: Filters = { level: 'all', type: 'all', tech: 'all', worksOver: 'all', fav: false }
 const r12 = (n: number) => ((n % 12) + 12) % 12
 
 /** A chord name moved from one key to another (A7 written in A, played in C → C7). */
@@ -66,15 +67,18 @@ export function ExerciseBrowser({ group, suggest = true }: { group?: string; sug
     return onOpenExercise(show)
   }, [all]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const jam = useMemo(() => currentJamProfile(), [])
   const inGroup = (type: string) => !group || EX_TYPES.find(t => t.id === type)?.group === group
   // a type picked in another section doesn't empty this one
   const type = f.type !== 'all' && f.type !== 'start' && !inGroup(f.type) ? 'all' : f.type
+  const worksOver = f.worksOver ?? 'all'
   const list = useMemo(() => all.filter(e =>
     inGroup(e.type) &&
     (f.level === 'all' || e.level === f.level) &&
     (type === 'all' || (type === 'start' ? !!e.start : e.type === type)) &&
     (f.tech === 'all' || e.tech.includes(f.tech)) &&
-    (!f.fav || favs.includes(e.code))), [all, f, favs, group, type]) // eslint-disable-line react-hooks/exhaustive-deps
+    exerciseMatchesWorksOver(e, worksOver, jam) &&
+    (!f.fav || favs.includes(e.code))), [all, f, favs, group, type, worksOver, jam]) // eslint-disable-line react-hooks/exhaustive-deps
   const idx = Math.max(0, list.findIndex(e => e.code === code))
   const ex: Exercise | undefined = list[idx]
   useEffect(() => { if (ex && ex.code !== code) setCode(ex.code) }, [ex, code, setCode])
@@ -110,7 +114,7 @@ export function ExerciseBrowser({ group, suggest = true }: { group?: string; sug
     return (
       <div className="stack ex-browser">
         <section className="panel stack ex-controls">
-          <FilterBar f={f} setF={setF} groups={groups} techs={techsHere} typeCounts={typeCounts} />
+          <FilterBar f={f} setF={setF} groups={groups} techs={techsHere} typeCounts={typeCounts} jam={jam} />
           <p className="notice" style={{ margin: 0 }}>No exercises match those filters{f.fav ? ' (favourites only is on)' : ''}.</p>
           <button className="btn" onClick={() => setF(NO_FILTER)}>Show all exercises</button>
         </section>
@@ -120,13 +124,14 @@ export function ExerciseBrowser({ group, suggest = true }: { group?: string; sug
   const go = (d: number) => setCode(list[(idx + d + list.length) % list.length].code)
   const random = () => { if (list.length > 1) { let j = idx; while (j === idx) j = Math.floor(Math.random() * list.length); setCode(list[j].code) } }
   const fav = favs.includes(ex.code)
+  const isDefaultFilter = f.level === 'all' && f.type === 'all' && f.tech === 'all' && worksOver === 'all' && !f.fav
   const filters = (
     <>
-      <FilterBar f={f} setF={setF} groups={groups} techs={techsHere} typeCounts={typeCounts} />
+      <FilterBar f={f} setF={setF} groups={groups} techs={techsHere} typeCounts={typeCounts} jam={jam} />
       <div className="ex-count row">
         <span><b>Exercise {idx + 1}</b> of {list.length}</span>
         <button className="btn sm" onClick={random} disabled={list.length < 2}><Ico n="dice" /> Random</button>
-        <button className="btn sm ghost" onClick={() => setF(NO_FILTER)} disabled={JSON.stringify(f) === JSON.stringify(NO_FILTER)} aria-label="Clear the filters">↺ Clear</button>
+        <button className="btn sm ghost" onClick={() => setF(NO_FILTER)} disabled={isDefaultFilter} aria-label="Clear the filters">↺ Clear</button>
         <label className="ex-check"><input type="checkbox" checked={f.fav} onChange={e => setF({ ...f, fav: e.target.checked })} /> Favourites only</label>
       </div>
     </>
@@ -156,7 +161,7 @@ export function ExerciseBrowser({ group, suggest = true }: { group?: string; sug
   )
 }
 
-function FilterBar({ f, setF, groups, techs, typeCounts }: { f: Filters; setF: (f: Filters) => void; groups: { g: string; types: typeof EX_TYPES }[]; techs: typeof TECHS; typeCounts: Map<string, number> }) {
+function FilterBar({ f, setF, groups, techs, typeCounts, jam }: { f: Filters; setF: (f: Filters) => void; groups: { g: string; types: typeof EX_TYPES }[]; techs: typeof TECHS; typeCounts: Map<string, number>; jam: JamProfile | null }) {
   return (
     <div className="ex-filters">
       <label className="field">
@@ -181,6 +186,16 @@ function FilterBar({ f, setF, groups, techs, typeCounts }: { f: Filters; setF: (
         <select className="select" value={f.tech} onChange={e => setF({ ...f, tech: e.target.value })}>
           <option value="all">Any technique</option>
           {techs.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+        </select>
+      </label>
+      <label className="field">
+        <span>Works over</span>
+        <select className="select" value={f.worksOver ?? 'all'} onChange={e => setF({ ...f, worksOver: e.target.value as 'all' | 'jam' | WorksOverId })} data-testid="ex-works-over">
+          <option value="all">Any groove</option>
+          {jam && jam.chordSymbols.length > 0 && (
+            <option value="jam">Fits my Jam ({jam.chordSymbols.slice(0, 3).join('–')} in {jam.tonic}{jam.minor ? 'm' : ''})</option>
+          )}
+          {WORKS_OVER_TAGS.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
         </select>
       </label>
     </div>
@@ -336,15 +351,49 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
     return { label: String(n), role: live.has(k) && playing ? 'live' : r12(midi + capo) === rootPc ? 'root' : 'scale' }
   }
 
+  const buildDoc = (withLoop = false): SongDoc | null => {
+    if (!song || !track) return null
+    const lastBar = Math.max(0, track.bars.length - 1)
+    return {
+      id: `ex:${ex.code}:${root}:${inst.id}:${inst.tuning.id}`,
+      title: `${ex.code} · ${song.title}`,
+      source: 'lesson',
+      inst: inst.id,
+      ...(ex.key ? { key: { root, minor: !!ex.minor } } : {}),
+      song: { ...song, tempo: bpm },
+      ...(withLoop ? { loop: { from: 0, to: lastBar } } : {}),
+      updated: Date.now(),
+    }
+  }
+
   const playAlong = async () => {
-    if (!song) return
+    const doc = buildDoc(false)
+    if (!doc) return
     player.current?.stop()
-    const doc: SongDoc = { id: `ex:${ex.code}:${root}:${inst.id}:${inst.tuning.id}`, title: `${ex.code} · ${song.title}`, source: 'lesson', inst: inst.id,
-      ...(ex.key ? { key: { root, minor: !!ex.minor } } : {}), song: { ...song, tempo: bpm }, updated: Date.now() }
     try { await saveSong(doc) } catch { /* it still opens */ }
     openInPlay(doc)
   }
 
+  const loopSpeedRamp = async () => {
+    const doc = buildDoc(true)
+    if (!doc || !track) return
+    player.current?.stop()
+    const lastBar = Math.max(0, track.bars.length - 1)
+    const startSpeed = burst.on
+      ? Math.max(0.45, Math.min(0.9, Math.round(((bpm - burst.stepBpm) / Math.max(40, bpm)) * 20) / 20))
+      : 0.7
+    const stepAmt = burst.on && burst.stepBpm >= 10 ? 0.1 : 0.05
+    try { await saveSong(doc) } catch { /* it still opens */ }
+    openInPlay(doc)
+    playAction({
+      mode: 'time',
+      loop: { from: 0, to: lastBar },
+      speed: startSpeed,
+      trainer: { on: true, start: startSpeed, step: stepAmt, target: 1, pass: 90, ramp: true },
+    })
+  }
+
+  const worksTags = useMemo(() => worksOverForExercise(ex), [ex])
   const shownBpm = liveBpm ?? bpm
   const head = (
     <div className="ex-card-head">
@@ -362,6 +411,9 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
       <Win id="ex-pick" title="Play it" className="panel ex-controls" bodyClass="stack" resizable={false}>
       {controls}
       <p className="ex-desc"><b>{LEVELS[ex.level]}</b> · {EX_TYPES.find(t => t.id === ex.type)?.label} · {ex.about}</p>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span className="lick-works small">Works over: {worksOverSummary(worksTags, 3)}</span>
+      </div>
       <div className="ex-settings">
         {ex.key ? (
           <label className="field">
@@ -424,6 +476,7 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
       )}
       <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <button className="btn primary" onClick={() => void playAlong()} disabled={!song}>Play along (it listens)</button>
+        <button className="btn" onClick={() => void loopSpeedRamp()} disabled={!song} data-testid="ex-loop-ramp" title="Opens in Play on a full loop in In time with Speed trainer starting slow and ramping up as you score 90%+">⟲ Loop + Speed ramp</button>
         {(!bestBpm || bpm > bestBpm) && (
           <button className="btn" onClick={() => { if (recordBestBpm(ex.code, bpm, inputKind)) { setBestBpm(bestBpmFor(ex.code, inputKind)); setStatus(`Logged clean best: ${bpm} BPM`) } }} data-testid="ex-log-bpm">✓ Log {bpm} BPM</button>
         )}

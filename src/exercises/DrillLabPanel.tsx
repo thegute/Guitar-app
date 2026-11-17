@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react'
 import { useInstrument } from '../instrument'
 import { EX_SCALES } from '../tabs/exercises'
 import { saveSong, type SongDoc } from '../tabs/library'
+import { playAction } from '../nav'
 import { Chips, KeyPicker, usePersist } from '../components/Controls'
 import { Preview } from '../components/ProgressionTabs'
 import { rig } from '../audio/rig'
@@ -273,6 +274,18 @@ export function DrillLabPanel({ onOpen }: { onOpen: (d: SongDoc) => void }) {
         <>
           <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <button className="btn primary" onClick={() => onOpen(built.doc)}>Open in Play</button>
+            <button className="btn" data-testid="drill-lab-ramp" title="Opens this drill in Play looped in In time with Speed trainer ramping from 70% up to 100%"
+              onClick={() => void (async () => {
+                const lastBar = Math.max(0, (built.doc.song.tracks[0]?.bars.length ?? 1) - 1)
+                const loopDoc: SongDoc = { ...built.doc, loop: { from: 0, to: lastBar } }
+                await Promise.resolve(onOpen(loopDoc))
+                playAction({
+                  mode: 'time',
+                  loop: { from: 0, to: lastBar },
+                  speed: 0.7,
+                  trainer: { on: true, start: 0.7, step: 0.05, target: 1, pass: 90, ramp: true },
+                })
+              })()}>⟲ Loop + Speed ramp</button>
             <button className="btn" onClick={() => void saveCurrentPreset()} data-testid="drill-lab-save">★ Save preset</button>
             {best && <span className="small muted">Best: {best} BPM</span>}
           </div>
