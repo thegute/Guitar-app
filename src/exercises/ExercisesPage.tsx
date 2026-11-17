@@ -10,6 +10,7 @@ import { TabMakerPanel } from '../components/TabMaker'
 import { ProgressionTabs } from '../components/ProgressionTabs'
 import { KeyPicker, Chips, usePersist } from '../components/Controls'
 import { ExerciseBrowser } from './ExerciseBrowser'
+import { DrillLabPanel } from './DrillLabPanel'
 import { STARTER_PROGS, jamProgression, starterProgression } from '../tabs/fromProgression'
 import { openInPlay } from '../nav'
 import { refreshBuiltIn, saveSong, type SongDoc } from '../tabs/library'
@@ -26,7 +27,7 @@ const SECTIONS: { id: Section; label: string; group?: string; hint: string }[] =
   { id: 'chords', label: 'Chords & rhythm', group: 'Chords and rhythm guitar', hint: 'Chord changes, strumming, barre chords, power chords and riffs' },
   { id: 'fingerstyle', label: 'Fingerstyle', group: 'Fingerstyle', hint: 'Fingerpicking and melodic fingerstyle' },
   { id: 'licks', label: 'Licks', group: 'Licks', hint: 'Licks in every style, with breakdowns' },
-  { id: 'make', label: 'Make your own', hint: 'Fingerpicking patterns, lick chainer, tab maker and example songs' },
+  { id: 'make', label: 'Make your own', hint: 'Drill lab (scales, stretches, odd rhythms), fingerpicking patterns, lick chainer, tab maker and example songs' },
 ]
 
 export function ExercisesPage() {
@@ -54,6 +55,7 @@ export function ExercisesPage() {
         </WinArea>
       ) : (
         <WinArea area="ex-make">
+          <Win id="ex-lab" title="Drill lab: scale builder, stretch rack, rhythm lab" className="panel"><DrillLabPanel onOpen={saveOpen} /></Win>
           <Win id="ex-picking" title="Fingerpicking patterns" className="panel"><PickingSection onOpen={saveOpen} /></Win>
           <Win id="ex-chain" title="Lick chainer" className="panel"><LickChainer onOpen={saveOpen} /></Win>
           <Win id="ex-licks" title="Tab maker: licks, chord melodies, riffs" className="panel"><TabMakerPanel onOpen={saveOpen} jam={jamProgression()} /></Win>

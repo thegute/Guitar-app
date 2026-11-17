@@ -24,6 +24,7 @@ import { EX_TYPES, LEVELS, TECHS, exerciseCatalog, keyName, keysFor, type Exerci
 import { spell } from './build'
 import { useScreenInfo } from '../assistant/screen'
 import { suggestExercises } from './suggest'
+import { planBurstSteps, type BurstConfig, type BurstStep } from './drillLab'
 
 interface Filters { level: 'all' | Level; type: string; tech: string; fav: boolean }
 const NO_FILTER: Filters = { level: 'all', type: 'all', tech: 'all', fav: false }
@@ -48,6 +49,7 @@ export function ExerciseBrowser({ group, suggest = true }: { group?: string; sug
   const [countIn, setCountIn] = usePersist('exCountIn', true)
   const [metro, setMetro] = usePersist('exClick', true)
   const [loop, setLoop] = usePersist('exLoop', false)
+  const [burst, setBurst] = usePersist<BurstConfig>('exBurst', { on: false, stepBpm: 5, steps: 4, reps: 1, restBars: 1 })
 
   // a link (search, Learn) can ask for one exercise: show it even if the filters would hide it
   useEffect(() => {
@@ -147,7 +149,8 @@ export function ExerciseBrowser({ group, suggest = true }: { group?: string; sug
         root={keys[ex.code] ?? ex.key ?? 'C'} setRoot={k => setKeys({ ...keys, [ex.code]: k })}
         bpm={tempos[ex.code] ?? ex.bpm} setBpm={b => setTempos({ ...tempos, [ex.code]: b })}
         soundPick={soundPick} setSoundPick={setSoundPick}
-        countIn={countIn} setCountIn={setCountIn} metro={metro} setMetro={setMetro} loop={loop} setLoop={setLoop} />
+        countIn={countIn} setCountIn={setCountIn} metro={metro} setMetro={setMetro} loop={loop} setLoop={setLoop}
+        burst={burst} setBurst={setBurst} />
     </div>
   )
 }
@@ -187,9 +190,10 @@ interface ViewProps {
   ex: Exercise; controls: ReactNode; filters: ReactNode; top?: ReactNode; root: string; setRoot: (k: string) => void; bpm: number; setBpm: (b: number) => void
   soundPick: 'auto' | SoundId; setSoundPick: (s: 'auto' | SoundId) => void
   countIn: boolean; setCountIn: (v: boolean) => void; metro: boolean; setMetro: (v: boolean) => void; loop: boolean; setLoop: (v: boolean) => void
+  burst: BurstConfig; setBurst: (b: BurstConfig) => void
 }
 
-function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm, setBpm, soundPick, setSoundPick, countIn, setCountIn, metro, setMetro, loop, setLoop }: ViewProps) {
+function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm, setBpm, soundPick, setSoundPick, countIn, setCountIn, metro, setMetro, loop, setLoop, burst, setBurst }: ViewProps) {
   const inst = useInstrument()
   const keyList = useMemo(() => keysFor(ex, inst), [ex, inst])
   const root = ex.key ? (keyList.includes(rootPref) ? rootPref : keyList.includes(ex.key) ? ex.key : keyList[0] ?? ex.key) : 'C'
@@ -203,15 +207,56 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
   const [playing, setPlaying] = useState(false)
   const [count, setCount] = useState(0)
   const [status, setStatus] = useState('')
+  const [liveBpm, setLiveBpm] = useState<number | null>(null)
   const player = useRef<TabPlayer | null>(null)
+  const burstRef = useRef<{ steps: BurstStep[]; idx: number } | null>(null)
   const sound: SoundId = soundPick === 'auto' ? activeSound(soundForProgram(track?.program)) : soundPick
-  useEffect(() => () => player.current?.stop(), [])
-  useEffect(() => { player.current?.stop(); setPlaying(false); setCount(0); setAt(0); setStatus('') }, [song])
+  useEffect(() => () => { burstRef.current = null; player.current?.stop() }, [])
+  useEffect(() => { burstRef.current = null; player.current?.stop(); setPlaying(false); setCount(0); setAt(0); setLiveBpm(null); setStatus('') }, [song])
   useEffect(() => { void loadSound(sound) }, [sound])
 
   const start = (from = at >= flat.length - 1 ? 0 : at) => {
     if (!flat.length) return
     const p = (player.current ??= new TabPlayer())
+    if (burst.on) {
+      const steps = planBurstSteps(bpm, burst)
+      const launch = (stepIdx: number, startFrom: number) => {
+        const step = steps[stepIdx]
+        burstRef.current = { steps, idx: stepIdx }
+        p.stop()
+        p.sound = sound
+        p.meter = meter
+        p.click = metro
+        p.countIn = stepIdx === 0 ? (countIn ? meter : 0) : step.restBeforeBars * meter
+        const label = `Burst ${stepIdx + 1}/${steps.length} (${step.bpm} BPM)`
+        p.onCount = n => {
+          setCount(n)
+          setStatus(n ? (stepIdx > 0 ? `${label} · rest bar (${n})` : `Count-in: ${n}`) : label)
+        }
+        p.onStep = i => setAt(i)
+        p.onEnd = () => {
+          const cur = burstRef.current
+          if (cur && cur.idx + 1 < cur.steps.length) {
+            setAt(0)
+            launch(cur.idx + 1, 0)
+          } else {
+            burstRef.current = null
+            setLiveBpm(null)
+            setPlaying(false)
+            setStatus(`Burst finished (reached ${steps[steps.length - 1].bpm} BPM). Tap Play to go again.`)
+            setAt(0)
+          }
+        }
+        setLiveBpm(step.bpm)
+        setPlaying(true)
+        setStatus(p.countIn ? (stepIdx > 0 ? `${label} · rest bar…` : 'Count-in…') : label)
+        p.play(flat, startFrom, step.bpm, flat.length, undefined)
+      }
+      launch(0, from)
+      return
+    }
+    burstRef.current = null
+    setLiveBpm(null)
     p.stop()
     p.sound = sound
     p.meter = meter
@@ -224,7 +269,7 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
     setPlaying(true)
     setStatus(countIn ? 'Count-in…' : 'Playing')
   }
-  const stop = () => { player.current?.stop(); setPlaying(false); setCount(0); setStatus('Stopped') }
+  const stop = () => { burstRef.current = null; setLiveBpm(null); player.current?.stop(); setPlaying(false); setCount(0); setStatus('Stopped') }
   const restart = () => { setAt(0); if (playing) start(0) }
   const seek = (i: number) => { setAt(i); if (playing) start(i) }
   const tapNote = (i: number, n: SongNote | null) => {
@@ -293,10 +338,11 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
     openInPlay(doc)
   }
 
+  const shownBpm = liveBpm ?? bpm
   const head = (
     <div className="ex-card-head">
       <span className={`ex-chord${!chordNow && !count ? ' ex-name' : ''}`}>{count > 0 ? <span className="ex-count-in">{count}</span> : chordNow || ex.name}</span>
-      <span className="small muted">{ex.kind} <b>{ex.code}</b> · {bpm} BPM{capo ? ` · capo ${capo}` : ''}</span>
+      <span className="small muted">{ex.kind} <b>{ex.code}</b> · {shownBpm} BPM{capo ? ` · capo ${capo}` : ''}</span>
     </div>
   )
   const misfit = <p className="notice">This one doesn't fit your {inst.noun} in this key. Try another key, or the next exercise.</p>
@@ -335,8 +381,40 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
         <button className="btn" onClick={restart} aria-label="Back to the start"><Ico n="back" /></button>
         <label className="ex-check"><input type="checkbox" checked={countIn} onChange={e => setCountIn(e.target.checked)} /> Count-in</label>
         <label className="ex-check"><input type="checkbox" checked={metro} onChange={e => setMetro(e.target.checked)} /> Metronome</label>
-        <label className="ex-check"><input type="checkbox" checked={loop} onChange={e => setLoop(e.target.checked)} /> Loop</label>
+        <label className="ex-check"><input type="checkbox" checked={!burst.on && loop} disabled={burst.on} onChange={e => setLoop(e.target.checked)} /> Loop</label>
+        <label className="ex-check" title="Step the tempo up automatically each pass with optional rest bars"><input type="checkbox" checked={burst.on} onChange={e => setBurst({ ...burst, on: e.target.checked })} /> Burst</label>
       </div>
+      {burst.on && (
+        <div className="ex-burst" role="group" aria-label="Burst mode settings">
+          <label className="field">
+            <span>Step</span>
+            <select className="select" value={burst.stepBpm} onChange={e => setBurst({ ...burst, stepBpm: Number(e.target.value) })}>
+              {[5, 10, 15].map(n => <option key={n} value={n}>+{n} BPM</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Steps</span>
+            <select className="select" value={burst.steps} onChange={e => setBurst({ ...burst, steps: Number(e.target.value) })}>
+              {[3, 4, 5, 6].map(n => <option key={n} value={n}>{n} steps</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Reps/step</span>
+            <select className="select" value={burst.reps} onChange={e => setBurst({ ...burst, reps: Number(e.target.value) })}>
+              {[1, 2, 3].map(n => <option key={n} value={n}>{n}×</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Rest between</span>
+            <select className="select" value={burst.restBars} onChange={e => setBurst({ ...burst, restBars: Number(e.target.value) })}>
+              <option value={0}>None</option>
+              <option value={1}>1 bar</option>
+              <option value={2}>2 bars</option>
+            </select>
+          </label>
+          <span className="small muted ex-burst-summary">{bpm} → {Math.min(240, bpm + (burst.steps - 1) * burst.stepBpm)} BPM</span>
+        </div>
+      )}
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <button className="btn primary" onClick={() => void playAlong()} disabled={!song}>Play along (it listens)</button>
         {lick?.must && <button className="btn" onClick={() => learnGo({ licks: lick.id })}><Ico n="book" /> How to play it, step by step</button>}
