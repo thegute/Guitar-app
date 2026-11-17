@@ -3,6 +3,7 @@
 // per setup. Shown in the Sound input sheet, Settings → Sound, the beat maker (chip) and as a notice when the pedal is
 // plugged in.
 import { useEffect, useState } from 'react'
+import { useBack } from '../back'
 import { Ico } from './Icon'
 import { GearSetup } from './GearSetup'
 import { listInputs, filtersStillOn, type InputDevice } from '../audio/input'
@@ -95,6 +96,51 @@ export function AudioSetup({ compact = false }: { compact?: boolean }) {
       )}
       {check && <GearSetup onClose={() => setCheck(false)} />}
     </div>
+  )
+}
+
+/** Global compact quick-check pill (App top bar): shows Mic / Pedal / Interface, ms latency, green/amber dot, and opens AudioSetup on tap. */
+export function RigPill() {
+  const r = useRig()
+  useGear()
+  const [open, setOpen] = useState(false)
+  const [devs, setDevs] = useState<InputDevice[]>([])
+  useBack(open, () => setOpen(false))
+  useEffect(() => {
+    let alive = true
+    const refresh = () => void listInputs().then(d => { if (alive) setDevs(d) }).catch(() => {})
+    refresh()
+    const md = typeof navigator !== 'undefined' ? navigator.mediaDevices : undefined
+    md?.addEventListener?.('devicechange', refresh)
+    return () => { alive = false; md?.removeEventListener?.('devicechange', refresh) }
+  }, [])
+  const pedal = pedalPlugged()
+  const hasUsb = !!pedal || devs.some(d => d.external)
+  const kind: InputKind = r === 'pedal' ? 'pedal' : hasUsb ? 'usb' : 'mic'
+  const ms = latencyMs(kind)
+  const checked = timingChecked(kind)
+  const shortLabel = r === 'pedal' ? 'Pocket Master · Mono' : r === 'interface' ? 'Interface' : pedal ? 'Pedal · Stereo' : hasUsb ? 'USB input' : 'Phone mic'
+  return (
+    <>
+      <button
+        className={`rig-pill${checked ? ' ok' : ' guess'}${r === 'pedal' ? ' pedal' : ''}`}
+        onClick={() => setOpen(true)}
+        data-testid="rig-pill"
+        aria-label={`Guitar setup: ${shortLabel}, ${ms} ms${checked ? ' (calibrated)' : ' (tap to calibrate)'}`}
+      >
+        <span className="rp-dot" aria-hidden />
+        <Ico n={r === 'pedal' ? 'guitar' : hasUsb ? 'headphones' : 'mic'} />
+        <span className="rp-text">{shortLabel} · <b>{ms} ms</b></span>
+      </button>
+      {open && (
+        <div className="sheet-backdrop" onClick={() => setOpen(false)}>
+          <div className="sheet" role="dialog" aria-modal="true" aria-label="Guitar and audio setup" onClick={e => e.stopPropagation()} data-testid="rig-sheet">
+            <div className="sheet-head"><h2>Guitar &amp; audio setup</h2><button className="btn sm" onClick={() => setOpen(false)}>Done</button></div>
+            <AudioSetup />
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

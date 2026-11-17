@@ -15,14 +15,18 @@ export interface Step {
   beat?: { starter?: string; bpm?: number; key?: string; minor?: boolean; patterns?: string[] }
 }
 export interface Session { id: string; title: string; steps: Step[] }
-export interface Running { session: Session; index: number; /** ms left in this step */ left: number; paused: boolean; at: number }
+export interface Running { session: Session; index: number; /** ms left in this step */ left: number; paused: boolean; at: number; completed?: number[] }
+export interface SessionSummary { session: Session; completedCount: number; minutes: number; at: number }
 
 const KEY = 'kg:session'
 const SAVED = 'kg:sessions'
 const listeners = new Set<() => void>()
 let state: Running | null = (() => { try { return JSON.parse(localStorage.getItem(KEY) ?? 'null') as Running | null } catch { return null } })()
+let lastSummary: SessionSummary | null = null
 const emit = () => { try { localStorage.setItem(KEY, JSON.stringify(state)) } catch { /* storage full */ } listeners.forEach(f => f()) }
 export const running = () => state
+export const sessionSummary = () => lastSummary
+export function clearSummary() { lastSummary = null; listeners.forEach(f => f()) }
 export function onSession(f: () => void) { listeners.add(f); return () => { listeners.delete(f) } }
 
 /** Open a step's screen, set up (and a beat if it asks for one). */
@@ -37,7 +41,8 @@ export function openStep(s: Step) {
   launch(s.target)
 }
 export function startSession(session: Session, at = 0) {
-  state = { session, index: at, left: session.steps[at].minutes * 60000, paused: false, at: Date.now() }
+  lastSummary = null
+  state = { session, index: at, left: session.steps[at].minutes * 60000, paused: false, at: Date.now(), completed: [] }
   emit()
   openStep(session.steps[at])
 }
@@ -51,9 +56,14 @@ export function tick() {
 export function pause(p: boolean) { if (!state) return; tick(); state = { ...state, paused: p, at: Date.now() }; emit() }
 export function next() {
   if (!state) return
+  const completed = [...new Set([...(state.completed ?? []), state.index])]
   const i = state.index + 1
-  if (i >= state.session.steps.length) { finish(); return }
-  state = { ...state, index: i, left: state.session.steps[i].minutes * 60000, paused: false, at: Date.now() }
+  if (i >= state.session.steps.length) {
+    state = { ...state, completed }
+    finish(true)
+    return
+  }
+  state = { ...state, index: i, left: state.session.steps[i].minutes * 60000, paused: false, at: Date.now(), completed }
   emit()
   openStep(state.session.steps[i])
 }
@@ -64,8 +74,29 @@ export function prev() {
   emit()
   openStep(state.session.steps[i])
 }
+export function jumpTo(i: number) {
+  if (!state || i < 0 || i >= state.session.steps.length) return
+  state = { ...state, index: i, left: state.session.steps[i].minutes * 60000, paused: false, at: Date.now() }
+  emit()
+  openStep(state.session.steps[i])
+}
 export function addTime(min: number) { if (!state) return; tick(); state = { ...state, left: state.left + min * 60000 }; emit() }
-export function finish() { state = null; emit() }
+export function finish(completedAll = false) {
+  if (completedAll && state) {
+    const doneSet = new Set([...(state.completed ?? []), state.index])
+    lastSummary = {
+      session: state.session,
+      completedCount: doneSet.size,
+      minutes: minutesOf(state.session),
+      at: Date.now(),
+    }
+  } else {
+    lastSummary = null
+  }
+  state = null
+  emit()
+}
+export function stopSession() { finish(false) }
 
 export function savedSessions(): Session[] { try { return JSON.parse(localStorage.getItem(SAVED) ?? '[]') as Session[] } catch { return [] } }
 export function saveSession(s: Session) { try { localStorage.setItem(SAVED, JSON.stringify([...savedSessions().filter(x => x.id !== s.id), s].slice(-30))) } catch { /* storage full */ } }

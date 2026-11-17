@@ -24,7 +24,7 @@ import { GlobalChordPeek } from './components/ChordPeek'
 import { NowPlaying } from './components/NowPlaying'
 import { Settings } from './learn/Settings'
 import { setFloatScreen } from './float/bus'
-import { RigNotice } from './components/AudioSetup'
+import { RigNotice, RigPill } from './components/AudioSetup'
 import { watchDevices } from './audio/input'
 import { onAsk, type AskContext } from './assistant/bus'
 import { stopAllSounds } from './audio/stopAll'
@@ -159,6 +159,7 @@ export default function App() {
         <FloatLayer />
         <GlobalChordPeek inst={inst} />
         <RigNotice />
+        {!(tab === 'play' && ui.playFocus) && !gear && <div className="rig-bar"><RigPill /></div>}
         {gear && <Settings key={gear.n ?? 0} inst={inst} guideSec={gear.sec} onExit={() => setGear(null)} onGo={g => { setGear(null); learnGo(g) }} />}
         {!gear && <>
         {tab === 'play' && <PlayScreen key={inst.id} />}
