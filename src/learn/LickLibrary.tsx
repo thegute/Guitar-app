@@ -14,6 +14,7 @@ import { KEYS } from '../theory/notes'
 import { useScreenInfo } from '../assistant/screen'
 import { addToChain } from '../licks/chain'
 import { Win, WinArea } from '../components/Win'
+import { WORKS_OVER_TAGS, currentJamProfile, lickMatchScore, worksOverForLick, worksOverSummary, type WorksOverId } from '../licks/worksOver'
 
 const LEVEL = ['', 'Easy', 'Medium', 'Hard']
 const clip = (t: string, n: number) => (t.length > n ? t.slice(0, n).replace(/\s+\S*$/, '') + '…' : t)
@@ -22,20 +23,30 @@ export function LickLibrary({ initial, onExit }: { initial?: string; onExit: () 
   const first = initial ? lickById(initial) : undefined
   const [styleSaved, setStyle] = usePersist<string>('mustStyle', 'blues')
   const styleRaw = styleSaved === 'jawaiian' ? 'reggaerock' : styleSaved
-  const [style, setStyleNow] = useState<LickStyleId>(((first?.style ?? (LICK_STYLES.some(s => s.id === initial) ? initial : styleRaw)) as LickStyleId) || 'blues')
+  const [style, setStyleNow] = useState<'all' | LickStyleId>(
+    first?.style ?? ((styleRaw === 'all' || LICK_STYLES.some(s => s.id === (initial || styleRaw))) ? ((initial || styleRaw) as 'all' | LickStyleId) : 'blues'),
+  )
+  const [worksOver, setWorksOver] = usePersist<'all' | 'jam' | WorksOverId>('mustWorksOver', 'all')
   const [all, setAll] = useState(false)
   const [open, setOpen] = useState<string | null>(first?.id ?? null)
   // "Licks over Gm" from a chord or scale neck: the licks that fit (minor or major), shown in that key
   const [want, setWant] = usePersist<{ root: string; minor: boolean } | null>('lickWantKey', null)
-  const pick = (s: LickStyleId) => { setStyleNow(s); setStyle(s); setOpen(null) }
-  const st = lickStyle(style)
-  const list = useMemo(() => LICKS.filter(l => l.style === style && (all || l.must) && (!want || (l.minor ?? lickStyle(l.style).minor) === want.minor)).sort((a, b) => a.level - b.level), [style, all, want])
+  const pick = (s: 'all' | LickStyleId) => { setStyleNow(s); setStyle(s); setOpen(null) }
+  const st = style === 'all' ? null : lickStyle(style)
+  const jam = useMemo(() => currentJamProfile(), [])
+  const list = useMemo(() => LICKS.filter(l =>
+    (style === 'all' || l.style === style) &&
+    (all || l.must) &&
+    (!want || (l.minor ?? lickStyle(l.style).minor) === want.minor) &&
+    (worksOver === 'all' || (worksOver === 'jam' ? (!jam || lickMatchScore(l, jam) > 0) : worksOverForLick(l).includes(worksOver)))
+  ).sort((a, b) => (worksOver === 'jam' && jam ? lickMatchScore(b, jam) - lickMatchScore(a, jam) : 0) || a.level - b.level), [style, all, want, worksOver, jam])
   const cur = open ? lickById(open) : null
   // the phone's Back button steps back inside the licks (a lick → the list → must-know) before leaving
   useBack(!!open, () => setOpen(null))
   useBack(all && !open, () => setAll(false))
   if (cur) return <LickDetail lick={cur} wantKey={want?.root} onBack={() => (first && open === first.id && initial === first.id ? onExit() : setOpen(null))} />
   const counts = (s: LickStyleId) => LICKS.filter(l => l.style === s && l.must).length
+  const totalMust = LICKS.filter(l => l.must).length
   return (
     <div className="stack lick-library">
       <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -43,33 +54,63 @@ export function LickLibrary({ initial, onExit }: { initial?: string; onExit: () 
       </div>
       <h1 style={{ margin: 0 }}>Must-know licks</h1>
       <p className="small muted" style={{ margin: 0 }}>The licks every player of a style should know, each explained step by step. Tap one to learn it, hear it in any key and play along.</p>
-      <label className="field">
-        <span>Style</span>
-        <select className="select" value={style} onChange={e => pick(e.target.value as LickStyleId)}>
-          {[...new Set(LICK_STYLES.map(s => s.group))].map(g => (
-            <optgroup key={g} label={g}>{LICK_STYLES.filter(s => s.group === g).map(s => <option key={s.id} value={s.id}>{s.label} ({counts(s.id)})</option>)}</optgroup>
-          ))}
-        </select>
-      </label>
-      <p className="small muted" style={{ margin: 0 }}>{st.feel} <i>Listen to: {st.listen}.</i></p>
+      <div className="ex-filters" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))' }}>
+        <label className="field">
+          <span>Style</span>
+          <select className="select" value={style} onChange={e => pick(e.target.value as 'all' | LickStyleId)}>
+            <option value="all">All styles ({totalMust})</option>
+            {[...new Set(LICK_STYLES.map(s => s.group))].map(g => (
+              <optgroup key={g} label={g}>{LICK_STYLES.filter(s => s.group === g).map(s => <option key={s.id} value={s.id}>{s.label} ({counts(s.id)})</option>)}</optgroup>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>Works over…</span>
+          <select className="select" value={worksOver} onChange={e => setWorksOver(e.target.value as 'all' | 'jam' | WorksOverId)} data-testid="lick-works-over">
+            <option value="all">Any chords / groove</option>
+            {jam && jam.chordSymbols.length > 0 && (
+              <option value="jam">Fits my Jam ({jam.chordSymbols.slice(0, 4).join('–')} in {jam.tonic}{jam.minor ? 'm' : ''})</option>
+            )}
+            {WORKS_OVER_TAGS.filter(t => t.id !== 'warmup').map(t => (
+              <option key={t.id} value={t.id}>{t.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {st ? (
+        <p className="small muted" style={{ margin: 0 }}>{st.feel} <i>Listen to: {st.listen}.</i></p>
+      ) : (
+        <p className="small muted" style={{ margin: 0 }}>Showing all {list.length} matching licks across every style.</p>
+      )}
       {want && (
         <div className="row small notice" style={{ gap: 8, alignItems: 'center' }} data-testid="lick-want">
           <span>Licks that fit <b>{want.root}{want.minor ? ' minor' : ' major'}</b>, shown in that key.</span>
           <button className="btn sm ghost" onClick={() => setWant(null)}>Show all</button>
         </div>
       )}
-      {want && !list.length && <p className="small muted">No {want.minor ? 'minor' : 'major'} licks in this style: try another style.</p>}
-      {LICKS.some(l => l.style === style && !l.must) && <Chips label="Which licks" items={[{ id: 'must', label: 'Must-know' }, { id: 'all', label: `Every ${st.label.replace(/ \(.*\)$/, '').toLowerCase()} lick` }]} value={all ? 'all' : 'must'} onChange={v => setAll(v === 'all')} />}
+      {!list.length && (
+        <div className="row small notice" style={{ gap: 8, alignItems: 'center' }}>
+          <span>No matching licks in this filter.</span>
+          {style !== 'all' && <button className="btn sm" onClick={() => pick('all')}>Search all styles</button>}
+          {worksOver !== 'all' && <button className="btn sm ghost" onClick={() => setWorksOver('all')}>Clear groove filter</button>}
+        </div>
+      )}
+      {st && LICKS.some(l => l.style === style && !l.must) && <Chips label="Which licks" items={[{ id: 'must', label: 'Must-know' }, { id: 'all', label: `Every ${st.label.replace(/ \(.*\)$/, '').toLowerCase()} lick` }]} value={all ? 'all' : 'must'} onChange={v => setAll(v === 'all')} />}
       <ul className="lick-list">
-        {list.map(l => (
-          <li key={l.id}>
-            <button className="lick-card" onClick={() => setOpen(l.id)}>
-              <span className="lick-top"><b>{l.name}</b><span className={`lvl lvl-${l.level}`}>{LEVEL[l.level]}</span></span>
-              <span className="small muted">{kindLabel(l)} · over {l.chord ?? keyLabel(l.ref, l.minor ?? st.minor)} · key of {keyLabel(l.ref, l.minor ?? st.minor)}</span>
-              {l.must && <span className="small">{clip(l.must.about, 130)}</span>}
-            </button>
-          </li>
-        ))}
+        {list.map(l => {
+          const lst = lickStyle(l.style)
+          const wo = worksOverSummary(worksOverForLick(l))
+          return (
+            <li key={l.id}>
+              <button className="lick-card" onClick={() => setOpen(l.id)}>
+                <span className="lick-top"><b>{l.name}</b><span className={`lvl lvl-${l.level}`}>{LEVEL[l.level]}</span></span>
+                <span className="small muted">{style === 'all' ? `${lst.label} · ` : ''}{kindLabel(l)} · over {l.chord ?? keyLabel(l.ref, l.minor ?? lst.minor)} · key of {keyLabel(l.ref, l.minor ?? lst.minor)}</span>
+                <span className="lick-works small">Works over: {wo}</span>
+                {l.must && <span className="small">{clip(l.must.about, 130)}</span>}
+              </button>
+            </li>
+          )
+        })}
       </ul>
     </div>
   )
@@ -90,6 +131,7 @@ function LickDetail({ lick, onBack, wantKey }: { lick: LickDef; onBack: () => vo
   const placed = useMemo(() => lickInKey(lick, key, inst.midis, tempo), [lick, key, inst.midis, tempo])
   const doc = placed ? { id: `lick:${lick.id}:${key}:${inst.id}:${tempo}`, title: placed.song.title, source: 'lesson' as const, inst: inst.id, key: { root: key, minor }, song: placed.song, updated: Date.now() } : null
   const b = lick.must
+  const worksTags = useMemo(() => worksOverForLick(lick), [lick])
   return (
     <div className="stack lick-detail">
       <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -98,6 +140,7 @@ function LickDetail({ lick, onBack, wantKey }: { lick: LickDef; onBack: () => vo
       </div>
       <h1 style={{ margin: 0 }}>{lick.name}</h1>
       <p className="small muted" style={{ margin: 0 }}>{st.label} · {kindLabel(lick)} · over {placed?.chord ?? lick.chord}</p>
+      <p className="lick-works small" style={{ margin: 0 }}>Works over: {worksOverSummary(worksTags, 3)}</p>
       {b && <p style={{ margin: 0 }}>{b.about}</p>}
       <WinArea area="lick">
       <Win id="tab" title="The tab" bodyClass="stack" bodyStyle={{ gap: 8 }}>

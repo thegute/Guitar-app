@@ -21,10 +21,12 @@ import { ImprovCoach } from '../coach/ImprovCoach'
 import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
 import { bassPacks, bassPackFor, BASS_LABEL, BASS_PACK, STYLE_BASS, type BassKind } from '../audio/packSounds'
 import { loadPrivatePack } from '../engine/packs'
-import { strum as strumNotes, preload, allSounds, soundInfo, loadSound, loadBank, bankLoaded, soundLoaded, type SoundId } from '../audio/pluck'
+import { strum as strumNotes, preload, allSounds, soundInfo, loadSound, loadBank, bankLoaded, soundLoaded, activeSound, soundForProgram, type SoundId } from '../audio/pluck'
 import { BASSLINES } from '../audio/bass'
 import { audio, keepAwake } from '../audio/engine'
 import { JamTransport } from '../audio/jam'
+import { TabPlayer } from '../audio/tabPlayer'
+import { flatten } from '../tabs/model'
 import { useRig } from '../audio/rig'
 import { usePracticeTimer } from '../learn/progress'
 import { usePedals } from '../controls/pedals'
@@ -32,8 +34,8 @@ import { STRUMS } from '../audio/strums'
 import { GROOVES, GROOVE_GROUPS, KITS, grooveOf, kitInfo, loadKit, kitLoaded, type KitId } from '../audio/drums'
 import { shapesFor as shapesForChord } from '../theory/shapes'
 import { Transcriber } from '../components/Transcriber'
-import { saveSong } from '../tabs/library'
-import { go, openInPlay, setSubPage } from '../nav'
+import { saveSong, type SongDoc } from '../tabs/library'
+import { go, learnGo, openInPlay, setSubPage } from '../nav'
 import { clearFloat, publishFloat, setFloatResting } from '../float/bus'
 import { SongFinder } from '../components/SongFinder'
 import { InspireMe } from '../components/InspireMe'
@@ -44,6 +46,10 @@ import { Zoomable } from '../components/Zoomable'
 import { useSubTab } from '../components/SubTabs'
 import { PsyPic } from '../components/PsyArt'
 import { pc } from '../theory/notes'
+import { LICKS, type LickDef } from '../licks/library'
+import { lickStyle } from '../licks/styles'
+import { lickInKey } from '../licks/generator'
+import { jamProfile, matchingLicksForJam, worksOverForLick, worksOverSummary } from '../licks/worksOver'
 
 const bassLineKind = (id: string): BassKind => BASSLINES.find(b => b.id === id)?.bass ?? 'session'
 import { useScreenInfo } from '../assistant/screen'
@@ -241,6 +247,48 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
     }
     startPlay(0)
   }
+  const [licksOpen, setLicksOpen] = useState(false)
+  const [playingLickId, setPlayingLickId] = useState<string | null>(null)
+  const lickPlayer = useRef<TabPlayer | null>(null)
+  const jamProf = useMemo(() => jamProfile(prog, tonic, mode, style), [prog, tonic, mode, style])
+  const matchingLicks = useMemo(() => matchingLicksForJam(LICKS, jamProf, 12), [jamProf])
+
+  function stopLickPreview() {
+    lickPlayer.current?.stop()
+    setPlayingLickId(null)
+  }
+  function hearLick(l: LickDef) {
+    if (playingLickId === l.id) { stopLickPreview(); return }
+    const placed = lickInKey(l, tonic, inst.midis, bpm)
+    if (!placed) return
+    const trk = placed.song.tracks[0]
+    if (!trk) return
+    const p = (lickPlayer.current ??= new TabPlayer())
+    p.stop()
+    p.sound = activeSound(soundForProgram(trk.program))
+    p.onStep = () => {}
+    p.onEnd = () => setPlayingLickId(null)
+    p.play(flatten(trk), 0, bpm)
+    setPlayingLickId(l.id)
+  }
+  async function openLickInPlay(l: LickDef) {
+    stopLickPreview()
+    stopAll()
+    const placed = lickInKey(l, tonic, inst.midis, bpm)
+    if (!placed) return
+    const doc: SongDoc = {
+      id: `lick:${l.id}:${tonic}:${inst.id}:${bpm}`,
+      title: placed.song.title,
+      source: 'lesson',
+      inst: inst.id,
+      key: { root: tonic, minor: l.minor ?? lickStyle(l.style).minor },
+      song: placed.song,
+      updated: Date.now(),
+    }
+    try { await saveSong(doc) } catch { /* still opens */ }
+    openInPlay(doc)
+  }
+
   function startPlay(countIn = 0) {
     applySong()
     const t0 = tr().start(countIn)
@@ -250,13 +298,14 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   }
   function stopAll() {
     transport.current?.stop()
+    stopLickPreview()
     setPlaying(false)
     setPos({ chord: -1, countIn: 0, beat: -1 })
     void keepAwake(false)
   }
-  useEffect(() => () => { transport.current?.stop(); void keepAwake(false) }, [])
+  useEffect(() => () => { transport.current?.stop(); lickPlayer.current?.stop(); void keepAwake(false) }, [])
   // the beat maker has its own clock: the jam loop stops when you open it
-  useEffect(() => { if ((page === 'beats' || page === 'loop') && transport.current?.playing) stopAll() }, [page]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if ((page === 'beats' || page === 'loop') && (transport.current?.playing || playingLickId)) stopAll() }, [page]) // eslint-disable-line react-hooks/exhaustive-deps
   // live changes: restart in time (layers keep their place)
   useEffect(() => {
     if (transport.current?.playing) startPlay(0)
@@ -525,6 +574,46 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
             {cards}
             {chordInfo}
             {transportRow}
+            {matchingLicks.length > 0 && (
+              <div className="jam-licks-strip">
+                <button
+                  className="band-line jam-licks-toggle"
+                  aria-expanded={licksOpen}
+                  data-testid="jam-licks-toggle"
+                  onClick={() => { const next = !licksOpen; setLicksOpen(next); if (!next) stopLickPreview() }}>
+                  <span className="small muted">Licks</span>
+                  <span className="band-parts">
+                    <b>{matchingLicks.length} riffs &amp; licks fit {tonic}{minorKey ? 'm' : ''}</b>
+                    <span className="small muted"> · {worksOverSummary(jamProf.tags, 2)}</span>
+                  </span>
+                  <span className="small">{licksOpen ? 'Hide' : 'Show ▾'}</span>
+                </button>
+                {licksOpen && (
+                  <div className="jam-licks-list" data-testid="jam-licks-list">
+                    {matchingLicks.map(l => {
+                      const lst = lickStyle(l.style)
+                      const isPlaying = playingLickId === l.id
+                      return (
+                        <div key={l.id} className="jam-lick-row">
+                          <div className="jam-lick-info">
+                            <b>{l.name}</b>
+                            <span className="small muted">{lst.label} · Works over: {worksOverSummary(worksOverForLick(l), 2)}</span>
+                          </div>
+                          <div className="jam-lick-acts">
+                            <button className={`btn sm${isPlaying ? ' on' : ''}`} onClick={() => hearLick(l)}>{isPlaying ? '■ Stop' : '▶ Hear'}</button>
+                            <button className="btn sm primary" onClick={() => void openLickInPlay(l)}>Play tab</button>
+                            <button className="btn sm ghost" onClick={() => learnGo({ licks: l.id })}>Learn</button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    <div className="row" style={{ justifyContent: 'flex-end' }}>
+                      <button className="link-btn small" onClick={() => { try { localStorage.setItem('kg:mustWorksOver', JSON.stringify('jam')) } catch { /* noop */ } learnGo({ licks: 'all' }) }}>Browse all matching licks →</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </Win>
           <Win id="inspire" title="Inspire me: chords that sound good together" className="panel" hint="A set of up to 8 chords that work together, like keys on Playbox: play them in any order. Roll by mood and colour, keep the ones you like with the lock, add them to your own order with +, then play it with the band. Each chord shows its number in the key, so you learn why it works.">
             <InspireMe tonic={tonic}
