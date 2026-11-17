@@ -177,7 +177,7 @@ export function TunerScreen() {
       </div>
 
       <WinArea area="tuner">
-      <Win id="strings" title="Strings" className="panel" resizable={false}>
+      <Win id="strings" title="Strings" className="panel">
       <div className="tuner-strings" role="radiogroup" aria-label="Which string">
         <button role="radio" aria-checked={lockedString === null} className={`chip${lockedString === null ? ' on' : ''}`} onClick={() => setPick('auto')}>Auto</button>
         {targets.map((m, i) => (

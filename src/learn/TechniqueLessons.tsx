@@ -2,6 +2,7 @@
 import type { Instrument } from '../instrument'
 import { TECHNIQUES, markTechnique, techniquesDone, type Technique } from './techniques'
 import { InYourBooks } from '../books/InYourBooks'
+import { Win, WinArea } from '../components/Win'
 /** which book topics each technique matches (books/topics.ts) */
 const TECH_TOPICS: Record<string, string[]> = {"pick": ["alternate-picking"], "fret": ["fretboard-notes"], "chords": ["chord-building"], "strum": ["rhythm"], "alternate": ["alternate-picking", "crosspicking"], "mute": ["rhythm"], "pm": ["rhythm"], "legato": ["hammer-on"], "slide": ["slide"], "bend": ["bend"], "barre": ["caged", "chord-building"], "travis": ["travis", "fingerstyle"], "melodic": ["fingerstyle", "travis"], "slack-tuning": ["slack-key", "open-tunings"], "slack-thumb": ["slack-key", "travis"], "slack-hammer": ["slack-key", "hammer-on"], "slack-vamp": ["slack-key"]}
 
@@ -33,15 +34,18 @@ export function TechniqueView({ id, inst, onExit, onDrill }: { id: string; inst:
       <div className="row"><button className="btn sm" onClick={onExit}>← Technique</button></div>
       <h2 style={{ margin: 0 }}>{t.title}</h2>
       <p style={{ margin: 0 }}>{t.why}</p>
-      <ol className="tech-steps">
-        {t.steps.map((s, i) => <li key={i}>{s}</li>)}
-      </ol>
-      <a className="btn tech-video" href={t.video.url} target="_blank" rel="noreferrer">▶ Watch a video lesson: {t.video.title} <span className="small muted">({t.video.site}) ↗</span></a>
-      <section className="panel stack" style={{ gap: 8 }}>
-        <b>Practice</b>
-        <span className="small muted">{inst.isUke && 'tab' in t.drill && t.drill.tab === 'palmmute' ? 'On the ukulele this drill uses single notes.' : 'Play it slowly first. In Play, tap Listen: notes light up green as you get them.'}</span>
-        <button className="btn primary" onClick={() => { markTechnique(t.id); onDrill(t) }}>{t.drill.label}</button>
-      </section>
+      <WinArea area="technique">
+        <Win id="tech-steps" title="How to do it" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+          <ol className="tech-steps" style={{ margin: 0 }}>
+            {t.steps.map((s, i) => <li key={i}>{s}</li>)}
+          </ol>
+          <a className="btn tech-video" href={t.video.url} target="_blank" rel="noreferrer">▶ Watch a video lesson: {t.video.title} <span className="small muted">({t.video.site}) ↗</span></a>
+        </Win>
+        <Win id="tech-practice" title="Practice" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+          <span className="small muted">{inst.isUke && 'tab' in t.drill && t.drill.tab === 'palmmute' ? 'On the ukulele this drill uses single notes.' : 'Play it slowly first. In Play, tap Listen: notes light up green as you get them.'}</span>
+          <button className="btn primary" onClick={() => { markTechnique(t.id); onDrill(t) }}>{t.drill.label}</button>
+        </Win>
+      </WinArea>
       <InYourBooks topics={TECH_TOPICS[t.id] ?? []} />
     </article>
   )

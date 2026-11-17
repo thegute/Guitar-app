@@ -331,7 +331,7 @@ export function LearnScreen() {
 
       {page === 'today' && <JumpBackIn />}
       {page === 'today' && <WinArea area="learnToday" className="win-cols">
-      <Win id="today" title="Today" className="today-win" bodyClass={`today-card${counted ? ' counted' : ''}`} resizable={false}>
+      <Win id="today" title="Today" className="today-win" bodyClass={`today-card${counted ? ' counted' : ''}`}>
         <div className="pick-wrap">
           <PsyArt kind="mandala" className="pick-mandala" />
           <PickRing value={minutes} goal={goal} />

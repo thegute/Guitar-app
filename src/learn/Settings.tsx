@@ -129,7 +129,7 @@ export function Settings({ inst, onExit, onGo, guideSec }: { inst: Instrument; o
         </p>
       </Win>
 
-      <Win id="handsize" title="Your hand" bodyClass="stack" bodyStyle={{ gap: 8 }} resizable={false} hint="How far your fingers spread. KGuitar's fingering engine measures stretches in real distance (frets are wider near the nut), so it knows when to shift your hand and when a stretch is fine.">
+      <Win id="handsize" title="Your hand" bodyClass="stack" bodyStyle={{ gap: 8 }} hint="How far your fingers spread. KGuitar's fingering engine measures stretches in real distance (frets are wider near the nut), so it knows when to shift your hand and when a stretch is fine.">
         <HandSizePick />
       </Win>
 
@@ -138,10 +138,10 @@ export function Settings({ inst, onExit, onGo, guideSec }: { inst: Instrument; o
         {savedProfile && <span className="small muted" role="status">Saved. Today's plan has been updated.</span>}
       </Win>
 
-      <Win id="goal" title="Daily goal" hint="Any 5 minutes keeps your streak alive, with or without your guitar. Hitting the goal earns a bonus." bodyClass="stack" bodyStyle={{ gap: 10 }} resizable={false}>
+      <Win id="goal" title="Daily goal" hint="Any 5 minutes keeps your streak alive, with or without your guitar. Hitting the goal earns a bonus." bodyClass="stack" bodyStyle={{ gap: 10 }}>
         <Chips label="Minutes a day" items={[5, 10, 15, 20, 30, 45, 60].map(m => ({ id: m, label: `${m} min` }))} value={goal} onChange={setDailyGoalMin} />
       </Win>
-      <Win id="ready" title="Get ready time" bodyClass="stack" bodyStyle={{ gap: 10 }} resizable={false} hint="Before anything that scores your timing (In time, the rhythm trainer, chord changes, exercises), a countdown gives you time to get your hands on the guitar. Then a bar of clicks counts you in.">
+      <Win id="ready" title="Get ready time" bodyClass="stack" bodyStyle={{ gap: 10 }} hint="Before anything that scores your timing (In time, the rhythm trainer, chord changes, exercises), a countdown gives you time to get your hands on the guitar. Then a bar of clicks counts you in.">
         <Chips label="Seconds before timed practice starts" items={GET_READY_CHOICES.map(s => ({ id: s, label: s ? `${s} s` : 'Off' }))} value={readySecs} onChange={v => { setGetReadySecs(v); setReadySecs(v) }} />
       </Win>
 
@@ -171,7 +171,7 @@ export function Settings({ inst, onExit, onGo, guideSec }: { inst: Instrument; o
       </WinArea>}
 
       {page === 'sound' && <WinArea area="setSound">
-      <Win id="switches" title="Switches" bodyClass="stack" bodyStyle={{ gap: 6 }} resizable={false}>
+      <Win id="switches" title="Switches" bodyClass="stack" bodyStyle={{ gap: 6 }}>
         <HapticsSwitch />
         <KeepMetronome />
       </Win>
@@ -200,7 +200,7 @@ export function Settings({ inst, onExit, onGo, guideSec }: { inst: Instrument; o
       </WinArea>}
 
       {page === 'look' && <WinArea area="setLook">
-      {Capacitor.isNativePlatform() && <Win id="full" title="Full screen" resizable={false}><FullScreenSwitch /></Win>}
+      {Capacitor.isNativePlatform() && <Win id="full" title="Full screen"><FullScreenSwitch /></Win>}
       <Win id="look" title="Look" bodyClass="stack" bodyStyle={{ gap: 12 }} hint={'Psychedelic is neon colours with the samurai dogs and the rest of the KGuitar artwork all through the app, with the words kept on dark cards so they stay easy to read. Night is dim and low-glare for practising in bed. "Match my phone" switches between Day and Night with your phone\'s dark mode.'}>
         <div className="theme-cards" role="radiogroup" aria-label="Theme">
           {([
@@ -263,18 +263,22 @@ export function Settings({ inst, onExit, onGo, guideSec }: { inst: Instrument; o
       </Win>
       </WinArea>}
       {page === 'cards' && (
-        <section className="panel stack" style={{ gap: 12 }} data-testid="gear-cards">
-          <p className="small muted" style={{ margin: 0 }}>
-            Floating cards hover over everything. Pick a different set for each screen (most people use one at a time). On the screen, drag a card's bar to move it,
-            drag its corner to resize it, – shrinks it to a small bubble, × hides it.
-          </p>
-          {([['play', 'Song player'], ['songs', 'Songs'], ['learn', 'Learn'], ['jam', 'Jam'], ['tools', 'Tools']] as const).map(([id, label]) => (
-            <div key={id} className="stack" style={{ gap: 6 }}>
-              <b>{label}</b>
-              <FloatPicker screen={id} />
+        <WinArea area="setCards">
+          <Win id="gear-cards" title="Floating cards" className="panel" bodyClass="stack" bodyStyle={{ gap: 12 }}>
+            <div className="stack" style={{ gap: 12 }} data-testid="gear-cards">
+              <p className="small muted" style={{ margin: 0 }}>
+                Floating cards hover over everything. Pick a different set for each screen (most people use one at a time). On the screen, drag a card's bar to move it,
+                drag its corner to resize it, – shrinks it to a small bubble, × hides it.
+              </p>
+              {([['play', 'Song player'], ['songs', 'Songs'], ['learn', 'Learn'], ['jam', 'Jam'], ['tools', 'Tools']] as const).map(([id, label]) => (
+                <div key={id} className="stack" style={{ gap: 6 }}>
+                  <b>{label}</b>
+                  <FloatPicker screen={id} />
+                </div>
+              ))}
             </div>
-          ))}
-        </section>
+          </Win>
+        </WinArea>
       )}
       {page === 'manual' && <GuideScreen key={guideSec ?? ''} initial={guideSec} onExit={onExit} onGo={g => onGo?.(g)} embedded />}
       {setup && <GearSetup onClose={() => setSetup(false)} />}

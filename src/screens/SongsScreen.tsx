@@ -150,8 +150,8 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
   )
   return (
     <WinArea area="songsLibrary" prefer={['jump', 'find', 'learning', 'learned', 'later', 'list', 'filters', 'songs']}>
-      <Win id="jump" title="Practice and jump back in" className="panel" resizable={false}><JumpBackIn compact /></Win>
-      <Win id="find" title="Find a song" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }} resizable={false}>
+      <Win id="jump" title="Practice and jump back in" className="panel"><JumpBackIn compact /></Win>
+      <Win id="find" title="Find a song" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
         <input className="input" type="search" placeholder="Search your songs and the songbook" value={q} onChange={e => setQ(e.target.value)} aria-label="Search your songs and the songbook" data-testid="lib-search" />
         <div className="chips lib-shows" role="group" aria-label="Show">
           {SHOWS.map(o => (

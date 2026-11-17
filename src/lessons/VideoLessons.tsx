@@ -11,6 +11,7 @@ import { getSong, saveSong, type SongDoc } from '../tabs/library'
 import { songFromText } from '../tabs/importer'
 import type { Instrument } from '../instrument'
 import { SPEEDS } from '../components/LocalVideo'
+import { Win, WinArea } from '../components/Win'
 import {
   LessonFolders, bytesOf, chapters, kindOf, lessonsAvailable, localVideoLink, mediaUrl, niceName, progress, saveFolders, savedFolders, setProgress,
   type Chapter, type Folder, type LFile,
@@ -78,21 +79,23 @@ export function VideoLessons({ onExit }: { onExit: () => void }) {
     <div className="stack video-lessons">
       <button className="btn sm" style={{ justifySelf: 'start' }} onClick={onExit}>← Back</button>
       <h1 style={{ margin: 0 }}>Your video lessons</h1>
-      {!folders.length && (
-        <section className="panel stack" style={{ gap: 8 }}>
-          <p style={{ margin: 0 }}>Watch lesson videos you have on this phone right here, with slow-down, loops and their tabs in Play.</p>
-          <ol className="lick-steps">
-            <li>Put the course folder on the phone: copy it over with a USB cable, or download it from Google Drive into Downloads.</li>
-            <li>Tap <b>Find my lessons</b> and choose that folder, then <b>Use this folder</b> and <b>Allow</b>.</li>
-            <li>The lessons show up here chapter by chapter. Nothing is copied or uploaded: KGuitar reads them where they are.</li>
-          </ol>
-        </section>
-      )}
-      <div className="row" style={{ gap: 8 }}>
-        <button className="btn primary" onClick={() => void pick()} disabled={!!busy}>{folders.length ? '+ Add another folder' : 'Find my lessons'}</button>
-      </div>
-      {err && <p className="notice small" role="alert" style={{ margin: 0 }}>{err}</p>}
-      {folders.map(f => <Course key={f.tree} f={f} busy={busy === f.tree} watched={watched} onOpen={uri => setOpen({ tree: f.tree, uri })} onScan={() => void scan(f.tree)} onRemove={() => void remove(f.tree)} />)}
+      <WinArea area="videoLessons">
+        {!folders.length && (
+          <Win id="vl-intro" title="Getting started" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+            <p style={{ margin: 0 }}>Watch lesson videos you have on this phone right here, with slow-down, loops and their tabs in Play.</p>
+            <ol className="lick-steps">
+              <li>Put the course folder on the phone: copy it over with a USB cable, or download it from Google Drive into Downloads.</li>
+              <li>Tap <b>Find my lessons</b> and choose that folder, then <b>Use this folder</b> and <b>Allow</b>.</li>
+              <li>The lessons show up here chapter by chapter. Nothing is copied or uploaded: KGuitar reads them where they are.</li>
+            </ol>
+          </Win>
+        )}
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn primary" onClick={() => void pick()} disabled={!!busy}>{folders.length ? '+ Add another folder' : 'Find my lessons'}</button>
+        </div>
+        {err && <p className="notice small" role="alert" style={{ margin: 0 }}>{err}</p>}
+        {folders.map(f => <Course key={f.tree} f={f} busy={busy === f.tree} watched={watched} onOpen={uri => setOpen({ tree: f.tree, uri })} onScan={() => void scan(f.tree)} onRemove={() => void remove(f.tree)} />)}
+      </WinArea>
     </div>
   )
 }
@@ -107,9 +110,8 @@ function Course({ f, busy, watched, onOpen, onScan, onRemove }: { f: Folder; bus
   const [openCh, setOpenCh] = useState<string | null>(() => (next ? chs.find(c => c.videos.includes(next))?.id ?? null : chs[0]?.id ?? null))
   const [confirm, setConfirm] = useState(false)
   return (
-    <section className="panel stack course" style={{ gap: 8 }}>
+    <Win id={`vl-${hash(f.tree)}`} title={f.name} className="panel course" bodyClass="stack" bodyStyle={{ gap: 8 }}>
       <div className="row" style={{ justifyContent: 'space-between', gap: 8 }}>
-        <h2 style={{ margin: 0 }}>{f.name}</h2>
         <span className="small muted">{videos.length} videos · {done} done</span>
       </div>
       {next && <button className="btn primary" onClick={() => onOpen(next.uri)}>▶ {watched[next.uri]?.t ? 'Continue' : 'Start'}: {niceName(next.name)}</button>}
@@ -137,7 +139,7 @@ function Course({ f, busy, watched, onOpen, onScan, onRemove }: { f: Folder; bus
           </>
         ) : <button className="btn sm ghost" onClick={() => setConfirm(true)}>Remove from KGuitar</button>}
       </div>
-    </section>
+    </Win>
   )
 }
 
@@ -287,7 +289,13 @@ function LessonPlayer({ item, index, total, onBack, onGo }: { item: { v: LFile; 
         <label className="ex-check"><input type="checkbox" checked={done} onChange={e => markDone(e.target.checked)} /> Done</label>
         <button className="btn sm" disabled={index >= total - 1} onClick={() => onGo(1)}>Next ›</button>
       </div>
-      {c.tabs.length > 0 && <section className="panel stack" style={{ gap: 6 }}><TabFiles tabs={c.tabs} video={v} /></section>}
+      {c.tabs.length > 0 && (
+        <WinArea area="lessonPlayer">
+          <Win id="lp-tabs" title="Tabs for this lesson" className="panel" bodyClass="stack" bodyStyle={{ gap: 6 }}>
+            <TabFiles tabs={c.tabs} video={v} />
+          </Win>
+        </WinArea>
+      )}
       <p className="small muted" style={{ margin: 0 }}>Tip: A and B loop the bit you're learning, and ½× or ¼× slows it right down. Mirror flips the picture so the teacher's fretting hand is on the same side as yours.</p>
     </div>
   )

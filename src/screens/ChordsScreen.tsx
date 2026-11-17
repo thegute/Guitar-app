@@ -48,7 +48,7 @@ export function ChordsScreen() {
     <div className="stack">
       <h1>Chords{inst.isUke ? <span className="muted small"> · {inst.label}</span> : null}</h1>
       <WinArea area="chords" className="win-cols">
-      <Win id="pick" title="Pick a chord" className="panel" bodyClass="stack" resizable={false}>
+      <Win id="pick" title="Pick a chord" className="panel" bodyClass="stack">
       <KeyPicker value={root} onChange={k => { setRoot(k); setSel(0) }} label="Root note" />
       <Chips label="Chord family" items={CHORD_GROUPS.map(g => ({ id: g.name, label: g.name }))} value={group} onChange={setGroup} />
       <Chips label="Chord type" wrap items={CHORD_GROUPS.find(g => g.name === group)!.types.map(t => ({ id: t.suffix, label: t.label }))} value={suffix} onChange={s => { setSuffix(s); setSel(0) }} />

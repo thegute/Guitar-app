@@ -158,53 +158,59 @@ export function ChordChanges({ inst, onExit }: { inst: Instrument; onExit: () =>
         this is the fastest way to make chord changes automatic.
       </p>
       {away && <p className="notice small">You're in away mode. This one needs your {inst.noun}, so save it for when you're home.</p>}
-      <Chips label="Chord pair" items={pairs.map((p, i) => ({ id: i, label: p.join(' ↔ ') }))} value={pi % pairs.length} onChange={v => { setPi(v); setPhase('ready') }} />
-      <Zoomable id="changes" max={2.2}>
-      <div className="changes-chords">
-        {pair.map((sym, i) => shapes[i] && (
-          <ChordDiagram key={sym} name={sym} voicing={shapes[i]!} active={phase === 'run' && cur === i} size={1.05}
-            onClick={() => strum(shapes[i]!.frets.map((f, s) => (f < 0 ? -1 : inst.midis[s] + f)).filter(m => m > 0))} />
-        ))}
-      </div>
-      </Zoomable>
-      <div className="row">
-        <label className="row small" style={{ gap: 6 }}>
-          <input type="checkbox" checked={useMic} onChange={e => setUseMic(e.target.checked)} disabled={phase === 'run' || phase === 'count'} />
-          Count for me (listens for each chord)
-        </label>
-        {useMic && <InputPicker />}
-      </div>
-      {phase === 'ready' || phase === 'done' ? (
-        <div className="stack" style={{ gap: 8 }}>
-          {phase === 'done' && (
-            <div className="result-card">
-              <span className="readout big-num">{count}</span>
-              <span>changes in a minute{count > 0 && count >= best ? ' · new best!' : ''}</span>
+      <WinArea area="chordChanges">
+        <Win id="cc-pair" title="Chord pair & diagrams" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }}>
+          <Chips label="Chord pair" items={pairs.map((p, i) => ({ id: i, label: p.join(' ↔ ') }))} value={pi % pairs.length} onChange={v => { setPi(v); setPhase('ready') }} />
+          <Zoomable id="changes" max={2.2}>
+          <div className="changes-chords">
+            {pair.map((sym, i) => shapes[i] && (
+              <ChordDiagram key={sym} name={sym} voicing={shapes[i]!} active={phase === 'run' && cur === i} size={1.05}
+                onClick={() => strum(shapes[i]!.frets.map((f, s) => (f < 0 ? -1 : inst.midis[s] + f)).filter(m => m > 0))} />
+            ))}
+          </div>
+          </Zoomable>
+        </Win>
+        <Win id="cc-go" title="Minute timer" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }}>
+          <div className="row">
+            <label className="row small" style={{ gap: 6 }}>
+              <input type="checkbox" checked={useMic} onChange={e => setUseMic(e.target.checked)} disabled={phase === 'run' || phase === 'count'} />
+              Count for me (listens for each chord)
+            </label>
+            {useMic && <InputPicker />}
+          </div>
+          {phase === 'ready' || phase === 'done' ? (
+            <div className="stack" style={{ gap: 8 }}>
+              {phase === 'done' && (
+                <div className="result-card">
+                  <span className="readout big-num">{count}</span>
+                  <span>changes in a minute{count > 0 && count >= best ? ' · new best!' : ''}</span>
+                </div>
+              )}
+              <button className="btn primary big" onClick={() => void begin()}>{phase === 'done' ? 'Go again' : 'Start the minute'}</button>
+              {!useMic && <p className="small muted" style={{ margin: 0 }}>Tap the big button (or the space bar) every time you land the other chord cleanly.</p>}
+            </div>
+          ) : (
+            <button className="tap-pad" onPointerDown={e => { e.preventDefault(); if (phase === 'run' && !useMic) change() }}
+              onKeyDown={e => { if (e.key === ' ' && phase === 'run' && !useMic) { e.preventDefault(); change() } }} autoFocus>
+              {phase === 'count' ? <span className="readout big-num">{pre}</span> : (
+                <>
+                  <span className="readout big-num">{count}</span>
+                  <span className="small">{left}s left · {useMic && live.current.first ? <>strum <b>{pair[0]}</b> to begin</> : <>change to <b>{pair[cur ^ 1]}</b>{useMic ? '' : ', then tap'}</>}</span>
+                </>
+              )}
+            </button>
+          )}
+          {msg && <p className="small" role="status">{msg}</p>}
+          {past.length > 1 && (
+            <div className="stack" style={{ gap: 4 }}>
+              <span className="small muted">Your last {past.length} rounds</span>
+              <div className="mini-bars" aria-label={`Recent scores ${past.join(', ')}`}>
+                {past.map((n, i) => <span key={i} style={{ height: `${Math.max(6, (n / Math.max(...past, 1)) * 100)}%` }} title={String(n)} />)}
+              </div>
             </div>
           )}
-          <button className="btn primary big" onClick={() => void begin()}>{phase === 'done' ? 'Go again' : 'Start the minute'}</button>
-          {!useMic && <p className="small muted" style={{ margin: 0 }}>Tap the big button (or the space bar) every time you land the other chord cleanly.</p>}
-        </div>
-      ) : (
-        <button className="tap-pad" onPointerDown={e => { e.preventDefault(); if (phase === 'run' && !useMic) change() }}
-          onKeyDown={e => { if (e.key === ' ' && phase === 'run' && !useMic) { e.preventDefault(); change() } }} autoFocus>
-          {phase === 'count' ? <span className="readout big-num">{pre}</span> : (
-            <>
-              <span className="readout big-num">{count}</span>
-              <span className="small">{left}s left · {useMic && live.current.first ? <>strum <b>{pair[0]}</b> to begin</> : <>change to <b>{pair[cur ^ 1]}</b>{useMic ? '' : ', then tap'}</>}</span>
-            </>
-          )}
-        </button>
-      )}
-      {msg && <p className="small" role="status">{msg}</p>}
-      {past.length > 1 && (
-        <div className="stack" style={{ gap: 4 }}>
-          <span className="small muted">Your last {past.length} rounds</span>
-          <div className="mini-bars" aria-label={`Recent scores ${past.join(', ')}`}>
-            {past.map((n, i) => <span key={i} style={{ height: `${Math.max(6, (n / Math.max(...past, 1)) * 100)}%` }} title={String(n)} />)}
-          </div>
-        </div>
-      )}
+        </Win>
+      </WinArea>
     </div>
   )
 }
@@ -383,79 +389,85 @@ export function RhythmTrainer({ onExit }: { onExit: () => void }) {
         <span className="small muted">Level {level.id} of {RHYTHM_LEVELS.length}</span>
       </div>
       <h1 style={{ margin: 0 }}>Rhythm trainer</h1>
-      <p className="small muted" style={{ margin: 0 }}>
-        Listen to one bar, then a bar counts you in (1, 2, 3, 4), then tap it back while the click keeps going. Four rhythms per round. Score 80% to unlock the next level.
-      </p>
-      <div className="ear-levels" role="group" aria-label="Level">
-        {RHYTHM_LEVELS.map(l => (
-          <button key={l.id} className={`ear-level${l.id === levelId ? ' on' : ''}`} onClick={() => setLevelId(l.id)} disabled={running || (l.id > best + 1 && l.id > 1)}>
-            <span className="lvl">{l.id}</span>{l.title}{l.id <= best && <span className="small"> ✓</span>}
-          </button>
-        ))}
-      </div>
-      <p className="small" style={{ margin: 0 }}>{level.tip}</p>
-      <div className="row">
-        <Chips label="Tempo" items={[60, 72, 90, 110].map(b => ({ id: b, label: `${b} BPM` }))} value={bpm} onChange={v => !running && setBpm(v)} />
-      </div>
-      <label className="row small" style={{ gap: 6 }}>
-        <input type="checkbox" checked={useMic} onChange={e => setUseMic(e.target.checked)} disabled={running} />
-        Strum it instead of tapping (the mic hears each strum)
-      </label>
-      {!useMic && (
-        <div className="row small" style={{ gap: 14 }}>
-          <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={feelBuzz} onChange={e => setFeelBuzz(e.target.checked)} /> Buzz when I tap</label>
-          <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={feelTick} onChange={e => { setFeelTick(e.target.checked); if (e.target.checked) tick() }} /> Tap sound</label>
-        </div>
-      )}
-
-      <div className={`rhythm-stage${turn ? ' turn' : ''}`}>
-        <div className="small rhythm-status">
-          {!running ? 'Ready' : bar < 0 ? `Count-in: ${Math.floor(beat) + 1}` : turn ? `Your turn (${pi + 1}/${ROUND})` : counting ? `Get ready… ${Math.floor(beat) + 1}` : `Listen (${pi + 1}/${ROUND})`}
-        </div>
-        <div className="rhythm-strip big" aria-hidden>
-          {showPat.map((d, i) => <span key={i} className={d < 0 ? 'rest' : ''} style={{ flexGrow: Math.abs(d) }} />)}
-          {running && bar >= 0 && <i className="rhythm-head" style={{ left: `${(beat / 4) * 100}%` }} />}
-          {!running && lastRes && lastRes.taps.map((t, i) => <b key={i} className="rhythm-tap" style={{ left: `${Math.max(0, Math.min(100, (t / 4) * 100))}%` }} />)}
-        </div>
-        <div className="rhythm-beats" aria-hidden>{[1, 2, 3, 4].map(n => <span key={n}>{n}</span>)}</div>
-      </div>
-
-      {running ? (
-        <div className="stack" style={{ gap: 8 }}>
+      <WinArea area="rhythm">
+        <Win id="rh-setup" title="Level & tempo" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+          <p className="small muted" style={{ margin: 0 }}>
+            Listen to one bar, then a bar counts you in (1, 2, 3, 4), then tap it back while the click keeps going. Four rhythms per round. Score 80% to unlock the next level.
+          </p>
+          <div className="ear-levels" role="group" aria-label="Level">
+            {RHYTHM_LEVELS.map(l => (
+              <button key={l.id} className={`ear-level${l.id === levelId ? ' on' : ''}`} onClick={() => setLevelId(l.id)} disabled={running || (l.id > best + 1 && l.id > 1)}>
+                <span className="lvl">{l.id}</span>{l.title}{l.id <= best && <span className="small"> ✓</span>}
+              </button>
+            ))}
+          </div>
+          <p className="small" style={{ margin: 0 }}>{level.tip}</p>
+          <div className="row">
+            <Chips label="Tempo" items={[60, 72, 90, 110].map(b => ({ id: b, label: `${b} BPM` }))} value={bpm} onChange={v => !running && setBpm(v)} />
+          </div>
+          <label className="row small" style={{ gap: 6 }}>
+            <input type="checkbox" checked={useMic} onChange={e => setUseMic(e.target.checked)} disabled={running} />
+            Strum it instead of tapping (the mic hears each strum)
+          </label>
           {!useMic && (
-            <button className={`tap-pad${turn ? ' live' : ''}`} onPointerDown={e => { e.preventDefault(); addTap(heardTime(e.timeStamp)); feel() }}
-              onKeyDown={e => { if (e.key === ' ' && !e.repeat) { e.preventDefault(); addTap(heardTime(e.timeStamp)); feel() } }} autoFocus>
-              <span className="readout">{turn ? 'Tap!' : counting ? `${Math.floor(beat) + 1}…` : 'Listen…'}</span>
-            </button>
+            <div className="row small" style={{ gap: 14 }}>
+              <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={feelBuzz} onChange={e => setFeelBuzz(e.target.checked)} /> Buzz when I tap</label>
+              <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={feelTick} onChange={e => { setFeelTick(e.target.checked); if (e.target.checked) tick() }} /> Tap sound</label>
+            </div>
           )}
-          <button className="btn" onClick={stop}>Stop</button>
-        </div>
-      ) : (
-        <button className="btn primary big" onClick={() => ready.start(() => void start())}>{done ? 'Go again' : 'Start'}</button>
-      )}
-      {ready.overlay}
+        </Win>
 
-      {results.length > 0 && (
-        <div className="row small">
-          {results.map((r, i) => <span key={i} className={`score-pill${r.score >= 0.8 ? ' ok' : r.score >= 0.5 ? '' : ' bad'}`}>{Math.round(r.score * 100)}%</span>)}
-        </div>
-      )}
-      {done && (
-        <div className="result-card">
-          <span className="readout big-num">{done.pct}%</span>
-          <span>
-            {done.pct >= 80 ? 'Locked in! ' : done.pct >= 50 ? 'Getting there. ' : 'Slow it down and count out loud. '}
-            {Math.abs(done.mean) >= 25 ? (done.mean > 0 ? `You tend to be late by about ${done.mean} ms.` : `You tend to rush, about ${-done.mean} ms early.`) : 'Your timing is centred on the beat.'}
-          </span>
-          {Math.abs(done.mean) >= 60 && (
-            <p className="small muted" style={{ margin: 0 }}>
-              Always late by the same amount? Bluetooth headphones add a delay.{' '}
-              <button className="btn sm" onClick={() => setOffset(o => o + done.mean)}>Fix my timing ({done.mean > 0 ? '−' : '+'}{Math.abs(done.mean)} ms)</button>
-            </p>
+        <Win id="rh-play" title="Rhythm pad" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+          <div className={`rhythm-stage${turn ? ' turn' : ''}`}>
+            <div className="small rhythm-status">
+              {!running ? 'Ready' : bar < 0 ? `Count-in: ${Math.floor(beat) + 1}` : turn ? `Your turn (${pi + 1}/${ROUND})` : counting ? `Get ready… ${Math.floor(beat) + 1}` : `Listen (${pi + 1}/${ROUND})`}
+            </div>
+            <div className="rhythm-strip big" aria-hidden>
+              {showPat.map((d, i) => <span key={i} className={d < 0 ? 'rest' : ''} style={{ flexGrow: Math.abs(d) }} />)}
+              {running && bar >= 0 && <i className="rhythm-head" style={{ left: `${(beat / 4) * 100}%` }} />}
+              {!running && lastRes && lastRes.taps.map((t, i) => <b key={i} className="rhythm-tap" style={{ left: `${Math.max(0, Math.min(100, (t / 4) * 100))}%` }} />)}
+            </div>
+            <div className="rhythm-beats" aria-hidden>{[1, 2, 3, 4].map(n => <span key={n}>{n}</span>)}</div>
+          </div>
+
+          {running ? (
+            <div className="stack" style={{ gap: 8 }}>
+              {!useMic && (
+                <button className={`tap-pad${turn ? ' live' : ''}`} onPointerDown={e => { e.preventDefault(); addTap(heardTime(e.timeStamp)); feel() }}
+                  onKeyDown={e => { if (e.key === ' ' && !e.repeat) { e.preventDefault(); addTap(heardTime(e.timeStamp)); feel() } }} autoFocus>
+                  <span className="readout">{turn ? 'Tap!' : counting ? `${Math.floor(beat) + 1}…` : 'Listen…'}</span>
+                </button>
+              )}
+              <button className="btn" onClick={stop}>Stop</button>
+            </div>
+          ) : (
+            <button className="btn primary big" onClick={() => ready.start(() => void start())}>{done ? 'Go again' : 'Start'}</button>
           )}
-        </div>
-      )}
-      {offset !== 0 && <p className="small muted" style={{ margin: 0 }}>Timing fix: {offset} ms. <button className="btn sm ghost" onClick={() => setOffset(0)}>Reset</button></p>}
+          {ready.overlay}
+
+          {results.length > 0 && (
+            <div className="row small">
+              {results.map((r, i) => <span key={i} className={`score-pill${r.score >= 0.8 ? ' ok' : r.score >= 0.5 ? '' : ' bad'}`}>{Math.round(r.score * 100)}%</span>)}
+            </div>
+          )}
+          {done && (
+            <div className="result-card">
+              <span className="readout big-num">{done.pct}%</span>
+              <span>
+                {done.pct >= 80 ? 'Locked in! ' : done.pct >= 50 ? 'Getting there. ' : 'Slow it down and count out loud. '}
+                {Math.abs(done.mean) >= 25 ? (done.mean > 0 ? `You tend to be late by about ${done.mean} ms.` : `You tend to rush, about ${-done.mean} ms early.`) : 'Your timing is centred on the beat.'}
+              </span>
+              {Math.abs(done.mean) >= 60 && (
+                <p className="small muted" style={{ margin: 0 }}>
+                  Always late by the same amount? Bluetooth headphones add a delay.{' '}
+                  <button className="btn sm" onClick={() => setOffset(o => o + done.mean)}>Fix my timing ({done.mean > 0 ? '−' : '+'}{Math.abs(done.mean)} ms)</button>
+                </p>
+              )}
+            </div>
+          )}
+          {offset !== 0 && <p className="small muted" style={{ margin: 0 }}>Timing fix: {offset} ms. <button className="btn sm ghost" onClick={() => setOffset(0)}>Reset</button></p>}
+        </Win>
+      </WinArea>
     </div>
   )
 }

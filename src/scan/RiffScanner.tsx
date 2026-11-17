@@ -6,6 +6,7 @@
 import type { Gray } from './image'
 import { useEffect, useRef, useState } from 'react'
 import { Ico } from '../components/Icon'
+import { Win, WinArea } from '../components/Win'
 import { usePersist } from '../components/Controls'
 import { useInstrument } from '../instrument'
 import { songFromText, stringNames } from '../tabs/importer'
@@ -60,8 +61,20 @@ export function RiffScanner({ listen, onUseInJam, startMode }: {
           </button>
         ))}
       </div>
-      {mode === 'scan' && <ScanVideo onUseInJam={onUseInJam} links onListen={() => setMode('listen')} />}
-      {mode === 'shorts' && <ShortsFeed onListen={() => setMode('listen')} onUseInJam={onUseInJam} />}
+      {mode === 'scan' && (
+        <WinArea area="scanVideo">
+          <Win id="scan-video" title="Scan a video or tab" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }}>
+            <ScanVideo onUseInJam={onUseInJam} links onListen={() => setMode('listen')} />
+          </Win>
+        </WinArea>
+      )}
+      {mode === 'shorts' && (
+        <WinArea area="scanShorts">
+          <Win id="scan-shorts" title="Guitar Shorts" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+            <ShortsFeed onListen={() => setMode('listen')} onUseInJam={onUseInJam} />
+          </Win>
+        </WinArea>
+      )}
       {mode === 'listen' && listen}
     </div>
   )
@@ -416,14 +429,14 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
             <li>Come back here and tap <b>Pick the screen recording</b>.</li>
           </ol>
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-            <label className="btn primary"><Ico n="upload" /> Pick the screen recording<input type="file" accept="video/*" hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} /></label>
+            <label className="btn primary"><input type="file" accept="video/*" hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} /><Ico n="upload" /> Pick the screen recording</label>
             {onListen && <button className="btn ghost" onClick={onListen} data-testid="scan-loud">Play it out loud (mic)</button>}
           </div>
         </div>
       )}
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <label className="btn primary"><Ico n="camera" /> Screenshots<input type="file" accept="image/*" multiple hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} data-testid="scan-pics" /></label>
-        <label className="btn"><Ico n="upload" /> Video or audio file<input type="file" accept="video/*,audio/*" hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} data-testid="scan-file" /></label>
+        <label className="btn primary"><input type="file" accept="image/*" multiple hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} data-testid="scan-pics" /><Ico n="camera" /> Screenshots</label>
+        <label className="btn"><input type="file" accept="video/*,audio/*" hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} data-testid="scan-file" /><Ico n="upload" /> Video or audio file</label>
       </div>
       <VoiceOutToggle />
       <p className="small muted" style={{ margin: 0 }}>A tab shown on screen is read exactly (pause on it and screenshot, a few in order if it scrolls). A screen recording of the video also works: KGuitar finds the tab, follows it as it scrolls, and takes the tempo from the sound.</p>

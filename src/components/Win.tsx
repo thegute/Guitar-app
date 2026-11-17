@@ -212,24 +212,24 @@ export function useWinShow() {
   }
 }
 
-/** "Arrange" mode: the ☰ Move, – Hide and ◢ resize handles on every box (and Play's panel Move buttons) are tucked away
- *  until it's switched on, so the screens stay calm. Remembered (kg:arrange); CSS keys off html[data-arrange]. */
-const arrangeOn = () => { try { return localStorage.getItem('kg:arrange') === '1' } catch { return false } }
+/** "Arrange" mode: on by default so every box shows its ☰ Move, – Hide and ◢ resize handles (and Play's panel Move buttons).
+ *  Can still be tucked off via the Arrange switch; remembered (kg:arrange). CSS keys off html[data-arrange]. */
+const arrangeOn = () => { try { return localStorage.getItem('kg:arrange') !== '0' } catch { return true } }
 export function setArrange(on: boolean) {
   try { localStorage.setItem('kg:arrange', on ? '1' : '0') } catch { /* noop */ }
   if (typeof document !== 'undefined') { if (on) document.documentElement.dataset.arrange = '1'; else delete document.documentElement.dataset.arrange }
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('kg:arrange'))
 }
-if (typeof document !== 'undefined' && arrangeOn()) document.documentElement.dataset.arrange = '1'
+if (typeof document !== 'undefined') { if (arrangeOn()) document.documentElement.dataset.arrange = '1'; else delete document.documentElement.dataset.arrange }
 
-const HOW = 'You can arrange this screen. Tap a box\'s name to fold it up (tap again to open it). Switch Arrange on, then drag ☰ Move to put a box somewhere else (on a big screen, beside another one). Drag the handle under a box down for taller, or sideways for narrower so boxes sit side by side. – Hide tucks it into the tray at the bottom (tap it there to bring it back).'
+const HOW = 'You can arrange this screen. Tap a box\'s name to fold it up (tap again to open it). Drag ☰ Move to put a box somewhere else (on a big screen, beside another one). Drag the handle under a box down for taller, or sideways for narrower so boxes sit side by side. – Hide tucks it into the tray at the bottom (tap it there to bring it back).'
 
 /** The Arrange switch on its own (Play keeps it in Options so its screen gets no extra row). */
 export function ArrangeSwitch() {
   const [on, setOn] = useState(arrangeOn)
   useEffect(() => { const f = () => setOn(arrangeOn()); window.addEventListener('kg:arrange', f); return () => window.removeEventListener('kg:arrange', f) }, [])
   return (
-    <button className="arrange-toggle" aria-pressed={on} onClick={() => setArrange(!on)} title="Show the Move, Hide and resize handles on each box">
+    <button className="arrange-toggle" aria-pressed={on} onClick={() => setArrange(!on)} title="Show or hide the Move, Hide and resize handles on each box">
       <span aria-hidden>⠿</span> Arrange{on ? ': on' : ''}
     </button>
   )

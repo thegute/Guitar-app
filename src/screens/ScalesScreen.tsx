@@ -73,7 +73,7 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
       <h1>Scales</h1>
       <LooperStrip />
       <WinArea area="scales">
-      <Win id="pick" title="Pick a scale" className="panel" bodyClass="stack" resizable={false}>
+      <Win id="pick" title="Pick a scale" className="panel" bodyClass="stack">
       <KeyPicker value={root} onChange={setRoot} label="Root note" />
       <div className="row">
         <Field label="Scale">

@@ -8,6 +8,7 @@ import { bumpCounts, usePracticeTimer } from '../learn/progress'
 import type { Instrument } from '../instrument'
 import { freqToMidi, pcName } from '../theory/notes'
 import { Chips, usePersist } from '../components/Controls'
+import { Win, WinArea } from '../components/Win'
 import { stringName } from '../play/chordHelp'
 
 const AMOUNTS = [{ id: 1, label: '½ step' }, { id: 2, label: 'Whole step' }, { id: 3, label: '1½ steps' }]
@@ -104,63 +105,69 @@ export function BendTrainer({ inst, onExit }: { inst: Instrument; onExit: () => 
   return (
     <div className="stack bend-trainer" style={{ gap: 12 }}>
       <div className="row"><button className="btn sm" onClick={onExit}>← Back</button><h2 style={{ margin: 0 }}>Bends & vibrato</h2></div>
-      <Chips label="Mode" items={[{ id: 'bend' as const, label: 'Bend to pitch' }, { id: 'vibrato' as const, label: 'Vibrato' }]} value={mode} onChange={setMode} />
-      <div className="row" style={{ gap: 8 }}>
-        <label className="field" style={{ flex: '1 1 140px' }}><span>String</span>
-          <select className="select" value={s} onChange={e => setStr(Number(e.target.value))}>
-            {inst.midis.map((_, i) => <option key={i} value={i}>{stringName(i, n, inst.midis, p => pcName(p, false))}</option>)}
-          </select>
-        </label>
-        <label className="field" style={{ flex: '1 1 100px' }}><span>Fret</span>
-          <select className="select" value={fret} onChange={e => setFret(Number(e.target.value))}>
-            {Array.from({ length: 15 }, (_, i) => i + 3).map(f => <option key={f} value={f}>{f}</option>)}
-          </select>
-        </label>
-      </div>
-      {mode === 'bend' && <Chips label="Bend" items={AMOUNTS} value={amount} onChange={setAmount} />}
-      <p className="small muted" style={{ margin: 0 }}>
-        {mode === 'bend'
-          ? <>Fret <b>{name(start)}</b> (fret {fret}) and push the string until it sounds like <b>{name(target)}</b>, the note {amount} fret{amount > 1 ? 's' : ''} higher. Use two or three fingers behind the fretting finger, and push from the wrist.</>
-          : <>Hold <b>{name(start)}</b> (fret {fret}) and rock the string up and back down, evenly. Good vibrato is usually about 20–50 cents wide, 4–7 times a second.</>}
-      </p>
-      <div className="row" style={{ gap: 8 }}>
-        <button className={`btn${on ? '' : ' primary'}`} onClick={() => void toggle()}>{on ? 'Stop listening' : 'Start listening'}</button>
-        {mode === 'bend' && <button className="btn" onClick={() => { playNote(start, 0, 0.8); playNote(target, 0.9, 0.8) }}>▶ Hear the start and target</button>}
-      </div>
-      {err && <p className="notice small">{err}</p>}
-
-      <div className="bend-meter" aria-live="polite">
-        {mode === 'bend' ? (
-          <>
-            <svg viewBox={`0 0 ${W} 40`} width="100%" height="40" role="img" aria-label="Bend meter">
-              <rect className="bm-track" x={pos(start)} y={16} width={pos(target) - pos(start)} height={8} rx={4} />
-              <rect className="bm-zone" x={pos(target - 0.15)} y={8} width={pos(target + 0.15) - pos(target - 0.15)} height={24} rx={4} />
-              <text className="bm-label" x={pos(start)} y={38} textAnchor="middle">{name(start)}</text>
-              <text className="bm-label" x={pos(target)} y={38} textAnchor="middle">{name(target)}</text>
-              {now !== null && <circle className={`bm-dot${off !== null && Math.abs(off) <= 15 ? ' ok' : ''}`} cx={pos(now)} cy={20} r={8} />}
-            </svg>
-            <p className="bend-read">
-              {now === null ? (on ? 'Play the note…' : 'Tap Start listening, then bend.')
-                : off !== null && Math.abs(off) <= 15 ? <b className="ok">In tune ✓</b>
-                  : progress !== null && progress < 0.15 ? 'Now push the string up'
-                    : off! < 0 ? <>Push a bit more: <b>{Math.round(-off!)} cents</b> under</>
-                      : <>Too far: <b>{Math.round(off!)} cents</b> over</>}
-            </p>
-            <p className="small muted" style={{ margin: 0 }}>Bends in tune this session: <b>{hits}</b></p>
-          </>
-        ) : (
-          <p className="bend-read">
-            {!vib ? (on ? 'Hold the note and add vibrato…' : 'Tap Start listening.')
-              : <>Width <b>{Math.round(vib.width)} cents</b>, speed <b>{vib.rate.toFixed(1)} a second</b>
-                {' · '}{vib.width < 15 ? 'a little wider' : vib.width > 70 ? 'a little narrower' : vib.rate < 3.5 ? 'a bit faster' : vib.rate > 8 ? 'a bit slower and wider' : <b className="ok">nice and even</b>}</>}
+      <WinArea area="bends">
+        <Win id="bend-setup" title="Setup" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }}>
+          <Chips label="Mode" items={[{ id: 'bend' as const, label: 'Bend to pitch' }, { id: 'vibrato' as const, label: 'Vibrato' }]} value={mode} onChange={setMode} />
+          <div className="row" style={{ gap: 8 }}>
+            <label className="field" style={{ flex: '1 1 140px' }}><span>String</span>
+              <select className="select" value={s} onChange={e => setStr(Number(e.target.value))}>
+                {inst.midis.map((_, i) => <option key={i} value={i}>{stringName(i, n, inst.midis, p => pcName(p, false))}</option>)}
+              </select>
+            </label>
+            <label className="field" style={{ flex: '1 1 100px' }}><span>Fret</span>
+              <select className="select" value={fret} onChange={e => setFret(Number(e.target.value))}>
+                {Array.from({ length: 15 }, (_, i) => i + 3).map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+            </label>
+          </div>
+          {mode === 'bend' && <Chips label="Bend" items={AMOUNTS} value={amount} onChange={setAmount} />}
+          <p className="small muted" style={{ margin: 0 }}>
+            {mode === 'bend'
+              ? <>Fret <b>{name(start)}</b> (fret {fret}) and push the string until it sounds like <b>{name(target)}</b>, the note {amount} fret{amount > 1 ? 's' : ''} higher. Use two or three fingers behind the fretting finger, and push from the wrist.</>
+              : <>Hold <b>{name(start)}</b> (fret {fret}) and rock the string up and back down, evenly. Good vibrato is usually about 20–50 cents wide, 4–7 times a second.</>}
           </p>
-        )}
-        <svg className="bend-trace" viewBox={`0 0 ${W} 76`} width="100%" height="76" role="img" aria-label="Your pitch over the last three seconds">
-          <line className="bt-line" x1={0} x2={W} y1={yOf(start)} y2={yOf(start)} />
-          {mode === 'bend' && <line className="bt-target" x1={0} x2={W} y1={yOf(target)} y2={yOf(target)} />}
-          {path && <path className="bt-path" d={path} />}
-        </svg>
-      </div>
+          <div className="row" style={{ gap: 8 }}>
+            <button className={`btn${on ? '' : ' primary'}`} onClick={() => void toggle()}>{on ? 'Stop listening' : 'Start listening'}</button>
+            {mode === 'bend' && <button className="btn" onClick={() => { playNote(start, 0, 0.8); playNote(target, 0.9, 0.8) }}>▶ Hear the start and target</button>}
+          </div>
+          {err && <p className="notice small">{err}</p>}
+        </Win>
+
+        <Win id="bend-meter" title="Pitch meter" className="panel" bodyClass="bend-meter" bodyStyle={{ margin: 0 }}>
+          <div aria-live="polite" className="stack" style={{ gap: 8 }}>
+            {mode === 'bend' ? (
+              <>
+                <svg viewBox={`0 0 ${W} 40`} width="100%" height="40" role="img" aria-label="Bend meter">
+                  <rect className="bm-track" x={pos(start)} y={16} width={pos(target) - pos(start)} height={8} rx={4} />
+                  <rect className="bm-zone" x={pos(target - 0.15)} y={8} width={pos(target + 0.15) - pos(target - 0.15)} height={24} rx={4} />
+                  <text className="bm-label" x={pos(start)} y={38} textAnchor="middle">{name(start)}</text>
+                  <text className="bm-label" x={pos(target)} y={38} textAnchor="middle">{name(target)}</text>
+                  {now !== null && <circle className={`bm-dot${off !== null && Math.abs(off) <= 15 ? ' ok' : ''}`} cx={pos(now)} cy={20} r={8} />}
+                </svg>
+                <p className="bend-read">
+                  {now === null ? (on ? 'Play the note…' : 'Tap Start listening, then bend.')
+                    : off !== null && Math.abs(off) <= 15 ? <b className="ok">In tune ✓</b>
+                      : progress !== null && progress < 0.15 ? 'Now push the string up'
+                        : off! < 0 ? <>Push a bit more: <b>{Math.round(-off!)} cents</b> under</>
+                          : <>Too far: <b>{Math.round(off!)} cents</b> over</>}
+                </p>
+                <p className="small muted" style={{ margin: 0 }}>Bends in tune this session: <b>{hits}</b></p>
+              </>
+            ) : (
+              <p className="bend-read">
+                {!vib ? (on ? 'Hold the note and add vibrato…' : 'Tap Start listening.')
+                  : <>Width <b>{Math.round(vib.width)} cents</b>, speed <b>{vib.rate.toFixed(1)} a second</b>
+                    {' · '}{vib.width < 15 ? 'a little wider' : vib.width > 70 ? 'a little narrower' : vib.rate < 3.5 ? 'a bit faster' : vib.rate > 8 ? 'a bit slower and wider' : <b className="ok">nice and even</b>}</>}
+              </p>
+            )}
+            <svg className="bend-trace" viewBox={`0 0 ${W} 76`} width="100%" height="76" role="img" aria-label="Your pitch over the last three seconds">
+              <line className="bt-line" x1={0} x2={W} y1={yOf(start)} y2={yOf(start)} />
+              {mode === 'bend' && <line className="bt-target" x1={0} x2={W} y1={yOf(target)} y2={yOf(target)} />}
+              {path && <path className="bt-path" d={path} />}
+            </svg>
+          </div>
+        </Win>
+      </WinArea>
     </div>
   )
 }

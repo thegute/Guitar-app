@@ -10,6 +10,7 @@ import { NoteListener } from '../tabs/follow'
 import { Fretboard } from '../components/Fretboard'
 import { Chips, usePersist } from '../components/Controls'
 import { InputPicker } from '../components/InputPicker'
+import { Win, WinArea } from '../components/Win'
 import { SHARPS } from '../theory/notes'
 import type { Instrument } from '../instrument'
 import { bump, isAway, itemStats, itemWeight, recordItem, todayLog, usePracticeTimer } from './progress'
@@ -234,96 +235,98 @@ export function EarTrainer({ inst, onExit }: { inst: Instrument; onExit: () => v
         <span className={`combo${combo >= 3 ? ' hot' : ''}`}><Ico n="flame" /> {combo}</span>
       </div>
       <h2 style={{ margin: 0 }}>Ear training</h2>
-      {!running && !finished && (
-        <div className="panel stack">
-          <p className="muted" style={{ margin: 0 }}>
-            A soft drone plays the home note of a key. Then you hear one note: name it by how it <i>feels</i> against home, not by counting.
-            After each answer it walks back home so you feel where it wanted to go. Headphones help.
-          </p>
-          <div className="ear-levels">
-            {EAR_LEVELS.map(l => (
-              <button key={l.id} className={`ear-level${l.id === levelId ? ' on' : ''}`} onClick={() => setLevelId(l.id)} disabled={l.id > best + 1 && l.id > 1}>
-                <span className="lvl">{l.id}</span>
-                <span>{l.title}</span>
-                {l.id <= best && <span className="small">✓</span>}
-              </button>
-            ))}
-          </div>
-          <p className="small muted" style={{ margin: 0 }}>{level.tip} {levelId > best + 1 ? '' : 'Pass with 8/10 to unlock the next level.'}</p>
-          <Chips label="Mode" items={[{ id: 'degrees', label: 'Single notes' }, { id: 'melody', label: 'Melodies (3 notes)' }, { id: 'handsfree', label: 'Hands-free' }]} value={mode} onChange={setMode} />
-          {mode === 'handsfree' && <p className="small muted" style={{ margin: 0 }}>Hands-free plays a note, waits, then shows the answer and walks it home. Just listen and say it in your head.</p>}
-          <Chips label="Keys" items={[{ id: 'guitar', label: 'Guitar keys (E A D G C)' }, { id: 'all', label: 'Any key' }, { id: 'fixed', label: 'One key' }]} value={keys} onChange={setKeys} />
-          {keys === 'fixed' && <Chips label="Key" items={ALL_KEYS.map(k => ({ id: k, label: k }))} value={fixedKey} onChange={setFixedKey} />}
-          <div className="row">
-            <Chips label="Labels" items={[{ id: 'num', label: '1 2 3' }, { id: 'solfege', label: 'Do Re Mi' }]} value={labels} onChange={setLabels} />
-            <label className="row small" style={{ gap: 6 }}>Drone <input type="range" min={0} max={1} step={0.05} value={vol} onChange={e => setVol(+e.target.value)} style={{ accentColor: 'var(--accent)' }} aria-label="Drone volume" /></label>
-          </div>
-          <div className="row">
-            <button className="chip" aria-pressed={guitar && !away} disabled={away} onClick={() => setGuitar(!guitar)}><Ico n="guitar" /> Use my {inst.noun}</button>
-            <button className="chip" aria-pressed={showNeck} onClick={() => setShowNeck(!showNeck)}>Show answers on the neck</button>
-            {guitar && !away && <InputPicker active={null} />}
-          </div>
-          {guitar && !away && <p className="small muted" style={{ margin: 0 }}>Guitar mode: after the note plays, find it on your {inst.noun} and play it. The mic checks it. You can still tap.</p>}
-          <button className="btn primary big" onClick={startRound}>Start level {level.id}</button>
-        </div>
-      )}
-
-      {running && (
-        <div className="panel stack ear-play">
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <span className="small muted">Level {level.id} · key of {key}{level.minor ? ' minor' : ''} · {mode === 'handsfree' ? `note ${q + 1}` : `${q + 1} / ${LEN}`}</span>
-            <button className="btn sm" onClick={stopRound}>Stop</button>
-          </div>
-          <div className={`ear-orb${result === true ? ' ok' : result === false ? ' bad' : ''}`} style={{ ['--deg' as string]: (handsfreeShow || result !== null) && shownDeg >= 0 ? COLOR[shownDeg % 12] : 'var(--accent)' }}>
-            {(handsfreeShow || result !== null) && shownDeg >= 0 ? <span>{target.map(lab).join(' ')}</span> : <span>?</span>}
-          </div>
-          <div className="row" style={{ justifyContent: 'center' }}>
-            <button className="btn" onClick={() => play()}>▶ Hear it again</button>
-            <button className="btn ghost" onClick={() => { const ctx = audio(); playNote(octBase, ctx.currentTime + 0.02, 0.8) }}>Hear home (1)</button>
-          </div>
-          {mode !== 'handsfree' && (
-            <div className="degree-grid">
-              {[...new Set(degreesShown.map(d => d % 12))].sort((a, b) => a - b).map(d => (
-                <button key={d} className={`degree-btn${given.includes(d) && result === false && target[0] % 12 !== d ? ' wrong' : ''}`} style={{ ['--deg' as string]: COLOR[d] }}
-                  onClick={() => answer(d)} disabled={result !== null}>
-                  {lab(d)}
+      <WinArea area="earTrainer">
+        {!running && !finished && (
+          <Win id="ear-setup" title="Levels & sound" className="panel" bodyClass="stack">
+            <p className="muted" style={{ margin: 0 }}>
+              A soft drone plays the home note of a key. Then you hear one note: name it by how it <i>feels</i> against home, not by counting.
+              After each answer it walks back home so you feel where it wanted to go. Headphones help.
+            </p>
+            <div className="ear-levels">
+              {EAR_LEVELS.map(l => (
+                <button key={l.id} className={`ear-level${l.id === levelId ? ' on' : ''}`} onClick={() => setLevelId(l.id)} disabled={l.id > best + 1 && l.id > 1}>
+                  <span className="lvl">{l.id}</span>
+                  <span>{l.title}</span>
+                  {l.id <= best && <span className="small">✓</span>}
                 </button>
               ))}
             </div>
-          )}
-          {mode === 'melody' && <p className="small muted" style={{ margin: 0, textAlign: 'center' }}>Tap the three notes in order ({given.length}/3)</p>}
-          {useGuitar && <p className="small" style={{ textAlign: 'center', margin: 0 }}><Ico n="guitar" /> Play it on your {inst.noun}{heard ? <span className="muted"> · heard {heard}</span> : ''}</p>}
-          {result !== null && (
-            <div className={`quiz-feedback ${result ? 'ok' : 'bad'}`}>
-              <b>{result ? '✓ Right' : `✗ It was ${target.map(lab).join(' ')}`}</b>
-              <span>{EAR_LEVELS.find(l => l.id === levelId)?.tip.split('. ').find(s => s.startsWith(DEG[target[target.length - 1] % 12])) ?? 'Listen to it walk back home.'}</span>
-              {!result && <button className="btn primary" onClick={nextQ}>Next</button>}
+            <p className="small muted" style={{ margin: 0 }}>{level.tip} {levelId > best + 1 ? '' : 'Pass with 8/10 to unlock the next level.'}</p>
+            <Chips label="Mode" items={[{ id: 'degrees', label: 'Single notes' }, { id: 'melody', label: 'Melodies (3 notes)' }, { id: 'handsfree', label: 'Hands-free' }]} value={mode} onChange={setMode} />
+            {mode === 'handsfree' && <p className="small muted" style={{ margin: 0 }}>Hands-free plays a note, waits, then shows the answer and walks it home. Just listen and say it in your head.</p>}
+            <Chips label="Keys" items={[{ id: 'guitar', label: 'Guitar keys (E A D G C)' }, { id: 'all', label: 'Any key' }, { id: 'fixed', label: 'One key' }]} value={keys} onChange={setKeys} />
+            {keys === 'fixed' && <Chips label="Key" items={ALL_KEYS.map(k => ({ id: k, label: k }))} value={fixedKey} onChange={setFixedKey} />}
+            <div className="row">
+              <Chips label="Labels" items={[{ id: 'num', label: '1 2 3' }, { id: 'solfege', label: 'Do Re Mi' }]} value={labels} onChange={setLabels} />
+              <label className="row small" style={{ gap: 6 }}>Drone <input type="range" min={0} max={1} step={0.05} value={vol} onChange={e => setVol(+e.target.value)} style={{ accentColor: 'var(--accent)' }} aria-label="Drone volume" /></label>
             </div>
-          )}
-          {showNeck && (result !== null || handsfreeShow) && shownDeg >= 0 && (
-            <Fretboard tuning={inst.midis} fromFret={0} toFret={12} compact
-              markFor={(m) => {
-                const d = (m - tonicPc + 120) % 12
-                if (d === shownDeg % 12) return { label: lab(d), role: 'chord' }
-                if (d === 0) return { label: '1', role: 'root' }
-                return null
-              }} />
-          )}
-        </div>
-      )}
+            <div className="row">
+              <button className="chip" aria-pressed={guitar && !away} disabled={away} onClick={() => setGuitar(!guitar)}><Ico n="guitar" /> Use my {inst.noun}</button>
+              <button className="chip" aria-pressed={showNeck} onClick={() => setShowNeck(!showNeck)}>Show answers on the neck</button>
+              {guitar && !away && <InputPicker active={null} />}
+            </div>
+            {guitar && !away && <p className="small muted" style={{ margin: 0 }}>Guitar mode: after the note plays, find it on your {inst.noun} and play it. The mic checks it. You can still tap.</p>}
+            <button className="btn primary big" onClick={startRound}>Start level {level.id}</button>
+          </Win>
+        )}
 
-      {finished && (
-        <div className="panel" style={{ textAlign: 'center' }}>
-          <div className="readout" style={{ fontSize: 56 }}>{right}/{LEN}</div>
-          <p className="muted">{right >= 8 ? `Level ${level.id} passed!${level.id < 10 ? ' The next level is unlocked.' : ' You passed every level.'}` : 'Almost. The notes you missed will come up more often next time.'}</p>
-          <p className="small"><b>{todayLog().xp ?? 0} XP earned today</b></p>
-          <div className="row" style={{ justifyContent: 'center' }}>
-            {right >= 8 && level.id < 10 && <button className="btn primary" onClick={() => { setLevelId(level.id + 1); setFinished(false) }}>Next level</button>}
-            <button className="btn" onClick={() => { setFinished(false) }}>Back to levels</button>
-            <button className="btn" onClick={startRound}>Go again</button>
-          </div>
-        </div>
-      )}
+        {running && (
+          <Win id="ear-play" title={`Level ${level.id} · key of ${key}`} className="panel" bodyClass="stack ear-play">
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <span className="small muted">Level {level.id} · key of {key}{level.minor ? ' minor' : ''} · {mode === 'handsfree' ? `note ${q + 1}` : `${q + 1} / ${LEN}`}</span>
+              <button className="btn sm" onClick={stopRound}>Stop</button>
+            </div>
+            <div className={`ear-orb${result === true ? ' ok' : result === false ? ' bad' : ''}`} style={{ ['--deg' as string]: (handsfreeShow || result !== null) && shownDeg >= 0 ? COLOR[shownDeg % 12] : 'var(--accent)' }}>
+              {(handsfreeShow || result !== null) && shownDeg >= 0 ? <span>{target.map(lab).join(' ')}</span> : <span>?</span>}
+            </div>
+            <div className="row" style={{ justifyContent: 'center' }}>
+              <button className="btn" onClick={() => play()}>▶ Hear it again</button>
+              <button className="btn ghost" onClick={() => { const ctx = audio(); playNote(octBase, ctx.currentTime + 0.02, 0.8) }}>Hear home (1)</button>
+            </div>
+            {mode !== 'handsfree' && (
+              <div className="degree-grid">
+                {[...new Set(degreesShown.map(d => d % 12))].sort((a, b) => a - b).map(d => (
+                  <button key={d} className={`degree-btn${given.includes(d) && result === false && target[0] % 12 !== d ? ' wrong' : ''}`} style={{ ['--deg' as string]: COLOR[d] }}
+                    onClick={() => answer(d)} disabled={result !== null}>
+                    {lab(d)}
+                  </button>
+                ))}
+              </div>
+            )}
+            {mode === 'melody' && <p className="small muted" style={{ margin: 0, textAlign: 'center' }}>Tap the three notes in order ({given.length}/3)</p>}
+            {useGuitar && <p className="small" style={{ textAlign: 'center', margin: 0 }}><Ico n="guitar" /> Play it on your {inst.noun}{heard ? <span className="muted"> · heard {heard}</span> : ''}</p>}
+            {result !== null && (
+              <div className={`quiz-feedback ${result ? 'ok' : 'bad'}`}>
+                <b>{result ? '✓ Right' : `✗ It was ${target.map(lab).join(' ')}`}</b>
+                <span>{EAR_LEVELS.find(l => l.id === levelId)?.tip.split('. ').find(s => s.startsWith(DEG[target[target.length - 1] % 12])) ?? 'Listen to it walk back home.'}</span>
+                {!result && <button className="btn primary" onClick={nextQ}>Next</button>}
+              </div>
+            )}
+            {showNeck && (result !== null || handsfreeShow) && shownDeg >= 0 && (
+              <Fretboard tuning={inst.midis} fromFret={0} toFret={12} compact
+                markFor={(m) => {
+                  const d = (m - tonicPc + 120) % 12
+                  if (d === shownDeg % 12) return { label: lab(d), role: 'chord' }
+                  if (d === 0) return { label: '1', role: 'root' }
+                  return null
+                }} />
+            )}
+          </Win>
+        )}
+
+        {finished && (
+          <Win id="ear-done" title="Round result" className="panel" bodyStyle={{ textAlign: 'center' }}>
+            <div className="readout" style={{ fontSize: 56 }}>{right}/{LEN}</div>
+            <p className="muted">{right >= 8 ? `Level ${level.id} passed!${level.id < 10 ? ' The next level is unlocked.' : ' You passed every level.'}` : 'Almost. The notes you missed will come up more often next time.'}</p>
+            <p className="small"><b>{todayLog().xp ?? 0} XP earned today</b></p>
+            <div className="row" style={{ justifyContent: 'center' }}>
+              {right >= 8 && level.id < 10 && <button className="btn primary" onClick={() => { setLevelId(level.id + 1); setFinished(false) }}>Next level</button>}
+              <button className="btn" onClick={() => { setFinished(false) }}>Back to levels</button>
+              <button className="btn" onClick={startRound}>Go again</button>
+            </div>
+          </Win>
+        )}
+      </WinArea>
       <p className="small muted">Ear training shaped after drone-based "functional" ear trainers such as Sonofield: hear every note against a constant home.</p>
     </div>
   )

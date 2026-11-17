@@ -351,7 +351,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   const summary = `${tonic} ${MODES.find(m => m.id === mode)!.label.toLowerCase()} · ${STYLES.find(s => s.id === style)!.label} · ${prog.length || count} chord${(prog.length || count) === 1 ? '' : 's'} · ${totalBars} bar${totalBars === 1 ? '' : 's'}`
 
   const options = (
-    <div className="panel stack jam-options">
+    <Win id="options" title="Options" className="panel" bodyClass="stack jam-options">
       <div className="split-2">
         <Field label="Key"><KeyPicker value={tonic} onChange={setTonic} /></Field>
         <Field label="Mode"><Chips label="Mode" items={MODES.map(m => ({ id: m.id, label: m.label }))} value={mode} onChange={setMode} /></Field>
@@ -370,7 +370,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
       <Field label="Surprise level"><Chips label="Surprise level" items={SPICE} value={spice} onChange={setSpice} /></Field>
       <p className="small muted" style={{ margin: 0 }}>{SPICE[spice].hint}. {ENDINGS.find(e => e.id === ending)!.hint}.</p>
       <Field label="Chord shapes"><Chips label="Chord shapes" items={SHAPES} value={shapePref} onChange={setShapePref} /></Field>
-    </div>
+    </Win>
   )
 
   const cards = (
@@ -560,9 +560,8 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
         : <button className="link-btn small jam-scan-link" onClick={() => setPage('find')} data-testid="jam-scan-link"><Ico n="scan" /> <span className="long">Riff Scanner: get a riff or a whole song from a video, a picture or a recording</span><span className="short">Riff Scanner: a song from a video or picture</span></button>}
 
       {page === 'jam' && (
-        <>
+        <WinArea area="jam" defaultHidden={['famous', 'improv', 'voice', 'circle', 'maketab']}>
           {optionsOpen && options}
-          <WinArea area="jam" defaultHidden={['famous', 'improv', 'voice', 'circle', 'maketab']}>
           <Win id="gen" title="Progression" className="panel" bodyClass="stack">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <span className="row" style={{ gap: 6, minWidth: 0 }}><span className="small muted">{summary}</span>{cardsHint}</span>
@@ -656,7 +655,6 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
             </div>
           </Win>
           </WinArea>
-        </>
       )}
 
       {page === 'loop' && <Suspense fallback={<p className="muted">Loading the looper…</p>}><LooperPanel /></Suspense>}

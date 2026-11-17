@@ -15,6 +15,7 @@ import { flatten } from '../tabs/model'
 import type { SongDoc } from '../tabs/library'
 import { Chips, usePersist } from './Controls'
 import { Preview } from './ProgressionTabs'
+import { Win, WinArea } from './Win'
 
 /** A lick drawn small: six lines and a dot for each note, bends and slides in the accent colour. */
 function LickPic({ l, w = 120, h = 34 }: { l: LickDef; w?: number; h?: number }) {
@@ -104,76 +105,78 @@ export function LickChainer({ onOpen }: { onOpen: (d: SongDoc) => void }) {
   return (
     <div className="stack lick-chainer" style={{ gap: 10 }}>
       <p className="small muted" style={{ margin: 0 }}>Tap licks below to add them to your chain. They all move to one key, and each one sits near where the last one ended, so your hand stays put. Drag ⠿ to reorder.</p>
-
-      <div className="chain-strip" role="list" aria-label="Your lick chain">
-        {chain.links.length === 0 && <div className="chain-empty">Your chain is empty. Tap a lick below, or <button className="link-btn" onClick={flow}>add one for me</button>.</div>}
-        {placed.map((p, i) => (
-          <div key={p.link.uid} className={`chain-car${p.fits ? '' : ' nofit'}${drag === i ? ' dragging' : ''}`} role="listitem" data-chain-i={i}>
-            <div className="chain-car-top">
-              <span className="chain-n">{i + 1}</span>
-              <button className="chain-grip" aria-label={`Drag ${p.lick.name} to move it`} onPointerDown={e => dragStart(i, e)}>⠿</button>
-              <button className="btn sm ghost chain-x" onClick={() => remove(i)} aria-label={`Remove ${p.lick.name}`}>✕</button>
-            </div>
-            <button className="chain-car-body" onClick={() => hear(p.lick)} aria-label={`Hear ${p.lick.name}`}>
-              <LickPic l={p.lick} />
-              <b>{p.lick.name}</b>
-              <span className="small muted">{lickStyle(p.lick.style).label.replace(/ \(.*\)$/, '')} · {lickBars(p.lick)} bar{lickBars(p.lick) > 1 ? 's' : ''}{hearing === p.lick.id ? ' · playing' : ''}</span>
-              {!p.fits && <span className="small chain-warn">Doesn't fit {keyLabel(chain.key, minor)}: skipped</span>}
-            </button>
-            <div className="chain-car-btns">
-              <button className="btn sm ghost" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move earlier">‹</button>
-              <button className="btn sm ghost" onClick={() => again(i)} aria-label="Play it again after this">×2</button>
-              <button className="btn sm ghost" onClick={() => move(i, 1)} disabled={i === placed.length - 1} aria-label="Move later">›</button>
-            </div>
-          </div>
-        ))}
-        {chain.links.length > 0 && <button className="chain-car chain-add" onClick={flow} title="Adds a lick that starts close to where your chain ends">＋<span className="small">Add one that flows</span></button>}
-      </div>
-
-      {chain.links.length > 0 && (
-        <div className="panel stack chain-settings" style={{ gap: 8 }}>
-          <Chips label="Key" wrap keyStyle items={KEYS.map(k => ({ id: k, label: keyLabel(k, minor) }))} value={chain.key} onChange={k => set({ ...chain, key: k })} />
-          <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
-            <label className="field" style={{ flex: '1 1 180px' }}>
-              <span>Tempo: <b>{tempo}</b> BPM</span>
-              <input type="range" min={40} max={200} value={tempo} onChange={e => set({ ...chain, tempo: Number(e.target.value) })} aria-label="Tempo" />
-            </label>
-            <Chips label="Space between licks" items={[{ id: 0, label: 'Straight on' }, { id: 0.5, label: 'Half a bar' }, { id: 1, label: 'A bar' }]} value={chain.gap} onChange={g => set({ ...chain, gap: g as Chain['gap'] })} />
-          </div>
-          <span className="small muted">{placed.length} lick{placed.length > 1 ? 's' : ''} · about {Math.round(bars)} bars{made?.skipped ? ` · ${made.skipped} skipped (not in this key)` : ''}{made && made.capo ? ` · capo ${made.capo}` : ''}</span>
-          {doc && <Preview doc={doc} minor={minor} />}
-          <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-            {doc && <button className="btn primary" onClick={() => onOpen(doc)}>Play along (it listens)</button>}
-            <button className="btn sm ghost" onClick={() => set({ ...chain, links: [] })}>Clear the chain</button>
-          </div>
-        </div>
-      )}
-
-      <div className="stack" style={{ gap: 6 }}>
-        <b>Add licks</b>
-        <div className="chips" role="group" aria-label="Lick style">
-          {mine.length > 0 && <button className="chip" aria-pressed={style === 'mine'} onClick={() => setStyle('mine')} data-testid="chain-mine">My riffs ({mine.length})</button>}
-          {LICK_STYLES.map(s => <button key={s.id} className="chip" aria-pressed={s.id === style} onClick={() => setStyle(s.id)}>{s.label.replace(/ \(.*\)$/, '')}</button>)}
-        </div>
-        {style === 'mine' ? <p className="small muted" style={{ margin: 0 }}>Riffs you scanned in the Riff Scanner and kept with "Add to my lick chain".</p>
-          : <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={mustOnly} onChange={e => setMustOnly(e.target.checked)} /> Must-know licks only</label>}
-        <div className="chain-pool">
-          {pool.map(l => {
-            const fits = !chain.links.length || !!placeFor(l, chain.key)
-            return (
-              <div key={l.id} className={`chain-pick${fits ? '' : ' nofit'}`}>
-                <button className="chain-pick-add" onClick={() => add(l)} aria-label={`Add ${l.name} to the chain`}>
-                  <LickPic l={l} w={96} h={28} />
-                  <span><b>{l.name}</b><span className="small muted"> · {lickBars(l)} bar{lickBars(l) > 1 ? 's' : ''}{fits ? '' : ` · not in ${keyLabel(chain.key, minor)}`}</span></span>
-                  <span className="chain-plus" aria-hidden>＋</span>
+      <WinArea area="lickChain">
+        <Win id="lc-chain" title="Your lick chain" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+          <div className="chain-strip" role="list" aria-label="Your lick chain">
+            {chain.links.length === 0 && <div className="chain-empty">Your chain is empty. Tap a lick below, or <button className="link-btn" onClick={flow}>add one for me</button>.</div>}
+            {placed.map((p, i) => (
+              <div key={p.link.uid} className={`chain-car${p.fits ? '' : ' nofit'}${drag === i ? ' dragging' : ''}`} role="listitem" data-chain-i={i}>
+                <div className="chain-car-top">
+                  <span className="chain-n">{i + 1}</span>
+                  <button className="chain-grip" aria-label={`Drag ${p.lick.name} to move it`} onPointerDown={e => dragStart(i, e)}>⠿</button>
+                  <button className="btn sm ghost chain-x" onClick={() => remove(i)} aria-label={`Remove ${p.lick.name}`}>✕</button>
+                </div>
+                <button className="chain-car-body" onClick={() => hear(p.lick)} aria-label={`Hear ${p.lick.name}`}>
+                  <LickPic l={p.lick} />
+                  <b>{p.lick.name}</b>
+                  <span className="small muted">{lickStyle(p.lick.style).label.replace(/ \(.*\)$/, '')} · {lickBars(p.lick)} bar{lickBars(p.lick) > 1 ? 's' : ''}{hearing === p.lick.id ? ' · playing' : ''}</span>
+                  {!p.fits && <span className="small chain-warn">Doesn't fit {keyLabel(chain.key, minor)}: skipped</span>}
                 </button>
-                <button className="btn sm ghost" onClick={() => hear(l)} aria-label={`Hear ${l.name}`}>{hearing === l.id ? <Ico n="stop" fill /> : <Ico n="sound" />}</button>
-                {l.style === 'mine' && <button className="btn sm ghost" onClick={() => deleteMyLick(l.id)} aria-label={`Delete ${l.name}`}><Ico n="trash" /></button>}
+                <div className="chain-car-btns">
+                  <button className="btn sm ghost" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move earlier">‹</button>
+                  <button className="btn sm ghost" onClick={() => again(i)} aria-label="Play it again after this">×2</button>
+                  <button className="btn sm ghost" onClick={() => move(i, 1)} disabled={i === placed.length - 1} aria-label="Move later">›</button>
+                </div>
               </div>
-            )
-          })}
-        </div>
-      </div>
+            ))}
+            {chain.links.length > 0 && <button className="chain-car chain-add" onClick={flow} title="Adds a lick that starts close to where your chain ends">＋<span className="small">Add one that flows</span></button>}
+          </div>
+        </Win>
+
+        {chain.links.length > 0 && (
+          <Win id="lc-settings" title="Key, tempo & preview" className="panel chain-settings" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+            <Chips label="Key" wrap keyStyle items={KEYS.map(k => ({ id: k, label: keyLabel(k, minor) }))} value={chain.key} onChange={k => set({ ...chain, key: k })} />
+            <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+              <label className="field" style={{ flex: '1 1 180px' }}>
+                <span>Tempo: <b>{tempo}</b> BPM</span>
+                <input type="range" min={40} max={200} value={tempo} onChange={e => set({ ...chain, tempo: Number(e.target.value) })} aria-label="Tempo" />
+              </label>
+              <Chips label="Space between licks" items={[{ id: 0, label: 'Straight on' }, { id: 0.5, label: 'Half a bar' }, { id: 1, label: 'A bar' }]} value={chain.gap} onChange={g => set({ ...chain, gap: g as Chain['gap'] })} />
+            </div>
+            <span className="small muted">{placed.length} lick{placed.length > 1 ? 's' : ''} · about {Math.round(bars)} bars{made?.skipped ? ` · ${made.skipped} skipped (not in this key)` : ''}{made && made.capo ? ` · capo ${made.capo}` : ''}</span>
+            {doc && <Preview doc={doc} minor={minor} />}
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+              {doc && <button className="btn primary" onClick={() => onOpen(doc)}>Play along (it listens)</button>}
+              <button className="btn sm ghost" onClick={() => set({ ...chain, links: [] })}>Clear the chain</button>
+            </div>
+          </Win>
+        )}
+
+        <Win id="lc-pool" title="Add licks" className="panel" bodyClass="stack" bodyStyle={{ gap: 6 }}>
+          <div className="chips" role="group" aria-label="Lick style">
+            {mine.length > 0 && <button className="chip" aria-pressed={style === 'mine'} onClick={() => setStyle('mine')} data-testid="chain-mine">My riffs ({mine.length})</button>}
+            {LICK_STYLES.map(s => <button key={s.id} className="chip" aria-pressed={s.id === style} onClick={() => setStyle(s.id)}>{s.label.replace(/ \(.*\)$/, '')}</button>)}
+          </div>
+          {style === 'mine' ? <p className="small muted" style={{ margin: 0 }}>Riffs you scanned in the Riff Scanner and kept with "Add to my lick chain".</p>
+            : <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={mustOnly} onChange={e => setMustOnly(e.target.checked)} /> Must-know licks only</label>}
+          <div className="chain-pool">
+            {pool.map(l => {
+              const fits = !chain.links.length || !!placeFor(l, chain.key)
+              return (
+                <div key={l.id} className={`chain-pick${fits ? '' : ' nofit'}`}>
+                  <button className="chain-pick-add" onClick={() => add(l)} aria-label={`Add ${l.name} to the chain`}>
+                    <LickPic l={l} w={96} h={28} />
+                    <span><b>{l.name}</b><span className="small muted"> · {lickBars(l)} bar{lickBars(l) > 1 ? 's' : ''}{fits ? '' : ` · not in ${keyLabel(chain.key, minor)}`}</span></span>
+                    <span className="chain-plus" aria-hidden>＋</span>
+                  </button>
+                  <button className="btn sm ghost" onClick={() => hear(l)} aria-label={`Hear ${l.name}`}>{hearing === l.id ? <Ico n="stop" fill /> : <Ico n="sound" />}</button>
+                  {l.style === 'mine' && <button className="btn sm ghost" onClick={() => deleteMyLick(l.id)} aria-label={`Delete ${l.name}`}><Ico n="trash" /></button>}
+                </div>
+              )
+            })}
+          </div>
+        </Win>
+      </WinArea>
     </div>
   )
 }

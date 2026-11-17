@@ -13,6 +13,7 @@ import { setPendingBookPdf } from './pending'
 import { pageView } from './pageText'
 import { usePersist } from '../components/Controls'
 import { Zoomable } from '../components/Zoomable'
+import { Win, WinArea } from '../components/Win'
 
 function Shelf({ books, onOpen }: { books: BookMeta[]; onOpen: (b: BookMeta) => void }) {
   const kinds = [...new Set(books.map(b => b.kind))] as BookKind[]
@@ -200,42 +201,43 @@ export function BooksPage({ openId, openPage, q: q0, onExit }: { openId?: string
       </div>
       <h1 style={{ margin: 0 }}>My books</h1>
       {!books.length ? (
-        <div className="panel stack" style={{ gap: 8 }}>
-          <p style={{ margin: 0 }}>Your own guitar books, on this phone: read them here, search every page, and see the right pages next to lessons, CAGED, techniques and scales ("In your books"). The helper reads them too when it teaches you.</p>
-          <p className="small muted" style={{ margin: 0 }}>Import the book pack file (kguitar-books.json) you were sent. It stays on this phone only; nothing is uploaded or shared.</p>
-          <button className="btn primary" disabled={busy} onClick={() => packIn.current?.click()} data-testid="books-import">Import my book pack</button>
-        </div>
+        <WinArea area="books">
+          <Win id="books-import" title="My book pack" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+            <p style={{ margin: 0 }}>Your own guitar books, on this phone: read them here, search every page, and see the right pages next to lessons, CAGED, techniques and scales ("In your books"). The helper reads them too when it teaches you.</p>
+            <p className="small muted" style={{ margin: 0 }}>Import the book pack file (kguitar-books.json) you were sent. It stays on this phone only; nothing is uploaded or shared.</p>
+            <button className="btn primary" disabled={busy} onClick={() => packIn.current?.click()} data-testid="books-import">Import my book pack</button>
+          </Win>
+        </WinArea>
       ) : (
-        <>
-          <input className="input" type="search" placeholder="Search every page of every book" value={q} onChange={e => setQ(e.target.value)} data-testid="books-search" aria-label="Search your books" />
-          {hits && (hits.length ? <Hits hits={hits} onOpen={h => setOpen({ id: h.book.id, page: h.page })} /> : <p className="small muted" style={{ margin: 0 }}>Nothing found for "{q.trim()}".</p>)}
-          {!hits && <Shelf books={books} onOpen={b => setOpen({ id: b.id })} />}
-          <details className="panel books-manage">
-            <summary>Add the PDFs, update the pack</summary>
-            <div className="stack" style={{ gap: 8, marginTop: 8 }}>
-              <p className="small muted" style={{ margin: 0 }}>Add the PDF files to see the real pages and read tabs into Play. Pick them all at once: each one is matched to its book by name.</p>
-              <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-                <button className="btn sm" disabled={busy} onClick={() => pdfIn.current?.click()}>Add the PDFs</button>
-                <button className="btn sm ghost" disabled={busy} onClick={() => packIn.current?.click()}>Import an updated book pack</button>
-              </div>
-              {unmatched.map((f, i) => (
-                <label key={i} className="row small" style={{ gap: 6, flexWrap: 'wrap' }}>
-                  <span>{f.name}</span>
-                  <select className="input" defaultValue="" onChange={async e => { if (!e.target.value) return; await addPdf(e.target.value, f); setUnmatched(u => u.filter(x => x !== f)) }}>
-                    <option value="">Which book is it?</option>
-                    {books.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}
-                  </select>
-                </label>
-              ))}
-              <details>
-                <summary className="small">Remove a book</summary>
-                <div className="stack" style={{ gap: 4, marginTop: 6 }}>
-                  {books.map(b => <button key={b.id} className="btn sm ghost" style={{ justifyContent: 'flex-start' }} onClick={() => { if (confirm(`Remove "${b.title}" from this phone?`)) void removeBook(b.id) }}>Remove {b.title}</button>)}
-                </div>
-              </details>
+        <WinArea area="books">
+          <Win id="books-shelf" title="Your library" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }}>
+            <input className="input" type="search" placeholder="Search every page of every book" value={q} onChange={e => setQ(e.target.value)} data-testid="books-search" aria-label="Search your books" />
+            {hits && (hits.length ? <Hits hits={hits} onOpen={h => setOpen({ id: h.book.id, page: h.page })} /> : <p className="small muted" style={{ margin: 0 }}>Nothing found for "{q.trim()}".</p>)}
+            {!hits && <Shelf books={books} onOpen={b => setOpen({ id: b.id })} />}
+          </Win>
+          <Win id="books-manage" title="Add PDFs & update pack" className="panel books-manage" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+            <p className="small muted" style={{ margin: 0 }}>Add the PDF files to see the real pages and read tabs into Play. Pick them all at once: each one is matched to its book by name.</p>
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn sm" disabled={busy} onClick={() => pdfIn.current?.click()}>Add the PDFs</button>
+              <button className="btn sm ghost" disabled={busy} onClick={() => packIn.current?.click()}>Import an updated book pack</button>
             </div>
-          </details>
-        </>
+            {unmatched.map((f, i) => (
+              <label key={i} className="row small" style={{ gap: 6, flexWrap: 'wrap' }}>
+                <span>{f.name}</span>
+                <select className="input" defaultValue="" onChange={async e => { if (!e.target.value) return; await addPdf(e.target.value, f); setUnmatched(u => u.filter(x => x !== f)) }}>
+                  <option value="">Which book is it?</option>
+                  {books.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}
+                </select>
+              </label>
+            ))}
+            <details>
+              <summary className="small">Remove a book</summary>
+              <div className="stack" style={{ gap: 4, marginTop: 6 }}>
+                {books.map(b => <button key={b.id} className="btn sm ghost" style={{ justifyContent: 'flex-start' }} onClick={() => { if (confirm(`Remove "${b.title}" from this phone?`)) void removeBook(b.id) }}>Remove {b.title}</button>)}
+              </div>
+            </details>
+          </Win>
+        </WinArea>
       )}
       {msg && <p className="small" role="status">{msg}</p>}
       <input ref={packIn} type="file" accept=".json,application/json" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void importFile(f) }} />

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Instrument } from '../instrument'
 import { Chips, usePersist } from '../components/Controls'
 import { Fretboard, type Mark as FMark } from '../components/Fretboard'
+import { Win, WinArea } from '../components/Win'
 import { acquireListener, type ListenerSession } from '../engine/listener'
 import { audio, keepAwake } from '../audio/engine'
 import { playNote } from '../audio/pluck'
@@ -153,50 +154,54 @@ export function CallResponse({ inst, onExit }: { inst: Instrument; onExit: () =>
   return (
     <div className="stack call-response" style={{ gap: 12 }} data-testid="call-response">
       <div className="row"><button className="btn sm" onClick={onExit}>← Back</button><h2 style={{ margin: 0 }}>Call and response</h2></div>
-      <div className="panel stack" style={{ gap: 10 }}>
-        <Chips label="Level" items={CR_LEVELS.map(l => ({ id: l.id, label: `${l.id}. ${l.title}` }))} value={levelId} onChange={setLevelId} wrap />
-        <p className="small" style={{ margin: 0 }}>{level.tip}</p>
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          {level.scale !== 'lick' && <Chips label="Key" items={KEYS.map(k => ({ id: k, label: k }))} value={key} onChange={setKey} />}
-          <span className="small">Speed</span>
-          <button className="btn sm" aria-label="Slower" data-testid="cr-slower" onClick={() => setBpm(b => Math.max(40, b - 10))}>−</button>
-          <b data-testid="cr-bpm">{bpm} BPM</b>
-          <button className="btn sm" aria-label="Faster" onClick={() => setBpm(b => Math.min(180, b + 10))}>+</button>
-          <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={!anyOct} onChange={e => setAnyOct(!e.target.checked)} /> Exact octave</label>
-        </div>
-      </div>
-      {err && <p className="notice small">{err}</p>}
-      <div className="panel stack cr-now" style={{ gap: 10 }} aria-live="polite">
-        {done ? (
-          <>
-            <b>Round done: {right} of {ROUND} first time.</b>
-            <p className="small" style={{ margin: 0 }}>{right >= 6 && levelId < CR_LEVELS.length ? `Ready for level ${levelId + 1}.` : right < 4 ? 'Slow it down and try this level again: speed comes after the ear.' : 'Another round at this level, then move up.'}</p>
-            <div className="row" style={{ gap: 8 }}>
-              <button className="btn primary" onClick={newRound}>Again</button>
-              {right >= 6 && levelId < CR_LEVELS.length && <button className="btn" onClick={() => setLevelId(levelId + 1)}>Level {levelId + 1}</button>}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="row" style={{ justifyContent: 'space-between' }}><span className="small muted">Phrase {q + 1} of {ROUND} · {right} right</span>{phrase.lick && marks && <span className="small muted">{phrase.lick}</span>}</div>
-            <div className="cr-dots" data-testid="cr-dots">
-              {phrase.notes.map((m, i) => <span key={i} className={`cr-dot${marks ? ' ' + marks[i] : i < got.length ? ' heard' : ''}`}>{marks || show ? pcLabel(m) : i < got.length ? pcLabel(got[i]) : '·'}</span>)}
-            </div>
-            {msg && <p className="cr-msg" data-testid="cr-msg">{msg}</p>}
-            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn primary" data-testid="cr-play" onClick={() => play()}>{tries.current || got.length ? '▶ Hear it again' : '▶ Listen'}</button>
-              {listening && !marks && got.length > 0 && <button className="btn" onClick={check}>Check</button>}
-              <button className="btn" onClick={() => setShow(s => !s)}>{show ? 'Hide' : 'Show me'}</button>
-              {marks && <button className="btn primary" data-testid="cr-next" onClick={advance}>Next</button>}
-            </div>
-            {listening && !marks && <p className="small muted" style={{ margin: 0 }}>Listening: play it back.</p>}
-          </>
-        )}
-      </div>
-      <div className="panel">
-        <Fretboard tuning={tuning} fromFret={Math.max(0, phrase.from - 1)} toFret={phrase.from + (phrase.lick ? 6 : 4)} markFor={markFor} zoomId="cr" />
-        <p className="small muted" style={{ margin: '6px 0 0' }}>R = home. {show ? 'The numbers are the phrase, in order.' : 'Show me numbers the phrase on the neck.'}</p>
-      </div>
+      <WinArea area="callResponse">
+        <Win id="cr-setup" title="Level & tempo" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }}>
+          <Chips label="Level" items={CR_LEVELS.map(l => ({ id: l.id, label: `${l.id}. ${l.title}` }))} value={levelId} onChange={setLevelId} wrap />
+          <p className="small" style={{ margin: 0 }}>{level.tip}</p>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {level.scale !== 'lick' && <Chips label="Key" items={KEYS.map(k => ({ id: k, label: k }))} value={key} onChange={setKey} />}
+            <span className="small">Speed</span>
+            <button className="btn sm" aria-label="Slower" data-testid="cr-slower" onClick={() => setBpm(b => Math.max(40, b - 10))}>−</button>
+            <b data-testid="cr-bpm">{bpm} BPM</b>
+            <button className="btn sm" aria-label="Faster" onClick={() => setBpm(b => Math.min(180, b + 10))}>+</button>
+            <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={!anyOct} onChange={e => setAnyOct(!e.target.checked)} /> Exact octave</label>
+          </div>
+        </Win>
+        {err && <p className="notice small">{err}</p>}
+        <Win id="cr-now" title="Phrase" className="panel" bodyClass="stack cr-now" bodyStyle={{ gap: 10 }}>
+          <div aria-live="polite" className="stack" style={{ gap: 10 }}>
+            {done ? (
+              <>
+                <b>Round done: {right} of {ROUND} first time.</b>
+                <p className="small" style={{ margin: 0 }}>{right >= 6 && levelId < CR_LEVELS.length ? `Ready for level ${levelId + 1}.` : right < 4 ? 'Slow it down and try this level again: speed comes after the ear.' : 'Another round at this level, then move up.'}</p>
+                <div className="row" style={{ gap: 8 }}>
+                  <button className="btn primary" onClick={newRound}>Again</button>
+                  {right >= 6 && levelId < CR_LEVELS.length && <button className="btn" onClick={() => setLevelId(levelId + 1)}>Level {levelId + 1}</button>}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="row" style={{ justifyContent: 'space-between' }}><span className="small muted">Phrase {q + 1} of {ROUND} · {right} right</span>{phrase.lick && marks && <span className="small muted">{phrase.lick}</span>}</div>
+                <div className="cr-dots" data-testid="cr-dots">
+                  {phrase.notes.map((m, i) => <span key={i} className={`cr-dot${marks ? ' ' + marks[i] : i < got.length ? ' heard' : ''}`}>{marks || show ? pcLabel(m) : i < got.length ? pcLabel(got[i]) : '·'}</span>)}
+                </div>
+                {msg && <p className="cr-msg" data-testid="cr-msg">{msg}</p>}
+                <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                  <button className="btn primary" data-testid="cr-play" onClick={() => play()}>{tries.current || got.length ? '▶ Hear it again' : '▶ Listen'}</button>
+                  {listening && !marks && got.length > 0 && <button className="btn" onClick={check}>Check</button>}
+                  <button className="btn" onClick={() => setShow(s => !s)}>{show ? 'Hide' : 'Show me'}</button>
+                  {marks && <button className="btn primary" data-testid="cr-next" onClick={advance}>Next</button>}
+                </div>
+                {listening && !marks && <p className="small muted" style={{ margin: 0 }}>Listening: play it back.</p>}
+              </>
+            )}
+          </div>
+        </Win>
+        <Win id="cr-neck" title="On the neck" className="panel" bodyClass="stack" bodyStyle={{ gap: 6 }}>
+          <Fretboard tuning={tuning} fromFret={Math.max(0, phrase.from - 1)} toFret={phrase.from + (phrase.lick ? 6 : 4)} markFor={markFor} zoomId="cr" />
+          <p className="small muted" style={{ margin: 0 }}>R = home. {show ? 'The numbers are the phrase, in order.' : 'Show me numbers the phrase on the neck.'}</p>
+        </Win>
+      </WinArea>
     </div>
   )
 }

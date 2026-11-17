@@ -19,6 +19,7 @@ import type { Answer, Question, QuizDef } from './quiz'
 import { bump, itemStats, itemWeight, recordItem, setStars, todayLog, usePracticeTimer, isAway } from './progress'
 import { bumpCombo } from './game'
 import { Zoomable } from '../components/Zoomable'
+import { Win, WinArea } from '../components/Win'
 
 const NAT = [0, 2, 4, 5, 7, 9, 11]
 const label = (p: number) => (SHARPS[p] === FLATS[p] ? SHARPS[p] : `${SHARPS[p]}/${FLATS[p]}`)
@@ -249,19 +250,21 @@ export function QuizRunner({ quiz, inst, onExit }: Props) {
         )}
       </div>
 
-      <div className={`panel quiz-card${result ? (result.ok ? ' ok' : ' bad') : ''}`}>
-        <div className="quiz-prompt">{q.prompt}</div>
-        {q.sub && <div className="small muted">{q.sub}</div>}
-        {q.audio && <button className="btn sm" style={{ marginTop: 8 }} onClick={() => playAudio()}>▶ Play again</button>}
-        {q.diagram && <Zoomable id="quizDiagram" max={2.2}><div className="quiz-diagram"><ChordDiagram voicing={q.diagram} size={1.3} /></div></Zoomable>}
-        {(q.neck || (result && reveal.length > 0)) && (
-          <Fretboard tuning={inst.midis} fromFret={q.neck?.from ?? 0} toFret={q.neck?.to ?? 13} markFor={markFor} onTap={onNeckTap} compact />
-        )}
-        {playMode && q.mic && !result && (
-          <p className="mic-ask"><Ico n="guitar" /> Play {q.mic.want}{micMsg ? <span className="fb bad"> · {micMsg}</span> : ''}</p>
-        )}
-        {playMode && !q.mic && !result && <p className="small muted">This one is answered by tapping.</p>}
-      </div>
+      <WinArea area="quiz">
+        <Win id="quiz-card" title={quiz.title} className={`panel quiz-card${result ? (result.ok ? ' ok' : ' bad') : ''}`}>
+          <div className="quiz-prompt">{q.prompt}</div>
+          {q.sub && <div className="small muted">{q.sub}</div>}
+          {q.audio && <button className="btn sm" style={{ marginTop: 8 }} onClick={() => playAudio()}>▶ Play again</button>}
+          {q.diagram && <Zoomable id="quizDiagram" max={2.2}><div className="quiz-diagram"><ChordDiagram voicing={q.diagram} size={1.3} /></div></Zoomable>}
+          {(q.neck || (result && reveal.length > 0)) && (
+            <Fretboard tuning={inst.midis} fromFret={q.neck?.from ?? 0} toFret={q.neck?.to ?? 13} markFor={markFor} onTap={onNeckTap} compact />
+          )}
+          {playMode && q.mic && !result && (
+            <p className="mic-ask"><Ico n="guitar" /> Play {q.mic.want}{micMsg ? <span className="fb bad"> · {micMsg}</span> : ''}</p>
+          )}
+          {playMode && !q.mic && !result && <p className="small muted">This one is answered by tapping.</p>}
+        </Win>
+      </WinArea>
 
       {!result && (!playMode || !q.mic) && (
         <div className="quiz-input">
@@ -327,17 +330,19 @@ function QuizEnd({ quiz, pct, stars, played, xp, onAgain, onExit }: { quiz: Quiz
   }, [quiz.id, stars, played])
   return (
     <div className="stack quiz-end">
-      <div className="panel" style={{ textAlign: 'center' }}>
-        <PsyDog seed={`quiz-${pct}`} className="quiz-dog" />
-        <div className="stars" aria-label={`${stars} of 3 stars`}>{[1, 2, 3].map(i => <span key={i} className={i <= stars ? 'on' : ''}>★</span>)}</div>
-        <div className="readout" style={{ fontSize: 56 }}>{pct}%</div>
-        <p className="muted">{stars === 3 ? 'Perfect and fast. Nailed it.' : stars === 2 ? 'Great work. Go again for three stars.' : stars === 1 ? 'Good start. The ones you missed will come up more often.' : 'Keep at it: missed notes come back more often until they stick.'}</p>
-        <p className="small"><b>+{Math.max(0, xp)} XP</b>{played ? ' · played on your instrument' : ''}</p>
-        <div className="row" style={{ justifyContent: 'center' }}>
-          <button className="btn primary" onClick={onAgain}>Go again</button>
-          <button className="btn" onClick={onExit}>Done</button>
-        </div>
-      </div>
+      <WinArea area="quizEnd">
+        <Win id="quiz-end" title="Result" className="panel" bodyStyle={{ textAlign: 'center' }}>
+          <PsyDog seed={`quiz-${pct}`} className="quiz-dog" />
+          <div className="stars" aria-label={`${stars} of 3 stars`}>{[1, 2, 3].map(i => <span key={i} className={i <= stars ? 'on' : ''}>★</span>)}</div>
+          <div className="readout" style={{ fontSize: 56 }}>{pct}%</div>
+          <p className="muted">{stars === 3 ? 'Perfect and fast. Nailed it.' : stars === 2 ? 'Great work. Go again for three stars.' : stars === 1 ? 'Good start. The ones you missed will come up more often.' : 'Keep at it: missed notes come back more often until they stick.'}</p>
+          <p className="small"><b>+{Math.max(0, xp)} XP</b>{played ? ' · played on your instrument' : ''}</p>
+          <div className="row" style={{ justifyContent: 'center' }}>
+            <button className="btn primary" onClick={onAgain}>Go again</button>
+            <button className="btn" onClick={onExit}>Done</button>
+          </div>
+        </Win>
+      </WinArea>
     </div>
   )
 }
