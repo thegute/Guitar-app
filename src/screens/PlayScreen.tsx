@@ -32,7 +32,7 @@ import { detectKey, formatKeyBadge, improvisationScales, type KeyGuess } from '.
 import { shiftChord, shiftKeyName, transposeSong, transposeTrack } from '../tabs/transpose'
 import { chordInfo, chordTimeline, guessBarChords, keyScalePcs } from '../tabs/harmony'
 import { docInstrument, getSong, listSongs, saveSong, type SongDoc } from '../tabs/library'
-import { go, learnGo, onOpenSong, takePendingDoc, onPlayAction, takePlayAction } from '../nav'
+import { go, learnGo, onOpenSong, takePendingDoc, onPlayAction, takePlayAction, openLicksInKey } from '../nav'
 import type { PlayAction, PlayFocus } from '../search/types'
 import { useBack } from '../back'
 import { useGetReady } from '../components/GetReady'
@@ -1769,13 +1769,7 @@ export function PlayScreen() {
               {(semi !== 0 || doc.capo !== undefined || doc.capoSync) && (
                 <button className="btn sm" data-testid="transpose-reset" onClick={() => update({ transpose: undefined, capo: undefined, capoSync: undefined })}>Reset</button>
               )}
-              <button className="btn sm ghost" data-testid="play-to-licks" onClick={() => {
-                try {
-                  localStorage.setItem('kg:mustStyle', JSON.stringify('all'))
-                  localStorage.setItem('kg:mustKey', JSON.stringify(`${pc(key.root)}:${key.minor ? 1 : 0}`))
-                } catch { /* private */ }
-                learnGo({ licks: 'all' })
-              }}>Licks in {formatKeyBadge(key.root, key.minor)} →</button>
+              <button className="btn sm ghost" data-testid="play-to-licks" onClick={() => openLicksInKey(key.root, key.minor)}>Licks in {formatKeyBadge(key.root, key.minor)} →</button>
               <button className="btn sm ghost" data-testid="play-to-exercises" onClick={() => learnGo({ learn: 'exercises' })}>Exercises →</button>
               <button className="btn sm ghost" onClick={() => setTransposeOpen(false)} aria-label="Close key bar" style={{ marginLeft: 'auto' }}>✕</button>
             </div>

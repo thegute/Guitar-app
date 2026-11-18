@@ -39,6 +39,20 @@ export function LickLibrary({ initial, onExit }: { initial?: string; onExit: () 
   const [open, setOpen] = useState<string | null>(first?.id ?? null)
   // "Licks over Gm" from a chord or scale neck: the licks that fit (minor or major), shown in that key
   const [want, setWant] = usePersist<{ root: string; minor: boolean } | null>('lickWantKey', null)
+  useEffect(() => {
+    const onFilters = (e: Event) => {
+      const d = (e as CustomEvent<{ style?: 'all' | LickStyleId; worksOver?: 'all' | 'jam' | WorksOverId; mustKey?: string; want?: { root: string; minor: boolean } | null }>).detail
+      if (!d) return
+      if (d.style !== undefined) { setStyleNow(d.style); setStyle(d.style) }
+      if (d.worksOver !== undefined) setWorksOver(d.worksOver)
+      if (d.mustKey !== undefined) setKeyFilter(d.mustKey)
+      if ('want' in d) setWant(d.want ?? null)
+      setOpen(null)
+      setPrompt(null)
+    }
+    window.addEventListener('kg-lickfilters', onFilters)
+    return () => window.removeEventListener('kg-lickfilters', onFilters)
+  }, [setStyle, setWorksOver, setKeyFilter, setWant])
   const [prompt, setPrompt] = useState<{ lickId: string; check: ChainAddCheck } | null>(null)
   const [addedToast, setAddedToast] = useState<{ lickId: string; text: string } | null>(null)
   const pick = (s: 'all' | LickStyleId) => { setStyleNow(s); setStyle(s); setOpen(null); setPrompt(null) }

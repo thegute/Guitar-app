@@ -58,5 +58,15 @@ check('a song with its own band keeps it', () => {
 check('mix slider maths both ways', () => {
   for (const v of [0, 10, 20, 50, 80, 100]) { const l = mixLevels(v); assert.equal(mixFromLevels(l.me, l.band), v, `v=${v}`) }
 })
+check('chord band follows capo sounding pitch (Sync Capo / Capo N)', () => {
+  const s = sheet(['C', 'F', 'G', 'C'])
+  s.tracks[0].capo = 2
+  const b = chordBandSong(s, 0, 'country')!
+  const ev = bandEvents(b, 0)
+  const firstBass = (beat: number) => ev.filter(e => e.kind === 'bass' && Math.abs(e.beat - beat) < 1e-6)[0]?.midis?.[0]
+  assert.equal(firstBass(0)! % 12, 2, 'C shape + Capo 2 plays sounding D bass')
+  assert.equal(firstBass(4)! % 12, 7, 'F shape + Capo 2 plays sounding G bass')
+  assert.equal(firstBass(8)! % 12, 9, 'G shape + Capo 2 plays sounding A bass')
+})
 console.log(`band: ${n} checks, ${failed} failed`)
 if (failed) process.exit(1)

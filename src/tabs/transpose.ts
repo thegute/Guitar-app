@@ -141,8 +141,9 @@ function fitScoreForKey(prog: ProgChord[], tonicPc: number, steps: number[], isM
   let diatonic = 0
   let score = 0
   prog.forEach((c, idx) => {
+    const cType = c.type ?? ''
     const rel = r12(pc(c.root) - tonicPc)
-    const tones = typeTones(c.type).map(t => (rel + t) % 12)
+    const tones = typeTones(cType).map(t => (rel + t) % 12)
     const rootIn = stepSet.has(rel)
     const allIn = rootIn && tones.every(t => stepSet.has(t))
     if (allIn) {
@@ -152,10 +153,10 @@ function fitScoreForKey(prog: ProgChord[], tonicPc: number, steps: number[], isM
       score += 0.5
     }
     if (rel === 0) {
-      const mChord = /^m(?!aj)/i.test(c.type)
-      const majChord = !mChord && !/dim|sus|5/.test(c.type)
+      const mChord = /^m(?!aj)/i.test(cType)
+      const majChord = !mChord && !/dim|sus|5/.test(cType)
       if ((isMinor && mChord) || (!isMinor && majChord)) score += idx === 0 ? 2.5 : 1.5
-      else if ((isMinor && majChord && !/7$/.test(c.type)) || (!isMinor && mChord)) score -= 2
+      else if ((isMinor && majChord && !/7$/.test(cType)) || (!isMinor && mChord)) score -= 2
     }
     if (idx === 0 && rel === 0) score += 1
   })
@@ -175,9 +176,10 @@ export function detectJamKeyMismatch(prog: ProgChord[], tonic: string, mode: Mod
   let tonicClash = false
   for (const c of prog) {
     if (r12(pc(c.root) - tPc) === 0) {
-      const mChord = /^m(?!aj)/i.test(c.type)
-      const majChord = !mChord && !/dim|sus|5/.test(c.type)
-      if ((isMinor && majChord && !/7$/.test(c.type)) || (!isMinor && mChord)) tonicClash = true
+      const cType = c.type ?? ''
+      const mChord = /^m(?!aj)/i.test(cType)
+      const majChord = !mChord && !/dim|sus|5/.test(cType)
+      if ((isMinor && majChord && !/7$/.test(cType)) || (!isMinor && mChord)) tonicClash = true
     }
   }
 
@@ -219,17 +221,18 @@ export function transposeJamProg(
   const toMinor = MINOR_MODES.includes(toMode)
   const fromSteps = MODE_STEPS[fromMinor ? 'minor' : 'major']
   return prog.map(c => {
+    const cType = c.type ?? ''
     const semi = r12(pc(c.root) - pc(fromRoot))
     if (fromMinor !== toMinor) {
       const deg = fromSteps.indexOf(semi)
       if (deg >= 0) {
-        const has7 = /7|9|11|13|maj/.test(c.type)
+        const has7 = /7|9|11|13|maj/.test(cType)
         const d = diatonic(toMode, deg, has7)
         const next = spell(toTonic, toMode, { semi: d.semi, type: d.type, fn: c.fn, why: c.why })
         return { ...next, ...(c.beats ? { beats: c.beats } : {}) }
       }
     }
-    const next = spell(toTonic, toMode, { semi, type: c.type, fn: c.fn, why: c.why })
+    const next = spell(toTonic, toMode, { semi, type: cType, fn: c.fn, why: c.why })
     return { ...next, ...(c.borrowed ? { borrowed: c.borrowed } : {}), ...(c.beats ? { beats: c.beats } : {}) }
   })
 }

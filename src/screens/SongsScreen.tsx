@@ -20,7 +20,7 @@ import { loadSongbookDoc } from '../tabs/songbookDocs'
 import { takePendingBookPdf } from '../books/pending'
 import { INSTRUMENTS, useInstrument, type Instrument, type InstrumentId } from '../instrument'
 import { usePersist } from '../components/Controls'
-import { go, learnGo, openExercisesFiltered, openInPlay, setSubPage } from '../nav'
+import { go, learnGo, openExercisesFiltered, openInPlay, openLicksInKey, setSubPage } from '../nav'
 import { Ico } from '../components/Icon'
 import { AddBox } from '../components/AddBox'
 import { formatKeyBadge, songKeyGuess } from '../tabs/keyDetect'
@@ -353,14 +353,7 @@ function MySongs({ songs, currentId, keyById, keyObjById, onOpen, refresh, onAdd
             ) : (
               <span className="row song-actions" style={{ flexWrap: 'nowrap', gap: 2 }}>
                 {keyObj && (
-                  <button className="btn sm ghost" data-testid={`song-licks-${s.id}`} onClick={() => {
-                    try {
-                      localStorage.setItem('kg:mustStyle', JSON.stringify('all'))
-                      localStorage.setItem('kg:mustKey', JSON.stringify(keyOptionId(keyObj.root, keyObj.minor)))
-                      localStorage.setItem('kg:mustWorksOver', JSON.stringify('all'))
-                    } catch { /* private */ }
-                    learnGo({ licks: 'all' })
-                  }} aria-label={`Licks in ${formatKeyBadge(keyObj.root, keyObj.minor)}`}>Licks</button>
+                  <button className="btn sm ghost" data-testid={`song-licks-${s.id}`} onClick={() => openLicksInKey(keyObj.root, keyObj.minor)} aria-label={`Licks in ${formatKeyBadge(keyObj.root, keyObj.minor)}`}>Licks</button>
                 )}
                 <button className="btn sm ghost" onClick={() => setMoving(s.id)} aria-label={`Move ${s.title} to another instrument`}>Move</button>
                 <button className="btn sm ghost" onClick={() => setConfirmDel(s.id)} aria-label={`Delete ${s.title}`}>Remove</button>

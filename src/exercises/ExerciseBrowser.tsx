@@ -18,10 +18,9 @@ import { audio } from '../audio/engine'
 import { allSounds, activeSound, loadSound, playNote, soundForProgram, type SoundId } from '../audio/pluck'
 import { flatten, type FlatStep, type Song, type SongNote, type SongTrack } from '../tabs/model'
 import { saveSong, type SongDoc } from '../tabs/library'
-import { learnGo, onOpenExercise, openInPlay, openSongsInKey, playAction, takePendingExercise } from '../nav'
+import { learnGo, onOpenExercise, openInPlay, openLicksInKey, openSongsInKey, playAction, takePendingExercise } from '../nav'
 import { keyPrefersFlats, pc } from '../theory/notes'
 import { LICKS, lickById } from '../licks/library'
-import { lickMinor } from '../licks/chain'
 import { keyOptionId, shiftKeyName, transposeSong } from '../tabs/transpose'
 import { EX_TYPES, LEVELS, TECHS, exerciseCatalog, keyName, keysFor, type Exercise, type Level } from './catalog'
 import { spell } from './build'
@@ -545,16 +544,7 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, sem
         {lick?.must ? (
           <button className="btn" data-testid="ex-to-licks" onClick={() => learnGo({ licks: lick.id })}><Ico n="book" /> How to play it, step by step</button>
         ) : matchingLick ? (
-          <button className="btn" data-testid="ex-to-licks" onClick={() => {
-            try {
-              const targetKeyId = ex.key ? keyOptionId(activeRoot, !!ex.minor) : 'all'
-              const hasExactKey = ex.key && LICKS.some(l => l.must && keyOptionId(l.ref, lickMinor(l)) === targetKeyId)
-              localStorage.setItem('kg:mustStyle', JSON.stringify('all'))
-              if (worksTags[0]) localStorage.setItem('kg:mustWorksOver', JSON.stringify(worksTags[0]))
-              localStorage.setItem('kg:mustKey', JSON.stringify(hasExactKey ? targetKeyId : 'all'))
-            } catch { /* private */ }
-            learnGo({ licks: 'all' })
-          }}>Must-know licks →</button>
+          <button className="btn" data-testid="ex-to-licks" onClick={() => openLicksInKey(ex.key ? activeRoot : 'all', !!ex.minor, { worksOver: worksTags[0] })}>Must-know licks →</button>
         ) : null}
         <button className="btn ghost" data-testid="ex-to-songs" onClick={() => openSongsInKey(ex.key ? keyOptionId(activeRoot, !!ex.minor) : 'all')}>
           Songs{ex.key ? ` in ${keyName(activeRoot, ex.minor)}` : ''} →

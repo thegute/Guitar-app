@@ -25,7 +25,7 @@ import {
   clearSummary,
   type Session,
 } from '../src/sessions/session'
-import { openExercisesFiltered, openSongsInKey, playAction, takePlayAction } from '../src/nav'
+import { openExercisesFiltered, openLicksInKey, openSongsInKey, playAction, takePlayAction } from '../src/nav'
 import { spell, type ProgChord } from '../src/theory/progressions'
 import { voicingFromFrets, progressionFromTrack, progressionFromChords } from '../src/components/ProgressionDiagrams'
 import { formatKeyBadge, songKeyGuess } from '../src/tabs/keyDetect'
@@ -443,6 +443,15 @@ const validTagIds = new Set(WORKS_OVER_TAGS.map(t => t.id))
   assert.equal(waltzB2.bar, 2)
   assert.equal(waltzB2.beat, 2)
   assert.equal(waltzB2.isBeatOne, false)
+
+  // openLicksInKey: native must-know key sets strict mustKey; rare transposed key sets transposed want-key fallback
+  openLicksInKey('E', true)
+  assert.equal(JSON.parse(localStorage.getItem('kg:mustKey')!), '4:1', 'Em uses strict native filter')
+  assert.equal(JSON.parse(localStorage.getItem('kg:lickWantKey')!), null, 'Em clears want-key')
+
+  openLicksInKey('Bb', true)
+  assert.equal(JSON.parse(localStorage.getItem('kg:mustKey')!), 'all', 'Bb minor avoids empty filter')
+  assert.deepEqual(JSON.parse(localStorage.getItem('kg:lickWantKey')!), { root: 'Bb', minor: true }, 'Bb minor sets transposed want-key')
 
   console.log('Batch H3 unit checks: ok')
 }

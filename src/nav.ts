@@ -2,6 +2,9 @@
 import type { SongDoc } from './tabs/library'
 import type { Go } from './learn/path'
 import type { PlayAction } from './search/types'
+import { LICKS } from './licks/library'
+import { lickMinor } from './licks/chain'
+import { keyOptionId } from './tabs/transpose'
 
 /** The main sections in the nav bar. */
 export type Tab = 'play' | 'songs' | 'learn' | 'progressions' | 'tools'
@@ -84,6 +87,24 @@ export function openExercisesFiltered(opts: { worksOver?: string; tech?: string;
     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new CustomEvent('kg-exfilter', { detail: next }))
   } catch { /* private */ }
   learnGo({ learn: 'exercises' })
+}
+/** Open Must-Know Licks filtered by key; falls back cleanly to transposed want-key on keys without native must-know licks. */
+export function openLicksInKey(root: string, minor: boolean, opts?: { worksOver?: string }) {
+  const keyId = root && root !== 'all' ? keyOptionId(root, minor) : 'all'
+  const hasNative = keyId !== 'all' && LICKS.some(l => l.must && keyOptionId(l.ref, lickMinor(l)) === keyId)
+  const mustKey = hasNative ? keyId : 'all'
+  const want = !hasNative && keyId !== 'all' ? { root, minor } : null
+  const worksOver = opts?.worksOver ?? 'all'
+  try {
+    localStorage.setItem('kg:mustStyle', JSON.stringify('all'))
+    localStorage.setItem('kg:mustWorksOver', JSON.stringify(worksOver))
+    localStorage.setItem('kg:mustKey', JSON.stringify(mustKey))
+    localStorage.setItem('kg:lickWantKey', JSON.stringify(want))
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('kg-lickfilters', { detail: { style: 'all', worksOver, mustKey, want } }))
+    }
+  } catch { /* private */ }
+  learnGo({ licks: 'all' })
 }
 // ---- one exercise from the exercise library (Learn → Exercises)
 let pendingExercise: string | null = null

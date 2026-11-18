@@ -53,7 +53,10 @@ export function hasBand(song: Song, main: number) {
 }
 
 const SUFFIX_TYPE: Record<string, string> = { major: '', minor: 'm', '7': '7', m7: 'm7', maj7: 'maj7', dim: 'dim', dim7: 'dim7', aug: 'aug', sus2: 'sus2', sus4: 'sus4', '6': '6', m6: 'm6', '9': '9', m9: 'm9', m7b5: 'm7b5', '7sus4': '7sus4', add9: 'add9' }
-const bassChord = (name: string) => { const { root, suffix } = parseSymbol(name); return { root: pc(root), tones: typeTones(SUFFIX_TYPE[suffix] ?? '') } }
+const bassChord = (name: string, capo = 0) => {
+  const { root, suffix } = parseSymbol(name)
+  return { root: ((pc(root) + capo) % 12 + 12) % 12, tones: typeTones(SUFFIX_TYPE[suffix] ?? '') }
+}
 
 /** Start beat of every step of a track. */
 export function stepBeats(track: SongTrack): number[] {
@@ -111,8 +114,9 @@ function backingEvents(song: Song, track: SongTrack): BandEvent[] {
       const at = b0 + p
       if (at >= total) continue
       const k = chordAt(at)
-      const c = bassChord(changes[k].name)
-      const nx = changes[k + 1] ? bassChord(changes[k + 1].name) : null
+      const capo = track.capo || 0
+      const c = bassChord(changes[k].name, capo)
+      const nx = changes[k + 1] ? bassChord(changes[k + 1].name, capo) : null
       const m = bassMidi(deg, c, nx, Math.floor(p), prev)
       prev = m
       ev.push({ beat: at, kind: 'bass', midis: [m], dur: len, level: 0.8 * lv * (line?.level ?? 1) })

@@ -9,7 +9,7 @@ import { songStats } from '../play/songStats'
 import { profile } from '../learn/profile'
 import { formatKeyBadge } from '../tabs/keyDetect'
 import { keyOptionId } from '../tabs/transpose'
-import { learnGo } from '../nav'
+import { openLicksInKey } from '../nav'
 import { Chips, usePersist } from './Controls'
 import { Win, WinArea } from './Win'
 
@@ -49,14 +49,7 @@ export function Songbook({ currentId, onOpen, query = '', keyFilter = 'all', emb
                   <div className="sb-title">
                     <b>{s.title}</b>
                     <span className="key-tag">{formatKeyBadge(s.key, !!s.minor)}</span>
-                    <button className="btn sm ghost" data-testid={`sb-licks-${s.id}`} onClick={() => {
-                      try {
-                        localStorage.setItem('kg:mustStyle', JSON.stringify('all'))
-                        localStorage.setItem('kg:mustKey', JSON.stringify(keyOptionId(s.key, !!s.minor)))
-                        localStorage.setItem('kg:mustWorksOver', JSON.stringify('all'))
-                      } catch { /* private */ }
-                      learnGo({ licks: 'all' })
-                    }}>Licks</button>
+                    <button className="btn sm ghost" data-testid={`sb-licks-${s.id}`} onClick={() => openLicksInKey(s.key, !!s.minor)}>Licks</button>
                     <span className="small muted">{s.credit}</span>
                   </div>
                   <span className="small sb-learn">{focusPart.learn}</span>
