@@ -1607,10 +1607,13 @@ label.row > input[type='checkbox'] + span { flex: 1 1 0; min-width: 0; }
 /* must-know licks */
 .lick-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 @media (min-width: 760px) { .lick-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.lick-card { width: 100%; text-align: left; display: grid; gap: 4px; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); color: var(--ink); font: inherit; cursor: pointer; }
-.lick-card:hover, .lick-card:focus-visible { border-color: var(--accent); }
-.lick-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.lick-top b { font-size: 17px; }
+.lick-card { width: 100%; text-align: left; display: grid; gap: 6px; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); color: var(--ink); font: inherit; min-width: 0; }
+.lick-card:hover, .lick-card:has(.lick-card-open:focus-visible) { border-color: var(--accent); }
+.lick-card-open { all: unset; display: grid; gap: 4px; width: 100%; min-width: 0; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.lick-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.lick-top b { font-size: 17px; min-width: 0; }
+.lick-badges { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+.lick-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; padding-top: 2px; border-top: 1px solid var(--hairline); }
 .lvl { flex: none; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: var(--r-sm); border: 1px solid var(--line); }
 .lvl-1 { color: var(--mint-text, var(--mint)); border-color: var(--mint); }
 .lvl-2 { color: var(--gold-text, var(--gold)); border-color: var(--gold); }
@@ -3016,3 +3019,25 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
 .prog-diagram-item .diagram { display: flex; cursor: pointer; }
 .prog-diagram-item.on .diagram { border-color: var(--gold); box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 42%, transparent); }
 .readout-prog { grid-column: 1 / -1; min-width: 0; padding-top: 6px; border-top: 1px solid var(--hairline); }
+
+/* Minimal discreet key badges & same-key chain mismatch prompt (Batch H1) */
+.key-tag {
+  display: inline-flex; align-items: center;
+  padding: 1px 7px; border-radius: var(--r-pill);
+  background: var(--surface-2); border: 1px solid var(--line);
+  color: var(--ink-2); font-family: var(--ui); font-size: 12px; font-weight: 600;
+  line-height: 1.45; white-space: nowrap; flex: none;
+}
+.song-title-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; }
+.chain-prompt {
+  display: grid; gap: 6px; padding: 8px 10px; border-radius: var(--r-sm);
+  background: var(--surface-2); border: 1px solid var(--gold); color: var(--ink);
+}
+.chain-prompt-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.chain-lock-bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px;
+  padding: 6px 10px; border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--line);
+}
+.chain-lock-bar label { display: inline-flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; }
+[data-theme='psy'] .chain-prompt, [data-theme='psy'] .chain-lock-bar { background: #22084d; }
+

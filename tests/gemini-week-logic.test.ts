@@ -28,6 +28,24 @@ import {
 import { playAction, takePlayAction } from '../src/nav'
 import type { ProgChord } from '../src/theory/progressions'
 import { voicingFromFrets, progressionFromTrack, progressionFromChords } from '../src/components/ProgressionDiagrams'
+import { formatKeyBadge, songKeyGuess } from '../src/tabs/keyDetect'
+import { lickInKey } from '../src/licks/generator'
+import { jamBandForSong } from '../src/tabs/fromProgression'
+import {
+  EMPTY_CHAIN,
+  addToChain,
+  chainable,
+  chainSong,
+  checkChainAdd,
+  flowNext,
+  lickMatchesChain,
+  lickMinor,
+  loadChain,
+  matchChainTranspose,
+  placeChain,
+  saveChain,
+  startNewChain,
+} from '../src/licks/chain'
 
 const inst = current()
 const validTagIds = new Set(WORKS_OVER_TAGS.map(t => t.id))
@@ -209,3 +227,85 @@ const validTagIds = new Set(WORKS_OVER_TAGS.map(t => t.id))
   assert.deepEqual(viaNames.map(d => d.name), ['G', 'Em', 'C', 'D'])
   console.log('full progression chord diagrams + fingerings: ok')
 }
+
+// 6. Batch H1: key badges (Capo N, never C2), songKeyGuess, strict same-key + major/minor chainer, jamBandForSong
+{
+  assert.equal(formatKeyBadge('E', true, 0), 'Em')
+  assert.equal(formatKeyBadge('G', false, 0), 'G')
+  assert.equal(formatKeyBadge('G', false, 2), 'G · Capo 2')
+  assert.ok(!formatKeyBadge('G', false, 2).includes('C2'), 'never use C2 abbreviation')
+  assert.equal(formatKeyBadge('G#', true, 0), 'G#m')
+
+  // songKeyGuess returns null on an empty/mute-only song and estimates pitch classes accurately
+  assert.equal(songKeyGuess({ title: 'Empty', tracks: [{ name: 'Gtr', tuning: inst.midis, capo: 0, bars: [{ steps: [{ notes: [], dur: 4 }] }] }] }), null)
+  const emLick = LICKS.find(l => chainable(l) && l.ref === 'E' && lickMinor(l) === true)!
+  const amLick = LICKS.find(l => chainable(l) && l.ref === 'A' && lickMinor(l) === true)!
+  const gMajLick = LICKS.find(l => chainable(l) && l.ref === 'G' && lickMinor(l) === false)!
+  const eMajLick = LICKS.find(l => chainable(l) && l.ref === 'E' && lickMinor(l) === false)!
+  assert.ok(emLick && amLick && gMajLick && eMajLick, 'sample Em, Am, G, E licks exist')
+
+  const gSong = lickInKey(gMajLick, 'G', inst.midis)!.song
+  const gGuess = songKeyGuess(gSong)
+  assert.ok(gGuess !== null, 'songKeyGuess detects a key on pitched lick')
+
+  // strict matching rules: Em != Am (different root), Em != E (different quality), Em != G (relative major kept separate)
+  assert.ok(lickMatchesChain(emLick, 'E', true, false))
+  assert.ok(!lickMatchesChain(amLick, 'E', true, false))
+  assert.ok(lickMatchesChain(amLick, 'E', true, true), 'allowTranspose lets Am transpose into Em')
+  assert.ok(!lickMatchesChain(eMajLick, 'E', true, true), 'same root E major cannot join Em chain even with transpose')
+  assert.ok(!lickMatchesChain(gMajLick, 'E', true, true), 'relative major G cannot join Em chain')
+
+  // interactive chain state transitions
+  saveChain({ ...EMPTY_CHAIN, links: [] })
+  const chk0 = checkChainAdd(emLick.id)!
+  assert.equal(chk0.ok, true)
+  assert.equal(chk0.reason, 'empty')
+  addToChain(emLick.id)
+  const c1 = loadChain()
+  assert.equal(c1.key, 'E')
+  assert.equal(c1.minor, true)
+  assert.equal(c1.allowTranspose, false)
+
+  const chkAm = checkChainAdd(amLick.id)!
+  assert.equal(chkAm.ok, false)
+  assert.equal(chkAm.reason, 'different-key')
+  assert.equal(chkAm.canTranspose, true)
+  assert.equal(chkAm.chainLabel, 'Em')
+  assert.equal(chkAm.lickLabel, 'Am')
+
+  const chkG = checkChainAdd(gMajLick.id)!
+  assert.equal(chkG.ok, false)
+  assert.equal(chkG.reason, 'different-quality')
+  assert.equal(chkG.canTranspose, false)
+
+  matchChainTranspose(amLick.id)
+  const c2 = loadChain()
+  assert.equal(c2.links.length, 2)
+  assert.equal(c2.allowTranspose, true)
+  assert.equal(c2.minor, true)
+  assert.equal(placeChain(c2).filter(p => p.fits).length, 2)
+
+  // flowNext stays within same key + quality
+  const nextEm = flowNext({ ...EMPTY_CHAIN, key: 'E', minor: true, allowTranspose: false, links: [{ lick: emLick.id, uid: 'u1' }] })
+  assert.ok(!nextEm || (nextEm.ref === 'E' && lickMinor(nextEm) === true), 'strict flowNext picks only native Em lick')
+
+  // startNewChain resets lock cleanly to G major
+  startNewChain(gMajLick.id)
+  const c3 = loadChain()
+  assert.equal(c3.links.length, 1)
+  assert.equal(c3.key, 'G')
+  assert.equal(c3.minor, false)
+  assert.equal(c3.allowTranspose, false)
+
+  // jamBandForSong attaches aligned events when Jam progression is present
+  localStorage.setItem('kg:jamProg', JSON.stringify([{ degree: 1, roman: 'I', root: 'G', symbol: 'G', label: 'G', beats: 4 }, { degree: 5, roman: 'V', root: 'D', symbol: 'D', label: 'D', beats: 4 }]))
+  localStorage.setItem('kg:progKey', JSON.stringify('G'))
+  localStorage.setItem('kg:progMode', JSON.stringify('major'))
+  const built = chainSong(c3, inst.midis)!
+  const band = jamBandForSong(built.song, inst)
+  assert.ok(band && band.some(stepEvents => stepEvents.some(e => e.e.kind === 'gtr' || e.e.kind === 'drum' || e.e.kind === 'bass')), 'jamBandForSong attaches backing events')
+
+  saveChain({ ...EMPTY_CHAIN, links: [] })
+  console.log('Batch H1 unit checks: ok')
+}
+

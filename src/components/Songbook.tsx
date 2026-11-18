@@ -7,6 +7,7 @@ import type { SongDoc } from '../tabs/library'
 import { loadSongbookDoc } from '../tabs/songbookDocs'
 import { songStats } from '../play/songStats'
 import { profile } from '../learn/profile'
+import { formatKeyBadge } from '../tabs/keyDetect'
 import { Chips, usePersist } from './Controls'
 import { Win, WinArea } from './Win'
 
@@ -45,6 +46,7 @@ export function Songbook({ currentId, onOpen, query = '', embedded }: { currentI
                 <div className="sb-song">
                   <div className="sb-title">
                     <b>{s.title}</b>
+                    <span className="key-tag">{formatKeyBadge(s.key, !!s.minor)}</span>
                     <span className="small muted">{s.credit}</span>
                   </div>
                   <span className="small sb-learn">{focusPart.learn}</span>

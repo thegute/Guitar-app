@@ -2,30 +2,56 @@
 // one key, and each one is placed on the neck near where the one before it ended, so your hand doesn't jump around.
 // A capo style's licks keep their capo when they all share one; otherwise the capo is "baked in" (same pitches,
 // fretted higher) so the chain can mix styles.
-import { findLick } from './mine'
+import { findLick, myLicks } from './mine'
 import type { Song } from '../tabs/model'
 import { LICKS, type LickDef } from './library'
 import { lickStyle } from './styles'
 import { fretSpan, lickSong, parseLick, type LickEvent } from './notation'
 import { isStandard, keyLabel, placeFor, retune } from './generator'
+import { pc } from '../theory/notes'
 
 export interface ChainLink { lick: string; uid: string }
 export interface Chain {
   key: string
+  /** Major (false) vs minor (true); locked by the first lick in the chain */
+  minor?: boolean
+  /** Off by default: false = strict native same-key; true = also include licks transposed cleanly to this key */
+  allowTranspose?: boolean
   /** beats per minute; 0 = take it from the first lick */
   tempo: number
   /** rest between licks, in bars */
   gap: 0 | 0.5 | 1
   links: ChainLink[]
 }
-export const EMPTY_CHAIN: Chain = { key: 'A', tempo: 0, gap: 0, links: [] }
+export const EMPTY_CHAIN: Chain = { key: 'A', minor: false, allowTranspose: false, tempo: 0, gap: 0, links: [] }
 const KEY = 'kg:lickChain'
 const listeners = new Set<() => void>()
+
+export const lickMinor = (l: LickDef): boolean => l.minor ?? lickStyle(l.style).minor
+export const lickHomeKey = (l: LickDef): { root: string; minor: boolean } => ({ root: l.ref, minor: lickMinor(l) })
+const sameRoot = (a: string, b: string) => pc(a) === pc(b)
+
+export function chainMinor(c: Chain): boolean {
+  if (typeof c.minor === 'boolean') return c.minor
+  const first = c.links.length ? findLick(c.links[0].lick) : undefined
+  return first ? lickMinor(first) : false
+}
+
+/** True when a lick matches a chain key + tonality (strictly native key by default, or transposable when allowed). */
+export function lickMatchesChain(l: LickDef, key: string, minor: boolean, allowTranspose = false): boolean {
+  if (lickMinor(l) !== minor) return false
+  if (!allowTranspose) return sameRoot(l.ref, key) && !!placeFor(l, key)
+  return !!placeFor(l, key)
+}
 
 export function loadChain(): Chain {
   try {
     const c = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Chain | null
-    return c && Array.isArray(c.links) ? { ...EMPTY_CHAIN, ...c, links: c.links.filter(l => !!findLick(l.lick)) } : { ...EMPTY_CHAIN }
+    if (!c || !Array.isArray(c.links)) return { ...EMPTY_CHAIN }
+    const links = c.links.filter(l => !!findLick(l.lick))
+    const first = links.length ? findLick(links[0].lick) : undefined
+    const minor = typeof c.minor === 'boolean' ? c.minor : first ? lickMinor(first) : false
+    return { ...EMPTY_CHAIN, ...c, minor, allowTranspose: !!c.allowTranspose, links }
   } catch { return { ...EMPTY_CHAIN } }
 }
 export function saveChain(c: Chain) {
@@ -34,10 +60,73 @@ export function saveChain(c: Chain) {
 }
 export function onChain(f: () => void) { listeners.add(f); return () => { listeners.delete(f) } }
 export const newUid = () => Math.random().toString(36).slice(2, 9)
-/** Add a lick to the end of the saved chain (from a lick's own page). The first lick sets the key. */
-export function addToChain(lickId: string, key?: string) {
+
+export interface ChainAddCheck {
+  ok: boolean
+  reason: 'empty' | 'same' | 'different-key' | 'different-quality' | 'cant-fit'
+  lickKey: string
+  lickMinor: boolean
+  lickLabel: string
+  chainKey: string
+  chainMinor: boolean
+  chainLabel: string
+  canTranspose: boolean
+}
+
+/** Check whether a lick matches the active chain key + tonality before adding it. */
+export function checkChainAdd(lickId: string, chain?: Chain, targetKey?: string): ChainAddCheck | null {
+  const lick = findLick(lickId)
+  if (!lick) return null
+  const c = chain ?? loadChain()
+  const lRoot = targetKey && placeFor(lick, targetKey) ? targetKey : lick.ref
+  const lMin = lickMinor(lick)
+  const cMin = chainMinor(c)
+  const lickLabel = keyLabel(lRoot, lMin)
+  const chainLabel = keyLabel(c.key, cMin)
+  if (c.links.length === 0) {
+    return { ok: true, reason: 'empty', lickKey: lRoot, lickMinor: lMin, lickLabel, chainKey: lRoot, chainMinor: lMin, chainLabel: lickLabel, canTranspose: true }
+  }
+  if (lickMatchesChain(lick, c.key, cMin, !!c.allowTranspose) && (!targetKey || sameRoot(targetKey, c.key))) {
+    return { ok: true, reason: 'same', lickKey: lRoot, lickMinor: lMin, lickLabel, chainKey: c.key, chainMinor: cMin, chainLabel, canTranspose: true }
+  }
+  const canTranspose = lMin === cMin && !!placeFor(lick, c.key)
+  const reason = lMin !== cMin ? 'different-quality' : canTranspose ? 'different-key' : 'cant-fit'
+  return { ok: false, reason, lickKey: lRoot, lickMinor: lMin, lickLabel, chainKey: c.key, chainMinor: cMin, chainLabel, canTranspose }
+}
+
+/** Add a lick to the end of the saved chain (from a lick's own page). The first lick locks the key & major/minor. */
+export function addToChain(lickId: string, key?: string, minor?: boolean) {
   const c = loadChain()
-  saveChain({ ...c, key: c.links.length ? c.key : key ?? c.key, links: [...c.links, { lick: lickId, uid: newUid() }] })
+  const lick = findLick(lickId)
+  if (c.links.length === 0 && lick) {
+    const k = key ?? lick.ref
+    const m = typeof minor === 'boolean' ? minor : lickMinor(lick)
+    const transposed = !sameRoot(k, lick.ref)
+    saveChain({ ...c, key: k, minor: m, allowTranspose: transposed, links: [{ lick: lickId, uid: newUid() }] })
+    return
+  }
+  saveChain({ ...c, links: [...c.links, { lick: lickId, uid: newUid() }] })
+}
+
+/** Replace the chain with one lick in its key + tonality (used when user switches away from a locked key). */
+export function startNewChain(lickId: string, key?: string, minor?: boolean) {
+  const c = loadChain()
+  const lick = findLick(lickId)
+  if (!lick) return
+  const k = key ?? lick.ref
+  const m = typeof minor === 'boolean' ? minor : lickMinor(lick)
+  const transposed = !sameRoot(k, lick.ref)
+  saveChain({ ...c, key: k, minor: m, allowTranspose: transposed, links: [{ lick: lickId, uid: newUid() }] })
+}
+
+/** Enable transposition on the current chain (keeping its locked key + tonality) and append the lick. */
+export function matchChainTranspose(lickId: string) {
+  const c = loadChain()
+  const lick = findLick(lickId)
+  if (!lick) return
+  const cMin = chainMinor(c)
+  if (lickMinor(lick) !== cMin || !placeFor(lick, c.key)) return
+  saveChain({ ...c, minor: cMin, allowTranspose: true, links: [...c.links, { lick: lickId, uid: newUid() }] })
 }
 
 /** Licks that can go in a chain: 4/4 only, so the bars line up. */
@@ -51,16 +140,21 @@ const notesOf = (ev: LickEvent[]) => ev.flatMap(e => e.notes.filter(n => n.tech 
 export interface Placed { link: ChainLink; lick: LickDef; events: LickEvent[]; capo: number; fits: boolean }
 
 /**
- * Place every lick of the chain in the key, each near the last. Licks that can't be played in this key come back
- * with fits=false (and no notes); the card says so and the chain skips them.
+ * Place every lick of the chain in the key, each near the last. Licks that don't match the chain's key/tonality rules
+ * come back with fits=false (and no notes); the card says so and the chain skips them.
  */
 export function placeChain(c: Chain): Placed[] {
   const out: Placed[] = []
   let prevCenter: number | null = null
   let prevEnd: number | null = null
+  const strictQuality = typeof c.minor === 'boolean'
   for (const link of c.links) {
     const lick = findLick(link.lick)
     if (!lick) continue
+    if (strictQuality && !lickMatchesChain(lick, c.key, c.minor!, !!c.allowTranspose)) {
+      out.push({ link, lick, events: [], capo: 0, fits: false })
+      continue
+    }
     const p = placeFor(lick, c.key)
     if (!p) { out.push({ link, lick, events: [], capo: 0, fits: false }); continue }
     const raw = parseLick(lick.tab).events
@@ -122,7 +216,7 @@ export function chainSong(c: Chain, tuning: number[]): { song: Song; capo: numbe
     events.push(...ev)
   })
   const first = ok[0].lick
-  const minor = first.minor ?? lickStyle(first.style).minor
+  const minor = typeof c.minor === 'boolean' ? c.minor : lickMinor(first)
   const song = lickSong(events, {
     tuning, capo: isStandard(tuning) ? keepCapo : 0, title: `My lick chain in ${keyLabel(c.key, minor)}`, tempo: chainTempo(c),
     program: lickStyle(first.style).program,
@@ -132,16 +226,21 @@ export function chainSong(c: Chain, tuning: number[]): { song: Song; capo: numbe
 
 /**
  * "Add one that flows": the lick (from the styles already in the chain, or `style`) whose first note is closest to
- * where the chain ends, that fits the key and isn't already the last one. Endings are kept for when the chain has 3+.
+ * where the chain ends, that fits the key/tonality rules and isn't already the last one. Endings are kept for when the chain has 3+.
  */
 export function flowNext(c: Chain, style?: string): LickDef | null {
   const placed = placeChain(c)
   const last = [...placed].reverse().find(p => p.fits && notesOf(p.events).length)
   const lastNote = last ? notesOf(last.events).slice(-1)[0] : null
   const end = last && lastNote ? midiOf(lastNote, last.capo) : null
-  const styles = style ? [style] : [...new Set(placed.map(p => p.lick.style))]
+  const styles = style && style !== 'all' ? [style] : [...new Set(placed.map(p => p.lick.style))]
   const used = new Set(c.links.map(l => l.lick))
-  const pick = (anyStyle: boolean) => LICKS.filter(l => chainable(l) && (anyStyle || !styles.length || styles.includes(l.style)) && l.id !== last?.lick.id && !!placeFor(l, c.key))
+  const strict = typeof c.minor === 'boolean'
+  const catalog = style === 'mine' ? [...myLicks(), ...LICKS] : LICKS
+  const matchesKey = (l: LickDef) => strict
+    ? lickMatchesChain(l, c.key, c.minor!, !!c.allowTranspose)
+    : !!placeFor(l, c.key)
+  const pick = (anyStyle: boolean) => catalog.filter(l => chainable(l) && (anyStyle || !styles.length || styles.includes(l.style)) && l.id !== last?.lick.id && matchesKey(l))
     .filter(l => c.links.length >= 3 || (l.kind !== 'ending'))
   // nothing in these styles fits the key: any style that does
   let pool = pick(false)

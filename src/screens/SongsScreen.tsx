@@ -23,6 +23,7 @@ import { usePersist } from '../components/Controls'
 import { go, openInPlay, setSubPage } from '../nav'
 import { Ico } from '../components/Icon'
 import { AddBox } from '../components/AddBox'
+import { formatKeyBadge, songKeyGuess } from '../tabs/keyDetect'
 import { onToLearn, removeToLearn, toLearnList } from '../tabs/toLearn'
 
 
@@ -90,9 +91,14 @@ function inPlan(d: SongDoc, currentId: string, now = Date.now()): boolean {
   if (!st) return d.id === currentId
   return (!!st.review && st.review.due <= now) || !!troubleBars(st) || d.id === currentId || (!st.learnedAt && now - st.lastAt < 14 * 86400000)
 }
+function keyBadgeOf(d: SongDoc): string | null {
+  const capo = d.song.tracks[d.track ?? 0]?.capo ?? d.song.tracks[0]?.capo ?? 0
+  const k = d.key ?? songKeyGuess(d.song, d.track ?? 0)
+  return k ? formatKeyBadge(k.root, k.minor, capo) : null
+}
 
 /** One row of the progress lists: a song of yours or a songbook part you've played. */
-interface Progress { id: string; title: string; part?: string; best: number; lastAt: number; due: boolean; learned: boolean; open: () => void }
+interface Progress { id: string; title: string; part?: string; keyLabel?: string | null; best: number; lastAt: number; due: boolean; learned: boolean; open: () => void }
 
 /** Songs → Library: "Learning now" first (in progress and reviews due), then your songs, then the songbook. One search
  *  for all of it; chips to show one kind. */
@@ -107,6 +113,11 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
   const [style, setStyle] = usePersist('libStyle', '')
   const [tuning, setTuning] = usePersist('libTuning', '')
   const own = useMemo(() => (songs ?? []).filter(mine), [songs])
+  const keyById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const d of own) { const k = keyBadgeOf(d); if (k) m.set(d.id, k) }
+    return m
+  }, [own])
   const styles = useMemo(() => [...new Set(own.map(styleOf))].sort(), [own])
   const tunings = useMemo(() => [...new Set(own.map(d => tuningOf(d, inst)))].sort(), [own, inst])
   const kindOk = (d: SongDoc) => show === 'plan' ? inPlan(d, currentId) : show === 'scanned' ? scanned(d) : show === 'backing' ? hasBacking(d) : true
@@ -121,13 +132,13 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
       if (!pick(d)) continue
       const st = stats[d.id]
       if (!st) continue
-      out.push({ id: d.id, title: d.title, best: st.best, lastAt: st.lastAt, due: !!st.review && st.review.due <= now, learned: !!st.learnedAt, open: () => onOpen(d) })
+      out.push({ id: d.id, title: d.title, keyLabel: keyById.get(d.id) ?? null, best: st.best, lastAt: st.lastAt, due: !!st.review && st.review.due <= now, learned: !!st.learnedAt, open: () => onOpen(d) })
     }
     for (const s of SONGBOOK) for (const p of s.parts) {
       const id = songbookId(s.id, p.id, inst)
       const st = stats[id]
       if (!st) continue
-      out.push({ id, title: s.title, part: p.label, best: st.best, lastAt: st.lastAt, due: !!st.review && st.review.due <= now, learned: !!st.learnedAt,
+      out.push({ id, title: s.title, part: p.label, keyLabel: formatKeyBadge(s.key, !!s.minor), best: st.best, lastAt: st.lastAt, due: !!st.review && st.review.due <= now, learned: !!st.learnedAt,
         open: () => { void loadSongbookDoc(s.id, p.id, inst).then(doc => { if (doc) onOpen(doc) }) } })
     }
     return out.filter(x => !query || `${x.title} ${x.part ?? ''}`.toLowerCase().includes(query))
@@ -138,7 +149,10 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
     <li key={x.id} className={x.id === currentId ? 'on' : ''}>
       <button className="song-open" onClick={x.open}>
         <PsyDog breed={breedOf(x.id)} className="song-dog" />
-        <b>{x.title}</b>
+        <div className="song-title-row">
+          <b>{x.title}</b>
+          {x.keyLabel && <span className="key-tag">{x.keyLabel}</span>}
+        </div>
         <span className="small muted">{[x.part, x.id.startsWith('sb:') ? 'Songbook' : 'Yours'].filter(Boolean).join(' · ')}</span>
         <span className="small song-progress">
           {x.best > 0 && <span>best {x.best}%</span>}
@@ -197,7 +211,7 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
       )}
       {(show === 'all' || show === 'mine') && <SavedForLater onAdd={onAdd} />}
       {(show === 'all' || show === 'mine' || show === 'plan' || show === 'scanned' || show === 'backing') && (
-        <MySongs songs={songs} currentId={currentId} onOpen={onOpen} refresh={refresh} onAdd={onAdd} onSongbook={() => setShow('songbook')} query={q}
+        <MySongs songs={songs} currentId={currentId} keyById={keyById} onOpen={onOpen} refresh={refresh} onAdd={onAdd} onSongbook={() => setShow('songbook')} query={q}
           only={pick} title={show === 'plan' ? 'In your practice plan' : show === 'scanned' ? 'Scanned' : show === 'backing' ? 'With backing tracks' : undefined} />
       )}
       {(show === 'all' || show === 'songbook') && <Songbook currentId={currentId} onOpen={onOpen} query={q} embedded />}
@@ -205,8 +219,8 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
   )
 }
 
-function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook, query, only, title }: {
-  songs: SongDoc[] | null; currentId: string; onOpen: (d: SongDoc) => void; refresh: () => Promise<void>; onAdd: () => void; onSongbook: () => void; query: string
+function MySongs({ songs, currentId, keyById, onOpen, refresh, onAdd, onSongbook, query, only, title }: {
+  songs: SongDoc[] | null; currentId: string; keyById: Map<string, string>; onOpen: (d: SongDoc) => void; refresh: () => Promise<void>; onAdd: () => void; onSongbook: () => void; query: string
   only?: (d: SongDoc) => boolean; title?: string
 }) {
   const inst = useInstrument()
@@ -242,11 +256,16 @@ function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook, query, 
     <Win id="list" title={`${title ?? 'Your songs'} (${shown.length !== list.length ? `${shown.length} of ` : ''}${list.length})`} className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
       {moved && <p className="small muted" role="status">{moved}</p>}
       <ul className="song-list">
-        {shown.map(s => (
+        {shown.map(s => {
+          const keyBadge = keyById.get(s.id)
+          return (
           <li key={s.id} className={s.id === currentId ? 'on' : ''}>
             <button className="song-open" onClick={() => onOpen(s)}>
               <PsyDog breed={breedOf(s.id)} className="song-dog" />
-              <b>{s.title}</b>
+              <div className="song-title-row">
+                <b>{s.title}</b>
+                {keyBadge && <span className="key-tag">{keyBadge}</span>}
+              </div>
               <span className="small muted">
                 {[s.artist, s.source === 'gp' ? 'Guitar Pro' : s.source === 'chords' ? 'Chord sheet' : s.source === 'jam' ? 'Made in KGuitar' : 'Text tab', s.youtube ? 'video' : null, s.song.tracks.length > 1 ? `${s.song.tracks.length} tracks` : null].filter(Boolean).join(' · ')}
               </span>
@@ -282,7 +301,8 @@ function MySongs({ songs, currentId, onOpen, refresh, onAdd, onSongbook, query, 
               </span>
             )}
           </li>
-        ))}
+          )
+        })}
       </ul>
       {!shown.length && <p className="small muted">None of your songs match "{filter}".</p>}
     </Win>

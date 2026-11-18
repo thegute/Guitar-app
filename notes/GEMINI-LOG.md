@@ -1,5 +1,20 @@
 # Gemini week log (newest first)
 
+- 2026-11-18: **Hydrogen Batch H1 — Minimal Key Badges (`Capo N`), Must-Know Licks Search/Key Filter/My Riffs, Strict Same-Key + Major/Minor Lick Chainer & Jam Band Playback (`src/tabs/keyDetect.ts`, `src/tabs/fromProgression.ts`, `src/licks/chain.ts`, `src/licks/library.ts`, `src/components/LickChainer.tsx`, `src/learn/LickLibrary.tsx`, `src/screens/JamScreen.tsx`, `src/screens/SongsScreen.tsx`, `src/components/Songbook.tsx`, `src/exercises/ExerciseBrowser.tsx`, `src/learn/guide.ts`, `src/styles.css`, `tests/gemini-week-logic.test.ts`, `tests/browser/batch-h1-test.cjs`)**:
+  1. **Minimal Key Badges Everywhere Songs, Licks, or Key-Based Exercises Are Listed (`src/tabs/keyDetect.ts`, `SongsScreen.tsx`, `Songbook.tsx`, `LickLibrary.tsx`, `JamScreen.tsx`, `LickChainer.tsx`, `ExerciseBrowser.tsx`):**
+     - Added `formatKeyBadge(root, minor, capo)` and `songKeyGuess(song, trackIdx)` (Krumhansl–Kessler pitch-duration + bass weighting).
+     - Per owner preference, badges stay minimal (`Em`, `Am`, `G`) and **always spell out `Capo N`** (e.g. `A · Capo 2`, never `C2`); non-key exercises (`!ex.key`, e.g., `WU-1`) omit the badge.
+     - Fixed two pre-existing duplicate lick IDs in `src/licks/library.ts` (`'ns-sixths'` → `'ns-sliding-sixths'`, `'cy-chicken'` → `'cy-chicken-snaps'`) so `findLick()` and React keys never collide across All-styles filtering.
+  2. **Must-Know Licks Filters (`src/learn/LickLibrary.tsx`):**
+     - Added live Search (`data-testid="lick-search"` across title/artist/chord/tips), Key filter (`data-testid="lick-key-filter"`, including `Jam key (...)` and all home keys distinguishing major vs minor), `"My riffs"` in the Style picker, and `.key-tag` badges on cards + `LickDetail`.
+  3. **Strict Same-Key + Major/Minor Lick Chainer & Jam Integration (`src/licks/chain.ts`, `src/components/LickChainer.tsx`, `src/learn/LickLibrary.tsx`, `src/screens/JamScreen.tsx`, `src/tabs/fromProgression.ts`):**
+     - `Chain` now tracks `minor?: boolean` and `allowTranspose?: boolean` (default `false`), enforcing strict root + major/minor matching (`Em` ≠ `E`, `Em` ≠ `G` relative major) via `lickMatchesChain`, `checkChainAdd`, `startNewChain`, and `matchChainTranspose`.
+     - Added **`+ Chain`** buttons on cards in `Must-Know Licks`, `LickDetail`, and `Jam → Licks`; mismatches open an inline guard (`Start new [key] chain` | `Match to [chain key]` *(when same tonality)* | `Cancel`).
+     - Added **`All styles`** chip, pre-chain Key selector, active Same-key lock bar with opt-in **`Include licks transposed to [key]`** toggle, **`Save to My Songs`**, and **`▶ Hear over my Jam band`** (`jamBandForSong` wired through `TabPlayer.band`).
+  4. **Verification & Roadmap Status:**
+     - Verified `npx tsc --noEmit -p .`, full `npm test` (`build19-logic: 549073/549073`, `build22-logic: 128203/128203`, `build25-logic: 16090/16090`, `search-logic: 420/420`, `gemini-week-logic` Batch H1 checks), `npm run build`, `batch-h1-test.cjs` (ALL PASSED), `build19-test.cjs exercises looks` (1101 exercises), `jam-test.cjs` (0 errors, 0 overflow), and `build14-test.cjs` (`all good`: Day/Night/Psychedelic contrast + overflow across phone/cover/inner/tablet + 88 Guide links).
+     - Remaining Hydrogen items: **Batch H2** (Key Signature transpose bar + `Capo N` sync in Play + Song/Exercise transposition + key mismatch warning on Jam + Licks↔Exercises↔Songs deep links) and **Batch H3** (Visual Count-in / First-Beat Cue Bar in Play & Looper). Argon items (`notes/SOUND-ENGINE-FINISH.md` Steps 1–8 AudioWorklet sampler/buses & high-accuracy chord-aware Pitchy/CREPE pitch/chord tracker) remain queued for Argon.
+
 - 2026-11-18: **80 New Famous E-Standard Must-Know Licks (`src/licks/classicLicks.ts`, `tests/gemini-week-logic.test.ts`)**:
   1. **Expanded Must-Know Licks (`src/licks/classicLicks.ts` — 95 → 175 `CLASSIC_LICKS`, 469 total `LICKS`):**
      - Added **80** recognizable E-Standard (`E A D G B e`) licks & riffs across styles requested by the owner (Billy Strings, Buckethead, B.B. King, Top 100 classics, and matching styles — adapting Drop-D / E♭ originals cleanly to standard tuning):

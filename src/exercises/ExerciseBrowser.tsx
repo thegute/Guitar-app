@@ -400,10 +400,14 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
   const activeProgIdx = progDiagrams.findIndex(d => d.stepIndices?.includes(at))
   const worksTags = useMemo(() => worksOverForExercise(ex), [ex])
   const shownBpm = liveBpm ?? bpm
+  const keyTag = ex.key ? `${keyName(root, ex.minor)}${capo ? ` · Capo ${capo}` : ''}` : ''
   const head = (
     <div className="ex-card-head">
       <span className={`ex-chord${!chordNow && !count ? ' ex-name' : ''}`}>{count > 0 ? <span className="ex-count-in">{count}</span> : chordNow || ex.name}</span>
-      <span className="small muted">{ex.kind} <b>{ex.code}</b> · {shownBpm} BPM{bestBpm ? ` · Best ${bestBpm}` : ''}{capo ? ` · capo ${capo}` : ''}</span>
+      <span className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        {keyTag && <span className="key-tag">{keyTag}</span>}
+        <span className="small muted">{ex.kind} <b>{ex.code}</b> · {shownBpm} BPM{bestBpm ? ` · Best ${bestBpm}` : ''}{capo && !keyTag ? ` · Capo ${capo}` : ''}</span>
+      </span>
     </div>
   )
   const misfit = <p className="notice">This one doesn't fit your {inst.noun} in this key. Try another key, or the next exercise.</p>

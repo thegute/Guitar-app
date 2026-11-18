@@ -517,13 +517,13 @@ export const LICKS: LickDef[] = [
   ]),
   // ───────────────────────── more licks for the styles that had only a few
   ...L('neosoul', 'E', [
-    { id: 'ns-sixths', name: 'Sliding sixths', level: 2, kind: 'double-stop', chord: 'E', tab: 'e 3:9+1:9 3:11+1:12 3:9+1:9 r q 3:7+1:7 3:9+1:9 | h 3:9+1:9~ h r' },
+    { id: 'ns-sliding-sixths', name: 'Sliding sixths', level: 2, kind: 'double-stop', chord: 'E', tab: 'e 3:9+1:9 3:11+1:12 3:9+1:9 r q 3:7+1:7 3:9+1:9 | h 3:9+1:9~ h r' },
     { id: 'ns-hammer-chord', name: 'Chord with a hammer flourish', level: 2, kind: 'lick', chord: 'E', tab: 'e 4:9+3:9 4:9+3:9 3:11h r 2:9 2:12 2:9 3:11 | h 3:9~ q 4:9 r' },
     { id: 'ns-slide-arp', name: 'Slide into an arpeggio', level: 1, kind: 'arpeggio', chord: 'E', tab: 'e 4:7/ 4:9 3:9 2:9 1:7 2:9 3:9 4:9 | q 4:7~ e 3:9 2:9 h 1:7' },
     { id: 'ns-flutter', name: 'Pentatonic flutter', level: 3, kind: 'run', chord: 'E', tab: 's 1:7 1:9 2:9 1:9 1:7 2:9 2:7 3:9 3:7 3:9 2:7 3:9 4:9 3:7 4:9 4:7 | h 5:7~ h r' },
   ]),
   ...L('country', 'A', [
-    { id: 'cy-chicken', name: 'Chicken-pickin\' snaps', level: 2, kind: 'lick', chord: 'A', tab: 'e 3:2 3:2m 2:2 3:2 4:2 4:2m 3:2 2:2 | q 2:5 e 2:2 3:2 h 4:2' },
+    { id: 'cy-chicken-snaps', name: 'Chicken-pickin\' snaps', level: 2, kind: 'lick', chord: 'A', tab: 'e 3:2 3:2m 2:2 3:2 4:2 4:2m 3:2 2:2 | q 2:5 e 2:2 3:2 h 4:2' },
     { id: 'cy-steel-bend', name: 'Pedal-steel bend', level: 2, kind: 'double-stop', chord: 'A', tab: 'q 3:4b+2:5 e 3:4r 2:5 q 1:5 e 2:5 3:2 | h 3:2+2:2 h r' },
     { id: 'cy-walk-a', name: 'Walk-up in A', level: 1, kind: 'run', chord: 'A', tab: 'e 5:0 5:2 5:4 4:0 4:2 4:4 3:1 3:2 | q 2:2 2:0 h 3:2' },
     { id: 'cy-acoustic-fill', name: 'Acoustic hammer-on fill', level: 1, kind: 'lick', chord: 'D', tab: 'e 4:0 3:2 2:3 1:0 1:2h 2:3 3:2 4:0 | h 4:0+3:2+2:3+1:2 h r' },

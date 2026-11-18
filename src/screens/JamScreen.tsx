@@ -50,6 +50,8 @@ import { LICKS, type LickDef } from '../licks/library'
 import { lickStyle } from '../licks/styles'
 import { lickInKey } from '../licks/generator'
 import { jamProfile, matchingLicksForJam, worksOverForLick, worksOverSummary } from '../licks/worksOver'
+import { formatKeyBadge } from '../tabs/keyDetect'
+import { addToChain, chainable, checkChainAdd, lickMinor, matchChainTranspose, startNewChain, type ChainAddCheck } from '../licks/chain'
 
 const bassLineKind = (id: string): BassKind => BASSLINES.find(b => b.id === id)?.bass ?? 'session'
 import { useScreenInfo } from '../assistant/screen'
@@ -249,9 +251,23 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   }
   const [licksOpen, setLicksOpen] = useState(false)
   const [playingLickId, setPlayingLickId] = useState<string | null>(null)
+  const [jamChainPrompt, setJamChainPrompt] = useState<{ lickId: string; check: ChainAddCheck } | null>(null)
+  const [jamChainToast, setJamChainToast] = useState<{ lickId: string; text: string } | null>(null)
   const lickPlayer = useRef<TabPlayer | null>(null)
   const jamProf = useMemo(() => jamProfile(prog, tonic, mode, style), [prog, tonic, mode, style])
   const matchingLicks = useMemo(() => matchingLicksForJam(LICKS, jamProf, 12), [jamProf])
+
+  function tapJamLickChain(l: LickDef) {
+    const chk = checkChainAdd(l.id)
+    if (!chk) return
+    if (chk.ok) {
+      addToChain(l.id, l.ref, lickMinor(l))
+      setJamChainPrompt(null)
+      setJamChainToast({ lickId: l.id, text: '✓ In chain' })
+    } else {
+      setJamChainPrompt({ lickId: l.id, check: chk })
+    }
+  }
 
   function stopLickPreview() {
     lickPlayer.current?.stop()
@@ -591,18 +607,45 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
                   <div className="jam-licks-list" data-testid="jam-licks-list">
                     {matchingLicks.map(l => {
                       const lst = lickStyle(l.style)
+                      const lMin = lickMinor(l)
                       const isPlaying = playingLickId === l.id
+                      const showPrompt = jamChainPrompt?.lickId === l.id ? jamChainPrompt.check : null
+                      const toast = jamChainToast?.lickId === l.id ? jamChainToast.text : null
                       return (
                         <div key={l.id} className="jam-lick-row">
                           <div className="jam-lick-info">
-                            <b>{l.name}</b>
+                            <div className="song-title-row">
+                              <b>{l.name}</b>
+                              <span className="key-tag">{formatKeyBadge(l.ref, lMin)}</span>
+                            </div>
                             <span className="small muted">{lst.label} · Works over: {worksOverSummary(worksOverForLick(l), 2)}</span>
                           </div>
                           <div className="jam-lick-acts">
                             <button className={`btn sm${isPlaying ? ' on' : ''}`} onClick={() => hearLick(l)}>{isPlaying ? '■ Stop' : '▶ Hear'}</button>
                             <button className="btn sm primary" onClick={() => void openLickInPlay(l)}>Play tab</button>
+                            {chainable(l) && (
+                              <button className="btn sm" data-testid={`jam-lick-chain-${l.id}`} onClick={() => tapJamLickChain(l)}>
+                                {toast ?? '＋ Chain'}
+                              </button>
+                            )}
                             <button className="btn sm ghost" onClick={() => learnGo({ licks: l.id })}>Learn</button>
                           </div>
+                          {showPrompt && (
+                            <div className="chain-prompt small" style={{ flex: '1 0 100%' }}>
+                              <span>Chain is locked to <b>{showPrompt.chainLabel}</b> ({l.name} is <b>{showPrompt.lickLabel}</b>).</span>
+                              <div className="chain-prompt-acts">
+                                <button className="btn sm" onClick={() => { startNewChain(l.id); setJamChainPrompt(null); setJamChainToast({ lickId: l.id, text: `✓ New ${showPrompt.lickLabel} chain` }) }}>
+                                  Start new {showPrompt.lickLabel} chain
+                                </button>
+                                {showPrompt.canTranspose && (
+                                  <button className="btn sm primary" onClick={() => { matchChainTranspose(l.id); setJamChainPrompt(null); setJamChainToast({ lickId: l.id, text: `✓ Matched to ${showPrompt.chainLabel}` }) }}>
+                                    Match to {showPrompt.chainLabel}
+                                  </button>
+                                )}
+                                <button className="btn sm ghost" onClick={() => setJamChainPrompt(null)}>Cancel</button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )
                     })}

@@ -2,6 +2,41 @@
 // then recommend scales to improvise with.
 import { Scale } from 'tonal'
 import { FLATS, SHARPS, keyPrefersFlats, pc } from '../theory/notes'
+import type { Song } from './model'
+
+/** Minimal key badge text (`Em`, `G`, `G · Capo 2`). Always spells out `Capo N`. */
+export function formatKeyBadge(root: string, minor = false, capo = 0): string {
+  const flats = keyPrefersFlats(root, minor)
+  const name = (flats ? FLATS : SHARPS)[pc(root)] + (minor ? 'm' : '')
+  return capo > 0 ? `${name} · Capo ${capo}` : name
+}
+
+/** Quick, pure key estimate for any Song (from its main track's note pitches and durations). */
+export function songKeyGuess(song: Song, trackIdx = 0): { root: string; minor: boolean } | null {
+  const trk = song.tracks[trackIdx] ?? song.tracks[0]
+  if (!trk) return null
+  const weights = Array<number>(12).fill(0)
+  const bass = Array<number>(12).fill(0)
+  for (const bar of trk.bars) {
+    let beat = 0
+    for (const st of bar.steps) {
+      const ns = st.notes.filter(n => n.tech !== 'x' && Number.isFinite(n.midi))
+      if (ns.length) {
+        const w = Math.max(0.25, st.dur)
+        let lo = ns[0].midi
+        for (const n of ns) {
+          weights[((n.midi % 12) + 12) % 12] += w
+          if (n.midi < lo) lo = n.midi
+        }
+        bass[((lo % 12) + 12) % 12] += beat < 0.01 ? w * 1.5 : w
+      }
+      beat += st.dur
+    }
+  }
+  if (weights.every(w => w === 0)) return null
+  const top = detectKey(weights, bass)[0]
+  return top ? { root: top.root, minor: top.minor } : null
+}
 
 const MAJOR = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
 const MINOR = [6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
