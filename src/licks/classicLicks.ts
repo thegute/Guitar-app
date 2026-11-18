@@ -166,6 +166,160 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         goal: 122,
       },
     },
+    {
+      id: 'cl-bl-bb-thrill', name: 'B.B. King Thrill Is Gone slow sting', level: 2, kind: 'lick', chord: 'Bm', ref: 'B', bpm: 88,
+      tab: 'q 2:12~ e 1:10 2:12 q 1:12b~ e 1:12r 2:10 | e 2:12 2:10 3:11 4:12 h 4:9~',
+      must: {
+        about: 'B.B. King minor-blues masterpiece: singing right in the B-minor high box with pinpoint bends, butterfly vibrato, and rich harmonic space.',
+        steps: [
+          'Shake the root B (B-12) warmly, step cleanly e-10 → B-12, then bend high e-12 (E) up a full step to F# and let it back down smoothly.',
+          'Walk calmly down B-12 → B-10 → G-11 → D-12 and rest home on B (D-9) with wide wrist vibrato.',
+        ],
+        tip: 'Keep the vibrato slow and wide on beat 1 of bar 1 and let the half-note root breathe at the end of bar 2.',
+        use: 'Minor slow blues (The Thrill Is Gone style) over Bm or Em.',
+        goal: 94,
+      },
+    },
+    {
+      id: 'cl-bl-bb-angel', name: 'B.B. King Sweet Little Angel cry', level: 2, kind: 'lick', chord: 'C7', ref: 'C', bpm: 64,
+      tab: 'e 2:13 1:13 q 1:15b~ e 1:15r 1:13 q 2:13~ | e 2:16 2:13 q 3:14b e 3:14r 3:12 q 4:10~',
+      must: {
+        about: 'Live at the Regal magic in C major: B.B. floating up in the 13th-fret box with a soaring top-E bend and gentle cry.',
+        steps: [
+          'Anchor your index on B-13 (C) and ring on e-15 (G); bend e-15 up a full step to A, release smoothly to e-13 (F), and land back on C (B-13).',
+          'Answer in bar 2 by snapping B-16 (Eb) → B-13, squeezing G-14 up and letting it drop onto D-10 (C).',
+        ],
+        tip: 'Use a bright neck-pickup tone and wait a tiny fraction before vibrating the held notes.',
+        use: 'Slow 12/8 blues ballads over C7 or Bb7.',
+        goal: 70,
+      },
+    },
+    {
+      id: 'cl-bl-bb-lucille', name: 'B.B. King Lucille sweet call & answer', level: 2, kind: 'lick', chord: 'A7', bpm: 78,
+      tab: 'e 2:10 1:12b q 1:12r e 1:10 2:12 q 2:10~ | q r e 3:11 3:9 q 4:11~ q 2:10~',
+      must: {
+        about: 'Conversational phrasing worthy of Lucille herself: a high vocal question answered calmly down in the sweet major-6th and major-3rd pocket.',
+        steps: [
+          'Pick B-10 (A), bend high e-12 (E) up a full step, release cleanly to e-10 → B-12 and tremble on root A (B-10).',
+          'Breathe for beat 1 of bar 2, then answer smoothly G-11 (F#) → G-9 (E) → D-11 (C#) → B-10 (A).',
+        ],
+        tip: 'Imagine finishing a sung lyric line and letting the guitar sing the reply.',
+        use: 'Call-and-response blues breaks over A7.',
+        goal: 84,
+      },
+    },
+    {
+      id: 'cl-bl-bb-everyday', name: 'B.B. King Every Day horn-punch shuffle', level: 2, kind: 'lick', chord: 'A7', bpm: 112,
+      tab: 't 3:9 2:10 2:12 q 1:10b t 1:10r 2:12 2:10 q 3:11~ | e 2:10 1:12 1:10 2:12 e 2:10 3:11 q 3:9~',
+      must: {
+        about: 'Upbeat horn-driven jump-blues B.B.: crisp triplet climbs into stinging bends that lock right against big-band brass stabs.',
+        steps: [
+          'Climb in brisk triplets (G-9, B-10, B-12), hit e-10 bent up to E, release in triplets back down B-12 → B-10 and pause on G-11 (F#, the sweet 6th).',
+          'Bar 2 punches playfully around e-12 and e-10 before landing solidly on E (G-9).',
+        ],
+        tip: 'Keep the triplet feel bouncy and sharp—do not drag on upbeat shuffles.',
+        use: 'Uptempo big-band blues and upbeat shuffles over A7.',
+        goal: 120,
+      },
+    },
+    {
+      id: 'cl-bl-bb-rockme', name: 'B.B. King Rock Me Baby pocket hook', level: 1, kind: 'lick', chord: 'C7', ref: 'C', bpm: 96,
+      tab: 'e 3:8 3:9h 2:8 2:10 q 1:8~ q r | e 2:11 2:8 3:10 3:8 q 4:10~ q r',
+      must: {
+        about: 'B.B. King classic mid-tempo groove: snapping the minor-to-major third hammer-on straight onto the root with generous breathing space.',
+        steps: [
+          'Strike G-8 (Eb) and hammer immediately to G-9 (E natural), roll cleanly across B-8 → B-10, and punch high C (e-8).',
+          'Leave beat 4 resting, then answer straight down Box 1 in bar 2 onto C (D-10).',
+        ],
+        tip: 'Honor the quarter-note rests on beat 4 of each bar—leaving silence makes this pocket groove hard.',
+        use: 'Mid-tempo 12-bar blues verses and intro hooks over C7.',
+        goal: 104,
+      },
+    },
+    {
+      id: 'cl-bl-srv-pride', name: 'Stevie Ray Vaughan Pride & Joy Texas rake', level: 2, kind: 'riff', chord: 'E7', ref: 'E', bpm: 120,
+      tab: 't 6:0 6:4 5:2 t 5:4 5:2 4:2 t 5:4 5:2 6:4 q 6:0 | s 5:x 4:x 3:x 2:3b e 1:0 1:0 t 2:3 2:0 3:1 q 4:2~',
+      must: {
+        about: 'E-Standard Texas shuffle thunder: driving boogie bass answered by SRV’s explosive muted string rake into a snarling top bend.',
+        steps: [
+          'Shuffle evenly across the open E boogie bass (E-0, E-4, A-2, A-4, A-2, D-2, walking straight back down).',
+          'In bar 2, mute strings 5–3 lightly and drag one ferocious downstroke rake straight into B-3b, pop open e twice, and tumble down B-3 → B-0 → G-1 → D-2.',
+        ],
+        tip: 'Keep it right in E Standard tuning—angle your pick edge so the dead-string rake cracks like a whip.',
+        use: 'Texas shuffle jams and high-energy open-E blues.',
+        goal: 130,
+      },
+    },
+    {
+      id: 'cl-bl-srv-flood', name: 'Stevie Ray Vaughan Texas Flood slow cry', level: 3, kind: 'lick', chord: 'G7', ref: 'G', bpm: 60,
+      tab: 'e 3:5 2:6b q 2:6r~ t 2:3 3:5 3:3 q 4:5~ | t 4:3 5:5 5:3 q 6:6bh t 6:3 5:5 4:5 q 4:5~',
+      must: {
+        about: 'Heavy slow 12/8 Stevie Ray Vaughan phrasing in E Standard: thick triplet pickups pouring into deep bending cries and low-string growl.',
+        steps: [
+          'Scoop up G-5 into a full-step bend on B-6 (F → G), release slowly, and cascade down B-3 → G-5 → G-3 onto G (D-5).',
+          'Dive down D-3 → A-5 → A-3, yank low E-6 (Bb) up a half-step blues curl, and bounce solidly back up E-3 → A-5 → D-5.',
+        ],
+        tip: 'Dig in hard with the pick on the lower strings—that heavy gauge growl lives in your right-hand attack.',
+        use: 'Slow minor/dominant blues ballads in G or A.',
+        goal: 68,
+      },
+    },
+    {
+      id: 'cl-bl-cream-sunshine', name: 'Cream / Clapton Sunshine chunky blues riff', level: 1, kind: 'riff', chord: 'D5', ref: 'D', bpm: 114,
+      tab: 'e 4:12 4:12 4:10 4:12 r 5:12 r 5:11 | e 5:10 r q 6:10 e 6:13 q. 6:10~',
+      must: {
+        about: 'Thick, unmistakable British blues-rock power: walking down the D blue note (Ab) straight onto the heavy low-string root.',
+        steps: [
+          'Strike D-12 twice, hop to D-10 and back to D-12, then walk chromatically down the A string: 12 → 11 → 10.',
+          'Catch low D (E-10), pop the minor 3rd F (E-13) with a slight blues curl, and settle back onto E-10.',
+        ],
+        tip: 'Roll the guitar tone knob down a notch on the neck humbucker for Cream’s singing "woman tone".',
+        use: 'Heavy classic blues-rock riffs over D7 or D5.',
+        goal: 124,
+      },
+    },
+    {
+      id: 'cl-bl-muddy-mannish', name: 'Muddy Waters Chicago stop-time stomp', level: 1, kind: 'riff', chord: 'A7', bpm: 88,
+      tab: 'e 5:0 6:3 5:0 5:3 q 5:0~ q r | e 6:3 5:0 5:3 5:0 q 5:0~ q r',
+      must: {
+        about: 'Pure South Side Chicago electricity: the most famous stop-time blues riff ever recorded, anchoring the whole band between vocal lines.',
+        steps: [
+          'Strike open A, bounce off low G (E-3) back to open A, punch C (A-3), and snap solidly back to open A.',
+          'Hold the beat-3 A short and confident, leaving beat 4 quiet for drums and vocals.',
+        ],
+        tip: 'Give A-3 a tiny quarter-step downward tug toward the floor for genuine Chicago grit.',
+        use: 'Stop-time 12-bar blues intros and verses over A7.',
+        goal: 96,
+      },
+    },
+    {
+      id: 'cl-bl-tbone-stormy', name: 'T-Bone Walker Stormy Monday sliding 9th', level: 2, kind: 'lick', chord: 'G9', ref: 'G', bpm: 66,
+      tab: 'q 5:9/+4:8/+3:9/+2:9/ 5:10+4:9+3:10+2:10 r 5:9+4:8+3:9+2:9 | q 5:10+4:9+3:10+2:10~ e 2:8 1:6 q 3:7 4:5~',
+      must: {
+        about: 'Where electric blues guitar harmony started: gliding half-step into rich jazzy 9th chords before dropping a sweet single-note turnaround.',
+        steps: [
+          'Shape the F#9 voicing (A-9, D-8, G-9, B-9) and slide smoothly up one fret into G9.',
+          'Leave beat 3 resting, tap F#9 again on beat 4, land back on G9, and trickle smoothly down B-8 → e-6 → G-7 → D-5.',
+        ],
+        tip: 'Bar strings 3 and 2 with your ring finger cleanly so the 9th chord rings like a horn section.',
+        use: 'Slow jazz-blues standards and classy chordal intros in G.',
+        goal: 72,
+      },
+    },
+    {
+      id: 'cl-bl-wolf-smokestack', name: 'Howlin’ Wolf Smokestack hypnotic E groove', level: 1, kind: 'riff', chord: 'E7', ref: 'E', bpm: 100,
+      tab: 'e 6:0 6:3 6:0 5:2 6:0 6:3 6:0 4:2 | e 6:0 6:3 6:0 5:2 q 6:0~ q r',
+      must: {
+        about: 'Hypnotic one-chord Mississippi-to-Chicago trance: Hubert Sumlin’s timeless bare-fingers low-E pulse.',
+        steps: [
+          'Thumb or bare pick bounces endlessly from open low E into G (E-3), B (A-2), and octave E (D-2).',
+          'Let the low E ring warm and slightly gritty while snapping the upper notes short.',
+        ],
+        tip: 'Play with your thumb and index finger instead of a pick to nail Sumlin’s woody, percussive bite.',
+        use: 'One-chord trance blues grooves in E.',
+        goal: 108,
+      },
+    },
   ], true),
 
   // ───────────────────────── Classic Rock (Chuck Berry, Page, Hendrix, Clapton, Gilmour, Slash, EVH, Angus Young, Santana, Mark Knopfler)
@@ -314,6 +468,258 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         goal: 100,
       },
     },
+    {
+      id: 'cl-rk-smoke', name: 'Deep Purple Smoke on the Water fourths', level: 1, kind: 'riff', chord: 'Gm | Bb5', ref: 'G', bpm: 112,
+      tab: 'q 4:5+3:5 4:8+3:8 q. 4:10+3:10 e r | e 4:5+3:5 4:8+3:8 q 4:11+3:11 h 4:10+3:10~',
+      must: {
+        about: 'The most recognizable rock riff in history: Ritchie Blackmore’s stark two-string fourths played in clean finger-plucked bite (no pick needed, or firm flatpick).',
+        steps: [
+          'Grip the D and G strings together at fret 5 (G5), hop to fret 8 (Bb5), and ring boldly on fret 10 (C5).',
+          'Wait half a beat, bounce 5 → 8 → 11 (Db5 blue tension) and slam home onto fret 10.',
+        ],
+        tip: 'Pluck D and G together cleanly with fingers or tight flatpick strikes while muting the outer strings so the fourths ring giant and dry.',
+        use: 'Classic hard rock riffs and jam warm-ups over Gm or G5.',
+        goal: 120,
+      },
+    },
+    {
+      id: 'cl-rk-back-in-black', name: 'AC/DC Back in Black chord & pull-off', level: 1, kind: 'riff', chord: 'E5 D5 | A5', ref: 'E', bpm: 94,
+      tab: 'q 6:0+5:2+4:2 r e 4:0+3:2+2:3 4:0+3:2+2:3 q 4:0+3:2+2:3 | e 5:0+4:2+3:2 5:0+4:2+3:2 q 5:0+4:2+3:2 t 1:3 1:0 2:3 2:0 3:2 3:0',
+      must: {
+        about: 'Malcolm and Angus Young riff architecture: punchy open power chords left completely dead between hits, punctuated by an open-position E minor pentatonic snap.',
+        steps: [
+          'Chop open E5 once and choke the strings dead with your palm; then slam three crisp D chords (D–D–D).',
+          'Hit three tight open A chords, then fire brisk triplets straight down the open E box: e-3→0 → B-3→0 → G-2→0.',
+        ],
+        tip: 'Mute completely right after beat 1—the huge silence between the chords is half of AC/DC’s thunder.',
+        use: 'Driving straight-4/4 arena rock grooves in E or A.',
+        goal: 102,
+      },
+    },
+    {
+      id: 'cl-rk-thunder', name: 'AC/DC Thunderstruck open B pedal run', level: 2, kind: 'riff', chord: 'B5', ref: 'B', bpm: 132,
+      tab: 's 2:4 2:0 2:7 2:0 2:4 2:0 2:7 2:0 2:4 2:0 2:7 2:0 2:4 2:0 2:7 2:0 | s 2:5 2:0 2:8 2:0 2:5 2:0 2:8 2:0 2:5 2:0 2:8 2:0 2:5 2:0 2:8 2:0',
+      must: {
+        about: 'Angus Young stadium-opener engine: cycling cleanly between fretted notes and the ringing open B string in relentless 16th notes.',
+        steps: [
+          'Keep your index hovering over B-4 (D#) and pinky ready at B-7 (F#): hammer/pick cleanly against open B (4-0-7-0) four times.',
+          'Shift up one fret to 5-0-8-0 in bar 2 while keeping the exact same light left-hand snap.',
+        ],
+        tip: 'Touch adjacent high E and G strings lightly with your fretting fingertips so only the B string sings cleanly.',
+        use: 'Crowd-pleasing classic rock intros and pull-off stamina drills in B.',
+        goal: 140,
+      },
+    },
+    {
+      id: 'cl-rk-whole-lotta', name: 'Led Zeppelin Whole Lotta Love riff', level: 1, kind: 'riff', chord: 'E5', ref: 'E', bpm: 90,
+      tab: 'e 5:5 5:7 6:0 6:0 q 6:0+5:2~ e 5:5 5:7 | e 6:0 6:0 q 6:0+5:2~ h 6:0+5:2+4:2~',
+      must: {
+        about: 'Jimmy Page heavyweight riff mastery: sliding D-to-E into a throaty low-E drone and thick power chord.',
+        steps: [
+          'Pick A-5 (D) climbing briskly to A-7 (E), snap twice on low open E, and slam the full open E5 chord.',
+          'Keep a heavy behind-the-beat blues swagger so the riff feels massive without rushing.',
+        ],
+        tip: 'Give A-5 a slight gritty blues push before hitting A-7 so it oozes 1969 swagger.',
+        use: 'Heavy 70s blues-rock riffs over E5.',
+        goal: 96,
+      },
+    },
+    {
+      id: 'cl-rk-black-dog', name: 'Led Zeppelin Black Dog syncopated hook', level: 2, kind: 'riff', chord: 'A5', bpm: 84,
+      tab: 'e 5:7 4:5 4:6 4:7 3:5 3:7 3:5 4:7 | e 5:7 4:5 5:7 5:5 5:3 5:5 q 5:0~',
+      must: {
+        about: 'Unaccompanied call-and-response wizardry: weaving through major and minor thirds in A before landing squarely back on open A.',
+        steps: [
+          'Start firmly on A-7 (E), climb chromatically on D (5→6→7, G-G#-A), bounce G-5→7→5 and drop back to D-7.',
+          'Bar 2 twists back down A-7 → D-5 → A-7 → A-5 → A-3 → A-5 and pops open A boldly.',
+        ],
+        tip: 'Give A-3 (C) a quick slight bend down-and-up before dropping onto open A.',
+        use: 'Stop-time rock call-and-response hooks in A.',
+        goal: 94,
+      },
+    },
+    {
+      id: 'cl-rk-satisfaction', name: 'Rolling Stones Satisfaction fuzz hook', level: 1, kind: 'riff', chord: 'E | D A', ref: 'E', bpm: 136,
+      tab: 'q 5:2 5:2 e 5:2 5:4 q 5:5~ | e r 5:5 5:5 5:4 q 5:2~ q r',
+      must: {
+        about: 'Three notes that changed rock guitar forever: Keith Richards’ fuzzy, horn-inspired open-A-string melody over driving rock chords.',
+        steps: [
+          'Walk boldly up the A string: B (2, 2, 2) → C# (4) → D (5) held across beat 4.',
+          'Slide smoothly back down D → D → C# → B (A-2) and breathe on beat 4.',
+        ],
+        tip: 'Kick on heavy fuzz or crunch and let those three notes sing like a brass riff.',
+        use: '60s rock & roll anthems over E–D–A.',
+        goal: 142,
+      },
+    },
+    {
+      id: 'cl-rk-layla', name: 'Derek & Dominos Layla crying hammer', level: 2, kind: 'riff', chord: 'Dm | Bb C', ref: 'D', bpm: 116,
+      tab: 't 5:0 4:0 3:2 t 2:1 2:3h 2:1p e 3:2 4:0 e 1:10 1:12 | e 1:13 1:12 1:10 1:12 q 1:10~ q 2:10~',
+      must: {
+        about: 'Duane Allman and Eric Clapton dual-guitar scream: open D minor hammer-on rocket straight into a soaring high-neck cry.',
+        steps: [
+          'Snap brisk triplets across open A → open D → G-2, hammer-pull B-1→3→1, touch G-2→open D, and leap cleanly to e-10→12.',
+          'Bar 2 dances around high D minor (e-13, 12, 10, 12, 10) before singing firmly on A (B-10).',
+        ],
+        tip: 'Keep the left-hand finger roll crisp in bar 1 so open D does not blur the high leap to fret 10.',
+        use: 'Minor classic rock hooks and high-energy chorus riffs over Dm.',
+        goal: 122,
+      },
+    },
+    {
+      id: 'cl-rk-freebird', name: 'Lynyrd Skynyrd Free Bird climax bend', level: 2, kind: 'lick', chord: 'G5', ref: 'G', bpm: 148,
+      tab: 'q 3:5b e 2:3 1:3 q 3:5b e 2:3 1:3 | q 3:5b e 2:3 1:3 e 1:6p 1:3 2:6p 2:3',
+      must: {
+        about: 'The greatest Southern rock stadium climax: locking G-5 bent up to D while your index bars B-3 + e-3 for repeating pentatonic fury.',
+        steps: [
+          'Anchor your index flat across B-3 and e-3; bend G-5 up a full step with your ring finger, then sweep quickly across B-3 → e-3.',
+          'Repeat that cycling engine cleanly, then close bar 2 with crisp pinky pull-offs from 6 → 3 on both top strings.',
+        ],
+        tip: 'Keep the G-string bend dead on pitch each repeat—your wrist pivot resets cleanly while B-3 + e-3 ring.',
+        use: 'High-speed Southern rock solo climaxes in G.',
+        goal: 158,
+      },
+    },
+    {
+      id: 'cl-rk-alabama', name: 'Lynyrd Skynyrd Sweet Home Alabama pick hook', level: 1, kind: 'riff', chord: 'D C | G', ref: 'D', minor: false, bpm: 98,
+      tab: 'e 4:0 4:0 2:3 3:2 5:3 5:3 2:3 3:0 | e 6:3 6:3 2:3 3:0 s 5:0 5:2 4:0 4:2 e 3:0 3:2p',
+      must: {
+        about: 'Southern rock clean Strat chime: plucking walking open-chord bass roots against bright pinned G-triad strings and a snappy country-rock fill.',
+        steps: [
+          'Keep ring pinned on B-3 throughout: pluck D-0 twice → B-3 → G-2; then jump bass to C (A-3 twice) → B-3 → open G.',
+          'Move bass to G (E-3 twice) → B-3 → open G, finishing with crisp hammer/pick steps up A-0→2 → D-0→2 → G-0→2p.',
+        ],
+        tip: 'Bright neck+middle pickup setting with crisp hybrid or flatpick control makes those bass-to-treble skips sparkle.',
+        use: 'Clean Southern rock rhythm hooks over D–C–G.',
+        goal: 104,
+      },
+    },
+    {
+      id: 'cl-rk-numb', name: 'Pink Floyd Comfortably Numb weeping bend', level: 2, kind: 'lick', chord: 'Bm | A', ref: 'B', bpm: 64,
+      tab: 'h 2:10b~ q 2:10r e 2:7 3:9 | q 3:9b~ e 3:9r 3:7 h 4:9~',
+      must: {
+        about: 'David Gilmour lyrical perfection: holding an aching whole-step bend across two beats, letting it sigh back down into Box 1, and soaring home to B.',
+        steps: [
+          'Support B-10 (A) with three fingers and push smoothly up a full step to B (matching e-7 pitch) with wide vocal vibrato.',
+          'Release cleanly to B-7 (F#), drop to G-9, lift G-9 up a whole step and sigh back through G-7 onto D-9 (B).',
+        ],
+        tip: 'Wait a full half-beat at the top of the bend before adding vibrato—pure Gilmour sustain.',
+        use: 'Epic slow minor rock solos in Bm or Em.',
+        goal: 68,
+      },
+    },
+    {
+      id: 'cl-rk-money', name: 'Pink Floyd Money 7/4 classic groove', level: 2, kind: 'riff', chord: 'Bm7', ref: 'B', meter: 7, bpm: 120,
+      tab: 'q 5:2 e 3:4 4:4 q 5:2 6:2 5:0 5:2 5:5 | q 5:2 e 3:4 4:4 q 5:2 6:2 5:0 5:2 r',
+      must: {
+        about: 'The most famous odd-meter rock riff ever written: a hypnotic 7/4 pulse in Bm that grooves so naturally you forget you are counting to seven.',
+        steps: [
+          'Count "ONE-two-and THREE-FOUR-FIVE-SIX-SEVEN": hit A-2 (B), hop briskly up G-4 (B) → D-4 (F#), back to A-2.',
+          'Walk firmly across beats 4–7: E-2 (F#), open A, A-2 (B), and A-5 (D).',
+        ],
+        tip: 'Play completely tight and dry—mute each note cleanly before the next so the 7/4 groove pops like a bass line.',
+        use: 'Odd-meter classic rock riffs and timing locks in 7/4.',
+        goal: 128,
+      },
+    },
+    {
+      id: 'cl-rk-hotel', name: 'Eagles Hotel California twin-lead cascade', level: 3, kind: 'arpeggio', chord: 'Bm | F#7', ref: 'B', bpm: 74,
+      tab: 't 1:10p 1:7 2:7 1:10p 1:7 2:7 1:10p 1:7 2:7 q 2:10~ | t 1:9p 1:6 2:7 1:9p 1:6 2:7 1:9p 1:6 2:7 q 2:7~',
+      must: {
+        about: 'Don Felder and Joe Walsh’s grand finale arpeggios: sweeping down three-note chord shapes across the top two strings.',
+        steps: [
+          'Barre e-7 and B-7 cleanly for Bm, pull e-10 → e-7 → pick B-7 three times in crisp triplets, landing on B-10 (A).',
+          'Shift smoothly to F#7 in bar 2 (e-9 → e-6 → B-7) and resolve warmly on F# (B-7).',
+        ],
+        tip: 'Roll your index finger slightly sideways so B-7 and e-7 do not blur together when descending.',
+        use: 'Dramatic solo endings over descending minor/dominant progressions.',
+        goal: 82,
+      },
+    },
+    {
+      id: 'cl-rk-bohemian', name: 'Queen Bohemian Rhapsody crying solo', level: 2, kind: 'lick', chord: 'Em | C', ref: 'E', minor: false, bpm: 72,
+      tab: 'q 2:15b~ e 2:15r 2:12 q 1:15b~ e 1:15r 1:12 | q 1:15 1:17b~ e 1:17r 1:15 q 1:14~',
+      must: {
+        about: 'Brian May’s operatic E-Standard cry: singing choir-like bends stacked high above the 12th fret with pure midrange sustain.',
+        steps: [
+          'Bend B-15 (D) cleanly up to E, release to B-12 (B), then answer one string higher with e-15 (G) bent to A and released to e-12 (E).',
+          'Climb triumphantly e-15 → e-17b (A → B), let down smoothly, and rest on the lush major 7th / 5th F# (e-14).',
+        ],
+        tip: 'Play near the bridge/middle warmth with creamy overdrive and zero rush—every bend sings like an aria.',
+        use: 'Lyrical stadium rock ballads over Em or G.',
+        goal: 78,
+      },
+    },
+    {
+      id: 'cl-rk-voodoo', name: 'Jimi Hendrix Voodoo Child wah swagger', level: 2, kind: 'riff', chord: 'E7#9', ref: 'E', bpm: 88,
+      tab: 's 5:x 4:x 3:x 6:0 e 6:0 6:0 s 3:2bh 3:2r 3:0 4:2 q 6:0~ | e 4:12/ 4:14 3:12 3:14b q 3:14r e 3:12 4:14',
+      must: {
+        about: 'E-Standard Jimi Hendrix volcanic entrance: muted percussive string sweeps exploding into snarling blues bends and high Box 1 slides.',
+        steps: [
+          'Drag a rhythmic dead-note rake across strings 5–3 straight into open low E, stomp two firm low E hits, curl G-2 slightly, pull to open G, and pop D-2 → open E.',
+          'Jump to the 12th-fret Em box in bar 2: slide D-12→14, catch G-12, bend G-14 up to B, release cleanly and resolve home.',
+        ],
+        tip: 'Keep it in E Standard so your strings stay tight and snappy; lean slightly into the low E notes like a drum beat.',
+        use: 'Funk-rock jams and explosive blues-rock intros in E.',
+        goal: 96,
+      },
+    },
+    {
+      id: 'cl-rk-purple', name: 'Jimi Hendrix Purple Haze tritone & E7#9', level: 2, kind: 'riff', chord: 'E7#9', ref: 'E', bpm: 108,
+      tab: 'e 6:6 4:8 6:6 4:8 6:6 4:8 6:6 4:8 | e 4:7/ 4:9 3:7 4:9 q 5:7+4:6+3:7+2:8~ q r',
+      must: {
+        about: 'Psychedelic blues landmark: bouncing sinister tritone octaves (Bb) against open E before slamming into the iconic "Hendrix chord" (E7#9).',
+        steps: [
+          'Alternate cleanly between low E-6 (Bb) and D-8 (Bb octave) in hypnotic pulsing eighths.',
+          'Slide smoothly D-7 → D-9 (A → B), pop G-7 (D), step back to D-9, and crunch down hard on E7#9 (A-7, D-6, G-7, B-8).',
+        ],
+        tip: 'Use your left index tip to choke strings 5 and 3 softly during the octave bounce so only Bb sings cleanly.',
+        use: 'Psychedelic rock riffs and aggressive dominant-7#9 vamps in E.',
+        goal: 116,
+      },
+    },
+    {
+      id: 'cl-rk-lagrange', name: 'ZZ Top La Grange Texas boogie & pinch', level: 2, kind: 'riff', chord: 'A5', bpm: 156,
+      tab: 'e r 5:0 4:2+3:2 4:2+3:2 r 4:5+3:5 4:2+3:2 5:0 | e r 5:0 4:2+3:2 4:2+3:2 q 3:5bh~ q r',
+      must: {
+        about: 'Billy Gibbons greasy Texas boogie: snappy upbeat power-chord stabs off open A capped with a wicked choked pinch bend.',
+        steps: [
+          'Start on the upbeat after beat 1: strike open A, chop D-2+G-2 twice, pop D-5+G-5 (the minor 3rd C+F flavor) and drop right back to open A.',
+          'In bar 2 snap the same groove and pull G-5 (C) up a cheeky half-step curl.',
+        ],
+        tip: 'Keep the chops razor-short—let your palm kill the D+G double stops right after they bark.',
+        use: 'Driving Texas shuffles and fast boogie riffs in A.',
+        goal: 164,
+      },
+    },
+    {
+      id: 'cl-rk-cliffs', name: 'Eric Johnson Cliffs of Dover cascade', level: 3, kind: 'run', chord: 'Gmaj7', ref: 'G', minor: false, bpm: 152,
+      tab: 's 2:15 2:12 3:14 3:12 4:14 4:12 3:14 2:12 1:15 1:12 2:15 2:12 3:14 3:12 4:14 4:12 | e 5:14 4:12 3:12 2:15 q 1:15~ q r',
+      must: {
+        about: 'Eric Johnson’s signature cascading G major pentatonic waterfall in E Standard: violin-like smoothness across wide string skips.',
+        steps: [
+          'Cascade cleanly down fours across the 12th–15th fret G-major pentatonic box (B 15-12, G 14-12, D 14-12, then leap back up G-14→B-12→e-15-12).',
+          'Step smoothly through A-14, D-12, G-12, B-15 and land sparkling on high G (e-15).',
+        ],
+        tip: 'Try hybrid picking (pick + middle/ring fingers) or economy strokes when jumping back up strings so every note chimes cleanly.',
+        use: 'High-energy melodic rock showcases over G or Em.',
+        goal: 160,
+      },
+    },
+    {
+      id: 'cl-rk-beat-it', name: 'Michael Jackson / EVH Beat It E riff', level: 2, kind: 'riff', chord: 'Em | D', ref: 'E', bpm: 138,
+      tab: 'e 6:0 6:3 5:2 4:5 q 4:2 e 4:4 4:2 | q 4:0~ e 4:0~ 5:2 q 6:0~ q r',
+      must: {
+        about: 'Adapted into crisp E Standard: one of the catchiest hard-rock pop riffs ever written, snapping up the Em triad straight into a punchy slide.',
+        steps: [
+          'Hit open low E, climb E-3 (G) → A-2 (B) → D-5 (G!), pop back firmly onto E (D-2), then rock D-4 → D-2.',
+          'Ring open D cleanly on beat 1 of bar 2, drop back via B (A-2) and clamp solidly home on open low E.',
+        ],
+        tip: 'Palm mute lightly on the low E and A notes, then let D-5 and D-2 jump out loud and clear.',
+        use: 'Syncopated 80s rock-pop riffs over Em and D.',
+        goal: 144,
+      },
+    },
   ], true),
 
   // ───────────────────────── Alt Rock (The Edge, Frusciante, Billy Corgan, Jonny Greenwood, Kurt Cobain, Johnny Marr)
@@ -389,6 +795,118 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         tip: 'Pick gently with bright neck-and-bridge pickup clarity and a light touch of chorus shimmer.',
         use: 'Melodic indie/jangle verses in Em or G.',
         goal: 132,
+      },
+    },
+    {
+      id: 'cl-al-nirvana-teen', name: 'Nirvana Teen Spirit scratch & chord jump', level: 1, kind: 'riff', chord: 'F5 Bb5 | Ab5 Db5', ref: 'F', bpm: 116,
+      tab: 'e 6:1+5:3 6:1+5:3 s 6:x+5:x 6:x+5:x 6:x+5:x 6:x+5:x e 5:1+4:3 5:1+4:3 q r | e 6:4+5:6 6:4+5:6 s 6:x+5:x 6:x+5:x 6:x+5:x 6:x+5:x e 5:4+4:6 5:4+4:6 q r',
+      must: {
+        about: 'The grunge anthem that kicked open the 90s: dead-string chucka-chucka scratches snapping cleanly between four tight power chords.',
+        steps: [
+          'Grip F5 (E-1+A-3), hit twice, release finger pressure while still touching strings for four quick muted scratches, then drop directly to Bb5 (A-1+D-3).',
+          'Slide the identical scratch-and-jump pattern up to Ab5 (fret 4) and Db5 in bar 2.',
+        ],
+        tip: 'Keep the right hand constantly moving down-up during the muted chucks—only left-hand grip pressure turns sound on and off.',
+        use: 'High-energy 90s grunge choruses in F or E.',
+        goal: 122,
+      },
+    },
+    {
+      id: 'cl-al-nirvana-come', name: 'Nirvana Come As You Are watery riff', level: 1, kind: 'riff', chord: 'Em | D', ref: 'E', bpm: 120,
+      tab: 'e 6:0 6:0 6:1 6:2 5:0 6:2 5:0 6:2 | e 6:2 6:1 6:0 5:2 6:0 6:0 6:1 6:2~',
+      must: {
+        about: 'Adapted to E Standard tuning: hypnotic chorus-drenched chromatic walking across the low E and open A strings.',
+        steps: [
+          'Pick low E-0, 0, 1, 2, bounce cleanly off open A against E-2, then walk back down E-2 → 1 → 0 → A-2.',
+          'Cycle straight back into E-0, 0, 1, 2 so the riff loops seamlessly.',
+        ],
+        tip: 'Add a shimmer of chorus pedal and keep alternating low notes smooth and connected like dark water.',
+        use: 'Dark melodic alt-rock verses over Em–D.',
+        goal: 126,
+      },
+    },
+    {
+      id: 'cl-al-rhcp-bridge', name: 'RHCP Under the Bridge chord hammer intro', level: 2, kind: 'arpeggio', chord: 'D | F#m', ref: 'D', minor: false, bpm: 84,
+      tab: 'e 5:5 4:4 3:2 2:3 3:2 4:4 5:5h 5:7 | e 5:9 4:7 3:6 2:7 3:6 4:7 q 5:9~',
+      must: {
+        about: 'John Frusciante delicate clean ballad mastery: sparkling C-shape D major arpeggios sliding into a bright F#m chord bloom.',
+        steps: [
+          'Shape D major at the 5th fret (A-5, D-4, G-2, B-3) and pick gently up and back down before hammering A-5 → A-7.',
+          'Slide smoothly up to F#m (A-9, D-7, G-6, B-7) and let the chord shimmer evenly.',
+        ],
+        tip: 'Play cleanly with bare fingertips or gentle pick arpeggiation so every voice overlaps like a harp.',
+        use: 'Clean soulful alt-rock ballads in D or A.',
+        goal: 90,
+      },
+    },
+    {
+      id: 'cl-al-rhcp-scar', name: 'RHCP Scar Tissue airy sliding tenths', level: 1, kind: 'double-stop', chord: 'F | Dm', ref: 'F', minor: false, bpm: 90,
+      tab: 'q 5:8+2:10 e 5:8 2:10 q 5:7+2:8 e 5:7 2:8 | q 5:5+2:6~ e 5:5 2:6 h 5:5+2:6~',
+      must: {
+        about: 'Effortless sun-soaked California minimalism: plucking wide tenth intervals (A string + B string) while sliding gently down F → C/E → Dm.',
+        steps: [
+          'Mute the middle strings softly with your left fingers: pinch A-8 + B-10 together, then lightly arpeggiate them.',
+          'Drop cleanly to A-7 + B-8, then settle warmly onto Dm (A-5 + B-6) across bar 2.',
+        ],
+        tip: 'Play with thumb on the A string and middle finger on the B string so the wide tenths ring warm and glassy.',
+        use: 'Breezy clean alt-rock verses over F–C–Dm.',
+        goal: 96,
+      },
+    },
+    {
+      id: 'cl-al-white-seven', name: 'White Stripes Seven Nation octave hook', level: 1, kind: 'riff', chord: 'Em | C B7', ref: 'E', bpm: 124,
+      tab: 'q. 5:7+4:9 e 5:7 5:10 5:7 q 5:5 | h 5:3~ h 5:2~',
+      must: {
+        about: 'Pure E-Standard stadium thunder: seven unforgettable notes stomping straight down the A string without needing detuning or octave pedals.',
+        steps: [
+          'Plant on A-7 (plus optional D-9 power chord/octave), snap A-7 → A-10 → A-7 → A-5 (D).',
+          'Step down firmly onto C (A-3) and hold tension on B (A-2) across bar 2.',
+        ],
+        tip: 'Add gritty fuzz or subtle octaver and hit every note slightly ahead with stomping kick-drum energy.',
+        use: 'Heavy garage-rock riffs and stadium hooks in Em.',
+        goal: 132,
+      },
+    },
+    {
+      id: 'cl-al-ratm-killing', name: 'RATM Killing in the Name E-standard groove', level: 2, kind: 'riff', chord: 'E5', ref: 'E', bpm: 88,
+      tab: 'e 6:0 5:6 5:5 6:0 q 6:0~ e 5:6 5:5 | e 6:0 6:0+5:2 6:0+5:2 r e 5:5+4:7 5:6+4:8 q 6:0+5:2~',
+      must: {
+        about: 'Tom Morello’s sledgehammer funk-metal groove adapted cleanly to E Standard: zero Drop-D retuning needed, keeping all the snarling tritone bite.',
+        steps: [
+          'Bounce off open low E into the nasty Eb→D (A-6 → A-5) tritone-to-b7 drop, locking hard back onto open E.',
+          'In bar 2 slam two tight E5 chords, jump onto D5→Eb5 (A-5→6), and hammer down onto E5.',
+        ],
+        tip: 'Mute completely between notes so it punches like hip-hop drums.',
+        use: 'Heavy rap-rock and funk-metal grooves in E Standard.',
+        goal: 96,
+      },
+    },
+    {
+      id: 'cl-al-police-bottle', name: 'The Police Message in a Bottle add9 stretch', level: 2, kind: 'arpeggio', chord: 'C#m9 | Aadd9 Badd9', ref: 'C#', bpm: 150,
+      tab: 'e 5:4 4:6 3:8 r 6:5 5:7 4:9 r | e 6:7 5:9 4:11 r 6:2 5:4 4:6 4:7',
+      must: {
+        about: 'Andy Summers iconic stacked-fifths stretch: four luminous add9 chords weaving endlessly without ever muddying up.',
+        steps: [
+          'Stretch index on A-4, ring on D-6, pinky on G-8 (C#m9), pick cleanly upward and hop down a string-set onto Aadd9 (5-7-9).',
+          'Slide smoothly up two frets to Badd9 (7-9-11), then drop to F#m9 (2-4-6) sliding up one half-step to 7 on the final eighth.',
+        ],
+        tip: 'Drop your left thumb squarely behind the middle of the neck—that 5-fret stretch becomes easy once your wrist lowers.',
+        use: 'Sparkling clean new-wave arpeggio stretches and finger-independence warm-ups.',
+        goal: 154,
+      },
+    },
+    {
+      id: 'cl-al-pearljam-alive', name: 'Pearl Jam Alive stadium pentatonic climb', level: 2, kind: 'lick', chord: 'Em', ref: 'E', bpm: 76,
+      tab: 'e 3:12 3:14 2:12 2:15 q 2:15b~ e 2:15r 2:12 | e 1:12 1:15b q 1:15r~ e 1:12 2:15 q 1:12~',
+      must: {
+        about: 'Mike McCready’s explosive Seattle arena tone: sweeping straight up the 12th-fret E-minor box into towering bends.',
+        steps: [
+          'Climb briskly G-12 → G-14 → B-12 → B-15 and push B-15 up a roaring whole step to E, releasing cleanly to B-12.',
+          'Answer higher on e-12 → e-15 bent up to A, release through e-12 → B-15, and hold high E ringing proud.',
+        ],
+        tip: 'Give high e-15b maximum sustain—let that stadium bend wail before releasing.',
+        use: 'Classic 90s grunge rock solos in Em.',
+        goal: 84,
       },
     },
   ], true),
@@ -498,6 +1016,146 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         goal: 145,
       },
     },
+    {
+      id: 'cl-mt-buckethead-sooth', name: 'Buckethead Soothsayer aching E-minor theme', level: 2, kind: 'lick', chord: 'Em | C D', ref: 'E', bpm: 92,
+      tab: 'q 2:12~ e 2:13 2:15 q 1:12~ e 1:14 1:15 | q 1:14~ e 1:12 2:15 h 2:12~',
+      must: {
+        about: 'Buckethead’s iconic emotional centerpiece in E Standard: singing high natural-minor sustain where every slow melodic note feels massive before the shred storms begin.',
+        steps: [
+          'Play B-12 (B) with deep weeping vibrato, climb B-13 → B-15, step brightly to high E (e-12) and trace up e-14 → e-15.',
+          'Hold F# (e-14) tenderly over the chord change, step back e-12 → B-15 and land home on B (B-12).',
+        ],
+        tip: 'Use thick neck-pickup overdrive with a touch of delay and let every note breathe instead of rushing.',
+        use: 'Epic lyrical heavy-rock ballads and dramatic builds in Em.',
+        goal: 98,
+      },
+    },
+    {
+      id: 'cl-mt-buckethead-jordan', name: 'Buckethead Jordan staccato killswitch bounce', level: 3, kind: 'riff', chord: 'E5', ref: 'E', bpm: 124,
+      tab: 's 6:0m 6:0m 4:9 6:0m 6:0m 4:10 6:0m 4:12 6:0m 4:10 6:0m 4:9 6:0m 3:9 6:0m 3:11 | e 1:12n r 2:12n r q 6:0+5:2 e 6:3 6:2',
+      must: {
+        about: 'Robotic Bucketheadland staccato: tight palm-muted low E pulses popping against crisp fretboard leaps and bell-like 12th-fret harmonic stabs in E Standard.',
+        steps: [
+          'Keep razor-tight palm muting on open low E while snapping clean unmuted accents up the D and G strings (9, 10, 12, 10, 9, G-9, G-11).',
+          'In bar 2 pop two ringing 12th-fret harmonics on high e and B with dead space around them like a killswitch cut, then clamp down on E5.',
+        ],
+        tip: 'Choke the harmonics immediately after they chime to imitate Buckethead’s arcade-game killswitch.',
+        use: 'Mechanical heavy rock riffs and syncopated robotic grooves in E.',
+        goal: 132,
+      },
+    },
+    {
+      id: 'cl-mt-sabbath-iron', name: 'Black Sabbath Iron Man heavy doom slide', level: 1, kind: 'riff', chord: 'B5 | D5 E5', ref: 'B', bpm: 80,
+      tab: 'h 5:2+4:4~ q 5:5+4:7 5:5+4:7 | q 5:7+4:9 5:7+4:9 e 5:10+4:12 5:9+4:11 5:10+4:12 5:9+4:11',
+      must: {
+        about: 'Tony Iommi’s colossal doom foundation: sliding giant A-string power chords and snapping back-and-forth across the heavy blue third.',
+        steps: [
+          'Hold B5 (A-2 + D-4) heavy for two beats, step up boldly onto D5 (fret 5) twice and E5 (fret 7) twice.',
+          'Sprint smoothly across the high chromatic blues wiggle: G5 (10) → F#5 (9) → G5 (10) → F#5 (9).',
+        ],
+        tip: 'Strike firmly near the bridge pickup with thick crunch and let those low fifths vibrate your chest.',
+        use: 'Slow monumental heavy metal riffs in B minor.',
+        goal: 86,
+      },
+    },
+    {
+      id: 'cl-mt-sabbath-paranoid', name: 'Black Sabbath Paranoid driving E5 march', level: 1, kind: 'riff', chord: 'E5 | D5', ref: 'E', bpm: 162,
+      tab: 'e 5:7m+4:9m 5:7m+4:9m 5:7m+4:9m 5:7m+4:9m 5:7+4:9 5:7+4:9 5:7+4:9 5:7+4:9 | e 4:7 4:9 3:7 3:9 4:9 4:7 q 5:5+4:7',
+      must: {
+        about: 'The speed-metal blueprint from 1970: hammering driving palm-muted E5 eighth notes straight into the snappy Em pentatonic pocket.',
+        steps: [
+          'Mute E5 at fret 7 (A-7+D-9) for four rapid eighth notes, then lift your palm so the second four bark wide open.',
+          'Fire swiftly across D-7→9 → G-7→9 → D-9→7 and clamp solidly onto D5 (A-5+D-7).',
+        ],
+        tip: 'Use rapid hammer-ons (D-7h9, G-7h9) so the pentatonic turn stays effortless at full speed.',
+        use: 'Upbeat classic metal marches and endurance downpicking drills in E.',
+        goal: 168,
+      },
+    },
+    {
+      id: 'cl-mt-ozzy-crazy', name: 'Ozzy / Randy Rhoads Crazy Train main riff', level: 2, kind: 'riff', chord: 'F#m | D E', ref: 'F#', bpm: 138,
+      tab: 'e 6:2 6:2 5:4 6:2 5:5 6:2 5:4 6:2 | e 5:2 6:5 6:4 6:5 5:2 6:5 q 6:4~',
+      must: {
+        about: 'Randy Rhoads’ evergreen metal masterclass: weaving minor melody notes straight against a chugging F# low-E pedal before tumbling cleanly down the D and E roots.',
+        steps: [
+          'Keep your index planted on E-2 (F#): alternate cleanly E-2, E-2, A-4 (C#), E-2, A-5 (D), E-2, A-4, E-2.',
+          'Bar 2 dances cleanly across B (A-2), A (E-5), and G# (E-4) with snappy crisp separation.',
+        ],
+        tip: 'Let each note stop crisply before hitting the next so the bass-vs-melody counterpoint cuts cleanly.',
+        use: 'Iconic 80s hard-rock and classic metal riffs in F#m.',
+        goal: 144,
+      },
+    },
+    {
+      id: 'cl-mt-metallica-sandman', name: 'Metallica Enter Sandman clean-to-heavy hook', level: 1, kind: 'riff', chord: 'Em | Bb5', ref: 'E', bpm: 122,
+      tab: 'e 6:0 5:7 4:5 q 6:6 e 6:5 6:0 6:0 | q 6:0+5:2 e 6:6+5:8 6:5+5:7 h 6:0+5:2~',
+      must: {
+        about: 'The riff every metal guitarist knows by heart: haunting minor-to-tritone arpeggios sliding ominously down into heavy slammed E5 power chords.',
+        steps: [
+          'Let open low E ring into A-7 (E) and D-5 (G), then slam the evil tritone Bb (E-6) sliding right down to A (E-5).',
+          'Kick into full crunch on bar 2: punch E5, jab Bb5 → A5, and slam back onto heavy E5.',
+        ],
+        tip: 'Hold A-7 and D-5 ringing together in bar 1 for that eerie bell-like horror intro.',
+        use: 'Mid-tempo heavy metal anthems and dynamic clean-to-crunch switches in Em.',
+        goal: 128,
+      },
+    },
+    {
+      id: 'cl-mt-metallica-puppets', name: 'Metallica Master chromatic spider crawl', level: 3, kind: 'riff', chord: 'E5', ref: 'E', bpm: 196,
+      tab: 'e 6:0m 5:7 6:0m 5:6 6:0m 5:5 5:4 5:3 | e 6:0m 5:2 6:0m 5:1 6:0m 6:3 6:2 6:1',
+      must: {
+        about: 'James Hetfield’s ultimate right-hand endurance test: relentless downpicked low-E chugs punctuating a chromatic cascade down the entire A and low E strings.',
+        steps: [
+          'Keep strict razor-tight palm muting on every open low E eighth note.',
+          'Walk chromatically down the A string (7 → 6 → 5 → 4 → 3 → 2 → 1) and finish cleanly down E-3 → 2 → 1.',
+        ],
+        tip: 'Start slow (around 130 BPM) using all downstrokes with a relaxed wrist bounce—never lock your forearm.',
+        use: 'Thrash metal stamina and chromatic riff precision in E.',
+        goal: 208,
+      },
+    },
+    {
+      id: 'cl-mt-pantera-cowboys', name: 'Pantera Walk / Cowboys E-standard groove', level: 2, kind: 'riff', chord: 'E5', ref: 'E', bpm: 118,
+      tab: 'e 6:0m 6:3 6:0m 6:2 6:0m 6:1 6:0m 5:2 | q 6:0+5:2 e 6:1bh 6:0 q 6:0+5:2~ r',
+      must: {
+        about: 'Dimebag Darrell bone-crushing Texas groove adapted cleanly to E Standard: chugging low-E bounces punctuated by a nasty quarter/half-step F curl.',
+        steps: [
+          'Snap tight palm-muted low E pulses against heavy walking frets 3 → 2 → 1 → A-2.',
+          'Slam E5 on beat 1 of bar 2, tug E-1 violently up a half-step blues bend, drop to open E, and lock down on E5.',
+        ],
+        tip: 'Give low E-1 that snarling Dimebag yanking attitude so it screams like a chainsaw.',
+        use: 'Heavy groove metal riffs and palm-mute attitude in E Standard.',
+        goal: 124,
+      },
+    },
+    {
+      id: 'cl-mt-megadeth-symphony', name: 'Megadeth Symphony tight F5–E5 march', level: 2, kind: 'riff', chord: 'F5 | E5', ref: 'E', bpm: 140,
+      tab: 'q 6:1+5:3 6:0+5:2 e 6:0m 6:0m 6:1+5:3 6:0+5:2 | q 6:1+5:3 6:0+5:2 e 6:3 6:2 6:1 6:0',
+      must: {
+        about: 'Dave Mustaine’s surgical Phrygian thrash snap: slamming the menacing half-step F5 down into tight chugging E5 precision.',
+        steps: [
+          'Crunch F5 (E-1+A-3) right into E5, snap two tight low-E chugs, and repeat the F5→E5 drop cleanly.',
+          'Walk sharply down the low-string chromatic tail (3 → 2 → 1 → 0) at the end of bar 2.',
+        ],
+        tip: 'Kill every ring immediately between F5 and E5 so there is zero muddy bleed.',
+        use: 'Phrygian thrash grooves and heavy half-step metal hooks in E.',
+        goal: 148,
+      },
+    },
+    {
+      id: 'cl-mt-priest-breaking', name: 'Judas Priest Breaking the Law minor march', level: 1, kind: 'riff', chord: 'Am | F G', ref: 'A', bpm: 142,
+      tab: 'e 5:0 5:2 5:3 5:0 5:2 5:3 5:0 5:2 | e 5:3 6:1 6:3 6:5 6:3 6:5 q 5:0~',
+      must: {
+        about: 'Pure twin-guitar NWOBHM clarity: driving open-A natural-minor hook surging into heavy low-string F–G–A triumph.',
+        steps: [
+          'Pick crisp alternate-picked eighths on A (0-2-3 twice, then 0-2), keeping the wrist loose.',
+          'Climb A-3 → E-1 (F) → E-3 (G) → E-5 (A) → E-3 → E-5 and plant solidly on open A.',
+        ],
+        tip: 'Let each note ring strong and proud with classic cranked Marshall crunch.',
+        use: 'Classic 80s heavy metal verses and beginner-friendly driving riffs in Am.',
+        goal: 148,
+      },
+    },
   ], true),
 
   // ───────────────────────── Prog Metal (Petrucci, Tosin Abasi, Misha Mansoor, Marty Friedman)
@@ -547,6 +1205,62 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         goal: 138,
       },
     },
+    {
+      id: 'cl-pg-buckethead-lace', name: 'Buckethead Nottingham Lace sweep & tap', level: 3, kind: 'run', chord: 'Em | B7', ref: 'E', bpm: 132,
+      tab: 's 3:9 2:8 1:7 1:12 1:7 2:8 3:9 4:9 3:9 2:8 1:7 1:12 1:10 1:8 1:7 2:10 | e 1:11t 1:7p 1:8h 1:11t 1:7p 1:8h q 1:12~',
+      must: {
+        about: 'Neoclassical shred architecture from Enter the Chicken: crisp Em triad sweeps erupting into high harmonic-minor right-hand tapping.',
+        steps: [
+          'Sweep cleanly across the 7–9th fret Em triad (G-9, B-8, e-7), stretch pinky to e-12 (E), cascade straight back down, and unwind across 12-10-8-7-B10.',
+          'Hold left index on e-7 + middle on e-8 while your right fingertip taps e-11 (D#) twice, resolving proudly on high E (e-12).',
+        ],
+        tip: 'Roll each finger off after sweeping in bar 1 so the Em triad stays clean rather than ringing into a muddy chord.',
+        use: 'High-drama neoclassical prog shred solos in Em.',
+        goal: 144,
+      },
+    },
+    {
+      id: 'cl-pg-buckethead-pike65', name: 'Buckethead Hold Me Forever weeping legato', level: 3, kind: 'lick', chord: 'Em | C', ref: 'E', bpm: 108,
+      tab: 'q 1:15b~ e 1:15r 1:12 s 1:15p 1:14p 1:12 2:15p 2:13p 2:12 3:14p 3:12 | e 4:14 3:12 2:12 1:12 h 1:14~',
+      must: {
+        about: 'Buckethead Pike 65 tribute in E Standard: an agonizing whole-step cry exploding straight into a fluid three-note-per-string pull-off torrent.',
+        steps: [
+          'Push high e-15 (G) up smoothly to A, let down cleanly to e-12, then unleash razor-clean 16th pull-offs down e (15-14-12), B (15-13-12), and G (14-12).',
+          'Step warmly back up D-14 → G-12 → B-12 → e-12 and linger mournfully on F# (e-14).',
+        ],
+        tip: 'Keep the E-Standard pitch pure on the opening bend before unleashing the cascading legato.',
+        use: 'Emotional shred climaxes over Em–C–D–B7.',
+        goal: 118,
+      },
+    },
+    {
+      id: 'cl-pg-tool-schism', name: 'Tool Schism E-standard syncopated hammer', level: 2, kind: 'riff', chord: 'Dm', ref: 'D', bpm: 106,
+      tab: 'e 5:5 4:7 4:8 5:5 4:7 5:5 4:8 4:7 | e 5:5 4:7 5:5 4:5 4:7 5:5 q 5:5~',
+      must: {
+        about: 'Adam Jones hypnotic polyrhythmic D-minor hook mapped right onto E Standard (no Drop D required!): dark alternating fifths and minor-sixth hammers.',
+        steps: [
+          'Anchor your index firmly on A-5 (D root) and let it lock against D-7 (A) and D-8 (Bb) hammered cleanly.',
+          'Follow the shifting rhythmic bounce in bar 2 down to D-5 (G) before clamping solidly home on A-5.',
+        ],
+        tip: 'Accent every hammer-on lightly and mute cleanly after each A-5 drop for that dry, dark prog punch.',
+        use: 'Syncopated prog-metal riffs and hammer-on precision in D minor.',
+        goal: 114,
+      },
+    },
+    {
+      id: 'cl-pg-dream-pull', name: 'Dream Theater Pull Me Under clean prog hook', level: 2, kind: 'arpeggio', chord: 'Em9', ref: 'E', bpm: 104,
+      tab: 'e 6:0 4:2 3:0 2:3 1:2 2:3 3:0 4:4 | e 6:0 5:7 4:5 3:4 4:5 5:7 q 6:0+5:2',
+      must: {
+        about: 'John Petrucci dramatic 90s prog opener: glassy clean open-string Em9 shimmering out of nowhere before kicking in heavy E5 crunch.',
+        steps: [
+          'Let open low E bloom across D-2, open G, B-3 (D), e-2 (F#, the lush 9th!), climbing calmly back via D-4.',
+          'Bar 2 sweeps through the high E-minor triad (A-7, D-5, G-4) before locking onto low E5.',
+        ],
+        tip: 'Use chorus and gentle delay on the clean arpeggio, leaving fingers arched so open strings ring like glass.',
+        use: 'Atmospheric progressive metal intros and clean dynamic bridges in Em.',
+        goal: 110,
+      },
+    },
   ], true),
 
   // ───────────────────────── Math Rock (Covet/Yvette Young, Chon, American Football, TTNG)
@@ -568,7 +1282,7 @@ export const CLASSIC_LICKS: ClassicLick[] = [
     },
     {
       id: 'cl-mr-chon-glide', name: 'Chon bright chord-bounce & hammer cascade', level: 3, kind: 'lick', chord: 'Gmaj7', bpm: 118,
-      tab: 's 4:5 3:7 2:7 1:7 1:10p 1:7 2:7 3:7 4:4 3:5 2:7 1:5 1:7h 1:5p 2:7 3:5 | q 4:5+3:4+2:3+1:7~ h r',
+      tab: 's 4:5 3:7 2:7 1:7 1:10p 1:7 2:7 3:7 4:4 3:5 2:7 1:5 1:7h 1:5p 2:7 3:5 | h 4:5+3:4+2:3+1:7~ h r',
       must: {
         about: 'Chon signature bouncy jazz-math fusion: sparkling maj9 chord sweeps punctuated by effortless snappy pull-offs.',
         steps: [
@@ -640,6 +1354,34 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         tip: 'Add tiny crisp mutes between the wide jumps so it bounces with tight groove.',
         use: 'Joyful, uplifting prog hooks over E major or C#m.',
         goal: 120,
+      },
+    },
+    {
+      id: 'cl-pc-buckethead-bigsur', name: 'Buckethead Big Sur Moon dotted triad bounce', level: 2, kind: 'arpeggio', chord: 'G | C', ref: 'G', bpm: 128,
+      tab: 'e 6:3 5:5 4:5 5:5 6:3 5:5 4:4 5:5 | e 5:3 4:5 3:5 4:5 5:3 4:5 3:4 4:5',
+      must: {
+        about: 'Colma clean hypnotic jewel: Buckethead weaving tight staccato major and major-7th triad shapes designed to interlock with a dotted-eighth delay.',
+        steps: [
+          'Grip the G triad on the low strings (E-3, A-5, D-5), bounce crisply up and back down, dropping D-5 → D-4 (F#, lush maj7!) on the second half.',
+          'Shift down one string set in bar 2 for the identical bouncy pattern on Cmaj7 (A-3, D-5, G-5 → G-4).',
+        ],
+        tip: 'Keep each note crisp and lightly muted right after plucking—those tight eighths turn into cascading waterfalls with delay.',
+        use: 'Clean melodic prog loops and hypnotic delay arpeggio warm-ups.',
+        goal: 136,
+      },
+    },
+    {
+      id: 'cl-pc-buckethead-whitewash', name: 'Buckethead Whitewash clean harmonic shimmer', level: 2, kind: 'arpeggio', chord: 'Em | Am', ref: 'E', bpm: 84,
+      tab: 'e 6:0 5:2 4:2 3:0 2:0 1:0 2:0 3:0 | e 5:0 4:2 3:2 2:1 1:4 1:0 2:1 3:2~',
+      must: {
+        about: 'Haunting clean Buckethead atmosphere from Colma & Electric Tears: open minor arpeggios touched with an exotic raised harmonic-minor G# flourish.',
+        steps: [
+          'Pick cleanly straight across open Em (low E → A-2 → D-2 → G-0 → B-0 → e-0) and float gently back down.',
+          'Move to open Am in bar 2 and stretch your pinky brightly onto e-4 (G#, exotic harmonic-minor tension!) before resting softly on A (G-2).',
+        ],
+        tip: 'Play on the neck pickup clean with warm reverb so every open string rings smoothly together.',
+        use: 'Moody ambient clean intros and meditative prog ballads in Em.',
+        goal: 90,
       },
     },
   ], false),
@@ -747,6 +1489,34 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         goal: 132,
       },
     },
+    {
+      id: 'cl-jz-benson-breezin', name: 'George Benson Breezin’ velvet octave glide', level: 2, kind: 'lick', chord: 'Dmaj7 | Bm7', ref: 'D', bpm: 88,
+      tab: 'e 4:4+2:7 4:7+2:10 q 4:9+2:12~ e 4:7+2:10 4:4+2:7 q 4:2+2:5~ | e 5:5+3:7 5:7+3:9 q 5:9+3:11~ h 4:4+2:7~',
+      must: {
+        about: 'Smooth jazz gold in E Standard: velvet two-string octaves floating joyfully across lush Dmaj7 chords.',
+        steps: [
+          'Pin the D+B octave grip (mute G gently underneath): step F# (fret 4) → A (fret 7) → B (fret 9), then glide smoothly down A → F# → E (fret 2).',
+          'Jump down cleanly onto the A+G octaves (5 → 7 → 9) and float back up onto the singing F# octave across bar 2.',
+        ],
+        tip: 'Thumb or fleshy pick edge keeps octaves buttery—mute the middle string lightly with the underside of your index finger.',
+        use: 'Lush smooth-jazz ballads and maj7 grooves over Dmaj7 or Gmaj7.',
+        goal: 96,
+      },
+    },
+    {
+      id: 'cl-jz-burrell-chitlins', name: 'Kenny Burrell Chitlins slow organ-trio cry', level: 1, kind: 'lick', chord: 'Cm7', ref: 'C', minor: true, bpm: 108,
+      tab: 'e 3:5 2:4 2:6 2:4 3:5 3:3 q 4:5~ | q r e 3:3 3:5 2:4 2:6 q 3:5~',
+      must: {
+        about: 'Greasy Blue Note organ-trio perfection: smoky minor-pentatonic call-and-response laid calmly behind the snare drum.',
+        steps: [
+          'Walk briskly out of C minor Box 1 at fret 3–5: G-5 (C) → B-4 (Eb) → B-6 (F) → B-4 → G-5 → G-3 (Bb) → D-5 (G).',
+          'Pause for beat 1 of bar 2, then climb lazily Bb → C → Eb → F and come home to C (G-5).',
+        ],
+        tip: 'Roll the guitar tone knob back to 6 on the neck pickup for warm hollowbody smoke.',
+        use: 'Slow minor jazz-blues grooves over Cm7 or Am7.',
+        goal: 116,
+      },
+    },
   ], false),
 
   // ───────────────────────── Blues-Pop / Mayer (John Mayer, Hendrix ballads, SRV slow)
@@ -792,6 +1562,20 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         tip: 'Drop your right-hand thumb sideways onto the low E string on beats 2 and 4 so it clicks cleanly like a snare drum.',
         use: 'Acoustic pop-soul grooves and solo fingerstyle vocal accompaniment.',
         goal: 100,
+      },
+    },
+    {
+      id: 'cl-jm-stop-train', name: 'John Mayer Stop This Train thumb-chuck claw', level: 2, kind: 'riff', chord: 'D | A/C#', ref: 'D', bpm: 100,
+      tab: 'e 4:0 2:3 4:x 1:2 4:0 2:3 4:x 1:2 | e 5:4 2:2 4:x 1:0 5:4 2:2 4:x 3:2~',
+      must: {
+        about: 'John Mayer acoustic train-clock engine: steady thumb-chuck percussion on beats 2 & 4 while your index finger plucks warm major-triad melodies.',
+        steps: [
+          'Keep your ring on B-3 and middle on e-2 for D: pluck open D with your thumb, snap B-3 with your index, flick your thumb back down across muted D for a crisp chuck, and pluck e-2.',
+          'Walk smoothly down to A/C# in bar 2 (A-4, B-2, open high e) keeping that exact same chucking pendulum.',
+        ],
+        tip: 'Do not slap hard—let your thumb nail brush lightly downward across the D string on beats 2 and 4 while your index flips upward.',
+        use: 'Acoustic singer-songwriter ballads and train-groove chord melodies in D.',
+        goal: 106,
       },
     },
   ], false),
@@ -855,6 +1639,34 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         goal: 108,
       },
     },
+    {
+      id: 'cl-ps-temptations-mygirl', name: 'Temptations My Girl sunny Motown climb', level: 1, kind: 'lick', chord: 'C | F', ref: 'C', bpm: 104,
+      tab: 'q 5:3 e 4:0 4:2 3:0 3:2 q 2:1~ | q 4:3 e 3:0 3:2 2:1 2:3 q 1:1~',
+      must: {
+        about: 'One of the sweetest guitar hooks ever recorded in Detroit: walking briskly up open C major pentatonic, then repeating the identical sunny climb straight over F.',
+        steps: [
+          'Strike C (A-3), climb crisply D-0 → D-2 → G-0 → G-2 and land bright on high C (B-1).',
+          'Step down to F (D-3) in bar 2 and walk G-0 → G-2 → B-1 → B-3 right up to top F (e-1).',
+        ],
+        tip: 'Play completely clean on the bridge/middle pickup with crisp, singing note clarity—no distortion needed.',
+        use: 'Classic Motown, pop-soul verses and happy major-pentatonic hooks over C–F.',
+        goal: 112,
+      },
+    },
+    {
+      id: 'cl-ps-beneking-standby', name: 'Ben E. King Stand By Me warm soul pocket', level: 1, kind: 'riff', chord: 'A | F#m', ref: 'A', bpm: 118,
+      tab: 'q 5:0 e 6:4 5:0 4:2+3:2+2:2 r 5:0 6:4 | q 6:2 e 6:4 6:2 4:2+3:2+2:2 r q r',
+      must: {
+        about: 'Pure 1961 soul comfort: warm low bass pickup notes leading cleanly into dry A and F#m chord stabs.',
+        steps: [
+          'Pluck open A, walk E-4 → A-0, snap the A triad lightly on D-G-B fret 2, and pick back up A-0 → E-4.',
+          'Drop firmly onto F# (low E-2) in bar 2, step E-4 → E-2, and answer cleanly with the bright F#m triad.',
+        ],
+        tip: 'Lightly palm-mute the bass notes so it locks like an upright bass and acoustic guitar playing together.',
+        use: 'Classic I–vi–IV–V soul progressions in A or G.',
+        goal: 124,
+      },
+    },
   ], false),
 
   // ───────────────────────── Neo-Soul (Isaiah Sharkey, Mark Lettieri, Curtis Mayfield, Tom Misch)
@@ -889,7 +1701,7 @@ export const CLASSIC_LICKS: ClassicLick[] = [
     },
     {
       id: 'cl-ns-lettieri-pocket', name: 'Mark Lettieri funky double-stop bounce', level: 2, kind: 'lick', chord: 'C9', ref: 'C', bpm: 94,
-      tab: 'e 3:8/+2:8/ 3:9+2:8 3:7+2:7 3:9+2:8 q 2:8~ r | e 3:7+2:7 3:9+2:8 3:12 2:10 q 3:9+2:8~',
+      tab: 'e 3:8/+2:8/ 3:9+2:8 3:7+2:7 3:9+2:8 q 2:8~ r | e 3:7+2:7 3:9+2:8 3:12 2:10 h 3:9+2:8~',
       must: {
         about: 'Snarky Puppy-style crisp pocket: sliding minor-to-major third double stops right in the groove.',
         steps: [
@@ -904,7 +1716,7 @@ export const CLASSIC_LICKS: ClassicLick[] = [
     },
     {
       id: 'cl-ns-misch-chill', name: 'Tom Misch laid-back jazz-hop 9th pocket', level: 2, kind: 'lick', chord: 'Cmaj9 | Dm9', ref: 'C', bpm: 88,
-      tab: 'e 5:3 4:2+3:4+2:3 r 4:2+3:4+2:3 3:5 2:3 q 2:5~ | e 5:5 4:3+3:5+2:5 r 3:5 2:3 q 4:2+3:4+2:3~',
+      tab: 'e 5:3 4:2+3:4+2:3 r 4:2+3:4+2:3 3:5 2:3 q 2:5~ | e 5:5 4:3+3:5+2:5 r 3:5 2:3 q. 4:2+3:4+2:3~',
       must: {
         about: 'Modern bedroom neo-soul magic: bouncy fingerpicked maj9/min9 chords laced with tiny pentatonic single notes right behind the beat.',
         steps: [
@@ -979,6 +1791,34 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         goal: 120,
       },
     },
+    {
+      id: 'cl-fk-stevie-super', name: 'Stevie Wonder Superstition E-minor clav groove', level: 2, kind: 'riff', chord: 'Em7', ref: 'E', bpm: 100,
+      tab: 'e 6:0 5:2 5:5 5:7 4:5 4:7 5:5 6:3 | s 6:0 5:7 4:5 5:7 6:0 5:5 4:5 5:5 e 5:7 5:5 6:3 6:0~',
+      must: {
+        about: 'The funkiest clavinet riff translated cleanly into E Standard guitar: bouncing Em pentatonic steps with wicked rhythmic bite.',
+        steps: [
+          'Walk boldly up the low Em box: E-0 → A-2 → A-5 → A-7 → D-5 → D-7 → A-5 → E-3.',
+          'In bar 2 snap nimble 16ths bouncing off open low E into D-5 before dropping back down A-7 → A-5 → E-3 → open E.',
+        ],
+        tip: 'Use crisp alternate picking and slight palm mute on open E so it bounces like an envelope filter clavinet.',
+        use: 'One-chord funk jams and pocket rhythm practice over Em7.',
+        goal: 108,
+      },
+    },
+    {
+      id: 'cl-fk-cherry-funky', name: 'Wild Cherry Play That Funky Music E9 pocket', level: 2, kind: 'riff', chord: 'E9', ref: 'E', bpm: 110,
+      tab: 's 6:0 6:0 6:3 5:2 6:0 6:0 6:3 5:2 e 4:6+3:7+2:7+1:7 r 4:x+3:x+2:x+1:x 4:6+3:7+2:7+1:7 | e 6:0 6:3 5:2 5:5 5:7 5:5 q 4:6+3:7+2:7+1:7~',
+      must: {
+        about: '70s dancefloor funk lock: rapid low-E pickup chugs slamming directly into razor-sharp high E9 horn stabs.',
+        steps: [
+          'Fire clean 16ths on the low strings (0-0-E3-A2 twice), then jump cleanly up to stab the bright E9 shape (D-6, G-7, B-7, e-7) with muted scratches.',
+          'Bar 2 climbs boldly up E-0 → E-3 → A-2 → A-5 → A-7 → A-5 and nails the beat-4 E9 accent.',
+        ],
+        tip: 'Release left-hand finger pressure right after hitting E9 so the chord stabs sound tight like brass hits.',
+        use: 'Classic 70s funk-rock grooves in E7 / E9.',
+        goal: 116,
+      },
+    },
   ], true),
 
   // ───────────────────────── Hawaiian Slack Key (Gabby Pahinui, Keola Beamer, Ledward Kaapana, Sonny Chillingworth)
@@ -1024,6 +1864,20 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         tip: 'Ring the 12th-fret chimes with your pinky or ring finger directly over the fret wire for crystalline bell tones.',
         use: 'Turnarounds between verses and gentle slack-key endings in G.',
         goal: 84,
+      },
+    },
+    {
+      id: 'cl-hw-iz-rainbow', name: 'Israel Kamakawiwoʻole Over the Rainbow vamp', level: 1, kind: 'lick', chord: 'G Em | C G', ref: 'G', bpm: 84,
+      tab: 'q 6:3+3:0+2:0+1:3 e 3:0 2:0 1:2 2:0 q 6:0+3:0+2:0+1:0 | q 5:3+3:0+2:1+1:0 e 2:1 1:0 h 6:3+3:0+2:0+1:3~',
+      must: {
+        about: 'Pure E-Standard island sunshine: gentle thumb-brushed G → Em → C → G chords voiced sweet like ukulele strums across the top strings.',
+        steps: [
+          'Pinch open G (low E-3 with high strings 3-2-1 ringing), roll softly across G-0 → B-0 → e-2 → B-0, then drop cleanly into airy open Em.',
+          'Shift smoothly to open C in bar 2, step delicately B-1 → open e, and float home onto glowing G.',
+        ],
+        tip: 'Brush lightly with the soft pad of your thumb—warm, unhurried, and peaceful.',
+        use: 'Sweet island ballads and gentle major-key chordal intros in G.',
+        goal: 92,
       },
     },
   ], false),
@@ -1085,6 +1939,62 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         tip: 'Use thin pick motion on only the top three strings—too much low-end muddies the reggae snare pocket.',
         use: 'Upbeat reggae verses over Am–F–C–G.',
         goal: 100,
+      },
+    },
+    {
+      id: 'cl-rr-sublime-santeria', name: 'Sublime Santeria arpeggio & sunny solo', level: 2, kind: 'lick', chord: 'E G#m | C#m B', ref: 'E', minor: false, bpm: 92,
+      tab: 'e 6:0 4:2 3:1 2:0 6:4 4:6 3:4 2:4 | e 3:9/ 3:11 2:9 2:12 1:9 2:12 q 2:9~',
+      must: {
+        about: 'The all-time reggae-rock masterpiece in E Standard: sparkling clean E–G#m arpeggio opening into Bradley Nowell’s ultra-melodic E major pentatonic solo hook.',
+        steps: [
+          'Pick cleanly up open E (E-0 → D-2 → G-1 → B-0), then climb into G#m barre at fret 4 (E-4 → D-6 → G-4 → B-4).',
+          'Launch into the solo line in bar 2: slide G-9→11, walk sweetly B-9 → B-12 → e-9 → B-12 and smile warmly on G# (B-9).',
+        ],
+        tip: 'Let the chords breathe in bar 1, then play bar 2 with relaxed vocal vibrato right behind the beat.',
+        use: 'Iconic SoCal reggae-rock intros and major-key singable solos over E–G#m–C#m–B.',
+        goal: 100,
+      },
+    },
+    {
+      id: 'cl-rr-sublime-whatigot', name: 'Sublime What I Got sunny D–G groove', level: 1, kind: 'riff', chord: 'D | G', ref: 'D', minor: false, bpm: 96,
+      tab: 'q 4:0 e 3:2+2:3+1:2 4:0 q 4:0+3:2+2:3 e 3:2 2:3 | q 6:3 e 3:0+2:0+1:3 6:3 q 6:3+3:0+2:0 e 2:3/ 1:3',
+      must: {
+        about: 'Two chords, pure summer sunshine: alternating warm open bass hits against crisp D and G campfire reggae chops.',
+        steps: [
+          'Pluck open D, snap the bright top D chord, drop back to open D, and bounce smoothly across G-2 → B-3.',
+          'Shift to G in bar 2 (low E-3 bass alternating with the ringing G triad) with a bright slide up B-3 → e-3.',
+        ],
+        tip: 'Keep your strumming wrist loose and relaxed—acoustic bounce beats stiffness every time.',
+        use: 'Laid-back two-chord reggae jams and singalongs over D–G.',
+        goal: 104,
+      },
+    },
+    {
+      id: 'cl-rr-marley-stir', name: 'Bob Marley Stir It Up classic island skank', level: 1, kind: 'riff', chord: 'A | D E', ref: 'A', minor: false, bpm: 78,
+      tab: 'e r 3:6+2:5+1:5 r 3:6+2:5+1:5 r 3:7+2:7+1:5 r 3:9+2:9+1:7 | e 4:7 3:6 2:5 1:5 2:5 3:6 q 3:6+2:5+1:5~',
+      must: {
+        about: 'Pure Trenchtown magic: crisp upstroke chord chops sitting on beats "&" over A–D–E, answered by a glowing top-string major-triad shimmer.',
+        steps: [
+          'Mute downbeats completely and pop crisp high triads on the upbeats: A (6-5-5), D (7-7-5), and E (9-9-7).',
+          'Roll gently up and back down the 5th-fret A shape across bar 2.',
+        ],
+        tip: 'Short, dry off-beat chops with warm neck-pickup clean tone give instant 1973 Wailers pocket.',
+        use: 'Roots reggae grooves, lovers rock and island ballads in A.',
+        goal: 86,
+      },
+    },
+    {
+      id: 'cl-rr-stoopid-closer', name: 'Slightly Stoopid Closer acoustic dub groove', level: 2, kind: 'lick', chord: 'G | Am', ref: 'G', minor: false, bpm: 88,
+      tab: 'e 6:3 r 4:5+3:4+2:3 r 6:3 5:5 4:5 r | e 5:0 r 4:5+3:5+2:5 r 3:5 2:5 1:8p 1:5',
+      must: {
+        about: 'San Diego beach-dub groove: heavy bass root hits followed by tight triad pops and clean acoustic-electric fills.',
+        steps: [
+          'Strike low G (E-3), pop the crisp top G triad on beat 2, then bounce smoothly up bass notes G → D → G.',
+          'Move to Am in bar 2 (open A → fifth-fret Am triad) and pop a sweet pinky pull-off e-8→5.',
+        ],
+        tip: 'Mute the triad immediately after beat 2 so the big low bass root stays punchy and clean.',
+        use: 'Acoustic reggae-rock vamps and chill dub jams over G–Am.',
+        goal: 96,
       },
     },
   ], true),
@@ -1204,6 +2114,34 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         goal: 150,
       },
     },
+    {
+      id: 'cl-bg-blackberry', name: 'Blackberry Blossom flatpicked fiddle run', level: 2, kind: 'run', chord: 'G D | Em C', bpm: 132,
+      tab: 'e 1:3 1:2 1:0 2:3 2:1 2:0 3:2 3:0 | e 4:2 4:0 5:2 5:0 6:3 6:2 6:0 6:3',
+      must: {
+        about: 'Every bluegrass flatpicker’s rite of passage in E Standard: flying smoothly straight down the open G major scale across all six strings.',
+        steps: [
+          'Alternate-pick straight down high e (3-2-0), B (3-1-0), and G (2-0) cleanly.',
+          'Continue smoothly down D (2-0), A (2-0), and E (3-2-0-3) right onto the G turnaround.',
+        ],
+        tip: 'Use strict down-up alternate picking on every single eighth note—never use two downs in a row on runs like this.',
+        use: 'Classic fiddle-tune breaks and speed-building warm-ups in G.',
+        goal: 148,
+      },
+    },
+    {
+      id: 'cl-bg-foggy-roll', name: 'Foggy Mountain Breakdown guitar crosspick', level: 3, kind: 'lick', chord: 'G | Em', bpm: 140,
+      tab: 'e 2:1h 2:0 3:0 1:0 2:1h 2:0 3:0 1:0 | e 2:3 1:0 3:0 2:0 4:2 3:0 q 6:3~',
+      must: {
+        about: 'Earthy 5-string banjo roll translated for E-Standard flatpickers: bouncing snappy B-1 hammer-ons against ringing open high e and G strings.',
+        steps: [
+          'Pick B-1 pulling/hammering briskly off B-0 → G-0 → open e twice with machine-gun evenness.',
+          'Cascade cleanly down B-3 → e-0 → G-0 → B-0 → D-2 → G-0 and punch open G (E-3).',
+        ],
+        tip: 'Keep a tiny relaxed wrist arc over the top three strings so your flatpick glides cleanly across string jumps.',
+        use: 'Show-stopping bluegrass breakdowns over G–Em.',
+        goal: 154,
+      },
+    },
   ], false),
 
   // ───────────────────────── Billy Strings / Modern Bluegrass Flatpicking
@@ -1250,13 +2188,97 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         goal: 148,
       },
     },
+    {
+      id: 'cl-bs-dust-baggie', name: 'Billy Strings Dust in a Baggie rapid roll', level: 3, kind: 'lick', chord: 'Am | G', ref: 'A', bpm: 162,
+      tab: 'e 5:0 4:2 3:2 2:1 1:0 1:3 1:0 2:1 | e 5:0 4:2 3:0 2:3 2:1 2:0 3:2 4:2',
+      must: {
+        about: 'The runaway Dust in a Baggie engine in E Standard: ferocious alternate-picked Am and G crosspicking that sounds like a freight train downhill.',
+        steps: [
+          'Hold a standard Am chord and pick strictly down-up up through A-0 → D-2 → G-2 → B-1 → e-0, grab e-3 with pinky, drop back through e-0 → B-1.',
+          'Keep the engine running in bar 2 over Am7/G-color open notes (A-0 → D-2 → G-0 → B-3 → B-1 → B-0 → G-2 → D-2).',
+        ],
+        tip: 'Start around 115 BPM locking your right wrist to a tiny pendulum arc; accent beat 1 and beat 3 strongly.',
+        use: 'Blistering flatpicked bluegrass jams and stamina builders over Am–G.',
+        goal: 176,
+      },
+    },
+    {
+      id: 'cl-bs-creek-modal', name: 'Billy Strings Meet Me at the Creek modal jam', level: 3, kind: 'run', chord: 'Am | G', ref: 'A', bpm: 152,
+      tab: 's 5:0 5:3 5:4 4:0 4:2 3:0 3:2 3:3 2:1 2:3 1:0 1:3 1:5 1:3 1:0 2:3 | e 2:1 3:3 3:2 3:0 4:2 4:0 q 5:0~',
+      must: {
+        about: 'Jamgrass rocket fuel: roaring from open A across bluegrass chromatic blue-notes up to e-5 (A) and sliding straight back home down the Am pentatonic.',
+        steps: [
+          'Sprint crisp alternate-picked 16ths: A-0→3→4 → D-0→2 → G-0→2→3 → B-1→3 → e-0→3→5 → e-3→0 → B-3.',
+          'Catch your breath with punchy eighth notes down B-1 → G-3 → G-2 → open G → D-2 → open D → open A.',
+        ],
+        tip: 'Keep open strings singing briefly behind fretted notes so the Dreadnought bass resonance never thins out.',
+        use: 'Extended psychedelic jamgrass solos over Am–G–F.',
+        goal: 164,
+      },
+    },
+    {
+      id: 'cl-bs-mire-intro', name: 'Billy Strings Away From the Mire flowing intro', level: 2, kind: 'arpeggio', chord: 'Am | F C', ref: 'A', bpm: 132,
+      tab: 'e 5:0 4:2 3:2 2:1 1:0 2:3 2:1 3:2 | e 6:1 4:3 3:2 2:1 5:3 4:2 3:0 2:1',
+      must: {
+        about: 'Lyrical, bittersweet Billy Strings acoustic storytelling: flowing open-position arpeggios shifting smoothly across Am → F → C.',
+        steps: [
+          'Pick calmly up Am (A-0 → D-2 → G-2 → B-1 → open e), reach pinky cleanly to B-3 (D, sus4 shimmer) and descend B-1 → G-2.',
+          'Wrap thumb or index onto F (E-1, D-3, G-2, B-1) for half of bar 2, then open brightly into C (A-3, D-2, G-0, B-1).',
+        ],
+        tip: 'Let every open string ring like warm bell chimes—never choke notes prematurely.',
+        use: 'Melodic jamgrass intros and acoustic chord progressions in Am.',
+        goal: 140,
+      },
+    },
+    {
+      id: 'cl-bs-turmoil-b5', name: 'Billy Strings Turmoil & Tinfoil psychedelic riff', level: 3, kind: 'riff', chord: 'Em', ref: 'E', bpm: 148,
+      tab: 'e 6:0 6:3 5:0 5:1 5:2 4:0 4:1 4:2 | e 3:0 3:3 2:0 2:3 1:3 1:0 2:3 6:0~',
+      must: {
+        about: 'Metal-infused dark jamgrass: a sinister flat-5 blue-note storm climbing chromatically straight up from open low E into snappy open-E highs.',
+        steps: [
+          'Attack low open E → E-3 → open A → chromatic A-1 (Bb!) → A-2 → open D → D-1 (Eb!) → D-2.',
+          'Tear across the top open Em box (G-0→3 → B-0→3 → e-3→0 → B-3) before slamming firmly onto open low E.',
+        ],
+        tip: 'Dig in with heavy flatpick bite right near the bridge so the chromatic flat-5 notes snarl like metal on acoustic strings.',
+        use: 'Dark, driving E-minor jamgrass grooves and chromatic flatpicking drills.',
+        goal: 158,
+      },
+    },
+    {
+      id: 'cl-bs-red-daisy', name: 'Billy Strings Red Daisy blazing G break', level: 3, kind: 'run', chord: 'G | C', ref: 'G', bpm: 164,
+      tab: 's 6:3 5:0 5:2 4:0 4:2 3:0 3:4 2:3 1:3 1:5 1:7 1:5 1:3 2:3 2:5 2:3 | e 3:2 3:0 4:2 4:0 5:3 5:2 q 6:3~',
+      must: {
+        about: 'Pure modern bluegrass barn-burner in G: shooting out of open-position 16ths straight up the high E string to fret 7 before diving cleanly back home.',
+        steps: [
+          'Fly cleanly up G major mixing open strings (E-3 → A-0,2 → D-0,2 → G-0,4 → B-3 → e-3,5,7,5,3 → B-3,5,3).',
+          'Cascade cleanly down G-2 → G-0 → D-2 → D-0 → A-3 → A-2 onto solid low G (E-3).',
+        ],
+        tip: 'Keep the shift up to high e-5 and e-7 relaxed—slide cleanly with ring/pinky while open G resonance sustains below.',
+        use: 'High-speed bluegrass chorus breaks and modern G-major solos.',
+        goal: 174,
+      },
+    },
+    {
+      id: 'cl-bs-gild-lily', name: 'Billy Strings Gild the Lily melodic D hook', level: 2, kind: 'lick', chord: 'D | C G', ref: 'D', bpm: 118,
+      tab: 'e 2:10 1:8 1:10 1:10 2:10 2:8 2:7 3:7 | e 3:5 4:7 4:5 4:4 4:0 4:4 4:5 4:7',
+      must: {
+        about: 'Warm, soaring Highway Prayers flatpicking melody in open D: stepping joyfully down the high B/e neck pocket right back into ringing open D resonance.',
+        steps: [
+          'Start bright on B-10 (A) → e-8 (C) → e-10 (D) twice, then cascade cleanly down B-10 → B-8 → B-7 (F#) → G-7 (D).',
+          'Step down G-5 (C) → D-7 (A) → D-5 (G) → D-4 (F#) → open D, and bounce right back up D-4 → D-5 → D-7.',
+        ],
+        tip: 'Keep notes singing and connected—let open D chime warmly at beat 3 of bar 2 like a sunburst acoustic bloom.',
+        use: 'Melodic bluegrass hooks and jamgrass ballad intros in D.',
+        goal: 126,
+      },
+    },
   ], false),
 
   // ───────────────────────── Acoustic Singer-Songwriter (Dylan Gossett, Zach Bryan, Noah Kahan, Tyler Childers)
   ...C('acoustic', 'G', [
     {
       id: 'cl-ac-gossett-hammer', name: 'Dylan Gossett open-G hammer & drone', level: 1, kind: 'lick', chord: 'G', bpm: 86,
-      tab: 'e 6:3 4:0 4:2h 3:0 2:3 1:0 2:3 3:0 | q 5:3+4:2+3:0+2:3 e 5:2h 4:0 q 6:3+3:0+2:3+1:3~',
+      tab: 'e 6:3 4:0 4:2h 3:0 2:3 1:0 2:3 3:0 | q 5:3+4:2+3:0+2:3 e 5:2h 4:0 h 6:3+3:0+2:3+1:3~',
       must: {
         about: 'Heartland acoustic warmth: hammering into the open D string while keeping the high G-chord ring pinned underneath.',
         steps: [
@@ -1308,6 +2330,20 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         tip: 'Let open strings blur naturally under your strumming hand like big acoustic rhythm accompaniment.',
         use: 'Country-folk storytelling songs over G–C–D.',
         goal: 104,
+      },
+    },
+    {
+      id: 'cl-ac-beatles-sun', name: 'Beatles Here Comes the Sun open D shimmer', level: 2, kind: 'riff', chord: 'D | G A7', ref: 'D', bpm: 128,
+      tab: 'e 2:3 1:2 1:0 1:2 2:3 1:2 1:0 1:2 | e 3:2 2:3 1:2 1:0 2:3 2:2 q 4:0~',
+      must: {
+        about: 'George Harrison’s sunniest acoustic guitar melody in open E Standard (play without a capo, or pop a capo on fret 7 for the album key of A!).',
+        steps: [
+          'Hold a standard open D chord: bounce B-3 → e-2 → lift to open e → press e-2 back down twice gracefully.',
+          'Cascade cleanly across G-2 → B-3 → e-2 → open e → B-3 → B-2 (C# over A7!) and ring warmly home to open D.',
+        ],
+        tip: 'Keep your middle finger light on high e-2 so the lift to open high E sings clearly without muting B-3.',
+        use: 'Joyful acoustic folk-pop intros and chordal fills in D.',
+        goal: 136,
       },
     },
   ], false),
@@ -1385,6 +2421,34 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         goal: 78,
       },
     },
+    {
+      id: 'cl-cw-cash-folsom', name: 'Johnny Cash Folsom Prison train turnaround', level: 1, kind: 'turnaround', chord: 'E7', ref: 'E', bpm: 108,
+      tab: 'e 5:2 5:2 5:2 5:2 5:2 5:2 5:0 6:4 | e 6:3 6:2 6:1 6:0 q 6:0+5:2+4:2 q r',
+      must: {
+        about: 'Luther Perkins iconic boom-chicka Telecaster intro in pure E Standard: chugging palm-muted B-note train rhythm dropping chromatically home to E.',
+        steps: [
+          'Rest your palm gently on the bridge saddles and drive six chugging eighth notes on B (A-2), stepping A-0 → E-4 at the end of bar 1.',
+          'Walk chromatically down the low E string (3 → 2 → 1 → open E) and punch one solid E power/open chord.',
+        ],
+        tip: 'Light bridge palm muting makes every low note sound tight and snappy like a steam locomotive.',
+        use: 'Country train beats, classic outlaw intros and rockabilly turnarounds in E.',
+        goal: 116,
+      },
+    },
+    {
+      id: 'cl-cw-nichols-workin', name: 'Merle Haggard / Roy Nichols Telecaster snap', level: 2, kind: 'lick', chord: 'A7', ref: 'A', bpm: 124,
+      tab: 'e 5:0 3:6 5:0 3:5 5:0 3:6 2:5 1:5 | e 2:8 2:5 3:7 3:6 4:7 3:6 q 5:0~',
+      must: {
+        about: 'Bakersfield Telecaster twang at its sharpest: bouncing open A bass snaps against dry major-and-minor-third chicken-pickin’ stabs.',
+        steps: [
+          'Pick muted open A, snap G-6 (C#!) with your middle finger, drop back to open A → G-5 (C) → open A → G-6, and double-pop B-5 + e-5.',
+          'Tumble cleanly down B-8 → B-5 → G-7 → G-6 → D-7 → G-6 right back home onto open A.',
+        ],
+        tip: 'Pluck the G-6 and top notes with a brisk upward middle-finger pull so your Tele twang cracks cleanly.',
+        use: 'Honky-tonk shuffles and Bakersfield country solos over A7.',
+        goal: 132,
+      },
+    },
   ], false),
 
   // ───────────────────────── Folk (James Taylor, Nick Drake, Elizabeth Cotten / Doc Watson)
@@ -1431,6 +2495,34 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         goal: 112,
       },
     },
+    {
+      id: 'cl-fo-beatles-blackbird', name: 'Beatles Blackbird moving tenths & drone', level: 2, kind: 'lick', chord: 'G Am7 | G/B', ref: 'G', bpm: 94,
+      tab: 'e 6:3+2:0 3:0 5:0+2:1 3:0 5:2+2:3 3:0 5:2+2:3 3:0 | e 5:10+2:12 3:0 2:12 3:0 5:10+2:12 3:0 q 5:10+2:12~',
+      must: {
+        about: 'Paul McCartney’s iconic E-Standard acoustic fingerpicking jewel: climbing walking tenths against the constant chiming open G string.',
+        steps: [
+          'Pinch E-3 + open B, brush open G, hop cleanly to open A + B-1, brush open G, slide up to A-2 + B-3, and open up.',
+          'Glide effortlessly up to fret 10 + 12 (A-10 + B-12) in bar 2 while open G keeps sparkling cleanly underneath.',
+        ],
+        tip: 'Brush gently upward/downward with your thumb and index nail like McCartney so the open G drone rings soft and steady.',
+        use: 'Acoustic fingerstyle classics and voice-leading tenths in G.',
+        goal: 100,
+      },
+    },
+    {
+      id: 'cl-fo-fleetwood-landslide', name: 'Fleetwood Mac Landslide Travis-pick roll', level: 1, kind: 'arpeggio', chord: 'C G/B | Am7', ref: 'C', bpm: 80,
+      tab: 'e 5:3 3:0 4:2 2:1 5:2 3:0 4:0 2:3 | e 5:0 3:0 4:2 2:1 5:2 3:0 4:0 2:3',
+      must: {
+        about: 'Lindsey Buckingham’s timeless fingerpicking pattern in open E Standard (play without capo, or clamp capo at fret 3 to match Stevie Nicks’ original key!).',
+        steps: [
+          'Shape open C: thumb bounces A-3 → D-2 while fingers pluck open G → B-1; walk cleanly to G/B (A-2 → D-0 → B-3).',
+          'Drop smoothly into Am7 (open A → D-2 → open G → B-1) and step right back up through G/B.',
+        ],
+        tip: 'Let every chord shape sustain fully until the next chord changes—smooth thumb steadiness makes it hypnotic.',
+        use: 'Gentle Travis-picked folk ballads and acoustic accompaniment in C.',
+        goal: 88,
+      },
+    },
   ], false),
 
   // ───────────────────────── Melodic Fingerstyle (Marco Cirillo, Tommy Emmanuel, Andy McKee)
@@ -1475,6 +2567,34 @@ export const CLASSIC_LICKS: ClassicLick[] = [
         tip: 'Keep the percussion slap musical and balanced—no louder than a light snare brush.',
         use: 'Contemporary solo acoustic instrumentals.',
         goal: 96,
+      },
+    },
+    {
+      id: 'cl-fs-floyd-anybody', name: 'Pink Floyd Is There Anybody Out There? walk', level: 2, kind: 'arpeggio', chord: 'Am | Am/G Am/F#', ref: 'A', bpm: 78,
+      tab: 'e 5:0 4:2 3:2 2:1 1:0 2:1 3:2 4:2 | e 5:0 4:5 3:2 2:1 5:0 4:4 3:2 2:1',
+      must: {
+        about: 'Haunting classical nylon-string masterpiece from The Wall in E Standard: an unwavering open-A minor arpeggio descending calmly down the bass line on the D string.',
+        steps: [
+          'Finger standard open Am and pluck cleanly up and back down: A-0 → D-2 → G-2 → B-1 → e-0 → B-1 → G-2 → D-2.',
+          'Hold the Am top shape steady while stretching pinky to D-5 (G, Am/G) and ring to D-4 (F#, Am/F#) in bar 2.',
+        ],
+        tip: 'Use strict p-i-m-a finger assignments (thumb on A & D, index on G, middle on B, ring on high e) so it flows like classical etude.',
+        use: 'Haunting classical-folk acoustic pieces over descending minor line clichés (Am–Am/G–Am/F#–F).',
+        goal: 86,
+      },
+    },
+    {
+      id: 'cl-fs-mason-classical', name: 'Mason Williams Classical Gas dramatic hook', level: 3, kind: 'lick', chord: 'Am | Dm', ref: 'A', bpm: 112,
+      tab: 'e 5:0 3:5 2:5 1:5 5:0 3:5 2:5 1:7 | e 5:0 3:5 2:5 1:8 5:0 2:6 3:7 5:0+3:5+2:5+1:5~',
+      must: {
+        about: 'The most celebrated acoustic guitar instrumental opener in E Standard: barre the 5th-fret Am triad while an urgent melody climbs over steady open-A pedal notes.',
+        steps: [
+          'Barre strings 3–1 cleanly at fret 5 with your index finger while your thumb strikes open A: climb high E 5 → 7 → 8 against the steady pedal.',
+          'Catch Dm color (B-6 + G-7) smoothly with your middle and ring fingers before landing proudly back on 5th-fret Am.',
+        ],
+        tip: 'Lift your fingers only when shifting to the high e-7 and e-8 notes so the chord keeps ringing like a chamber orchestra.',
+        use: 'Showpiece solo acoustic fingerstyle themes and barre stamina in Am.',
+        goal: 122,
       },
     },
   ], false),

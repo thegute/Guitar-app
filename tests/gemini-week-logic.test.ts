@@ -34,7 +34,7 @@ const validTagIds = new Set(WORKS_OVER_TAGS.map(t => t.id))
 
 // 1. Classic guitarist Must-Know Licks
 {
-  assert.ok(CLASSIC_LICKS.length >= 90, `Expected >= 90 classic licks, got ${CLASSIC_LICKS.length}`)
+  assert.ok(CLASSIC_LICKS.length >= 170, `Expected >= 170 classic licks, got ${CLASSIC_LICKS.length}`)
   const baseIds = new Set(LICKS.filter(l => !l.id.startsWith('cl-')).map(l => l.id))
   const clIds = new Set(CLASSIC_LICKS.map(l => l.id))
   assert.equal(clIds.size, CLASSIC_LICKS.length, 'Every classic lick cl-* ID must be unique')
@@ -48,6 +48,13 @@ const validTagIds = new Set(WORKS_OVER_TAGS.map(t => t.id))
     assert.ok(cl.must.goal >= 40, `${cl.id} has goal BPM`)
     const parsed = parseLick(cl.tab)
     assert.ok(parsed.bars.length >= 1 && parsed.events.length >= 2, `${cl.id} tab parses cleanly`)
+    const meter = cl.meter ?? 4
+    parsed.bars.forEach((barLen, bi) => {
+      assert.ok(
+        Math.abs(barLen - meter) < 1e-4,
+        `${cl.id} bar ${bi + 1} duration is ${barLen}, expected ${meter}`
+      )
+    })
   }
   const bluegrassCount = LICKS.filter(l => l.style === 'bluegrass').length
   assert.ok(bluegrassCount < 40, `bluegrass lick count (${bluegrassCount}) stays < 40 for catalog test`)
@@ -55,6 +62,15 @@ const validTagIds = new Set(WORKS_OVER_TAGS.map(t => t.id))
   const bb = ex.find(e => e.lick === 'cl-bl-bb-sting')
   assert.ok(bb, 'B.B. King lick present in exercise catalog')
   assert.ok(bb!.about.includes('B.B. King') && bb!.about.length > 20, `B.B. King about does not truncate at "B.": ${bb!.about}`)
+  for (const id of ['cl-mt-buckethead-sooth', 'cl-bs-dust-baggie', 'cl-bl-bb-thrill', 'cl-rk-money', 'cl-rk-smoke']) {
+    const foundEx = ex.find(e => e.lick === id)
+    assert.ok(foundEx, `${id} present in exercise catalog`)
+    assert.ok(foundEx!.about.length > 20, `${id} about is not truncated: ${foundEx!.about}`)
+    const lick = CLASSIC_LICKS.find(l => l.id === id)!
+    assert.ok(worksOverForLick(lick).length >= 1, `${id} has valid worksOver tags`)
+  }
+  const moneyLick = CLASSIC_LICKS.find(l => l.id === 'cl-rk-money')
+  assert.equal(moneyLick?.meter, 7, 'cl-rk-money uses 7/4 meter')
   console.log(`classic licks: ${CLASSIC_LICKS.length} checked, total licks ${LICKS.length}`)
 }
 
