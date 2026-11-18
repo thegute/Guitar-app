@@ -49,6 +49,7 @@ import { chordEase, forgetTaught, meantNote, taughtAlias, taughtCount, teachChor
 import { useFoldPosture } from '../play/fold'
 import { nextSpeed, timeline as inTimeTimeline, videoTimeOf, type VideoApi } from '../play/inTime'
 import { GameView } from '../components/GameView'
+import { CueBar } from '../components/CueBar'
 import { MixSlider, applyMix } from '../components/MixSlider'
 import { noteStuck } from '../tips/tips'
 import { setBusLevel } from '../audio/engine'
@@ -1880,9 +1881,14 @@ export function PlayScreen() {
             onLoopStart={loopRange ? () => gameGoTo(loopRange.a, true) : undefined}
             along={mode === 'time' && (guide || withBand)} bandAvail={bandAvail}
             onAlong={on => { if (inTime.running) inTime.stop(); setGuide(on); if (bandAvail) setBandOn(on); if (on && mode !== 'time') setMode('time') }} />
-        ) : <TabView track={track} mode={labelMode} flats={flats} cursor={inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0 || inTime.running} states={states.current}
-          flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} zoom={stand ? standZoom : tabZoom} onZoom={stand ? setStandZoom : setTabZoom}
-          meter={meter} counts={counts} strum={strumPat} marks={report?.bars} />}
+        ) : (
+          <>
+            <CueBar active={!bigView && mode === 'time' && inTime.running} meter={meter} dropWord="GO" read={inTime.cueRead} countNumTestId={!stand ? 'count-big' : undefined} />
+            <TabView track={track} mode={labelMode} flats={flats} cursor={inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat} playing={playAt >= 0 || inTime.running} states={states.current}
+              flash={flash} loop={loop} selecting={!!selecting} onBar={onBar} version={version} spans={timeline.spans} onTap={onTap} zoom={stand ? standZoom : tabZoom} onZoom={stand ? setStandZoom : setTabZoom}
+              meter={meter} counts={counts} strum={strumPat} marks={report?.bars} />
+          </>
+        )}
         {/* the tab's zoom, right on the tab (pinch works too; Options → Size has the same) */}
         {gameView !== 'game' && !stand && (() => {
           const z = tabZoom, setZ = setTabZoom
@@ -1896,7 +1902,7 @@ export function PlayScreen() {
         })()}
         {peek.bubble}
         {fingerBox}
-        {inTime.running && inTime.countIn > 0 && <div className="count-big" key={inTime.countIn} role="status" aria-live="assertive" data-testid="count-big">{inTime.countIn}</div>}
+        {(stand || gameView === 'game') && !bigView && inTime.running && inTime.countIn > 0 && <div className="count-big" key={inTime.countIn} role="status" aria-live="assertive" data-testid="count-big">{inTime.countIn}</div>}
         {loopBlink && <div className="loop-blink" key={loopBlink.k} role="status">{loopBlink.text}</div>}
         {bigView && (() => {
           const at = inTime.running ? inTime.cursor : playAt >= 0 ? playAt : cursorFlat
@@ -1915,6 +1921,7 @@ export function PlayScreen() {
                 <span className="remote-title">{doc.title}</span>
                 <span className="remote-bar">{done && mode === 'wait' ? 'Finished!' : `Bar ${(f?.bar ?? 0) + 1} / ${track.bars.length}`}{loop ? ` · ⟲ ${loop.from === loop.to ? loop.from + 1 : `${loop.from + 1}–${loop.to + 1}`}` : ''}</span>
               </div>
+              <CueBar active={mode === 'time' && inTime.running} meter={meter} dropWord="GO" read={inTime.cueRead} compact />
               <div className="remote-main" key={fb ? `${fb.text}${feedback?.heard ?? ''}` : 'x'}>
                 {inTime.running && inTime.countIn > 0 ? <b className="remote-count">{inTime.countIn}</b>
                   : isChord || (chordNow && !notes.length) ? <>

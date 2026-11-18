@@ -30,6 +30,7 @@ import { spell, type ProgChord } from '../src/theory/progressions'
 import { voicingFromFrets, progressionFromTrack, progressionFromChords } from '../src/components/ProgressionDiagrams'
 import { formatKeyBadge, songKeyGuess } from '../src/tabs/keyDetect'
 import { detectJamKeyMismatch, keyOptionId, shiftChord, shiftKeyName, transposeJamProg, transposeSong, transposeTrack } from '../src/tabs/transpose'
+import { cueStateFromBeats } from '../src/play/cueState'
 import { lickInKey } from '../src/licks/generator'
 import { jamBandForSong } from '../src/tabs/fromProgression'
 import {
@@ -397,5 +398,52 @@ const validTagIds = new Set(WORKS_OVER_TAGS.map(t => t.id))
   assert.equal((JSON.parse(localStorage.getItem('kg:exFilter')!) as { worksOver: string }).worksOver, 'blues12')
 
   console.log('Batch H2 unit checks: ok')
+}
+
+// 8. Batch H3: Visual Count-in & First-Beat Cue Bar state math
+{
+  // 1-bar 4/4 count-in
+  const c1 = cueStateFromBeats({ beatNow: -4.0, fromBeat: 0, meter: 4, countInTotal: 4 })
+  assert.equal(c1.phase, 'count')
+  assert.equal(c1.bar, 1)
+  assert.equal(c1.beat, 1)
+  assert.equal(c1.countBars, 1)
+  assert.equal(c1.isBeatOne, true)
+
+  const c3 = cueStateFromBeats({ beatNow: -1.5, fromBeat: 0, meter: 4, countInTotal: 4, swung: true })
+  assert.equal(c3.phase, 'count')
+  assert.equal(c3.beat, 3)
+  assert.equal(c3.showAnd, true, 'swung groove lights & pickup in last two beats')
+
+  // 2-bar fast-tempo count-in (8 beats in 4/4)
+  const fast2 = cueStateFromBeats({ beatNow: 4, fromBeat: 8, meter: 4, countInTotal: 8 })
+  assert.equal(fast2.phase, 'count')
+  assert.equal(fast2.countBars, 2)
+  assert.equal(fast2.bar, 2)
+  assert.equal(fast2.beat, 1)
+  assert.equal(fast2.countFrac, 0.5)
+
+  // First-beat drop cue right on Beat 1 of Bar 1
+  const drop = cueStateFromBeats({ beatNow: 8.1, fromBeat: 8, meter: 4, countInTotal: 8 })
+  assert.equal(drop.phase, 'drop')
+  assert.equal(drop.bar, 1)
+  assert.equal(drop.beat, 1)
+  assert.equal(drop.isFirstDrop, true)
+  assert.equal(drop.isBeatOne, true)
+
+  // Ongoing play phase in 3/4: soft Beat 1 pulse on Bar 2 beat 1, quiet on beat 2
+  const waltzB1 = cueStateFromBeats({ beatNow: 3.1, fromBeat: 0, meter: 3, countInTotal: 3 })
+  assert.equal(waltzB1.phase, 'play')
+  assert.equal(waltzB1.bar, 2)
+  assert.equal(waltzB1.beat, 1)
+  assert.equal(waltzB1.isBeatOne, true)
+
+  const waltzB2 = cueStateFromBeats({ beatNow: 4.2, fromBeat: 0, meter: 3, countInTotal: 3 })
+  assert.equal(waltzB2.phase, 'play')
+  assert.equal(waltzB2.bar, 2)
+  assert.equal(waltzB2.beat, 2)
+  assert.equal(waltzB2.isBeatOne, false)
+
+  console.log('Batch H3 unit checks: ok')
 }
 

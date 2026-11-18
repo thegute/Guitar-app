@@ -3057,4 +3057,68 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
 }
 [data-theme='psy'] .play-transpose-bar, [data-theme='psy'] .lib-key-links { background: #22084d; }
 
+/* Visual Count-in & First-Beat Cue Bar in Play & Looper (Batch H3) */
+.cue-bar {
+  position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 30px; padding: 4px 10px; border-radius: var(--r-sm);
+  background: var(--surface-2); border: 1px solid var(--line);
+  transition: border-color .12s ease, box-shadow .12s ease, background-color .12s ease;
+}
+.cue-bar::after {
+  content: ''; position: absolute; left: 0; bottom: 0; height: 3px; width: var(--cue-prog, 0%);
+  background: linear-gradient(90deg, var(--gold), var(--mint)); opacity: 0; pointer-events: none;
+  transition: opacity .12s ease;
+}
+.cue-bar[data-phase='count'] { border-color: color-mix(in srgb, var(--gold) 65%, var(--line)); }
+.cue-bar[data-phase='count']::after { opacity: 0.95; }
+.cue-bar[data-phase='drop'] {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 22%, var(--surface-2));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 45%, transparent), 0 0 14px color-mix(in srgb, var(--gold) 35%, transparent);
+}
+.cue-bar[data-phase='play'][data-beat-one='1'] {
+  border-color: color-mix(in srgb, var(--gold) 55%, var(--line));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--gold) 22%, transparent);
+}
+.cue-bar .cb-label { font-weight: 600; color: var(--ink-2); white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cue-bar[data-phase='drop'] .cb-label, .cue-bar[data-phase='drop'] .cb-sub { color: var(--gold); font-weight: 700; }
+.cue-bar .cb-pips { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.cue-bar .cb-pip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%; font-style: normal; font-size: 11px; font-weight: 700;
+  background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--ink-2);
+  transition: transform .08s ease, background-color .08s ease, color .08s ease, box-shadow .08s ease;
+}
+.cue-bar .cb-pip[data-on='one'] {
+  background: var(--gold); color: #16130b; transform: scale(1.1);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--gold) 65%, transparent);
+}
+.cue-bar .cb-pip[data-on='beat'] {
+  background: var(--mint); color: #081c18;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--mint) 45%, transparent);
+}
+.cue-bar[data-phase='play'] .cb-pip[data-on='one'] { opacity: 0.88; box-shadow: 0 0 6px color-mix(in srgb, var(--gold) 40%, transparent); transform: none; }
+.cue-bar[data-phase='play'] .cb-pip[data-on='beat'] { opacity: 0.72; box-shadow: none; }
+.cue-bar .cb-and {
+  padding: 0 5px; border-radius: var(--r-pill); font-size: 11px; font-weight: 700;
+  background: color-mix(in srgb, var(--mint) 24%, transparent); color: var(--mint-text, var(--mint));
+}
+.cue-bar .cb-right { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.cue-bar .cb-count-num { font-size: 14px; font-weight: 800; color: var(--gold); min-width: 1.2em; text-align: right; }
+.cue-bar .cb-sub { color: var(--ink-2); min-width: 2.5em; text-align: right; }
+.cue-bar.compact { min-height: 26px; padding: 2px 8px; }
+.cue-bar.compact .cb-pip { width: 17px; height: 17px; font-size: 10px; }
+[data-theme='psy'] .cue-bar { background: #1c0641; }
+.bar-lights { position: relative; padding-bottom: 3px; }
+.bar-lights::after {
+  content: ''; position: absolute; left: 0; bottom: 0; height: 2px; width: var(--cue-prog, 0%);
+  background: linear-gradient(90deg, var(--gold), var(--mint)); opacity: 0; pointer-events: none;
+}
+.bar-lights[data-mode='count']::after { opacity: 0.95; }
+.bar-lights[data-mode='drop'] b, .bar-lights[data-mode='rec-drop'] b { color: var(--gold); font-weight: 800; }
+.bar-lights[data-mode='rec-drop'] i[data-on='one'] { background: var(--coral); box-shadow: 0 0 10px var(--gold); }
+[data-pulse='drop'] { box-shadow: 0 0 0 3px var(--gold), 0 0 22px var(--gold) !important; }
+
+
 

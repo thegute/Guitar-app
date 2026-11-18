@@ -45,6 +45,8 @@ export class StudioTransport {
   playing = false
   /** audio time of step 0 of the current pass */
   t0 = 0
+  countInTotal = 0
+  countInSwung = false
   click = false
   private stepFns = new Set<(step: number) => void>()
   /** your own samples for some pads (phone only): played instead of the kit's sound */
@@ -164,6 +166,8 @@ export class StudioTransport {
     this.playing = true
     const t = ctx.currentTime + 0.08
     const plan = planCountIn({ beats: countIn, bpm: this.beat.bpm, meter: 4, swing: this.beat.swing })
+    this.countInTotal = plan.totalBeats
+    this.countInSwung = plan.swung
     if (plan.totalBeats > 0) scheduleCountIn(t, plan, 'wood', 1)
     this.t0 = t + plan.durationSec
     this.next = 0
@@ -194,6 +198,8 @@ export class StudioTransport {
     void ctx.resume()
     this.playing = true
     this.t0 = t0
+    this.countInTotal = 0
+    this.countInSwung = false
     this.next = Math.max(0, Math.ceil((ctx.currentTime + 0.02 - t0) / this.stepDur))
     this.nextT = this.t0 + this.next * this.stepDur
     this.restartLayers()

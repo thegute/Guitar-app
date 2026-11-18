@@ -8,7 +8,7 @@ import { playClick, scheduleCountIn } from '../audio/metronome'
 import { playNote, type SoundId } from '../audio/pluck'
 import { pickupShift, playable, type FlatStep } from '../tabs/model'
 import { BandVoices, type BandEvent } from '../audio/band'
-import { BeatTimelineClock, planCountIn, subscribeScheduler, updateClockState } from '../engine/clock'
+import { BeatTimelineClock, planCountIn, subscribeScheduler, updateClockState, type CountInPlan } from '../engine/clock'
 
 export interface TimedStep {
   flat: number
@@ -96,12 +96,15 @@ export interface Clock {
   beatAt(ctxTime: number): number | null
   /** seconds per beat right now (for converting timing errors to ms) */
   spb(): number
+  /** active count-in plan when using the internal clock */
+  readonly countInPlan?: CountInPlan
   stop(): void
 }
 
 /** The app's own clock: count-in, then steady beats, looping [fromBeat, toBeat) if asked. Clicks optional. */
 export class InternalClock implements Clock {
   private core: BeatTimelineClock
+  readonly countInPlan: CountInPlan
   private unsub: (() => void) | null = null
   private nextClick = 0
   private guideNext = 0
@@ -127,6 +130,7 @@ export class InternalClock implements Clock {
       swing: opts.swing,
       autoTwoBars: opts.autoTwoBars,
     })
+    this.countInPlan = plan
     const ctx = audio()
     const startAt = ctx.currentTime + 0.15
     const t0 = startAt + plan.durationSec

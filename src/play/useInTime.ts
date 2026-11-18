@@ -242,7 +242,15 @@ export function useInTime(a: Args) {
   /** where the music is now, in beats (null when stopped): Game Mode's highway reads this every frame */
   const beatNow = useCallback((): number | null => { const r = run.current; return r ? r.clock.beatAt(audio().currentTime) : null }, [])
   const speedNow = useCallback((): number => run.current?.speed ?? 1, [])
+  const cueRead = useCallback(() => {
+    const r = run.current
+    if (!r) return null
+    const b = r.clock.beatAt(audio().currentTime)
+    if (b === null) return null
+    const p = r.clock.countInPlan
+    return { beatNow: b, fromBeat: r.fromBeat, countInTotal: p?.totalBeats ?? (args.current.meter ?? 4), swung: !!p?.swung }
+  }, [])
 
   useEffect(() => () => stop(), [stop])
-  return { running, cursor, feedback, tally, stats, pass, usingVideo, start, stop, played, countIn, wraps, beatNow, speedNow, errOf }
+  return { running, cursor, feedback, tally, stats, pass, usingVideo, start, stop, played, countIn, wraps, beatNow, speedNow, cueRead, errOf }
 }

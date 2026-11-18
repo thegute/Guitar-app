@@ -1,5 +1,15 @@
 # Gemini week log (newest first)
 
+- 2026-11-18: **Hydrogen Batch H3 — Visual Count-in & First-Beat Cue Bar in Play & Looper (`src/play/cueState.ts`, `src/components/CueBar.tsx`, `src/play/inTime.ts`, `src/play/useInTime.ts`, `src/studio/transport.ts`, `src/screens/PlayScreen.tsx`, `src/looper/BarLights.tsx`, `src/learn/guide.ts`, `src/search/catalog.ts`, `src/styles.css`, `tests/gemini-week-logic.test.ts`)**:
+  1. **Shared Audio-Clock Cue Math (`src/play/cueState.ts`):** Added `cueStateFromBeats` computing `count` (1-bar or 2-bar fast-tempo `>= 130 BPM` with swung `&` prep), `drop` (bright Beat 1 of Bar 1 downbeat flash), and `play` (soft Beat 1 bar-line pulse) across any meter (`3/4`, `4/4`, `5/4`, etc.).
+  2. **Slim Cue Bar in Play (`src/components/CueBar.tsx`, `src/play/inTime.ts`, `src/play/useInTime.ts`, `src/screens/PlayScreen.tsx`):**
+     - Placed `<CueBar>` right above `<TabView>` (and inside Music Stand Big View) in both normal Play and Music Stand mode, without ever blocking tab notes.
+     - Per owner preference (Option B), the giant centered `.count-big` overlay now only shows in Music Stand / Game views; normal tab view stays completely unblocked with the Cue Bar above the tab.
+     - Pulses softly in gold on Beat 1 of every bar during playback so rests and off-click runs keep their pocket.
+  3. **Looper First-Beat Cue Upgrade (`src/studio/transport.ts`, `src/looper/BarLights.tsx`):**
+     - Wired `countInTotal` and `countInSwung` into `StudioTransport` and upgraded `BarLights` (Floating Looper, LooperBar strip, Full 4-Track Looper) with the count-in sweep bar, bright `1 · REC!` / `1 · GO!` Beat 1 drop cue, and dynamic meter pips.
+  4. **Verification:** Verified `npx tsc --noEmit -p .`, full `npm test`, `gemini-week-logic.test.ts` Batch H3 checks, and `npm run build`. All Hydrogen batches (H1–H3) complete; Argon sound-engine work (`notes/SOUND-ENGINE-FINISH.md`) queued next.
+
 - 2026-11-18: **Hydrogen Batch H2 — Key Signature Transpose Bar + `Capo N` Sync in Play, Song & Exercise Transposition, Jam Key Mismatch Warning & Licks↔Exercises↔Songs Deep Links (`src/tabs/transpose.ts`, `src/tabs/library.ts`, `src/nav.ts`, `src/screens/PlayScreen.tsx`, `src/exercises/ExerciseBrowser.tsx`, `src/screens/JamScreen.tsx`, `src/learn/LickLibrary.tsx`, `src/screens/SongsScreen.tsx`, `src/components/Songbook.tsx`, `src/learn/guide.ts`, `src/search/catalog.ts`, `src/search/types.ts`, `src/styles.css`, `tests/gemini-week-logic.test.ts`)**:
   1. **Song & Exercise Transposition + `Capo N` Sync (`src/tabs/transpose.ts`, `src/tabs/library.ts`, `PlayScreen.tsx`, `ExerciseBrowser.tsx`):**
      - Added `shiftKeyName`, `shiftChord`, `transposeTrack`, and `transposeSong` handling both tabbed riffs (keeping notes playable without negative frets) and chord sheets (`shapeNotes`), plus `Capo N` synchronization (`shapeShift = semi - (newCapo - track.capo)`).
