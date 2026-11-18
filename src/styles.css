@@ -3041,3 +3041,20 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
 .chain-lock-bar label { display: inline-flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; }
 [data-theme='psy'] .chain-prompt, [data-theme='psy'] .chain-lock-bar { background: #22084d; }
 
+/* Key Signature transpose bar, Capo sync, Jam key mismatch & deep links (Batch H2) */
+.key-badge.edited { border-color: var(--gold); color: var(--gold); }
+.play-transpose-bar {
+  padding: 8px 10px; border-radius: var(--r-sm);
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.notice.key-mismatch {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+  border-color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, var(--surface-2));
+}
+.lib-key-links {
+  padding: 6px 10px; border-radius: var(--r-sm);
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+[data-theme='psy'] .play-transpose-bar, [data-theme='psy'] .lib-key-links { background: #22084d; }
+
+

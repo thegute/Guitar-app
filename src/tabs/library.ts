@@ -33,6 +33,12 @@ export interface SongDoc {
   noCapo?: boolean
   /** chord sheets: extra capo frets with easier shapes (Smart capo) */
   smartCapo?: number
+  /** song transposition in semitones (-11..+11) applied in Play */
+  transpose?: number
+  /** explicit capo override (0..11) synced in Play */
+  capo?: number
+  /** keep Capo N synced with key transposition so fret shapes stay familiar */
+  capoSync?: boolean
   /** a coach's micro-drill: the song (and bar) it was cut from, to go back to */
   drillOf?: { id: string; title: string; bar: number }
   /** your own choices, by "track:flat step:string": a finger, or the note moved to another string */
@@ -103,7 +109,7 @@ export async function listSongs(inst?: InstrumentId): Promise<SongDoc[]> {
 export async function refreshBuiltIn(fresh: SongDoc): Promise<SongDoc> {
   const old = await getSong(fresh.id)
   const doc: SongDoc = old
-    ? { ...fresh, youtube: old.youtube, ytSync: old.ytSync, chords: old.chords, key: old.key, loop: old.loop, track: old.track, cursor: old.cursor, easier: old.easier, hand: old.hand, adapt: old.adapt, noCapo: old.noCapo, smartCapo: old.smartCapo,
+    ? { ...fresh, youtube: old.youtube, ytSync: old.ytSync, chords: old.chords, key: old.key, loop: old.loop, track: old.track, cursor: old.cursor, easier: old.easier, hand: old.hand, adapt: old.adapt, noCapo: old.noCapo, smartCapo: old.smartCapo, transpose: old.transpose, capo: old.capo, capoSync: old.capoSync,
         // a tempo or time signature you set (tapped, asked, typed) stays; the built-in one otherwise
         ...(old.song.tempoFrom && old.song.tempoFrom !== 'file' && old.song.tempoFrom !== 'guess' ? { song: { ...fresh.song, tempo: old.song.tempo, tempoFrom: old.song.tempoFrom, timeSig: old.song.timeSig ?? fresh.song.timeSig, meter: old.song.meter ?? fresh.song.meter, fileTempo: fresh.song.tempo } } : {}) }
     : fresh

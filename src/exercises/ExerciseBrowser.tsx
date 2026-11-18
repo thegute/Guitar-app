@@ -18,16 +18,18 @@ import { audio } from '../audio/engine'
 import { allSounds, activeSound, loadSound, playNote, soundForProgram, type SoundId } from '../audio/pluck'
 import { flatten, type FlatStep, type Song, type SongNote, type SongTrack } from '../tabs/model'
 import { saveSong, type SongDoc } from '../tabs/library'
-import { learnGo, onOpenExercise, openInPlay, playAction, takePendingExercise } from '../nav'
+import { learnGo, onOpenExercise, openInPlay, openSongsInKey, playAction, takePendingExercise } from '../nav'
 import { keyPrefersFlats, pc } from '../theory/notes'
-import { lickById } from '../licks/library'
+import { LICKS, lickById } from '../licks/library'
+import { lickMinor } from '../licks/chain'
+import { keyOptionId, shiftKeyName, transposeSong } from '../tabs/transpose'
 import { EX_TYPES, LEVELS, TECHS, exerciseCatalog, keyName, keysFor, type Exercise, type Level } from './catalog'
 import { spell } from './build'
 import { useScreenInfo } from '../assistant/screen'
 import { suggestExercises } from './suggest'
 import { bestBpmFor, planBurstSteps, recordBestBpm, type BurstConfig, type BurstStep } from './drillLab'
 import { rig } from '../audio/rig'
-import { WORKS_OVER_TAGS, currentJamProfile, exerciseMatchesWorksOver, worksOverForExercise, worksOverSummary, type JamProfile, type WorksOverId } from '../licks/worksOver'
+import { WORKS_OVER_TAGS, currentJamProfile, exerciseMatchesWorksOver, worksOverForExercise, worksOverForLick, worksOverSummary, type JamProfile, type WorksOverId } from '../licks/worksOver'
 
 interface Filters { level: 'all' | Level; type: string; tech: string; worksOver?: 'all' | 'jam' | WorksOverId; fav: boolean }
 const NO_FILTER: Filters = { level: 'all', type: 'all', tech: 'all', worksOver: 'all', fav: false }
@@ -47,12 +49,21 @@ export function ExerciseBrowser({ group, suggest = true }: { group?: string; sug
   const [favs, setFavs] = usePersist<string[]>('exFav', [])
   const [code, setCode] = usePersist<string>('exCode', all.find(e => e.start)?.code ?? all[0].code)
   const [keys, setKeys] = usePersist<Record<string, string>>('exKeys', {})
+  const [semis, setSemis] = usePersist<Record<string, number>>('exSemi', {})
   const [tempos, setTempos] = usePersist<Record<string, number>>('exBpm', {})
   const [soundPick, setSoundPick] = usePersist<'auto' | SoundId>('exSound', 'auto')
   const [countIn, setCountIn] = usePersist('exCountIn', true)
   const [metro, setMetro] = usePersist('exClick', true)
   const [loop, setLoop] = usePersist('exLoop', false)
   const [burst, setBurst] = usePersist<BurstConfig>('exBurst', { on: false, stepBpm: 5, steps: 4, reps: 1, restBars: 1 })
+  useEffect(() => {
+    const f = (e: Event) => {
+      const next = (e as CustomEvent<Filters>).detail
+      if (next) setF({ ...NO_FILTER, ...next })
+    }
+    addEventListener('kg-exfilter', f)
+    return () => removeEventListener('kg-exfilter', f)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // a link (search, Learn) can ask for one exercise: show it even if the filters would hide it
   useEffect(() => {
@@ -155,7 +166,8 @@ export function ExerciseBrowser({ group, suggest = true }: { group?: string; sug
   return (
     <div className="stack ex-browser" style={{ gap: 10 }}>
       <ExerciseView key={ex.code + inst.id + inst.tuning.id} ex={ex} controls={controls} filters={filters} top={suggest ? suggWin : null}
-        root={keys[ex.code] ?? ex.key ?? 'C'} setRoot={k => setKeys({ ...keys, [ex.code]: k })}
+        root={keys[ex.code] ?? ex.key ?? 'C'} setRoot={k => { setKeys({ ...keys, [ex.code]: k }); setSemis({ ...semis, [ex.code]: 0 }) }}
+        semi={semis[ex.code] ?? 0} setSemi={n => setSemis({ ...semis, [ex.code]: n })} jam={jam}
         bpm={tempos[ex.code] ?? ex.bpm} setBpm={b => setTempos({ ...tempos, [ex.code]: b })}
         soundPick={soundPick} setSoundPick={setSoundPick}
         countIn={countIn} setCountIn={setCountIn} metro={metro} setMetro={setMetro} loop={loop} setLoop={setLoop}
@@ -206,18 +218,22 @@ function FilterBar({ f, setF, groups, techs, typeCounts, jam }: { f: Filters; se
 }
 
 interface ViewProps {
-  ex: Exercise; controls: ReactNode; filters: ReactNode; top?: ReactNode; root: string; setRoot: (k: string) => void; bpm: number; setBpm: (b: number) => void
+  ex: Exercise; controls: ReactNode; filters: ReactNode; top?: ReactNode; root: string; setRoot: (k: string) => void
+  semi: number; setSemi: (n: number) => void; jam: JamProfile | null
+  bpm: number; setBpm: (b: number) => void
   soundPick: 'auto' | SoundId; setSoundPick: (s: 'auto' | SoundId) => void
   countIn: boolean; setCountIn: (v: boolean) => void; metro: boolean; setMetro: (v: boolean) => void; loop: boolean; setLoop: (v: boolean) => void
   burst: BurstConfig; setBurst: (b: BurstConfig) => void
 }
 
-function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm, setBpm, soundPick, setSoundPick, countIn, setCountIn, metro, setMetro, loop, setLoop, burst, setBurst }: ViewProps) {
+function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, semi, setSemi, jam, bpm, setBpm, soundPick, setSoundPick, countIn, setCountIn, metro, setMetro, loop, setLoop, burst, setBurst }: ViewProps) {
   const inst = useInstrument()
   const keyList = useMemo(() => keysFor(ex, inst), [ex, inst])
   const root = ex.key ? (keyList.includes(rootPref) ? rootPref : keyList.includes(ex.key) ? ex.key : keyList[0] ?? ex.key) : 'C'
-  const song: Song | null = useMemo(() => { try { return ex.make({ root, inst, bpm }) } catch { return null } }, [ex, root, inst, bpm])
-  useScreenInfo('exercise', { label: `Exercise ${ex.code} "${ex.name}"${ex.key ? ` in ${keyName(root, ex.minor)}` : ''} at ${bpm} BPM`, summary: `In Exercises, looking at ${ex.code} "${ex.name}" (${LEVELS[ex.level]}, ${EX_TYPES.find(t => t.id === ex.type)?.label ?? ex.type}): ${ex.about}${ex.key ? ` Key ${keyName(root, ex.minor)}.` : ''} Tempo ${bpm} BPM (suggested ${ex.bpm}).` })
+  const effectiveRoot = ex.key ? shiftKeyName(root, semi, !!ex.minor) : undefined
+  const rawSong: Song | null = useMemo(() => { try { return ex.make({ root, inst, bpm }) } catch { return null } }, [ex, root, inst, bpm])
+  const song: Song | null = useMemo(() => (rawSong && semi !== 0 ? transposeSong(rawSong, semi, { inst }) : rawSong), [rawSong, semi, inst])
+  useScreenInfo('exercise', { label: `Exercise ${ex.code} "${ex.name}"${effectiveRoot ? ` in ${keyName(effectiveRoot, ex.minor)}` : ''} at ${bpm} BPM`, summary: `In Exercises, looking at ${ex.code} "${ex.name}" (${LEVELS[ex.level]}, ${EX_TYPES.find(t => t.id === ex.type)?.label ?? ex.type}): ${ex.about}${effectiveRoot ? ` Key ${keyName(effectiveRoot, ex.minor)}.` : ''} Tempo ${bpm} BPM (suggested ${ex.bpm}).` })
   const track = song?.tracks[0]
   const flat = useMemo(() => (track ? flatten(track) : []), [track])
   const states = useMemo(() => new Uint8Array(flat.length), [flat])
@@ -304,14 +320,15 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
     seek(i)
   }
 
+  const activeRoot = effectiveRoot ?? root
   // chord shown on the card: the last chord at or before the playhead, else the exercise's chord in this key
   const chordNow = useMemo(() => {
     for (let i = Math.min(at, flat.length - 1); i >= 0; i--) if (flat[i].step.chord) return flat[i].step.chord!
-    if (ex.chord && ex.key) return moveChord(ex.chord, ex.key, root)
-    return ex.key ? keyName(root, ex.minor) : ''
-  }, [at, flat, ex, root])
+    if (ex.chord && ex.key) return moveChord(ex.chord, ex.key, activeRoot)
+    return ex.key ? keyName(activeRoot, ex.minor) : ''
+  }, [at, flat, ex, activeRoot])
   const bar = flat[Math.min(at, flat.length - 1)]?.bar ?? 0
-  const flats = keyPrefersFlats(root, !!ex.minor)
+  const flats = keyPrefersFlats(activeRoot, !!ex.minor)
   const lick = ex.lick ? lickById(ex.lick) : undefined
 
   // the neck: every note numbered in the order it's first played; for chords, the shape under the playhead
@@ -332,7 +349,7 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
     const starts = flat.map((fs, i) => (named ? !!fs.step.chord || i === 0 : i === 0 || fs.bar !== flat[i - 1].bar))
     return { order, chordy, from, to, starts }
   }, [flat, ex.type])
-  const rootPc = ex.key ? pc(root) : -1
+  const rootPc = ex.key ? pc(activeRoot) : -1
   const capo = track?.capo ?? 0
   const live = new Set((flat[at]?.step.notes ?? []).map(n => `${n.string}:${n.fret}`))
   const shapeAt = useMemo(() => {
@@ -358,11 +375,11 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
     if (!song || !track) return null
     const lastBar = Math.max(0, track.bars.length - 1)
     return {
-      id: `ex:${ex.code}:${root}:${inst.id}:${inst.tuning.id}`,
+      id: `ex:${ex.code}:${activeRoot}:${semi}:${inst.id}:${inst.tuning.id}`,
       title: `${ex.code} · ${song.title}`,
       source: 'lesson',
       inst: inst.id,
-      ...(ex.key ? { key: { root, minor: !!ex.minor } } : {}),
+      ...(ex.key ? { key: { root: activeRoot, minor: !!ex.minor } } : {}),
       song: { ...song, tempo: bpm },
       ...(withLoop ? { loop: { from: 0, to: lastBar } } : {}),
       updated: Date.now(),
@@ -399,8 +416,27 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
   const progDiagrams = useMemo(() => (track ? progressionFromTrack(track, inst) : []), [track, inst])
   const activeProgIdx = progDiagrams.findIndex(d => d.stepIndices?.includes(at))
   const worksTags = useMemo(() => worksOverForExercise(ex), [ex])
+  const matchingLick = useMemo(() => {
+    if (lick) return lick
+    return LICKS.find(l => l.must && worksOverForLick(l).some(t => worksTags.includes(t)) && (!ex.key || (l.minor ?? false) === !!ex.minor))
+      ?? LICKS.find(l => l.must && worksOverForLick(l).some(t => worksTags.includes(t)))
+  }, [lick, worksTags, ex.key, ex.minor])
+  const stepTranspose = (delta: number) => {
+    const nextSemi = Math.max(-11, Math.min(11, semi + delta))
+    if (ex.key) {
+      const target = shiftKeyName(root, nextSemi, !!ex.minor)
+      if (keyList.includes(target)) { setRoot(target); return }
+    }
+    setSemi(nextSemi)
+  }
+  const matchJam = () => {
+    if (!jam) return
+    if (ex.key && keyList.includes(jam.tonic)) { setRoot(jam.tonic); return }
+    const d = r12(pc(jam.tonic) - pc(root))
+    setSemi(d > 6 ? d - 12 : d)
+  }
   const shownBpm = liveBpm ?? bpm
-  const keyTag = ex.key ? `${keyName(root, ex.minor)}${capo ? ` · Capo ${capo}` : ''}` : ''
+  const keyTag = ex.key ? `${keyName(activeRoot, ex.minor)}${capo ? ` · Capo ${capo}` : ''}` : semi !== 0 ? `${semi > 0 ? `+${semi}` : semi} st` : ''
   const head = (
     <div className="ex-card-head">
       <span className={`ex-chord${!chordNow && !count ? ' ex-name' : ''}`}>{count > 0 ? <span className="ex-count-in">{count}</span> : chordNow || ex.name}</span>
@@ -427,11 +463,28 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
         {ex.key ? (
           <label className="field">
             <span>Key</span>
-            <select className="select" value={root} onChange={e => setRoot(e.target.value)}>
+            <select className="select" value={semi === 0 ? root : activeRoot} onChange={e => {
+              const target = e.target.value
+              if (keyList.includes(target)) setRoot(target)
+              else { const d = r12(pc(target) - pc(root)); setSemi(d > 6 ? d - 12 : d) }
+            }}>
               {keyList.map(k => <option key={k} value={k}>{keyName(k, ex.minor)}</option>)}
+              {!keyList.includes(activeRoot) && <option value={activeRoot}>{keyName(activeRoot, ex.minor)}</option>}
             </select>
           </label>
-        ) : <div className="field"><span>Key</span><span className="ex-nokey">Any (no key)</span></div>}
+        ) : <div className="field"><span>Key</span><span className="ex-nokey">{semi !== 0 ? `Shifted ${semi > 0 ? `+${semi}` : semi} st` : 'Any (no key)'}</span></div>}
+        <div className="field">
+          <span>Transpose</span>
+          <span className="zoom-btns" role="group" aria-label="Transpose exercise">
+            <button className="btn sm" data-testid="ex-transpose-down" onClick={() => stepTranspose(-1)} aria-label="Transpose down">−</button>
+            <span className="small tabular" style={{ minWidth: 34, textAlign: 'center' }}>{ex.key ? keyName(activeRoot, ex.minor) : `${semi > 0 ? `+${semi}` : semi} st`}</span>
+            <button className="btn sm" data-testid="ex-transpose-up" onClick={() => stepTranspose(1)} aria-label="Transpose up">+</button>
+            {semi !== 0 && <button className="btn sm ghost" data-testid="ex-transpose-reset" onClick={() => setSemi(0)} aria-label="Reset transpose">↺</button>}
+            {jam && ex.key && pc(activeRoot) !== pc(jam.tonic) && (
+              <button className="btn sm" data-testid="ex-match-jam" onClick={matchJam} title={`Transpose to Jam key (${jam.tonic}${jam.minor ? 'm' : ''})`}>Jam: {jam.tonic}{ex.minor ? 'm' : ''}</button>
+            )}
+          </span>
+        </div>
         <label className="field">
           <span>Guitar sound</span>
           <select className="select" value={soundPick} onChange={e => setSoundPick(e.target.value as 'auto' | SoundId)}>
@@ -489,7 +542,23 @@ function ExerciseView({ ex, controls, filters, top, root: rootPref, setRoot, bpm
         {(!bestBpm || bpm > bestBpm) && (
           <button className="btn" onClick={() => { if (recordBestBpm(ex.code, bpm, inputKind)) { setBestBpm(bestBpmFor(ex.code, inputKind)); setStatus(`Logged clean best: ${bpm} BPM`) } }} data-testid="ex-log-bpm">✓ Log {bpm} BPM</button>
         )}
-        {lick?.must && <button className="btn" onClick={() => learnGo({ licks: lick.id })}><Ico n="book" /> How to play it, step by step</button>}
+        {lick?.must ? (
+          <button className="btn" data-testid="ex-to-licks" onClick={() => learnGo({ licks: lick.id })}><Ico n="book" /> How to play it, step by step</button>
+        ) : matchingLick ? (
+          <button className="btn" data-testid="ex-to-licks" onClick={() => {
+            try {
+              const targetKeyId = ex.key ? keyOptionId(activeRoot, !!ex.minor) : 'all'
+              const hasExactKey = ex.key && LICKS.some(l => l.must && keyOptionId(l.ref, lickMinor(l)) === targetKeyId)
+              localStorage.setItem('kg:mustStyle', JSON.stringify('all'))
+              if (worksTags[0]) localStorage.setItem('kg:mustWorksOver', JSON.stringify(worksTags[0]))
+              localStorage.setItem('kg:mustKey', JSON.stringify(hasExactKey ? targetKeyId : 'all'))
+            } catch { /* private */ }
+            learnGo({ licks: 'all' })
+          }}>Must-know licks →</button>
+        ) : null}
+        <button className="btn ghost" data-testid="ex-to-songs" onClick={() => openSongsInKey(ex.key ? keyOptionId(activeRoot, !!ex.minor) : 'all')}>
+          Songs{ex.key ? ` in ${keyName(activeRoot, ex.minor)}` : ''} →
+        </button>
       </div>
       </Win>
       <Win id="ex-neck" title="On the neck" className="panel ex-card" bodyClass="stack">

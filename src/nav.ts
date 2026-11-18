@@ -48,7 +48,7 @@ export function takePendingDoc(): SongDoc | null {
 export function setSubPage(screen: 'songs' | 'learn' | 'jam' | 'settings', page: string) {
   try { localStorage.setItem(`kg:sub:${screen}`, JSON.stringify(page)) } catch { /* storage unavailable */ }
   // a screen that's already open switches too
-  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('kg-subpage', { detail: { screen, page } }))
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new CustomEvent('kg-subpage', { detail: { screen, page } }))
 }
 export function openSongs(section: 'mine' | 'songbook' | 'practice' | 'add' | 'library' | 'learning' = 'songbook') {
   // the exercise library moved to Learn → Exercises (old links still say 'practice')
@@ -57,10 +57,33 @@ export function openSongs(section: 'mine' | 'songbook' | 'practice' | 'add' | 'l
   if (section !== 'add') {
     const show = section === 'library' ? 'all' : section
     try { localStorage.setItem('kg:libShow', JSON.stringify(show)) } catch { /* private */ }
-    dispatchEvent(new CustomEvent('kg-libshow', { detail: show }))
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new CustomEvent('kg-libshow', { detail: show }))
   }
   setSubPage('songs', section === 'add' ? 'add' : 'library')
   go('songs')
+}
+/** Open Songs → Library filtered to a specific key (`"7:1"` for Em, or `"all"`). */
+export function openSongsInKey(keyId: string, show: 'all' | 'songbook' | 'mine' = 'all') {
+  try { localStorage.setItem('kg:libKey', JSON.stringify(keyId)) } catch { /* private */ }
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new CustomEvent('kg-libkey', { detail: keyId }))
+  openSongs(show === 'all' ? 'library' : show)
+}
+/** Open Learn → Exercises with optional filter overrides (`worksOver`, `tech`, `key`). */
+export function openExercisesFiltered(opts: { worksOver?: string; tech?: string; keyRoot?: string }) {
+  try {
+    localStorage.setItem('kg:exSection', JSON.stringify('all'))
+    const raw = localStorage.getItem('kg:exFilter')
+    const cur = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
+    const next = {
+      level: 'all', type: 'all', tech: opts.tech ?? 'all', worksOver: opts.worksOver ?? 'all', fav: false,
+      ...cur,
+      ...(opts.worksOver ? { worksOver: opts.worksOver } : {}),
+      ...(opts.tech ? { tech: opts.tech } : {}),
+    }
+    localStorage.setItem('kg:exFilter', JSON.stringify(next))
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new CustomEvent('kg-exfilter', { detail: next }))
+  } catch { /* private */ }
+  learnGo({ learn: 'exercises' })
 }
 // ---- one exercise from the exercise library (Learn → Exercises)
 let pendingExercise: string | null = null

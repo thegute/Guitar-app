@@ -25,10 +25,11 @@ import {
   clearSummary,
   type Session,
 } from '../src/sessions/session'
-import { playAction, takePlayAction } from '../src/nav'
-import type { ProgChord } from '../src/theory/progressions'
+import { openExercisesFiltered, openSongsInKey, playAction, takePlayAction } from '../src/nav'
+import { spell, type ProgChord } from '../src/theory/progressions'
 import { voicingFromFrets, progressionFromTrack, progressionFromChords } from '../src/components/ProgressionDiagrams'
 import { formatKeyBadge, songKeyGuess } from '../src/tabs/keyDetect'
+import { detectJamKeyMismatch, keyOptionId, shiftChord, shiftKeyName, transposeJamProg, transposeSong, transposeTrack } from '../src/tabs/transpose'
 import { lickInKey } from '../src/licks/generator'
 import { jamBandForSong } from '../src/tabs/fromProgression'
 import {
@@ -307,5 +308,94 @@ const validTagIds = new Set(WORKS_OVER_TAGS.map(t => t.id))
 
   saveChain({ ...EMPTY_CHAIN, links: [] })
   console.log('Batch H1 unit checks: ok')
+}
+
+// 7. Batch H2: Song/Exercise transposition, Capo N sync, Jam key mismatch + transpose, and Licks<->Exercises<->Songs deep links
+{
+  assert.equal(shiftKeyName('G', 2, false), 'A')
+  assert.equal(shiftKeyName('G', 1, false), 'Ab')
+  assert.equal(shiftKeyName('A', -2, true), 'G')
+  assert.equal(shiftChord('G/B', 2), 'A/C#')
+  assert.equal(shiftChord('Am7', -2), 'Gm7')
+  assert.equal(keyOptionId('E', true), '4:1')
+
+  // Tabbed riff transposition & chord-sheet transposition + Capo N sync
+  const riffTrack = {
+    name: 'Guitar',
+    tuning: inst.midis,
+    capo: 0,
+    bars: [{
+      steps: [
+        { dur: 2, notes: [{ string: 0, fret: 3, midi: inst.midis[0] + 3 }] },
+        { dur: 2, notes: [{ string: 1, fret: 3, midi: inst.midis[1] + 3 }] },
+      ],
+    }],
+  }
+  const shiftedRiff = transposeTrack(riffTrack, 2, { inst })
+  assert.equal(shiftedRiff.capo, 0)
+  assert.equal(shiftedRiff.bars[0].steps[0].notes[0].midi, inst.midis[0] + 5)
+  assert.equal(shiftedRiff.bars[0].steps[0].notes[0].fret, 5)
+
+  const chordTrack = {
+    name: 'Guitar',
+    tuning: inst.midis,
+    capo: 0,
+    bars: [{
+      steps: [
+        { dur: 2, chord: 'G', notes: [{ string: 0, fret: 3, midi: inst.midis[0] + 3 }, { string: 5, fret: 3, midi: inst.midis[5] + 3 }] },
+        { dur: 2, chord: 'C', notes: [{ string: 1, fret: 3, midi: inst.midis[1] + 3 }] },
+      ],
+    }],
+  }
+  const shiftedChords = transposeTrack(chordTrack, 2, { inst })
+  assert.equal(shiftedChords.capo, 0)
+  assert.equal(shiftedChords.bars[0].steps[0].chord, 'A')
+  assert.equal(shiftedChords.bars[0].steps[1].chord, 'D')
+  assert.ok(shiftedChords.bars[0].steps[0].notes.some(n => n.midi % 12 === 9), 'A chord voicing includes A')
+
+  // Capo N sync with transpose (+2 semitones + Capo 2 keeps frets and chord shapes identical)
+  const capoSynced = transposeTrack(chordTrack, 2, { targetCapo: 2, inst })
+  assert.equal(capoSynced.capo, 2)
+  assert.equal(capoSynced.bars[0].steps[0].chord, 'G')
+  assert.equal(capoSynced.bars[0].steps[0].notes[0].fret, 3)
+  assert.equal(capoSynced.bars[0].steps[0].notes[0].midi, inst.midis[0] + 5)
+
+  // Capo N without changing sounding pitch (Capo 2 on G -> F shapes, same MIDI)
+  const capoOnly = transposeTrack(chordTrack, 0, { targetCapo: 2, inst })
+  assert.equal(capoOnly.capo, 2)
+  assert.equal(capoOnly.bars[0].steps[0].chord, 'F')
+  assert.ok(capoOnly.bars[0].steps[0].notes.some(n => n.midi % 12 === 7), 'Capo 2 F-shape sounds as G')
+
+  // Downward shift below open E stays playable (no negative frets)
+  const openETrack = {
+    name: 'Guitar',
+    tuning: inst.midis,
+    capo: 0,
+    bars: [{ steps: [{ dur: 4, notes: [{ string: 0, fret: 0, midi: inst.midis[0] }] }] }],
+  }
+  const downTwo = transposeSong({ title: 'Open E', tracks: [openETrack] }, -2, { inst })
+  assert.ok(downTwo.tracks[0].bars[0].steps[0].notes.every(n => n.fret >= 0), 'downward transpose never produces negative frets')
+
+  // Jam key mismatch detection and mode-aware progression transposition
+  const gProg: ProgChord[] = [
+    spell('G', 'major', { semi: 0, type: '' }),
+    spell('G', 'major', { semi: 7, type: '' }),
+    spell('G', 'major', { semi: 9, type: 'm' }),
+    spell('G', 'major', { semi: 5, type: '' }),
+  ]
+  assert.equal(detectJamKeyMismatch(gProg, 'G', 'major'), null, 'matching G major progression has no mismatch')
+  const mm = detectJamKeyMismatch(gProg, 'A', 'minor')
+  assert.ok(mm !== null && mm.progKey.root === 'G' && mm.progKey.minor === false, 'G major chords in Am Jam trigger mismatch')
+  const fixedProg = transposeJamProg(gProg, mm!.progKey.root, 'A', 'minor', mm!.progKey.minor)
+  assert.equal(fixedProg[0].symbol, 'Am')
+  assert.equal(detectJamKeyMismatch(fixedProg, 'A', 'minor'), null, 'transposed progression resolves mismatch cleanly')
+
+  // Deep-link helpers set target filters
+  openSongsInKey('7:0')
+  assert.equal(JSON.parse(localStorage.getItem('kg:libKey')!), '7:0')
+  openExercisesFiltered({ worksOver: 'blues12' })
+  assert.equal((JSON.parse(localStorage.getItem('kg:exFilter')!) as { worksOver: string }).worksOver, 'blues12')
+
+  console.log('Batch H2 unit checks: ok')
 }
 

@@ -10,17 +10,18 @@ import { LICK_STYLES, lickStyle, type LickStyleId } from '../licks/styles'
 import { keyLabel, lickInKey, placeFor } from '../licks/generator'
 import { Chips, usePersist } from '../components/Controls'
 import { Preview } from '../components/ProgressionTabs'
-import { openInPlay } from '../nav'
+import { openExercise, openExercisesFiltered, openInPlay, openSongsInKey } from '../nav'
 import { KEYS, pc } from '../theory/notes'
 import { useScreenInfo } from '../assistant/screen'
 import { addToChain, chainable, checkChainAdd, lickMinor, matchChainTranspose, startNewChain, type ChainAddCheck } from '../licks/chain'
 import { Win, WinArea } from '../components/Win'
-import { WORKS_OVER_TAGS, currentJamProfile, lickMatchScore, worksOverForLick, worksOverSummary, type WorksOverId } from '../licks/worksOver'
+import { WORKS_OVER_TAGS, currentJamProfile, lickMatchScore, worksOverForExercise, worksOverForLick, worksOverSummary, type WorksOverId } from '../licks/worksOver'
 import { formatKeyBadge } from '../tabs/keyDetect'
+import { keyOptionId } from '../tabs/transpose'
+import { exerciseCatalog } from '../exercises/catalog'
 
 const LEVEL = ['', 'Easy', 'Medium', 'Hard']
 const clip = (t: string, n: number) => (t.length > n ? t.slice(0, n).replace(/\s+\S*$/, '') + '…' : t)
-const keyOptionId = (root: string, minor: boolean) => `${pc(root)}:${minor ? 1 : 0}`
 
 export function LickLibrary({ initial, onExit }: { initial?: string; onExit: () => void }) {
   const first = initial ? findLick(initial) : undefined
@@ -240,6 +241,12 @@ function LickDetail({ lick, onBack, wantKey }: { lick: LickDef; onBack: () => vo
   const doc = placed ? { id: `lick:${lick.id}:${key}:${inst.id}:${tempo}`, title: placed.song.title, source: 'lesson' as const, inst: inst.id, key: { root: key, minor }, song: placed.song, updated: Date.now() } : null
   const b = lick.must
   const worksTags = useMemo(() => worksOverForLick(lick), [lick])
+  const relatedEx = useMemo(() => {
+    const cat = exerciseCatalog(inst)
+    return cat.find(e => e.lick === lick.id)
+      ?? cat.find(e => worksOverForExercise(e).some(t => worksTags.includes(t)) && (!!e.minor === minor || !e.key))
+      ?? cat[0]
+  }, [inst, lick.id, worksTags, minor])
 
   const onChainClick = () => {
     const chk = checkChainAdd(lick.id, undefined, key)
@@ -295,6 +302,25 @@ function LickDetail({ lick, onBack, wantKey }: { lick: LickDef; onBack: () => vo
           </div>
         )}
         {chained > 0 && <span className="small muted">Find it in Learn → Explore → Lick chainer, or Learn → Exercises → Make your own.</span>}
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+          {relatedEx && (
+            <button className="btn sm" data-testid="lick-to-exercise" onClick={() => {
+              if (relatedEx.key) {
+                try {
+                  const cur = JSON.parse(localStorage.getItem('kg:exKeys') ?? '{}') as Record<string, string>
+                  localStorage.setItem('kg:exKeys', JSON.stringify({ ...cur, [relatedEx.code]: key }))
+                } catch { /* private */ }
+              }
+              openExercise(relatedEx.code)
+            }}>Practice {relatedEx.code}: {relatedEx.name} →</button>
+          )}
+          <button className="btn sm ghost" data-testid="lick-to-exercises" onClick={() => openExercisesFiltered({ worksOver: worksTags[0] ?? 'all' })}>
+            Matching exercises →
+          </button>
+          <button className="btn sm ghost" data-testid="lick-to-songs" onClick={() => openSongsInKey(keyOptionId(key, minor))}>
+            Songs in {formatKeyBadge(key, minor)} →
+          </button>
+        </div>
       </Win>
       {b && (
         <>

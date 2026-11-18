@@ -8,18 +8,20 @@ import { loadSongbookDoc } from '../tabs/songbookDocs'
 import { songStats } from '../play/songStats'
 import { profile } from '../learn/profile'
 import { formatKeyBadge } from '../tabs/keyDetect'
+import { keyOptionId } from '../tabs/transpose'
+import { learnGo } from '../nav'
 import { Chips, usePersist } from './Controls'
 import { Win, WinArea } from './Win'
 
 /** `query`: the library's search; `embedded`: inside Songs → Library (its windows join the library's area) */
-export function Songbook({ currentId, onOpen, query = '', embedded }: { currentId: string; onOpen: (d: SongDoc) => void; query?: string; embedded?: boolean }) {
+export function Songbook({ currentId, onOpen, query = '', keyFilter = 'all', embedded }: { currentId: string; onOpen: (d: SongDoc) => void; query?: string; keyFilter?: string; embedded?: boolean }) {
   const inst = useInstrument()
   const me = profile()
   const [genre, setGenre] = usePersist<Genre | 'all'>('sbGenre', me?.genres.length === 1 ? me.genres[0] : 'all')
   const [level, setLevel] = usePersist<Level | 0>('sbLevel', me?.level ?? 0)
   const ref = useRef<HTMLDivElement>(null)
   const qq = query.trim().toLowerCase()
-  const list = SONGBOOK.filter(s => (genre === 'all' || s.genre === genre) && (!level || s.parts.some(p => p.level === level)) && (!qq || `${s.title} ${s.credit}`.toLowerCase().includes(qq)))
+  const list = SONGBOOK.filter(s => (genre === 'all' || s.genre === genre) && (!level || s.parts.some(p => p.level === level)) && (!keyFilter || keyFilter === 'all' || keyOptionId(s.key, !!s.minor) === keyFilter) && (!qq || `${s.title} ${s.credit}`.toLowerCase().includes(qq)))
   const four = inst.midis.length < 6
 
   async function open(songId: string, partId: string) {
@@ -47,6 +49,14 @@ export function Songbook({ currentId, onOpen, query = '', embedded }: { currentI
                   <div className="sb-title">
                     <b>{s.title}</b>
                     <span className="key-tag">{formatKeyBadge(s.key, !!s.minor)}</span>
+                    <button className="btn sm ghost" data-testid={`sb-licks-${s.id}`} onClick={() => {
+                      try {
+                        localStorage.setItem('kg:mustStyle', JSON.stringify('all'))
+                        localStorage.setItem('kg:mustKey', JSON.stringify(keyOptionId(s.key, !!s.minor)))
+                        localStorage.setItem('kg:mustWorksOver', JSON.stringify('all'))
+                      } catch { /* private */ }
+                      learnGo({ licks: 'all' })
+                    }}>Licks</button>
                     <span className="small muted">{s.credit}</span>
                   </div>
                   <span className="small sb-learn">{focusPart.learn}</span>

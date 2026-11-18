@@ -28,10 +28,11 @@ import { fillStepOf } from '../fills/make'
 import { FillIdea } from '../fills/FillIdea'
 import { isSpeaking, speak, stopSpeaking } from '../assistant/speak'
 import { defaultTrack, flatten, playable, trackPickup, type SongNote, type SongTrack } from '../tabs/model'
-import { detectKey, improvisationScales, type KeyGuess } from '../tabs/keyDetect'
+import { detectKey, formatKeyBadge, improvisationScales, type KeyGuess } from '../tabs/keyDetect'
+import { shiftChord, shiftKeyName, transposeSong, transposeTrack } from '../tabs/transpose'
 import { chordInfo, chordTimeline, guessBarChords, keyScalePcs } from '../tabs/harmony'
 import { docInstrument, getSong, listSongs, saveSong, type SongDoc } from '../tabs/library'
-import { go, onOpenSong, takePendingDoc, onPlayAction, takePlayAction } from '../nav'
+import { go, learnGo, onOpenSong, takePendingDoc, onPlayAction, takePlayAction } from '../nav'
 import type { PlayAction, PlayFocus } from '../search/types'
 import { useBack } from '../back'
 import { useGetReady } from '../components/GetReady'
@@ -58,7 +59,7 @@ import { songTempo } from '../play/tempoMap'
 import { TempoBadge, TempoSheet, withSig, withTempo } from '../components/TempoSheet'
 import { askTempo, canAskTempo } from '../assistant/tempoAsk'
 import { TabPlayer } from '../audio/tabPlayer'
-import { keyPrefersFlats, pcName } from '../theory/notes'
+import { KEYS, keyPrefersFlats, pc, pcName } from '../theory/notes'
 import { setTuning, useInstrument } from '../instrument'
 import { Splitter } from '../components/Splitter'
 import { ArrangeSwitch, LayoutHint } from '../components/Win'
@@ -369,18 +370,31 @@ export function PlayScreen() {
 
   const trackIdx = doc ? Math.min(doc.track ?? defaultTrack(doc.song, inst.strings), doc.song.tracks.length - 1) : 0
   const writtenTrack = doc?.song.tracks[trackIdx] ?? null
+  const [transposeOpen, setTransposeOpen] = useState(false)
+  const semi = doc?.transpose ?? 0
   // the tab as you play it: re-fingered for your hand if you asked ("Make it easier"), with your moved notes
   const [handTick, setHandTick] = useState(0)
   useEffect(() => { const f = () => setHandTick(t => t + 1); addEventListener('kg-hand', f); return () => removeEventListener('kg-hand', f) }, [])
-  const track = useMemo(() => {
+  const preXposeTrack = useMemo(() => {
     if (!writtenTrack) return null
-    // in your tuning / without the capo, then re-fingered if asked, then your own moved notes
     const sameLen = writtenTrack.tuning.length === inst.midis.length
     const tuned0 = (doc?.adapt && sameLen) || (doc?.noCapo && writtenTrack.capo) ? adaptTrack(writtenTrack, doc?.adapt && sameLen ? inst.midis : writtenTrack.tuning, !doc?.noCapo).track : writtenTrack
-    const tuned = doc?.smartCapo ? capoTrack(tuned0, doc.smartCapo, inst) : tuned0
-    const base = doc?.easier ? easierTrack(tuned, profile()?.level ?? 2, inst.id) : tuned
+    return doc?.smartCapo ? capoTrack(tuned0, doc.smartCapo, inst) : tuned0
+  }, [writtenTrack, doc?.adapt, doc?.noCapo, doc?.smartCapo, inst])
+  const targetCapo = useMemo(() => {
+    if (!preXposeTrack) return 0
+    if (doc?.capo !== undefined) return doc.capo
+    if (doc?.capoSync && semi !== 0) return Math.max(0, Math.min(11, preXposeTrack.capo + semi))
+    return preXposeTrack.capo
+  }, [preXposeTrack, doc?.capo, doc?.capoSync, semi])
+  const track = useMemo(() => {
+    if (!preXposeTrack) return null
+    const xposed = (semi !== 0 || targetCapo !== preXposeTrack.capo)
+      ? transposeTrack(preXposeTrack, semi, { targetCapo, inst })
+      : preXposeTrack
+    const base = doc?.easier ? easierTrack(xposed, profile()?.level ?? 2, inst.id) : xposed
     return withMoves(base, trackIdx, doc?.hand)
-  }, [writtenTrack, doc?.easier, doc?.hand, doc?.adapt, doc?.noCapo, doc?.smartCapo, trackIdx, inst.id, inst.midis, handTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [preXposeTrack, semi, targetCapo, doc?.easier, doc?.hand, trackIdx, inst, handTick]) // eslint-disable-line react-hooks/exhaustive-deps
   // chord sheets: a capo that turns barre chords into open shapes
   const capoIdea = useMemo(() => {
     if (!doc || doc.source !== 'chords' || !writtenTrack) return null
@@ -440,17 +454,32 @@ export function PlayScreen() {
   }, [pos, doc, update])
 
   // ---------- key, chords ----------
+  const baseKeyData = useMemo(() => (preXposeTrack ? keyFromTrack(preXposeTrack) : null), [preXposeTrack])
+  const baseDetected = baseKeyData?.guesses[0] ?? { root: 'A', minor: true, score: 0, label: 'A minor' }
+  const origKey: KeyGuess = useMemo(() => {
+    if (!doc?.key) return baseDetected
+    const { root, minor } = doc.key
+    return { root, minor, score: 0, label: `${root} ${minor ? 'minor' : 'major'}` }
+  }, [doc?.key, baseDetected])
   const keyData = useMemo(() => (track ? keyFromTrack(track) : null), [track])
   const detected = keyData?.guesses[0] ?? { root: 'A', minor: true, score: 0, label: 'A minor' }
   const key: KeyGuess = useMemo(() => {
-    if (!doc?.key) return detected
-    const { root, minor } = doc.key
-    return { root, minor, score: 0, label: `${root} ${minor ? 'minor' : 'major'}` }
-  }, [doc?.key, detected])
+    if (!doc?.key) return semi === 0 ? detected : { root: shiftKeyName(origKey.root, semi, origKey.minor), minor: origKey.minor, score: 0, label: `${shiftKeyName(origKey.root, semi, origKey.minor)} ${origKey.minor ? 'minor' : 'major'}` }
+    const r = semi === 0 ? doc.key.root : shiftKeyName(doc.key.root, semi, doc.key.minor)
+    return { root: r, minor: doc.key.minor, score: 0, label: `${r} ${doc.key.minor ? 'minor' : 'major'}` }
+  }, [doc?.key, detected, origKey, semi])
   const flats = keyPrefersFlats(key.root, key.minor)
   const tips = useMemo(() => (keyData ? improvisationScales(key, keyData.weights) : []), [key, keyData])
+  const shapeShift = preXposeTrack ? semi - (targetCapo - preXposeTrack.capo) : semi
+  const activeChords = useMemo(() => {
+    const raw = doc?.chords ?? {}
+    if (shapeShift === 0) return raw
+    const out: Record<number, string> = {}
+    for (const [b, ch] of Object.entries(raw)) out[Number(b)] = shiftChord(ch, shapeShift, flats)
+    return out
+  }, [doc?.chords, shapeShift, flats])
   const guesses = useMemo(() => (track ? guessBarChords(track, key, flats) : []), [track, key, flats])
-  const timeline = useMemo(() => (track ? chordTimeline(track, doc?.chords ?? {}, guesses) : { spans: [], at: new Int32Array(0) }), [track, doc?.chords, guesses])
+  const timeline = useMemo(() => (track ? chordTimeline(track, activeChords, guesses) : { spans: [], at: new Int32Array(0) }), [track, activeChords, guesses])
   const progDiagrams = useMemo(() => (track ? progressionFromTrack(track, inst, timeline.spans) : []), [track, inst, timeline.spans])
   // song check: what this song asks of you (shown the first time you open a song, and from the title)
   const check = useMemo(() => (doc && track ? checkSong(doc.song, track, inst, [...new Set(timeline.spans.map(s => s.name))], profile()?.level ?? 2) : null),
@@ -781,8 +810,13 @@ export function PlayScreen() {
   // the band's bass: the recorded one that suits the song's style (the owner's Studio Bass packs, when on the phone)
   useEffect(() => { setBandBass(STYLE_BASS[bandStyle]); const pk = bassPackFor(STYLE_BASS[bandStyle]); if (pk) void loadPrivatePack(pk) }, [bandStyle])
   const setBandStyle = (st: Style) => { setBandStylePick(st); try { if (doc) localStorage.setItem(`kg:bandStyle:${doc.id}`, JSON.stringify(st)) } catch { /* private */ } }
-  const chordBand = useMemo(() => (doc && track ? chordBandSong(doc.song, trackIdx, bandStyle) : null), [doc?.song, trackIdx, bandStyle]) // eslint-disable-line react-hooks/exhaustive-deps
-  const bandSong = chordBand ?? doc?.song
+  const transposedSong = useMemo(() => {
+    if (!doc) return null
+    if (semi === 0 && doc.capo === undefined && !doc.capoSync) return doc.song
+    return transposeSong(doc.song, semi, { targetCapo, inst, flats, trackIdx })
+  }, [doc, semi, targetCapo, inst, flats, trackIdx])
+  const chordBand = useMemo(() => (transposedSong && track ? chordBandSong(transposedSong, trackIdx, bandStyle) : null), [transposedSong, track, trackIdx, bandStyle])
+  const bandSong = chordBand ?? transposedSong ?? undefined
   const bandAvail = !!doc && !!track && !!bandSong && hasBand(bandSong, trackIdx)
   const bandEv = useMemo(() => (bandSong && bandAvail ? bandEvents(bandSong, trackIdx) : []), [bandSong, trackIdx, bandAvail])
   const bandSteps = useMemo(() => bandByStep(bandEv, flat), [bandEv, flat])
@@ -1173,6 +1207,7 @@ export function PlayScreen() {
 
   // ---- Back: stop picking loop bars, close the song check, leave Full tab
   useBack(!!selecting, () => setSelecting(null))
+  useBack(transposeOpen, () => setTransposeOpen(false))
   useBack(checkOpen, () => closeCheck())
   useBack(focus, () => setLay({ ...lay, focus: false }))
   useBack(stand, () => setStand(false))
@@ -1526,6 +1561,9 @@ export function PlayScreen() {
           )}
           <label className="opt-row opt-check" data-find="hand"><input type="checkbox" checked={handOn} onChange={() => setHandOn(!handOn)} /><span><b><Ico n="hand" /> Where your fingers go</b><span className="small muted">A floating window with the four frets your hand covers and each finger in colour. Drag it anywhere, resize it from its corner, tuck it away with –.</span></span></label>
           <div className="opt-row stack" style={{ gap: 6 }} data-find="cards"><span><b>Floating cards</b> <span className="small muted">Pick any you like: each floats over everything, drag it anywhere, resize it from its corner, – shrinks it to a bubble, × hides it.</span></span><FloatPicker screen="play" /></div>
+          <div className="opt-row" data-find="transpose"><span><b>Key signature &amp; capo</b><span className="small muted">{semi !== 0 || doc.capo !== undefined ? `Currently ${formatKeyBadge(key.root, key.minor, track.capo)}${semi !== 0 ? ` (${semi > 0 ? `+${semi}` : semi} st from ${origKey.root}${origKey.minor ? 'm' : ''})` : ''}.` : `Currently ${formatKeyBadge(key.root, key.minor, track.capo)}. Transpose the song or sync Capo N.`}</span></span>
+            <button className="btn sm" onClick={() => { setTransposeOpen(true); setOpts(false) }}>Key &amp; Capo</button>
+          </div>
           {capoIdea && (
             <div className="opt-row" data-find="capo"><span><b>Smart capo</b><span className="small muted">{doc.smartCapo ? `Capo ${(writtenTrack?.capo ?? 0) + doc.smartCapo} with easier shapes (${capoIdea.shapes.join(' ')}): it sounds the same.` : `Capo ${(writtenTrack?.capo ?? 0) + capoIdea.capo} turns these chords into easier shapes: ${capoIdea.shapes.join(' ')}. It sounds the same.`}</span></span>
               <Chips label="Capo" items={[{ id: 'as', label: 'As written' }, { id: 'smart', label: `Capo ${(writtenTrack?.capo ?? 0) + capoIdea.capo}` }]} value={doc.smartCapo ? 'smart' : 'as'} onChange={v => { update({ smartCapo: v === 'smart' ? capoIdea.capo : undefined }); countUse('play:smartCapo') }} /></div>
@@ -1626,6 +1664,13 @@ export function PlayScreen() {
           ) : doc.artist ? <span className="small muted">{doc.artist}</span> : null}
         </div>
         <TempoBadge song={doc.song} onOpen={() => setTempoOpen(true)} />
+        <button className={`btn sm tempo-badge key-badge${semi !== 0 || doc.capo !== undefined ? ' edited' : ''}`}
+          data-find="key" data-testid="play-key-badge" aria-expanded={transposeOpen}
+          onClick={() => setTransposeOpen(o => !o)}
+          title="Key signature, transpose and capo">
+          <b className="tb-bpm">{formatKeyBadge(key.root, key.minor, track.capo)}</b>
+          <span className="tb-sig">{semi !== 0 ? `${semi > 0 ? `+${semi}` : semi} st` : 'Key'}</span>
+        </button>
         <button className="btn sm icon-btn" data-find="full" aria-pressed={focus} onClick={() => setLay({ ...lay, focus: !focus })}
           aria-label={focus ? 'Show all panels again' : 'Full tab: hide the other panels'} title={focus ? 'Show all panels again' : 'Full tab'}>
           {focus ? <IconShrink /> : <IconExpand />}
@@ -1675,6 +1720,66 @@ export function PlayScreen() {
         <LayoutHint quiet text="Arrange this screen: drag the bars between the boxes (the video, the tab, Scales & chords) to make them bigger or smaller, drag ☰ Move on a bar to put that box somewhere else, drag one all the way closed or tap its arrow to hide it, and tap the bar again to bring it back." />
         {!sideOpen && readout(true)}
         {!sideOpen && micError && <p className="notice small">{micError}</p>}
+        {transposeOpen && (
+          <div className="play-transpose-bar" data-testid="play-transpose-bar" role="region" aria-label="Key signature transpose and capo">
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span className="small"><b>Key</b> {formatKeyBadge(key.root, key.minor, track.capo)}{semi !== 0 ? <span className="muted"> ({semi > 0 ? `+${semi}` : semi} st from {origKey.root}{origKey.minor ? 'm' : ''})</span> : null}</span>
+              <span className="zoom-btns" role="group" aria-label="Transpose semitones">
+                <button className="btn sm" data-testid="transpose-down" onClick={() => {
+                  const next = Math.max(-11, semi - 1)
+                  update({ transpose: next || undefined, ...(doc.capoSync ? { capo: undefined } : {}) })
+                }} aria-label="Transpose down a semitone">−</button>
+                <span className="small tabular" style={{ minWidth: 36, textAlign: 'center' }}>{semi === 0 ? '0 st' : `${semi > 0 ? `+${semi}` : semi} st`}</span>
+                <button className="btn sm" data-testid="transpose-up" onClick={() => {
+                  const next = Math.min(11, semi + 1)
+                  update({ transpose: next || undefined, ...(doc.capoSync ? { capo: undefined } : {}) })
+                }} aria-label="Transpose up a semitone">+</button>
+              </span>
+              <select className="select sm" aria-label="Target key" data-testid="transpose-key-select"
+                value={String(pc(key.root))}
+                onChange={e => {
+                  const targetPc = Number(e.target.value)
+                  let diff = ((targetPc - pc(origKey.root)) % 12 + 12) % 12
+                  if (diff > 6 && !doc.capoSync) diff -= 12
+                  update({ transpose: diff || undefined, ...(doc.capoSync ? { capo: undefined } : {}) })
+                }}>
+                {KEYS.map(k => (
+                  <option key={k} value={String(pc(k))}>{formatKeyBadge(k, key.minor)}</option>
+                ))}
+              </select>
+              <label className="row small" style={{ gap: 4, flexWrap: 'nowrap' }}>
+                <span className="muted">Capo</span>
+                <select className="select sm" aria-label="Capo fret" data-testid="play-capo-select"
+                  value={track.capo}
+                  onChange={e => {
+                    const c = Number(e.target.value)
+                    update({ capo: c, capoSync: undefined, smartCapo: undefined, noCapo: undefined })
+                  }}>
+                  <option value={0}>Off</option>
+                  {[1, 2, 3, 4, 5, 6, 7].map(n => <option key={n} value={n}>Capo {n}</option>)}
+                </select>
+              </label>
+              <label className="ex-check small" title="Keep familiar open shapes by moving Capo N together with your key transpose">
+                <input type="checkbox" data-testid="capo-sync-toggle" checked={!!doc.capoSync} onChange={e => {
+                  const on = e.target.checked
+                  update({ capoSync: on || undefined, capo: undefined, ...(on ? { smartCapo: undefined, noCapo: undefined } : {}) })
+                }} /> Sync Capo
+              </label>
+              {(semi !== 0 || doc.capo !== undefined || doc.capoSync) && (
+                <button className="btn sm" data-testid="transpose-reset" onClick={() => update({ transpose: undefined, capo: undefined, capoSync: undefined })}>Reset</button>
+              )}
+              <button className="btn sm ghost" data-testid="play-to-licks" onClick={() => {
+                try {
+                  localStorage.setItem('kg:mustStyle', JSON.stringify('all'))
+                  localStorage.setItem('kg:mustKey', JSON.stringify(`${pc(key.root)}:${key.minor ? 1 : 0}`))
+                } catch { /* private */ }
+                learnGo({ licks: 'all' })
+              }}>Licks in {formatKeyBadge(key.root, key.minor)} →</button>
+              <button className="btn sm ghost" data-testid="play-to-exercises" onClick={() => learnGo({ learn: 'exercises' })}>Exercises →</button>
+              <button className="btn sm ghost" onClick={() => setTransposeOpen(false)} aria-label="Close key bar" style={{ marginLeft: 'auto' }}>✕</button>
+            </div>
+          </div>
+        )}
         {tabTools}
         {gameView !== 'game' && <PlayMix click={click} onClick={setClick} mix={mode === 'time' && (guide || withBand)} band={withBand} bandAvail={bandAvail} bandOn={bandOn} onBand={setBandOn} />}
         {nudge && mode === 'wait' && (

@@ -14,16 +14,17 @@ import { isPdf, songFromFile, songFromPdf } from '../tabs/importer'
 import { BOOK_PAGES, PdfPages } from '../components/PdfPages'
 import { ago, allSongStats, songStats, troubleBars } from '../play/songStats'
 import { bandStyleLabel, guessBandStyle } from '../audio/band'
-import { TUNINGS, noteToMidi } from '../theory/notes'
+import { TUNINGS, noteToMidi, pc } from '../theory/notes'
 import { SONGBOOK, songbookId } from '../tabs/songbook'
 import { loadSongbookDoc } from '../tabs/songbookDocs'
 import { takePendingBookPdf } from '../books/pending'
 import { INSTRUMENTS, useInstrument, type Instrument, type InstrumentId } from '../instrument'
 import { usePersist } from '../components/Controls'
-import { go, openInPlay, setSubPage } from '../nav'
+import { go, learnGo, openExercisesFiltered, openInPlay, setSubPage } from '../nav'
 import { Ico } from '../components/Icon'
 import { AddBox } from '../components/AddBox'
 import { formatKeyBadge, songKeyGuess } from '../tabs/keyDetect'
+import { keyOptionId, shiftKeyName } from '../tabs/transpose'
 import { onToLearn, removeToLearn, toLearnList } from '../tabs/toLearn'
 
 
@@ -91,10 +92,17 @@ function inPlan(d: SongDoc, currentId: string, now = Date.now()): boolean {
   if (!st) return d.id === currentId
   return (!!st.review && st.review.due <= now) || !!troubleBars(st) || d.id === currentId || (!st.learnedAt && now - st.lastAt < 14 * 86400000)
 }
-function keyBadgeOf(d: SongDoc): string | null {
-  const capo = d.song.tracks[d.track ?? 0]?.capo ?? d.song.tracks[0]?.capo ?? 0
+function songKeyObj(d: SongDoc): { root: string; minor: boolean; capo: number } | null {
+  const baseCapo = d.song.tracks[d.track ?? 0]?.capo ?? d.song.tracks[0]?.capo ?? 0
+  const semi = d.transpose ?? 0
+  const capo = d.capo !== undefined ? d.capo : d.capoSync && semi !== 0 ? Math.max(0, Math.min(11, baseCapo + semi)) : baseCapo
   const k = d.key ?? songKeyGuess(d.song, d.track ?? 0)
-  return k ? formatKeyBadge(k.root, k.minor, capo) : null
+  if (!k) return null
+  return { root: semi ? shiftKeyName(k.root, semi, k.minor) : k.root, minor: k.minor, capo }
+}
+function keyBadgeOf(d: SongDoc): string | null {
+  const k = songKeyObj(d)
+  return k ? formatKeyBadge(k.root, k.minor, k.capo) : null
 }
 
 /** One row of the progress lists: a song of yours or a songbook part you've played. */
@@ -109,19 +117,39 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
   const [show, setShow] = usePersist<LibShow>('libShow', 'all')
   // a link elsewhere asked for one kind (My songs, the Songbook) while this page was already open
   useEffect(() => { const f = (e: Event) => setShow((e as CustomEvent<LibShow>).detail); addEventListener('kg-libshow', f); return () => removeEventListener('kg-libshow', f) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const [keyFilter, setKeyFilter] = usePersist<string>('libKey', 'all')
+  useEffect(() => { const f = (e: Event) => setKeyFilter((e as CustomEvent<string>).detail); addEventListener('kg-libkey', f); return () => removeEventListener('kg-libkey', f) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [q, setQ] = useState('')
   const [style, setStyle] = usePersist('libStyle', '')
   const [tuning, setTuning] = usePersist('libTuning', '')
   const own = useMemo(() => (songs ?? []).filter(mine), [songs])
-  const keyById = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const d of own) { const k = keyBadgeOf(d); if (k) m.set(d.id, k) }
+  const keyObjById = useMemo(() => {
+    const m = new Map<string, { root: string; minor: boolean; capo: number }>()
+    for (const d of own) { const k = songKeyObj(d); if (k) m.set(d.id, k) }
     return m
   }, [own])
+  const keyById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const [id, k] of keyObjById) m.set(id, formatKeyBadge(k.root, k.minor, k.capo))
+    return m
+  }, [keyObjById])
+  const keyOptions = useMemo(() => {
+    const map = new Map<string, { id: string; pc: number; minor: boolean; label: string }>()
+    for (const k of keyObjById.values()) {
+      const id = keyOptionId(k.root, k.minor)
+      if (!map.has(id)) map.set(id, { id, pc: pc(k.root), minor: k.minor, label: formatKeyBadge(k.root, k.minor) })
+    }
+    for (const s of SONGBOOK) {
+      const id = keyOptionId(s.key, !!s.minor)
+      if (!map.has(id)) map.set(id, { id, pc: pc(s.key), minor: !!s.minor, label: formatKeyBadge(s.key, !!s.minor) })
+    }
+    return [...map.values()].sort((a, b) => a.pc - b.pc || Number(a.minor) - Number(b.minor))
+  }, [keyObjById])
   const styles = useMemo(() => [...new Set(own.map(styleOf))].sort(), [own])
   const tunings = useMemo(() => [...new Set(own.map(d => tuningOf(d, inst)))].sort(), [own, inst])
   const kindOk = (d: SongDoc) => show === 'plan' ? inPlan(d, currentId) : show === 'scanned' ? scanned(d) : show === 'backing' ? hasBacking(d) : true
-  const pick = (d: SongDoc) => kindOk(d) && (!style || styleOf(d) === style) && (!tuning || tuningOf(d, inst) === tuning)
+  const keyOk = (k: { root: string; minor: boolean } | null | undefined) => keyFilter === 'all' || (!!k && keyOptionId(k.root, k.minor) === keyFilter)
+  const pick = (d: SongDoc) => kindOk(d) && keyOk(keyObjById.get(d.id)) && (!style || styleOf(d) === style) && (!tuning || tuningOf(d, inst) === tuning)
   const now = Date.now()
   const query = q.trim().toLowerCase()
   const progress: Progress[] = (() => {
@@ -135,6 +163,7 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
       out.push({ id: d.id, title: d.title, keyLabel: keyById.get(d.id) ?? null, best: st.best, lastAt: st.lastAt, due: !!st.review && st.review.due <= now, learned: !!st.learnedAt, open: () => onOpen(d) })
     }
     for (const s of SONGBOOK) for (const p of s.parts) {
+      if (!keyOk({ root: s.key, minor: !!s.minor })) continue
       const id = songbookId(s.id, p.id, inst)
       const st = stats[id]
       if (!st) continue
@@ -174,9 +203,17 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
             </button>
           ))}
         </div>
-        {own.length > 1 && (styles.length > 1 || tunings.length > 1 || style || tuning) && (
+        {(keyOptions.length > 0 || keyFilter !== 'all' || (own.length > 1 && (styles.length > 1 || tunings.length > 1 || style || tuning))) && (
           <div className="row lib-pickers" style={{ gap: 8, flexWrap: 'wrap' }}>
-            {(styles.length > 1 || style) && (
+            {keyOptions.length > 0 && (
+              <label className="lib-picker"><span className="small muted">Key</span>
+                <select className="input" value={keyFilter} onChange={e => setKeyFilter(e.target.value)} data-testid="lib-key-filter">
+                  <option value="all">Any key</option>
+                  {keyOptions.map(k => <option key={k.id} value={k.id}>{k.label}</option>)}
+                </select>
+              </label>
+            )}
+            {own.length > 1 && (styles.length > 1 || style) && (
               <label className="lib-picker"><span className="small muted">Style</span>
                 <select className="input" value={style} onChange={e => setStyle(e.target.value)} data-testid="lib-style">
                   <option value="">Any style</option>
@@ -184,7 +221,7 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
                 </select>
               </label>
             )}
-            {(tunings.length > 1 || tuning) && (
+            {own.length > 1 && (tunings.length > 1 || tuning) && (
               <label className="lib-picker"><span className="small muted">Tuning</span>
                 <select className="input" value={tuning} onChange={e => setTuning(e.target.value)} data-testid="lib-tuning">
                   <option value="">Any tuning</option>
@@ -194,6 +231,24 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
             )}
           </div>
         )}
+        {keyFilter !== 'all' && (() => {
+          const picked = keyOptions.find(k => k.id === keyFilter)
+          const label = picked?.label ?? keyFilter
+          return (
+            <div className="row small lib-key-links" data-testid="lib-key-links" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span className="muted">Key: <b>{label}</b></span>
+              <button className="btn sm" data-testid="songs-to-licks" onClick={() => {
+                try {
+                  localStorage.setItem('kg:mustStyle', JSON.stringify('all'))
+                  localStorage.setItem('kg:mustKey', JSON.stringify(keyFilter))
+                } catch { /* private */ }
+                learnGo({ licks: 'all' })
+              }}>Must-know licks →</button>
+              <button className="btn sm" data-testid="songs-to-exercises" onClick={() => openExercisesFiltered({})}>Exercises →</button>
+              <button className="btn sm ghost" onClick={() => setKeyFilter('all')}>All keys</button>
+            </div>
+          )
+        })()}
         {SHOW_HINT[show] && <p className="small muted" style={{ margin: 0 }}>{SHOW_HINT[show]}</p>}
       </Win>
       {(show === 'all' || show === 'learning') && (learning.length > 0 || show === 'learning') && (
@@ -211,16 +266,16 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
       )}
       {(show === 'all' || show === 'mine') && <SavedForLater onAdd={onAdd} />}
       {(show === 'all' || show === 'mine' || show === 'plan' || show === 'scanned' || show === 'backing') && (
-        <MySongs songs={songs} currentId={currentId} keyById={keyById} onOpen={onOpen} refresh={refresh} onAdd={onAdd} onSongbook={() => setShow('songbook')} query={q}
+        <MySongs songs={songs} currentId={currentId} keyById={keyById} keyObjById={keyObjById} onOpen={onOpen} refresh={refresh} onAdd={onAdd} onSongbook={() => setShow('songbook')} query={q}
           only={pick} title={show === 'plan' ? 'In your practice plan' : show === 'scanned' ? 'Scanned' : show === 'backing' ? 'With backing tracks' : undefined} />
       )}
-      {(show === 'all' || show === 'songbook') && <Songbook currentId={currentId} onOpen={onOpen} query={q} embedded />}
+      {(show === 'all' || show === 'songbook') && <Songbook currentId={currentId} onOpen={onOpen} query={q} keyFilter={keyFilter} embedded />}
     </WinArea>
   )
 }
 
-function MySongs({ songs, currentId, keyById, onOpen, refresh, onAdd, onSongbook, query, only, title }: {
-  songs: SongDoc[] | null; currentId: string; keyById: Map<string, string>; onOpen: (d: SongDoc) => void; refresh: () => Promise<void>; onAdd: () => void; onSongbook: () => void; query: string
+function MySongs({ songs, currentId, keyById, keyObjById, onOpen, refresh, onAdd, onSongbook, query, only, title }: {
+  songs: SongDoc[] | null; currentId: string; keyById: Map<string, string>; keyObjById: Map<string, { root: string; minor: boolean; capo: number }>; onOpen: (d: SongDoc) => void; refresh: () => Promise<void>; onAdd: () => void; onSongbook: () => void; query: string
   only?: (d: SongDoc) => boolean; title?: string
 }) {
   const inst = useInstrument()
@@ -258,6 +313,7 @@ function MySongs({ songs, currentId, keyById, onOpen, refresh, onAdd, onSongbook
       <ul className="song-list">
         {shown.map(s => {
           const keyBadge = keyById.get(s.id)
+          const keyObj = keyObjById.get(s.id)
           return (
           <li key={s.id} className={s.id === currentId ? 'on' : ''}>
             <button className="song-open" onClick={() => onOpen(s)}>
@@ -296,6 +352,16 @@ function MySongs({ songs, currentId, keyById, onOpen, refresh, onAdd, onSongbook
               </span>
             ) : (
               <span className="row song-actions" style={{ flexWrap: 'nowrap', gap: 2 }}>
+                {keyObj && (
+                  <button className="btn sm ghost" data-testid={`song-licks-${s.id}`} onClick={() => {
+                    try {
+                      localStorage.setItem('kg:mustStyle', JSON.stringify('all'))
+                      localStorage.setItem('kg:mustKey', JSON.stringify(keyOptionId(keyObj.root, keyObj.minor)))
+                      localStorage.setItem('kg:mustWorksOver', JSON.stringify('all'))
+                    } catch { /* private */ }
+                    learnGo({ licks: 'all' })
+                  }} aria-label={`Licks in ${formatKeyBadge(keyObj.root, keyObj.minor)}`}>Licks</button>
+                )}
                 <button className="btn sm ghost" onClick={() => setMoving(s.id)} aria-label={`Move ${s.title} to another instrument`}>Move</button>
                 <button className="btn sm ghost" onClick={() => setConfirmDel(s.id)} aria-label={`Delete ${s.title}`}>Remove</button>
               </span>

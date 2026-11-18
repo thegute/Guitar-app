@@ -35,7 +35,7 @@ import { GROOVES, GROOVE_GROUPS, KITS, grooveOf, kitInfo, loadKit, kitLoaded, ty
 import { shapesFor as shapesForChord } from '../theory/shapes'
 import { Transcriber } from '../components/Transcriber'
 import { saveSong, type SongDoc } from '../tabs/library'
-import { go, learnGo, openInPlay, setSubPage } from '../nav'
+import { go, learnGo, openExercisesFiltered, openInPlay, openSongsInKey, setSubPage } from '../nav'
 import { clearFloat, publishFloat, setFloatResting } from '../float/bus'
 import { SongFinder } from '../components/SongFinder'
 import { InspireMe } from '../components/InspireMe'
@@ -51,7 +51,8 @@ import { lickStyle } from '../licks/styles'
 import { lickInKey } from '../licks/generator'
 import { jamProfile, matchingLicksForJam, worksOverForLick, worksOverSummary } from '../licks/worksOver'
 import { formatKeyBadge } from '../tabs/keyDetect'
-import { addToChain, chainable, checkChainAdd, lickMinor, matchChainTranspose, startNewChain, type ChainAddCheck } from '../licks/chain'
+import { detectJamKeyMismatch, keyOptionId, transposeJamProg } from '../tabs/transpose'
+import { addToChain, chainable, checkChainAdd, lickMinor, loadChain, matchChainTranspose, startNewChain, type ChainAddCheck } from '../licks/chain'
 
 const bassLineKind = (id: string): BassKind => BASSLINES.find(b => b.id === id)?.bass ?? 'session'
 import { useScreenInfo } from '../assistant/screen'
@@ -175,6 +176,9 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   const sugg = useMemo(() => suggestions(tonic, mode, style, resolvedFlavor), [tonic, mode, style, resolvedFlavor])
   const totalBars = prog.reduce((a, c) => a + (c.beats ?? 4), 0) / 4
   const minorKey = ['minor', 'dorian', 'phrygian', 'harmonic'].includes(mode)
+  const [mismatchDismissed, setMismatchDismissed] = useState(false)
+  useEffect(() => { setMismatchDismissed(false) }, [prog, tonic, mode])
+  const mismatch = useMemo(() => (mismatchDismissed ? null : detectJamKeyMismatch(prog, tonic, mode)), [prog, tonic, mode, mismatchDismissed])
   const circleChord = (c: ProgChord) => ({ root: c.root, minor: /^m(?!aj)/.test(c.type), dim: /dim|m7b5/.test(c.type) })
 
   function roll() {
@@ -253,6 +257,8 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   const [playingLickId, setPlayingLickId] = useState<string | null>(null)
   const [jamChainPrompt, setJamChainPrompt] = useState<{ lickId: string; check: ChainAddCheck } | null>(null)
   const [jamChainToast, setJamChainToast] = useState<{ lickId: string; text: string } | null>(null)
+  const activeChain = useMemo(() => loadChain(), [jamChainToast, jamChainPrompt, licksOpen, tonic, mode]) // eslint-disable-line react-hooks/exhaustive-deps
+  const chainMismatch = activeChain.links.length > 0 && (pc(activeChain.key) !== pc(tonic) || !!activeChain.minor !== minorKey)
   const lickPlayer = useRef<TabPlayer | null>(null)
   const jamProf = useMemo(() => jamProfile(prog, tonic, mode, style), [prog, tonic, mode, style])
   const matchingLicks = useMemo(() => matchingLicksForJam(LICKS, jamProf, 12), [jamProf])
@@ -586,6 +592,22 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
               </button>
             </div>
             {cardsHintBody}
+            {mismatch && (
+              <div className="notice key-mismatch" role="status" data-testid="jam-key-mismatch">
+                <span className="small">
+                  <b>Key mismatch:</b> these chords look like <b>{mismatch.progKey.label}</b>, while Jam is set to <b>{mismatch.jamLabel}</b>.
+                </span>
+                <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                  <button className="btn sm primary" data-testid="jam-transpose-chords" onClick={() => load(transposeJamProg(prog, mismatch.progKey.root, tonic, mode, mismatch.progKey.minor))}>
+                    Transpose chords to {mismatch.jamLabel}
+                  </button>
+                  <button className="btn sm" data-testid="jam-switch-key" onClick={() => { setTonic(mismatch.progKey.root); setMode(mismatch.progKey.minor ? 'minor' : 'major') }}>
+                    Switch Jam to {mismatch.progKey.label}
+                  </button>
+                  <button className="btn sm ghost" onClick={() => setMismatchDismissed(true)} aria-label="Ignore key mismatch">✕</button>
+                </span>
+              </div>
+            )}
             {cards}
             {chordInfo}
             {transportRow}
@@ -605,6 +627,12 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
                 </button>
                 {licksOpen && (
                   <div className="jam-licks-list" data-testid="jam-licks-list">
+                    {chainMismatch && (
+                      <div className="chain-prompt small" data-testid="jam-chain-mismatch">
+                        <span>Active Lick Chain is locked to <b>{formatKeyBadge(activeChain.key, !!activeChain.minor)}</b> (Jam is <b>{formatKeyBadge(tonic, minorKey)}</b>).</span>
+                        <button className="btn sm" onClick={() => learnGo({ tool: 'chainer' })}>Open Lick chainer →</button>
+                      </div>
+                    )}
                     {matchingLicks.map(l => {
                       const lst = lickStyle(l.style)
                       const lMin = lickMinor(l)
@@ -649,7 +677,11 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
                         </div>
                       )
                     })}
-                    <div className="row" style={{ justifyContent: 'flex-end' }}>
+                    <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                      <span className="row" style={{ gap: 10 }}>
+                        <button className="link-btn small" onClick={() => openExercisesFiltered({ worksOver: 'jam' })}>Exercises for this groove →</button>
+                        <button className="link-btn small" onClick={() => openSongsInKey(keyOptionId(tonic, minorKey))}>Songs in {formatKeyBadge(tonic, minorKey)} →</button>
+                      </span>
                       <button className="link-btn small" onClick={() => { try { localStorage.setItem('kg:mustWorksOver', JSON.stringify('jam')) } catch { /* noop */ } learnGo({ licks: 'all' }) }}>Browse all matching licks →</button>
                     </div>
                   </div>
