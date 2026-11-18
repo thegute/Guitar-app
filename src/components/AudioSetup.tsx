@@ -9,6 +9,7 @@ import { GearSetup } from './GearSetup'
 import { listInputs, filtersStillOn, type InputDevice } from '../audio/input'
 import { isPedal, markPedal, monitorVol, pedalPlugged, rigLabel, setMonitor, setMonitorVol, setStereoWithPedal, stereoOverride, switchedAt, useRig, onRig } from '../audio/rig'
 import { latencyMs, timingChecked, useGear, type InputKind } from '../audio/gear'
+import { BODY_CAB_IRS, liveBodyIrChoice, setLiveBodyIrChoice, type BodyCabIrId } from '../engine/bodyCabIr'
 
 function useMonitor() {
   const [, bump] = useState(0)
@@ -86,10 +87,27 @@ export function AudioSetup({ compact = false }: { compact?: boolean }) {
         </label>
       )}
       {r === 'interface' && (
-        <label className="row small" style={{ gap: 8, alignItems: 'center' }}>
-          <span>Your guitar's level</span>
-          <input type="range" min={0} max={1.5} step={0.05} defaultValue={monitorVol()} onChange={e => setMonitorVol(Number(e.target.value))} style={{ flex: 1 }} aria-label="Your guitar's level" />
-        </label>
+        <div className="stack" style={{ gap: 6 }}>
+          <label className="row small" style={{ gap: 8, alignItems: 'center' }}>
+            <span>Your guitar's level</span>
+            <input type="range" min={0} max={1.5} step={0.05} defaultValue={monitorVol()} onChange={e => setMonitorVol(Number(e.target.value))} style={{ flex: 1 }} aria-label="Your guitar's level" />
+          </label>
+          <label className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span>Acoustic body sculpt (live guitar)</span>
+            <select
+              className="select sm"
+              defaultValue={liveBodyIrChoice()}
+              onChange={e => setLiveBodyIrChoice(e.target.value as BodyCabIrId)}
+              data-testid="rig-body-ir"
+              aria-label="Acoustic body sculpt for live interface guitar"
+            >
+              <option value="off">Off (direct guitar)</option>
+              {BODY_CAB_IRS.filter(x => x.kind === 'acoustic').map(x => (
+                <option key={x.id} value={x.id}>{x.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
       )}
       {filters.length > 0 && (
         <p className="small notice" style={{ margin: 0 }}>The {filters.join(' and ')} filter{filters.length > 1 ? 's' : ''} stayed on (the phone ignored KGuitar asking to turn {filters.length > 1 ? 'them' : 'it'} off): long notes may be heard as shorter. Plugging in by USB usually avoids it.</p>

@@ -15,6 +15,7 @@
 import { monoOut, onRig } from './rig'
 import { busChain, makeReturns, SEND_DEFAULTS, type Returns, type Send } from '../engine/console'
 import { notifyAudioPulse, setClockTimeProvider } from '../engine/clock'
+import { ensureSamplerWorklet } from '../engine/sampler'
 
 let ctx: AudioContext | null = null
 /** what features call "the output": the master's input */
@@ -57,7 +58,11 @@ function loadMaster(c: AudioContext) {
 
 export function audio(): AudioContext {
   if (!ctx) {
-    ctx = new AudioContext({ latencyHint: 'interactive' })
+    try {
+      ctx = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 })
+    } catch {
+      ctx = new AudioContext({ latencyHint: 'interactive' })
+    }
     setClockTimeProvider(() => ctx!.currentTime)
     masterIn = ctx.createGain()
     masterIn.channelCount = 2
@@ -76,6 +81,7 @@ export function audio(): AudioContext {
     finalIn.connect(fold).connect(ctx.destination)
     applyFold()
     loadMaster(ctx)
+    void ensureSamplerWorklet(ctx)
   }
   if (ctx.state === 'suspended') void ctx.resume()
   return ctx
@@ -97,8 +103,8 @@ export function masterInput(): AudioNode {
 
 export type Category = 'guitar' | 'bass' | 'drums' | 'keys' | 'loops' | 'click' | 'voice' | 'fx'
 export const CATEGORIES: Category[] = ['guitar', 'bass', 'drums', 'keys', 'loops', 'click', 'voice', 'fx']
-/** Calibrated levels (Step 1): each category's sounds land near the same loudness at the master (sound lab measured). */
-const CAT_TRIM: Record<Category, number> = { guitar: 1, bass: 1, drums: 1, keys: 1, loops: 1, click: 1, voice: 1, fx: 1 }
+/** Calibrated levels (Step 1 & Step 4): each category's sounds land near -16 LUFS at the master (sound lab measured). */
+const CAT_TRIM: Record<Category, number> = { guitar: 1, bass: 1, drums: 1.18, keys: 1, loops: 1, click: 1, voice: 1, fx: 1 }
 interface CatBus { input: GainNode; output: GainNode; sends: Partial<Record<Send, GainNode>> }
 const cats = new Map<Category, CatBus>()
 let returns: Returns | null = null

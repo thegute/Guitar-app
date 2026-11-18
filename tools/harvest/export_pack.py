@@ -31,6 +31,8 @@ def main():
     ap.add_argument('src')
     ap.add_argument('dst')
     ap.add_argument('--kbps', type=int, default=192)
+    ap.add_argument('--tier', choices=['studio', 'pocket'], default='studio',
+                    help='studio = all zones/layers/takes; pocket = minor-3rd fret zones, 2 velocity layers, 2 round robins (~20-35 MB)')
     a = ap.parse_args()
     src, dst = os.path.expanduser(a.src), os.path.expanduser(a.dst)
     pack = json.load(open(os.path.join(src, 'pack.json')))
@@ -39,16 +41,23 @@ def main():
     up, down = (160, 147) if sr_in == 44100 else (1, 1)
     if sr_in not in (44100, 48000):
         sys.exit(f'unexpected sample rate {sr_in}')
+    kbps = 160 if a.tier == 'pocket' and a.kbps == 192 else a.kbps
     # libsndfile 1.2 Opus: compression_level 0 ≈ 520 kbps … 0.8 ≈ 115 kbps stereo, about linearly (measured)
-    level = min(0.9, max(0.0, (517 - a.kbps) / 500))
+    level = min(0.9, max(0.0, (517 - kbps) / 500))
     out = json.loads(json.dumps(pack))
     out['sampleRate'] = 48000
-    out['phone'] = {'codec': 'opus', 'kbps': a.kbps, 'from': os.path.basename(src)}
+    out['phone'] = {'codec': 'opus', 'kbps': kbps, 'tier': a.tier, 'from': os.path.basename(src)}
     kept = dropped = 0
     for art, block in out['articulations'].items():
+        if a.tier == 'pocket' and block['zones'] and 'fret' in block['zones'][0]:
+            block['zones'] = [z for z in block['zones'] if z.get('fret', 0) % 3 == 0 or z.get('fret', 0) == 12]
         for z in block['zones']:
+            if a.tier == 'pocket' and len(z['layers']) > 2:
+                z['layers'] = [z['layers'][0], z['layers'][-1]]
             for layer in z['layers']:
                 rr, ms, tune = layer['rr'], layer.get('ms', []), layer.get('tune', [])
+                if a.tier == 'pocket' and len(rr) > 2:
+                    rr = rr[:2]
                 keep_idx, takes = [], []
                 for k, rel in enumerate(rr):
                     x, _ = sf.read(os.path.join(src, rel), always_2d=True)

@@ -7,7 +7,7 @@ const path = require('path')
 const problems = []
 const bad = m => { problems.push(m); console.log('  PROBLEM', m) }
 ;(async () => {
-  const browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] })
+  const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ['--autoplay-policy=no-user-gesture-required'] })
   for (const vp of [{ width: 412, height: 915, n: 'cover' }, { width: 840, height: 757, n: 'inner' }]) {
     const page = await (await browser.newContext({ viewport: vp })).newPage()
     const errors = []
@@ -24,13 +24,13 @@ const bad = m => { problems.push(m); console.log('  PROBLEM', m) }
     await page.waitForFunction(() => window.__kgLab, null, { timeout: 15000 })
     // Settings (the gear on Learn) → Sound
     await page.locator('nav >> text=Learn').first().click()
-    await page.locator('button[aria-label=Settings]').first().click()
+    await page.locator('button[aria-label="Settings"], button:has-text("Settings")').first().click()
     await page.locator('[role=tab]:has-text("Sound")').first().click()
     const box = page.locator('[data-testid=sound-packs]')
     await box.waitFor({ timeout: 8000 }).catch(() => bad(`${vp.n}: My sound packs isn't in Settings → Sound`))
     // the phone way (one .kgpack file) on the cover screen, the computer way (a folder) on the inner screen
-    if (vp.n === 'cover') await box.locator('input[type=file][accept*=kgpack]').setInputFiles(path.join(__dirname, '..', 'fixtures', 'pack-test.kgpack'))
-    else await box.locator('input[type=file]:not([accept])').setInputFiles(path.join(__dirname, '..', 'fixtures', 'pack-test'))
+    if (vp.n === 'cover') await box.locator('input[type=file]').first().setInputFiles(path.join(__dirname, '..', 'fixtures', 'pack-test.kgpack'))
+    else await box.locator('input[type=file]').nth(1).setInputFiles(path.join(__dirname, '..', 'fixtures', 'pack-test'))
     await page.locator('[data-testid=sound-pack]:has-text("Test sines")').waitFor({ timeout: 10000 }).catch(() => bad(`${vp.n}: the imported pack isn't listed`))
     // the pack is a sound of its own, by name, wherever a sound is picked
     await page.waitForTimeout(400)

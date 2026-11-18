@@ -16,11 +16,13 @@ export function packBase(p: Pick<Pack, 'id' | 'name' | 'kind'> & { renderedWith?
   // a DI pack (no amp) isn't a sound to play: it's what the amp tones are made from
   if (!amp && /(^|[^a-z])di([^a-z]|$)|direct/.test(s)) return null
   if (/nylon|classical|uke|ukulele/.test(s)) return 'nylon'
-  if (amp || /mayer|wong|henson|rabea|petrucci|nolly|misha|fortin|asato|crunch|metal|chug|djent|clean|funk|lead/.test(s)) {
-    if (/metal|chug|djent|fortin|nolly|misha|petrucci|lead|high.?gain/.test(s)) return 'metal'
-    if (/crunch|rabea|blues|drive/.test(s)) return 'crunch'
+  if (/jazz|octave/.test(s)) return 'electric'
+  if (amp || /mayer|wong|henson|rabea|petrucci|nolly|misha|fortin|asato|sunburst|storm|dracus|crunch|metal|chug|djent|clean|funk|lead/.test(s)) {
+    if (/metal|chug|djent|fortin|nolly|misha|petrucci|dracus|lead|high.?gain/.test(s)) return 'metal'
+    if (/crunch|rabea|storm|blues|drive/.test(s)) return 'crunch'
     return 'clean'
   }
+  if (/j45|jumbo|flatpick|12|twelve/.test(s)) return 'j45'
   return 'acoustic'
 }
 
@@ -42,7 +44,17 @@ export function setPackSounds(packs: (Pick<Pack, 'id' | 'name' | 'kind'> & { ren
 }
 
 /** A pack that should take over a built-in sound the first time it arrives (the owner's picks; he can change it). */
-export const FIRST_CHOICE: Record<string, BuiltInSound> = { agsj: 'acoustic' }
+export const FIRST_CHOICE: Record<string, BuiltInSound> = {
+  agsj: 'acoustic',
+  'picked-acoustic': 'acoustic',
+  flatpick6: 'j45',
+  'strummed-12': 'j45',
+  modernnylon: 'nylon',
+  'picked-nylon': 'nylon',
+  'sunburst-deluxe': 'clean',
+  'storm-deluxe': 'crunch',
+  dracus: 'metal',
+}
 
 // ---- recorded basses (Logic's Studio Bass, rendered on the Mac): each bass line picks the one that suits its style ----
 export type BassKind = 'session' | 'sixties' | 'modern' | 'upright'
@@ -63,9 +75,10 @@ export function bassPackFor(kind?: BassKind): string | null {
   const have = bassPacks()
   const id = BASS_PACK[k]
   if (have.includes(id)) return id
+  if ((k === 'sixties' || k === 'session') && have.includes('jambass')) return 'jambass'
   // the closest one that is here: any recorded bass beats the built-in one
   const order: BassKind[] = k === 'upright' ? ['upright', 'sixties', 'session', 'modern'] : k === 'sixties' ? ['sixties', 'session', 'modern', 'upright'] : k === 'modern' ? ['modern', 'session', 'sixties', 'upright'] : ['session', 'modern', 'sixties', 'upright']
-  return order.map(x => BASS_PACK[x]).find(x => have.includes(x)) ?? null
+  return order.map(x => BASS_PACK[x]).find(x => have.includes(x)) ?? (have.includes('jambass') ? 'jambass' : null)
 }
 
 /** The recorded bass each Jam / band style suits (styles not listed follow the bass line, else the Session bass). */

@@ -7,11 +7,17 @@
 //   delay. The impulse responses are generated here (no files), decorrelated left/right so they also fold to mono cleanly
 //   for the pedal rig.
 import type { Category } from '../audio/engine'
+import { activeBodyCabIr, synthesizeBodyCabIr, type BodyCabIrId } from './bodyCabIr'
 
 type Ctx = BaseAudioContext
 
 function biquad(c: Ctx, type: BiquadFilterType, f: number, q = 0.7071) {
   const b = c.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b
+}
+
+let guitarIrHook: ((id: BodyCabIrId) => void) | null = null
+export function refreshGuitarBodyCabIr(id: BodyCabIrId = activeBodyCabIr()) {
+  guitarIrHook?.(id)
 }
 
 /** The processing chain for one category: returns [in, out] (the same node when there is none). */
@@ -48,7 +54,33 @@ export function busChain(c: Ctx, cat: Category): [AudioNode, AudioNode] {
   }
   if (cat === 'guitar') {
     const hp = biquad(c, 'highpass', 60, 0.6)
-    return [hp, hp]
+    if (typeof c.createConvolver !== 'function') return [hp, hp]
+    const dry = c.createGain()
+    const wet = c.createGain()
+    const sum = c.createGain()
+    const cv = c.createConvolver()
+    cv.normalize = false
+    cv.channelCount = 2
+    cv.channelCountMode = 'explicit'
+    hp.connect(dry).connect(sum)
+    hp.connect(cv).connect(wet).connect(sum)
+    const applyIr = (id: BodyCabIrId) => {
+      if (id === 'off') {
+        dry.gain.value = 1
+        wet.gain.value = 0
+        return
+      }
+      const [L, R] = synthesizeBodyCabIr(c.sampleRate, id)
+      const buf = c.createBuffer(2, L.length, c.sampleRate)
+      buf.getChannelData(0).set(L)
+      buf.getChannelData(1).set(R)
+      cv.buffer = buf
+      dry.gain.value = 0
+      wet.gain.value = 1
+    }
+    guitarIrHook = applyIr
+    applyIr(activeBodyCabIr())
+    return [hp, sum]
   }
   const g = c.createGain()
   return [g, g]
@@ -86,12 +118,17 @@ export function makeIR(sr: number, s: Space): Float32Array[] {
         y[i] += (hi[i] - lo[i]) * env
       }
     }
-    // early reflections: walls and floor, 7–45 ms, alternating sides, softer the later they come
+    // early reflections: wood walls, ceiling and floor, 6–52 ms, diffused stereo taps with gentle HF absorption
     if (s.er > 0) {
-      for (let k = 0; k < 18; k++) {
-        const t = s.pre * 0.5 + 0.007 + (0.038 * (k + (rnd() + 1) / 2)) / 18
+      let lpEr = 0
+      for (let k = 0; k < 32; k++) {
+        const t = s.pre * 0.5 + 0.006 + (0.046 * (k + (rnd() + 1) / 2)) / 32
         const i = Math.round(t * sr)
-        if (i < N) y[i] += s.er * (rnd() > 0 ? 1 : -1) * (0.9 - k * 0.035)
+        if (i < N) {
+          const raw = s.er * (rnd() > 0 ? 1 : -1) * Math.pow(0.93, k)
+          lpEr = 0.35 * lpEr + 0.65 * raw
+          y[i] += lpEr
+        }
       }
     }
   }
@@ -113,10 +150,15 @@ export const SEND_DEFAULTS: Record<Category, Partial<Record<Send, number>>> = {
 export interface Returns { room: AudioNode; plate: AudioNode; delay: AudioNode; setTempo: (bpm: number) => void }
 /** Build the three shared spaces, each returning into `dest` (the master). */
 export function makeReturns(c: AudioContext, dest: AudioNode): Returns {
+  const scheduleIdle = (fn: () => void) => {
+    const ric = (globalThis as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => void }).requestIdleCallback
+    if (typeof ric === 'function') ric(fn, { timeout: 60 })
+    else setTimeout(fn, 12)
+  }
   const conv = (s: Space) => {
     const inp = c.createGain()
-    // the impulse response is worked out just after the first sound (a few tens of ms), so the first note isn't held up
-    setTimeout(() => {
+    // compute the impulse response during idle time so the first note or count-in beat is never delayed
+    scheduleIdle(() => {
       const ir = makeIR(c.sampleRate, s)
       const buf = c.createBuffer(2, ir[0].length, c.sampleRate)
       buf.getChannelData(0).set(ir[0]); buf.getChannelData(1).set(ir[1])
@@ -124,7 +166,7 @@ export function makeReturns(c: AudioContext, dest: AudioNode): Returns {
       // a stereo input to the convolver: mono sources are spread by the decorrelated IR
       cv.channelCount = 2; cv.channelCountMode = 'explicit'
       inp.connect(cv).connect(dest)
-    }, 0)
+    })
     return inp
   }
   const room = conv(ROOM)
@@ -133,7 +175,7 @@ export function makeReturns(c: AudioContext, dest: AudioNode): Returns {
   plateIn.connect(plateHp).connect(conv(PLATE))
   // tape delay: ping-pong, filtered in the loop (each repeat darker and thinner), a little wow
   const din = c.createGain()
-  const split = c.createChannelSplitter(2), merge = c.createChannelMerger(2)
+  const merge = c.createChannelMerger(2)
   const dL = c.createDelay(2), dR = c.createDelay(2)
   const fb = c.createGain(); fb.gain.value = 0.38
   const lp = biquad(c, 'lowpass', 3200), hp = biquad(c, 'highpass', 260)
@@ -145,7 +187,6 @@ export function makeReturns(c: AudioContext, dest: AudioNode): Returns {
   dL.connect(lp).connect(sat).connect(dR)
   dR.connect(merge, 0, 1)
   dR.connect(fb).connect(dL)
-  void split
   const wow = c.createOscillator(); wow.frequency.value = 0.45
   const depth = c.createGain(); depth.gain.value = 0.0004
   wow.connect(depth); depth.connect(dL.delayTime); depth.connect(dR.delayTime); wow.start()

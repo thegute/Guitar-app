@@ -98,12 +98,14 @@ class KGMaster extends AudioWorkletProcessor {
   }
 
   truePeak(x, hist) {
-    hist[this.hpos] = x
+    const pos = this.hpos
+    hist[pos] = x
     let peak = Math.abs(x)
+    const phases = this.phases
     for (let p = 1; p < 4; p++) {
-      const h = this.phases[p]
+      const h = phases[p]
       let y = 0
-      for (let k = 0; k < this.T; k++) y += h[k] * hist[(this.hpos - k + this.T) % this.T]
+      for (let k = 0; k < 16; k++) y += h[k] * hist[(pos - k) & 15]
       const a = Math.abs(y)
       if (a > peak) peak = a
     }
@@ -155,7 +157,7 @@ class KGMaster extends AudioWorkletProcessor {
       if (this.gr > this.maxGlue) this.maxGlue = this.gr
       // ---- true-peak look-ahead limiter ----
       const pk = Math.max(this.truePeak(l, this.histL), this.truePeak(r, this.histR))
-      this.hpos = (this.hpos + 1) % this.T
+      this.hpos = (this.hpos + 1) & 15
       const need = pk > ceil ? ceil / pk : 1
       const held = this.pushMin(need)
       this.n++

@@ -13,12 +13,27 @@ import {
   FINGER_LIFT_TAU_SEC,
   isLegatoTech,
   playFingerThud,
+  playWorkletVoice,
   prepareStringVoice,
+  registerSampleInWorklet,
   registerStringVoice,
   scheduleVoiceGain,
   type StringVoicePlan,
 } from '../engine/sampler'
+import { sympatheticOpenStrings, triggerGuitarMicroRealism } from '../engine/bodyCabIr'
 import { midiToFreq } from '../theory/notes'
+
+/** Step 4 loudness calibration per built-in bank so every guitar tone lands near -16 LUFS (sound-lab measured). */
+const BANK_TRIM: Record<BuiltInSound, number> = {
+  acoustic: 1.06,
+  j45: 0.96,
+  nylon: 1.0,
+  clean: 0.94,
+  electric: 1.18,
+  crunch: 0.82,
+  metal: 0.74,
+  synth: 1.0,
+}
 
 const cache = new Map<string, AudioBuffer>()
 
@@ -128,7 +143,7 @@ export function soundForProgram(program: number | undefined): SoundId | null {
 
 const SOUND_KEY = 'kg:sound'
 type GroupId = 'notes' | 'pm' | 'power' | 'powerpm' | 'maj' | 'min'
-interface Sample { buf: AudioBuffer; off: number }
+interface Sample { key: string; buf: AudioBuffer; off: number }
 /** samples by note; several takes of a note are played in turn (and left/right when double-tracked) */
 interface Group { keys: number[]; map: Map<number, Sample[]>; last: Map<number, number> }
 interface Bank { groups: Partial<Record<GroupId, Group>> }
@@ -197,7 +212,9 @@ export function loadBank(id: string): Promise<void> {
         await Promise.all(Object.entries(files).map(async ([m, file]) => {
           const takes = await Promise.all((Array.isArray(file) ? file : [file]).map(async f => {
             const buf = await ctx.decodeAudioData(await (await fetch(`samples/${id}/${f}`)).arrayBuffer())
-            return { buf, off: onsetOf(buf) }
+            const key = `bank:${id}:${f}`
+            registerSampleInWorklet(key, buf)
+            return { key, buf, off: onsetOf(buf) }
           }))
           map.set(Number(m), takes)
         }))
@@ -248,6 +265,36 @@ function playSample(
   const ctx = audio()
   void ensureSamplerWorklet(ctx)
   const t = Math.max(when || ctx.currentTime, ctx.currentTime)
+  const target = dest ?? out()
+  const finalGain = plan ? plan.effectiveGain : gain
+  const startOff = plan ? plan.sampleOffsetSec : s.off
+
+  const wh = playWorkletVoice({
+    ctx,
+    key: s.key,
+    buf: s.buf,
+    dest: target,
+    when: t,
+    offsetSec: startOff,
+    rate,
+    gain: finalGain,
+    pan,
+    pm: opts?.pm,
+    plan,
+    bend: opts?.bend,
+    bendTime: opts?.bendTime,
+    prebent: opts?.prebent,
+    bendRelease: opts?.release,
+  })
+  if (wh) {
+    const stopWorklet = (at?: number, fast = false, tauSec?: number) => wh.stop(at, fast, tauSec)
+    if (plan) {
+      const v = registerStringVoice(plan, { midi, when: t, gain, pm: opts?.pm, stop: stopWorklet })
+      return { stop: (at?: number) => v.stop(Math.max(at ?? ctx.currentTime, t), false) }
+    }
+    return { stop: (at?: number) => stopWorklet(at, false) }
+  }
+
   const src = ctx.createBufferSource()
   src.buffer = s.buf
   if (plan) {
@@ -257,16 +304,13 @@ function playSample(
     applyBend(src, t, opts)
   }
   const g = ctx.createGain()
-  const finalGain = plan ? plan.effectiveGain : gain
   if (plan) scheduleVoiceGain(g, finalGain, t, plan)
   else g.gain.value = finalGain
-  const target = dest ?? out()
   if (pan !== undefined && typeof ctx.createStereoPanner === 'function') {
     const p = ctx.createStereoPanner()
     p.pan.value = pan
     src.connect(g).connect(p).connect(target)
   } else src.connect(g).connect(target)
-  const startOff = plan ? plan.sampleOffsetSec : s.off
   src.start(t, startOff)
   if (plan && plan.thudGain > 0) playFingerThud(ctx, t, plan.thudGain, target, pan)
   const stopFn = (at?: number, fast = false, tauSec?: number) => {
@@ -317,17 +361,42 @@ function synthNote(midi: number, when: number, gain: number, dest?: AudioNode, o
         sampleRate: buf.sampleRate,
       })
     : undefined
+  const finalGain = plan ? plan.effectiveGain : gain
+  const target = dest ?? out()
+  const startOff = plan ? plan.sampleOffsetSec : 0
+  const wh = playWorkletVoice({
+    ctx,
+    key: `synth:${midi}:0.55`,
+    buf,
+    dest: target,
+    when: t,
+    offsetSec: startOff,
+    rate: 1,
+    gain: finalGain,
+    pm: opts?.pm,
+    plan,
+    bend: opts?.bend,
+    bendTime: opts?.bendTime,
+    prebent: opts?.prebent,
+    bendRelease: opts?.release,
+  })
+  if (wh) {
+    const stopWorklet = (at?: number, fast = false, tauSec?: number) => wh.stop(at, fast, tauSec)
+    if (plan) {
+      const v = registerStringVoice(plan, { midi, when: t, gain, pm: opts?.pm, stop: stopWorklet })
+      return { stop: (at?: number) => v.stop(Math.max(at ?? ctx.currentTime, t), false) }
+    }
+    return { stop: (at?: number) => stopWorklet(at, false) }
+  }
   const src = ctx.createBufferSource()
   src.buffer = buf
   if (plan) applySlideAndBend(src, 1, t, plan, opts)
   else applyBend(src, t, opts)
   const g = ctx.createGain()
-  const finalGain = plan ? plan.effectiveGain : gain
   if (plan) scheduleVoiceGain(g, finalGain, t, plan)
   else g.gain.value = finalGain
-  const target = dest ?? out()
   src.connect(g).connect(target)
-  src.start(t, plan ? plan.sampleOffsetSec : 0)
+  src.start(t, startOff)
   if (plan && plan.thudGain > 0) playFingerThud(ctx, t, plan.thudGain, target)
   const stopFn = (at?: number, fast = false, tauSec?: number) => {
     const e = Math.max(at ?? ctx.currentTime, t)
@@ -411,9 +480,23 @@ export function playNote(midi: number, when = 0, gain = 0.8, dest?: AudioNode, o
   // mono (the pedal + wireless setup): two takes added together sound hollow, so one centred take
   if (opts.double && monoOut()) opts = { ...opts, double: false }
   const id = opts.sound ?? activeSound()
-  const bank = banks.get(baseOf(id))
-  const t = when || audio().currentTime
+  const base = baseOf(id)
+  const trim = id.startsWith('pack:') ? 1 : (BANK_TRIM[base] ?? 1)
+  gain = gain * trim
+  const bank = banks.get(base)
+  const ctx = audio()
+  const t = when || ctx.currentTime
+  const isAcoustic = base === 'acoustic' || base === 'j45' || base === 'nylon'
   recordBackingNote(t, [midi], gain, opts.pm ? 0.16 : 0.65, dest === bus('me') ? 'guide' : 'backing')
+  if (!opts.pm) {
+    triggerGuitarMicroRealism(ctx, t, {
+      midi,
+      string: opts.string,
+      gain,
+      acoustic: isAcoustic,
+      dest: dest ?? out(),
+    })
+  }
   const fromPack = packNote(id, midi, t, gain, dest, opts)
   if (fromPack) return fromPack
   if (bank) {
@@ -520,10 +603,22 @@ export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: 
   const ctx = audio()
   const t0 = when || ctx.currentTime + 0.01
   const id = opts.sound ?? activeSound()
-  const bank = banks.get(baseOf(id))
-  const gain = (opts.gain ?? 0.7) * (opts.up ? 0.75 : 1)
+  const base = baseOf(id)
+  const trim = id.startsWith('pack:') ? 1 : (BANK_TRIM[base] ?? 1)
+  const bank = banks.get(base)
+  const gain = (opts.gain ?? 0.7) * (opts.up ? 0.75 : 1) * trim
+  const isAcoustic = base === 'acoustic' || base === 'j45' || base === 'nylon'
   const role = opts.dest === bus('me') ? 'guide' : 'backing'
   recordBackingNote(t0, midis, gain, opts.pm ? 0.16 : 0.65, role)
+  if (isAcoustic && !opts.pm && !opts.up && midis.length >= 3) {
+    triggerGuitarMicroRealism(ctx, t0, {
+      midi: midis[0],
+      gain,
+      acoustic: true,
+      isDownStrum: true,
+      dest: opts.dest ?? out(),
+    })
+  }
   // a pack with whole recorded chords (an amp tone re-amped from DI chords): play the real chord when it has this one
   const pk = packFor(id)
   if (pk && packLoaded(pk) && !opts.pm) {
@@ -576,7 +671,14 @@ export function strum(midis: number[], when = 0, opts: { up?: boolean; spread?: 
   // loudest, and every strum a little different; an explicit spread sets the speed (fast chucks, slow rakes)
   const vel = velOf(gain * amp)
   const notes = strumNotes(midis, { up: opts.up, vel, speed: opts.spread !== undefined ? opts.spread * Math.max(1, midis.length - 1) : undefined })
-    .map(x => playNote(x.midi, t0 + x.offset, gain * amp * (x.vel / vel), opts.dest, { sound: id, pm: opts.pm, double: opts.double, string: x.string }))
+    .map(x => playNote(x.midi, t0 + x.offset, (opts.gain ?? 0.7) * (opts.up ? 0.75 : 1) * amp * (x.vel / vel), opts.dest, { sound: id, pm: opts.pm, double: opts.double, string: x.string }))
+  // Step 5: Subtle sympathetic open-string resonance on acoustic/nylon chords
+  if (isAcoustic && !opts.pm && midis.length >= 3) {
+    const symp = sympatheticOpenStrings(midis).slice(0, 2)
+    for (const s of symp) {
+      notes.push(playNote(s.midi, t0 + 0.028, s.gain, opts.dest, { sound: id, string: s.string }))
+    }
+  }
   return { stop: (at?: number) => notes.forEach(n => n.stop(at)) }
 }
 
@@ -614,9 +716,22 @@ export function playFromBank(id: string, midi: number, when: number, gain: numbe
   const g = bank.groups.notes
   const k = nearest(g, midi)
   const s = take(g, k).s
+  const rate = Math.pow(2, (midi - k) / 12)
+  const wh = playWorkletVoice({
+    ctx,
+    key: s.key,
+    buf: s.buf,
+    dest: to,
+    when: t,
+    offsetSec: s.off,
+    rate,
+    gain,
+    releaseSec: release,
+  })
+  if (wh) return { stop: (at?: number) => wh.stop(at, false, release / 3) }
   const src = ctx.createBufferSource()
   src.buffer = s.buf
-  src.playbackRate.value = Math.pow(2, (midi - k) / 12)
+  src.playbackRate.value = rate
   const v = ctx.createGain()
   v.gain.value = gain
   src.connect(v).connect(to)

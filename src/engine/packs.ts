@@ -11,11 +11,15 @@ import { monoOut } from '../audio/rig'
 import {
   applySlideAndBend,
   ensureSamplerWorklet,
+  evictSampleFromWorklet,
   FINGER_LIFT_TAU_SEC,
   legatoOffsetOf,
   playFingerThud,
+  playWorkletVoice,
   prepareStringVoice,
+  registerSampleInWorklet,
   registerStringVoice,
+  ringingDecayAt,
   scheduleVoiceGain,
   type LegatoTech,
 } from './sampler'
@@ -35,13 +39,20 @@ export async function loadBuiltInPack(id: string, base = `./packs/${id}/`): Prom
 }
 
 // private packs: IndexedDB kg-packs (files: `${packId}/${rel}` → Blob; packs: id → Pack)
+let dbConn: Promise<IDBDatabase> | null = null
 function db(): Promise<IDBDatabase> {
-  return new Promise((ok, no) => {
-    const q = indexedDB.open('kg-packs', 1)
-    q.onupgradeneeded = () => { q.result.createObjectStore('packs'); q.result.createObjectStore('files') }
-    q.onsuccess = () => ok(q.result)
-    q.onerror = () => no(q.error)
-  })
+  if (!dbConn) {
+    dbConn = new Promise((ok, no) => {
+      const q = indexedDB.open('kg-packs', 1)
+      q.onupgradeneeded = () => { q.result.createObjectStore('packs'); q.result.createObjectStore('files') }
+      q.onsuccess = () => {
+        q.result.onclose = () => { dbConn = null }
+        ok(q.result)
+      }
+      q.onerror = () => { dbConn = null; no(q.error) }
+    })
+  }
+  return dbConn
 }
 async function idb<T>(store: string, mode: IDBTransactionMode, f: (s: IDBObjectStore) => IDBRequest<T> | void): Promise<T | undefined> {
   const d = await db()
@@ -101,13 +112,18 @@ export async function loadPrivatePack(id: string): Promise<Pack | null> {
 }
 
 // ---- decoded recordings, within a memory budget (least recently used go first) ------------------------------------
-let budget = 384 * 1024 * 1024
+let budget = 160 * 1024 * 1024
 let used = 0
 const cache = new Map<string, { buf: AudioBuffer; bytes: number }>()
 const pending = new Map<string, Promise<AudioBuffer | null>>()
 export function setMemoryBudget(mb: number) { budget = mb * 1024 * 1024; evict() }
 function evict() {
-  for (const [k, v] of cache) { if (used <= budget) break; cache.delete(k); used -= v.bytes }
+  for (const [k, v] of cache) {
+    if (used <= budget) break
+    cache.delete(k)
+    used -= v.bytes
+    evictSampleFromWorklet(k)
+  }
 }
 function touch(k: string) { const v = cache.get(k); if (v) { cache.delete(k); cache.set(k, v) } return v?.buf }
 async function decode(packId: string, rel: string): Promise<AudioBuffer | null> {
@@ -122,19 +138,27 @@ async function decode(packId: string, rel: string): Promise<AudioBuffer | null> 
       const buf = await audio().decodeAudioData(await src.read(rel))
       const bytes = buf.length * buf.numberOfChannels * 4
       cache.set(k, { buf, bytes }); used += bytes; evict()
+      registerSampleInWorklet(k, buf)
       return buf
     } catch { return null } finally { pending.delete(k) }
   })()
   pending.set(k, p)
   return p
 }
-/** Decode what these notes need, before they're played (a song calls this as it opens). */
+/** Decode what these notes need, before they're played (a song calls this as it opens), batched 4 at a time so UI stays smooth. */
 export async function ensure(packId: string, art: Articulation, notes: { midi: number; string?: number }[], onProgress?: (d: number, t: number) => void) {
   const src = sources.get(packId)
   if (!src) return
   const files = filesFor(src.pack, art, notes)
-  let d = 0
-  await Promise.all(files.map(f => decode(packId, f).then(() => onProgress?.(++d, files.length))))
+  let d = 0, idx = 0
+  const workers = Array.from({ length: Math.min(4, files.length) }, async () => {
+    while (idx < files.length) {
+      const f = files[idx++]
+      await decode(packId, f)
+      onProgress?.(++d, files.length)
+    }
+  })
+  await Promise.all(workers)
 }
 
 // ---- playing -------------------------------------------------------------------------------------------------------
@@ -174,7 +198,7 @@ export async function deletePack(id: string) {
     tx.oncomplete = () => ok(); tx.onerror = () => no(tx.error)
   })
   sources.delete(id)
-  for (const k of [...cache.keys()]) if (k.startsWith(id + '/')) { used -= cache.get(k)!.bytes; cache.delete(k) }
+  for (const k of [...cache.keys()]) if (k.startsWith(id + '/')) { used -= cache.get(k)!.bytes; cache.delete(k); evictSampleFromWorklet(k) }
 }
 
 /** Play a whole recorded chord (a strum through an amp), if the pack has one for these notes. */
@@ -205,6 +229,7 @@ function playPick(packId: string, pack: Pack, art: Articulation, pick: ZonePick,
   const out = n.dest ?? route('any', src.pack.kind === 'bass' ? 'bass' : src.pack.kind === 'drums' ? 'drums' : src.pack.kind === 'keys' ? 'keys' : 'guitar')
   const norm = normGain(src.pack)
   const parts: { s: AudioBufferSourceNode; g: GainNode }[] = []
+  const workletHandles: { stop: (at?: number, fast?: boolean, tauSec?: number) => void }[] = []
   const stems = stemsFor(src.pack, monoOut())
   const vary = { cents: (Math.random() - 0.5) * 4, gain: Math.pow(10, ((Math.random() - 0.5) * 1.2) / 20) }
 
@@ -242,35 +267,81 @@ function playPick(packId: string, pack: Pack, art: Articulation, pick: ZonePick,
     // every mic stem of the same take starts on the same sample, so they add up like the real mics did
     for (const st of stems) {
       const file = stemPath(st, layer.rr[k])
-      const buf = touch(`${packId}/${file}`)
+      const cacheKey = `${packId}/${file}`
+      const buf = touch(cacheKey)
       if (!buf) { void decode(packId, file); continue }
+      const rate = rateFor(pick.shift, (layer.tune?.[k] ?? 0) + (layer.rr.length === 1 ? vary.cents : 0))
+      const stemGain = weight * norm * takeTrim(layer, k) * st.gain * (layer.rr.length === 1 ? vary.gain : 1) * (plan ? plan.gainScale : 1)
+      const startOff = plan && plan.legato ? legatoOffsetOf(buf, 0, buf.sampleRate) : 0
+
+      const wh = playWorkletVoice({
+        ctx,
+        key: cacheKey,
+        buf,
+        dest: out,
+        when: t,
+        offsetSec: startOff,
+        rate,
+        gain: stemGain,
+        pan: n.pan,
+        pm: art === 'pm',
+        plan: plan ?? undefined,
+      })
+      if (wh) {
+        workletHandles.push(wh)
+        continue
+      }
+
       const s = ctx.createBufferSource()
       s.buffer = buf
-      // a layer with a single recording (Ample plays the same take every time) gets a tiny take-to-take variation, the
-      // same for every mic stem of this note: ±2 cents and ±0.6 dB, so repeated notes don't sound machine-gunned
-      const rate = rateFor(pick.shift, (layer.tune?.[k] ?? 0) + (layer.rr.length === 1 ? vary.cents : 0))
       if (plan) applySlideAndBend(s, rate, t, plan)
       else if (rate !== 1) s.playbackRate.value = rate
       const g = ctx.createGain()
-      const stemGain = weight * norm * takeTrim(layer, k) * st.gain * (layer.rr.length === 1 ? vary.gain : 1) * (plan ? plan.gainScale : 1)
       if (plan) scheduleVoiceGain(g, stemGain, t, plan)
       else g.gain.value = stemGain
       let node: AudioNode = s.connect(g)
       if (n.pan !== undefined && typeof ctx.createStereoPanner === 'function') { const p = ctx.createStereoPanner(); p.pan.value = n.pan; node = node.connect(p) }
       node.connect(out)
-      const startOff = plan && plan.legato ? legatoOffsetOf(buf, 0, buf.sampleRate) : 0
       s.start(t, startOff)
       parts.push({ s, g })
     }
   }
-  if (!parts.length) return null
-  if (plan && plan.thudGain > 0) playFingerThud(ctx, t, plan.thudGain * 0.6, out, n.pan)
+  if (!parts.length && !workletHandles.length) return null
+  if (parts.length > 0 && plan && plan.thudGain > 0) playFingerThud(ctx, t, plan.thudGain * 0.6, out, n.pan)
   if ((globalThis as { __kgTest?: boolean }).__kgTest) (globalThis as { __kgPackPlays?: number }).__kgPackPlays = ((globalThis as { __kgPackPlays?: number }).__kgPackPlays ?? 0) + 1
+  let released = false
   const stopAt = (at: number, fast = false, tauSec?: number) => {
     // a finger lifted off the string: 12 ms (or 8 ms legato crossfade); a let-go note: a natural 60 ms fade
     const tc = tauSec ?? (fast ? FINGER_LIFT_TAU_SEC : 0.02)
+    for (const wh of workletHandles) wh.stop(at, fast, tc)
     for (const { s, g } of parts) {
       try { g.gain.cancelScheduledValues(at); g.gain.setTargetAtTime(0, at, tc); s.stop(at + tc * 8) } catch { /* already stopped */ }
+    }
+    // Trigger release sample on note-off when the pack provides a release articulation and the string is still audible
+    if (!released && !fast && src.pack.articulations.release) {
+      released = true
+      const decay = ringingDecayAt({ startTime: t, stopTime: null, pm: art === 'pm' }, at)
+      if (decay > 0.08) {
+        const relPick = zoneFor(src.pack, 'release', n.midi, strIdx)
+        if (relPick) {
+          const relLayers = layersFor(relPick.zone, Math.round((n.vel ?? 90) * decay))
+          for (const { layer, weight } of relLayers) {
+            const rk = rr.pick(`${packId}/release/${relPick.zone.key}/${layer.velocity}`, layer.rr.length)
+            const rFile = stemPath(stems[0], layer.rr[rk])
+            const rKey = `${packId}/${rFile}`
+            const rBuf = touch(rKey)
+            if (!rBuf) { void decode(packId, rFile); continue }
+            const rRate = rateFor(relPick.shift, layer.tune?.[rk] ?? 0)
+            const rGain = weight * norm * takeTrim(layer, rk) * decay * 0.35
+            const rWh = playWorkletVoice({ ctx, key: rKey, buf: rBuf, dest: out, when: at, offsetSec: 0, rate: rRate, gain: rGain, pan: n.pan })
+            if (!rWh) {
+              const rs = ctx.createBufferSource(); rs.buffer = rBuf; rs.playbackRate.value = rRate
+              const rg = ctx.createGain(); rg.gain.value = rGain
+              rs.connect(rg).connect(out); rs.start(at)
+            }
+          }
+        }
+      }
     }
   }
   if (plan) {

@@ -1,10 +1,12 @@
-// KGuitar per-string sampler worklet (Stage 3 / Engine Week Part 4, notes/AUDIO-ENGINE.md & notes/ENGINE-WEEK.md):
+// KGuitar per-string sampler worklet (Stage 3 / Argon Step 1, notes/AUDIO-ENGINE.md & notes/SOUND-ENGINE-FINISH.md):
+// - Multi-output bus routing (16 stereo output slots) so `me`, `band`, `guitar`, `bass`, `keys`, and custom buses stay isolated.
+// - 4-point Catmull-Rom cubic interpolation for crisp acoustic harmonics and pick transients across pitch shifts, bends, and slides.
 // - One monophonic voice slot per guitar string (plus polyphonic release/crossfade tails): playing a new note on a
 //   string lifts the finger off the old note (~12 ms damping) or crossfades (~8 ms) on legato techniques.
 // - Safeguard #4 + Upgrade #7: Hammer-ons ('h') and pull-offs ('p') start the destination sample ~35 ms past its pick
 //   transient (at a zero-crossing), crossfade from the ringing string, inherit its real-time decay envelope so a
 //   hammer-on onto a dying string never jumps back to full pick volume, and add a subtle low-passed finger-fret thud.
-// - Slides ('/' and '\\') glide playbackRate smoothly from the ringing string's pitch into the destination sustain body.
+// - Precomputed per-sample pitch multipliers for slides ('/' and '\\') and bends (zero Math.pow inside the audio loop).
 
 class KgSampler extends AudioWorkletProcessor {
   constructor() {
@@ -24,6 +26,10 @@ class KgSampler extends AudioWorkletProcessor {
       const left = msg.left instanceof Float32Array ? msg.left : new Float32Array(msg.left || 0)
       const right = msg.right instanceof Float32Array ? msg.right : left
       this.samples.set(msg.key, { left, right, sr: msg.sr || sampleRate })
+      return
+    }
+    if (msg.type === 'evict') {
+      if (msg.key) this.samples.delete(msg.key)
       return
     }
     if (msg.type === 'noteOn') {
@@ -58,6 +64,27 @@ class KgSampler extends AudioWorkletProcessor {
     }
   }
 
+  stealVoiceSlot() {
+    if (this.voices.length < 64) return
+    // Prefer removing a voice that is already done or furthest into release, else quietest voice
+    let victimIdx = 0
+    let lowestScore = Infinity
+    for (let i = 0; i < this.voices.length; i++) {
+      const v = this.voices[i]
+      if (v.done) { victimIdx = i; break }
+      const score = (v.releasing ? 0.05 : 1) * v.currentEnv * v.gain
+      if (score < lowestScore) {
+        lowestScore = score
+        victimIdx = i
+      }
+    }
+    const victim = this.voices[victimIdx]
+    if (victim && this.stringActive.get(victim.stringKey) === victim) {
+      this.stringActive.delete(victim.stringKey)
+    }
+    this.voices.splice(victimIdx, 1)
+  }
+
   triggerVoice(msg) {
     const startFrame = Math.max(currentFrame, msg.startFrame || currentFrame)
     const stringKey = msg.stringKey || ''
@@ -78,12 +105,44 @@ class KgSampler extends AudioWorkletProcessor {
     const offsetSec = Math.max(0, msg.offsetSec || 0)
     const fadeInSec = legato ? (msg.crossfadeSec || 0.008) : 0.0015
     const fadeInFrames = Math.max(1, Math.round(fadeInSec * sampleRate))
-    const targetRate = Math.max(0.125, Math.min(8, (msg.rate || 1) * (sr / sampleRate)))
+    const baseTargetRate = Math.max(0.125, Math.min(8, (msg.rate || 1) * (sr / sampleRate)))
     const startRate =
       msg.slideFromRate && msg.slideFromRate > 0
         ? Math.max(0.125, Math.min(8, msg.slideFromRate * (sr / sampleRate)))
-        : targetRate
-    const slideFrames = msg.slideSec > 0 ? Math.max(1, Math.round(msg.slideSec * sampleRate)) : 0
+        : baseTargetRate
+    const slideFrames = msg.slideSec > 0 && Math.abs(startRate - baseTargetRate) > 1e-6
+      ? Math.max(1, Math.round(msg.slideSec * sampleRate))
+      : 0
+    const slideStep = slideFrames > 0 ? Math.pow(baseTargetRate / startRate, 1 / slideFrames) : 1
+
+    // String bend scheduling (precomputed multiplicative step; zero Math.pow in process loop)
+    const bendSemi = msg.bend || 0
+    let bendDelayFrames = 0
+    let bendFrames = 0
+    let bendStep = 1
+    let initialBendMult = 1
+    let finalBendMult = 1
+    if (Math.abs(bendSemi) > 1e-4) {
+      const bendRatio = Math.pow(2, bendSemi / 12)
+      const dtFrames = Math.max(1, Math.round((msg.bendTime || 0.14) * sampleRate))
+      if (msg.bendRelease) {
+        initialBendMult = bendRatio
+        finalBendMult = 1
+        bendDelayFrames = slideFrames
+        bendFrames = dtFrames
+        bendStep = Math.pow(1 / bendRatio, 1 / dtFrames)
+      } else if (msg.bendPre) {
+        initialBendMult = bendRatio
+        finalBendMult = bendRatio
+      } else {
+        initialBendMult = 1
+        finalBendMult = bendRatio
+        bendDelayFrames = slideFrames + Math.round(0.03 * sampleRate)
+        bendFrames = dtFrames
+        bendStep = Math.pow(bendRatio, 1 / dtFrames)
+      }
+    }
+
     const legatoScale =
       legato && prev
         ? inheritedDecay * (legato === 'p' ? 0.88 : legato === 'h' ? 0.96 : 0.94)
@@ -95,18 +154,31 @@ class KgSampler extends AudioWorkletProcessor {
     const panR = Math.sin(angle)
     const thudAmp = (legato === 'h' || legato === 'p') ? (msg.thudGain ?? gain * 0.14) : 0
     const thudFrames = Math.round(0.0045 * sampleRate)
+    const stopFrame = msg.durSec > 0 ? startFrame + Math.max(16, Math.round(msg.durSec * sampleRate)) : 0
+    const stopReleaseSec = msg.releaseSec || 0.035
+
+    this.stealVoiceSlot()
 
     const voice = {
       id: msg.id || 0,
       key: msg.key,
+      outIdx: msg.outIdx || 0,
       stringKey,
       startFrame,
+      stopFrame,
+      stopReleaseSec,
       framePos: offsetSec * sr,
       rate: startRate,
-      startRate,
-      targetRate,
+      targetRate: baseTargetRate,
       slideFrames,
       slideProgress: 0,
+      slideStep,
+      bendMult: initialBendMult,
+      finalBendMult,
+      bendDelayFrames,
+      bendFrames,
+      bendProgress: 0,
+      bendStep,
       gain,
       panL,
       panR,
@@ -121,85 +193,116 @@ class KgSampler extends AudioWorkletProcessor {
       thudAmp,
       thudFrames,
       thudPos: 0,
+      thudW: (2 * Math.PI * 260) / sampleRate,
       done: false,
     }
     if (stringKey) this.stringActive.set(stringKey, voice)
     this.voices.push(voice)
-    if (this.voices.length > 48) this.voices.splice(0, this.voices.length - 48)
   }
 
   process(_inputs, outputs) {
-    const out = outputs[0]
-    if (!out || !out[0]) return true
-    const outL = out[0]
-    const outR = out[1] || out[0]
-    const n = outL.length
+    if (!outputs || !outputs.length || !this.voices.length) return true
+    const firstOut = outputs[0]
+    if (!firstOut || !firstOut[0]) return true
+    const n = firstOut[0].length
 
-    for (let i = 0; i < n; i++) {
-      const absFrame = currentFrame + i
-      let sumL = 0
-      let sumR = 0
-      for (let vIdx = 0; vIdx < this.voices.length; vIdx++) {
-        const v = this.voices[vIdx]
-        if (v.done || absFrame < v.startFrame) continue
-        const s = this.samples.get(v.key)
-        if (!s) {
-          v.done = true
-          continue
+    for (let vIdx = 0; vIdx < this.voices.length; vIdx++) {
+      const v = this.voices[vIdx]
+      if (v.done) continue
+      const s = this.samples.get(v.key)
+      if (!s) {
+        v.done = true
+        continue
+      }
+      const left = s.left
+      const right = s.right
+      const len = left.length
+      if (len < 2) {
+        v.done = true
+        continue
+      }
+      const destOut = outputs[v.outIdx] || firstOut
+      const outL = destOut[0]
+      const outR = destOut[1] || outL
+
+      for (let i = 0; i < n; i++) {
+        const absFrame = currentFrame + i
+        if (absFrame < v.startFrame) continue
+        if (v.stopFrame > 0 && !v.releasing && absFrame >= v.stopFrame) {
+          this.beginRelease(v, absFrame, v.stopReleaseSec)
         }
-        const idx = Math.floor(v.framePos)
-        if (idx < 0 || idx + 1 >= s.left.length) {
+
+        const idx = v.framePos | 0
+        if (idx < 0 || idx + 1 >= len) {
           v.done = true
-          continue
+          break
         }
         const frac = v.framePos - idx
-        const sampL = s.left[idx] + (s.left[idx + 1] - s.left[idx]) * frac
-        const sampR = s.right[idx] + (s.right[idx + 1] - s.right[idx]) * frac
+
+        // 4-point Catmull-Rom cubic interpolation
+        const i0 = idx > 0 ? idx - 1 : 0
+        const i2 = idx + 1
+        const i3 = idx + 2 < len ? idx + 2 : len - 1
+
+        const y0L = left[i0], y1L = left[idx], y2L = left[i2], y3L = left[i3]
+        const c1L = 0.5 * (y2L - y0L)
+        const c2L = y0L - 2.5 * y1L + 2 * y2L - 0.5 * y3L
+        const c3L = 0.5 * (y3L - y0L) + 1.5 * (y1L - y2L)
+        const sampL = ((c3L * frac + c2L) * frac + c1L) * frac + y1L
+
+        const sampR = right === left
+          ? sampL
+          : (() => {
+              const y0R = right[i0], y1R = right[idx], y2R = right[i2], y3R = right[i3]
+              const c1R = 0.5 * (y2R - y0R)
+              const c2R = y0R - 2.5 * y1R + 2 * y2R - 0.5 * y3R
+              const c3R = 0.5 * (y3R - y0R) + 1.5 * (y1R - y2R)
+              return ((c3R * frac + c2R) * frac + c1R) * frac + y1R
+            })()
 
         // Fade-in envelope (8 ms crossfade on legato, 1.5 ms anti-click on normal pick)
         let env = v.ageFrames < v.fadeInFrames ? v.ageFrames / v.fadeInFrames : 1
-        // Release / voice-steal damping envelope
         if (v.releasing && absFrame >= v.releaseStartFrame) {
           v.releaseProgress++
           const r = 1 - v.releaseProgress / v.releaseFrames
           if (r <= 0.0005) {
             v.done = true
-            continue
+            break
           }
-          // Smooth raised-cosine / exponential damping curve
           env *= r * r
         }
         v.currentEnv = env
 
-        // Subtle finger-fret contact thud on hammer-on / pull-off (~260 Hz low-passed impulse over 4.5 ms)
         let thud = 0
         if (v.thudAmp > 0 && v.thudPos < v.thudFrames) {
-          const prog = v.thudPos / v.thudFrames
-          thud =
-            v.thudAmp *
-            Math.sin(2 * Math.PI * 260 * (v.thudPos / sampleRate)) *
-            (1 - prog) *
-            (1 - prog)
+          const prog = 1 - v.thudPos / v.thudFrames
+          thud = v.thudAmp * Math.sin(v.thudW * v.thudPos) * prog * prog
           v.thudPos++
         }
 
         const amp = env * v.gain
-        sumL += (sampL * amp + thud) * v.panL
-        sumR += (sampR * amp + thud) * v.panR
+        const sigL = sampL * amp + thud
+        const sigR = sampR * amp + thud
+        outL[i] += sigL * v.panL
+        if (outR !== outL) outR[i] += sigR * v.panR
 
-        // Advance pitch glide for slides
+        // Advance pitch glide for slides (precomputed multiplier)
         if (v.slideFrames > 0 && v.slideProgress < v.slideFrames) {
           v.slideProgress++
-          const u = v.slideProgress / v.slideFrames
-          v.rate = v.startRate * Math.pow(v.targetRate / v.startRate, u)
+          v.rate = v.slideProgress >= v.slideFrames ? v.targetRate : v.rate * v.slideStep
         } else {
           v.rate = v.targetRate
         }
-        v.framePos += v.rate
+
+        // Advance string bend pitch curve (precomputed multiplier)
+        if (v.bendFrames > 0 && v.ageFrames >= v.bendDelayFrames && v.bendProgress < v.bendFrames) {
+          v.bendProgress++
+          v.bendMult = v.bendProgress >= v.bendFrames ? v.finalBendMult : v.bendMult * v.bendStep
+        }
+
+        v.framePos += v.rate * v.bendMult
         v.ageFrames++
       }
-      outL[i] += sumL
-      if (outR !== outL) outR[i] += sumR
     }
 
     // Prune completed voices

@@ -2,20 +2,23 @@
 // pack.json and its recordings), choose which KGuitar sound each one plays, try it, or remove it. Packs stay on this
 // phone only (IndexedDB), never in a backup or the app's code.
 import { useEffect, useRef, useState } from 'react'
-import { importPack, privatePacks, deletePack, loadPrivatePack, ensure, playPack } from '../engine/packs'
+import { importPack, privatePacks, deletePack, loadPrivatePack, ensure, playPack, setMemoryBudget } from '../engine/packs'
 import type { Pack } from '../engine/packLogic'
 import { SOUNDS, packFor, setPackFor, refreshPackSounds, type SoundId } from '../audio/pluck'
 import { audio } from '../audio/engine'
 import { parseChordSets, savePrivateSets } from '../theory/chordSets'
+import { usePersist } from './Controls'
 
 export function SoundPacks() {
   const [packs, setPacks] = useState<Pack[]>([])
+  const [tier, setTier] = usePersist<'pocket' | 'studio'>('packQualityTier', 'pocket')
   const [busy, setBusy] = useState('')
   const [, bump] = useState(0)
   const input = useRef<HTMLInputElement>(null)
   const file = useRef<HTMLInputElement>(null)
   const refresh = (imported?: string) => { void privatePacks().then(setPacks); void refreshPackSounds(imported) }
   useEffect(() => refresh(), [])
+  useEffect(() => { setMemoryBudget(tier === 'studio' ? 288 : 144) }, [tier])
   useEffect(() => { input.current?.setAttribute('webkitdirectory', ''); input.current?.setAttribute('directory', '') }, [])
 
   const onFiles = async (fl: FileList | null) => {
@@ -73,6 +76,13 @@ export function SoundPacks() {
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <button className="btn" onClick={() => file.current?.click()} data-testid="pack-file">Bring in .kgpack files…</button>
         <button className="btn ghost" onClick={() => input.current?.click()}>…or a pack folder</button>
+        <label className="row small" style={{ gap: 6, alignItems: 'center', marginLeft: 'auto' }}>
+          <span className="muted">Quality</span>
+          <select className="select sm" value={tier} onChange={e => setTier(e.target.value as 'pocket' | 'studio')} data-testid="pack-quality-tier" aria-label="Pack memory and quality tier">
+            <option value="pocket">Pocket (phone, 144 MB)</option>
+            <option value="studio">Studio (tablet / full layers, 288 MB)</option>
+          </select>
+        </label>
         {/* no "accept" filter: Android doesn't know the .kgpack type and greys the files out in the picker (owner 2026-11-13) */}
         <input ref={file} type="file" multiple hidden onChange={e => { void onFiles(e.target.files); e.target.value = '' }} />
         <input ref={input} type="file" multiple hidden onChange={e => { void onFiles(e.target.files); e.target.value = '' }} />

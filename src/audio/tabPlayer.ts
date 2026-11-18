@@ -128,7 +128,7 @@ export class TabPlayer {
             const b = bendOf(n.tech)
             const isLegato = n.tech === 'h' || n.tech === 'p' || n.tech === '/' || n.tech === '\\'
             const prevMidi = lastMidiByString.get(n.string)
-            const h = playNote(n.midi, at, (ns.length > 2 ? 0.55 : 0.75) * this.level, undefined, {
+            const h = playNote(n.midi, at, (ns.length > 2 ? 0.66 : 0.88) * this.level, undefined, {
               sound: this.sound,
               pm: n.tech === 'PM',
               string: n.string,

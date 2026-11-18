@@ -74,8 +74,24 @@ import {
   prepareStringVoice,
   registerStringVoice,
   renderSamplerOffline,
+  setUseWorkletEngine,
   stopStringVoices,
+  useWorkletEngine,
 } from '../src/engine/sampler'
+import {
+  BODY_CAB_IRS,
+  activeBodyCabIr,
+  irMonoCorrelation,
+  setActiveBodyCabIr,
+  sympatheticOpenStrings,
+  synthesizeBodyCabIr,
+} from '../src/engine/bodyCabIr'
+import {
+  GUITAR_PARTS,
+  partForSound,
+  partsForStyle,
+  soundForPart,
+} from '../src/engine/parts'
 {
   const sr = 48000
   // Synthetic guitar sample: loud pick transient in the first 20 ms, then steady 220 Hz sine sustain
@@ -155,6 +171,37 @@ import {
   for (let i = Math.round(0.18 * sr); i < Math.round(0.20 * sr); i++) peakHammerAttack = Math.max(peakHammerAttack, Math.abs(rendered.buffer[i]))
   ok(peakPick > 0.4 && peakHammerAttack > 0.05 && peakHammerAttack < peakPick * 0.75, `offline worklet skips harsh pick transient on hammer-on (pick=${peakPick.toFixed(2)}, hammer=${peakHammerAttack.toFixed(2)})`)
   stopStringVoices()
+
+  // 6. Argon Step 1/2/5/8: Worklet engine switch, Body/Cab IR mono-safety & unity energy, Sympathetic resonance, and Parts registry
+  ok(useWorkletEngine() === true, 'AudioWorklet engine enabled by default')
+  setUseWorkletEngine(false)
+  ok(useWorkletEngine() === false, 'A/B compare switch can toggle to fallback node engine')
+  setUseWorkletEngine(true)
+
+  for (const ir of BODY_CAB_IRS) {
+    const [L, R] = synthesizeBodyCabIr(sr, ir.id)
+    const corr = irMonoCorrelation(L, R)
+    let eL = 0
+    for (let i = 0; i < L.length; i++) eL += L[i] * L[i]
+    ok(corr >= 0.94, `${ir.id} IR is mono-safe for Pocket Master fold (corr=${corr.toFixed(3)})`)
+    ok(Math.abs(eL - 1) < 1e-4, `${ir.id} IR is normalized to unity energy (eL=${eL.toFixed(4)})`)
+  }
+  setActiveBodyCabIr('j45')
+  ok(activeBodyCabIr() === 'j45', 'Active Body/Cab IR persists')
+  setActiveBodyCabIr('off')
+
+  const sympG = sympatheticOpenStrings([43, 47, 50, 55, 59, 67]) // G major chord (D3=50, G3=55, B3=59 are played; E2=40, A2=45, E4=64 are unplayed)
+  ok(sympG.some(s => s.midi === 40 || s.midi === 45 || s.midi === 64), `G major chord excites unplayed open strings sympathetically (${sympG.map(s => s.midi).join(',')})`)
+
+  ok(GUITAR_PARTS.length >= 15, 'Guitar parts registry covers acoustic, 12-string, nylon, sunburst, storm, dracus')
+  ok(partForSound('pack:sunburst-deluxe') === 'guitar.sunburst', 'Sunburst Deluxe pack maps to guitar.sunburst')
+  ok(partForSound('pack:dracus-metal') === 'guitar.dracus', 'Dracus pack maps to guitar.dracus')
+  ok(partForSound('pack:strummed-12') === 'guitar.12string', '12-string pack maps to guitar.12string')
+  ok(soundForPart('guitar.nylon') === 'nylon', 'guitar.nylon resolves to nylon base when no pack override set')
+  const bgParts = partsForStyle('bluegrass')
+  ok(bgParts.lead === 'guitar.flatpick' && bgParts.bass === 'bass.upright' && bgParts.ir === 'j45', 'Bluegrass auto-pairs Flatpick 6 + Upright Bass + J-45 IR')
+  const metalParts = partsForStyle('progmetal')
+  ok(metalParts.lead === 'guitar.dracus' && metalParts.ir === 'yorkMesa412', 'Prog metal auto-pairs Dracus + York Mesa 4x12 IR')
 }
 
 console.log(`packs logic: ${n} checks, 0 failed`)

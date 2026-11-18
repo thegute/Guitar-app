@@ -4,6 +4,7 @@
 // Hand percussion (congas, bongos, cajón, claves, guiro, brushes, finger snaps) is synthesized too. Grooves pick a
 // kit; Jam can swap it. A small live-synthesized kit plays until a kit is ready (and if the recordings can't load).
 import { audio, route } from './engine'
+import { playWorkletVoice } from '../engine/sampler'
 
 export type Voice = 'kick' | 'snare' | 'hat' | 'open' | 'rim' | 'ride' | 'ghost' | 'clap' | 'pedal' | 'bell' | 'crash'
   | 'tom1' | 'tom2' | 'tom3' | 'tamb' | 'cowbell' | 'shaker' | 'roto1' | 'roto2' | 'roto3'
@@ -386,7 +387,7 @@ const VOICE_GAIN: Partial<Record<Voice, number>> = {
   tom1: 0.8, tom2: 0.8, tom3: 0.85, clap: 0.7, tamb: 0.45, cowbell: 0.45, shaker: 0.5, roto1: 0.7, roto2: 0.7, roto3: 0.75,
   conga: 0.95, congalo: 1.0, bongo: 0.85, bongolo: 0.9, cajon: 1.1, cajonslap: 1.0, clave: 0.7, guiro: 0.7, snap: 0.85, brush: 0.75, brushtap: 0.8, agogo: 0.6, china: 0.6, splash: 0.55, riser: 0.6, impact: 0.9,
 }
-let openHat: { g: GainNode; t: number } | null = null
+let openHat: { g?: GainNode; wh?: { stop: (at?: number, fast?: boolean, tauSec?: number) => void }; t: number } | null = null
 
 /** Play one drum. `sel` picks the kit (a kit id, or a kit with recorded pieces swapped). */
 /** The kit's recording of one drum (its loud layer), for pads you pitch or reverse. Null until the kit is loaded. */
@@ -427,21 +428,40 @@ export function playDrum(voice: Voice, when: number, level = 1, dest?: AudioNode
   if (layers.length > 2 && Math.random() < 0.3) li = Math.max(0, Math.min(layers.length - 1, li + (Math.random() < 0.5 ? -1 : 1)))
   const L = layers[li]
   const ctx = audio()
+  const rate = info.synth && !isPerc ? 1 : 1 + (Math.random() - 0.5) * 0.016
+  const hitGain = (VOICE_GAIN[voice] ?? 0.7) * Math.pow(lv, 0.9) * (info.synth ? 1 : 0.94 + Math.random() * 0.12) * mix * (info.synth && !isPerc ? 0.9 : 1)
+  const t = Math.max(when, ctx.currentTime)
+  if ((voice === 'hat' || voice === 'pedal') && openHat && openHat.t < t) {
+    try {
+      if (openHat.wh) openHat.wh.stop(t, true, 0.012)
+      else if (openHat.g) openHat.g.gain.setTargetAtTime(0, t, 0.012)
+    } catch { /* noop */ }
+    openHat = null
+  }
+  const wh = playWorkletVoice({
+    ctx,
+    key: `drum:${isPerc ? 'perc' : id}:${piece}:${li}`,
+    buf: L.buf,
+    dest: d,
+    when: t,
+    offsetSec: L.off,
+    rate,
+    gain: hitGain,
+  })
+  if (wh) {
+    if (voice === 'open') openHat = { wh, t }
+    return
+  }
   const src = ctx.createBufferSource()
   src.buffer = L.buf
   // tiny pitch and level differences between hits, like a real drummer (machines stay exact)
-  src.playbackRate.value = info.synth && !isPerc ? 1 : 1 + (Math.random() - 0.5) * 0.016
+  src.playbackRate.value = rate
   const g = ctx.createGain()
-  g.gain.value = (VOICE_GAIN[voice] ?? 0.7) * Math.pow(lv, 0.9) * (info.synth ? 1 : 0.94 + Math.random() * 0.12) * mix * (info.synth && !isPerc ? 0.9 : 1)
+  g.gain.value = hitGain
   src.connect(g).connect(d)
-  const t = Math.max(when, ctx.currentTime)
   src.start(t, L.off)
   // a closed hi-hat (stick or pedal) chokes the open one
   if (voice === 'open') openHat = { g, t }
-  else if ((voice === 'hat' || voice === 'pedal') && openHat && openHat.t < t) {
-    try { openHat.g.gain.setTargetAtTime(0, t, 0.012) } catch { /* noop */ }
-    openHat = null
-  }
 }
 
 const e8 = (v: Voice, lvl = 0.7): Hit[] => [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].map(b => [b, v, b % 1 === 0 ? lvl : lvl * 0.7])

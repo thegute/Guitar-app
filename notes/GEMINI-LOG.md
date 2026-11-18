@@ -1,5 +1,30 @@
 # Gemini week log (newest first)
 
+- 2026-11-18: **Argon Sound Engine Finish (Steps 1–8) + 9 Speed/Quality Upgrades + Mac Harvest Wave 2 Plans & Two-Tier Exporter (`src/engine/worklets/sampler.worklet.js`, `src/engine/worklets/master.worklet.js`, `src/engine/sampler.ts`, `src/engine/packs.ts`, `src/engine/console.ts`, `src/engine/bodyCabIr.ts`, `src/engine/parts.ts`, `src/audio/engine.ts`, `src/audio/pluck.ts`, `src/audio/drums.ts`, `src/audio/metronome.ts`, `src/audio/tabPlayer.ts`, `src/audio/packSounds.ts`, `src/components/SoundPacks.tsx`, `src/components/AudioSetup.tsx`, `src/learn/Settings.tsx`, `src/learn/guide.ts`, `src/search/catalog.ts`, `tools/harvest/export_pack.py`, `tools/harvest/plans/*.json`, `tests/packs-logic.test.ts`, `tests/browser/packs-test.cjs`)**:
+  1. **Step 1 — `kg-sampler` AudioWorklet Live Path + 9 Speed & Quality Upgrades (`sampler.worklet.js`, `master.worklet.js`, `sampler.ts`, `packs.ts`, `pluck.ts`, `engine.ts`):**
+     - Upgraded `kg-sampler` to **16 stereo output bus slots** (`destSlotFor(dest)`) so `me`, `band`, `guitar`, `bass`, `drums`, `keys`, `JamTransport`, and `StudioTransport` buses stay isolated while sharing one worklet sample store.
+     - Upgraded worklet sample interpolation from linear to **4-point Catmull-Rom cubic interpolation** for crisp upper harmonics and pick attack across pitch shifts, bends, and slides.
+     - Replaced per-sample `Math.pow` inside the audio thread with **precomputed multiplicative pitch steps** for slides (`/` / `\`) and string bends (`prebent`, `release`, delayed bends), and replaced `% 16` modulo in `master.worklet.js` true-peak oversampling with `& 15` bitmasking.
+     - Added zero-copy **transferable `ArrayBuffer` uploads** (`registerSampleInWorklet`), worklet LRU sample eviction (`evictSampleFromWorklet`), cached IndexedDB connection + 4-concurrent batched `decodeAudioData` in `packs.ts`, release-tail triggering on note-off, and 48 kHz `AudioContext` negotiation.
+  2. **Steps 2 & 5 — Musical Parts Registry, Live Acoustic Body & Boutique Cab IR Convolver, Sympathetic Strings & Micro-Noises (`parts.ts`, `bodyCabIr.ts`, `console.ts`, `pluck.ts`):**
+     - Added `GUITAR_PARTS`, `partForSound`, `soundForPart`, `partsForStyle`, and `playPart` supporting 12-string octave/unison shimmer (`guitar.12string`), `guitar.sunburst`, `guitar.storm`, `guitar.dracus`, `guitar.picked.acoustic`, `guitar.picked.nylon`, `guitar.flatpick`, `guitar.electric.jazz`, and `bass.jambass`.
+     - Wired live mono-safe (`L/R corr >= 0.94`), unity-energy Body & Cabinet IR convolution into the `guitar` bus (`Gibson J-45`, `Gibson SJ-200`, `Taylor 314CE`, `Piezo → Acoustic`, `'66 Deluxe Reverb 1x12`, `Two Rock 65B 2x12`, `OwnHammer Imperial Jazz`, `York MES 412 OS-V2`, `GGD Zilla 2x12`), plus `sympatheticOpenStrings`, wound-string fret-shift whispers, and acoustic wood-body downstroke thumps.
+  3. **Steps 3, 4, 6, 7 & 8 — Remaining Callers, `-16 LUFS` Calibration, Quality Tiers & Blind A/B Shootout (`drums.ts`, `metronome.ts`, `tabPlayer.ts`, `SoundPacks.tsx`, `AudioSetup.tsx`, `Settings.tsx`):**
+     - Routed recorded drum kits through `kg-sampler` (with open-hat choke) and cached metronome click buffers; added calibrated `BANK_TRIM` + `CAT_TRIM.drums` + `TabPlayer` balance.
+     - Added **Pocket (`144 MB`) vs. Studio (`288 MB`)** quality tier in `SoundPacks.tsx`, **Acoustic Body Sculpt (live guitar)** in `AudioSetup.tsx`, and **Body & cabinet IR picker** + **`Compare old and new sound` (▶ Hear new sound / ▶ Hear old sound)** in `Settings.tsx`.
+     - Added `--tier pocket|studio` to `tools/harvest/export_pack.py` (exported `modernnylon.kgpack` 41 MB Studio + `modernnylon-pocket.kgpack` 6 MB Pocket) and created harvest plans for `Evolution Dracus`, `Electric Sunburst Deluxe`, `Electric Storm Deluxe`, `Picked Acoustic`, `Picked Nylon`, `Strummed Acoustic 2`, and `Session Bassist Jam Bass`.
+  4. **Sound Lab Measured Verification (`sound-lab.cjs` → `tools/sound-report.py`, `0 >0dB` across all 16 scenes, `packs-test.cjs: packs: all good`, `packs logic: 267/267`):**
+     - `strum-metal`: `-12.9 → -15.6 LUFS`, `TP -5.64 dBTP`, `PLR 9.9 dB`
+     - `strum-crunch`: `-14.1 → -16.6 LUFS`, `TP -6.11 dBTP`, `PLR 10.5 dB`
+     - `notes-metal`: `-13.6 → -16.8 LUFS`, `TP -7.01 dBTP`, `PLR 9.8 dB`
+     - `jam-metal`: `-14.3 → -15.1 LUFS`, `TP -3.65 dBTP`, `PLR 11.4 dB`
+     - `jam-rock`: `-14.7 → -15.6 LUFS`, `TP -3.48 dBTP`, `PLR 12.1 dB`
+     - `jam-reggae`: `-16.3 → -17.3 LUFS`, `TP -6.79 dBTP`, `PLR 10.5 dB`
+     - `strum-clean`: `-15.2 → -17.6 LUFS`, `TP -4.52 dBTP`, `PLR 13.1 dB`
+     - `strum-j45`: `-15.5 → -17.7 LUFS`, `TP -3.12 dBTP`, `PLR 14.6 dB`
+     - `strum-acoustic`: `-16.4 → -18.4 LUFS`, `TP -3.55 dBTP`, `PLR 14.9 dB`
+     - `strum-nylon`: `-16.0 → -18.5 LUFS`, `TP -2.98 dBTP`, `PLR 15.5 dB` (air `-35.8 → -29.4 dB` in Step 1)
+
 - 2026-11-18: **Hydrogen H2/H3 Audit Fixes & Full Chrome Browser Verification (`src/audio/band.ts`, `src/nav.ts`, `src/learn/LickLibrary.tsx`, `src/screens/PlayScreen.tsx`, `src/screens/SongsScreen.tsx`, `src/components/Songbook.tsx`, `src/exercises/ExerciseBrowser.tsx`, `src/tabs/transpose.ts`, `tests/band-logic.test.ts`, `tests/gemini-week-logic.test.ts`, `tests/browser/batch-h2-h3-test.cjs`)**:
   1. **Capo Backing-Bass Sync (`src/audio/band.ts`):** Shifted `bassChord` pitch classes in `backingEvents` by `+track.capo` so chord-sheet songs using `Capo N` or `Sync Capo` generate backing bass in the sounding key rather than the un-capoed fingered chord shape key.
   2. **Unified `openLicksInKey` Navigation (`src/nav.ts`, `LickLibrary.tsx`, `PlayScreen.tsx`, `SongsScreen.tsx`, `Songbook.tsx`, `ExerciseBrowser.tsx`):** Extracted shared `openLicksInKey` helper; keys with native must-know licks set strict `kg:mustKey`, while keys without native must-know licks (e.g. `Bb`, `Eb`, `Ab`, `F#`, `B`) fall back seamlessly to `kg:lickWantKey` so the target key's playable licks load ready-transposed instead of hitting an empty filter banner. Added defensive `c.type ?? ''` handling in `src/tabs/transpose.ts`.

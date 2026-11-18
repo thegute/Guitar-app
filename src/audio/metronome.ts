@@ -140,11 +140,8 @@ export function playClick(when: number, sound: ClickSound, kind: 'accent' | 'bea
     o.stop(when + 0.1)
     return
   }
-  // noise-based click / woodblock
-  const len = Math.floor(ctx.sampleRate * 0.05)
-  const b = ctx.createBuffer(1, len, ctx.sampleRate)
-  const d = b.getChannelData(0)
-  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * (sound === 'wood' ? 0.12 : 0.05)))
+  // noise-based click / woodblock (cached once per sample rate so clicks allocate no buffers)
+  const b = clickNoiseBuf(ctx, sound === 'wood')
   const src = ctx.createBufferSource()
   src.buffer = b
   const bp = ctx.createBiquadFilter()
@@ -154,4 +151,18 @@ export function playClick(when: number, sound: ClickSound, kind: 'accent' | 'bea
   src.connect(bp).connect(g)
   g.gain.setValueAtTime(level * (sound === 'wood' ? 2.2 : 1.4), when)
   src.start(when)
+}
+
+const clickBufCache = new Map<string, AudioBuffer>()
+function clickNoiseBuf(ctx: AudioContext, wood: boolean): AudioBuffer {
+  const k = `${ctx.sampleRate}:${wood ? 'w' : 'c'}`
+  let b = clickBufCache.get(k)
+  if (!b) {
+    const len = Math.floor(ctx.sampleRate * 0.05)
+    b = ctx.createBuffer(1, len, ctx.sampleRate)
+    const d = b.getChannelData(0)
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * (wood ? 0.12 : 0.05)))
+    clickBufCache.set(k, b)
+  }
+  return b
 }

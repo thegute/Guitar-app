@@ -27,8 +27,11 @@ import { ProfileForm } from '../components/ProfileForm'
 import { haptic, hapticsOn, setHapticsOn } from '../audio/tapFeel'
 import { TALK_CARD_CHOICES, setTalkCardSecs, talkCardSecs } from '../assistant/talkCard'
 import { UsagePanel } from '../components/UsagePanel'
-import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, instrumentSound, activeSound, soundInfo, allSounds, type SoundId } from '../audio/pluck'
+import { onSoundChange, setSoundChoice, soundChoice, strum, loadSound, instrumentSound, activeSound, soundInfo, allSounds, playNote, type SoundId } from '../audio/pluck'
 import { audio } from '../audio/engine'
+import { BODY_CAB_IRS, activeBodyCabIr, setActiveBodyCabIr, type BodyCabIrId } from '../engine/bodyCabIr'
+import { refreshGuitarBodyCabIr } from '../engine/console'
+import { setUseWorkletEngine, useWorkletEngine } from '../engine/sampler'
 import { gear, isSetUp, latencyMs, useGear } from '../audio/gear'
 import { AudioSetup } from '../components/AudioSetup'
 import { SoundPacks } from '../components/SoundPacks'
@@ -53,7 +56,23 @@ export function Settings({ inst, onExit, onGo, guideSec }: { inst: Instrument; o
   const [remMsg, setRemMsg] = useState('')
   const [setup, setSetup] = useState(false)
   const [sound, setSound] = useState(soundChoice())
+  const [bodyIr, setBodyIr] = useState<BodyCabIrId>(activeBodyCabIr)
+  const [workletOn, setWorkletOn] = useState<boolean>(useWorkletEngine)
   useEffect(() => onSoundChange(() => setSound(soundChoice())), [])
+  async function playComparePhrase(useNew: boolean) {
+    setUseWorkletEngine(useNew)
+    setWorkletOn(useNew)
+    const ctx = audio()
+    await ctx.resume()
+    const id = sound === 'auto' ? instrumentSound() : sound
+    await loadSound(id)
+    const t0 = ctx.currentTime + 0.05
+    // 4-note legato + strum phrase so the difference in cubic interpolation, legato transient skip, and body resonance is easy to hear
+    playNote(50, t0, 0.82, undefined, { sound: id, string: 2 })
+    playNote(52, t0 + 0.22, 0.80, undefined, { sound: id, string: 2, tech: 'h' })
+    playNote(55, t0 + 0.44, 0.78, undefined, { sound: id, string: 3 })
+    strum([43, 47, 50, 55, 59, 67], t0 + 0.72, { sound: id, gain: 0.78 })
+  }
   async function tryIt(c: 'auto' | SoundId) {
     setSoundChoice(c)
     const ctx = audio()
@@ -195,6 +214,40 @@ export function Settings({ inst, onExit, onGo, guideSec }: { inst: Instrument; o
       <Win id="sound" title="Playback sound" bodyClass="stack" bodyStyle={{ gap: 10 }} hint="Used for Hear it, tapping notes and the quizzes. On Auto, a Guitar Pro tab plays in its own guitar sound (acoustic, clean, overdrive or distortion). You can also switch it next to Hear it. Jam picks a sound for each style; change it there under Band. The amp sounds were made from your own Peavey 5150 captures and cab impulse responses; your files aren't inside the app, only the finished notes. Your own playing is never sent back out of the phone: you hear it only through your amp.">
         <Chips<'auto' | SoundId> label="Sound" items={[{ id: 'auto', label: `Auto (${inst.isUke ? 'nylon' : 'acoustic'}, or the song's own guitar)` }, ...allSounds().map(x => ({ id: x.id, label: x.label }))]} value={sound} onChange={v => void tryIt(v)} wrap />
         <p className="small muted" style={{ margin: 0 }}>{soundInfo(activeSound()).hint}</p>
+        <label className="field">
+          <span>Body &amp; cabinet impulse response</span>
+          <select
+            className="select"
+            value={bodyIr}
+            data-testid="body-cab-ir-select"
+            onChange={e => {
+              const next = e.target.value as BodyCabIrId
+              setBodyIr(next)
+              setActiveBodyCabIr(next)
+              refreshGuitarBodyCabIr(next)
+              void tryIt(sound)
+            }}
+          >
+            {BODY_CAB_IRS.map(ir => (
+              <option key={ir.id} value={ir.id}>{ir.label}</option>
+            ))}
+          </select>
+        </label>
+        <p className="small muted" style={{ margin: 0 }}>{BODY_CAB_IRS.find(x => x.id === bodyIr)?.hint}</p>
+        <div className="card stack" style={{ gap: 6 }} data-testid="sound-compare-ab">
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <b>Compare old and new sound</b>
+            <span className="small muted">{workletOn ? 'New engine active (AudioWorklet + 4-pt cubic + legato)' : 'Old engine active (Node fallback)'}</span>
+          </div>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <button className={`btn sm${workletOn ? ' primary' : ''}`} data-testid="ab-play-new" onClick={() => void playComparePhrase(true)}>
+              ▶ Hear new sound
+            </button>
+            <button className={`btn sm${!workletOn ? ' primary' : ''}`} data-testid="ab-play-old" onClick={() => void playComparePhrase(false)}>
+              ▶ Hear old sound
+            </button>
+          </div>
+        </div>
       </Win>
 
       </WinArea>}

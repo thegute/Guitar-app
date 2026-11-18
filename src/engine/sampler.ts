@@ -471,31 +471,64 @@ export function playFingerThud(ctx: BaseAudioContext, when: number, thudGain: nu
 }
 
 // ---- AudioWorklet bridge (`kg-sampler` in src/engine/worklets/sampler.worklet.js) ----------------------------------
+const WORKLET_OUTPUT_SLOTS = 16
 let workletLoading: Promise<AudioWorkletNode | null> | null = null
 let workletNode: AudioWorkletNode | null = null
+let workletCtx: AudioContext | null = null
 const uploadedSamples = new Set<string>()
+const destSlots = new Map<AudioNode, number>()
+let nextDestSlot = 0
+
+let workletEngineMem = true
+
+/** Hidden / Settings switch to compare the AudioWorklet sampler engine (`true`, default) against the old node path (`false`). */
+export function useWorkletEngine(): boolean {
+  try {
+    const v = localStorage.getItem('kg:workletEngine')
+    return v === null ? workletEngineMem : JSON.parse(v) !== false
+  } catch {
+    return workletEngineMem
+  }
+}
+
+export function setUseWorkletEngine(on: boolean) {
+  workletEngineMem = !!on
+  try {
+    localStorage.setItem('kg:workletEngine', JSON.stringify(!!on))
+  } catch {
+    /* private */
+  }
+}
 
 export function samplerWorkletReady(): boolean {
   return workletNode !== null
 }
 
 export function ensureSamplerWorklet(ctx: AudioContext, dest?: AudioNode): Promise<AudioWorkletNode | null> {
-  if (workletNode) return Promise.resolve(workletNode)
+  if (workletNode && workletCtx === ctx) {
+    if (dest) destSlotFor(dest)
+    return Promise.resolve(workletNode)
+  }
   if (!ctx.audioWorklet || typeof AudioWorkletNode === 'undefined') return Promise.resolve(null)
-  if (!workletLoading) {
+  if (!workletLoading || workletCtx !== ctx) {
+    workletCtx = ctx
+    workletNode = null
+    uploadedSamples.clear()
+    destSlots.clear()
+    nextDestSlot = 0
     workletLoading = ctx.audioWorklet
       .addModule(new URL('./worklets/sampler.worklet.js', import.meta.url).href)
       .then(() => {
         const node = new AudioWorkletNode(ctx, 'kg-sampler', {
           numberOfInputs: 0,
-          numberOfOutputs: 1,
-          outputChannelCount: [2],
+          numberOfOutputs: WORKLET_OUTPUT_SLOTS,
+          outputChannelCount: Array(WORKLET_OUTPUT_SLOTS).fill(2),
           channelCount: 2,
           channelCountMode: 'explicit',
           channelInterpretation: 'speakers',
         })
-        if (dest) node.connect(dest)
         workletNode = node
+        if (dest) destSlotFor(dest)
         return node
       })
       .catch(() => null)
@@ -503,15 +536,138 @@ export function ensureSamplerWorklet(ctx: AudioContext, dest?: AudioNode): Promi
   return workletLoading
 }
 
-export function registerSampleInWorklet(key: string, buf: AudioBuffer) {
-  if (!workletNode || uploadedSamples.has(key)) return
+/** Allocate or reuse one of the 16 stereo output slots on `kg-sampler` connected directly to `dest`. */
+export function destSlotFor(dest: AudioNode): number | null {
+  if (!workletNode) return null
+  const existing = destSlots.get(dest)
+  if (existing !== undefined) return existing
+  if (nextDestSlot >= WORKLET_OUTPUT_SLOTS) return null
+  const slot = nextDestSlot++
+  try {
+    workletNode.connect(dest, slot, 0)
+    destSlots.set(dest, slot)
+    return slot
+  } catch {
+    return null
+  }
+}
+
+export function registerSampleInWorklet(key: string, buf: AudioBuffer): boolean {
+  if (!workletNode) return false
+  if (uploadedSamples.has(key)) return true
   try {
     const left = new Float32Array(buf.getChannelData(0))
-    const right = buf.numberOfChannels > 1 ? new Float32Array(buf.getChannelData(1)) : left
-    workletNode.port.postMessage({ type: 'sample', key, left, right, sr: buf.sampleRate })
+    const hasRight = buf.numberOfChannels > 1
+    const right = hasRight ? new Float32Array(buf.getChannelData(1)) : left
+    const transfer = hasRight ? [left.buffer, right.buffer] : [left.buffer]
+    workletNode.port.postMessage({ type: 'sample', key, left, right, sr: buf.sampleRate }, transfer)
     uploadedSamples.add(key)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function evictSampleFromWorklet(key: string) {
+  if (!uploadedSamples.has(key)) return
+  uploadedSamples.delete(key)
+  if (!workletNode) return
+  try {
+    workletNode.port.postMessage({ type: 'evict', key })
   } catch {
     /* noop */
+  }
+}
+
+export interface WorkletPlayOpts {
+  ctx: AudioContext
+  key: string
+  buf: AudioBuffer
+  dest: AudioNode
+  when: number
+  offsetSec: number
+  rate: number
+  gain: number
+  pan?: number
+  durSec?: number
+  releaseSec?: number
+  pm?: boolean
+  plan?: StringVoicePlan
+  bend?: number
+  bendTime?: number
+  prebent?: boolean
+  bendRelease?: boolean
+}
+
+/**
+ * Play a note or stem through the `kg-sampler` AudioWorklet.
+ * Returns `null` if the worklet isn't ready yet, is disabled via `useWorkletEngine()`, or if `dest` cannot be mapped.
+ */
+export function playWorkletVoice(o: WorkletPlayOpts): { stop: (at?: number, fast?: boolean, tauSec?: number) => void } | null {
+  if (!workletNode || workletCtx !== o.ctx || !useWorkletEngine()) return null
+  const outIdx = destSlotFor(o.dest)
+  if (outIdx === null) return null
+  if (!registerSampleInWorklet(o.key, o.buf)) return null
+
+  const sr = o.ctx.sampleRate
+  const t = Math.max(o.when || o.ctx.currentTime, o.ctx.currentTime)
+  const startFrame = Math.round(t * sr)
+  const plan = o.plan
+  const id = plan ? plan.id : nextVoiceId++
+  const stringKey = plan ? plan.stringKey : ''
+  const hasSlide = plan && (plan.legato === '/' || plan.legato === '\\') && Math.abs(plan.slideSemitones) > 0.01
+  const slideFromRate = hasSlide ? o.rate * Math.pow(2, plan!.slideSemitones / 12) : 0
+  const slideSec = hasSlide ? plan!.slideTimeSec : 0
+
+  try {
+    workletNode.port.postMessage({
+      type: 'noteOn',
+      id,
+      key: o.key,
+      outIdx,
+      stringKey,
+      startFrame,
+      offsetSec: o.offsetSec,
+      rate: o.rate,
+      slideFromRate,
+      slideSec,
+      bend: o.bend || 0,
+      bendTime: o.bendTime || 0.14,
+      bendPre: !!o.prebent,
+      bendRelease: !!o.bendRelease,
+      gain: o.gain,
+      gainAlreadyScaled: true,
+      pan: o.pan || 0,
+      legato: plan?.legato || null,
+      crossfadeSec: plan?.fadeInSec || LEGATO_CROSSFADE_SEC,
+      dampSec: plan?.dampSec || FINGER_LIFT_DAMP_SEC,
+      pm: !!o.pm,
+      thudGain: plan?.thudGain || 0,
+      durSec: o.durSec || 0,
+      releaseSec: o.releaseSec || 0.035,
+    })
+  } catch {
+    return null
+  }
+
+  return {
+    stop: (at?: number, fast = false, tauSec?: number) => {
+      if (!workletNode) return
+      const stopT = Math.max(at ?? o.ctx.currentTime, t)
+      const stopFrame = Math.round(stopT * sr)
+      const releaseSec = tauSec !== undefined ? tauSec * 3 : fast ? FINGER_LIFT_DAMP_SEC : (o.releaseSec ?? 0.045)
+      try {
+        workletNode.port.postMessage({
+          type: 'noteOff',
+          id,
+          stringKey,
+          stopFrame,
+          releaseSec,
+        })
+      } catch {
+        /* noop */
+      }
+    },
   }
 }
 
@@ -643,12 +799,20 @@ export function renderSamplerOffline(
       const v = voices[k]
       if (v.done || f < v.startFrame) continue
       const idx = Math.floor(v.framePos)
-      if (idx < 0 || idx + 1 >= v.sample.length) {
+      const len = v.sample.length
+      if (idx < 0 || idx + 1 >= len) {
         v.done = true
         continue
       }
       const frac = v.framePos - idx
-      const samp = v.sample[idx] + (v.sample[idx + 1] - v.sample[idx]) * frac
+      const i0 = idx > 0 ? idx - 1 : 0
+      const i2 = idx + 1
+      const i3 = idx + 2 < len ? idx + 2 : len - 1
+      const y0 = v.sample[i0], y1 = v.sample[idx], y2 = v.sample[i2], y3 = v.sample[i3]
+      const c1 = 0.5 * (y2 - y0)
+      const c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3
+      const c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2)
+      const samp = ((c3 * frac + c2) * frac + c1) * frac + y1
       let env = v.ageFrames < v.fadeInFrames ? v.ageFrames / v.fadeInFrames : 1
       if (v.releasing && f >= v.releaseStartFrame) {
         v.releaseProgress++
