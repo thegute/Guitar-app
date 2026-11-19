@@ -3,16 +3,14 @@
   "name": "Picked Acoustic (Vintage Martin 00-21)",
   "kind": "guitar",
   "plugin": "/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3",
-  "state": "../../states/picked-acoustic.state",
+  "state": "~/KGuitar-harvest/states/picked-acoustic.state",
   "warmup": 15,
   "sampleRate": 44100,
   "tuning": [40, 45, 50, 55, 59, 64],
   "frets": [0, 15],
   "tuneOver": 5,
   "articulations": {
-    "sustain": { "keyswitch": 24, "velocities": [42, 82, 116], "rr": 4, "tail": 1.2 },
-    "pm": { "keyswitch": 25, "velocities": [65, 105], "rr": 3, "hold": 0.45, "tail": 0.35 },
-    "harmonic": { "keyswitch": 26, "velocities": [92], "rr": 2, "tail": 1.3 }
+    "sustain": { "velocities": [42, 82, 116], "rr": 4, "tail": 1.4 }
   },
   "pace": 0.5
 }

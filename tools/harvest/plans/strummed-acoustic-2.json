@@ -3,7 +3,7 @@
   "name": "Strummed Acoustic 2 (12-String & 6-String Strums)",
   "kind": "guitar",
   "plugin": "/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3",
-  "state": "../../states/strummed-12.state",
+  "state": "~/KGuitar-harvest/states/strummed-12.state",
   "warmup": 15,
   "sampleRate": 44100,
   "tuning": [40, 45, 50, 55, 59, 64],

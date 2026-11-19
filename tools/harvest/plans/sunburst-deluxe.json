@@ -3,16 +3,14 @@
   "name": "Electric Sunburst Deluxe (Les Paul Humbucker)",
   "kind": "guitar",
   "plugin": "/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3",
-  "state": "../../states/sunburst-deluxe.state",
+  "state": "~/KGuitar-harvest/states/sunburst-deluxe.state",
   "warmup": 15,
   "sampleRate": 44100,
   "tuning": [40, 45, 50, 55, 59, 64],
   "frets": [0, 17],
   "tuneOver": 5,
   "articulations": {
-    "sustain": { "keyswitch": 24, "velocities": [45, 84, 118], "rr": 4, "tail": 1.0 },
-    "pm": { "keyswitch": 25, "velocities": [65, 110], "rr": 4, "hold": 0.45, "tail": 0.35 },
-    "harmonic": { "keyswitch": 26, "velocities": [96], "rr": 2, "tail": 1.1 }
+    "sustain": { "velocities": [45, 84, 118], "rr": 4, "tail": 1.2 }
   },
   "pace": 0.5
 }

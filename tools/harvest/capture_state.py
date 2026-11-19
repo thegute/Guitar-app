@@ -71,7 +71,9 @@ def main():
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out + '.state', 'wb') as f:
         f.write(p.raw_state)
-    print(f'Saved {len(p.raw_state)} bytes of state to {a.out}.state')
+        f.flush()
+    print(f'Saved {len(p.raw_state)} bytes of state to {a.out}.state', flush=True)
+    os._exit(0)
 
 
 if __name__ == '__main__':

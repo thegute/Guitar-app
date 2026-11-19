@@ -3,16 +3,14 @@
   "name": "Electric Storm Deluxe (Modern Rock / Metal)",
   "kind": "guitar",
   "plugin": "/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3",
-  "state": "../../states/storm-deluxe.state",
+  "state": "~/KGuitar-harvest/states/storm-deluxe.state",
   "warmup": 15,
   "sampleRate": 44100,
   "tuning": [40, 45, 50, 55, 59, 64],
   "frets": [0, 19],
   "tuneOver": 5,
   "articulations": {
-    "sustain": { "keyswitch": 24, "velocities": [50, 88, 120], "rr": 4, "tail": 1.0 },
-    "pm": { "keyswitch": 25, "velocities": [70, 115], "rr": 4, "hold": 0.45, "tail": 0.35 },
-    "harmonic": { "keyswitch": 26, "velocities": [100], "rr": 2, "tail": 1.1 }
+    "sustain": { "velocities": [50, 88, 120], "rr": 4, "tail": 1.2 }
   },
   "pace": 0.5
 }

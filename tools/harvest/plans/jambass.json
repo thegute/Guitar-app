@@ -3,15 +3,14 @@
   "name": "Session Bassist Jam Bass (70s Jazz Bass)",
   "kind": "bass",
   "plugin": "/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3",
-  "state": "../../states/jambass.state",
+  "state": "~/KGuitar-harvest/states/jambass.state",
   "warmup": 15,
   "sampleRate": 44100,
   "tuning": [28, 33, 38, 43],
   "frets": [0, 15],
   "tuneOver": 5,
   "articulations": {
-    "sustain": { "keyswitch": 24, "velocities": [48, 86, 118], "rr": 4, "tail": 0.9 },
-    "pm": { "keyswitch": 25, "velocities": [70, 110], "rr": 3, "hold": 0.4, "tail": 0.3 }
+    "sustain": { "velocities": [48, 86, 118], "rr": 4, "tail": 1.0 }
   },
   "pace": 0.5
 }
