@@ -51,10 +51,11 @@ public class LessonFoldersPlugin extends Plugin {
             return;
         }
         Uri tree = data.getData();
+        MediaWebViewClient.grantSessionTree(tree);
         try {
             getContext().getContentResolver().takePersistableUriPermission(tree, Intent.FLAG_GRANT_READ_URI_PERMISSION);
         } catch (SecurityException e) {
-            // still readable for now; it may need picking again after a restart
+            // still readable for this session via grantSessionTree; it may need picking again after a restart
         }
         r.put("tree", tree.toString());
         r.put("name", treeName(tree));
@@ -83,6 +84,7 @@ public class LessonFoldersPlugin extends Plugin {
         new Thread(() -> {
             try {
                 Uri tree = Uri.parse(t);
+                MediaWebViewClient.grantSessionTree(tree);
                 JSArray files = new JSArray();
                 walk(tree, DocumentsContract.getTreeDocumentId(tree), "", 0, files);
                 JSObject r = new JSObject();
@@ -175,6 +177,7 @@ public class LessonFoldersPlugin extends Plugin {
     public void forget(PluginCall call) {
         String t = call.getString("tree");
         if (t != null) {
+            MediaWebViewClient.revokeSessionTree(t);
             try {
                 getContext().getContentResolver().releasePersistableUriPermission(Uri.parse(t), Intent.FLAG_GRANT_READ_URI_PERMISSION);
             } catch (Exception e) {

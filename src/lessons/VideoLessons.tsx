@@ -28,6 +28,7 @@ import { freqToMidi, midiName } from '../theory/notes'
 import { SPEEDS } from '../components/LocalVideo'
 import { Win, WinArea } from '../components/Win'
 import { CourseBookView } from './CourseBookView'
+import { attachMpegTsPlayer, probeVideoUrl, type TsPlayerHandle } from './mpegtsFallback'
 import {
   getCachedCourseMap,
   getLessonNote,
@@ -495,7 +496,48 @@ function LessonPlayer({
   const [playing, setPlaying] = useState(false)
   const [resumed, setResumed] = useState<number | null>(null)
   const [done, setDone] = useState(!!progress()[v.uri]?.done)
-  const [error, setError] = useState(false)
+  const [error, setError] = useState('')
+  const [tsMode, setTsMode] = useState(false)
+  const tsPlayerRef = useRef<TsPlayerHandle | null>(null)
+  const videoSrc = mediaUrl(v.uri)
+
+  // Clean up any active mpegts.js player when switching lessons or unmounting
+  useEffect(() => {
+    setError('')
+    setTsMode(false)
+    return () => {
+      tsPlayerRef.current?.destroy()
+      tsPlayerRef.current = null
+    }
+  }, [v.uri])
+
+  const handleVideoError = async () => {
+    // If we already switched to mpegts.js, let its own error handler report
+    if (tsMode) return
+    const videoEl = el.current
+    const probe = await probeVideoUrl(videoSrc)
+    if (probe.kind === 'mpegts' && videoEl) {
+      try {
+        setTsMode(true)
+        const handle = await attachMpegTsPlayer(videoEl, videoSrc, detail => {
+          setError(`Couldn't decode this MPEG-TS video (${detail}).`)
+        })
+        if (handle) {
+          tsPlayerRef.current = handle
+          setError('')
+          return
+        }
+      } catch { /* fall through to error banner */ }
+    }
+    if (probe.kind === 'http-error' && probe.status === 403) {
+      setError('Android folder permission expired. Tap ← Lessons, remove & re-pick the course folder with "Find my lessons".')
+    } else if (probe.kind === 'http-error' && probe.status === 404) {
+      setError('File not found (moved or renamed). Tap ← Lessons, then ↻ Look again.')
+    } else {
+      const code = videoEl?.error?.code
+      setError(`This video couldn't play inside the app${code ? ` (error ${code})` : ''}. Tap ← Lessons → ↻ Look again, or open it in your phone's video player below.`)
+    }
+  }
 
   // Practice tools state
   const [activeTool, setActiveTool] = useState<'metronome' | 'tuner' | 'note' | null>(null)
@@ -995,12 +1037,13 @@ function LessonPlayer({
           <div className="lesson-video">
             <video
               ref={el}
-              src={mediaUrl(v.uri)}
+              src={tsMode ? undefined : videoSrc}
               controls
               playsInline
               preload="metadata"
               className={mirror ? 'mirrored' : ''}
               onLoadedMetadata={e => {
+                setError('')
                 const w = progress()[v.uri]
                 const d = e.currentTarget.duration
                 if (w && w.t > 5 && (!d || w.t < d - 5)) { e.currentTarget.currentTime = w.t; setResumed(w.t) }
@@ -1013,14 +1056,23 @@ function LessonPlayer({
                 const t = e.currentTarget
                 if (!done && t.duration && t.currentTime / t.duration > 0.95) markDone(true)
               }}
-              onError={() => setError(true)}
+              onError={() => { void handleVideoError() }}
             />
           </div>
 
           {error && (
-            <p className="notice small" style={{ margin: 0 }}>
-              This video can't be played here. If the folder was moved, tap ← Lessons, then ↻ Look again.
-            </p>
+            <div className="notice small stack" style={{ gap: 6, margin: 0 }}>
+              <span>{error}</span>
+              {lessonsAvailable() && (
+                <button
+                  className="btn sm"
+                  style={{ justifySelf: 'start' }}
+                  onClick={() => void LessonFolders.openExternal({ uri: v.uri, mime: 'video/mp4' })}
+                >
+                  Open in Phone Video Player ↗
+                </button>
+              )}
+            </div>
           )}
           {resumed !== null && (
             <p className="small muted" style={{ margin: 0 }}>

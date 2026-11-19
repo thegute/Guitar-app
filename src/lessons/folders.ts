@@ -98,7 +98,7 @@ export async function readLessonBytes(uri: string): Promise<Uint8Array> {
 export const lessonsAvailable = () => !!mock() || (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android')
 
 /** Where the app plays a lesson file from (web ObjectURL, test mock, or Android MediaWebViewClient). */
-export const mediaUrl = (uri: string) => webUrls.get(uri) ?? mock()?.media?.(uri) ?? `${location.origin}/_kg_media_/${encodeURIComponent(uri)}`
+export const mediaUrl = (uri: string) => webUrls.get(uri) ?? mock()?.media?.(uri) ?? `${location.origin}/_kg_media_?u=${encodeURIComponent(uri)}`
 
 /** A lesson video as Play's video link (kept in the song's video field, like a YouTube link). */
 export const LOCAL_PREFIX = 'kgvideo:'
@@ -112,7 +112,13 @@ export function parseLocalVideo(link?: string): { uri: string; name: string } | 
 export interface Folder { tree: string; name: string; files: LFile[]; scanned: number }
 const KEY = 'kg:lessonFolders'
 export function savedFolders(): Folder[] {
-  try { return JSON.parse(localStorage.getItem(KEY) ?? '[]') as Folder[] } catch { return [] }
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEY) ?? '[]') as Folder[]
+    // Drop expired desktop-only webdir:// folders whose in-memory File handles are gone after restart
+    return raw.filter(f => !f.tree.startsWith('webdir://') || f.files.some(x => webUrls.has(x.uri)))
+  } catch {
+    return []
+  }
 }
 export function saveFolders(f: Folder[]) {
   try { localStorage.setItem(KEY, JSON.stringify(f)) } catch { /* storage full: the list is rebuilt next time */ }

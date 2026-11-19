@@ -4,6 +4,7 @@ import { onLeavePage } from '../audio/stopAll'
 import { useEffect, useRef, useState } from 'react'
 import type { VideoApi, VideoSync } from '../play/inTime'
 import { hasWebLessonFile, lessonsAvailable, mediaUrl, niceName, setProgress } from '../lessons/folders'
+import { attachMpegTsPlayer, probeVideoUrl, type TsPlayerHandle } from '../lessons/mpegtsFallback'
 import { SyncPanel } from './YouTubePlayer'
 
 export const SPEEDS = [1, 0.75, 0.5, 0.25, 1.25]
@@ -25,7 +26,33 @@ export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90, note
   useEffect(() => onLeavePage(() => v.current?.pause()), [])
   const [ready, setReady] = useState(false)
   const [error, setError] = useState(false)
+  const [tsMode, setTsMode] = useState(false)
+  const tsRef = useRef<TsPlayerHandle | null>(null)
+  const videoSrc = mediaUrl(file.uri)
   const [rate, setRate] = useState(1)
+
+  useEffect(() => {
+    setError(false)
+    setTsMode(false)
+    return () => {
+      tsRef.current?.destroy()
+      tsRef.current = null
+    }
+  }, [file.uri])
+
+  const handleErr = async () => {
+    if (tsMode) { setError(true); return }
+    const el = v.current
+    const probe = await probeVideoUrl(videoSrc)
+    if (probe.kind === 'mpegts' && el) {
+      try {
+        setTsMode(true)
+        const h = await attachMpegTsPlayer(el, videoSrc, () => setError(true))
+        if (h) { tsRef.current = h; setError(false); return }
+      } catch { /* fall through */ }
+    }
+    setError(true)
+  }
   const [mirror, setMirror] = useState(false)
   const [a, setA] = useState<number | null>(null)
   const [b, setB] = useState<number | null>(null)
@@ -75,8 +102,8 @@ export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90, note
   return (
     <div className="yt local-video">
       <div className="yt-frame">
-        <video ref={v} src={mediaUrl(file.uri)} playsInline controls preload="metadata" className={mirror ? 'mirrored' : ''}
-          onLoadedMetadata={() => setReady(true)} onError={() => setError(true)} aria-label={niceName(file.name)} />
+        <video ref={v} src={tsMode ? undefined : videoSrc} playsInline controls preload="metadata" className={mirror ? 'mirrored' : ''}
+          onLoadedMetadata={() => { setError(false); setReady(true) }} onError={() => { void handleErr() }} aria-label={niceName(file.name)} />
         {error && (
           <div className="yt-error">
             <p>The video can't be read. If you moved or renamed the lesson folder, pick it again in Learn → Your video lessons.</p>
