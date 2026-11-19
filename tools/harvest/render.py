@@ -178,8 +178,9 @@ def main():
                             ks = plan['stringKeys'][s]
                             msgs += [Message('note_on', note=ks, velocity=127, channel=ch, time=0.05),
                                      Message('note_off', note=ks, velocity=0, channel=ch, time=0.06)]
-                        msgs += [Message('note_on', note=midi, velocity=v, channel=ch, time=t0),
-                                 Message('note_off', note=midi, velocity=0, channel=ch, time=t0 + hold)]
+                        send_midi = midi + plan.get('midiOffset', 0)
+                        msgs += [Message('note_on', note=send_midi, velocity=v, channel=ch, time=t0),
+                                 Message('note_off', note=send_midi, velocity=0, channel=ch, time=t0 + hold)]
                         # every stem plays the take, even one already on disk, so the round robins stay in step
                         def play():
                             out = []

@@ -1,0 +1,16 @@
+{
+  "id": "strummed-6",
+  "name": "Strummed Acoustic 2 (6-String Martin Dreadnought)",
+  "kind": "guitar",
+  "plugin": "/Library/Audio/Plug-Ins/VST3/Kontakt 8.vst3",
+  "state": "~/KGuitar-harvest/states/strummed-6.state",
+  "warmup": 15,
+  "sampleRate": 44100,
+  "tuning": [40, 45, 50, 55, 59, 64],
+  "frets": [0, 12],
+  "tuneOver": 5,
+  "articulations": {
+    "sustain": { "velocities": [50, 90, 118], "rr": 3, "tail": 1.4 }
+  },
+  "pace": 0.5
+}

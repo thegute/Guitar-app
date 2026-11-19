@@ -65,6 +65,12 @@ LIBRARIES = {
         'plan': os.path.join(REPO, 'tools/harvest/plans/strummed-acoustic-2.json'),
         'test_notes': [40, 47, 52],
     },
+    'strummed-6': {
+        'name': 'NI Session Guitarist — Strummed Acoustic 2 (6-String)',
+        'nki': os.path.join(HOME, 'Downloads/Native.Instruments Session Guitarist Strummed Acoustic.2.v1.1.0.KONTAKT/Session Guitarist - Strummed Acoustic 2 Library/Instruments/Strummed Acoustic 2 - 6-String.nki'),
+        'plan': os.path.join(REPO, 'tools/harvest/plans/strummed-acoustic-6.json'),
+        'test_notes': [40, 47, 52],
+    },
     'jambass': {
         'name': 'NI Session Bassist — Jam Bass (Melody)',
         'nki': os.path.join(HOME, 'Downloads/Native.Instruments.Session.Bassist.Jam.Bass.v1.0.1.KONTAKT-HiDERA/Session Bassist - Jam Bass Library/Instruments/Jam Bass (Melody).nki'),
@@ -211,7 +217,7 @@ def main():
         ok = cmd_render(a.library)
         sys.exit(0 if ok else 1)
     elif a.action == 'render-all':
-        for lib_id in ['dracus', 'sunburst-deluxe', 'picked-acoustic', 'picked-nylon', 'strummed-12', 'jambass']:
+        for lib_id in ['dracus', 'sunburst-deluxe', 'picked-acoustic', 'picked-nylon', 'strummed-12', 'strummed-6', 'jambass']:
             if os.path.exists(os.path.join(STATES, f'{lib_id}.state')):
                 cmd_render(lib_id)
 

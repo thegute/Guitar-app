@@ -6,7 +6,8 @@
   "state": "~/KGuitar-harvest/states/jambass.state",
   "warmup": 15,
   "sampleRate": 44100,
-  "tuning": [28, 33, 38, 43],
+  "tuning": [36, 41, 46, 51],
+  "midiOffset": 12,
   "frets": [0, 15],
   "tuneOver": 5,
   "articulations": {
