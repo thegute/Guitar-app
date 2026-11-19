@@ -122,7 +122,14 @@ export async function loadCourseMapForFolder(f: Folder): Promise<CourseMap | nul
   return null
 }
 
-const normPath = (p: string) => p.replace(/\\/g, '/').replace(/^\/+/, '').trim().toLowerCase()
+const normPath = (p: string) =>
+  p
+    .replace(/\\/g, '/')
+    .replace(/\.(mp4|wav|mp3|pdf|png|webp|gp|gp3|gp4|gp5|gpx)\.\1$/i, '.$1')
+    .split('/')
+    .map(seg => seg.replace(/\s+/g, ' ').trim().toLowerCase())
+    .filter(Boolean)
+    .join('/')
 
 function buildFileFinder(files: LFile[]) {
   const exact = new Map<string, LFile>()
@@ -130,7 +137,7 @@ function buildFileFinder(files: LFile[]) {
   for (const f of files) {
     const np = normPath(f.path)
     exact.set(np, f)
-    const bn = f.name.toLowerCase()
+    const bn = normPath(f.name)
     byName.set(bn, [...(byName.get(bn) ?? []), f])
   }
   return (relPath?: string): LFile | undefined => {
@@ -140,7 +147,7 @@ function buildFileFinder(files: LFile[]) {
     if (hit) return hit
     // Suffix match in case user picked a parent or child folder
     for (const [k, f] of exact.entries()) {
-      if (k.endsWith('/' + target) || target.endsWith('/' + k)) return f
+      if (k === target || k.endsWith('/' + target) || target.endsWith('/' + k)) return f
     }
     const base = target.split('/').pop() ?? target
     const candidates = byName.get(base)
