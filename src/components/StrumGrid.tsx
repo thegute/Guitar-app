@@ -102,7 +102,7 @@ export function StrumGrid() {
   const [userCharts, setUserCharts] = useState<StrumChart[]>(() => loadUserStrumCharts())
   const [editing, setEditing] = useState<{ barIdx: number; splitIdx: number } | null>(null)
   const [bandOpen, setBandOpen] = useState(false)
-  const [speedOpen, setSpeedOpen] = useState(false)
+  const [toolsOpen, setToolsOpen] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [msg, setMsg] = useState('')
 
@@ -269,18 +269,17 @@ export function StrumGrid() {
           <div>
             <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Strum Grid</h2>
             <p className="small muted" style={{ margin: '2px 0 0' }}>
-              Multi-genre studio backing tracks that keep playing while you browse Tabs, Scales, Chords, or Licks.
+              18 studio backing styles that keep playing across Tabs, Scales, Chords & Licks.
             </p>
           </div>
-          <label className="row small" style={{ gap: 6, cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={st.keepAcrossPages}
-              onChange={e => strumMachine.setKeepAcrossPages(e.target.checked)}
-              data-testid="strum-keep-across"
-            />
-            <span>Keep playing across screens</span>
-          </label>
+          <button
+            className={`btn sm${toolsOpen || st.speedUp.on || grading ? ' primary' : ''}`}
+            aria-expanded={toolsOpen}
+            onClick={() => setToolsOpen(!toolsOpen)}
+            data-testid="strum-tools-btn"
+          >
+            ⚙ Tools {toolsOpen ? '▴' : '▾'}
+          </button>
         </div>
 
         {/* Chart Selector + Key + Capo */}
@@ -386,39 +385,13 @@ export function StrumGrid() {
           </div>
 
           <button
-            className={`btn sm${st.countIn ? ' primary' : ''}`}
-            aria-pressed={st.countIn}
-            onClick={() => strumMachine.setCountIn(!st.countIn)}
-            title="Play a 4-beat sticks count-in before Bar 1"
-          >
-            Count-in {st.countIn ? 'On' : 'Off'}
-          </button>
-
-          <button
-            className={`btn sm${speedOpen || st.speedUp.on ? ' primary' : ''}`}
-            onClick={() => setSpeedOpen(!speedOpen)}
-            title="Auto Speed-Up trainer: gradually increase BPM each loop"
-          >
-            ⚡ Speed-Up {st.speedUp.on ? 'On' : ''}
-          </button>
-
-          <button
             className={`btn sm${st.floatNeckOpen ? ' primary' : ''}`}
             aria-pressed={st.floatNeckOpen}
             onClick={() => strumMachine.setFloatNeckOpen(!st.floatNeckOpen)}
             data-testid="strum-float-neck-btn"
-            title="Pop open the draggable 5-Layer Neck overlay (Shape · Triads · Pentatonic · Mode · Free fingers) to jam over this track"
+            title="Pop open the resizable 5-Layer Neck overlay (Shape · Triads · Pentatonic · Mode · Free fingers) to jam over this track"
           >
-            <Ico n="layers" /> Floating 5-Layer Neck
-          </button>
-
-          <button
-            className={`btn sm${grading ? ' primary' : ''}`}
-            onClick={() => void toggleGrading()}
-            data-testid="strum-grade-btn"
-            title="Listen through your mic/interface and highlight bars green when you nail the chord"
-          >
-            🎤 {grading ? `Grading (${gradeStats.hits}/${gradeStats.total})` : 'Listen & Grade'}
+            <Ico n="layers" /> 5-Layer Neck
           </button>
         </div>
 
@@ -505,51 +478,78 @@ export function StrumGrid() {
           </div>
         )}
 
-        {/* Expandable Auto Speed-Up Controls */}
-        {speedOpen && (
-          <div className="strum-inline-mixer row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <label className="row small" style={{ gap: 6 }}>
-              <input
-                type="checkbox"
-                checked={st.speedUp.on}
-                onChange={e => strumMachine.setSpeedUp({ on: e.target.checked })}
-              />
-              <span>Auto Speed-Up</span>
-            </label>
-            <label className="small">
-              +{st.speedUp.step} BPM
-              <input
-                type="range"
-                min={2}
-                max={15}
-                value={st.speedUp.step}
-                onChange={e => strumMachine.setSpeedUp({ step: Number(e.target.value) })}
-                style={{ width: 70, marginLeft: 6 }}
-              />
-            </label>
-            <label className="small">
-              every {st.speedUp.everyLoops} loop{st.speedUp.everyLoops === 1 ? '' : 's'}
-              <select
-                className="select"
-                style={{ width: 'auto', marginLeft: 6 }}
-                value={st.speedUp.everyLoops}
-                onChange={e => strumMachine.setSpeedUp({ everyLoops: Number(e.target.value) })}
+        {/* Expandable Practice Tools Drawer (Count-in, Speed-Up, Listen & Grade, Keep Playing) */}
+        {toolsOpen && (
+          <div className="strum-inline-mixer stack" style={{ gap: 8 }} data-testid="strum-tools-drawer">
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                className={`btn sm${st.countIn ? ' primary' : ''}`}
+                aria-pressed={st.countIn}
+                onClick={() => strumMachine.setCountIn(!st.countIn)}
               >
-                {[1, 2, 4].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </label>
-            <label className="small">
-              max {st.speedUp.max} BPM
-              <input
-                type="range"
-                min={80}
-                max={220}
-                step={5}
-                value={st.speedUp.max}
-                onChange={e => strumMachine.setSpeedUp({ max: Number(e.target.value) })}
-                style={{ width: 80, marginLeft: 6 }}
-              />
-            </label>
+                Count-in {st.countIn ? 'On' : 'Off'}
+              </button>
+              <button
+                className={`btn sm${grading ? ' primary' : ''}`}
+                onClick={() => void toggleGrading()}
+                data-testid="strum-grade-btn"
+              >
+                🎤 {grading ? `Grading (${gradeStats.hits}/${gradeStats.total})` : 'Listen & Grade'}
+              </button>
+              <label className="row small" style={{ gap: 6, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={st.keepAcrossPages}
+                  onChange={e => strumMachine.setKeepAcrossPages(e.target.checked)}
+                  data-testid="strum-keep-across"
+                />
+                <span>Keep playing across screens</span>
+              </label>
+            </div>
+            <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <label className="row small" style={{ gap: 6 }}>
+                <input
+                  type="checkbox"
+                  checked={st.speedUp.on}
+                  onChange={e => strumMachine.setSpeedUp({ on: e.target.checked })}
+                />
+                <span>⚡ Auto Speed-Up</span>
+              </label>
+              <label className="small">
+                +{st.speedUp.step} BPM
+                <input
+                  type="range"
+                  min={2}
+                  max={15}
+                  value={st.speedUp.step}
+                  onChange={e => strumMachine.setSpeedUp({ step: Number(e.target.value) })}
+                  style={{ width: 70, marginLeft: 6 }}
+                />
+              </label>
+              <label className="small">
+                every {st.speedUp.everyLoops} loop{st.speedUp.everyLoops === 1 ? '' : 's'}
+                <select
+                  className="select sm"
+                  style={{ width: 'auto', marginLeft: 6 }}
+                  value={st.speedUp.everyLoops}
+                  onChange={e => strumMachine.setSpeedUp({ everyLoops: Number(e.target.value) })}
+                >
+                  {[1, 2, 4].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
+              <label className="small">
+                max {st.speedUp.max} BPM
+                <input
+                  type="range"
+                  min={80}
+                  max={220}
+                  step={5}
+                  value={st.speedUp.max}
+                  onChange={e => strumMachine.setSpeedUp({ max: Number(e.target.value) })}
+                  style={{ width: 80, marginLeft: 6 }}
+                />
+              </label>
+            </div>
           </div>
         )}
       </div>

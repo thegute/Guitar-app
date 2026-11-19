@@ -36,9 +36,18 @@ interface Props {
 
 const drone = new Drone()
 
+const LAYER_PRESETS: { id: string; label: string; layers: LayerId[]; nps?: boolean }[] = [
+  { id: 'lead', label: 'Lead (Penta + Chord)', layers: ['caged', 'penta'] },
+  { id: 'triads', label: 'Triads Only', layers: ['triads'] },
+  { id: 'mode', label: 'Full Mode', layers: ['caged', 'penta', 'bridge'] },
+  { id: 'embel', label: 'Chord + Free Fingers', layers: ['caged', 'triads', 'free'] },
+  { id: 'all', label: 'All 5 Layers', layers: ['caged', 'triads', 'penta', 'bridge', 'free'] },
+]
+
 export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, noLinks = [], shape: fixedShape }: Props) {
   const shapes = useMemo(() => cagedShapes(rootPc, minor, inst), [rootPc, minor, inst])
   const [shapeSel, setShapeSel] = usePersist<string>(`layerShape:${where}`, preferShape ?? '')
+  const [wholeNeck, setWholeNeck] = usePersist<boolean>(`layerWhole:${where}`, false)
   const shape = fixedShape ?? shapes.find(s => s.letter === shapeSel)?.letter ?? (shapes.some(s => s.letter === preferShape) ? preferShape : shapes[0]?.letter)
   const [on, setOn] = usePersist<LayerId[]>('layers', ['caged', 'triads', 'free'])
   const [modeMaj, setModeMaj] = usePersist<ModeId>('layerModeMaj', 'ionian')
@@ -49,7 +58,10 @@ export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, no
   const [dsSel, setDsSel] = useState(-1)
   const [droning, setDroning] = useState(false)
   const mode = minor ? modeMin : modeMaj
-  const set = useMemo(() => layerSpots({ rootPc, minor, inst, shape, layers: new Set(on), mode, nps }), [rootPc, minor, inst, shape, on, mode, nps])
+  const set = useMemo(
+    () => layerSpots({ rootPc, minor, inst, shape, layers: new Set(on), mode, nps, window: wholeNeck ? [0, 15] : undefined }),
+    [rootPc, minor, inst, shape, on, mode, nps, wholeNeck],
+  )
   // the drone follows the chord while it's on, and stops when you leave
   const last = useRef({ rootPc, minor })
   useEffect(() => {
@@ -84,13 +96,34 @@ export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, no
     setWhat(sp?.what ?? `${sp?.label ?? ''} ${SHARPS[midi % 12]}`.trim())
   }
   const toggle = (id: LayerId) => setOn(on.includes(id) ? on.filter(x => x !== id) : [...on, id])
-  const lo = Math.max(0, Math.min(set.window[0], ...set.path.map(p => p.f)) - 1)
-  const hi = Math.max(set.window[1], ...set.path.map(p => p.f)) + 1
+  const lo = wholeNeck ? 0 : Math.max(0, Math.min(set.window[0], ...set.path.map(p => p.f)) - 1)
+  const hi = wholeNeck ? 15 : Math.max(set.window[1], ...set.path.map(p => p.f)) + 1
   const name = SHARPS[rootPc] + (minor ? 'm' : '')
   const scaleName = (MODES[minor ? 'min' : 'maj'].find(m => m.id === mode)?.id ?? 'ionian')
+  const activePreset = LAYER_PRESETS.find(p => p.layers.length === on.length && p.layers.every(l => on.includes(l)))?.id ?? ''
   return (
     <div className={`layer-neck stack${compact ? ' compact' : ''}`} style={{ gap: 8 }} data-testid="layer-neck">
-      {shapes.length > 1 && !fixedShape && (
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="seg" role="group" aria-label="Neck range">
+          <button aria-pressed={!wholeNeck} onClick={() => setWholeNeck(false)} data-testid="layer-range-box">CAGED Box</button>
+          <button aria-pressed={wholeNeck} onClick={() => setWholeNeck(true)} data-testid="layer-range-whole">Whole Neck (0–15)</button>
+        </div>
+        <select
+          className="select sm"
+          style={{ width: 'auto' }}
+          value={activePreset}
+          onChange={e => {
+            const p = LAYER_PRESETS.find(x => x.id === e.target.value)
+            if (p) setOn([...p.layers])
+          }}
+          aria-label="Layer preset"
+          data-testid="layer-preset-select"
+        >
+          <option value="">Preset: Custom</option>
+          {LAYER_PRESETS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </select>
+      </div>
+      {!wholeNeck && shapes.length > 1 && !fixedShape && (
         <Chips label="Shape" items={shapes.map(s => ({ id: s.letter, label: `${s.letter} shape · fret ${Math.max(1, s.lo)}` }))} value={shape ?? ''} onChange={setShapeSel} wrap />
       )}
       <div className="layer-toggles" role="group" aria-label="Layers">

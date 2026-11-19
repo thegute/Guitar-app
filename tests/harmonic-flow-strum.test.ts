@@ -21,6 +21,9 @@ import {
 } from '../src/theory/harmonicFlow'
 import { setBassPacks, setPackSounds } from '../src/audio/packSounds'
 import { allInstrs, instr } from '../src/studio/sounds'
+import { layerSpots } from '../src/theory/layers'
+import { current } from '../src/instrument'
+import { filterTierDuplicates, groupUnpackedFolders } from '../src/components/SoundPacks'
 
 let passed = 0
 function test(name: string, fn: () => void) {
@@ -148,6 +151,44 @@ test('Beat Maker allInstrs exposes imported .kgpack guitars and harvested Studio
   assert.ok(list.some(i => i.id === 'bass:sixties'))
   assert.ok(list.some(i => i.id === 'bass:modern'))
   assert.equal(instr('pack:dracus').guitar, 'pack:dracus')
+})
+
+test('5-Layer Neck whole-neck window covers frets 0..15 across all layers', () => {
+  const res = layerSpots({
+    rootPc: 9,
+    minor: true,
+    inst: current(),
+    layers: new Set(['caged', 'triads', 'penta', 'bridge', 'free']),
+    mode: 'aeolian',
+    window: [0, 15],
+  })
+  const frets = [...res.spots.values()].map(s => s.f)
+  assert.ok(Math.min(...frets) <= 1, 'includes open/low frets')
+  assert.ok(Math.max(...frets) >= 14, 'reaches high frets up to 15')
+})
+
+test('SoundPacks folder importer filters Studio/Pocket duplicates and groups multi-pack subfolders', () => {
+  const mixed = [
+    { name: 'dracus.kgpack' },
+    { name: 'dracus-pocket.kgpack' },
+    { name: 'jambass.kgpack' },
+    { name: 'jambass-pocket.kgpack' },
+    { name: 'studiobass-modern.kgpack' },
+  ]
+  const studio = filterTierDuplicates(mixed, 'studio').map(x => x.name).sort()
+  const pocket = filterTierDuplicates(mixed, 'pocket').map(x => x.name).sort()
+  assert.deepEqual(studio, ['dracus.kgpack', 'jambass.kgpack', 'studiobass-modern.kgpack'])
+  assert.deepEqual(pocket, ['dracus-pocket.kgpack', 'jambass-pocket.kgpack', 'studiobass-modern.kgpack'])
+
+  const unpacked = groupUnpackedFolders([
+    { name: 'pack.json', path: 'packs/dracus/pack.json' },
+    { name: 'n40.ogg', path: 'packs/dracus/sustain/n40.ogg' },
+    { name: 'pack.json', path: 'packs/agsj/pack.json' },
+    { name: 'n45.ogg', path: 'packs/agsj/sustain/n45.ogg' },
+  ])
+  assert.equal(unpacked.length, 2)
+  assert.equal(unpacked[0].length, 2)
+  assert.equal(unpacked[1].length, 2)
 })
 
 console.log(`All ${passed} Harmonic Flow & Strum Grid tests passed!`)

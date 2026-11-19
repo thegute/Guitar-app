@@ -84,8 +84,44 @@ export function ChordsScreen() {
       <WinArea area="chords" className="win-cols">
       <Win id="pick" title="Pick a chord" className="panel" bodyClass="stack">
       <KeyPicker value={root} onChange={k => { setRoot(k); setSel(0) }} label="Root note" />
-      <Chips label="Chord family" items={CHORD_GROUPS.map(g => ({ id: g.name, label: g.name }))} value={group} onChange={setGroup} />
-      <Chips label="Chord type" wrap items={CHORD_GROUPS.find(g => g.name === group)!.types.map(t => ({ id: t.suffix, label: t.label }))} value={suffix} onChange={s => { setSuffix(s); setSel(0) }} />
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Chips
+          label="Common chord types"
+          items={[
+            { id: 'major', label: 'Maj' },
+            { id: 'minor', label: 'm' },
+            { id: '7', label: '7' },
+            { id: 'm7', label: 'm7' },
+            { id: 'maj7', label: 'maj7' },
+            { id: 'sus4', label: 'sus4' },
+          ]}
+          value={suffix}
+          onChange={s => {
+            setSuffix(s)
+            setGroup(CHORD_GROUPS.find(g => g.types.some(t => t.suffix === s))?.name ?? group)
+            setSel(0)
+          }}
+        />
+        <select
+          className="select sm"
+          style={{ width: 'auto', minWidth: 150 }}
+          value={suffix}
+          aria-label="All chord types"
+          data-testid="chords-type-select"
+          onChange={e => {
+            const s = e.target.value
+            setSuffix(s)
+            setGroup(CHORD_GROUPS.find(g => g.types.some(t => t.suffix === s))?.name ?? group)
+            setSel(0)
+          }}
+        >
+          {CHORD_GROUPS.map(g => (
+            <optgroup key={g.name} label={g.name}>
+              {g.types.map(t => <option key={t.suffix} value={t.suffix}>{t.label}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </div>
       <div className="row" style={{ gap: 8, flexWrap: 'wrap', paddingTop: 4 }}>
         <button
           className="btn sm"

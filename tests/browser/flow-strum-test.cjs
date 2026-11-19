@@ -127,14 +127,21 @@ async function newPage(browser, seed = {}, viewport = { width: 1280, height: 800
     await page.locator('[data-testid="mini-key-select"]').selectOption('D')
     ok((await page.locator('[data-testid="mini-key-select"]').inputValue()) === 'D', 'Live Band popover transposes Strum Machine key to D')
 
-    // Open Floating 5-Layer Neck overlay from StrumMiniBar and verify Key / Live Chord toggle
+    // Open Floating 5-Layer Neck overlay from StrumMiniBar and verify Key / Live Chord + Whole Neck + Preset
     await page.locator('[data-testid="mini-neck-toggle"]').click()
     await page.waitForSelector('[data-testid="strum-float-neck"]')
     ok(await page.locator('[data-testid="strum-float-neck"]').isVisible(), 'Floating 5-Layer Neck opens over any screen')
+    const floatNeck = page.locator('[data-testid="strum-float-neck"]')
+    await floatNeck.locator('[data-testid="layer-range-whole"]').click()
+    await floatNeck.locator('[data-testid="layer-preset-select"]').selectOption('lead')
+    ok((await floatNeck.locator('[data-testid="layer-preset-select"]').inputValue()) === 'lead', 'Floating 5-Layer Neck Preset & Whole Neck toggle work')
     await page.locator('[data-testid="float-neck-follow-chord"]').click()
     await page.locator('[data-testid="mini-neck-toggle"]').click()
     await page.waitForTimeout(100)
     ok(!(await page.locator('[data-testid="strum-float-neck"]').isVisible()), 'Floating 5-Layer Neck toggles closed cleanly')
+
+    // Verify Scales Position dropdown & Chords Type dropdown
+    ok(await page.locator('[data-testid="scales-pos-select"]').isVisible(), 'Scales Position dropdown is visible')
 
     // Stop from MiniBar and verify MiniBar hides cleanly
     await page.locator('[data-testid="mini-stop-btn"]').click()
@@ -148,10 +155,11 @@ async function newPage(browser, seed = {}, viewport = { width: 1280, height: 800
     ok(activeStyle === 'metal-chug', `Scales → Metal Chugs launcher loads metal-chug in Strum Grid (got ${activeStyle})`)
     await page.locator('[data-testid="mini-stop-btn"]').click()
 
-    // 3. Verify Chords → Flow Coach sub-tab
+    // 3. Verify Chords dropdown + Flow Coach sub-tab
     await page.locator('nav.nav button', { hasText: 'Tools' }).click()
     await page.locator('button', { hasText: 'Chords' }).first().click()
-    await page.waitForSelector('[data-testid="chords-tab-flow"]')
+    await page.waitForSelector('[data-testid="chords-type-select"]')
+    ok(await page.locator('[data-testid="chords-type-select"]').isVisible(), 'Chords unified chord-type dropdown is visible')
     await page.locator('[data-testid="chords-tab-flow"]').click()
     await page.waitForSelector('[data-testid="harmonic-flow-coach"]')
     ok(await page.locator('[data-testid="flow-svg"]').isVisible(), 'Chords → Flow Coach renders dual-labeled SVG chord tree')

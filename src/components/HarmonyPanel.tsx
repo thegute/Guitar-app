@@ -248,37 +248,38 @@ export function HarmonyPanel(p: Props) {
           ))}
         </div>
         <button className="btn sm" aria-pressed={editing} onClick={() => setEditing(e => !e)} aria-label="Edit chords">✎</button>
-      </div>
-      {spans.length > 0 && (
-        <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-          <button
-            className="btn sm"
-            onClick={() => {
-              const chart: StrumChart = {
-                id: `song-${Date.now()}`,
-                name: `Song Chords (${keyGuess.label})`,
-                tonic: keyGuess.root,
-                minor: keyGuess.minor,
-                capo: 0,
-                bpm: 100,
-                style: 'folk',
-                bars: spans.slice(0, 16).map((sp, idx) => ({ chords: [sp.name], section: idx === 0 ? 'Song' : undefined })),
+        {spans.length > 0 && (
+          <select
+            className="select sm"
+            style={{ width: 'auto', minWidth: 118 }}
+            value=""
+            aria-label="Jam or Flow from this song"
+            data-testid="harmony-jam-menu"
+            onChange={e => {
+              const act = e.target.value
+              if (act === 'strum') {
+                const chart: StrumChart = {
+                  id: `song-${Date.now()}`,
+                  name: `Song Chords (${keyGuess.label})`,
+                  tonic: keyGuess.root,
+                  minor: keyGuess.minor,
+                  capo: 0,
+                  bpm: 100,
+                  style: 'folk',
+                  bars: spans.slice(0, 16).map((sp, idx) => ({ chords: [sp.name], section: idx === 0 ? 'Song' : undefined })),
+                }
+                openStrumGrid({ chart, autoPlay: true })
+              } else if (act === 'flow') {
+                openFlowCoach({ tonic: keyGuess.root, minor: keyGuess.minor, startChord: span?.name ?? spans[0]?.name })
               }
-              openStrumGrid({ chart, autoPlay: true })
             }}
-            data-testid="harmony-to-strum"
           >
-            🎸 Open in Strum Grid
-          </button>
-          <button
-            className="btn sm"
-            onClick={() => openFlowCoach({ tonic: keyGuess.root, minor: keyGuess.minor, startChord: span?.name ?? spans[0]?.name })}
-            data-testid="harmony-to-flow"
-          >
-            🌀 Flow from {span?.name ?? spans[0]?.name} →
-          </button>
-        </div>
-      )}
+            <option value="">Jam / Flow ▾</option>
+            <option value="strum">🎸 Open in Strum Grid</option>
+            <option value="flow">🌀 Flow from {span?.name ?? spans[0]?.name}</option>
+          </select>
+        )}
+      </div>
       {diagrams.length > 0 && (
         <ProgressionDiagrams
           items={diagrams}

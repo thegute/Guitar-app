@@ -3405,3 +3405,27 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
   background: #1b053f;
   border-color: rgba(255, 214, 70, 0.72);
 }
+
+/* Streamlined compact Jam Options grid & 1-row mobile Jam sub-tab pills */
+.jam-opts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  gap: 8px;
+}
+@media (max-width: 680px) {
+  .subtabs.jam-choices {
+    display: flex !important;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 2px;
+  }
+  .subtabs.jam-choices .jam-choice {
+    flex: 0 0 auto;
+    padding: 7px 11px;
+    min-height: 0;
+  }
+  .subtabs.jam-choices .jam-choice-text .small {
+    display: none;
+  }
+}

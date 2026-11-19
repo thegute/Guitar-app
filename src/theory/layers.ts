@@ -56,7 +56,8 @@ export function layerSpots(o: {
   const tuning = inst.midis
   const shapes = cagedShapes(r, minor, inst)
   const shape = (o.shape ? shapes.find(x => x.letter === o.shape) : null) ?? (o.window ? null : shapes[0] ?? null)
-  const win: [number, number] = shape ? shapeWindow(shape) : o.window ?? [0, 4]
+  const win: [number, number] = o.window ?? (shape ? shapeWindow(shape) : [0, 4])
+  const whole = !!o.window
   const third = minor ? 3 : 4
   const chordPcs = [r, (r + third) % 12, (r + 7) % 12]
   const pentaIvs = minor ? [0, 3, 5, 7, 10] : [0, 2, 4, 7, 9]
@@ -68,12 +69,21 @@ export function layerSpots(o: {
   const put = (sp: LayerSpot) => { if (!spots.has(key(sp.s, sp.f))) spots.set(key(sp.s, sp.f), sp) }
   const lab = (midi: number) => IV[(((midi % 12) - r) % 12 + 12) % 12]
   const nStr = tuning.length
-  // 1 the shape
-  if (o.layers.has('caged') && shape) shape.frets.forEach((f, s) => {
-    if (f < 0) return
-    const midi = tuning[s] + f
-    put({ s, f, midi, layer: 'caged', label: lab(midi), role: midi % 12 === r ? 'root' : 'chord' })
-  })
+  // 1 the shape (or all chord tones across the full neck when Whole neck is active)
+  if (o.layers.has('caged')) {
+    if (shape && !whole) {
+      shape.frets.forEach((f, s) => {
+        if (f < 0) return
+        const midi = tuning[s] + f
+        put({ s, f, midi, layer: 'caged', label: lab(midi), role: midi % 12 === r ? 'root' : 'chord' })
+      })
+    } else {
+      for (let s = 0; s < nStr; s++) for (let f = win[0]; f <= win[1]; f++) {
+        const midi = tuning[s] + f, p = midi % 12
+        if (chordPcs.includes(p)) put({ s, f, midi, layer: 'caged', label: lab(midi), role: p === r ? 'root' : 'chord' })
+      }
+    }
+  }
   // 2 triads inside the window, on each set of three adjacent strings, compact (within 4 frets)
   if (o.layers.has('triads')) {
     for (let lo = 0; lo + 2 < nStr; lo++) {
@@ -94,16 +104,27 @@ export function layerSpots(o: {
     else if (o.layers.has('bridge') && bridgePcs.includes(p)) put({ s, f, midi, layer: 'bridge', label: lab(midi), role: 'pass', what: `${mode.label}: the ${lab(midi)} turns the box into the full mode` })
   }
   // 5 free fingers: notes a spare finger reaches (up to 2 frets) from a note of the shape, on the same string
-  if (o.layers.has('free') && shape) shape.frets.forEach((f0, s) => {
-    if (f0 < 0) return
-    for (let f = Math.max(0, f0 - 2); f <= f0 + 2; f++) {
-      if (f === f0) continue
-      const midi = tuning[s] + f
-      const iv = ((midi % 12) - r + 12) % 12
-      if (!(iv in EMBEL) || (minor && iv === 11)) continue
-      put({ s, f, midi, layer: 'free', label: EMBEL_LABEL[iv], role: 'embel', what: `${EMBEL[iv]}: ${f > f0 ? 'hammer on' : 'pull off'} from fret ${f0}` })
+  if (o.layers.has('free')) {
+    if (shape && !whole) {
+      shape.frets.forEach((f0, s) => {
+        if (f0 < 0) return
+        for (let f = Math.max(0, f0 - 2); f <= f0 + 2; f++) {
+          if (f === f0) continue
+          const midi = tuning[s] + f
+          const iv = ((midi % 12) - r + 12) % 12
+          if (!(iv in EMBEL) || (minor && iv === 11)) continue
+          put({ s, f, midi, layer: 'free', label: EMBEL_LABEL[iv], role: 'embel', what: `${EMBEL[iv]}: ${f > f0 ? 'hammer on' : 'pull off'} from fret ${f0}` })
+        }
+      })
+    } else if (whole) {
+      for (let s = 0; s < nStr; s++) for (let f = win[0]; f <= win[1]; f++) {
+        const midi = tuning[s] + f
+        const iv = ((midi % 12) - r + 12) % 12
+        if (!(iv in EMBEL) || (minor && iv === 11)) continue
+        put({ s, f, midi, layer: 'free', label: EMBEL_LABEL[iv], role: 'embel', what: `${EMBEL[iv]} colour note` })
+      }
     }
-  })
+  }
   // three notes per string through the mode, from the shape's lowest root
   const path: LayerSpot[] = []
   if (o.nps) {

@@ -48,7 +48,7 @@ import type { Quality } from '../audio/chordFinder'
 import { Zoomable } from '../components/Zoomable'
 import { useSubTab } from '../components/SubTabs'
 import { PsyPic } from '../components/PsyArt'
-import { pc } from '../theory/notes'
+import { KEYS, pc } from '../theory/notes'
 import { LICKS, type LickDef } from '../licks/library'
 import { lickStyle } from '../licks/styles'
 import { lickInKey } from '../licks/generator'
@@ -377,24 +377,60 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
 
   const options = (
     <Win id="options" title="Options" className="panel" bodyClass="stack jam-options">
-      <div className="split-2">
-        <Field label="Key"><KeyPicker value={tonic} onChange={setTonic} /></Field>
-        <Field label="Mode"><Chips label="Mode" items={MODES.map(m => ({ id: m.id, label: m.label }))} value={mode} onChange={setMode} /></Field>
+      <div className="jam-opts-grid">
+        <Field label="Key">
+          <select className="select" value={tonic} onChange={e => setTonic(e.target.value)} aria-label="Key">
+            {KEYS.map(k => <option key={k} value={k}>{k}</option>)}
+          </select>
+        </Field>
+        <Field label="Mode">
+          <select className="select" value={mode} onChange={e => setMode(e.target.value as ModeId)} aria-label="Mode">
+            {MODES.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+          </select>
+        </Field>
+        <Field label="Style">
+          <select className="select" value={style} onChange={e => setStyle(e.target.value as Style)} aria-label="Style">
+            {STYLES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+          </select>
+        </Field>
+        <Field label="Chord colour">
+          <select className="select" value={flavor} onChange={e => setFlavor(e.target.value as Flavor)} aria-label="Chord colour">
+            {FLAVORS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+          </select>
+        </Field>
+        <Field label="How many chords">
+          <select className="select" value={count} onChange={e => setCount(Number(e.target.value))} aria-label="How many chords">
+            {COUNTS.map(n => <option key={n} value={n}>{n} chords</option>)}
+          </select>
+        </Field>
+        <Field label="Chord changes">
+          <select className="select" value={rate} onChange={e => setRate(Number(e.target.value))} aria-label="Chord changes">
+            {RATES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+        </Field>
+        <Field label="Start on">
+          <select className="select" value={start} onChange={e => setStart(e.target.value as 'home' | 'any')} aria-label="Start on">
+            <option value="home">Home chord</option>
+            <option value="any">Anywhere</option>
+          </select>
+        </Field>
+        <Field label="Ending">
+          <select className="select" value={ending} onChange={e => setEnding(e.target.value as Ending)} aria-label="Ending">
+            {ENDINGS.map(e => <option key={e.id} value={e.id}>{e.label}</option>)}
+          </select>
+        </Field>
+        <Field label="Surprise level">
+          <select className="select" value={spice} onChange={e => setSpice(Number(e.target.value))} aria-label="Surprise level">
+            {SPICE.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+          </select>
+        </Field>
+        <Field label="Chord shapes">
+          <select className="select" value={shapePref} onChange={e => setShapePref(e.target.value as 'open' | 'easy' | 'barre' | 'neck')} aria-label="Chord shapes">
+            {SHAPES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+          </select>
+        </Field>
       </div>
-      <p className="small muted" style={{ margin: 0 }}>{MODES.find(m => m.id === mode)!.feel}</p>
-      <Field label="Style"><Chips label="Style" items={STYLES.map(s => ({ id: s.id, label: s.label }))} value={style} onChange={setStyle} /></Field>
-      <Field label="Chord colour"><Chips label="Chord colour" items={FLAVORS.map(f => ({ id: f.id, label: f.label }))} value={flavor} onChange={setFlavor} /></Field>
-      <div className="row">
-        <Field label="How many chords"><Chips label="How many chords" items={COUNTS.map(n => ({ id: n, label: String(n) }))} value={count} onChange={setCount} /></Field>
-        <Field label="Chord changes"><Chips label="Chord changes" items={RATES} value={rate} onChange={setRate} /></Field>
-      </div>
-      <div className="row">
-        <Field label="Start on"><Chips label="Start on" items={[{ id: 'home', label: 'Home chord' }, { id: 'any', label: 'Anywhere' }]} value={start} onChange={setStart} /></Field>
-        <Field label="Ending"><Chips label="Ending" items={ENDINGS.map(e => ({ id: e.id, label: e.label }))} value={ending} onChange={setEnding} /></Field>
-      </div>
-      <Field label="Surprise level"><Chips label="Surprise level" items={SPICE} value={spice} onChange={setSpice} /></Field>
-      <p className="small muted" style={{ margin: 0 }}>{SPICE[spice].hint}. {ENDINGS.find(e => e.id === ending)!.hint}.</p>
-      <Field label="Chord shapes"><Chips label="Chord shapes" items={SHAPES} value={shapePref} onChange={setShapePref} /></Field>
+      <p className="small muted" style={{ margin: 0 }}>{MODES.find(m => m.id === mode)!.feel}. {SPICE[spice].hint}.</p>
     </Win>
   )
 

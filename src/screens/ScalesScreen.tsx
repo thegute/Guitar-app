@@ -105,8 +105,20 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
           <div className="small muted">{info.notes.join(' ')}</div>
         </div>
         {def.feel && <p className="muted small" style={{ marginTop: 6 }}>{def.feel}</p>}
-        <div className="row" style={{ justifyContent: 'space-between', margin: '10px 0' }}>
-          <Chips label="Position" items={POSITIONS.map(x => ({ id: x.id, label: x.label }))} value={pos} onChange={setPos} />
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: '10px 0' }}>
+          <label className="row small" style={{ gap: 6, alignItems: 'center' }}>
+            <span className="muted">Position</span>
+            <select
+              className="select sm"
+              style={{ width: 'auto', minWidth: 130 }}
+              value={pos}
+              onChange={e => setPos(e.target.value)}
+              aria-label="Fretboard position"
+              data-testid="scales-pos-select"
+            >
+              {POSITIONS.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
+            </select>
+          </label>
           <Chips label="Labels" items={[{ id: 'intervals', label: 'Intervals' }, { id: 'notes', label: 'Notes' }]} value={labels} onChange={setLabels} />
         </div>
         <Fretboard
