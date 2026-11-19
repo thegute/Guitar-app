@@ -218,6 +218,9 @@ def main():
         sys.exit(0 if ok else 1)
     elif a.action == 'render-all':
         for lib_id in ['dracus', 'sunburst-deluxe', 'picked-acoustic', 'picked-nylon', 'strummed-12', 'strummed-6', 'jambass']:
+            if os.path.exists(os.path.join(PHONE, f'{lib_id}.kgpack')) and os.path.exists(os.path.join(PHONE, f'{lib_id}-pocket.kgpack')):
+                print(f'Skipping {lib_id}: Studio + Pocket .kgpack already exported.', flush=True)
+                continue
             if os.path.exists(os.path.join(STATES, f'{lib_id}.state')):
                 cmd_render(lib_id)
 
