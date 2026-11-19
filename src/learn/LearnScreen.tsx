@@ -294,7 +294,11 @@ export function LearnScreen() {
       { id: 'rhythm', title: 'Rhythm trainer', sub: 'Listen, then tap it back' },
       { id: 'recordings', title: 'My recordings', sub: 'Hear how far you\'ve come' },
     ] },
-    ...(lessonsAvailable() ? [{ title: 'Your lessons', tools: [{ id: 'videos' as const, title: 'Your video lessons', sub: 'Course videos and tabs from your phone' }] }] : []),
+    { title: 'Your lessons', tools: [
+      lessonsAvailable()
+        ? { id: 'videos' as const, title: 'Your video lessons', sub: 'Course videos, synced PDF books, tabs & backing tracks' }
+        : { id: 'videos' as const, title: 'Course Studio', sub: 'Course videos, synced PDF books, tabs & backing tracks from a folder' },
+    ] },
     { title: 'Your books', tools: [{ id: 'books' as const, title: 'My books', sub: books.length ? `${books.length} books: read, search, learn from them` : 'Import your book pack' }] },
     { title: 'Ears and theory', tools: [
       { id: 'lessons', title: 'Theory lessons', sub: `${read} of ${lessonsFor(inst.id).length} read` },

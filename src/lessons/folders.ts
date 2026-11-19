@@ -1,6 +1,5 @@
-// Your video lessons (phone app only): lesson folders you pick on the phone, read where they are. The native side is
-// LessonFoldersPlugin.java (list and read files in a picked folder) and MediaWebViewClient.java (plays videos from
-// it with seeking). Nothing is copied into the app or uploaded; this keeps a list of the files and your progress.
+// Your video lessons: lesson folders you pick on the phone (via LessonFoldersPlugin.java + MediaWebViewClient.java)
+// OR on Mac/desktop browser (via directory picker). Nothing is uploaded; files are streamed locally where they live.
 import { Capacitor, registerPlugin } from '@capacitor/core'
 
 export interface LFile { path: string; name: string; mime: string; size: number; modified: number; uri: string }
@@ -25,11 +24,81 @@ export const LessonFolders: Plugin = {
   granted: () => (mock() ?? native).granted(),
 }
 
-/** Only in the Android app: the web version never shows it. */
+/** In-memory store for folders picked in a desktop/Mac browser via <input webkitdirectory>. */
+const webFiles = new Map<string, File>()
+const webUrls = new Map<string, string>()
+
+export function hasWebLessonFile(uri: string): boolean {
+  return webFiles.has(uri) || webUrls.has(uri)
+}
+
+/** Register a FileList / File[] picked from a desktop browser directory picker as a Folder. */
+export function registerWebFolderFiles(fileList: FileList | File[]): Folder | null {
+  const arr = Array.from(fileList).filter(f => !f.name.startsWith('.'))
+  if (!arr.length) return null
+  const firstRel = (arr[0] as File & { webkitRelativePath?: string }).webkitRelativePath || arr[0].name
+  const rootName = firstRel.includes('/') ? firstRel.split('/')[0].trim() : 'Course Folder'
+  const tree = `webdir://${encodeURIComponent(rootName)}`
+  const files: LFile[] = []
+  for (const file of arr) {
+    const rawRel = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name
+    const rel = rawRel.includes('/') ? rawRel.slice(rawRel.indexOf('/') + 1) : rawRel
+    if (!rel || rel.split('/').some(p => p.startsWith('.'))) continue
+    const uri = `${tree}/${encodeURIComponent(rel)}`
+    const prevUrl = webUrls.get(uri)
+    if (prevUrl) { try { URL.revokeObjectURL(prevUrl) } catch { /* ignore */ } }
+    webFiles.set(uri, file)
+    webUrls.set(uri, URL.createObjectURL(file))
+    files.push({
+      path: rel,
+      name: file.name,
+      mime: file.type || guessMime(file.name),
+      size: file.size,
+      modified: file.lastModified || Date.now(),
+      uri,
+    })
+  }
+  return { tree, name: rootName, files, scanned: Date.now() }
+}
+
+function guessMime(name: string): string {
+  const n = name.toLowerCase()
+  if (n.endsWith('.mp4') || n.endsWith('.m4v')) return 'video/mp4'
+  if (n.endsWith('.mov')) return 'video/quicktime'
+  if (n.endsWith('.webm')) return 'video/webm'
+  if (n.endsWith('.pdf')) return 'application/pdf'
+  if (n.endsWith('.png')) return 'image/png'
+  if (n.endsWith('.webp')) return 'image/webp'
+  if (n.endsWith('.jpg') || n.endsWith('.jpeg')) return 'image/jpeg'
+  if (n.endsWith('.mp3')) return 'audio/mpeg'
+  if (n.endsWith('.wav')) return 'audio/wav'
+  if (n.endsWith('.json')) return 'application/json'
+  return 'application/octet-stream'
+}
+
+/** Read raw bytes of any lesson file (works across desktop web files, test mocks, and Android MediaWebViewClient / SAF). */
+export async function readLessonBytes(uri: string): Promise<Uint8Array> {
+  const wf = webFiles.get(uri)
+  if (wf) return new Uint8Array(await wf.arrayBuffer())
+  if (mock()) {
+    try {
+      const { data } = await LessonFolders.read({ uri })
+      if (data) return bytesOf(data)
+    } catch { /* fallback to fetch */ }
+  }
+  try {
+    const res = await fetch(mediaUrl(uri))
+    if (res.ok) return new Uint8Array(await res.arrayBuffer())
+  } catch { /* fallback to bridge read */ }
+  const { data } = await LessonFolders.read({ uri })
+  return bytesOf(data)
+}
+
+/** Native Android or test mock (used by phone-only sound pack & native bridge checks). */
 export const lessonsAvailable = () => !!mock() || (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android')
 
-/** Where the app plays a lesson file from (answered on the phone by MediaWebViewClient). */
-export const mediaUrl = (uri: string) => mock()?.media?.(uri) ?? `${location.origin}/_kg_media_/${encodeURIComponent(uri)}`
+/** Where the app plays a lesson file from (web ObjectURL, test mock, or Android MediaWebViewClient). */
+export const mediaUrl = (uri: string) => webUrls.get(uri) ?? mock()?.media?.(uri) ?? `${location.origin}/_kg_media_/${encodeURIComponent(uri)}`
 
 /** A lesson video as Play's video link (kept in the song's video field, like a YouTube link). */
 export const LOCAL_PREFIX = 'kgvideo:'
@@ -65,7 +134,7 @@ export function kindOf(f: { name: string; mime: string }): Kind {
 export const natural = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
 /** A file name without its extension and with tidy spaces. */
 const tidy = (s: string) => s.replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim()
-export const niceName = (name: string) => tidy(name.replace(/\.[a-z0-9]{1,5}$/i, ''))
+export const niceName = (name: string) => tidy(name.replace(/\.[a-z0-9]{1,5}(\.[a-z0-9]{1,5})?$/i, ''))
 
 export interface Chapter { id: string; title: string; videos: LFile[]; tabs: LFile[]; other: LFile[] }
 /** Group a folder's files into chapters (one per sub-folder), in natural order. */

@@ -3,7 +3,7 @@
 import { onLeavePage } from '../audio/stopAll'
 import { useEffect, useRef, useState } from 'react'
 import type { VideoApi, VideoSync } from '../play/inTime'
-import { lessonsAvailable, mediaUrl, niceName, setProgress } from '../lessons/folders'
+import { hasWebLessonFile, lessonsAvailable, mediaUrl, niceName, setProgress } from '../lessons/folders'
 import { SyncPanel } from './YouTubePlayer'
 
 export const SPEEDS = [1, 0.75, 0.5, 0.25, 1.25]
@@ -64,7 +64,7 @@ export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90, note
     return () => clearInterval(t)
   }, [file.uri])
 
-  if (!lessonsAvailable()) {
+  if (!lessonsAvailable() && !hasWebLessonFile(file.uri)) {
     return (
       <div className="yt yt-empty">
         <p className="small" style={{ margin: 0 }}>This song uses a lesson video from your phone ({niceName(file.name)}). It plays in the KGuitar app on the phone.</p>

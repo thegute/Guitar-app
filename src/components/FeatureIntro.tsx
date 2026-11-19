@@ -108,6 +108,12 @@ export const FEATURE_INTROS: Record<string, FeatureIntroDef> = {
     text: 'Explore any scale across the whole neck or by fret box, inspect its 5-Layer Neck & chords, or launch an instant Strum Machine backing track to solo over.',
     askPrompt: 'How should I practice soloing over this scale?',
   },
+  'course-studio': {
+    id: 'course-studio',
+    title: 'Course Studio',
+    text: 'Watch your guitar courses chapter by chapter with synced PDF book pages & tab diagrams, a draggable/resizable floating video player, speed/A–B loop, Metronome +5 BPM ramp, Floating 5-Layer Neck, Quick Tuner, and backing tracks.',
+    askPrompt: 'How do I use Course Studio with synced PDF books, floating video, and practice tools?',
+  },
 }
 
 const PREFIX = 'kg:introDismissed:'

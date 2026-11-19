@@ -205,7 +205,7 @@ export function AskBubble({ context }: { context: AskContext }) {
       {activeIntro && !tipOpen && !noTip && phase === 'idle' && (
         <div
           className={`talk-card feature-intro-card ${side === 'left' && x === null ? 'from-left' : 'from-right'}`}
-          style={{ top: y >= 0.45 ? `max(8px, calc(${Math.round(y * 100)}% - 42px - 155px))` : `calc(${Math.round(y * 100)}% + 30px)` }}
+          style={{ top: y >= 0.45 ? `max(8px, calc(${Math.round(y * 100)}% - 42px - 155px))` : `calc(${Math.round(y * 100)}% + 30px)`, pointerEvents: 'none' }}
           role="note"
           data-testid={`feature-intro-${activeIntro.id}`}
         >
@@ -216,13 +216,13 @@ export function AskBubble({ context }: { context: AskContext }) {
               onClick={() => dismissFeatureIntro(activeIntro.id)}
               aria-label={`Dismiss ${activeIntro.title} description`}
               data-testid={`intro-close-${activeIntro.id}`}
-              style={{ padding: '2px 7px', minHeight: 24 }}
+              style={{ padding: '2px 7px', minHeight: 24, pointerEvents: 'auto' }}
             >
               ×
             </button>
           </div>
           <p className="small" style={{ margin: '4px 0 8px', lineHeight: 1.35 }}>{activeIntro.text}</p>
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
             <button
               className="btn sm primary"
               onClick={() => {
