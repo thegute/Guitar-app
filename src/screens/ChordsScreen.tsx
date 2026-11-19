@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Chord } from 'tonal'
 import { CHORD_GROUPS, SUFFIX_FORMULA, chordSymbol } from '../theory/chords'
 import { chordShapes, useInstrument } from '../instrument'
@@ -13,12 +13,25 @@ import { useScreenInfo } from '../assistant/screen'
 import { Win, WinArea } from '../components/Win'
 import { LayerNeck } from '../components/LayerNeck'
 import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
+import { HarmonicFlowCoach } from '../components/HarmonicFlowCoach'
+import { useStrumState } from '../audio/strumMachine'
+import { openFlowCoach, openStrumGrid } from '../nav'
 
 const TONAL_SUFFIX: Record<string, string> = {
   major: '', minor: 'm', '5': '5', aug7: '7#5', mmaj7: 'mMaj7', alt: '7alt', '69': '6/9', m69: 'm6/9', '9#11': '9#11',
 }
 
 export function ChordsScreen() {
+  const [subTab, setSubTab] = usePersist<'library' | 'flow'>('chordsSubTab', 'library')
+  const strumState = useStrumState()
+  useEffect(() => {
+    const onSub = (e: Event) => {
+      const next = (e as CustomEvent<string>).detail
+      if (next === 'library' || next === 'flow') setSubTab(next)
+    }
+    window.addEventListener('kg-chords-subtab', onSub)
+    return () => window.removeEventListener('kg-chords-subtab', onSub)
+  }, [setSubTab])
   const [root, setRoot] = usePersist('chordRoot', 'C')
   const [suffix, setSuffix] = usePersist('chordSuffix', 'major')
   const [group, setGroup] = useState(() => CHORD_GROUPS.find(g => g.types.some(t => t.suffix === suffix))?.name ?? 'Basic')
@@ -46,12 +59,42 @@ export function ChordsScreen() {
 
   return (
     <div className="stack">
-      <h1>Chords{inst.isUke ? <span className="muted small"> · {inst.label}</span> : null}</h1>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <h1>Chords{inst.isUke ? <span className="muted small"> · {inst.label}</span> : null}</h1>
+        <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {strumState.playing && (
+            <button className="strum-live-badge" onClick={() => openStrumGrid()} title="Jump to live Strum Grid">
+              🎸 Now: {strumState.currentChord} → {strumState.nextChord}
+            </button>
+          )}
+          <div className="seg" role="tablist" aria-label="Chords view">
+            <button role="tab" aria-selected={subTab === 'library'} onClick={() => setSubTab('library')} data-testid="chords-tab-library">
+              Chord Library
+            </button>
+            <button role="tab" aria-selected={subTab === 'flow'} onClick={() => setSubTab('flow')} data-testid="chords-tab-flow">
+              🌀 Flow Coach
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {subTab === 'flow' ? (
+        <HarmonicFlowCoach />
+      ) : (
       <WinArea area="chords" className="win-cols">
       <Win id="pick" title="Pick a chord" className="panel" bodyClass="stack">
       <KeyPicker value={root} onChange={k => { setRoot(k); setSel(0) }} label="Root note" />
       <Chips label="Chord family" items={CHORD_GROUPS.map(g => ({ id: g.name, label: g.name }))} value={group} onChange={setGroup} />
       <Chips label="Chord type" wrap items={CHORD_GROUPS.find(g => g.name === group)!.types.map(t => ({ id: t.suffix, label: t.label }))} value={suffix} onChange={s => { setSuffix(s); setSel(0) }} />
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap', paddingTop: 4 }}>
+        <button
+          className="btn sm"
+          onClick={() => openFlowCoach({ tonic: root, minor: /^m(?!aj)|^minor/.test(suffix), startChord: name, targetTab: 'chords' })}
+          data-testid="chords-explore-flow"
+        >
+          🌀 Explore {name} in Flow Coach →
+        </button>
+      </div>
       </Win>
 
         <Win id="shapes" title="Shapes" className="panel">
@@ -98,6 +141,7 @@ export function ChordsScreen() {
         </Win>
       <ChordExtras root={root} suffix={suffix} voicing={v} />
       </WinArea>
+      )}
     </div>
   )
 }

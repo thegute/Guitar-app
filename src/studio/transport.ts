@@ -13,13 +13,37 @@ import { loadSampleBuf } from './padSamples'
 import { PerformFx } from './fx'
 import { planCountIn, subscribeScheduler, updateClockState } from '../engine/clock'
 
-/** A generated room reverb (a few seconds of decaying noise), shared by every track. */
+/** Studio high-damped stereo wood-room / hall reverb IR (early reflections + warm high-frequency rolloff). */
 function makeReverb(ctx: AudioContext) {
-  const len = Math.floor(ctx.sampleRate * 2.6)
-  const buf = ctx.createBuffer(2, len, ctx.sampleRate)
+  const sr = ctx.sampleRate
+  const len = Math.floor(sr * 2.2)
+  const buf = ctx.createBuffer(2, len, sr)
+  const earlyTaps: [number, number, number][] = [
+    [0.011, 0.42, 0.34],
+    [0.019, 0.31, 0.39],
+    [0.029, 0.28, 0.25],
+    [0.043, 0.22, 0.27],
+    [0.061, 0.17, 0.14],
+  ]
   for (let ch = 0; ch < 2; ch++) {
     const d = buf.getChannelData(ch)
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2)
+    for (const [sec, gL, gR] of earlyTaps) {
+      const idx = Math.floor(sec * sr)
+      if (idx < len) d[idx] += (ch === 0 ? gL : gR) * (ch === 0 ? 1 : -1)
+    }
+    let lp1 = 0
+    let lp2 = 0
+    const preDelay = Math.floor(0.016 * sr)
+    for (let i = preDelay; i < len; i++) {
+      const p = (i - preDelay) / (len - preDelay)
+      const env = Math.pow(1 - p, 2.8) * (1 - Math.exp(-(i - preDelay) / (0.018 * sr)))
+      const white = Math.random() * 2 - 1
+      // Progressive high-frequency air absorption (brighter early, darker warm tail)
+      const alpha = 0.38 * (1 - p * 0.72)
+      lp1 += alpha * (white - lp1)
+      lp2 += alpha * 0.85 * (lp1 - lp2)
+      d[i] += lp2 * env * 0.55
+    }
   }
   const c = ctx.createConvolver()
   c.buffer = buf

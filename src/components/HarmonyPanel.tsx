@@ -18,6 +18,8 @@ import {
   type ChordInfo, type ChordSpan,
 } from '../tabs/harmony'
 import type { SongNote } from '../tabs/model'
+import { openFlowCoach, openStrumGrid } from '../nav'
+import type { StrumChart } from '../theory/harmonicFlow'
 
 export type HarmonyMode = 'hand' | 'layers' | 'scale' | 'arp' | 'triads' | 'connect'
 
@@ -247,6 +249,36 @@ export function HarmonyPanel(p: Props) {
         </div>
         <button className="btn sm" aria-pressed={editing} onClick={() => setEditing(e => !e)} aria-label="Edit chords">✎</button>
       </div>
+      {spans.length > 0 && (
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+          <button
+            className="btn sm"
+            onClick={() => {
+              const chart: StrumChart = {
+                id: `song-${Date.now()}`,
+                name: `Song Chords (${keyGuess.label})`,
+                tonic: keyGuess.root,
+                minor: keyGuess.minor,
+                capo: 0,
+                bpm: 100,
+                style: 'folk',
+                bars: spans.slice(0, 16).map((sp, idx) => ({ chords: [sp.name], section: idx === 0 ? 'Song' : undefined })),
+              }
+              openStrumGrid({ chart, autoPlay: true })
+            }}
+            data-testid="harmony-to-strum"
+          >
+            🎸 Open in Strum Grid
+          </button>
+          <button
+            className="btn sm"
+            onClick={() => openFlowCoach({ tonic: keyGuess.root, minor: keyGuess.minor, startChord: span?.name ?? spans[0]?.name })}
+            data-testid="harmony-to-flow"
+          >
+            🌀 Flow from {span?.name ?? spans[0]?.name} →
+          </button>
+        </div>
+      )}
       {diagrams.length > 0 && (
         <ProgressionDiagrams
           items={diagrams}

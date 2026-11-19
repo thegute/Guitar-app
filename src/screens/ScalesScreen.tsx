@@ -12,6 +12,9 @@ import { useScreenInfo } from '../assistant/screen'
 import { Win, WinArea } from '../components/Win'
 import { LayerNeck } from '../components/LayerNeck'
 import { BooksWin } from '../books/BooksWin'
+import { useStrumState } from '../audio/strumMachine'
+import { openFlowCoach, openStrumGrid } from '../nav'
+import { chartForScale, type StrumStyleId } from '../theory/harmonicFlow'
 
 const POSITIONS = [
   { id: 'all', label: 'Whole neck', from: 0, to: 15 },
@@ -31,6 +34,7 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
   const [labels, setLabels] = usePersist<'intervals' | 'notes'>('scaleLabels', 'intervals')
   const [playing, setPlaying] = useState(false)
   const inst = useInstrument()
+  const strumState = useStrumState()
   useEffect(() => {
     if (initial) { setRoot(initial.root); setScale(initial.scale); setPos('all') }
   }, [initial, setRoot, setScale, setPos])
@@ -70,7 +74,14 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
 
   return (
     <div className="stack">
-      <h1>Scales</h1>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <h1>Scales</h1>
+        {strumState.playing && (
+          <button className="strum-live-badge" onClick={() => openStrumGrid()} title="Jump to live Strum Grid">
+            🎸 Backing: {strumState.currentChord} → {strumState.nextChord}
+          </button>
+        )}
+      </div>
       <LooperStrip />
       <WinArea area="scales">
       <Win id="pick" title="Pick a scale" className="panel" bodyClass="stack">
@@ -112,6 +123,30 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
           onTap={midi => playNote(midi)}
         />
         <p className="small muted" style={{ marginTop: 8 }}>Tap any dot to hear that note. Red dots are the root.</p>
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--hairline)', alignItems: 'center' }} data-testid="scales-strum-launchers">
+          <span className="small muted">Back this scale in Strum Grid:</span>
+          {([
+            ['folk', 'Acoustic'],
+            ['reggae', 'Reggae Skank'],
+            ['metal-chug', 'Metal Chugs'],
+            ['orchestra', 'Orchestral Strings'],
+          ] as [StrumStyleId, string][]).map(([stId, lbl]) => (
+            <button
+              key={stId}
+              className="btn sm"
+              onClick={() => openStrumGrid({ chart: chartForScale(root, scale, stId), autoPlay: true })}
+              data-testid={`scales-back-${stId}`}
+            >
+              ▶ {lbl}
+            </button>
+          ))}
+          <button
+            className="btn sm"
+            onClick={() => openFlowCoach({ tonic: root, minor: set.has((r + 3) % 12) && !set.has((r + 4) % 12) })}
+          >
+            🌀 Flow Map
+          </button>
+        </div>
       </Win>
       <Win id="layers" title={`${root}${set.has((r + 3) % 12) && !set.has((r + 4) % 12) ? 'm' : ''} chord: the 5-layer neck`} className="panel" hint="The scale's home chord as a stack of layers under one hand: the chord shape, its triads, the pentatonic box, the two notes that make the full mode, and what a free finger can add.">
         <LayerNeck rootPc={r} minor={set.has((r + 3) % 12) && !set.has((r + 4) % 12)} inst={inst} where="scales" noLinks={['scale']} />

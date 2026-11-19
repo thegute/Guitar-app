@@ -35,7 +35,10 @@ import { GROOVES, GROOVE_GROUPS, KITS, grooveOf, kitInfo, loadKit, kitLoaded, ty
 import { shapesFor as shapesForChord } from '../theory/shapes'
 import { Transcriber } from '../components/Transcriber'
 import { saveSong, type SongDoc } from '../tabs/library'
-import { go, learnGo, openExercisesFiltered, openInPlay, openSongsInKey, setSubPage } from '../nav'
+import { go, learnGo, openExercisesFiltered, openFlowCoach, openInPlay, openSongsInKey, openStrumGrid, setSubPage } from '../nav'
+import { HarmonicFlowCoach } from '../components/HarmonicFlowCoach'
+import { StrumGrid } from '../components/StrumGrid'
+import type { StrumChart, StrumStyleId } from '../theory/harmonicFlow'
 import { clearFloat, publishFloat, setFloatResting } from '../float/bus'
 import { SongFinder } from '../components/SongFinder'
 import { InspireMe } from '../components/InspireMe'
@@ -120,7 +123,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   const [optionsOpen, setOptionsOpen] = usePersist('jamOptionsOpen', false)
   // Jam is three choices (Play with a band, Make a beat, Loop myself) plus the Riff Scanner behind a small link. Solo over it
   // became floating cards (chord now & next + mini neck while the band plays); Make a tab moved to Learn → Exercises.
-  const [page, setPage] = useSubTab('jam', ['jam', 'beats', 'loop', 'find'] as const)
+  const [page, setPage] = useSubTab('jam', ['jam', 'strum', 'flow', 'beats', 'loop', 'find'] as const)
   const [prog, setProg] = usePersist<ProgChord[]>('jamProg', [])
   useScreenInfo('jam', { label: `Jam: ${prog.map(c => c.symbol).join(' ') || 'no chords yet'} in ${tonic} ${mode}`, summary: `In Jam with a ${style === 'any' ? '' : style + ' '}progression in ${tonic} ${mode}: ${prog.map(c => `${c.symbol} (${c.roman})`).join(', ') || 'none yet'}, at ${bpm} BPM.` })
   const [shapeIdx, setShapeIdx] = useState<number[]>([])
@@ -571,7 +574,13 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
         {page === 'jam' && <button className="btn sm" onClick={() => setOptionsOpen(!optionsOpen)} aria-expanded={optionsOpen}>{optionsOpen ? 'Hide options' : 'Options'}</button>}
       </header>
       <div className="subtabs jam-choices" role="tablist" aria-label="Jam">
-        {([['jam', 'drum', 'Play with a band', 'Chords, strums, bass and drums to play over'], ['beats', 'zap', 'Make a beat', 'Pads, steps, keys and your own samples'], ['loop', 'loop', 'Loop myself', 'Record layers over a beat, four tracks']] as const).map(([id, icon, label, sub]) => (
+        {([
+          ['jam', 'drum', 'Play with a band', 'Chords, strums, bass and drums to play over'],
+          ['strum', 'music', 'Strum Grid', 'Acoustic, reggae, metal & orchestral charts'],
+          ['flow', 'sparkles', 'Flow Coach', 'Interactive chord tree & real-time jam'],
+          ['beats', 'zap', 'Make a beat', 'Pads, steps, keys and your own samples'],
+          ['loop', 'loop', 'Loop myself', 'Record layers over a beat, four tracks'],
+        ] as const).map(([id, icon, label, sub]) => (
           <button key={id} role="tab" aria-selected={page === id} className={`jam-choice${page === id ? ' on' : ''}`} onClick={() => setPage(id)} data-testid={`jam-${id}`}>
             <Ico n={icon} /><span className="jam-choice-text"><b>{label}</b><span className="small">{sub}</span></span>
           </button>
@@ -611,6 +620,45 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
             {cards}
             {chordInfo}
             {transportRow}
+            {prog.length > 0 && (
+              <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  className="btn sm"
+                  onClick={() => {
+                    stopAll()
+                    const styleMap: Partial<Record<Style, StrumStyleId>> = {
+                      bluegrass: 'bluegrass', folk: 'folk', reggae: 'reggae', reggaerock: 'reggae',
+                      metal: 'metal-chug', progmetal: 'djent', blues: 'blues', funk: 'funk',
+                      bossa: 'bossa', island: 'island', rock: 'rock', jazz: 'rhodes', neosoul: 'rhodes',
+                    }
+                    const chart: StrumChart = {
+                      id: `jam-${Date.now()}`,
+                      name: `Band Jam (${tonic}${minorKey ? 'm' : ''})`,
+                      tonic,
+                      minor: minorKey,
+                      capo: 0,
+                      bpm,
+                      style: styleMap[style] ?? 'folk',
+                      bars: prog.map((c, idx) => ({ chords: [c.symbol], section: idx === 0 ? 'Band Jam' : undefined })),
+                    }
+                    openStrumGrid({ chart, autoPlay: true })
+                  }}
+                  data-testid="jam-to-strum"
+                >
+                  🎸 Open in Strum Grid
+                </button>
+                <button
+                  className="btn sm"
+                  onClick={() => {
+                    stopAll()
+                    openFlowCoach({ tonic, minor: minorKey, startChord: cur?.symbol ?? prog[0]?.symbol })
+                  }}
+                  data-testid="jam-to-flow"
+                >
+                  🌀 Explore in Flow Coach
+                </button>
+              </div>
+            )}
             {matchingLicks.length > 0 && (
               <div className="jam-licks-strip">
                 <button
@@ -732,6 +780,8 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
           </WinArea>
       )}
 
+      {page === 'strum' && <StrumGrid />}
+      {page === 'flow' && <HarmonicFlowCoach />}
       {page === 'loop' && <Suspense fallback={<p className="muted">Loading the looper…</p>}><LooperPanel /></Suspense>}
       {page === 'beats' && <Suspense fallback={<p className="muted">Loading the beat maker…</p>}><StudioScreen active={page === 'beats'} /></Suspense>}
 

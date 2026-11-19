@@ -5,7 +5,9 @@
 import { sharedTransport } from './shared'
 import { station, stationMade } from '../looper/station'
 import { LooperBar, useStation } from '../looper/LooperPanel'
-import { openJam } from '../nav'
+import { openJam, openStrumGrid } from '../nav'
+import { strumMachine } from '../audio/strumMachine'
+import { parseChordQual } from '../theory/harmonicFlow'
 import { FxPad } from './FxPad'
 import { BeatLight } from './BeatLight'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
@@ -35,7 +37,7 @@ import {
   PATTERNS, patternLayer, type Beat, type DrumLayer, type PNote, type Pattern, type Track,
   PART_IDS, beatInPart, curPart, deletePart, partsMade, switchPart, type PartId,
 } from './beat'
-import { CHORD_TYPES, INSTRS, INSTR_GROUPS, chordNotes, instr, keyChord, loadInstr, type Voicing } from './sounds'
+import { CHORD_TYPES, INSTR_GROUPS, allInstrs, chordNotes, instr, keyChord, loadInstr, type Voicing } from './sounds'
 import type { StudioTransport } from './transport'
 import { beatChords, scalesFor } from './practice'
 import { guessPads, loadMyPads, loadSample, mySounds, mySoundsAvailable, pickSoundFolder, saveMySounds, type MySounds } from './mySounds'
@@ -221,6 +223,47 @@ export function StudioScreen({ active }: { active: boolean }) {
           </select>
         </label>
         <VolumesButton />
+        <button
+          className="btn sm"
+          onClick={() => {
+            const st = strumMachine.getState()
+            const chart = st.chart
+            const barsToUse = Math.min(8, Math.max(1, chart.bars.length <= 2 ? chart.bars.length : chart.bars.length <= 4 ? 4 : 8)) as 1 | 2 | 4 | 8
+            const qualMap: Record<string, number[]> = {
+              '': [0, 4, 7], m: [0, 3, 7], '5': [0, 7, 12], '7': [0, 4, 7, 10], m7: [0, 3, 7, 10],
+              maj7: [0, 4, 7, 11], dim: [0, 3, 6], sus4: [0, 5, 7], add9: [0, 2, 4, 7],
+            }
+            const notes: PNote[] = []
+            for (let bi = 0; bi < barsToUse; bi++) {
+              const bar = chart.bars[bi % chart.bars.length]
+              const segLen = bar.chords.length > 1 ? 8 : 16
+              bar.chords.slice(0, 2).forEach((sym, si) => {
+                const parsed = parseChordQual(sym)
+                if (!parsed) return
+                const ivs = qualMap[parsed.qual] ?? [0, 4, 7]
+                const rootMidi = 48 + parsed.rootPc
+                for (const iv of ivs) {
+                  notes.push({ s: bi * 16 + si * segLen, l: segLen - 1, m: rootMidi + iv, v: 0.78 })
+                }
+              })
+            }
+            const cv = strumMachine.effectiveChordVoice()
+            const instId = cv === 'orchestra' || cv === 'cinematic' ? 'strings' : cv === 'rhodes' ? 'epiano' : cv === 'grand' ? 'grand' : cv === 'organ' ? 'organ' : cv === 'ambient' ? 'ambient' : cv === 'banjo' ? 'banjo' : allInstrs().some(x => x.id === cv) ? cv : 'acoustic'
+            setBeat(b => {
+              const sized = setBars({ ...b, bpm: st.bpm, key: chart.tonic, minor: chart.minor }, barsToUse)
+              const rest = sized.tracks.filter(x => x.inst !== instId)
+              const track: Track = { id: newId(), inst: instId, notes, vol: 0.85, space: instr(instId).space }
+              return { ...sized, tracks: [...rest, track] }
+            })
+            setMsg(`Imported "${chart.name}" (${barsToUse} bars, ${st.bpm} BPM) into Beat Maker!`)
+          }}
+          title="Import the active Strum Grid chord progression into Beat Maker"
+        >
+          ← From Strum Grid
+        </button>
+        <button className="btn sm" onClick={() => openStrumGrid()} title="Open Strum Grid backing tracks">
+          Strum Grid ↗
+        </button>
         <button className="btn sm st-more" aria-expanded={settings} onClick={() => setSettings(!settings)}>{settings ? 'Fewer settings' : 'Key, bars, save…'}</button>
       </div>
       {settings && (
@@ -754,13 +797,14 @@ const keysPads = (b: Beat) => Object.entries(b.pads ?? {}).filter(([, d]) => d &
 const instLabel = (b: Beat, id: string) => (id.startsWith('pad:') ? `Pad: ${padLabel(b, id.slice(4))}` : instr(id).label)
 function InstrumentSelect({ value, onChange, label = 'Sound', placeholder, beat }: { value: string; onChange: (id: string) => void; label?: string; placeholder?: string; beat?: Beat }) {
   const mine = beat ? keysPads(beat) : []
+  const list = allInstrs()
   return (
     <label className="field st-field"><span>{label}</span>
       <select className="select" value={value} onChange={e => onChange(e.target.value)}>
         {placeholder && <option value="">{placeholder}</option>}
         {mine.length > 0 && <optgroup label="Your pads (played up and down)">{mine.map(p => <option key={p} value={`pad:${p}`}>{padLabel(beat!, p)}</option>)}</optgroup>}
         {value.startsWith('pad:') && !mine.includes(value.slice(4)) && <option value={value}>{instLabel(beat ?? { pads: {} } as unknown as Beat, value)}</option>}
-        {INSTR_GROUPS.map(g => <optgroup key={g} label={g}>{INSTRS.filter(i => i.group === g).map(i => <option key={i.id} value={i.id}>{i.label}</option>)}</optgroup>)}
+        {INSTR_GROUPS.map(g => <optgroup key={g} label={g}>{list.filter(i => i.group === g).map(i => <option key={i.id} value={i.id}>{i.label}</option>)}</optgroup>)}
       </select>
     </label>
   )

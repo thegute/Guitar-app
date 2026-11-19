@@ -22,6 +22,8 @@ import { FloatLayer } from './float/FloatLayer'
 import { SoundPill } from './components/SoundPill'
 import { GlobalChordPeek } from './components/ChordPeek'
 import { NowPlaying } from './components/NowPlaying'
+import { StrumFloatNeck, StrumMiniBar } from './components/StrumMiniBar'
+import { useStrumState } from './audio/strumMachine'
 import { Settings } from './learn/Settings'
 import { setFloatScreen } from './float/bus'
 import { RigNotice, RigPill } from './components/AudioSetup'
@@ -137,6 +139,7 @@ export default function App() {
     return () => removeEventListener('keydown', k)
   }, [drawer])
   // swipe the rail (or drawer) to the left, or the bottom bar down, to tuck it away
+  const strumState = useStrumState()
   const swipe = useRef<{ x: number; y: number; id: number } | null>(null)
   const navDown = (e: RPointerEvent) => { swipe.current = { x: e.clientX, y: e.clientY, id: e.pointerId } }
   const navMove = (e: RPointerEvent) => {
@@ -157,6 +160,7 @@ export default function App() {
       <main className={`main${tab === 'play' ? ' main-play' : ''}`} id="main">
         <SessionBar />
         <FloatLayer />
+        <StrumFloatNeck />
         <GlobalChordPeek inst={inst} />
         <RigNotice />
         {!(tab === 'play' && ui.playFocus) && !gear && <div className="rig-bar"><RigPill /></div>}
@@ -170,7 +174,11 @@ export default function App() {
           <JamScreen key={jump} onOpenScale={(root, scale) => { setScaleJump({ root, scale }); setToolPage('scales'); setTab('tools') }} />
         )}
         </>}
-        {(gear || tab !== 'play') && <NowPlaying key={`${inst.id}:${tab}`} instId={inst.id} />}
+        {strumState.playing ? (
+          <StrumMiniBar />
+        ) : (
+          (gear || tab !== 'play') && <NowPlaying key={`${inst.id}:${tab}`} instId={inst.id} />
+        )}
       </main>
       <nav className={`nav${drawer ? ' drawer' : ''}`} aria-label="Sections" onPointerDown={navDown} onPointerMove={navMove} onPointerUp={navUp} onPointerCancel={navUp}>
         {TABS.map(t => (

@@ -13,7 +13,7 @@ import { IconGear } from '../components/Icons'
 import { ExercisesPage } from '../exercises/ExercisesPage'
 import { SubTabs, useSubTab } from '../components/SubTabs'
 import { countUse } from '../usage'
-import { playAction, openGear } from '../nav'
+import { playAction, openFlowCoach, openGear, openStrumGrid } from '../nav'
 import { PsyArt, PsyDog, PsyPic } from '../components/PsyArt'
 import type { DogId } from '../art/samurai'
 import { useInstrument } from '../instrument'
@@ -509,6 +509,16 @@ export function LearnScreen() {
             <ToolBadge id="songbook" />
             <b>Songbook</b>
             <span className="small muted">Folk, bluegrass and reggae songs to learn: in the Songs tab</span>
+          </button>
+          <button className="tool songbook-link" onClick={() => openFlowCoach({ mode: 'pathfinder' })} data-testid="learn-flow-pathfinder">
+            <ToolBadge id="circle" />
+            <b>Harmonic Flow & Pathfinder</b>
+            <span className="small muted">Interactive radial chord map + 12 Pathfinder harmony challenges</span>
+          </button>
+          <button className="tool songbook-link" onClick={() => openStrumGrid()} data-testid="learn-strum-grid">
+            <ToolBadge id="changes" />
+            <b>Strum Grid Backing Tracks</b>
+            <span className="small muted">18 realistic styles: acoustic, reggae skank, metal chugs & orchestral strings</span>
           </button>
           </div>
           </Win>

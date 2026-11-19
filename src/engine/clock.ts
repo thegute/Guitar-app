@@ -17,7 +17,7 @@ export const LOOKAHEAD_SEC = 0.25
 /** Scheduler wake-up interval (ms) when the audio worklet pulse is not yet running. */
 export const SCHEDULER_INTERVAL_MS = 20
 
-export type ClockSource = 'play' | 'tab' | 'jam' | 'beat' | 'metronome'
+export type ClockSource = 'play' | 'tab' | 'jam' | 'beat' | 'metronome' | 'strum'
 
 export interface SharedClockState {
   bpm: number

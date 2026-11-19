@@ -5,6 +5,7 @@ import type { PlayAction } from './search/types'
 import { LICKS } from './licks/library'
 import { lickMinor } from './licks/chain'
 import { keyOptionId } from './tabs/transpose'
+import type { StrumChart } from './theory/harmonicFlow'
 
 /** The main sections in the nav bar. */
 export type Tab = 'play' | 'songs' | 'learn' | 'progressions' | 'tools'
@@ -124,10 +125,10 @@ export function takePendingExercise(): string | null {
   pendingExercise = null
   return c
 }
-/** Open a Jam page. Jam is Play with a band ('jam'), Make a beat ('beats'), Loop myself ('loop') and the Riff Scanner ('find').
+/** Open a Jam page. Jam is Play with a band ('jam'), Strum Grid ('strum'), Flow Coach ('flow'), Make a beat ('beats'), Loop myself ('loop') and the Riff Scanner ('find').
  *  Older links: 'solo' (Solo over it, now floating cards over the band) opens the band; 'tab' (Make a tab) opens the tab maker
  *  in Learn → Exercises → Make your own, which uses the Jam progression. */
-export function openJam(page: 'jam' | 'solo' | 'tab' | 'find' | 'beats' | 'loop' = 'jam') {
+export function openJam(page: 'jam' | 'strum' | 'flow' | 'solo' | 'tab' | 'find' | 'beats' | 'loop' = 'jam') {
   if (page === 'tab') {
     try { localStorage.setItem('kg:exSection', JSON.stringify('make')) } catch { /* private */ }
     learnGo({ learn: 'exercises' })
@@ -135,6 +136,65 @@ export function openJam(page: 'jam' | 'solo' | 'tab' | 'find' | 'beats' | 'loop'
   }
   setSubPage('jam', page === 'solo' ? 'jam' : page)
   go('progressions')
+}
+
+export interface FlowOpenOpts {
+  tonic?: string
+  minor?: boolean
+  startChord?: string
+  capo?: number
+  mode?: 'free' | 'pathfinder'
+  targetTab?: 'jam' | 'chords'
+}
+
+let pendingFlow: FlowOpenOpts | null = null
+const flowListeners = new Set<(o: FlowOpenOpts) => void>()
+export function onOpenFlow(f: (o: FlowOpenOpts) => void) {
+  flowListeners.add(f)
+  return () => { flowListeners.delete(f) }
+}
+export function takePendingFlow(): FlowOpenOpts | null {
+  const o = pendingFlow
+  pendingFlow = null
+  return o
+}
+
+/** Open the Harmonic Flow Coach (optionally seeded with a key, starting chord, or Pathfinder challenge mode). */
+export function openFlowCoach(opts: FlowOpenOpts = {}) {
+  pendingFlow = opts
+  flowListeners.forEach(f => f(opts))
+  if (opts.targetTab === 'chords') {
+    try { localStorage.setItem('kg:chordsSubTab', JSON.stringify('flow')) } catch { /* private */ }
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('kg-chords-subtab', { detail: 'flow' }))
+    }
+    go('chords')
+  } else {
+    openJam('flow')
+  }
+}
+
+export interface StrumOpenOpts {
+  chart?: StrumChart
+  autoPlay?: boolean
+}
+let pendingStrum: StrumOpenOpts | null = null
+const strumListeners = new Set<(o: StrumOpenOpts) => void>()
+export function onOpenStrum(f: (o: StrumOpenOpts) => void) {
+  strumListeners.add(f)
+  return () => { strumListeners.delete(f) }
+}
+export function takePendingStrum(): StrumOpenOpts | null {
+  const o = pendingStrum
+  pendingStrum = null
+  return o
+}
+
+/** Open Strum Grid (optionally loading a chord chart and starting playback immediately). */
+export function openStrumGrid(opts: StrumOpenOpts = {}) {
+  pendingStrum = opts
+  strumListeners.forEach(f => f(opts))
+  openJam('strum')
 }
 
 // ---- links from anywhere (search) into Learn's pages, Play's controls, and tools that read their settings on open

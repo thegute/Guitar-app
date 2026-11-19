@@ -2,7 +2,8 @@
 // app's own guitars and bass) and synths built here (supersaw, plucks, pads, leads, an 808 sub, a tonewheel organ).
 // Every note returns a handle that fades out when stopped, so held keys and piano-roll notes last as long as they should.
 import { audio, route } from '../audio/engine'
-import { loadBank, playBass, playFromBank, playNote, type Handle, type SoundId } from '../audio/pluck'
+import { loadBank, loadSound, playBass, playFromBank, playNote, type Handle, type SoundId } from '../audio/pluck'
+import { BASS_LABEL, BASS_PACK, bassPacks, packSounds, type BassKind } from '../audio/packSounds'
 
 export type SynthKind = 'supersaw' | 'pluck' | 'warmpad' | 'ambient' | 'sawlead' | 'squarelead' | 'sub808' | 'synthbass' | 'organ'
 export interface Instr {
@@ -11,8 +12,10 @@ export interface Instr {
   group: 'Keys' | 'Guitars' | 'Bass' | 'Strings' | 'Voices' | 'Winds and brass' | 'Mallets and bells' | 'Synths'
   /** sample bank (public/samples/<bank>) */
   bank?: string
-  /** one of the app's guitar sounds */
+  /** one of the app's guitar sounds (built-in or pack:<id>) */
   guitar?: SoundId
+  /** specific recorded Studio Bass / JamBass kind */
+  bassKind?: BassKind
   synth?: SynthKind
   /** seconds to fade out when a note stops */
   release: number
@@ -68,13 +71,48 @@ export const INSTRS: Instr[] = [
   I('squarelead', 'Square lead', 'Synths', { synth: 'squarelead', release: 0.12, gain: 0.4, lo: 55, hi: 96, space: 0.2 }),
 ]
 export const INSTR_GROUPS: Instr['group'][] = ['Keys', 'Guitars', 'Bass', 'Strings', 'Voices', 'Winds and brass', 'Mallets and bells', 'Synths']
-export const instr = (id: string) => INSTRS.find(x => x.id === id) ?? INSTRS[0]
+/** All Beat Maker instruments: built-ins + all imported .kgpack guitars + harvested Studio Bass / JamBass packs. */
+export function allInstrs(): Instr[] {
+  const extraGuitars: Instr[] = packSounds().map(p =>
+    I(`pack:${p.id}`, `${p.name} ★`, 'Guitars', {
+      guitar: `pack:${p.id}` as SoundId,
+      release: p.base === 'metal' || p.base === 'crunch' ? 0.08 : 0.2,
+      lo: 38,
+      hi: 86,
+      space: p.amp ? 0.08 : 0.16,
+    }),
+  )
+  const haveBass = bassPacks()
+  const extraBasses: Instr[] = (['session', 'sixties', 'modern', 'upright'] as BassKind[])
+    .filter(k => haveBass.includes(BASS_PACK[k]) || (k === 'sixties' && haveBass.includes('jambass')))
+    .map(k =>
+      I(`bass:${k}`, `Studio Bass — ${BASS_LABEL[k]} ★`, 'Bass', {
+        bank: 'bass',
+        bassKind: k,
+        release: 0.09,
+        gain: 0.92,
+        lo: 28,
+        hi: 60,
+        space: 0.04,
+      }),
+    )
+  return [...INSTRS, ...extraGuitars, ...extraBasses]
+}
+export const instr = (id: string) => {
+  const all = allInstrs()
+  const found = all.find(x => x.id === id)
+  if (found) return found
+  if (id.startsWith('pack:')) {
+    return I(id, id.slice(5), 'Guitars', { guitar: id as SoundId, release: 0.16, lo: 38, hi: 86, space: 0.12 })
+  }
+  return INSTRS[0]
+}
 
 /** Load an instrument's samples (synths need nothing). */
 export function loadInstr(id: string): Promise<void> {
   const d = instr(id)
+  if (d.guitar) return loadSound(d.guitar)
   if (d.bank) return loadBank(d.bank)
-  if (d.guitar) return loadBank(d.guitar)
   return Promise.resolve()
 }
 
@@ -214,7 +252,7 @@ export function playInstr(id: string, midi: number, when: number, vel = 0.8, o: 
   if (d.synth) h = synth(d.synth, midi, when, gain, dest, d.synth === 'sub808' ? o.from : undefined)
   else if (d.guitar) {
     h = playNote(midi, when, gain, dest, { sound: d.guitar, ...(d.slide ? { bend: -(o.from !== undefined && Math.abs(o.from - midi) <= 5 ? midi - o.from : 1.5), release: true, bendTime: 0.09 } : {}) })
-  } else if (d.bank === 'bass') h = playBass(midi, when, gain, dest)
+  } else if (d.bank === 'bass') h = playBass(midi, when, gain, dest, d.bassKind)
   // the sampled instruments were levelled quietly (about −20 dB); this brings them up to sit with the drums
   else h = playFromBank(d.bank!, midi, when, gain * 1.5, dest, d.release)
   if (o.dur !== undefined) h.stop(Math.max(when, audio().currentTime) + o.dur)

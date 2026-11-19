@@ -3122,3 +3122,286 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
 
 
 
+
+/* ───────── Harmonic Flow Coach, Strum Grid & Floating Live Strum Bar ───────── */
+.flow-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+@media (max-width: 820px) {
+  .flow-main-grid { grid-template-columns: 1fr; }
+}
+.flow-graph-panel { display: flex; flex-direction: column; align-items: stretch; }
+.flow-svg {
+  width: 100%;
+  max-width: 460px;
+  height: auto;
+  margin: 0 auto;
+  display: block;
+  user-select: none;
+  touch-action: manipulation;
+}
+.flow-node { transition: transform .16s ease, opacity .16s ease; }
+.flow-node:focus-visible circle { stroke-width: 4; }
+.flow-whisper {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+.flow-trail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.flow-trail-chip { display: inline-flex; align-items: center; }
+.flow-mic-meter {
+  display: inline-block;
+  width: 64px;
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.flow-mic-meter > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--mint), var(--gold));
+  transition: width 60ms linear;
+}
+.flow-pathfinder-banner {
+  border: 2px solid color-mix(in srgb, var(--gold) 65%, var(--line));
+  background: color-mix(in srgb, var(--gold) 8%, var(--surface));
+}
+.flow-pathfinder-banner.won {
+  border-color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 12%, var(--surface));
+}
+.flow-pathfinder-banner.over {
+  border-color: var(--coral);
+}
+
+/* Strum Grid: 4 bars per row on desktop/tablet, 2 bars per row on narrow phone */
+.strum-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (max-width: 560px) {
+  .strum-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.strum-bar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 76px;
+  padding: 18px 6px 8px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 2px solid var(--line);
+  transition: border-color .1s ease, box-shadow .1s ease, background .1s ease;
+}
+.strum-bar.playing {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 14%, var(--surface-2));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 35%, transparent);
+}
+.strum-bar.editing {
+  border-color: var(--accent);
+}
+.strum-bar.graded-hit {
+  border-color: var(--mint);
+  background: color-mix(in srgb, var(--mint) 14%, var(--surface-2));
+}
+.strum-bar.graded-miss {
+  border-color: var(--coral);
+}
+.strum-bar-section {
+  position: absolute;
+  top: -10px;
+  left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: #111;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.strum-bar-num {
+  position: absolute;
+  top: 4px;
+  right: 7px;
+  font-size: 0.7rem;
+  color: var(--ink-2);
+  opacity: 0.7;
+}
+.strum-bar-cells {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  flex: 1;
+}
+.strum-bar-cells.split {
+  grid-template-columns: 1fr 1fr;
+}
+.strum-cell {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  text-align: center;
+}
+.strum-cell:hover, .strum-cell:focus-visible {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.strum-cell.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.strum-cell.active .strum-cell-sym {
+  color: var(--gold);
+}
+.strum-cell-sym {
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.strum-cell-capo {
+  font-size: 0.72rem;
+  color: var(--ink-2);
+  margin-top: 2px;
+}
+.strum-bar-beats {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 4px;
+}
+.strum-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 22%, transparent);
+  transition: transform .08s ease, background .08s ease;
+}
+.strum-dot.on {
+  background: var(--gold);
+  transform: scale(1.28);
+  box-shadow: 0 0 6px var(--gold);
+}
+.strum-editor, .strum-inline-mixer {
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+.strum-band-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Slim 1-Row Floating Live Strum Bar (docked neatly above bottom nav, replacing NowPlaying while active) */
+.strum-mini-wrap {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: calc(var(--nav-h, 62px) + 6px + var(--sab, 0px));
+  z-index: 48;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+.strum-mini-bar, .strum-band-popover {
+  pointer-events: auto;
+  width: min(760px, 100%);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.45);
+}
+.strum-mini-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--surface) 95%, #000);
+  border: 2px solid color-mix(in srgb, var(--gold) 65%, var(--line));
+  overflow-x: auto;
+}
+.strum-mini-chord {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+.strum-mini-now {
+  font-size: 0.96rem;
+  font-weight: 800;
+  color: var(--gold);
+}
+.strum-mini-next {
+  font-size: 0.82rem;
+  color: var(--ink-2);
+}
+.strum-mini-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 2px;
+}
+.strum-mini-select {
+  width: auto !important;
+  min-width: 120px;
+  max-width: 175px;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+  font-size: 0.82rem !important;
+}
+.strum-mini-bpm {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+.strum-band-popover {
+  width: min(460px, 100%);
+  border: 2px solid color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+.strum-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--gold) 15%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--gold) 55%, var(--line));
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+[data-theme='psy'] .strum-mini-bar,
+[data-theme='psy'] .strum-band-popover {
+  background: #1b053f;
+  border-color: rgba(255, 214, 70, 0.72);
+}
