@@ -23,6 +23,7 @@ import { SoundPill } from './components/SoundPill'
 import { GlobalChordPeek } from './components/ChordPeek'
 import { NowPlaying } from './components/NowPlaying'
 import { StrumFloatNeck, StrumMiniBar } from './components/StrumMiniBar'
+import { setActiveFeatureIntro } from './components/FeatureIntro'
 import { useStrumState } from './audio/strumMachine'
 import { Settings } from './learn/Settings'
 import { setFloatScreen } from './float/bus'
@@ -140,6 +141,12 @@ export default function App() {
   }, [drawer])
   // swipe the rail (or drawer) to the left, or the bottom bar down, to tuck it away
   const strumState = useStrumState()
+  // Announce active top-level screen to the ✨ AI Assistant "What this does" popup
+  useEffect(() => {
+    if (gear) { setActiveFeatureIntro(null); return }
+    if (tab === 'tools') setActiveFeatureIntro(toolPage)
+    else if (tab !== 'progressions') setActiveFeatureIntro(tab)
+  }, [tab, toolPage, gear])
   const swipe = useRef<{ x: number; y: number; id: number } | null>(null)
   const navDown = (e: RPointerEvent) => { swipe.current = { x: e.clientX, y: e.clientY, id: e.pointerId } }
   const navMove = (e: RPointerEvent) => {

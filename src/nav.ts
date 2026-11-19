@@ -144,6 +144,7 @@ export interface FlowOpenOpts {
   startChord?: string
   capo?: number
   mode?: 'free' | 'pathfinder'
+  view?: 'path' | 'vibe' | 'shift' | 'detect'
   targetTab?: 'jam' | 'chords'
 }
 

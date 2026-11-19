@@ -136,7 +136,7 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
         />
         <p className="small muted" style={{ marginTop: 8 }}>Tap any dot to hear that note. Red dots are the root.</p>
         <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--hairline)', alignItems: 'center' }} data-testid="scales-strum-launchers">
-          <span className="small muted">Back this scale in Strum Grid:</span>
+          <span className="small muted">Back this scale in Strum Machine:</span>
           {([
             ['folk', 'Acoustic'],
             ['reggae', 'Reggae Skank'],
@@ -154,9 +154,16 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
           ))}
           <button
             className="btn sm"
-            onClick={() => openFlowCoach({ tonic: root, minor: set.has((r + 3) % 12) && !set.has((r + 4) % 12) })}
+            onClick={() => openFlowCoach({ tonic: root, minor: set.has((r + 3) % 12) && !set.has((r + 4) % 12), view: 'path' })}
           >
-            🌀 Flow Map
+            🌀 Chord Path
+          </button>
+          <button
+            className="btn sm"
+            onClick={() => openFlowCoach({ view: 'detect' })}
+            data-testid="scales-detect-btn"
+          >
+            🎤 Detect Scale
           </button>
         </div>
       </Win>

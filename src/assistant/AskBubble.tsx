@@ -22,6 +22,7 @@ import { launch } from '../search/launch'
 import { startSession } from '../sessions/session'
 import { TipCard, useTip } from '../tips/TipCard'
 import { takeTipAsk } from '../tips/tips'
+import { dismissFeatureIntro, useActiveFeatureIntro } from '../components/FeatureIntro'
 
 type Phase = 'idle' | 'listening' | 'thinking' | 'answer' | 'error'
 const SORRY: Record<string, string> = {
@@ -173,6 +174,7 @@ export function AskBubble({ context }: { context: AskContext }) {
   }, [tip, tipMode, tipOpen, phase])
   if (!show) return null
   const talkOk = canListen()
+  const activeIntro = useActiveFeatureIntro()
   const top = `calc(${Math.round(y * 100)}% - 28px + ${nudge}px)`
   const placeSide = x !== null ? { left: x - 26, right: 'auto' } : side === 'left' ? { left: 10, right: 'auto' } : {}
   const busy = phase === 'listening' || phase === 'thinking'
@@ -200,6 +202,46 @@ export function AskBubble({ context }: { context: AskContext }) {
       </button>
       {noTip && <div className="talk-card tip-card" style={{ top: cardTop, ...(side === 'left' ? { left: 10 } : { right: 10 }) }} role="status" data-testid="tip-none"><p className="talk-a">No new tips for this screen right now. Come back later, or ask me anything.</p></div>}
       {tipOpen && tip && phase === 'idle' && <TipCard tip={tip} screen={screen} from={side === 'left' && x === null ? 'left' : 'right'} style={{ top: cardTop }} onClose={() => setTipOpen(false)} />}
+      {activeIntro && !tipOpen && !noTip && phase === 'idle' && (
+        <div
+          className={`talk-card feature-intro-card ${side === 'left' && x === null ? 'from-left' : 'from-right'}`}
+          style={{ top: y >= 0.45 ? `max(8px, calc(${Math.round(y * 100)}% - 42px - 155px))` : `calc(${Math.round(y * 100)}% + 30px)` }}
+          role="note"
+          data-testid={`feature-intro-${activeIntro.id}`}
+        >
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <strong style={{ fontSize: '0.88rem' }}>💡 {activeIntro.title}</strong>
+            <button
+              className="btn sm ghost"
+              onClick={() => dismissFeatureIntro(activeIntro.id)}
+              aria-label={`Dismiss ${activeIntro.title} description`}
+              data-testid={`intro-close-${activeIntro.id}`}
+              style={{ padding: '2px 7px', minHeight: 24 }}
+            >
+              ×
+            </button>
+          </div>
+          <p className="small" style={{ margin: '4px 0 8px', lineHeight: 1.35 }}>{activeIntro.text}</p>
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+            <button
+              className="btn sm primary"
+              onClick={() => {
+                dismissFeatureIntro(activeIntro.id)
+                askAssistant(activeIntro.askPrompt, context, false)
+              }}
+              data-testid={`intro-ask-${activeIntro.id}`}
+            >
+              ✨ Ask about this
+            </button>
+            <button
+              className="btn sm ghost"
+              onClick={() => dismissFeatureIntro(activeIntro.id)}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
       {talkOk && (
         <button className={`talk-btn${busy ? ' on' : ''}`} style={{ top: `calc(${Math.round(y * 100)}% - 25px + ${nudge}px)`, ...(x !== null ? { left: x - 70, right: 'auto' } : side === 'left' ? { left: 60, right: 'auto' } : { right: 60 }) }}
           onClick={() => void talk()} aria-label={phase === 'listening' ? 'Stop listening' : 'Talk to the helper'} aria-pressed={busy} data-testid="talk-btn">

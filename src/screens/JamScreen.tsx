@@ -38,6 +38,7 @@ import { saveSong, type SongDoc } from '../tabs/library'
 import { go, learnGo, openExercisesFiltered, openFlowCoach, openInPlay, openSongsInKey, openStrumGrid, setSubPage } from '../nav'
 import { HarmonicFlowCoach } from '../components/HarmonicFlowCoach'
 import { StrumGrid } from '../components/StrumGrid'
+import { setActiveFeatureIntro } from '../components/FeatureIntro'
 import type { StrumChart, StrumStyleId } from '../theory/harmonicFlow'
 import { clearFloat, publishFloat, setFloatResting } from '../float/bus'
 import { SongFinder } from '../components/SongFinder'
@@ -124,6 +125,9 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   // Jam is three choices (Play with a band, Make a beat, Loop myself) plus the Riff Scanner behind a small link. Solo over it
   // became floating cards (chord now & next + mini neck while the band plays); Make a tab moved to Learn → Exercises.
   const [page, setPage] = useSubTab('jam', ['jam', 'strum', 'flow', 'beats', 'loop', 'find'] as const)
+  useEffect(() => {
+    if (page !== 'flow') setActiveFeatureIntro(page)
+  }, [page])
   const [prog, setProg] = usePersist<ProgChord[]>('jamProg', [])
   useScreenInfo('jam', { label: `Jam: ${prog.map(c => c.symbol).join(' ') || 'no chords yet'} in ${tonic} ${mode}`, summary: `In Jam with a ${style === 'any' ? '' : style + ' '}progression in ${tonic} ${mode}: ${prog.map(c => `${c.symbol} (${c.roman})`).join(', ') || 'none yet'}, at ${bpm} BPM.` })
   const [shapeIdx, setShapeIdx] = useState<number[]>([])
@@ -612,8 +616,8 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
       <div className="subtabs jam-choices" role="tablist" aria-label="Jam">
         {([
           ['jam', 'drum', 'Play with a band', 'Chords, strums, bass and drums to play over'],
-          ['strum', 'music', 'Strum Grid', 'Acoustic, reggae, metal & orchestral charts'],
-          ['flow', 'sparkles', 'Flow Coach', 'Interactive chord tree & real-time jam'],
+          ['strum', 'music', 'Strum Machine', 'Acoustic, reggae, metal & orchestral charts'],
+          ['flow', 'sparkles', 'Flow Coach', 'Chord Path, Vibe Sets, Key Shifter & Detect'],
           ['beats', 'zap', 'Make a beat', 'Pads, steps, keys and your own samples'],
           ['loop', 'loop', 'Loop myself', 'Record layers over a beat, four tracks'],
         ] as const).map(([id, icon, label, sub]) => (
@@ -681,7 +685,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
                   }}
                   data-testid="jam-to-strum"
                 >
-                  🎸 Open in Strum Grid
+                  🎸 Open in Strum Machine
                 </button>
                 <button
                   className="btn sm"
@@ -691,7 +695,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
                   }}
                   data-testid="jam-to-flow"
                 >
-                  🌀 Explore in Flow Coach
+                  🌀 Chord Path
                 </button>
               </div>
             )}

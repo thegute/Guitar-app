@@ -2342,16 +2342,25 @@ html:not([data-arrange]) .win-grip, html:not([data-arrange]) .win-btn, html:not(
 .layer-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--ink-2); }
 .layer-legend i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; margin-right: -6px; vertical-align: -1px; }
 .layer-legend .lg-root { background: var(--fb-coral); } .layer-legend .lg-chord { background: var(--fb-gold); }
-.layer-legend .lg-triad { background: var(--fb-gold); box-shadow: 0 0 0 2px var(--fb-coral); } .layer-legend .lg-scale { background: var(--fb-pearl); }
-.layer-legend .lg-pass { background: #bcb3c7; width: 9px; height: 9px; } .layer-legend .lg-embel { background: transparent; box-shadow: inset 0 0 0 2px var(--fb-embel, #d8b4fe); }
-:root { --fb-embel: #c084fc; }
+.layer-legend .lg-triad { background: var(--fb-gold); box-shadow: 0 0 0 2px var(--fb-triad-ring, #38bdf8); } .layer-legend .lg-scale { background: var(--fb-pearl); }
+.layer-legend .lg-pass { background: var(--fb-mode, #06b6d4); width: 10px; height: 10px; } .layer-legend .lg-embel { background: transparent; box-shadow: inset 0 0 0 2px var(--fb-embel, #c084fc); }
+:root { --fb-embel: #c084fc; --fb-triad-ring: #38bdf8; --fb-mode: #06b6d4; }
+.layer-chip { display: inline-flex; align-items: center; gap: 6px; }
+.layer-chip.lay-caged::before, .layer-chip.lay-triads::before, .layer-chip.lay-penta::before, .layer-chip.lay-bridge::before, .layer-chip.lay-free::before {
+  content: ''; width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none;
+}
+.layer-chip.lay-caged::before { background: var(--fb-gold); }
+.layer-chip.lay-triads::before { background: var(--fb-gold); box-shadow: 0 0 0 2px var(--fb-triad-ring); }
+.layer-chip.lay-penta::before { background: var(--fb-pearl); border: 1px solid var(--line); }
+.layer-chip.lay-bridge::before { background: var(--fb-mode); }
+.layer-chip.lay-free::before { background: transparent; box-shadow: inset 0 0 0 2px var(--fb-embel); }
 .layer-neck.compact .layer-legend { display: none; }
 /* voice-leading arrows on the neck */
 .fb-arrow { fill: none; stroke-width: 2.4; stroke-linecap: round; pointer-events: none; }
 .fb-arrow.guide { stroke: var(--fb-gold); }
 .fb-arrow.move { stroke: var(--fb-ring); stroke-dasharray: 5 4; }
-.fb-arrow.look { stroke: #22d3ee; }
-.fb-ah.guide { fill: var(--fb-gold); } .fb-ah.move { fill: var(--fb-ring); } .fb-ah.look { fill: #22d3ee; }
+.fb-arrow.look { stroke: var(--fb-ring); }
+.fb-ah.guide { fill: var(--fb-gold); } .fb-ah.move { fill: var(--fb-ring); } .fb-ah.look { fill: var(--fb-ring); }
 
 /* Tempo badge on Play's top bar (♩ 92 · 4/4; "~" = a guess) and its sheet */
 .tempo-badge { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; line-height: 1; min-width: 44px; padding: 3px 8px; font-variant-numeric: tabular-nums; }
@@ -3428,4 +3437,68 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
   .subtabs.jam-choices .jam-choice-text .small {
     display: none;
   }
+}
+
+/* ───────── Scaler-Style Chord Vibe Sets, 4-Tool Hub & AI Feature Intro Card ───────── */
+.flow-hub-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.flow-hub-tabs button {
+  flex: 1 1 auto;
+}
+.vibe-pad-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
+  gap: 8px;
+}
+.vibe-pad {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 2px solid var(--line);
+  overflow: hidden;
+  transition: transform .1s ease, box-shadow .1s ease;
+}
+.vibe-pad.sel {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.vibe-pad-main {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+  padding: 10px 6px 6px;
+}
+.vibe-pad-sym {
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.vibe-pad-roman {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.vibe-pad-tip {
+  font-size: 0.7rem;
+  color: var(--ink-2);
+  line-height: 1.2;
+}
+.vibe-pad-add {
+  border-radius: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  width: 100%;
+  font-size: 0.76rem !important;
+}
+.feature-intro-card {
+  max-width: min(330px, calc(100vw - 24px));
+  border: 2px solid color-mix(in srgb, var(--accent) 60%, var(--line));
 }

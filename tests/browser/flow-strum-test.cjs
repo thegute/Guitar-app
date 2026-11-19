@@ -79,12 +79,35 @@ async function newPage(browser, seed = {}, viewport = { width: 1280, height: 800
     const trailTxt = await page.locator('[data-testid="flow-trail"]').textContent()
     ok(trailTxt.includes('Em'), `Breadcrumb trail includes Em (${trailTxt})`)
 
+    // Check AI Assistant "What this does" popup appears for Chord Path and dismisses cleanly
+    await page.waitForSelector('[data-testid="feature-intro-chord-path"]')
+    ok(await page.locator('[data-testid="feature-intro-chord-path"]').isVisible(), 'AI Bubble What-this-does popup appears on Chord Path')
+    await page.locator('[data-testid="intro-close-chord-path"]').click()
+    await page.waitForTimeout(80)
+    ok(!(await page.locator('[data-testid="feature-intro-chord-path"]').isVisible()), 'AI Bubble popup dismisses cleanly on ×')
+
     // Switch to Pathfinder mode
     await page.locator('[data-testid="flow-mode-pathfinder"]').click()
     await page.waitForSelector('[data-testid="pathfinder-banner"]')
     ok(await page.locator('[data-testid="pathfinder-steps"]').isVisible(), 'Pathfinder banner & step counter visible')
 
-    // 2. Open Strum Grid from Jam tab & test 18 styles + Bar editor + Live playback + Persistent MiniBar
+    // Test Chord Vibe Sets, Key Shifter, and Detect Scale tabs inside Flow Coach!
+    await page.locator('[data-testid="flow-hub-vibe"]').click()
+    await page.waitForSelector('[data-testid="chord-vibe-sets"]')
+    ok(await page.locator('[data-testid="vibe-pad-0"]').isVisible(), 'Chord Vibe Sets renders tappable chord board')
+    await page.locator('[data-testid="vibe-add-1"]').click()
+
+    await page.locator('[data-testid="flow-hub-shift"]').click()
+    await page.waitForSelector('[data-testid="key-shifter-view"]')
+    ok(await page.locator('[data-testid="shift-bridge-dom-pivot"]').isVisible(), 'Key Shifter renders smooth modulation bridges')
+
+    await page.locator('[data-testid="flow-hub-detect"]').click()
+    await page.waitForSelector('[data-testid="detect-scale-view"]')
+    ok(await page.locator('[data-testid="detect-match-0"]').isVisible(), 'Detect Scale ranks matching scales & modes')
+
+    await page.locator('[data-testid="flow-hub-path"]').click()
+
+    // 2. Open Strum Machine from Jam tab & test 18 styles + Bar editor + Motion + Live playback + Persistent MiniBar
     await page.locator('[data-testid="jam-strum"]').click()
     await page.waitForSelector('[data-testid="strum-grid-screen"]')
 
@@ -124,6 +147,8 @@ async function newPage(browser, seed = {}, viewport = { width: 1280, height: 800
     await page.locator('[data-testid="mini-chord-voice"]').selectOption('orchestra')
     await page.locator('[data-testid="mini-bass-voice"]').selectOption('sixties')
     await page.locator('[data-testid="mini-drum-kit"]').selectOption('metal')
+    await page.locator('[data-testid="mini-motion-select"]').selectOption('arpeggio')
+    ok((await page.locator('[data-testid="mini-motion-select"]').inputValue()) === 'arpeggio', 'Live Band popover switches Motion to Arpeggio')
     await page.locator('[data-testid="mini-key-select"]').selectOption('D')
     ok((await page.locator('[data-testid="mini-key-select"]').inputValue()) === 'D', 'Live Band popover transposes Strum Machine key to D')
 
@@ -164,11 +189,11 @@ async function newPage(browser, seed = {}, viewport = { width: 1280, height: 800
     await page.waitForSelector('[data-testid="harmonic-flow-coach"]')
     ok(await page.locator('[data-testid="flow-svg"]').isVisible(), 'Chords → Flow Coach renders dual-labeled SVG chord tree')
 
-    // 4. Verify Beat Maker upgraded instrument list + From Strum Grid button
+    // 4. Verify Beat Maker upgraded instrument list + From Strum Machine button
     await page.locator('nav.nav button', { hasText: 'Jam' }).click()
     await page.locator('[data-testid="jam-beats"]').click()
-    await page.waitForSelector('button:has-text("From Strum Grid")')
-    ok(await page.locator('button:has-text("From Strum Grid")').isVisible(), 'Beat Maker shows ← From Strum Grid bridge button')
+    await page.waitForSelector('button:has-text("From Strum Machine")')
+    ok(await page.locator('button:has-text("From Strum Machine")').isVisible(), 'Beat Maker shows ← From Strum Machine bridge button')
 
     // 5. Verify mobile viewport (360x760) renders Flow Coach & Strum Grid cleanly without errors
     const phone = await newPage(browser, {}, { width: 360, height: 760 })

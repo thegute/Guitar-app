@@ -12,6 +12,7 @@ import { GET_READY_CHOICES, getReadySecs, setGetReadySecs } from '../components/
 import { useEffect, useState } from 'react'
 import { Chips } from '../components/Controls'
 import { adviceOn, onTips, setAdviceOn, setTipsMode, tipsMode, unmuteAllTips, type TipMode } from '../tips/tips'
+import { resetAllFeatureIntros } from '../components/FeatureIntro'
 import { INSTRUMENTS, setInstrument, setTuning, type Instrument, type InstrumentId } from '../instrument'
 import { motionAllowed, setPsyMotion, setTheme, usePsyMotion, useTheme, usePsyDog, setPsyDog, type ThemeChoice } from '../theme'
 import { SubTabs, useSubTab } from '../components/SubTabs'
@@ -460,7 +461,7 @@ function TipsSettings() {
         <input type="checkbox" checked={advice} onChange={e => setAdviceOn(e.target.checked)} data-testid="tips-advice" />
         <span><b>Guitar advice</b> too: technique, timing and practice tips, not just how to use the app</span>
       </label>
-      <div className="row"><button className="btn sm" onClick={() => { unmuteAllTips(); setReset(true) }}>Show every tip again</button>{reset && <span className="small muted" role="status">Done: tips you dismissed will come back.</span>}</div>
+      <div className="row"><button className="btn sm" onClick={() => { unmuteAllTips(); resetAllFeatureIntros(); setReset(true) }}>Show every tip &amp; feature popup again</button>{reset && <span className="small muted" role="status">Done: tips &amp; feature descriptions you dismissed will come back.</span>}</div>
     </>
   )
 }

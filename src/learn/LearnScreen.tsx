@@ -510,15 +510,15 @@ export function LearnScreen() {
             <b>Songbook</b>
             <span className="small muted">Folk, bluegrass and reggae songs to learn: in the Songs tab</span>
           </button>
-          <button className="tool songbook-link" onClick={() => openFlowCoach({ mode: 'pathfinder' })} data-testid="learn-flow-pathfinder">
+          <button className="tool songbook-link" onClick={() => openFlowCoach({ mode: 'pathfinder', view: 'path' })} data-testid="learn-flow-pathfinder">
             <ToolBadge id="circle" />
-            <b>Harmonic Flow & Pathfinder</b>
-            <span className="small muted">Interactive radial chord map + 12 Pathfinder harmony challenges</span>
+            <b>Chord Path &amp; Pathfinder</b>
+            <span className="small muted">Radial chord web, Chord Vibe Sets, Key Shifter &amp; 12 Pathfinder challenges</span>
           </button>
           <button className="tool songbook-link" onClick={() => openStrumGrid()} data-testid="learn-strum-grid">
             <ToolBadge id="changes" />
-            <b>Strum Grid Backing Tracks</b>
-            <span className="small muted">18 realistic styles: acoustic, reggae skank, metal chugs & orchestral strings</span>
+            <b>Strum Machine</b>
+            <span className="small muted">18 realistic styles: acoustic, reggae skank, metal chugs &amp; orchestral strings</span>
           </button>
           </div>
           </Win>

@@ -3,10 +3,12 @@ import { memo, useEffect, useRef, useState, type JSX } from 'react'
 import { current } from '../instrument'
 
 /**
- * root: red · chord: amber (chord tones) · scale: pearl · ghost: outline only · live: teal (what the mic hears)
- * next: teal ring (tones of the next chord) · common: amber with a teal ring (in both chords)
- * pass: small pearl (connecting notes, usually numbered) · target: amber ring (the tab's next note)
- * triad: amber with a coral ring (a triad inside the shape) · embel: violet halo (a free finger's embellishment)
+ * Unified KGuitar Information Color Grammar:
+ * root: red (#ef4444) · chord: warm amber gold (#f59e0b) · triad: gold with sky-blue ring (#38bdf8)
+ * scale (pentatonic): crisp pearl white · pass (mode bridge notes): electric cyan (#06b6d4)
+ * embel (free fingers / borrowed color): vibrant violet (#a855f7)
+ * next / look / live: emerald mint (#10b981) · common (held): gold fill + emerald mint ring
+ * ghost: outline only · target: gold ring
  */
 export type MarkRole = 'root' | 'chord' | 'scale' | 'ghost' | 'live' | 'next' | 'common' | 'pass' | 'target' | 'triad' | 'embel' | 'look'
 export interface Mark {
@@ -36,15 +38,15 @@ const OPEN_W = 34
 
 const FILL: Record<MarkRole, string> = {
   root: 'var(--fb-coral)', chord: 'var(--fb-gold)', scale: 'var(--fb-pearl)', ghost: 'var(--board)', live: 'var(--fb-mint)',
-  next: 'var(--board)', common: 'var(--fb-gold)', pass: '#bcb3c7', target: 'var(--board)', triad: 'var(--fb-gold)', embel: 'var(--board)', look: 'var(--board)',
+  next: 'var(--board)', common: 'var(--fb-gold)', pass: 'var(--fb-mode, #06b6d4)', target: 'var(--board)', triad: 'var(--fb-gold)', embel: 'var(--board)', look: 'var(--board)',
 }
 const INK: Record<MarkRole, string> = {
-  root: '#fff', chord: '#2a1d05', scale: 'var(--fb-ink)', ghost: '#cfc6bb', live: 'var(--fb-ink)',
-  next: 'var(--fb-ring)', common: '#2a1d05', pass: 'var(--fb-ink)', target: 'var(--fb-gold)', triad: '#2a1d05', embel: 'var(--fb-embel, #d8b4fe)', look: '#67e8f9',
+  root: '#fff', chord: '#2a1d05', scale: 'var(--fb-ink)', ghost: '#cfc6bb', live: '#052e22',
+  next: 'var(--fb-ring)', common: '#2a1d05', pass: '#04242c', target: 'var(--fb-gold)', triad: '#2a1d05', embel: 'var(--fb-embel, #c084fc)', look: 'var(--fb-ring)',
 }
 const RING: Partial<Record<MarkRole, [string, number]>> = {
-  ghost: ['var(--nickel)', 1.2], next: ['var(--fb-ring)', 2.5], common: ['var(--fb-ring)', 3], target: ['var(--fb-gold)', 3],
-  triad: ['var(--fb-coral)', 3], embel: ['var(--fb-embel, #d8b4fe)', 3], look: ['#22d3ee', 3.5],
+  ghost: ['var(--nickel)', 1.2], next: ['var(--fb-ring)', 2.8], common: ['var(--fb-ring)', 3.2], target: ['var(--fb-gold)', 3],
+  triad: ['var(--fb-triad-ring, #38bdf8)', 3.2], embel: ['var(--fb-embel, #c084fc)', 3], look: ['var(--fb-ring)', 3.5],
 }
 
 function FretboardImpl({ tuning = current().midis, fromFret = 0, toFret = 15, markFor, onTap, minFretPx, compact, zoomId = 'fretboard', arrows }: Props) {

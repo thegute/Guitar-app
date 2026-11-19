@@ -275,8 +275,8 @@ export function HarmonyPanel(p: Props) {
             }}
           >
             <option value="">Jam / Flow ▾</option>
-            <option value="strum">🎸 Open in Strum Grid</option>
-            <option value="flow">🌀 Flow from {span?.name ?? spans[0]?.name}</option>
+            <option value="strum">🎸 Open in Strum Machine</option>
+            <option value="flow">🌀 Chord Path from {span?.name ?? spans[0]?.name}</option>
           </select>
         )}
       </div>

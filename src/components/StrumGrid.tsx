@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChromaListener } from '../audio/chroma'
 import {
+  STRUM_MOTIONS,
   bassVoiceOptions,
   chordVoiceOptions,
   drumKitOptions,
@@ -12,7 +13,9 @@ import {
   type BassVoiceId,
   type ChordVoiceId,
   type DrumKitOverride,
+  type StrumMotionId,
 } from '../audio/strumMachine'
+import { downloadMidiFile, exportStrumChartToMidi, importMidiToStrumChart } from '../audio/midiChords'
 import { Ico } from './Icon'
 import { useInstrument } from '../instrument'
 import { openFlowCoach, openInPlay, openJam, openLicksInKey, onOpenStrum, takePendingStrum } from '../nav'
@@ -105,6 +108,7 @@ export function StrumGrid() {
   const [toolsOpen, setToolsOpen] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [msg, setMsg] = useState('')
+  const midiInputRef = useRef<HTMLInputElement>(null)
 
   // Optional Listen & Grade chord accuracy per bar
   const [grading, setGrading] = useState(false)
@@ -267,9 +271,9 @@ export function StrumGrid() {
       <div className="panel stack" style={{ gap: 10 }}>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Strum Grid</h2>
+            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Strum Machine</h2>
             <p className="small muted" style={{ margin: '2px 0 0' }}>
-              18 studio backing styles that keep playing across Tabs, Scales, Chords & Licks.
+              18 studio backing styles that keep playing across Tabs, Scales, Chords &amp; Licks.
             </p>
           </div>
           <button
@@ -474,6 +478,19 @@ export function StrumGrid() {
                 {st.mutes.drums ? 'Muted' : 'On'}
               </button>
               <input type="range" min={0} max={1.3} step={0.05} value={st.volumes.drums} onChange={e => strumMachine.setVolumes({ drums: Number(e.target.value) })} aria-label="Drums volume" style={{ width: 84 }} />
+            </div>
+            <div className="strum-band-row">
+              <label className="field" style={{ flex: 1 }}>
+                <span>Playing Motion</span>
+                <select
+                  className="select"
+                  value={st.motion}
+                  onChange={e => strumMachine.setMotion(e.target.value as StrumMotionId)}
+                  data-testid="strum-motion-select"
+                >
+                  {STRUM_MOTIONS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                </select>
+              </label>
             </div>
           </div>
         )}
@@ -703,10 +720,16 @@ export function StrumGrid() {
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <button
             className="btn sm"
-            onClick={() => openFlowCoach({ tonic: chart.tonic, minor: chart.minor, startChord: st.currentChord, capo: st.capo })}
+            onClick={() => openFlowCoach({ tonic: chart.tonic, minor: chart.minor, startChord: st.currentChord, capo: st.capo, view: 'path' })}
             data-testid="strum-to-flow"
           >
-            🌀 Explore in Flow Coach
+            🌀 Chord Path
+          </button>
+          <button
+            className="btn sm"
+            onClick={() => openFlowCoach({ tonic: chart.tonic, minor: chart.minor, view: 'vibe' })}
+          >
+            🎨 Chord Vibe Sets
           </button>
           <button
             className="btn sm"
@@ -720,15 +743,51 @@ export function StrumGrid() {
             onClick={() => openJam('beats')}
             data-testid="strum-to-beats"
           >
-            🥁 Open Beat Maker
+            🥁 Beat Maker
           </button>
           <button
             className="btn sm"
             onClick={() => void handleSaveToSongbook()}
             data-testid="strum-to-play"
           >
-            📄 Save & Open in Play
+            📄 Save &amp; Open in Play
           </button>
+          <button
+            className="btn sm"
+            onClick={() => {
+              downloadMidiFile(exportStrumChartToMidi(chart), chart.name || 'strum_machine')
+              setMsg(`Exported "${chart.name}" as .mid!`)
+            }}
+            data-testid="strum-export-midi"
+          >
+            🎹 Export .mid
+          </button>
+          <button
+            className="btn sm"
+            onClick={() => midiInputRef.current?.click()}
+            data-testid="strum-import-midi"
+          >
+            📂 Import .mid
+          </button>
+          <input
+            ref={midiInputRef}
+            type="file"
+            accept=".mid,.midi,audio/midi"
+            hidden
+            onChange={async e => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (!f) return
+              try {
+                const bytes = new Uint8Array(await f.arrayBuffer())
+                const imported = importMidiToStrumChart(bytes, f.name)
+                strumMachine.setChart(imported, { autoPlay: st.playing })
+                setMsg(`Imported "${imported.name}" (${imported.bars.length} bars, ${imported.bpm} BPM) into Strum Machine!`)
+              } catch (err) {
+                setMsg(err instanceof Error ? err.message : 'Could not read that MIDI file.')
+              }
+            }}
+          />
         </div>
         {msg && <p className="small muted" style={{ margin: 0 }} role="status">{msg}</p>}
       </div>

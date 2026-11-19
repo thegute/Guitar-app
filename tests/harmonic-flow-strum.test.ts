@@ -24,6 +24,9 @@ import { allInstrs, instr } from '../src/studio/sounds'
 import { layerSpots } from '../src/theory/layers'
 import { current } from '../src/instrument'
 import { filterTierDuplicates, groupUnpackedFolders } from '../src/components/SoundPacks'
+import { CHORD_VIBE_SETS, buildKeyShiftBridges, detectScalesFromPcs, resolveVibeSet } from '../src/theory/scalerSuite'
+import { exportStrumChartToMidi, importMidiToStrumChart } from '../src/audio/midiChords'
+import { FEATURE_INTROS, dismissFeatureIntro, isFeatureIntroDismissed, resetAllFeatureIntros } from '../src/components/FeatureIntro'
 
 let passed = 0
 function test(name: string, fn: () => void) {
@@ -189,6 +192,57 @@ test('SoundPacks folder importer filters Studio/Pocket duplicates and groups mul
   assert.equal(unpacked.length, 2)
   assert.equal(unpacked[0].length, 2)
   assert.equal(unpacked[1].length, 2)
+})
+
+test('Chord Vibe Sets resolve all 8 genres cleanly in any key', () => {
+  assert.equal(CHORD_VIBE_SETS.length, 8)
+  const neoG = resolveVibeSet('neosoul', 'G')
+  assert.equal(neoG[0].symbol, 'Gmaj7')
+  const metalE = resolveVibeSet('metal', 'E')
+  assert.equal(metalE[0].symbol, 'E5')
+  assert.ok(metalE.some(c => c.symbol === 'F5')) // Phrygian bII5 in E
+})
+
+test('Key Shifter builds 3 smooth bridges from Key A to Key B', () => {
+  const bridges = buildKeyShiftBridges('C', false, 'Eb', false)
+  assert.equal(bridges.length, 3)
+  for (const b of bridges) {
+    assert.equal(b.steps[0].symbol, 'C')
+    assert.equal(b.steps[b.steps.length - 1].symbol, 'Eb')
+    assert.ok(b.steps.length >= 3)
+  }
+})
+
+test('Detect Scale ranks matching scales and modes accurately', () => {
+  // D Dorian: D(2), E(4), F(5), G(7), A(9), B(11), C(0)
+  const dorian = detectScalesFromPcs([2, 4, 5, 7, 9, 11, 0], 6)
+  assert.ok(dorian.some(m => m.root === 'D' && m.scaleId === 'dorian'))
+  // A Minor Pentatonic: A(9), C(0), D(2), E(4), G(7)
+  const amp = detectScalesFromPcs([9, 0, 2, 4, 7], 6)
+  assert.equal(amp[0].root, 'A')
+  assert.ok(amp.some(m => m.root === 'A' && m.scaleId === 'minor pentatonic'))
+})
+
+test('MIDI chord export and import round-trip Strum Machine charts cleanly', () => {
+  const src = BUILTIN_STRUM_CHARTS[0] // Bluegrass G-C-D
+  const midi = exportStrumChartToMidi(src)
+  assert.equal(String.fromCharCode(...midi.slice(0, 4)), 'MThd')
+  const round = importMidiToStrumChart(midi, 'bluegrass.mid')
+  assert.equal(round.bpm, src.bpm)
+  assert.equal(round.bars.length, src.bars.length)
+  assert.equal(round.bars[0].chords[0], 'G')
+})
+
+test('FeatureIntro registry covers all core features and dismiss/reset persists cleanly', () => {
+  for (const id of ['play', 'songs', 'learn', 'jam', 'strum', 'chord-path', 'vibe-sets', 'key-shifter', 'detect-scale', 'beats', 'loop', 'find', 'tuner', 'metronome', 'chords', 'scales']) {
+    assert.ok(FEATURE_INTROS[id], `missing FeatureIntro for ${id}`)
+  }
+  resetAllFeatureIntros()
+  assert.equal(isFeatureIntroDismissed('key-shifter'), false)
+  dismissFeatureIntro('key-shifter')
+  assert.equal(isFeatureIntroDismissed('key-shifter'), true)
+  resetAllFeatureIntros()
+  assert.equal(isFeatureIntroDismissed('key-shifter'), false)
 })
 
 console.log(`All ${passed} Harmonic Flow & Strum Grid tests passed!`)

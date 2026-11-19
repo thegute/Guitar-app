@@ -46,6 +46,16 @@ export type ChordVoiceId =
 
 export type BassVoiceId = 'auto' | BassKind | 'upbass' | 'synthbass' | 'sub808' | 'off'
 export type DrumKitOverride = 'auto' | KitId | 'perc' | 'off'
+export type StrumMotionId = 'auto' | 'strum' | 'arpeggio' | 'pad' | 'chug' | 'skank'
+
+export const STRUM_MOTIONS: { id: StrumMotionId; label: string }[] = [
+  { id: 'auto', label: 'Auto (match style)' },
+  { id: 'strum', label: 'Guitar Strum' },
+  { id: 'arpeggio', label: 'Arpeggio / Pick Roll' },
+  { id: 'pad', label: 'Sustained Chord Swell' },
+  { id: 'chug', label: 'Metal Palm-Mute Chugs' },
+  { id: 'skank', label: 'Reggae Off-Beat Skank' },
+]
 
 export interface StrumVolumes {
   chords: number
@@ -91,6 +101,7 @@ export interface StrumState {
   chordVoice: ChordVoiceId
   bassVoice: BassVoiceId
   drumKit: DrumKitOverride
+  motion: StrumMotionId
   volumes: StrumVolumes
   mutes: StrumMutes
   speedUp: SpeedUpConfig
@@ -500,6 +511,7 @@ class StrumMachineEngine {
       chordVoice: prefs.chordVoice ?? 'auto',
       bassVoice: prefs.bassVoice ?? 'auto',
       drumKit: prefs.drumKit ?? 'auto',
+      motion: 'auto',
       volumes: prefs.volumes ?? { chords: 0.9, bass: 0.9, drums: 0.85 },
       mutes: prefs.mutes ?? { chords: false, bass: false, drums: false },
       speedUp: { on: false, step: 5, everyLoops: 2, max: 180 },
@@ -787,6 +799,11 @@ class StrumMachineEngine {
     this.state = { ...this.state, drumKit }
     savePrefs(this.state)
     this.preloadVoices()
+    this.emit()
+  }
+
+  setMotion(motion: StrumMotionId) {
+    this.state = { ...this.state, motion }
     this.emit()
   }
 
@@ -1335,8 +1352,38 @@ class StrumMachineEngine {
   ) {
     const dest = this.chordBus!
     const cv = this.effectiveChordVoice()
+    const motion = this.state.motion
     const isNonGuitar =
       cv === 'orchestra' || cv === 'cinematic' || cv === 'rhodes' || cv === 'organ' || cv === 'grand' || cv === 'banjo' || cv === 'ambient'
+
+    // Motion override: Arpeggio / Pick Roll works on BOTH guitars and keys/strings!
+    if (motion === 'arpeggio') {
+      const notes = isNonGuitar
+        ? voiceLeadSpread(rootPc, qual, this.lastUpperVoicing).upper
+        : guitarStrumVoicing(rootPc, qual)
+      const seq = notes.length >= 4
+        ? [0, 1, 2, 3, 2, 1, 2, 3]
+        : [0, 1, 2, 1, 0, 1, 2, 1]
+      const steps = beats * 2
+      for (let i = 0; i < steps; i++) {
+        const note = notes[seq[i % seq.length] % notes.length]
+        const at = t0 + i * 0.5 * spb
+        const g = i % 2 === 0 ? 0.78 : 0.62
+        if (isNonGuitar) {
+          const instId = cv === 'rhodes' ? 'epiano' : cv === 'grand' ? 'grand' : cv === 'banjo' ? 'banjo' : cv === 'organ' ? 'organ' : 'harp'
+          this.trackHandle(playInstr(instId, note, at, g, { dest, dur: spb * 0.6 }))
+        } else {
+          this.trackHandle(playNote(note, at, g, dest, { sound: cv as SoundId }))
+        }
+      }
+      return
+    }
+
+    if (motion === 'pad' && !isNonGuitar) {
+      const midis = guitarStrumVoicing(rootPc, qual)
+      this.trackHandle(strum(midis, t0, { sound: cv as SoundId, dest, spread: 0.032, gain: 0.8 }))
+      return
+    }
 
     if (isNonGuitar) {
       if (cv === 'rhodes' && beats >= 4) {
@@ -1399,7 +1446,16 @@ class StrumMachineEngine {
       return
     }
 
-    switch (style) {
+    const effectivePattern: StrumStyleId =
+      motion === 'chug'
+        ? 'metal-chug'
+        : motion === 'skank'
+          ? 'reggae'
+          : motion === 'strum'
+            ? 'folk'
+            : style
+
+    switch (effectivePattern) {
       case 'bluegrass': {
         // Classic Bluegrass boom-chuck: low pick on 1 & 3, crisp chop on 2 & 4, light upstroke on 4-and
         this.trackHandle(playNote(midis[0], t0, 0.8, dest, { sound }))

@@ -257,12 +257,12 @@ export function StudioScreen({ active }: { active: boolean }) {
             })
             setMsg(`Imported "${chart.name}" (${barsToUse} bars, ${st.bpm} BPM) into Beat Maker!`)
           }}
-          title="Import the active Strum Grid chord progression into Beat Maker"
+          title="Import the active Strum Machine chord progression into Beat Maker"
         >
-          ← From Strum Grid
+          ← From Strum Machine
         </button>
-        <button className="btn sm" onClick={() => openStrumGrid()} title="Open Strum Grid backing tracks">
-          Strum Grid ↗
+        <button className="btn sm" onClick={() => openStrumGrid()} title="Open Strum Machine backing tracks">
+          Strum Machine ↗
         </button>
         <button className="btn sm st-more" aria-expanded={settings} onClick={() => setSettings(!settings)}>{settings ? 'Fewer settings' : 'Key, bars, save…'}</button>
       </div>

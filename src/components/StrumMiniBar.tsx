@@ -3,6 +3,7 @@
 // Style, Chords/Guitar pack, Bass, Drums, Volumes/Mutes, and BPM from anywhere in KGuitar.
 import { useState } from 'react'
 import {
+  STRUM_MOTIONS,
   bassVoiceOptions,
   chordVoiceOptions,
   drumKitOptions,
@@ -11,6 +12,7 @@ import {
   type BassVoiceId,
   type ChordVoiceId,
   type DrumKitOverride,
+  type StrumMotionId,
 } from '../audio/strumMachine'
 import { STRUM_STYLES, parseChordQual, type StrumStyleId } from '../theory/harmonicFlow'
 import { KEYS, pc } from '../theory/notes'
@@ -77,6 +79,17 @@ export function StrumMiniBar() {
                 {[0, 1, 2, 3, 4, 5, 6, 7].map(c => (
                   <option key={c} value={c}>{c === 0 ? 'No Capo' : `Capo ${c}`}</option>
                 ))}
+              </select>
+            </label>
+            <label className="field" style={{ flex: 1 }}>
+              <span>Motion</span>
+              <select
+                className="select"
+                value={st.motion}
+                onChange={e => strumMachine.setMotion(e.target.value as StrumMotionId)}
+                data-testid="mini-motion-select"
+              >
+                {STRUM_MOTIONS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
               </select>
             </label>
           </div>
@@ -270,8 +283,8 @@ export function StrumMiniBar() {
           <button className="btn sm" onClick={() => strumMachine.setBpm(st.bpm + 5)} aria-label="Faster">+</button>
         </div>
 
-        <button className="btn sm" onClick={() => openStrumGrid()} title="Open Strum Grid">
-          Grid
+        <button className="btn sm" onClick={() => openStrumGrid()} title="Open Strum Machine">
+          Strum
         </button>
       </div>
     </div>

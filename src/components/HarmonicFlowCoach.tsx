@@ -8,6 +8,9 @@ import { ChromaListener } from '../audio/chroma'
 import { strumMachine, useStrumState } from '../audio/strumMachine'
 import { ChordDiagram } from './ChordDiagram'
 import { VoiceLeadNeck } from './VoiceLeadNeck'
+import { ChordVibeSetsView, DetectScaleView, KeyShifterView } from './ScalerViews'
+import { useRegisterFeatureIntro } from './FeatureIntro'
+import { downloadMidiFile, exportStrumChartToMidi } from '../audio/midiChords'
 import { usePersist } from './Controls'
 import { Ico } from './Icon'
 import { useInstrument } from '../instrument'
@@ -36,9 +39,9 @@ import {
 } from '../theory/harmonicFlow'
 
 const FLAVOR_META: Record<EdgeFlavor, { label: string; color: string; stroke: string }> = {
-  diatonic: { label: 'Diatonic', color: '#34d399', stroke: 'rgba(52, 211, 153, 0.72)' },
-  pull: { label: 'Pull (Secondary Dom)', color: '#f59e0b', stroke: 'rgba(245, 158, 11, 0.8)' },
-  color: { label: 'Color (Borrowed)', color: '#a78bfa', stroke: 'rgba(167, 139, 250, 0.82)' },
+  diatonic: { label: 'In Key', color: 'var(--fb-mint, #10b981)', stroke: 'rgba(16, 185, 129, 0.72)' },
+  pull: { label: 'Pull (Secondary Dom)', color: 'var(--fb-gold, #f59e0b)', stroke: 'rgba(245, 158, 11, 0.8)' },
+  color: { label: 'Color (Borrowed)', color: 'var(--fb-embel, #c084fc)', stroke: 'rgba(192, 132, 252, 0.82)' },
 }
 
 const SPICE_OPTIONS: { id: FlowSpice; label: string }[] = [
@@ -107,11 +110,15 @@ export function HarmonicFlowCoach() {
   const inst = useInstrument()
   const strumState = useStrumState()
 
+  const [hubView, setHubView] = usePersist<'path' | 'vibe' | 'shift' | 'detect'>('flowHubView', 'path')
   const [tonic, setTonic] = usePersist('flowTonic', 'C')
   const [minor, setMinor] = usePersist('flowMinor', false)
   const [spice, setSpice] = usePersist<FlowSpice>('flowSpice', 'pop')
   const [capo, setCapo] = usePersist('flowCapo', 0)
   const [mode, setMode] = useState<'free' | 'pathfinder'>('free')
+  useRegisterFeatureIntro(
+    hubView === 'path' ? 'chord-path' : hubView === 'vibe' ? 'vibe-sets' : hubView === 'shift' ? 'key-shifter' : 'detect-scale',
+  )
   const [nodeId, setNodeId] = useState<string>(() => (minor ? 'i' : 'I'))
   const [hoveredBranchId, setHoveredBranchId] = useState<string | null>(null)
   const [trail, setTrail] = useState<string[]>([])
@@ -150,6 +157,8 @@ export function HarmonicFlowCoach() {
     if (opts.minor !== undefined) setMinor(opts.minor)
     if (opts.capo !== undefined) setCapo(opts.capo)
     if (opts.mode) setMode(opts.mode)
+    if (opts.view) setHubView(opts.view)
+    else if (opts.startChord || opts.mode) setHubView('path')
     if (opts.startChord) {
       const matchedId = flowNodeForChordSymbol(opts.startChord, nextTonic, nextMinor)
       setNodeId(matchedId)
@@ -379,11 +388,37 @@ export function HarmonicFlowCoach() {
 
   return (
     <div className="flow-coach stack" style={{ gap: 12 }} data-testid="harmonic-flow-coach">
+      {/* 4-Tool Songwriter Switcher */}
+      <div className="seg flow-hub-tabs" role="tablist" aria-label="Harmony tools">
+        {([
+          ['path', 'Chord Path'],
+          ['vibe', 'Chord Vibe Sets'],
+          ['shift', 'Key Shifter'],
+          ['detect', 'Detect Scale'],
+        ] as const).map(([id, label]) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={hubView === id}
+            onClick={() => setHubView(id)}
+            data-testid={`flow-hub-${id}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {hubView === 'vibe' && <ChordVibeSetsView tonic={tonic} onTonic={setTonic} />}
+      {hubView === 'shift' && <KeyShifterView initialTonic={tonic} initialMinor={minor} />}
+      {hubView === 'detect' && <DetectScaleView onPickVibe={k => { setTonic(k); setHubView('vibe') }} />}
+
+      {hubView === 'path' && (
+      <>
       {/* Top Controls Bar */}
       <div className="panel stack" style={{ gap: 10 }}>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Harmonic Flow Coach</h2>
+            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Chord Path</h2>
             <p className="small muted" style={{ margin: '2px 0 0' }}>
               Tap or strum any orbiting chord to flow smoothly through the key. Roman numerals stay locked when you transpose.
             </p>
@@ -860,7 +895,27 @@ export function HarmonicFlowCoach() {
         </div>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <button className="btn sm primary" onClick={handleOpenTrailInStrum} data-testid="flow-open-strum">
-            🎸 Open in Strum Grid
+            🎸 Open in Strum Machine
+          </button>
+          <button
+            className="btn sm"
+            onClick={() => {
+              const chords = trail.length >= 2 ? trail : [centerNode.symbol, branches[0]?.node.symbol ?? centerNode.symbol]
+              const chart: StrumChart = {
+                id: `flow-${Date.now()}`,
+                name: `Chord Path (${tonic}${minor ? 'm' : ''})`,
+                tonic,
+                minor,
+                capo,
+                bpm: strumState.bpm,
+                style: jamStyle,
+                bars: chords.map(c => ({ chords: [c] })),
+              }
+              downloadMidiFile(exportStrumChartToMidi(chart), `chord_path_${tonic}`)
+            }}
+            data-testid="flow-export-midi"
+          >
+            🎹 Export .mid
           </button>
           <button className="btn sm" onClick={() => openLicksInKey(tonic, minor)} data-testid="flow-open-licks">
             ⚡ Licks in {tonic}{minor ? 'm' : ''}
@@ -870,6 +925,8 @@ export function HarmonicFlowCoach() {
           </button>
         </div>
       </div>
+      </>
+      )}
     </div>
   )
 }
