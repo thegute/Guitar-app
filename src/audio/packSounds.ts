@@ -13,8 +13,8 @@ export function packBase(p: Pick<Pack, 'id' | 'name' | 'kind'> & { renderedWith?
   if (p.kind !== 'guitar') return null
   const s = `${p.id} ${p.name}`.toLowerCase()
   const amp = !!p.renderedWith?.amp
-  // a DI pack (no amp) isn't a sound to play: it's what the amp tones are made from
-  if (!amp && /(^|[^a-z])di([^a-z]|$)|direct/.test(s)) return null
+  // a DI pack (no amp) isn't a sound to play: it's what the amp tones are made from (except Evolution Dracus which ships with built-in amp/cab)
+  if (!amp && !/dracus/.test(s) && /(^|[^a-z])di([^a-z]|$)|direct/.test(s)) return null
   if (/nylon|classical|uke|ukulele/.test(s)) return 'nylon'
   if (/jazz|octave/.test(s)) return 'electric'
   if (amp || /mayer|wong|henson|rabea|petrucci|nolly|misha|fortin|asato|sunburst|storm|dracus|crunch|metal|chug|djent|clean|funk|lead/.test(s)) {
@@ -49,6 +49,7 @@ export const FIRST_CHOICE: Record<string, BuiltInSound> = {
   'picked-acoustic': 'acoustic',
   flatpick6: 'j45',
   'strummed-12': 'j45',
+  'strummed-6': 'acoustic',
   modernnylon: 'nylon',
   'picked-nylon': 'nylon',
   'sunburst-deluxe': 'clean',
