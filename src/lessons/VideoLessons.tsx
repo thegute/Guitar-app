@@ -195,9 +195,9 @@ export function VideoLessons({ onExit }: { onExit: () => void }) {
               Open your guitar courses right inside KGuitar with synced <b>PDF books</b>, <b>tab diagrams</b>, a <b>draggable/resizable floating video player</b>, <b>backing tracks</b>, and <b>speed/loop practice tools</b>.
             </p>
             <ol className="lick-steps">
-              <li>On your Mac, your 5 pre-mapped courses live in <b>~/KGuitar-Courses/</b> (ready to open right here or copy onto your tablet/phone).</li>
-              <li>Tap <b>Find my lessons</b> and choose a course folder (such as <i>Paul Davids - Acoustic Adventure</i> or <i>Roy Ziv - Guitar Modes Navigator</i>).</li>
-              <li>Each lesson automatically opens its matching PDF book pages or tab diagram with the floating video player on top!</li>
+              <li>Copy the whole course folder from <b>~/KGuitar-Courses/</b> onto your tablet/phone (e.g. into <b>Downloads</b> or <b>Documents</b> — via USB, LocalSend Wi-Fi, or unzipping a downloaded zip).</li>
+              <li>Tap <b>Find my lessons</b>, open that course folder (such as <i>Roy Ziv - Hexatonic MasterClass</i>), then tap <b>Use this folder</b> → <b>Allow</b> at the bottom.</li>
+              <li>Each lesson automatically opens its matching PDF book pages or tab diagram with the floating video player on top! <i>(Note: Android doesn&apos;t allow picking whole folders directly inside Google Drive — copy/unzip the folder to your device storage first.)</i></li>
             </ol>
           </Win>
         )}
@@ -205,11 +205,6 @@ export function VideoLessons({ onExit }: { onExit: () => void }) {
           <button className="btn primary" onClick={() => void pick()} disabled={!!busy}>
             {folders.length ? '+ Add another folder' : 'Find my lessons'}
           </button>
-          {lessonsAvailable() && (
-            <button className="btn" onClick={() => dirInputRef.current?.click()} disabled={!!busy}>
-              + Pick computer folder
-            </button>
-          )}
         </div>
         {err && <p className="notice small" role="alert" style={{ margin: 0 }}>{err}</p>}
         {folders.map(f => (
