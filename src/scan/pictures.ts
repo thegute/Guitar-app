@@ -59,8 +59,77 @@ export function unionBox(bs: Box[]): Box | null {
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
 }
 
-/** Crop, scale up 2–3× (smooth), grey + contrast + sharpen. `gapPx` = the string spacing in the source, if known. */
-export function enhance(src: Src, box: Box | null, gapPx?: number): Gray {
+/** How a video's tab is drawn, decided once from the frame where the staff was found (frame by frame guesses flicker
+ *  when a player moves behind a see-through tab): `light` = white lines and numbers, `busy` = a moving picture shows
+ *  through behind them (Level Up-style tabs floating over the video). */
+export interface TabLook { light: boolean; busy: boolean }
+
+/** The look of the tab in a picture, from one of its staves (`s` in the picture's own pixels). */
+export function tabLook(g: Gray, s: Strip): TabLook {
+  const ls = [...s.lines].sort((a, b) => a - b)
+  const gap = (ls[ls.length - 1] - ls[0]) / Math.max(1, ls.length - 1)
+  const x0 = Math.max(0, Math.round(s.left)), x1 = Math.min(g.w - 1, Math.round(s.right))
+  // the lines against the middle between them: brighter = a white tab
+  let on = 0, off = 0, n = 0
+  for (let k = 0; k < ls.length; k++) {
+    const y = Math.round(ls[k]), ym = Math.round(ls[k] + gap / 2)
+    if (y < 0 || ym >= g.h) continue
+    for (let x = x0; x <= x1; x += 3) {
+      let v = g.px[y * g.w + x]
+      for (const d of [-1, 1]) if (y + d >= 0 && y + d < g.h) v = Math.max(v, g.px[(y + d) * g.w + x]) // (a 2-px line)
+      on += v; off += g.px[ym * g.w + x]; n++
+    }
+  }
+  const light = n > 0 && on / n > off / n
+  // the ground between the lines, smoothed over about a string gap: even (a printed strip, a plain band) or not (a video)
+  const r = Math.max(2, Math.round(gap * 0.8))
+  const vals: number[] = []
+  for (let k = 0; k + 1 < ls.length; k++) {
+    const ym = Math.round((ls[k] + ls[k + 1]) / 2)
+    for (let x = x0 + r; x <= x1 - r; x += r) {
+      let sum = 0, c = 0
+      for (let dy = -Math.floor(gap / 4); dy <= Math.floor(gap / 4); dy++) for (let dx = -r; dx <= r; dx += 2) {
+        const yy = ym + dy, xx = x + dx
+        if (yy >= 0 && yy < g.h && xx >= 0 && xx < g.w) { sum += g.px[yy * g.w + xx]; c++ }
+      }
+      if (c) vals.push(sum / c)
+    }
+  }
+  vals.sort((a, b) => a - b)
+  const spread = vals.length > 8 ? vals[Math.floor(vals.length * 0.9)] - vals[Math.floor(vals.length * 0.1)] : 0
+  return { light, busy: spread > 0.16 }
+}
+
+/** Only the thin strokes of a tab (lines, numbers, stems), as dark ink on white: anything broad (a guitarist, a hand, the
+ *  light in the room behind a see-through tab) is left out. `r` ≈ a little more than the thickest stroke. */
+export function strokesOnly(g: Gray, r: number, light: boolean): Gray {
+  const { w, h } = g
+  const cs = new Float64Array((w + 1) * (h + 1))
+  for (let y = 0; y < h; y++) { let row = 0; for (let x = 0; x < w; x++) { row += g.px[y * w + x]; cs[(y + 1) * (w + 1) + x + 1] = cs[y * (w + 1) + x + 1] + row } }
+  const px = new Float32Array(w * h)
+  // how far a stroke stands out from the ground around it (above it for white ink, below it for black)
+  const lift = new Float32Array(w * h)
+  let top = 1e-6
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const xa = Math.max(0, x - r), xb = Math.min(w, x + r + 1), ya = Math.max(0, y - r), yb = Math.min(h, y + r + 1)
+    const mean = (cs[yb * (w + 1) + xb] - cs[ya * (w + 1) + xb] - cs[yb * (w + 1) + xa] + cs[ya * (w + 1) + xa]) / ((xb - xa) * (yb - ya))
+    const v = g.px[y * w + x]
+    const l = Math.max(0, light ? v - mean : mean - v)
+    lift[y * w + x] = l
+  }
+  // scaled to the strong strokes (the 99th percentile), so a faint tab and a bright one come out alike
+  const sample: number[] = []
+  for (let i = 0; i < lift.length; i += 13) if (lift[i] > 0.02) sample.push(lift[i])
+  sample.sort((a, b) => a - b)
+  if (sample.length) top = Math.max(0.05, sample[Math.floor(sample.length * 0.95)])
+  // (faint strokes are the picture behind: a string or a fret of the guitar in the video, never as bright as the tab)
+  for (let i = 0; i < px.length; i++) px[i] = 1 - Math.min(1, Math.max(0, (lift[i] / top - 0.4) / 0.45))
+  return { w, h, px, chroma: g.chroma }
+}
+
+/** Crop, scale up 2–3× (smooth), grey + contrast + sharpen. `gapPx` = the string spacing in the source, if known;
+ *  `look` = how a video's tab is drawn (found once per video), so every frame comes out the same way round. */
+export function enhance(src: Src, box: Box | null, gapPx?: number, look?: TabLook): Gray {
   const { w, h } = sizeOf(src)
   const bx = box ? { x: box.x * w, y: box.y * h, w: box.w * w, h: box.h * h } : { x: 0, y: 0, w, h }
   // big enough that a fret number is ~16+ px tall, never more than 3×, and not wider than 3600 px
@@ -72,6 +141,10 @@ export function enhance(src: Src, box: Box | null, gapPx?: number): Gray {
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(src as CanvasImageSource, bx.x, bx.y, bx.w, bx.h, 0, 0, c.width, c.height)
   const d = ctx.getImageData(0, 0, c.width, c.height)
+  const g = toGray(d.data, c.width, c.height)
+  // a see-through tab over a moving video: keep the strokes, drop the picture behind
+  if (look?.busy && gapPx) return strokesOnly(g, Math.max(3, Math.round(gapPx * k * 0.3)), look.light)
+  if (look) return sharpen(stretchContrast(g, look.light), 0.9)
   return sharpen(stretchContrast(toGray(d.data, c.width, c.height)), 0.9)
 }
 
@@ -144,7 +217,7 @@ function seek(v: HTMLVideoElement, t: number) {
   })
 }
 
-export interface VideoTab { pieces: Piece[]; frames: number; kept: number; scrolled: boolean; box: Box | null; /** each tab strip whole (before it's cut into pieces for the AI): for KGuitar's own reader */ strips: Gray[]; trace?: string[]; /** per strip: playhead x → seconds (see Stitcher.timelines) */ timelines?: { x: number; t: number }[][]; /** per strip: where each frame sat and when (Stitcher.views) */ views?: { x0: number; w: number; t: number }[][] }
+export interface VideoTab { pieces: Piece[]; frames: number; kept: number; scrolled: boolean; box: Box | null; /** each tab strip whole (before it's cut into pieces for the AI): for KGuitar's own reader */ strips: Gray[]; trace?: string[]; look?: TabLook | null; /** per strip: playhead x → seconds (see Stitcher.timelines) */ timelines?: { x: number; t: number }[][]; /** per strip: where each frame sat and when (Stitcher.views) */ views?: { x0: number; w: number; t: number }[][] }
 
 /**
  * Frames in, tab strips out, one frame at a time (a long screen grab never keeps more than a handful of frames): the tab
@@ -156,6 +229,8 @@ export interface VideoTab { pieces: Piece[]; frames: number; kept: number; scrol
 export class Stitcher {
   box: Box | null
   private gap = 0
+  /** how the tab is drawn (white? over a moving picture?), decided when the staff is found */
+  look: TabLook | null = null
   private prev: Gray | null = null
   private prevProf: Float32Array | null = null
   /** the current strip: frames at their place across it */
@@ -181,6 +256,8 @@ export class Stitcher {
   /** what the scroll tracking saw at each frame (shift:match, or x for none): for tests */
   trace: string[] = []
   private shifts: number[] = []
+  /** frames carried along at the steady speed without a match of their own */
+  private coast = 0
   /** frames looked at while still searching for the tab */
   private searched = 0
   constructor(box: Box | null = null) { this.box = box }
@@ -195,6 +272,7 @@ export class Stitcher {
       const { g, scale } = grayAt(src, 1400)
       const s = findStripsRobust(g)
       if (s.length) {
+        this.look = tabLook(g, s[0])
         this.gap = s[0].lines.length > 1 ? (s[0].lines[s[0].lines.length - 1] - s[0].lines[0]) / (s[0].lines.length - 1) / scale : 10
         // room above (pick strokes, words) and below (the rhythm: stems, beams, tuplet 3s) the staff
         const b = unionBox(s.map(x => toBox(x, scale, w, h)))!
@@ -203,7 +281,10 @@ export class Stitcher {
         this.box = { ...b, y: y0, h: y1 - y0 }
       } else if (this.searched < 90) return
       else this.box = { x: 0, y: 0, w: 1, h: 1 }
-    } else if (this.kept <= 12 && !this.doneW && this.layers.length <= 4) {
+    } else if ((this.kept <= 12 && !this.doneW && this.layers.length <= 4) || (this.kept <= 80 && this.box.w < 0.9 && this.kept % 3 === 0)) {
+      // (also later on, every 3rd frame, while the first strip is still being made and the tab doesn't yet fill the
+      // width: a tab that slides in from the side is first found on part of the screen. Nothing has left the screen yet
+      // while it slides in, so starting again with the wider box loses nothing.)
       // During the first ~2–3 seconds (while YouTube overlays/controls fade out or the tab slides in), allow
       // widening or recentering the box if a clearly wider/cleaner staff appears!
       const { w, h } = sizeOf(src)
@@ -215,6 +296,7 @@ export class Stitcher {
         const wider = Math.abs(b.y - this.box.y) < 0.08 && b.w > this.box.w * 1.12
         const cleaner = this.kept <= 6 && b.w > this.box.w * 1.25 && b.w >= 0.45
         if (wider || cleaner) {
+          this.look = tabLook(g, s[0])
           this.gap = gapNew || this.gap
           const up = (this.gap * 2) / h, down = (this.gap * 3.5) / h
           const y0 = Math.max(0, b.y - up), y1 = Math.min(1, b.y + b.h + down)
@@ -222,10 +304,11 @@ export class Stitcher {
           const x1 = cleaner ? b.x + b.w : Math.max(this.box.x + this.box.w, b.x + b.w)
           this.box = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
           this.layers = []; this.prev = null; this.prevProf = null; this.lineYs = null
+          this.done = null; this.doneW = 0; this.width = 0; this.at = 0; this.shifts = []; this.timeline = []; this.view = []
         }
       }
     }
-    this.addGray(enhance(src, this.box, this.gap || undefined), t)
+    this.addGray(enhance(src, this.box, this.gap || undefined, this.look ?? undefined), t)
   }
   /** a frame already cut to the tab box and cleaned up (enhance): follow it into the strips (also for tests) */
   addGray(g: Gray, t?: number) {
@@ -241,15 +324,26 @@ export class Stitcher {
     // frame's best guess is missing or different, the steady shift is used if it still fits reasonably (small, blurry tabs
     // match less sharply)
     const recent = this.shifts.slice(-3)
-    const steady = recent.length === 3 && recent.every(d => Math.abs(d - recent[0]) <= 3) ? Math.round(recent.reduce((a, b) => a + b, 0) / 3) : 0
-    if (steady && this.prevProf && this.layers.length && (!sh || Math.abs(sh.dx - steady) > 3)) {
-      const m = matchAt(this.prevProf, prof, steady)
+    // (frames taken at a fixed time step land on whole video frames, so a steady scroll can alternate, e.g. 64, 72, 64)
+    const mean = recent.length === 3 ? recent.reduce((a, b) => a + b, 0) / 3 : 0
+    const tol = Math.max(3, Math.round(mean * 0.15))
+    const steady = recent.length === 3 && recent.every(d => Math.abs(d - mean) <= tol) ? Math.round(mean) : 0
+    if (steady && this.prevProf && this.layers.length && (!sh || Math.abs(sh.dx - steady) > tol)) {
+      // the best match near the steady shift
+      let m = -1, at = steady
+      for (let d = steady - tol; d <= steady + tol; d++) { const v = matchAt(this.prevProf, prof, d); if (v > m) { m = v; at = d } }
       // (a "didn't move" that isn't nearly identical, in the middle of a steady scroll, is something on the screen that
       // stays put, not the tab stopping)
       // (only when this frame's own answer is weak: a clear match at another shift is the truth, e.g. a choppy recording
       // that skipped frames)
-      if (m > 0.3 && (!sh || (sh.dx === 0 && sh.match < 0.9) || (sh.match < 0.8 && m > sh.match - 0.2))) sh = { dx: steady, match: m }
+      if (m > 0.3 && (!sh || (sh.dx === 0 && sh.match < 0.9) || (sh.match < 0.8 && m > sh.match - 0.2))) sh = { dx: at, match: m }
+      // a long steady scroll that something on the screen hides for a moment (a hand, the light, a busy picture behind a
+      // see-through tab): the tab is still moving at the same speed, for up to 3 frames
+      // (and a shift far off the steady speed that only loosely matches is the picture behind moving, not the tab: a
+      // tab doesn't slow from 68 px a frame to 2; a choppy recording skips whole frames, so multiples of it still count)
+      else if ((!sh || (sh.match < 0.9 && (Math.round(sh.dx / steady) < 1 || Math.abs(sh.dx / steady - Math.round(sh.dx / steady)) > 0.15))) && this.coast < 3 && this.shifts.length >= 6 && this.shifts.slice(-6).every(d => Math.abs(d - mean) <= tol)) { sh = { dx: steady, match: 0.5 }; this.coast++ }
     }
+    if (sh && sh.match !== 0.5) this.coast = 0
     this.trace.push(sh ? `${sh.dx}:${sh.match.toFixed(2)}` : 'x')
     // a shift that matches only loosely by columns is checked number by number (a new page of a riff laid out on an even
     // grid can line up column by column at some shift)
@@ -409,9 +503,11 @@ export function overlapScore(a: Gray, b: Gray, lo: number, hi: number): { dx: nu
   const W = a.w >> 1, H = (y1 - y0) >> 1
   const half = (g: Gray) => {
     const o = new Float32Array(W * H)
+    // (a playhead stays put on the screen while the tab moves under it: left out)
+    const ph = playheadCols(g)
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = (y0 + y * 2) * g.w + x * 2
-      o[y * W + x] = 1 - Math.min(g.px[i], g.px[i + 1], g.px[i + g.w], g.px[i + g.w + 1])
+      o[y * W + x] = ph && (ph[x * 2] || ph[x * 2 + 1]) ? 0 : 1 - Math.min(g.px[i], g.px[i + 1], g.px[i + g.w], g.px[i + g.w + 1])
     }
     // only what's darker than its surroundings (a video showing through a see-through tab box shades it unevenly; one
     // page can come out fainter than the next)
@@ -481,7 +577,7 @@ export async function tabFromVideo(file: Blob, o: { every?: number; from?: numbe
       st.add(v, t)
     }
     const pieces = st.finish()
-    return { pieces, frames: st.frames, kept: st.kept, scrolled: st.scrolled, box: st.box, strips: st.strips, timelines: st.timelines, views: st.views, trace: st.trace }
+    return { pieces, frames: st.frames, kept: st.kept, scrolled: st.scrolled, box: st.box, strips: st.strips, timelines: st.timelines, views: st.views, trace: st.trace, look: st.look }
   } finally {
     v.removeAttribute('src'); v.load()
     URL.revokeObjectURL(url)

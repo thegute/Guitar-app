@@ -240,7 +240,9 @@ function stripsOf(g: Gray, strings: number[], dark: boolean): Strip[] {
 }
 
 /** Stretch the grey levels so the 2nd percentile is black and the 98th white (dark pictures are flipped to black on white). */
-export function stretchContrast(g: Gray): Gray {
+/** `light`: true = the tab is drawn light on dark (turn it round), false = dark on light, left out = guess from the
+ *  picture's overall brightness. */
+export function stretchContrast(g: Gray, light?: boolean): Gray {
   const hist = new Uint32Array(256)
   for (let i = 0; i < g.px.length; i++) hist[Math.max(0, Math.min(255, Math.round(g.px[i] * 255)))]++
   const n = g.px.length
@@ -249,7 +251,7 @@ export function stretchContrast(g: Gray): Gray {
   acc = 0
   for (let i = 255; i >= 0; i--) { acc += hist[i]; if (acc >= n * 0.02) { hi = i; break } }
   const span = Math.max(1, hi - lo) / 255, base = lo / 255
-  const flip = isDark(g)
+  const flip = light ?? isDark(g)
   const px = new Float32Array(n)
   for (let i = 0; i < n; i++) { const v = Math.max(0, Math.min(1, (g.px[i] - base) / span)); px[i] = flip ? 1 - v : v }
   return { w: g.w, h: g.h, px, chroma: g.chroma }
@@ -276,7 +278,7 @@ export function profile(g: Gray): Float32Array {
     let s = 0, dark = 0
     for (let y = 0; y < g.h; y++) { const v = g.px[y * g.w + x]; s += 1 - v; if (v < 0.5) dark++ }
     // a line from top to bottom of the box (or a colored playhead) stays put while the tab moves: leave it out
-    const isPh = dark > g.h * 0.8 || (ph !== null && Math.abs(x - ph) <= 8) || (g.chroma ? g.chroma[x] > 0.3 : false)
+    const isPh = dark > g.h * 0.65 || (ph !== null && Math.abs(x - ph) <= 8) || (g.chroma ? g.chroma[x] > 0.3 : false)
     p[x] = isPh ? -1 : s / g.h
   }
   for (let x = 0; x < g.w; x++) if (p[x] < 0) { let a = x; while (a > 0 && p[a] < 0) a--; let b = x; while (b < g.w - 1 && p[b] < 0) b++; p[x] = Math.max(0, ((p[a] < 0 ? 0 : p[a]) + (p[b] < 0 ? 0 : p[b])) / 2) }
@@ -318,7 +320,8 @@ export function playheadX(g: Gray, prev?: Gray): number | null {
   for (let x = 0; x <= g.w; x++) {
     let dark = 0
     if (x < g.w) for (let y = 0; y < g.h; y++) if (g.px[y * g.w + x] < 0.5) dark++
-    const on = x < g.w && dark > g.h * 0.8
+    // (taller than the staff with its stems: a bar line covers ~half the box, a playhead nearly all of it)
+    const on = x < g.w && dark > g.h * 0.65
     if (on && start >= 0) { /* keep going */ }
     else if (on && start < 0) start = x
     else if (!on && start >= 0) { runs.push([start, x - 1]); start = -1 }

@@ -10,7 +10,10 @@ const hz = (m: number) => 440 * 2 ** ((m - 69) / 12)
 
 export type Hearing = (t: number) => ((midi: number) => number) | null
 
-export function hearing(x: Float32Array, sr: number): Hearing {
+/** `n`: the look's length in samples (4096 ≈ 0.09 s; longer tells neighbouring semitones of low notes apart better,
+ *  at the cost of hearing the next note too: the scanner lab uses 16384). */
+export function hearing(x: Float32Array, sr: number, n = N): Hearing {
+  const N = n
   const fft = new FFT(N)
   const win = new Float32Array(N)
   for (let i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (N - 1))

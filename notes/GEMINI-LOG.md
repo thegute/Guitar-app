@@ -1,5 +1,18 @@
 # Gemini week log (newest first)
 
+- 2026-11-20 (Claude): **Riff Scanner: long strips, see-through white tabs, and the self-training lab**.
+  - `crnnRead.ts` readTabCrnn: a long window where the staff finder sees no staff is split in halves (lines drifting a few px
+    across a stitched strip); a staff found in only part of a window has the rest looked at again; windows with no staff
+    before any was found get the staff carried back from the far side (second pass). Made-up Short: 20 → 65 of 66 notes.
+    `onPiece` hook (the lab sees each straightened piece; reading unchanged).
+  - `pictures.ts`: `tabLook` (white? busy picture behind?) decided once when the staff is found (per-frame isDark flickered
+    over a moving video and broke the scroll tracking into hundreds of strips); `strokesOnly` keeps only thin strokes on a busy
+    background (Level Up style); playhead = dark over 65% of the box (was 80%) in profile + playheadX; overlapScore leaves the
+    playhead out; steady scroll tolerates alternating shifts (64/72) and coasts up to 3 frames at the steady speed when the
+    picture behind hides the tab (a far-off loose match isn't taken over it); a tab that slides in keeps widening its box
+    for the first ~80 frames (every 3rd). `image.ts` stretchContrast(g, light?). `hear.ts` hearing(x, sr, n).
+  - `tools/scan-lab/` (fetch.py, scan-lab.cjs, run-lab.sh, install.sh, fakeshort.py, README): the Mac lab. scanner-train
+    data.py takes comma-separated strip folders.
 - 2026-11-20 (Claude, finishing Gemini's Fix 5): **tab_crnn v6 shipped** (`public/models/tab-crnn/tab_crnn.onnx` = runs/v6/last.pt,
   step 2500, FP16). Gemini's v6 training on the Mac finished (log: best.json kept step 500; last.pt is better). Compared on the
   CPU (scratch `cmp.py`, same scoring as train.py): held-back book pages clean v5 99.14/99.35 → v6 99.18/99.52 (precision/recall),

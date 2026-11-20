@@ -355,6 +355,9 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: {
   /** a video's sound, to settle numbers the picture leaves in doubt: `when` = the time a point of this picture is played
    *  (from the playhead), `tuning` = MIDI of each string, lowest first, with any capo */
   hear?: { at: Hearing; when: (x: number) => number | null; tuning: number[] }
+  /** for the scanner lab (tools/scan-lab): each straightened piece the reader saw, its raw columns (frame x = u) and how
+   *  frame x maps back to the picture. Reading is unchanged. */
+  onPiece?: (piece: { px: Float32Array; W: number; nStr: number; cols: CrnnCol[]; toPage: (u: number) => number; xOffset: number }) => void
 } = {}): Promise<TabReading> {
   const nStr = opts.strings ?? 6
   g = deskew(g).g // a crooked photo: level its lines first
@@ -367,16 +370,40 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: {
   // lines can break between stretches, drift up or down, and the staff finder wants a picture of ordinary proportions.
   // The same staff seen in several windows (matched by height) becomes one system.
   const win = g.w > g.h * 8 ? g.h * 6 : g.w, wov = Math.round(win * 0.15)
-  const wins: [number, number][] = []
-  for (let a = 0; a < g.w; a += win - wov) { wins.push([a, Math.min(g.w, a + win)]); if (a + win >= g.w) break }
+  // each window: [from, to, keep from, keep to] (a window keeps the columns between the middles of its overlaps)
+  const wins: [number, number, number, number][] = []
+  for (let a = 0; a < g.w; a += win - wov) { wins.push([a, Math.min(g.w, a + win), 0, 0]); if (a + win >= g.w) break }
+  wins.forEach((w, k) => { w[2] = k === 0 ? -Infinity : w[0] + wov / 2; w[3] = k === wins.length - 1 ? Infinity : w[1] - wov / 2 })
+  const multi = wins.length > 1
   const rows: { top: number; ls: number[]; gap: number; left: number; right: number; cols: Col[] }[] = []
-  for (const [wk, [wa, wb]] of wins.entries()) {
-    const sub = wins.length === 1 ? g : cropCols(g, wa, wb)
-    const wlo = wk === 0 ? -Infinity : wa + wov / 2, whi = wk === wins.length - 1 ? Infinity : wb - wov / 2
-    let fs = findStrips(sub, [nStr])
+  // the staff where it has already been found, carried into a stretch where the staff finder sees none
+  const carried = (w: number) => rows.map(r => ({ top: Math.max(0, Math.round(r.ls[0] - r.gap * 2.6)), bottom: Math.min(g.h - 1, Math.round(r.ls[r.ls.length - 1] + r.gap * 1.8)), left: 0, right: w - 1, lines: r.ls }))
+  const later: [number, number, number, number][] = []
+  for (let pass = 0; pass < 2; pass++) {
+    if (pass === 1) { if (!rows.length) break; wins.push(...later) }
+  while (wins.length) {
+    const [wa, wb, wlo, whi] = wins.shift()!
+    const sub = wa === 0 && wb === g.w ? g : cropCols(g, wa, wb)
+    let fs = pass === 0 ? findStrips(sub, [nStr]) : []
+    // no staff in a long window: its lines may drift up or down a little across it (a stitched video, a phone photo of
+    // a wide page) so no one row of pixels holds a whole line. Look again in two overlapping halves.
+    if (!fs.length && pass === 0 && multi && wb - wa > g.h * 1.6) {
+      const mid = Math.round((wa + wb) / 2), o = Math.round((wb - wa) * 0.08)
+      wins.unshift([wa, mid + o, wlo, Math.min(whi, mid)], [mid - o, wb, Math.max(wlo, mid), whi])
+      continue
+    }
     // a stretch of a long strip where the staff finder sees no staff (long ties, a chord with brackets, a gap in the
-    // lines): the staff runs on at the height it had either side of it
-    if (!fs.length && wins.length > 1 && rows.length) fs = rows.map(r => ({ top: Math.max(0, Math.round(r.ls[0] - r.gap * 2.6)), bottom: Math.min(g.h - 1, Math.round(r.ls[r.ls.length - 1] + r.gap * 1.8)), left: 0, right: sub.w - 1, lines: r.ls }))
+    // lines): the staff runs on at the height it had either side of it (from the far side too, on the second pass)
+    if (!fs.length && multi) {
+      if (!rows.length) { later.push([wa, wb, wlo, whi]); continue }
+      fs = carried(sub.w)
+    }
+    // a staff found in only part of a long window: the rest of the window is looked at again on its own
+    if (multi && fs.length) {
+      const L = Math.min(...fs.map(f => f.left)), R = Math.max(...fs.map(f => f.right)), edge = g.h * 0.6
+      if (L > edge) wins.unshift([wa, wa + L + Math.round(edge / 2), wlo, Math.min(whi, wa + L)])
+      if (sub.w - 1 - R > edge) wins.unshift([wa + R - Math.round(edge / 2), wb, Math.max(wlo, wa + R), whi])
+    }
     for (const st of fs) {
       // a long stretch is read in overlapping pieces too, each straightened on its own; each keeps its middle part
       const ls = [...st.lines].sort((p, q) => p - q)
@@ -392,6 +419,7 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: {
         if (k === 0) gap = sv.gap
         const lo = k === 0 ? -Infinity : a + ov / 2, hi = k === cuts.length - 1 ? Infinity : b - ov / 2
         const rawCols = detectStripTechAndClean(decode(await run(sv.px, sv.W), nStr), sv, nStr)
+        opts.onPiece?.({ px: sv.px, W: sv.W, nStr, cols: rawCols, toPage: sv.toPage, xOffset: wa })
         for (const c of rawCols) {
           const x = sv.toPage(c.u)
           if (x >= lo && x < hi && x + wa >= wlo && x + wa < whi) cols.push({ ...c, x: x + wa })
@@ -401,6 +429,7 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: {
       if (row) { row.cols.push(...cols); row.left = Math.min(row.left, st.left + wa); row.right = Math.max(row.right, st.right + wa) }
       else rows.push({ top: ls[0], ls, gap, left: st.left + wa, right: st.right + wa, cols })
     }
+  }
   }
   rows.sort((p, q) => p.top - q.top)
   for (const r of rows) {

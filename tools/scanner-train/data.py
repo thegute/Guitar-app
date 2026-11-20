@@ -71,18 +71,24 @@ class Mixed(torch.utils.data.IterableDataset):
     def __init__(self, strips_dir=None, real=0.4, W=512, seed=0):
         self.W, self.real, self.seed = W, real, seed
         self.items = []
-        if strips_dir and os.path.exists(os.path.join(strips_dir, 'labels.jsonl')):
-            self.dir = strips_dir
-            self.items = [json.loads(l) for l in open(os.path.join(strips_dir, 'labels.jsonl'))]
+        # several folders, comma separated (the book pages + the scanner lab's checked video strips)
+        for d in (strips_dir or '').split(','):
+            if d and os.path.exists(os.path.join(d, 'labels.jsonl')):
+                for l in open(os.path.join(d, 'labels.jsonl')):
+                    if l.strip():
+                        e = json.loads(l)
+                        e['_dir'] = d
+                        self.items.append(e)
         self.cache = {}
 
     def real_strip(self, rng):
         e = rng.choice(self.items)
-        img = self.cache.get(e['file'])
+        key = os.path.join(e['_dir'], e['file'])
+        img = self.cache.get(key)
         if img is None:
-            img = Image.open(os.path.join(self.dir, e['file'])).convert('L')
+            img = Image.open(key).convert('L')
             if len(self.cache) < 4000:
-                self.cache[e['file']] = img
+                self.cache[key] = img
         W = self.W
         # a little zoom and a little up / down (the straightening is never exact)
         z = rng.uniform(0.96, 1.04)  # the outer lines move at most ~1.5 px
