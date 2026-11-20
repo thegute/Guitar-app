@@ -503,11 +503,9 @@ export function overlapScore(a: Gray, b: Gray, lo: number, hi: number): { dx: nu
   const W = a.w >> 1, H = (y1 - y0) >> 1
   const half = (g: Gray) => {
     const o = new Float32Array(W * H)
-    // (a playhead stays put on the screen while the tab moves under it: left out)
-    const ph = playheadCols(g)
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = (y0 + y * 2) * g.w + x * 2
-      o[y * W + x] = ph && (ph[x * 2] || ph[x * 2 + 1]) ? 0 : 1 - Math.min(g.px[i], g.px[i + 1], g.px[i + g.w], g.px[i + g.w + 1])
+      o[y * W + x] = 1 - Math.min(g.px[i], g.px[i + 1], g.px[i + g.w], g.px[i + g.w + 1])
     }
     // only what's darker than its surroundings (a video showing through a see-through tab box shades it unevenly; one
     // page can come out fainter than the next)
