@@ -1,5 +1,11 @@
 # Gemini week log (newest first)
 
+- 2026-11-20 (Claude, finishing Gemini's Fix 5): **tab_crnn v6 shipped** (`public/models/tab-crnn/tab_crnn.onnx` = runs/v6/last.pt,
+  step 2500, FP16). Gemini's v6 training on the Mac finished (log: best.json kept step 500; last.pt is better). Compared on the
+  CPU (scratch `cmp.py`, same scoring as train.py): held-back book pages clean v5 99.14/99.35 → v6 99.18/99.52 (precision/recall),
+  damaged 99.10/99.51 → 99.04/99.63; 600 unseen synth strips with the Shorts looks (pills, frosted glass, cursor bars, TAB clefs,
+  long ties) 95.23/94.77 → 98.61/98.52, strips fully right 49.8% → 82.9%. Not yet checked on real Shorts frames (needs captures).
+  Note: synth.py can throw "x1 must be greater than or equal to x0" in rounded_rectangle on newer Pillow (skip those samples).
 - 2026-11-20 (Claude): **Theory course Level 4, lessons 2 and 3**: "The five pentatonic boxes" (`c4-pentboxes`: each box round
   its CAGED shape, glue, slide / shift / diagonal, targets, bends per box, major = same boxes, playing over changes, one lick in
   five boxes, mastery bar; tabs pentBoxChord / pentLink / pentDiag / pentLickBoxes / pentTargets; ear `l4-pent-deg-ear`) and
