@@ -7,6 +7,7 @@ import { LETTERS, MAJOR_KEYS, MINOR_KEYS, NAT_MINOR_SEMIS, interval, keyChords, 
 import type { Question, QuizDef } from './quiz'
 import { octaveShapes } from './lessonExtras'
 import { stringName } from '../instrument'
+import { cagedShapes } from './caged'
 
 const pick = <T,>(a: readonly T[], rnd: () => number) => a[Math.floor(rnd() * a.length)]
 function shuffle<T>(a: T[], rnd: () => number) { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [b[i], b[j]] = [b[j], b[i]] } return b }
@@ -577,6 +578,46 @@ export const THEORY_QUIZZES: QuizDef[] = [
       const ans = `${name[deg]} (${deg}7)`
       const why = `${ans}. The 12 bars: I I I I · IV IV I I · V IV I V${quick ? ' (quick change: IV in bar 2)' : ''}; in ${k} that's ${name.I}, ${name.IV} and ${name.V}.`
       return choose(item, `A ${quick ? 'quick-change ' : ''}12-bar blues in ${k}: which chord is bar ${bar}?`, ans, ['I', 'IV', 'V'].map(d => `${name[d]} (${d}7)`), why, rnd)
+    },
+  },
+  {
+    id: 'l4-same-ear', unit: 'Guitar theory', title: 'Hear it: same chord, new shape?', ear: true,
+    desc: 'Two chords, each in a CAGED shape: the same chord moved to another shape (higher or lower), or a different chord?', length: 10, mic: false,
+    items: () => ['same', 'diff', 'same', 'diff', 'diff', 'same', 'same', 'diff', 'same', 'diff'].map((k, i) => `l4-same-ear:${k}:${i}`),
+    make: (item, inst, rnd) => {
+      const k = item.split(':')[1]
+      const key = Math.floor(rnd() * 12)
+      const notes = (pcv: number, minor: boolean, avoid?: string) => {
+        const sh = cagedShapes(pcv, minor, inst).filter(x => x.hi <= 15 && x.letter !== avoid)
+        const one = pick(sh, rnd)
+        return { letter: one.letter, midis: one.frets.map((f, s) => (f < 0 ? -1 : inst.midis[s] + f)).filter(m => m >= 0) }
+      }
+      const a = notes(key, false)
+      let b: { letter: string; midis: number[] }, why: string
+      if (k === 'same') { b = notes(key, false, a.letter); why = `the same chord: ${a.letter} shape, then the ${b.letter} shape. The notes are the same three (root, 3rd, 5th), only higher or lower and in a different order, so the colour stays the same.` }
+      else {
+        const [semi, minor, num] = pick([[5, false, 'IV'], [7, false, 'V'], [9, true, 'vi'], [2, true, 'ii']] as const, rnd)
+        b = notes((key + semi) % 12, minor)
+        why = `a different chord: the ${num} chord of the first one's key. Something moved under the shape: a new root (and with vi or ii, a minor colour too).`
+      }
+      return choose(item, 'Same chord in a new shape, or a different chord?', k === 'same' ? 'Same chord, new shape' : 'A different chord', ['Same chord, new shape', 'A different chord'], `${k === 'same' ? 'Same chord, new shape' : 'A different chord'}: it was ${why}`, rnd,
+        { audio: { chords: [a.midis, b.midis] }, sub: 'Ignore how high or low it is. Listen for the bass and the mood: did the chord change, or just move?' })
+    },
+  },
+  {
+    id: 'l4-top-ear', unit: 'Guitar theory', title: 'Hear it: which chord tone is on top?', ear: true,
+    desc: 'A major chord in one of its CAGED shapes, then its highest note alone: is the top note the root, the 3rd or the 5th?', length: 10, mic: false,
+    items: () => ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map((k, i) => `l4-top-ear:${k}:${i}`),
+    make: (item, inst, rnd) => {
+      const root = Math.floor(rnd() * 12)
+      const sh = pick(cagedShapes(root, false, inst).filter(x => x.hi <= 15), rnd)
+      const ms = sh.frets.map((f, s) => (f < 0 ? -1 : inst.midis[s] + f)).filter(m => m >= 0)
+      const top = Math.max(...ms)
+      const iv = (((top - root) % 12) + 12) % 12
+      const ans = iv === 0 ? 'The root' : iv === 4 ? 'The 3rd' : 'The 5th'
+      const tip = iv === 0 ? 'sing down to the bass: the same note name, it sounds finished.' : iv === 4 ? 'sweet, it says "major"; from it, down a major 3rd lands on home.' : 'open and strong, a bit hanging; from it, down three scale steps (5 4 3 2 1) lands on home.'
+      return choose(item, 'Which chord tone is on top?', ans, ['The root', 'The 3rd', 'The 5th'], `${ans} (the ${sh.letter} shape): ${tip} Hearing the top note is how you choose a voicing that sings the melody.`, rnd,
+        { audio: { chords: [ms, [top], [iv === 0 ? top - 12 : top - iv], ms] }, sub: 'You hear the chord, its top note, the root just under it, then the chord again. Sing the top note, then sing down to home.' })
     },
   },
 ]

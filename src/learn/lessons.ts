@@ -373,7 +373,7 @@ const OFFTONIC_LESSONS: Lesson[] = [
  *  one (plans, search, the helper, old reviews) opens its course lesson instead. The 12 No Bull "essentials" went too. */
 export const REPLACED: Record<string, string> = {
   'tb-alphabet': 'c1-strings', 'tb-steps': 'c1-steps', 'tb-major': 'c2-major', 'tb-triads': 'c2-triads', 'tb-intervals': 'c2-intervals',
-  'tb-chromatic': 'c2-chromatic', 'tb-keys1': 'c2-keys', 'tb-keys2': 'c2-keychords', 'tb-progressions': 'c3-progressions',
+  caged: 'c4-caged', 'tb-chromatic': 'c2-chromatic', 'tb-keys1': 'c2-keys', 'tb-keys2': 'c2-keychords', 'tb-progressions': 'c3-progressions',
   'tb-pentatonic': 'c3-minorpent', 'tb-minor': 'c3-natminor', 'tb-minorkeys': 'c3-minorkeys',
   reading: 'c1-reading', alphabet: 'c1-strings', pitch: 'c1-octaves', durations: 'c1-rhythm', counting: 'c1-rhythm',
   meter: 'c3-rhythm', syncopation: 'c2-rhythm', swing: 'c3-rhythm', diatonic: 'c2-major', intervals: 'c2-intervals', keys: 'c2-keys',

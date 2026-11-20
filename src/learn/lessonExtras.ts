@@ -3,13 +3,14 @@
 import type { ExerciseSpec } from '../tabs/exercises'
 import { fingerMelody } from '../tabs/fingering'
 import type { Song, SongBar } from '../tabs/model'
+import { cagedChordTab, cagedEmbTab, cagedMinorZoneTab, cagedOneShapeTab, cagedZoneTab } from '../course/cagedTabs'
 
 export interface LessonVideo { id: string; title: string }
 export type LessonEx = { label: string } & (
   | { spec: ExerciseSpec }
   | { songbook: { song: string; part: string } }
   | { drill: string }
-  | { tab: 'alphabetA' | 'alphabetE' | 'octaves' | 'durations' | 'intervals' | 'counting' | 'shuffle' | 'octaveWalk' | 'octaveDyads' | 'octaveCross' | 'keyTriads' | 'keyTriadsEmb' }
+  | { tab: 'alphabetA' | 'alphabetE' | 'octaves' | 'durations' | 'intervals' | 'counting' | 'shuffle' | 'octaveWalk' | 'octaveDyads' | 'octaveCross' | 'keyTriads' | 'keyTriadsEmb' | 'cagedC' | 'cagedG' | 'cagedAm' | 'cagedZone' | 'cagedZoneE' | 'cagedZones' | 'cagedEmb' | 'caged4thsE' | 'caged4thsA' | 'cagedZoneMinor' }
   | { tool: 'ear' | 'circle' | 'caged' | 'changes' | 'bends' | 'jam' }
   | { example: string }
 )
@@ -232,6 +233,17 @@ export function lessonTab(id: string, tuning: number[]): Song {
     return { title: 'Shuffle riff (play the eighths long-short)', tempo: 84, tracks: [{ name: 'Shuffle', tuning, capo: 0, bars, program: 25 }] }
   }
   if (id === 'keyTriads' || id === 'keyTriadsEmb') return keyTriadTab(id === 'keyTriadsEmb', tuning)
+  // the CAGED lesson (Level 4): one chord in every shape, a key in one zone or all of them, the free-finger hammer-ons
+  if (id === 'cagedC') return cagedChordTab(0, false, tuning)
+  if (id === 'cagedG') return cagedChordTab(7, false, tuning)
+  if (id === 'cagedAm') return cagedChordTab(9, true, tuning)
+  if (id === 'cagedZone') return cagedZoneTab(0, tuning, [0])
+  if (id === 'cagedZoneE') return cagedZoneTab(0, tuning, [2])
+  if (id === 'cagedZones') return cagedZoneTab(0, tuning, 'all')
+  if (id === 'cagedEmb') return cagedEmbTab(0, tuning)
+  if (id === 'caged4thsE') return cagedOneShapeTab('E', tuning)
+  if (id === 'caged4thsA') return cagedOneShapeTab('A', tuning)
+  if (id === 'cagedZoneMinor') return cagedMinorZoneTab(9, tuning)
   // intervals: A up to each interval and back, an octave of steps
   let a = Math.min(...tuning)
   while (a % 12 !== 9) a++

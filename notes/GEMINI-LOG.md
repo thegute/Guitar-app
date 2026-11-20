@@ -1,5 +1,14 @@
 # Gemini week log (newest first)
 
+- 2026-11-20 (owner, to Claude): **"Look at what Gemini did, all good stuff"**: everything Gemini built up to `de1a5bb`
+  (Argon engine steps 1–8, Hydrogen H1–H3, licks, Drill Lab, Course Studio, Deep Accuracy Riff Scanner, Chord Vibe Sets,
+  Harmonic Flow Coach, harvest tools) is **KEEP**. Fix bugs without changing how it looks, sounds or behaves.
+- 2026-11-20 (Claude): **Theory course Level 4, lesson 1: "CAGED: the map of the whole neck"** (`src/course/level4.ts`,
+  `src/course/cagedTabs.ts`): one deep lesson with 15 learn sections (five shapes, the B-string kink, glue, root finders,
+  1-3-5 jobs, minor shapes, real grips + top-string triads, scales inside shapes, zones major + minor, the three directions,
+  note finding, real music, mastery bar), 10 worked examples, 2 new ear quizzes (`l4-same-ear`, `l4-top-ear`), 9 lesson tabs
+  (`cagedC/G/Am`, zones, circle of 4ths in the E and A shapes, minor zone, free-finger hammer-ons), links to the fills workshop,
+  Target notes, Call and response and Jam; fills ideas link back to it; the old "CAGED system" lesson now opens it.
 - 2026-11-18: **Argon Sound Engine Finish (Steps 1–8) + 9 Speed/Quality Upgrades + Mac Harvest Wave 2 Plans & Two-Tier Exporter (`src/engine/worklets/sampler.worklet.js`, `src/engine/worklets/master.worklet.js`, `src/engine/sampler.ts`, `src/engine/packs.ts`, `src/engine/console.ts`, `src/engine/bodyCabIr.ts`, `src/engine/parts.ts`, `src/audio/engine.ts`, `src/audio/pluck.ts`, `src/audio/drums.ts`, `src/audio/metronome.ts`, `src/audio/tabPlayer.ts`, `src/audio/packSounds.ts`, `src/components/SoundPacks.tsx`, `src/components/AudioSetup.tsx`, `src/learn/Settings.tsx`, `src/learn/guide.ts`, `src/search/catalog.ts`, `tools/harvest/export_pack.py`, `tools/harvest/plans/*.json`, `tests/packs-logic.test.ts`, `tests/browser/packs-test.cjs`)**:
   1. **Step 1 — `kg-sampler` AudioWorklet Live Path + 9 Speed & Quality Upgrades (`sampler.worklet.js`, `master.worklet.js`, `sampler.ts`, `packs.ts`, `pluck.ts`, `engine.ts`):**
      - Upgraded `kg-sampler` to **16 stereo output bus slots** (`destSlotFor(dest)`) so `me`, `band`, `guitar`, `bass`, `drums`, `keys`, `JamTransport`, and `StudioTransport` buses stay isolated while sharing one worklet sample store.
