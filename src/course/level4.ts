@@ -4,6 +4,7 @@
 // Practical Guide) are pointed to, never copied. Every fret below was checked with learn/caged.ts (course/cagedTabs.ts).
 import type { CourseLesson } from './types'
 import { shapeMarks, shapesOf, scaleInShape } from './cagedTabs'
+import { boxMarks, topTriads } from './pentTriadTabs'
 
 const only = (...letters: string[]) => (sh: { letter: string }[]) => sh.filter(s => letters.includes(s.letter)) as never
 /** C major in each shape on guitar (open C, A shape at 3, G shape 5–8, E shape at 8, D shape 10–13, C shape at 12) */
@@ -278,4 +279,220 @@ export const CAGED: CourseLesson = {
   ],
 }
 
-export const LEVEL4: CourseLesson[] = [CAGED]
+// ---- Lesson 2: the five pentatonic boxes ------------------------------------------------------------------------
+// A minor pentatonic on guitar: box 1 frets 5–8 (Am E shape / C G shape), box 2 7–10 (Am D shape / C E shape),
+// box 3 9–13 (Am C shape / C D shape), box 4 12–15 (Am A shape at 12 / C C shape at 12), box 5 2–5 (Am G shape / C A shape).
+const AM_SEQ = (label: string, type: 'threes' | 'fours' | 'thirds' | 'triplets', position: number) => ({ label, spec: { kind: 'sequence' as const, root: 'A', type, position, scale: 'minor pentatonic' } })
+const AM_BOX = (label: string, position: number) => ({ label, spec: { kind: 'scale' as const, root: 'A', type: 'minor pentatonic', position } })
+
+export const PENT_BOXES: CourseLesson = {
+  id: 'c4-pentboxes', level: 4, n: 2, title: 'The five pentatonic boxes: soloing over the whole neck', minutes: 90,
+  goal: 'Play the minor and major pentatonic in all five boxes in any key, see each box around its CAGED chord shape, move between boxes in the middle of a phrase, bend the right notes in every box, and land on the chord that\'s playing wherever you are on the neck.',
+  builds: ['the minor pentatonic box 1', 'the major pentatonic and the relative trick', 'the CAGED shapes', 'chord tones (R, 3, 5)', 'bends and vibrato'],
+  topics: ['pentatonic', 'minor pentatonic', 'major pentatonic', 'scale positions', 'CAGED', 'soloing', 'target notes', 'bends'],
+  steps: [
+    {
+      kind: 'why', title: 'Why this matters', blocks: [
+        { p: 'Almost every guitarist gets stuck in **box 1**. It\'s where you learned the minor pentatonic, every lick lives there, and after a while every solo sounds the same: same notes, same octave, same five frets. The players you admire don\'t have more notes than you. The minor pentatonic has five. They just have **all of them, everywhere**: they move up the neck for the high, singing part of a solo and come back down to finish, and the notes under their fingers always relate to the chord.' },
+        { p: 'There are **five boxes**, and they are the five CAGED shapes you just learned with the scale notes filled in around them. So you are not learning four new scales. You are colouring in a map you already have.' },
+        { p: 'By the end you\'ll be able to:' },
+        { list: ['play the minor and major pentatonic in all five boxes, in any key;', 'see the chord shape inside each box, so you always know where the root and the 3rd are;', 'move from one box to the next in the middle of a phrase, by sliding, by shifting, or by running a diagonal;', 'bend the right notes in every box and land them in tune;', 'play the same lick in five places, and land on the chord that\'s playing, wherever you are.'] },
+        { play: { label: 'A minor pentatonic across the neck: box 1, then up through the boxes on a diagonal', seq: [45, 48, 50, 52, 55, 57, 60, 62, 64, 67, 69, 72, 74, 76], gap: 0.22 } },
+        { tip: 'Another long one. Do one box a sitting, then the moves between them. The practice goals mark your progress.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '1 · Box 1 again, as a chord shape', blocks: [
+        { p: 'Look at A minor pentatonic box 1 (frets 5–8) with the jobs of its notes marked. The **root**, **♭3** and **5** are the A minor chord. Together they make the **Am E shape** from the CAGED lesson: the minor barre at the 5th fret. The **4** and **♭7** are the two notes that fill the gaps.' },
+        { spots: { caption: 'A minor pentatonic, box 1 (frets 5–8). The highlighted notes (R, ♭3, 5) are the Am barre chord, the E shape. The 4 and ♭7 fill in around it.', from: 4, to: 8, marks: midis => boxMarks(midis, 9, true, 0, 4) } },
+        { p: 'Look at it the other way and it\'s also **C major**: the same five notes with C as home (the relative trick from Level 3). Box 1 holds the **C chord\'s G shape** (frets 5–8). So every box is two chords at once: the minor one and its relative major.' },
+        { tip: 'This is the key idea of the lesson. A box isn\'t a pattern of dots: it\'s a **chord shape plus two passing notes**. See the chord and you can always find home.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '2 · The five boxes, end to end', blocks: [
+        { p: 'Each box starts on the next note of the scale along the low E string, and each one sits on the next CAGED shape. For **A minor pentatonic** on guitar:' },
+        { list: [
+          '**Box 1**: frets 5–8. Am **E shape** (C major\'s G shape). Roots on the low E, D and high e strings.',
+          '**Box 2**: frets 7–10. Am **D shape** (C\'s E shape). Roots on the D string (7) and the B string (10).',
+          '**Box 3**: frets 9–13. Am **C shape** (C\'s D shape). Roots on the A string (12) and the B string (10).',
+          '**Box 4**: frets 12–15. Am **A shape** at the 12th fret (C\'s C shape). Roots on the A string (12) and the G string (14).',
+          '**Box 5**: frets 2–5, or 14–17 an octave up. Am **G shape** (C\'s A shape). Roots on the low E (5), G (2) and high e (5) strings. Then box 1 starts again.',
+        ] },
+        { spots: { caption: 'A minor pentatonic, all five boxes. Box 5 at frets 2–5, then boxes 1–4 from the 5th fret up. R = A, highlighted = the Am chord tones.', from: 0, to: 15, marks: midis => boxMarks(midis, 9, true, 'all') } },
+        { p: 'The order of the chord shapes is **E, D, C, A, G**: CAGED read backwards, because here we start from the E shape. Same chain, same wrap-around.' },
+        { tip: 'Learn the boxes by their **roots** first. A box you can\'t remember is quick to rebuild from its roots and the chord shape around them.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '3 · Each box, with its chord', blocks: [
+        { p: 'Practise every box the same way: **strum the chord shape, play the box, strum the chord again**. Your eyes and hands learn the scale as the chord with notes around it, and the chord is the part that changes when the music changes.' },
+        { spots: { caption: 'Box 2 (frets 7–10): the Am D shape inside it. Roots on the D and B strings.', from: 6, to: 10, marks: midis => boxMarks(midis, 9, true, 1, 6) } },
+        { spots: { caption: 'Box 3 (frets 9–13): the Am C shape inside it. Roots on the A and B strings. Note the B string sits one fret higher: the kink.', from: 8, to: 13, marks: midis => boxMarks(midis, 9, true, 2, 8) } },
+        { spots: { caption: 'Box 4 (frets 12–15): the Am A shape at the 12th fret. Roots on the A and G strings.', from: 11, to: 15, marks: midis => boxMarks(midis, 9, true, 3, 11) } },
+        { spots: { caption: 'Box 5 (frets 2–5): the Am G shape. Roots on the low E, G and high e strings.', from: 1, to: 5, marks: midis => boxMarks(midis, 9, true, 4, 1) } },
+        { p: 'Every box has **two notes on each string**. Watch the **B-string kink**: when a box crosses from the G string to the B string, its fingering shifts up a fret on the B and high e strings. That\'s why boxes 2 and 3 feel lopsided.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '4 · The glue between boxes', blocks: [
+        { p: 'Neighbouring boxes **share notes**: the right-hand column of one box is the left-hand column of the next. On every string, the higher note of box 1 is the lower note of box 2, and so on. So "moving to the next box" means keeping the notes you\'re on and letting the rest of your hand move up.' },
+        { spots: { caption: 'Boxes 1 and 2 together (frets 5–10): the notes at frets 7 and 8 belong to both.', from: 4, to: 10, marks: midis => [...boxMarks(midis, 9, true, 0, 4), ...boxMarks(midis, 9, true, 1, 4)].filter((m, i, a) => a.findIndex(x => x.s === m.s && x.f === m.f) === i) } },
+        { p: 'Three ways to travel, and good players use all three in one solo:' },
+        { list: [
+          '**Slide**: on one string, slide from a box\'s top note up to the next note of the scale. Your whole hand arrives in the next box. It\'s smooth and vocal, the most common way.',
+          '**Shift on a shared note**: play up the low strings in box 1, then on the G string move your first finger to the shared note and carry on in box 2. Nobody hears the change.',
+          '**Diagonal**: three notes on each string instead of two, so each string climbs a little further up the neck. Two octaves sweep across three boxes in one run: the long, flowing lines of Gilmour, Hendrix and Clapton.',
+        ] },
+        { tip: 'Practise moving **in the middle of a phrase**, not at the end of a scale. A solo never stops to change position.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '5 · Where to land: the targets in every box', blocks: [
+        { p: 'A phrase sounds finished when it **ends on a chord tone**: the root, the ♭3 or the 5 of a minor chord. Because each box is built round the chord shape, those landing notes are always one or two frets from where your fingers are.' },
+        { list: ['**The root**: home, final. In each box, know your two or three roots without looking.', '**The ♭3**: the minor colour. Ending a phrase on it sounds sad and sweet: the singer\'s note.', '**The 5**: strong and open. A good place to pause before the phrase goes on.', '**The 4 and ♭7**: passing and leaning notes. They want to move: the 4 to the ♭3 or the 5, the ♭7 to the root. Hold one at the end of a phrase and it sounds unfinished (sometimes that\'s what you want).'] },
+        { tip: 'Ear first: play the drone or the Am chord, play each note of a box against it and say what it does (rests, leans, wants to move). That\'s the ear drill below too.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '6 · Bends in every box', blocks: [
+        { p: 'The pentatonic is a **bending scale**: its gaps are a whole step (two frets) between most notes, so a note bent up a whole step lands exactly on the next note of the scale. The three bends that always work:' },
+        { list: ['**4 up to 5** (a whole step). The most famous rock bend. In box 1 it\'s the G string, 7th fret.', '**♭7 up to the root** (a whole step). In box 1 it\'s the B string, 8th fret: it lands on the A of the high e string\'s 5th fret.', '**♭3 up to the 4** (a whole step), or just a small **curl** a quarter of the way up, towards the major 3rd: the blues "in-between" note. In box 1 it\'s the high e string, 8th fret.'] },
+        { p: 'Every box has the same three bends, on different strings. **Box 2**: the ♭7 on the B string (8th fret) up to the root, and the 4 on the high e (10th fret) up to the 5. **Box 3**: the ♭7 on the G string (12th fret) up to the root, and the ♭3 on the B string (13th fret) up to the 4. **Box 5**: the 4 on the B string (3rd fret) up to the 5, and the ♭7 on the high e (3rd fret) up to the root.' },
+        { tip: 'Check every bend: play the target note first, then bend to match it. Bends on the G, B and high e strings are easiest. Use three fingers on the string behind the bending finger.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '7 · The major pentatonic: same boxes, a different home', blocks: [
+        { p: 'You know from Level 3 that **C major pentatonic** has the same notes as A minor pentatonic. So it also has the same five boxes. Only the **home note** changes, and with it the chord shape you see in each box: the C major shapes instead of the A minor ones.' },
+        { p: 'KGuitar numbers boxes from the home note on the low E string, so **C major box 1** (frets 7–10) is the same set of dots as **A minor box 2**. Every major box k is minor box k + 1. You don\'t have to learn anything new, only where the major home sits in each box.' },
+        { spots: { caption: 'C major pentatonic around the 8th fret: the C chord (E shape) inside it, with the 2 and 6 next to the chord tones. These are the same dots as A minor box 2.', from: 6, to: 10, marks: midis => boxMarks(midis, 0, false, 0, 6) } },
+        { p: 'What changes is the **sound**: lean on C, E and G (the C chord) and the dots sound sweet and major; lean on A, C and E (the Am chord) and the same dots sound minor. The scale doesn\'t decide the mood, **the notes you land on** do.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '8 · Playing over chord changes', blocks: [
+        { p: 'A solo isn\'t over one chord. In a progression like **Am – F – C – G** (vi – IV – I – V in C), A minor pentatonic fits every chord, because all its notes belong to the key. But "fits" isn\'t the same as "says something". Three levels, each more musical:' },
+        { list: [
+          '**One scale over everything.** Am pentatonic over the whole song. Safe and bluesy, but it doesn\'t follow the chords.',
+          '**Same scale, land on each chord.** Stay in one box, but end each phrase on a note of the chord that\'s playing: C (the 3rd) over Am, A (the 3rd) over F, E (the 3rd) over C, G (the root) over G. Suddenly the solo follows the song.',
+          '**A pentatonic per chord.** Switch to the pentatonic of each chord: G major pentatonic over G (it adds B, the G chord\'s 3rd), F major pentatonic over F (it adds F). This is the Mayer, Clapton and Asato move: the shape you\'re in shifts with the chord, using the box map to find each one nearby.',
+        ] },
+        { p: 'Over a **12-bar blues** the classic move is the same idea: A minor pentatonic for the grit, then the **A major pentatonic** (three frets lower) over the I chord for a sweeter sound, and back. You\'ll go deeper in Level 5.' },
+        { tip: 'Target notes trains level two directly: each chord, land on its 3rd, in the box you choose.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '9 · One idea, five places', blocks: [
+        { p: 'A lick is a **shape of notes**, so it can be played in every box: the same notes, or the same notes an octave up, with five different fingerings. Moving a lick through the boxes does three things at once: it teaches you the boxes, it gives you five sounds for one idea (the B-string version sings, the low-string version growls), and it\'s how players build a solo: say it, then say it again higher.' },
+        { p: 'Two more classic ways to make a box musical, not mechanical:' },
+        { list: ['**Sequences**: groups of three or four notes stepping up the box (1-2-3, 2-3-4, …). They build speed and give you endless phrases.', '**Call and response**: a short phrase in one box, a reply in the next one up. A conversation that climbs.'] },
+        { p: 'And one place every blues player knows: the small area round the **root on the B string** (10th fret for A, top of box 2). B.B. King built a career there: a root, the notes a step either side, and a vibrato.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '10 · What mastery looks like', blocks: [
+        { p: 'You own the pentatonic when all of these are true without thinking:' },
+        { list: [
+          'Called a key and a box number, you\'re in it in **about two seconds**, minor or major.',
+          'In any box, you can point to the **roots**, the **♭3** and the **5**, and name the **chord shape** inside it.',
+          'You can **run a phrase across three boxes** without stopping: sliding, shifting or on a diagonal.',
+          'You can play the **three bends** in every box, in tune.',
+          'Over a progression, you **land on the chord that\'s playing** in at least two different boxes.',
+          'You can play one lick in **all five boxes**, and answer a phrase in the next box up.',
+        ] },
+      ],
+    },
+    {
+      kind: 'examples', title: 'Worked examples', intro: 'Find the root first, then the chord shape, then the box.', examples: [
+        { q: 'Where is box 1 of E minor pentatonic, and which chord shape is inside it?', steps: ['Box 1 starts on the root on the low E string.', 'E on the low E: the 12th fret (or open).', 'Box 1 = frets 12–15 (or the open position), with the Em E shape inside: the open Em chord, moved up.'], answer: 'Frets 12–15 (or open), round the Em E shape.' },
+        { q: 'You\'re in A minor box 1 and want to go higher. Which box is next, and where?', steps: ['Box 2 sits on the next shape up: the Am D shape.', 'It starts on C, the next scale note on the low E: the 8th fret.', 'Frets 7–10. Shared notes with box 1 at the 7th and 8th frets.'], answer: 'Box 2, frets 7–10.', spots: { from: 6, to: 10, marks: midis => boxMarks(midis, 9, true, 1, 6) } },
+        { q: 'In box 2 of A minor, which note bends up to the root?', steps: ['The ♭7 bends a whole step up to the root.', 'The ♭7 of A is G.', 'In box 2, G is on the B string, 8th fret. Bend it two frets: it sounds A.'], answer: 'B string, 8th fret, bent a whole step.' },
+        { q: 'Where is G major pentatonic box 1?', steps: ['Major box 1 starts on the major root on the low E.', 'G on the low E: the 3rd fret.', 'The box is the same dots as E minor box 2 (frets 2–5), with the G chord\'s E shape inside it.'], answer: 'Frets 2–5, round the G chord\'s E shape at the 3rd fret.' },
+        { q: 'Over the progression Am – F – C – G in box 1, which note do you land on for each chord?', steps: ['Am: its 3rd is C: high e string, 8th fret (or the G string, 5th).', 'F: its 3rd is A: high e or D string, root of the box.', 'C: its 3rd is E: B string, 5th fret.', 'G: its 3rd (B) isn\'t in the scale, so land on its root, G: B string, 8th fret.'], answer: 'C, A, E, G: the 3rd of each chord, or the root when the 3rd isn\'t in the scale.' },
+        { q: 'A blues in D. Where are the minor pentatonic box 1 and the major pentatonic box 1?', steps: ['D minor pentatonic box 1: D on the low E is the 10th fret: frets 10–13.', 'D major pentatonic: the minor box three frets lower, from the 7th fret (B minor box 1 = D major).', 'Or think of it the KGuitar way: D major box 1 starts on D at the 10th fret, with the D chord\'s E shape: frets 9–12.'], answer: 'Minor: frets 10–13. Major: the B minor box 1 shape at the 7th fret, or D major box 1 at frets 9–12.' },
+        { q: 'You play A C D (root, ♭3, 4) on the A and D strings in box 1. Play the same idea in box 4.', steps: ['In box 4 the roots are on the A string, 12th fret, and the G string, 14th fret.', 'From the A-string root: A (A 12), C (A 15), D (D 12).', 'Same notes, one octave up, a different fingering.'], answer: 'A string 12, A string 15, D string 12.' },
+      ],
+    },
+    {
+      kind: 'hear', title: 'Hear it', blocks: [
+        { p: 'The boxes give you the notes; your ear decides which ones to play. Two skills matter most. First, hear **what each note does against the chord**: the root rests, the ♭3 is the minor colour, the 4 leans, the 5 is open, the ♭7 wants to rise. Second, hear the **same phrase in a new place**: higher means brighter and more urgent, not a different idea.' },
+        { list: ['Over an A drone (or a held Am chord), play each note of box 1 slowly and say what it does.', 'Play the phrase A C D C A in box 1, then in box 4. Same idea, an octave up.', 'Bend the 4 up to the 5, then play the 5 straight. Do they match?'] },
+      ],
+      drills: [
+        { label: 'Which pentatonic note?', quiz: 'l4-pent-deg-ear', minutes: 5, goal: '8 out of 10' },
+        { label: 'Which scale? (minor, major, blues…)', quiz: 'l3-scale-ear', minutes: 4 },
+        { label: 'Ear training path', tool: 'earpath', minutes: 5 },
+      ],
+    },
+    {
+      kind: 'mistakes', title: 'Common mistakes', items: [
+        { wrong: 'Learning five boxes as five unrelated patterns.', right: 'Learn each box around its chord shape, and learn the shared notes between neighbours.' },
+        { wrong: 'Running boxes up and down and calling it soloing.', right: 'Make phrases. Start and end them on chord tones, and leave space between them.' },
+        { wrong: 'Changing boxes only at the end of a run.', right: 'Move in the middle of a phrase: slide, shift on a shared note, or run a diagonal.' },
+        { wrong: 'Bending out of tune.', right: 'Play the target note, then bend to match it. Support the bend with the fingers behind.' },
+        { wrong: 'Thinking major and minor pentatonic are different shapes.', right: 'Same five boxes. Only the home note, and the chord you lean on, change.' },
+        { wrong: 'Ignoring the chord changes.', right: 'Land on a note of the chord that\'s playing, its 3rd when you can.' },
+        { wrong: 'Forgetting box 5 lives near the nut too.', right: 'In most keys box 5 has a low version (A: frets 2–5) and a high one (14–17). Both are the same box.' },
+      ],
+    },
+    {
+      kind: 'practice', title: 'Practice goals', intro: 'Always over a backing track or a drone, never in silence. Say the root strings and the chord shape before each box.',
+      challenge: { label: 'One solo over Am – F – C – G that uses three boxes and lands on every chord', ex: { label: 'Land on each chord in box 3', tab: 'pentTargets3' }, goal: 'then improvise 16 bars over the Jam band, moving through at least three boxes', why: 'This is soloing: the whole neck, the chord changes and the ear, all at once.' },
+      goals: [
+        { focus: 'Each box with its chord', tasks: [{ label: 'Am pentatonic: each box around its chord shape', ex: { label: 'Each box around its chord shape', tab: 'pentBoxChord' }, minutes: 10, goal: 'no stops at 72 BPM' }] },
+        { focus: 'All five boxes', tasks: [{ label: 'A minor pentatonic, all five boxes', ex: AM_BOX('A minor pentatonic, all five boxes', -1), minutes: 8 }, { label: 'Box 2 alone, until it\'s as easy as box 1', ex: AM_BOX('A minor pentatonic, box 2', 1), minutes: 4 }, { label: 'Box 4 alone', ex: AM_BOX('A minor pentatonic, box 4', 3), minutes: 4 }] },
+        { focus: 'Joining boxes', tasks: [{ label: 'Low strings in one box, high strings in the next', ex: { label: 'Joining the boxes', tab: 'pentLink' }, minutes: 6 }, { label: 'The diagonal: three notes a string', ex: { label: 'The diagonal across the boxes', tab: 'pentDiag' }, minutes: 6, goal: 'clean at 60 BPM (triplets)' }] },
+        { focus: 'One idea, five places', tasks: [{ label: 'One phrase in all five boxes', ex: { label: 'One phrase, five boxes', tab: 'pentLickBoxes' }, minutes: 6 }] },
+        { focus: 'Sequences', tasks: [{ label: 'Box 1 in 3s', ex: AM_SEQ('A minor pentatonic in 3s, box 1', 'threes', 0), minutes: 4 }, { label: 'Box 2 in 4s', ex: AM_SEQ('A minor pentatonic in 4s, box 2', 'fours', 1), minutes: 4 }] },
+        { focus: 'Land on the chords', tasks: [{ label: 'Am F C G: land on each chord in box 1', ex: { label: 'Land on each chord in box 1', tab: 'pentTargets' }, minutes: 6 }, { label: 'Target notes', tool: 'targets', minutes: 8 }] },
+        { focus: 'The major side', tasks: [{ label: 'C major pentatonic: each box around the C chord', ex: { label: 'C major pentatonic around its chord shapes', tab: 'pentBoxChordMaj' }, minutes: 8 }] },
+        { focus: 'Hear it', tasks: [{ label: 'Which pentatonic note?', quiz: 'l4-pent-deg-ear', minutes: 5 }, { label: 'Call and response, answer in the next box', tool: 'cr', minutes: 6 }] },
+      ],
+    },
+    {
+      kind: 'use', title: 'Use it in music', blocks: [
+        { p: 'Take the boxes out of the exercises and into songs:' },
+        { list: [
+          '**Jam**: a minor groove in A (or the blues). First chorus in box 1, second in box 2, third climbing to box 4, then back down to finish on the root in box 1. That\'s the shape of a real solo.',
+          '**Improv coach**: record a few choruses and see which notes you lean on and where you stayed.',
+          '**Fills between chords**: the pentatonic fills step uses the major pentatonic around each chord shape; now you can play them in any box.',
+          '**Must-know licks**: pick a box 1 lick and move it to box 4.',
+        ] },
+      ],
+      tasks: [
+        { label: 'Jam: solo through the boxes', tool: 'jam', minutes: 10 },
+        { label: 'Target notes: land on the 3rds', tool: 'targets', minutes: 8 },
+        { label: 'Call and response', tool: 'cr', minutes: 6 },
+        { label: 'Fills between chords: the pentatonic fills', tool: 'fills', minutes: 8 },
+      ],
+    },
+    {
+      kind: 'check', title: 'Check your understanding', intro: 'Use it, hear it, play it, then explain it back.',
+      tasks: [
+        { skill: 'Apply', label: 'A minor pentatonic, box 3 (mic)', ex: AM_BOX('A minor pentatonic, box 3', 2) },
+        { skill: 'Hear', label: 'Which pentatonic note?', quiz: 'l4-pent-deg-ear' },
+        { skill: 'Play', label: 'Land on each chord in box 1 (mic)', ex: { label: 'Land on each chord in box 1', tab: 'pentTargets' } },
+      ],
+      explain: {
+        prompt: 'I just finished the KGuitar theory lesson "The five pentatonic boxes". Quiz me as my teacher, one question at a time, and tell me what I got right and missed: (1) how the five boxes relate to the CAGED shapes, (2) where box 2 and box 4 of A minor are and which chord shape sits in each, (3) three ways to move between boxes, (4) the three bends that always work and why, (5) how major and minor pentatonic share boxes, (6) how to play over Am–F–C–G so the solo follows the chords. Keep it short.',
+        points: ['each box is a CAGED chord shape with the 4 and ♭7 (or 2 and 6) filled in', 'A minor: box 2 frets 7–10 round the D shape, box 4 frets 12–15 round the A shape', 'slide, shift on a shared note, or run a diagonal three notes a string', '4 to 5, ♭7 to root, ♭3 to 4: whole steps to the next scale note', 'same dots, different home: major box k = minor box k + 1', 'land on each chord\'s 3rd (or root), or switch to each chord\'s pentatonic'],
+      },
+    },
+    {
+      kind: 'deeper', title: 'Go deeper', video: { id: 'T8yodJjWT5c', title: 'The Pentatonic Cheat Code: All 5 Patterns' },
+      books: [
+        { book: 'The CAGED System and 100 Licks for Blues Guitar', where: 'The chapters for each shape: the scale and the licks over it', why: 'Exactly this lesson: each pentatonic shape on its chord shape, with real blues vocabulary in every one.' },
+        { book: 'Guided Guitar Scale Practice Routines', where: 'The pentatonic routines', why: 'Structured daily routines for all five positions, sequences and position shifts.' },
+        { book: 'Guitar Fretboard Mastery', where: 'The pentatonic and fretboard map chapters', why: 'Seeing the five shapes as one map across the neck.' },
+        { book: 'Improvise for Real', where: 'The chapters on hearing scale degrees', why: 'The ear side: hearing what each note does over the chord, so you choose notes, not dots.' },
+      ],
+      blocks: [
+        { p: '**Next**: triads on the top three strings, the small chord shapes inside these boxes that let you play rhythm and lead at the same time.' },
+        { p: '**Extra credit**: record a 16-bar solo over Jam that starts in box 1, peaks in box 4 and comes home. Listen back: did each phrase end on a chord tone?' },
+      ],
+    },
+  ],
+}
+
+export const LEVEL4: CourseLesson[] = [CAGED, PENT_BOXES]

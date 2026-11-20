@@ -3,6 +3,7 @@
 import type { ExerciseSpec } from '../tabs/exercises'
 import { fingerMelody } from '../tabs/fingering'
 import type { Song, SongBar } from '../tabs/model'
+import { boxLinkTab, boxWithChordTab, pentDiagonalTab, pentLickBoxesTab, pentTargetsTab, triadEmbTab, triadInversionsTab, triadKeyTab, triadLeadTab } from '../course/pentTriadTabs'
 import { cagedChordTab, cagedEmbTab, cagedMinorZoneTab, cagedOneShapeTab, cagedZoneTab } from '../course/cagedTabs'
 
 export interface LessonVideo { id: string; title: string }
@@ -10,7 +11,7 @@ export type LessonEx = { label: string } & (
   | { spec: ExerciseSpec }
   | { songbook: { song: string; part: string } }
   | { drill: string }
-  | { tab: 'alphabetA' | 'alphabetE' | 'octaves' | 'durations' | 'intervals' | 'counting' | 'shuffle' | 'octaveWalk' | 'octaveDyads' | 'octaveCross' | 'keyTriads' | 'keyTriadsEmb' | 'cagedC' | 'cagedG' | 'cagedAm' | 'cagedZone' | 'cagedZoneE' | 'cagedZones' | 'cagedEmb' | 'caged4thsE' | 'caged4thsA' | 'cagedZoneMinor' }
+  | { tab: 'alphabetA' | 'alphabetE' | 'octaves' | 'durations' | 'intervals' | 'counting' | 'shuffle' | 'octaveWalk' | 'octaveDyads' | 'octaveCross' | 'keyTriads' | 'keyTriadsEmb' | 'cagedC' | 'cagedG' | 'cagedAm' | 'cagedZone' | 'cagedZoneE' | 'cagedZones' | 'cagedEmb' | 'caged4thsE' | 'caged4thsA' | 'cagedZoneMinor' | 'pentBoxChord' | 'pentBoxChordMaj' | 'pentLink' | 'pentDiag' | 'pentTargets' | 'pentTargets3' | 'pentLickBoxes' | 'triInvC' | 'triInvAm' | 'triInvF' | 'triLead' | 'triLeadMinor' | 'triKey' | 'triEmb' }
   | { tool: 'ear' | 'circle' | 'caged' | 'changes' | 'bends' | 'jam' }
   | { example: string }
 )
@@ -244,6 +245,22 @@ export function lessonTab(id: string, tuning: number[]): Song {
   if (id === 'caged4thsE') return cagedOneShapeTab('E', tuning)
   if (id === 'caged4thsA') return cagedOneShapeTab('A', tuning)
   if (id === 'cagedZoneMinor') return cagedMinorZoneTab(9, tuning)
+  // Level 4 lesson 2: the five pentatonic boxes
+  if (id === 'pentBoxChord') return boxWithChordTab(tuning, 9, true)
+  if (id === 'pentBoxChordMaj') return boxWithChordTab(tuning, 0, false)
+  if (id === 'pentLink') return boxLinkTab(tuning, 9, true)
+  if (id === 'pentDiag') return pentDiagonalTab(tuning, 9, true)
+  if (id === 'pentLickBoxes') return pentLickBoxesTab(tuning, 9)
+  if (id === 'pentTargets') return pentTargetsTab(tuning, 0)
+  if (id === 'pentTargets3') return { ...pentTargetsTab(tuning, 2), title: 'Am F C G: land on each chord in box 3' }
+  // Level 4 lesson 3: triads on the top three strings
+  if (id === 'triInvC') return triadInversionsTab(tuning, 0, false)
+  if (id === 'triInvAm') return triadInversionsTab(tuning, 9, true)
+  if (id === 'triInvF') return triadInversionsTab(tuning, 5, false)
+  if (id === 'triLead') return triadLeadTab(tuning)
+  if (id === 'triLeadMinor') return triadLeadTab(tuning, 0, [[9, true], [5, false], [0, false], [7, false], [9, true]], 'C: vi – IV – I – V – vi on the top strings, moving as little as possible')
+  if (id === 'triKey') return triadKeyTab(tuning, 0)
+  if (id === 'triEmb') return triadEmbTab(tuning, 0)
   // intervals: A up to each interval and back, an octave of steps
   let a = Math.min(...tuning)
   while (a % 12 !== 9) a++

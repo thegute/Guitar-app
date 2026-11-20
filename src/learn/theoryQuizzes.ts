@@ -8,6 +8,7 @@ import type { Question, QuizDef } from './quiz'
 import { octaveShapes } from './lessonExtras'
 import { stringName } from '../instrument'
 import { cagedShapes } from './caged'
+import { nearestTriad, topTriads } from '../course/pentTriadTabs'
 
 const pick = <T,>(a: readonly T[], rnd: () => number) => a[Math.floor(rnd() * a.length)]
 function shuffle<T>(a: T[], rnd: () => number) { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [b[i], b[j]] = [b[j], b[i]] } return b }
@@ -618,6 +619,58 @@ export const THEORY_QUIZZES: QuizDef[] = [
       const tip = iv === 0 ? 'sing down to the bass: the same note name, it sounds finished.' : iv === 4 ? 'sweet, it says "major"; from it, down a major 3rd lands on home.' : 'open and strong, a bit hanging; from it, down three scale steps (5 4 3 2 1) lands on home.'
       return choose(item, 'Which chord tone is on top?', ans, ['The root', 'The 3rd', 'The 5th'], `${ans} (the ${sh.letter} shape): ${tip} Hearing the top note is how you choose a voicing that sings the melody.`, rnd,
         { audio: { chords: [ms, [top], [iv === 0 ? top - 12 : top - iv], ms] }, sub: 'You hear the chord, its top note, the root just under it, then the chord again. Sing the top note, then sing down to home.' })
+    },
+  },
+  {
+    id: 'l4-pent-deg-ear', unit: 'Guitar theory', title: 'Hear it: which pentatonic note?', ear: true,
+    desc: 'A minor chord, then one note of its minor pentatonic: the root, ♭3, 4, 5 or ♭7? This is what lets you choose where a phrase lands.', length: 10, mic: false,
+    items: () => ['1', 'b3', '4', '5', 'b7', 'b3', 'b7', '4', '5', '1'].map((k, i) => `l4-pent-deg-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const semis: Record<string, number> = { '1': 12, b3: 15, '4': 17, '5': 19, b7: 22 }
+      const name: Record<string, string> = { '1': 'The root (1)', b3: 'The ♭3', '4': 'The 4', '5': 'The 5', b7: 'The ♭7' }
+      const why: Record<string, string> = {
+        '1': 'home: it sounds finished, nothing pulls.',
+        b3: 'the sad, minor colour of the chord itself. A great note to end a phrase on.',
+        '4': 'it leans: it wants to fall to the ♭3 or rise to the 5. The note players bend up to the 5.',
+        '5': 'strong and open, part of the chord: stable, but less final than the root.',
+        b7: 'bluesy and unfinished, it wants to rise to the root. Bend it up a whole step and you land home.',
+      }
+      const root = 45 + Math.floor(rnd() * 8)
+      const ans = name[k]
+      return choose(item, 'The chord, then which note of its minor pentatonic?', ans, Object.values(name).filter(n => n !== ans), `${ans}: ${why[k]}`, rnd,
+        { audio: { chords: [[root, root + 7, root + 12, root + 15], [root + semis[k]]] }, sub: 'Hold the chord in your ear, then hear where the note sits against it. Sing down to the root to check.' })
+    },
+  },
+  {
+    id: 'l4-tri-top-ear', unit: 'Guitar theory', title: 'Hear it: the top note of a small triad', ear: true,
+    desc: 'A three-note chord on the top strings: is its highest note the root, the 3rd or the 5th? That tells you which inversion it is.', length: 10, mic: false,
+    items: () => ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map((k, i) => `l4-tri-top-ear:${k}:${i}`),
+    make: (item, inst, rnd) => {
+      const root = Math.floor(rnd() * 12), minor = rnd() < 0.35
+      const t = pick(topTriads(inst.midis, root, minor), rnd)
+      const ms = t.notes.map(n => n.midi)
+      const ans = t.top === 'R' ? 'The root' : t.top === '3' ? 'The 3rd' : 'The 5th'
+      const inv = t.low === 'R' ? 'root position' : t.low === '3' ? '1st inversion' : '2nd inversion'
+      const rootUnder = ms[2] - ((((ms[2] - root) % 12) + 12) % 12 || 12)
+      return choose(item, 'Which chord tone is on top?', ans, ['The root', 'The 3rd', 'The 5th'], `${ans}: this is the ${inv} (the lowest note is the ${t.low === 'R' ? 'root' : t.low === '3' ? '3rd' : '5th'}). Root on top sounds finished, the 3rd sweet and singing, the 5th open and floating.`, rnd,
+        { audio: { chords: [ms, [ms[2]], [rootUnder], ms] }, sub: 'The triad, its top note alone, the root under it, then the triad again.' })
+    },
+  },
+  {
+    id: 'l4-lead-ear', unit: 'Guitar theory', title: 'Hear it: where did the top voice go?', ear: true,
+    desc: 'Two triads on the top strings, a chord change: did the highest note go up, go down, or stay on the same note? Hearing the top voice is hearing voice leading.', length: 10, mic: false,
+    items: () => ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map((k, i) => `l4-lead-ear:${k}:${i}`),
+    make: (item, inst, rnd) => {
+      const key = Math.floor(rnd() * 12)
+      const a = pick(topTriads(inst.midis, key, false), rnd)
+      const [semi, minor] = pick([[5, false], [7, false], [9, true], [2, true]] as const, rnd)
+      const r = (key + semi) % 12
+      const b = rnd() < 0.6 ? nearestTriad(inst.midis, a, r, minor) : pick(topTriads(inst.midis, r, minor), rnd)
+      const d = b.notes[2].midi - a.notes[2].midi
+      const ans = d > 0 ? 'Up' : d < 0 ? 'Down' : 'Stayed the same'
+      return choose(item, 'The top note: up, down or the same?', ans, ['Up', 'Down', 'Stayed the same'], `${ans}${d ? ` by ${Math.abs(d)} fret${Math.abs(d) === 1 ? '' : 's'}` : ': a common tone, shared by both chords'}. Smooth changes move the top voice by a step or keep it still; that's what makes chords sound connected.`, rnd,
+        { audio: { chords: [a.notes.map(n => n.midi), b.notes.map(n => n.midi), [a.notes[2].midi], [b.notes[2].midi]] }, sub: 'Two chords, then just their top notes. Sing the top line.' })
     },
   },
 ]
