@@ -222,7 +222,7 @@ export function AskBubble({ context }: { context: AskContext }) {
             </button>
           </div>
           <p className="small" style={{ margin: '4px 0 8px', lineHeight: 1.35 }}>{activeIntro.text}</p>
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
             <button
               className="btn sm primary"
               onClick={() => {
@@ -230,12 +230,14 @@ export function AskBubble({ context }: { context: AskContext }) {
                 askAssistant(activeIntro.askPrompt, context, false)
               }}
               data-testid={`intro-ask-${activeIntro.id}`}
+              style={{ pointerEvents: 'auto' }}
             >
               ✨ Ask about this
             </button>
             <button
               className="btn sm ghost"
               onClick={() => dismissFeatureIntro(activeIntro.id)}
+              style={{ pointerEvents: 'auto' }}
             >
               Got it
             </button>

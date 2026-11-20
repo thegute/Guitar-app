@@ -1,5 +1,12 @@
 # Gemini week log (newest first)
 
+- 2026-11-20 (Claude): **Theory course Level 4, lessons 2 and 3**: "The five pentatonic boxes" (`c4-pentboxes`: each box round
+  its CAGED shape, glue, slide / shift / diagonal, targets, bends per box, major = same boxes, playing over changes, one lick in
+  five boxes, mastery bar; tabs pentBoxChord / pentLink / pentDiag / pentLickBoxes / pentTargets; ear `l4-pent-deg-ear`) and
+  "Triads on the top three strings" (`c4-toptriads`: inversions, CAGED tops, minor + dim, the key in frets 3–8, voice leading,
+  pro moves; tabs triInv* / triLead* / triKey / triEmb; ears `l4-tri-top-ear`, `l4-lead-ear`). Tabs in `src/course/pentTriadTabs.ts`.
+  Bug fix in the AI-bubble feature intro (KEEP, look unchanged): its button row caught taps across the whole width and could
+  cover a lesson's Next button; now only its buttons take taps (course-test walks all 29 lessons again).
 - 2026-11-20 (owner, to Claude): **"Look at what Gemini did, all good stuff"**: everything Gemini built up to `de1a5bb`
   (Argon engine steps 1–8, Hydrogen H1–H3, licks, Drill Lab, Course Studio, Deep Accuracy Riff Scanner, Chord Vibe Sets,
   Harmonic Flow Coach, harvest tools) is **KEEP**. Fix bugs without changing how it looks, sounds or behaves.

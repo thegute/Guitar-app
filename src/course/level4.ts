@@ -495,4 +495,218 @@ export const PENT_BOXES: CourseLesson = {
   ],
 }
 
-export const LEVEL4: CourseLesson[] = [CAGED, PENT_BOXES]
+// ---- Lesson 3: triads on the top three strings ---------------------------------------------------------------------
+// C on G-B-e: 0-1-0 (2nd inv), 5-5-3 (root position), 9-8-8 (1st inv), 12-13-12 (2nd inv). Am: 2-1-0, 5-5-5, 9-10-8.
+// The key of C in frets 3–8: C 5-5-3, Dm 7-6-5, Em 4-5-3, F 5-6-5, G 7-8-7 (or 4-3-3), Am 5-5-5, Bdim 7-6-7.
+/** neck marks for a chord's top-string triads: R / 3 (♭3) / 5, roots as roots */
+function triMarks(midis: number[], root: number, minor: boolean, keep?: (t: { lo: number; low: string }) => boolean, from = 0) {
+  const out: { s: number; f: number; label: string; role: 'root' | 'chord' }[] = []
+  const seen = new Set<string>()
+  for (const t of topTriads(midis, root, minor)) {
+    if (keep && !keep(t)) continue
+    for (const n of t.notes) {
+      const k = `${n.string}:${n.fret}`
+      if (seen.has(k) || (from > 0 && n.fret <= from)) continue
+      seen.add(k)
+      const iv = (((n.midi - root) % 12) + 12) % 12
+      out.push({ s: n.string, f: n.fret, label: iv === 0 ? 'R' : iv === 7 ? '5' : minor ? '♭3' : '3', role: iv === 0 ? 'root' : 'chord' })
+    }
+  }
+  return out
+}
+const SERIFF_TRIADS = { id: 'NqSf3iV9qpg', title: 'THIS Triad System Will 13X Your RHYTHM Guitar Playing (Daniel Seriff)' }
+
+export const TOP_TRIADS: CourseLesson = {
+  id: 'c4-toptriads', level: 4, n: 3, title: 'Triads on the top three strings: small shapes, big sound', minutes: 80,
+  goal: 'Play every major and minor triad in all three inversions on the G, B and high e strings, know which note is on top, move between chords with the smallest possible moves, find all seven chords of a key in one small area of the neck, and decorate them with the free fingers the way Mayer, Hendrix and Curtis Mayfield do.',
+  builds: ['major and minor triads (R, 3, 5)', 'the CAGED shapes and their top strings', 'the chords of a key', 'Daniel Seriff\'s 5-fret window'],
+  topics: ['triads', 'inversions', 'voice leading', 'top strings', 'CAGED', 'rhythm guitar', 'fills', 'chord melody'],
+  steps: [
+    {
+      kind: 'why', title: 'Why this matters', blocks: [
+        { p: 'Listen closely to the rhythm guitar on a Motown record, a Hendrix ballad, a John Mayer song, a reggae skank or a funk groove. Most of the time it isn\'t playing six-string chords. It\'s playing **three notes on the top three strings**: a small **triad**. It cuts through the band without getting in the bass player\'s way, it leaves fingers free for little melodies, and it moves from chord to chord with tiny changes, so the part sounds smooth and connected.' },
+        { p: 'Every chord has **three** of these shapes on the top strings, one for each **inversion** (which note is at the bottom). You met them in the CAGED lesson as the tops of the A, E, D and C shapes. Here you learn them properly: in every key, minor too, and **moving between chords** with the fewest possible moves. That last skill, **voice leading**, is what separates strumming chords from playing music.' },
+        { p: 'By the end you\'ll be able to:' },
+        { list: ['play any major or minor triad in all three inversions on the G, B and high e strings;', 'say which note is on top of each one, and choose the one that fits the melody;', 'change chords by moving a finger or two, with the top note singing a smooth line;', 'find all seven chords of a key in one five-fret area;', 'add the hammer-ons, slides and little melodies that turn triads into a rhythm part like the players you love.'] },
+        { prog: { label: 'C, F, G, C as top-string triads, moving as little as possible', chords: [[60, 64, 67], [60, 65, 69], [59, 62, 67], [60, 64, 67]], gap: 1 } },
+      ],
+    },
+    {
+      kind: 'learn', title: '1 · Three notes, three orders', blocks: [
+        { p: 'A triad is three notes: the **root**, the **3rd** and the **5th**. On three neighbouring strings you play each note once, and there are only three ways to stack them, named after the **lowest** note:' },
+        { list: ['**Root position**: the root at the bottom (R – 3 – 5). The **5th is on top**.', '**1st inversion**: the 3rd at the bottom (3 – 5 – R). The **root is on top**.', '**2nd inversion**: the 5th at the bottom (5 – R – 3). The **3rd is on top**.'] },
+        { p: 'For **C major** on the G, B and high e strings:' },
+        { list: ['**2nd inversion**: 0 1 0 (the top of your open C chord), and again 12 13 12.', '**Root position**: 5 5 3.', '**1st inversion**: 9 8 8.'] },
+        { spots: { caption: 'C major on the top three strings, every inversion up the neck. R = C, 3 = E, 5 = G.', from: 0, to: 15, marks: midis => triMarks(midis, 0, false) } },
+        { p: 'They come in a fixed order up the neck: **2nd → root position → 1st → 2nd** again an octave up. Each new shape starts where the last one\'s notes "roll over": the lowest note jumps to the top. Learn one and the next is built from it.' },
+        { video: { id: 'dV9Q5F6HX-8', title: 'What Are Chord Inversions? • Guitar Theory', note: 'Inversions explained from the ground up: the same three notes, a different one at the bottom.' } },
+      ],
+    },
+    {
+      kind: 'learn', title: '2 · They are the tops of the CAGED shapes', blocks: [
+        { p: 'You already know these shapes, hidden in the big chords. Take each CAGED shape of C and keep only its top three strings:' },
+        { list: ['The **A shape** at the 3rd fret → **5 5 3**: root position (5th on top).', 'The **E shape** at the 8th fret → **9 8 8**: 1st inversion (root on top).', 'The **D shape** at the 10th fret → **12 13 12**: 2nd inversion (3rd on top). The **C shape** (open C) gives the same shape at 0 1 0.', 'The **G shape** keeps a root and a 3rd on top (5 5 8); its triad lives on the middle strings instead.'] },
+        { spots: { caption: 'C, E shape at the 8th fret: the top three strings (9 8 8) are the 1st inversion triad. The rest of the barre is the map around it.', from: 7, to: 11, marks: midis => [...shapeMarks(0, false, midis, only('E'), 7)] } },
+        { p: 'So the CAGED map tells you where every triad is: find the chord shape, and the triad is sitting on its top strings. And the triad tells you where the chord is: grab three notes and you know which big shape is around them.' },
+        { tip: 'This is the link between rhythm and lead. A triad is a tiny chord **and** three notes of every scale box around it. Players move between the two without thinking because they are the same place on the neck.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '3 · Minor triads (and the one diminished)', blocks: [
+        { p: 'A minor triad lowers the 3rd one fret. In each inversion the 3rd is on a different string, so a different finger moves:' },
+        { list: ['**Root position** (R ♭3 5): the 3rd is on the B string. Am: 2 1 0, and 14 13 12.', '**1st inversion** (♭3 5 R): the 3rd is on the G string. Am: 5 5 5 (a one-finger barre).', '**2nd inversion** (5 R ♭3): the 3rd is on the high e. Am: 9 10 8.'] },
+        { spots: { caption: 'A minor on the top three strings. ♭3 = C, R = A, 5 = E.', from: 0, to: 15, marks: midis => triMarks(midis, 9, true) } },
+        { p: 'A **diminished** triad (R ♭3 ♭5) also lowers the 5th. In a major key there is one, on the 7th degree: in C it\'s **Bdim** (B D F). On the top strings: 7 6 7, or 4 3 1. You\'ll rarely hold it long; it\'s a passing chord that leans hard into the I.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '4 · The whole key in one small window', blocks: [
+        { p: 'Daniel Seriff\'s idea from Level 2, now on the top strings: every chord of a key can be found **within five frets**, so the hand stays put and the progression happens under it. For **C major** between the 3rd and 8th frets:' },
+        { list: ['**C**: 5 5 3', '**Dm**: 7 6 5', '**Em**: 4 5 3', '**F**: 5 6 5', '**G**: 7 8 7 (or 4 3 3)', '**Am**: 5 5 5', '**Bdim**: 7 6 7'] },
+        { p: 'Play I – vi – IV – V (C, Am, F, G) here: 5 5 3 → 5 5 5 → 5 6 5 → 7 8 7. Each change moves one or two fingers by a fret or two. That is the sound of a good rhythm part.' },
+        { p: 'A key has three such windows on the top strings (one per inversion family), and they repeat at the 12th fret. Learn the one round the **5th fret** first, then the one round the **10th**, then the open one.' },
+        { tip: 'Daniel Seriff builds whole rhythm parts in one window like this, then adds the free-finger moves of section 6. His video in Go deeper shows it.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '5 · Voice leading: move as little as possible', blocks: [
+        { p: '**Voice leading** means thinking of the three strings as three **singers**, each moving to the nearest note of the next chord. Two rules do almost all of it:' },
+        { list: ['**Keep the common tones.** If a note is in both chords, don\'t move it. C (C E G) to Am (A C E): C and E stay; only G moves up to A. 5 5 3 → 5 5 5.', '**Move the others by the smallest step.** C to F (F A C): C stays; E steps up to F, G steps up to A. 5 5 3 → 5 6 5.'] },
+        { spots: { caption: 'C → F → G around the 5th fret: C (5 5 3) → F (5 6 5) → G (4 3 3 or 7 8 7). Count how far each finger moves.', from: 2, to: 9, marks: midis => [...triMarks(midis, 0, false, t => t.lo >= 3 && t.lo <= 5, 2), ...triMarks(midis, 5, false, t => t.lo >= 4 && t.lo <= 6, 2), ...triMarks(midis, 7, false, t => t.lo >= 3 && t.lo <= 7, 2)].filter((m, i, a) => a.findIndex(x => x.s === m.s && x.f === m.f) === i).map(m => ({ ...m, label: '' })) } },
+        { p: 'Now listen to the **top string** on its own. When the chords are voice-led, the top notes make a little tune of their own: G → A → G (or B) → G. Singers, piano players and horn sections are all following these rules, and that\'s why their chord changes sound smooth.' },
+        { p: 'The opposite also matters. Sometimes you **want** a jump: moving the whole triad up to the next inversion on the same chord gives a lift without changing the harmony. That\'s the Mayer and Hendrix move: climb through C\'s three shapes over one bar of C.' },
+        { tip: 'Voice leading is a skill you\'ll use for the rest of your life: on chords, in fills, and in soloing (landing on the nearest chord tone when the chord changes is the same idea).' },
+      ],
+    },
+    {
+      kind: 'learn', title: '6 · Playing them like the pros', blocks: [
+        { p: 'A triad on its own is a little bare. The free fingers are what make it music. The moves you\'ll hear on record, all inside the shapes you now know:' },
+        { list: [
+          '**Hammer on from the note below** a chord tone: the 2nd up to the 3rd, or the 4th down to the 3rd (sus2 and sus4 for a moment). From C\'s 1st inversion (9 8 8): G string 9 is the 3rd, hammer 7 → 9 is the sus2 → 3rd; 10 → 9 is the sus4 falling back.',
+          '**Slide in** from a fret below: the whole triad, or just one string. The scoop that makes Mayer and soul parts sound vocal.',
+          '**Add the 6th or 9th** on top with the little finger and let it ring, then lift it.',
+          '**Play them on the upbeats** with the low strings muted: that\'s the reggae skank and a lot of funk.',
+          '**Let the top note be the melody**: pick the inversion whose top note is the melody note. That\'s chord melody, the start of Asato\'s and Atkins\' sound.',
+        ] },
+        { p: 'The **fills between chords** workshop builds all of these step by step (shells, the free finger, slides, flicks, turns, the neck walk). This lesson is the theory under it: open it once you can play the inversions.' },
+        { video: { id: 'tHCzeZo0Ib4', title: 'Learn the Neck With Triads (Part One)', note: 'The same triads moving up the neck: how players use them to find their way around.' } },
+      ],
+    },
+    {
+      kind: 'learn', title: '7 · With a band: why small is better', blocks: [
+        { p: 'A full six-string chord plays the bass note too, and in a band the bass player already has it. The two collide and the sound gets muddy. A top-string triad stays above the bass, so the band sounds clear and you can be heard without being loud. It also works the other way round: the bass player decides what the **lowest** note is, so your inversion doesn\'t change the chord\'s name. Your choice of inversion only changes **which note is on top**, which is exactly the note the listener hears.' },
+        { p: 'One more idea for later: when you **do** want a different bass note (C with E in the bass, written **C/E**), the inversion becomes the chord\'s name. That\'s for Level 6.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '8 · The other string sets, and what\'s next', blocks: [
+        { p: 'The same three inversions exist on every set of three neighbouring strings: **D-G-B** (the set you used for Seriff\'s window in Level 2), **A-D-G** and **E-A-D**. The shapes look different because of where the B-string kink falls, but the rule (root position, 1st, 2nd, in order up the neck) is the same. Lesson 4 of this level covers them all.' },
+        { p: 'The **G-B-e** set comes first because it\'s the most useful: highest, clearest, and closest to where melodies and solos live.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '9 · What mastery looks like', blocks: [
+        { p: 'You own top-string triads when, without stopping:' },
+        { list: [
+          'Called any major or minor chord and an inversion, you play it in **about two seconds**.',
+          'You can say which note is **on top** of any triad shape you\'re holding.',
+          'You can play **I – vi – IV – V** in any key voice-led, moving at most two fingers each change, in all three windows.',
+          'You can find all seven chords of a key in **one five-fret window**.',
+          'You can **climb** a chord through its three inversions in time, and add a hammer-on or slide to each.',
+          'Given a melody note, you can choose the triad that puts it **on top**.',
+        ] },
+      ],
+    },
+    {
+      kind: 'examples', title: 'Worked examples', intro: 'Name the inversion, then say which note is on top.', examples: [
+        { q: 'Play C major in 1st inversion on the top strings.', steps: ['1st inversion has the 3rd at the bottom and the root on top: E – G – C.', 'Root on top: C on the high e is the 8th fret.', 'Build down: G on the B string (8th fret), E on the G string (9th fret).'], answer: '9 8 8.', spots: { from: 7, to: 10, marks: midis => triMarks(midis, 0, false, t => t.low === '3' && t.lo >= 7 && t.lo <= 9, 7) } },
+        { q: 'You play 7 8 7 on the G, B and e strings. What chord, which inversion?', steps: ['G string 7 = D, B string 8 = G, e 7 = B.', 'The notes are G, B and D: G major.', 'The lowest is D, the 5th: 2nd inversion, with B (the 3rd) on top.'], answer: 'G major, 2nd inversion (3rd on top).' },
+        { q: 'Play A minor with the root on top.', steps: ['Root on top = 1st inversion: ♭3 – 5 – R = C – E – A.', 'A on the high e: the 5th fret.', 'C on the G string (5th fret), E on the B string (5th fret).'], answer: '5 5 5.' },
+        { q: 'You\'re on C (5 5 3). Move to Am with the smallest change.', steps: ['C = C E G, Am = A C E: C and E are common.', 'Keep them. Only G moves, up a step to A.', 'High e from 3 to 5.'], answer: '5 5 5: one finger moves.' },
+        { q: 'Then from Am (5 5 5) to F.', steps: ['F = F A C. Am and F share A and C.', 'Keep A (high e, 5th fret) and C (G string, 5th fret).', 'E moves up a half step to F: B string 5 → 6.'], answer: '5 6 5: again one finger.' },
+        { q: 'A melody note E sits over a C chord. Which triad puts it on top?', steps: ['E is the 3rd of C.', 'The 3rd is on top in the 2nd inversion (G – C – E).', 'On the top strings: 12 13 12, or open 0 1 0.'], answer: 'The 2nd inversion: 12 13 12 (or 0 1 0).' },
+        { q: 'Holding C in 1st inversion (9 8 8), where is the sus4 hammer-on?', steps: ['The 3rd (E) is on the G string, 9th fret.', 'The 4th (F) is one fret above: G string, 10th fret.', 'Play the 4th, then pull off to the 3rd: Csus4 → C.'], answer: 'G string, 10 → 9.' },
+        { q: 'Find Dm and Em near the 5th fret.', steps: ['Dm (D F A): root position with D on the G string, 7th fret: 7 6 5.', 'Em (E G B): 2nd inversion with B on the G string, 4th fret: 4 5 3.', 'Both sit inside frets 3–8, with C, F, G and Am.'], answer: 'Dm 7 6 5, Em 4 5 3.' },
+      ],
+    },
+    {
+      kind: 'hear', title: 'Hear it', blocks: [
+        { p: 'Two ear skills turn triads from shapes into music. First, hear **which note is on top**: the root sounds settled, the 3rd sweet and singing, the 5th open and floating. Second, hear the **top voice move** when the chord changes: up, down, or staying put on a common tone. That top line is what a listener hums.' },
+        { list: ['Play C in all three inversions and sing only the top note each time.', 'Play C → Am → F → G voice-led and sing the top line. Then play it with big jumps and hear the difference.', 'Play one inversion with the hammer-on from the 2nd: does it sound like a melody?'] },
+      ],
+      drills: [
+        { label: 'The top note of a small triad', quiz: 'l4-tri-top-ear', minutes: 5, goal: '8 out of 10' },
+        { label: 'Where did the top voice go?', quiz: 'l4-lead-ear', minutes: 5, goal: '8 out of 10' },
+        { label: 'Triad types by ear', quiz: 'tr-ear', minutes: 3 },
+      ],
+    },
+    {
+      kind: 'mistakes', title: 'Common mistakes', items: [
+        { wrong: 'Learning one inversion and using it for everything.', right: 'Learn all three for each chord, so the next chord is always close.' },
+        { wrong: 'Moving every finger on every chord change.', right: 'Keep the common tones; move the others by the smallest step.' },
+        { wrong: 'Letting the lower strings ring.', right: 'Mute them with the side of the fretting hand or the thumb, or pick only the top three.' },
+        { wrong: 'Naming the inversion by the top note.', right: 'Inversions are named by the lowest note. Root on top = 1st inversion.' },
+        { wrong: 'Playing the minor triad by moving the wrong finger.', right: 'Find the 3rd first: it\'s on the B string in root position, the G string in 1st, the high e in 2nd.' },
+        { wrong: 'Strumming triads like full chords, all the time.', right: 'Use space: upbeats, single notes, hammer-ons, slides. Small shapes want light hands.' },
+        { wrong: 'Thinking of triads as separate from scales.', right: 'Each triad sits inside a CAGED shape and a pentatonic box: rhythm and lead in the same place.' },
+      ],
+    },
+    {
+      kind: 'practice', title: 'Practice goals', intro: 'Over a slow beat. Say the inversion and the top note before you play each shape.',
+      challenge: { label: 'Every chord of C major on the top strings, in all three inversion families', ex: { label: 'The chords of C major, one inversion at a time', tab: 'triKey' }, goal: 'then play the chords of a song from your library using only voice-led top-string triads', why: 'This is the whole key under your hand three times over: the foundation for every rhythm part, fill and chord melody after this.' },
+      goals: [
+        { focus: 'C, every inversion', tasks: [{ label: 'C major up and down the neck', ex: { label: 'C on the top strings, every inversion', tab: 'triInvC' }, minutes: 6, goal: 'no stops at 70 BPM' }] },
+        { focus: 'Minor and other keys', tasks: [{ label: 'A minor, every inversion', ex: { label: 'Am on the top strings, every inversion', tab: 'triInvAm' }, minutes: 5 }, { label: 'F major, every inversion', ex: { label: 'F on the top strings, every inversion', tab: 'triInvF' }, minutes: 5 }] },
+        { focus: 'Name the inversion', tasks: [{ label: 'Name the inversion', quiz: 'tr-inv', minutes: 5, goal: '2 stars' }] },
+        { focus: 'Voice leading', tasks: [{ label: 'I – IV – V – I, smallest moves, from each inversion', ex: { label: 'I – IV – V – I, moving as little as possible', tab: 'triLead' }, minutes: 8 }, { label: 'vi – IV – I – V – vi, the same way', ex: { label: 'vi – IV – I – V – vi, voice-led', tab: 'triLeadMinor' }, minutes: 6 }] },
+        { focus: 'The key in one window', tasks: [{ label: 'The chords of C major, one inversion at a time', ex: { label: 'The chords of C major on the top strings', tab: 'triKey' }, minutes: 8 }] },
+        { focus: 'The free fingers', tasks: [{ label: 'Every C triad with a hammer-on', ex: { label: 'Every top-string triad with a hammer-on', tab: 'triEmb' }, minutes: 6 }, { label: 'Fills between chords: shells, free finger, slides', tool: 'fills', minutes: 10 }] },
+        { focus: 'Hear it', tasks: [{ label: 'The top note of a small triad', quiz: 'l4-tri-top-ear', minutes: 5 }, { label: 'Where did the top voice go?', quiz: 'l4-lead-ear', minutes: 5 }] },
+      ],
+    },
+    {
+      kind: 'use', title: 'Use it in music', blocks: [
+        { p: 'Put the small shapes into real parts:' },
+        { list: [
+          '**Jam**: C – Am – F – G (or any progression) with the band. Play only top-string triads, voice-led, on the upbeats first, then with hammer-ons.',
+          '**Fills between chords**: the Mayer and Asato workshops are built on these exact shapes.',
+          '**A song from your library**: replace its open chords with triads round the 5th fret. Record both versions and compare.',
+          '**Call and response**: answer a phrase with a triad and a hammer-on.',
+        ] },
+      ],
+      tasks: [
+        { label: 'Jam: voice-led triads with the band', tool: 'jam', minutes: 10 },
+        { label: 'Fills between chords', tool: 'fills', minutes: 10 },
+        { label: 'Call and response', tool: 'cr', minutes: 6 },
+        { label: 'Hammer-ons, slides and other techniques', tool: 'techniques', minutes: 5 },
+      ],
+    },
+    {
+      kind: 'check', title: 'Check your understanding', intro: 'Use it, hear it, play it, then explain it back.',
+      tasks: [
+        { skill: 'Apply', label: 'Name the inversion', quiz: 'tr-inv' },
+        { skill: 'Hear', label: 'Where did the top voice go?', quiz: 'l4-lead-ear' },
+        { skill: 'Play', label: 'I – IV – V – I voice-led (mic)', ex: { label: 'I – IV – V – I, moving as little as possible', tab: 'triLead' } },
+      ],
+      explain: {
+        prompt: 'I just finished the KGuitar theory lesson "Triads on the top three strings". Quiz me as my teacher, one question at a time, and tell me what I got right and missed: (1) the three inversions, what each is named after and which note is on top, (2) where they come from in the CAGED shapes, (3) how to make each one minor, (4) the two rules of voice leading with an example, (5) where the chords of C major are in one window, (6) two ways to decorate a triad. Keep it short.',
+        points: ['named by the lowest note: root position (5 on top), 1st (root on top), 2nd (3rd on top)', 'A shape = root position, E shape = 1st inversion, D and C shapes = 2nd inversion', 'lower the 3rd one fret: B string in root position, G string in 1st, high e in 2nd', 'keep common tones, move the others the smallest step: C 5 5 3 → Am 5 5 5', 'frets 3–8: C 5 5 3, Dm 7 6 5, Em 4 5 3, F 5 6 5, G 7 8 7, Am 5 5 5, Bdim 7 6 7', 'hammer from the 2nd or 4th, slide in from a fret below, add the 6th or 9th, play upbeats'],
+      },
+    },
+    {
+      kind: 'deeper', title: 'Go deeper', video: SERIFF_TRIADS,
+      books: [
+        { book: 'Triads and Inversions', where: 'The chapters on the top-string set and moving through the inversions', why: 'The whole topic of this lesson, with more drills.' },
+        { book: 'Triads for the Improvising Guitarist', where: 'The early chapters on triads over chords', why: 'How to solo with triads: the next step after rhythm.' },
+        { book: 'Fretboard Logic SE', where: 'The part linking chord forms to smaller shapes', why: 'How triads sit inside the big chord forms.' },
+        { book: 'The Practical Guide to Modern Music Theory for Guitarists', where: 'The sections on inversions and voice leading', why: 'The theory of inversions and smooth chord changes.' },
+      ],
+      blocks: [
+        { p: '**Next in Level 4**: triads on every string set (D-G-B, A-D-G, E-A-D), then the major scale in five positions on the CAGED map.' },
+        { p: '**Extra credit**: take a song you strum and write a part using only top-string triads and one free-finger move per chord. Record it with Record yourself and play it against the original.' },
+      ],
+    },
+  ],
+}
+
+export const LEVEL4: CourseLesson[] = [CAGED, PENT_BOXES, TOP_TRIADS]
