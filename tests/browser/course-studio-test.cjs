@@ -207,6 +207,28 @@ const TINY_PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42m
   else ok('1-tap Pin Page saves custom page override')
   await page.locator('[data-testid="pdf-unpin-btn"]').click()
 
+  // Test Floating Video Opacity Slider + Quick Presets
+  await page.locator('[data-testid="float-video-opacity-btn"]').click()
+  await page.waitForSelector('[data-testid="float-video-opacity-bar"]')
+  await page.locator('[data-testid="float-opacity-60"]').click()
+  const cardOp = await page.evaluate(() => getComputedStyle(document.querySelector('[data-testid="course-floating-video-card"]')).opacity)
+  if (Math.abs(parseFloat(cardOp) - 0.6) > 0.05) bad(`Expected floating video opacity ~0.6, got ${cardOp}`)
+  else ok('Floating video Opacity slider & quick presets make video translucent over PDF')
+  await page.locator('[data-testid="float-opacity-100"]').click()
+  await page.locator('[data-testid="float-video-opacity-btn"]').click()
+
+  // Test Floating Finger Diagram: open, chord lookup, zoom, shape cycle, hide
+  await page.locator('[data-testid="tool-finger-card-btn"]').click()
+  await page.waitForSelector('[data-testid="course-finger-card"]')
+  await page.locator('[data-testid="finger-chord-input"]').fill('Am7')
+  await page.locator('[data-testid="finger-zoom-in"]').click()
+  const zoomText = await page.locator('[data-testid="finger-zoom-reset"]').textContent()
+  if (!zoomText.includes('125%')) bad(`Expected finger diagram zoom 125%, got ${zoomText}`)
+  else ok('Floating Finger Diagram opens, looks up chords, and zooms cleanly')
+  await page.locator('[data-testid="course-finger-card"] button[aria-label="Hide this card"]').click()
+  if (await page.locator('[data-testid="course-finger-card"]').count()) bad('Floating Finger Diagram did not hide on ×')
+  else ok('Floating Finger Diagram hides cleanly on ×')
+
   // Test Layout switching: Float -> Side-by-Side -> Float & Minimize to Bubble
   await page.locator('[data-testid="layout-split"]').click()
   await page.waitForSelector('[data-testid="course-docked-video"]')

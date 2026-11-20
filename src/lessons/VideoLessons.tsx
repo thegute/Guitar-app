@@ -28,6 +28,7 @@ import { freqToMidi, midiName } from '../theory/notes'
 import { SPEEDS } from '../components/LocalVideo'
 import { Win, WinArea } from '../components/Win'
 import { CourseBookView } from './CourseBookView'
+import { CourseFingerCard } from './CourseFingerCard'
 import { attachMpegTsPlayer, probeVideoUrl, type TsPlayerHandle } from './mpegtsFallback'
 import {
   getCachedCourseMap,
@@ -416,6 +417,7 @@ interface FloatBoxState {
   y: number // top edge normalized 0..1
   w: number // width in px
   min: boolean
+  opacity?: number // 0.2 .. 1.0
 }
 const FLOAT_VIDEO_KEY = 'kg:courseFloatVideoPlace'
 function loadFloatBox(): FloatBoxState {
@@ -423,10 +425,12 @@ function loadFloatBox(): FloatBoxState {
     const raw = localStorage.getItem(FLOAT_VIDEO_KEY)
     if (raw) {
       const p = JSON.parse(raw) as FloatBoxState
-      if (typeof p.x === 'number' && typeof p.y === 'number' && typeof p.w === 'number') return p
+      if (typeof p.x === 'number' && typeof p.y === 'number' && typeof p.w === 'number') {
+        return { ...p, opacity: typeof p.opacity === 'number' ? Math.max(0.2, Math.min(1, p.opacity)) : 1 }
+      }
     }
   } catch { /* ignore */ }
-  return { x: 0.98, y: 0.14, w: 380, min: false }
+  return { x: 0.98, y: 0.14, w: 380, min: false, opacity: 1 }
 }
 
 function LessonPlayer({
@@ -541,6 +545,8 @@ function LessonPlayer({
 
   // Practice tools state
   const [activeTool, setActiveTool] = useState<'metronome' | 'tuner' | 'note' | null>(null)
+  const [fingerOpen, setFingerOpen] = useState(false)
+  const [opacityOpen, setOpacityOpen] = useState(false)
   const [lessonNote, setLessonNoteState] = useState(() => getLessonNote(v.uri))
   const [backingIdx, setBackingIdx] = useState(0)
   const [backingRate, setBackingRate] = useState(1)
@@ -801,6 +807,15 @@ function LessonPlayer({
               🎸 5-Layer Neck
             </button>
             <button
+              className={`btn sm${fingerOpen ? ' set' : ''}`}
+              aria-pressed={fingerOpen}
+              onClick={() => setFingerOpen(o => !o)}
+              data-testid="tool-finger-card-btn"
+              title="Toggle the resizable, zoomable Floating Finger Diagram"
+            >
+              🖐 Finger Diagram
+            </button>
+            <button
               className={`btn sm${activeTool === 'tuner' ? ' set' : ''}`}
               aria-pressed={activeTool === 'tuner'}
               onClick={() => setActiveTool(t => (t === 'tuner' ? null : 'tuner'))}
@@ -996,6 +1011,7 @@ function LessonPlayer({
                   display: floatBox.min ? 'none' : 'flex',
                   flexDirection: 'column',
                   gap: 6,
+                  opacity: floatBox.opacity ?? 1,
                   boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
                 }
               : { gap: 8 }
@@ -1016,6 +1032,17 @@ function LessonPlayer({
               </b>
               <button
                 className="fc-btn"
+                onClick={() => setOpacityOpen(o => !o)}
+                title="Adjust video transparency so you can see the book underneath"
+                aria-label="Video opacity"
+                aria-pressed={opacityOpen}
+                data-testid="float-video-opacity-btn"
+                style={{ fontSize: 11, padding: '0 5px', width: 'auto' }}
+              >
+                ◐ {Math.round((floatBox.opacity ?? 1) * 100)}%
+              </button>
+              <button
+                className="fc-btn"
                 onClick={() => setLayout('split')}
                 title="Dock side-by-side"
                 aria-label="Dock side-by-side"
@@ -1031,6 +1058,40 @@ function LessonPlayer({
               >
                 –
               </button>
+            </div>
+          )}
+
+          {isFloating && opacityOpen && (
+            <div
+              className="row"
+              style={{ gap: 6, padding: '4px 8px', alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
+              data-testid="float-video-opacity-bar"
+            >
+              <span className="small muted" style={{ fontSize: 11 }}>Opacity</span>
+              <input
+                type="range"
+                min={20}
+                max={100}
+                step={5}
+                value={Math.round((floatBox.opacity ?? 1) * 100)}
+                onChange={e => saveFloat({ ...floatBox, opacity: Number(e.target.value) / 100 })}
+                style={{ flex: 1, minWidth: 80 }}
+                aria-label="Floating video opacity"
+                data-testid="float-video-opacity-slider"
+              />
+              <div className="row" style={{ gap: 3 }}>
+                {[0.35, 0.6, 0.8, 1].map(val => (
+                  <button
+                    key={val}
+                    className={`btn sm${Math.abs((floatBox.opacity ?? 1) - val) < 0.03 ? ' set' : ''}`}
+                    style={{ padding: '1px 5px', minHeight: 22, fontSize: 11 }}
+                    onClick={() => saveFloat({ ...floatBox, opacity: val })}
+                    data-testid={`float-opacity-${Math.round(val * 100)}`}
+                  >
+                    {Math.round(val * 100)}%
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -1146,8 +1207,9 @@ function LessonPlayer({
         </WinArea>
       )}
       <p className="small muted" style={{ margin: 0 }}>
-        Tip: Drag ⠿ on the floating video to move it anywhere over the book, or drag ◢ to resize it. Tapping Next › advances both the video and the book pages together!
+        Tip: Drag ⠿ on the floating video to move it anywhere over the book, tap ◐ to make it see-through over the tabs, or drag ◢ to resize it. Tapping Next › advances both the video and the book pages together!
       </p>
+      {fingerOpen && <CourseFingerCard lessonHint={lesson.hint} onHide={() => setFingerOpen(false)} />}
     </div>
   )
 }
