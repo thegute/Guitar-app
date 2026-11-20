@@ -69,18 +69,18 @@ export function tabLook(g: Gray, s: Strip): TabLook {
   const ls = [...s.lines].sort((a, b) => a - b)
   const gap = (ls[ls.length - 1] - ls[0]) / Math.max(1, ls.length - 1)
   const x0 = Math.max(0, Math.round(s.left)), x1 = Math.min(g.w - 1, Math.round(s.right))
-  // the lines against the middle between them: brighter = a white tab
-  let on = 0, off = 0, n = 0
+  // the lines against the middle between them: how much lighter (a white tab) or darker (a printed one) they stand out.
+  // (a line is a pixel or two thick and may sit between rows: its lightest and darkest pixel nearby both count)
+  let up = 0, down = 0, n = 0
   for (let k = 0; k < ls.length; k++) {
     const y = Math.round(ls[k]), ym = Math.round(ls[k] + gap / 2)
-    if (y < 0 || ym >= g.h) continue
+    if (y < 1 || ym >= g.h || y + 1 >= g.h) continue
     for (let x = x0; x <= x1; x += 3) {
-      let v = g.px[y * g.w + x]
-      for (const d of [-1, 1]) if (y + d >= 0 && y + d < g.h) v = Math.max(v, g.px[(y + d) * g.w + x]) // (a 2-px line)
-      on += v; off += g.px[ym * g.w + x]; n++
+      const a = g.px[(y - 1) * g.w + x], b = g.px[y * g.w + x], c = g.px[(y + 1) * g.w + x], m = g.px[ym * g.w + x]
+      up += Math.max(0, Math.max(a, b, c) - m); down += Math.max(0, m - Math.min(a, b, c)); n++
     }
   }
-  const light = n > 0 && on / n > off / n
+  const light = n > 0 && up > down
   // the ground between the lines, smoothed over about a string gap: even (a printed strip, a plain band) or not (a video)
   const r = Math.max(2, Math.round(gap * 0.8))
   const vals: number[] = []
