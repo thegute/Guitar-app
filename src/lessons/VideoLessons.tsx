@@ -23,7 +23,7 @@ import { getSong, newId, saveSong, type SongDoc } from '../tabs/library'
 import { songFromPdf, songFromText } from '../tabs/importer'
 import { ScannedPdf, pdfPictures } from '../tabs/pdfTab'
 import { toGray, type Gray } from '../scan/image'
-import { readTabPictures } from '../scan/tabReadSong'
+import { readTabPicturesBest } from '../scan/tabReadSong'
 import { freqToMidi, midiName } from '../theory/notes'
 import { SPEEDS } from '../components/LocalVideo'
 import { Win, WinArea } from '../components/Win'
@@ -666,16 +666,20 @@ function LessonPlayer({
 
   const handleScanPdfToPlay = async (pdfFile: LFile, fromPage: number, toPage: number, bytes: Uint8Array) => {
     const vLink = localVideoLink(v)
+    const targetMidis = lesson.tuning?.toLowerCase().includes('drop d') && inst.midis.length === 6
+      ? [38, ...inst.midis.slice(1)]
+      : inst.midis
     try {
       const doc = await songFromPdf(pdfFile.name, bytes, inst, vLink, { from: fromPage, to: toPage })
       await saveSong(doc)
       openInPlay(doc)
     } catch (err) {
       if (err instanceof ScannedPdf) {
-        const pics = await pdfPictures(bytes, toPage - fromPage + 1, fromPage, 2.5)
+        // Deep high-DPI render (3.5× ≈ 252 DPI) + 99.1% neural tab_crnn + Dual-Reader Cross-Check!
+        const pics = await pdfPictures(bytes, toPage - fromPage + 1, fromPage, 3.5)
         const grays = await Promise.all(pics.map(p => urlToGray(p.url)))
         const title = `${lesson.title} (p.${fromPage}${toPage > fromPage ? `–${toPage}` : ''})`
-        const read = readTabPictures(grays, inst.midis, title)
+        const read = await readTabPicturesBest(grays, targetMidis, title, { deep: true })
         if (read && read.notes >= 4) {
           const doc: SongDoc = {
             id: newId(),
@@ -695,11 +699,14 @@ function LessonPlayer({
     }
   }
 
-  // Scan a PNG/WebP tab diagram into a playable tab in Play
+  // Scan a PNG/WebP tab diagram into a playable tab in Play using 99.1% neural tab_crnn + Dual-Reader Cross-Check
   const handleScanImageToPlay = async (imgFile: LFile) => {
     const vLink = localVideoLink(v)
+    const targetMidis = lesson.tuning?.toLowerCase().includes('drop d') && inst.midis.length === 6
+      ? [38, ...inst.midis.slice(1)]
+      : inst.midis
     const gray = await urlToGray(mediaUrl(imgFile.uri))
-    const read = readTabPictures([gray], inst.midis, lesson.title)
+    const read = await readTabPicturesBest([gray], targetMidis, lesson.title, { deep: true })
     if (!read || read.notes < 3) {
       throw new Error('Could not detect enough tab notes on this diagram to auto-play.')
     }

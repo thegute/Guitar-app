@@ -18,6 +18,8 @@ export interface PictureReading {
   meter: number
   /** the tuning / capo / tempo the page printed */
   found?: TuningFound
+  /** Deep Mode audio-engine Render-and-Compare summary (when video audio verified the tab) */
+  polish?: import('./deepAudioAlign').PolishSummary
 }
 
 /** Read every picture (pages in order). Null when no tab staff with numbers was found on any of them. */
@@ -175,6 +177,8 @@ export async function soundFor(snd: VideoSound, tuning: number[]): Promise<(i: n
  *  than the number matcher. Falls back to readTabPictures when the model can't be loaded. */
 export async function readTabPicturesBest(pics: Gray[], tuning: number[], title: string, o: {
   video?: boolean
+  /** Deep Accuracy Mode: DTW Audio-to-Tab + Render-and-Compare verification (videos/Shorts) or Dual-Reader Cross-Check (PDFs/screenshots) */
+  deep?: boolean
   /** a video's sound and, per picture, when the playhead was where (pictures.ts Stitcher.timelines): numbers the
    *  picture leaves in doubt are settled by the note heard */
   hear?: VideoSound
@@ -198,8 +202,53 @@ export async function readTabPicturesBest(pics: Gray[], tuning: number[], title:
     const late: ReturnType<typeof hearFor> = r.notes && !hearFor(i).hear ? hearFor(i, r) : {}
     again.push(r.notes && (r.meter !== meter || late.hear) ? await readTabCrnn(pics[i], run, { strings, beats: meter, ...hearFor(i), ...late }) : r)
   }
+
+  // Deep Mode PDF / Screenshot Dual-Reader Cross-Check (tab_crnn + template reader consensus)
+  if (o.deep && !o.video) {
+    for (let i = 0; i < again.length; i++) {
+      const cr = again[i]
+      if (!cr.unsure) continue
+      const tpl = readTab(deskew(pics[i]).g, { strings, beats: meter })
+      if (!tpl.notes) continue
+      const tplNotes = tpl.systems.flatMap(sy => sy.bars.flatMap(b => b.steps.flatMap(st => st.notes)))
+      for (const sy of cr.systems) {
+        for (const b of sy.bars) {
+          for (const st of b.steps) {
+            for (const n of st.notes) {
+              if (n.sure >= 0.06) continue
+              // If the template matcher independently read the exact same fret on the same string nearby, confirm it!
+              const agrees = tplNotes.some(tn => tn.string === n.string && tn.fret === n.fret && tn.sure >= 0.12 && Math.abs(tn.x - n.x) < 28)
+              if (agrees) n.sure = 0.12
+            }
+          }
+        }
+      }
+    }
+  }
+
   readings = o.video ? dropLoop(dropRepeats(mergePages(again))) : again
-  return readingSong(readings, tuning, title, meter)
+  const built = readingSong(readings, tuning, title, meter)
+  if (!built) return null
+
+  // Deep Mode Audio Engine Render-and-Compare + DTW Alignment + Tuning/Capo Auto-Detection!
+  if (o.hear && o.deep !== false) {
+    try {
+      const { renderAndCompareSong } = await import('./deepAudioAlign')
+      const polish = renderAndCompareSong(built.song, o.hear.x, o.hear.sr)
+      built.polish = polish
+      // Recount remaining unsure notes after audio verification
+      let remUnsure = 0
+      for (const tr of built.song.tracks) {
+        for (const b of tr.bars) {
+          for (const st of b.steps) {
+            for (const n of st.notes as { unsure?: boolean }[]) if (n.unsure) remUnsure++
+          }
+        }
+      }
+      built.unsure = remUnsure
+    } catch { /* non-fatal: keep visual reading */ }
+  }
+  return built
 }
 
 /** Several pages' readings → one song (exported for tests). Staves stacked in one system (Guitar 1 / 2 / 3) become their

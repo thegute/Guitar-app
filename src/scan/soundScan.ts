@@ -17,6 +17,7 @@ import { notesToSong } from '../ml/toTab'
 import { aiListen, withoutVoice, type Heard } from './listen'
 import { aiSettings } from '../assistant/providers'
 import { markTechniques, type Evidence } from '../ml/legato'
+import { detectAudioTuning, ensembleAudioNotes, filterByAcousticSalience, suppressHarmonicGhosts } from '../ml/deepAudioTranscribe'
 
 export type Pass = 'idle' | 'running' | 'ready' | 'done' | 'used' | 'failed' | 'skipped'
 export interface ScanState {
@@ -49,6 +50,10 @@ export interface ScanInput {
   source: string
   /** keep notes played while singing (Riff Scanner's "Include singing") */
   keepSinging?: boolean
+  /** Deep Accuracy Mode: HT-Demucs guitar stem isolation + 50% overlapping CRNN + Basic Pitch ensemble + overtone suppression */
+  deep?: boolean
+  /** Set true if caller already ran HT-Demucs stem isolation on `x` */
+  alreadyIsolated?: boolean
 }
 
 const canHear = () => !!aiSettings().keys.gemini
@@ -130,26 +135,68 @@ export class SoundScan {
     }
   }
 
-  /** Download done (or already there): run the better pass. */
+  /** Download done (or already there): run the better pass (with optional HT-Demucs guitar isolation + 50% overlap ensemble in Deep Mode). */
   async runBetter() {
     if (this.state.betterPass === 'running') return
-    this.set({ needModels: false, betterPass: 'running', betterPct: 0, betterNote: 'Starting the guitar-note model…', error: '' })
+    const deep = this.inp.deep !== false
+    this.set({ needModels: false, betterPass: 'running', betterPct: 0, betterNote: deep ? 'Starting Deep Accuracy scan…' : 'Starting the guitar-note model…', error: '' })
     try {
-      const r = await guitarNotes(this.inp.x, this.inp.sr, {
+      let srcX = this.inp.x
+      let srcSr = this.inp.sr
+      let isolated = false
+
+      // Deep Mode step 1: strip drums, bass & vocals via on-device HT-Demucs ('voice' model -> stems.other = guitar/harmony)
+      if (deep && !this.inp.alreadyIsolated && (await haveModel('voice').catch(() => false))) {
+        try {
+          this.set({ betterNote: 'Deep Mode (1/2): isolating guitar from drums, bass & vocals (Demucs)…' })
+          const { isolate } = await import('../ml/voice')
+          const sep = await isolate([this.inp.x], this.inp.sr, {
+            signal: this.ctrl.signal,
+            onProgress: (f, note) => this.set({ betterPct: f * 0.45, betterNote: `Deep Mode (1/2): ${note}` }),
+          })
+          // Mix stereo `other` stem (where HT-Demucs v4 isolates acoustic/electric guitar cleanly!) to mono
+          const [ol, or] = sep.stems.other
+          const mono = new Float32Array(ol.length)
+          for (let i = 0; i < ol.length; i++) mono[i] = 0.5 * (ol[i] + or[i])
+          srcX = mono
+          srcSr = sep.sr
+          isolated = true
+        } catch (e) {
+          if (e instanceof Error && /Cancelled/.test(e.message)) throw e
+          // Non-fatal: continue with full mix if Demucs fails
+        }
+      }
+
+      const r = await guitarNotes(srcX, srcSr, {
         signal: this.ctrl.signal,
-        onProgress: (f, note) => this.set({ betterPct: f, betterNote: note }),
+        overlap50: deep,
+        limit: deep ? 360 : 120,
+        onProgress: (f, note) => this.set({
+          betterPct: isolated ? 0.45 + f * 0.55 : f,
+          betterNote: `${deep ? (isolated ? 'Deep Mode (2/2): ' : 'Deep Mode (50% overlap): ') : ''}${note}`,
+        }),
         confirm: secs => new Promise<boolean>(res => { this.longAnswer = res; this.set({ askLong: secs }) }),
       })
-      // the same technique marks as the draft (its pitch contours and pick clicks cover the first 4 minutes)
-      this.betterNotes = this.marked && this.evidence ? markTechniques(r.notes, this.evidence) : r.notes
-      if (r.notes.length < 6 && canHear() && !this.state.heard?.notes) {
+
+      // Deep Mode post-processing: Ensemble with Basic Pitch + Harmonic Overtone Suppressor + Acoustic Salience Filter
+      let refined = r.notes
+      if (deep) {
+        refined = ensembleAudioNotes(refined, this.draftNotes, this.state.heard?.chords)
+        refined = suppressHarmonicGhosts(refined)
+        refined = filterByAcousticSalience(refined, srcX, srcSr)
+      }
+
+      // Apply technique marks (hammer-ons, pull-offs, slides, bends) from pitch contours + pick clicks
+      this.betterNotes = this.marked && this.evidence ? markTechniques(refined, this.evidence) : refined
+      if (this.betterNotes.length < 6 && canHear() && !this.state.heard?.notes) {
         // it heard almost nothing clear (a busy full band?): ask the AI for its own notes as a backup
         this.set({ betterPass: 'failed', betterNote: 'The guitar model heard almost nothing clear: asking Gemini for a rough version…' })
         await this.listen(true)
         if (this.state.heard?.notes?.length) { this.rebuild(this.state.heard.notes, 'ai'); return }
       }
       this.rebuild(this.betterNotes, 'better')
-      this.set({ betterPass: 'ready', betterNote: `${this.betterNotes.length} notes, in ${Math.round(r.secs)} s on ${r.where === 'phone' ? 'the phone' : r.where === 'webgpu' ? 'the graphics chip' : 'this browser'}` })
+      const modeTag = deep ? (isolated ? 'Deep Mode (Demucs + 50% overlap + ensemble)' : 'Deep Mode (50% overlap + ensemble)') : 'Standard'
+      this.set({ betterPass: 'ready', betterNote: `${this.betterNotes.length} notes · ${modeTag} in ${Math.round(r.secs)} s on ${r.where === 'phone' ? 'the phone' : r.where === 'webgpu' ? 'the graphics chip' : 'this browser'}` })
     } catch (e) {
       const cancelled = e instanceof Error && /Cancelled/.test(e.message)
       this.set({ betterPass: cancelled ? 'skipped' : 'failed', betterNote: cancelled ? 'Kept the quick version.' : `The guitar-note model stopped: ${e instanceof Error ? e.message : 'error'}` })
@@ -168,7 +215,8 @@ export class SoundScan {
         const r = h.tempo / grid.bpm
         if (Math.abs(r - 2) < 0.15 || Math.abs(r - 0.5) < 0.08) grid = { ...grid, bpm: h.tempo, beats: r > 1 ? grid.beats.flatMap((b, i, a) => (i + 1 < a.length ? [b, (b + a[i + 1]) / 2] : [b])) : grid.beats.filter((_, i) => i % 2 === 0) }
       }
-      const song = notesToSong(clean, { tuning: this.inp.inst.midis, title: this.title(), chords: kind !== 'ai', grid, bpm: grid?.bpm ?? h?.tempo ?? this.bpmGuess, chordTimes: h?.chords, report, program: 25 })
+      const detTun = this.inp.deep !== false ? detectAudioTuning(clean, this.inp.inst.midis) : { tuning: this.inp.inst.midis }
+      const song = notesToSong(clean, { tuning: detTun.tuning, title: this.title(), chords: kind !== 'ai', grid, bpm: grid?.bpm ?? h?.tempo ?? this.bpmGuess, chordTimes: h?.chords, report, program: 25 })
       if (!song) return null
       const tempoFrom = this.state.grid ? 'detected' as const : h?.tempo ? 'ai' as const : 'guess' as const
       const doc: SongDoc = {

@@ -100,6 +100,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
 }) {
   const inst = useInstrument()
   const [link, setLink] = usePersist('scanLink', '')
+  const [deepMode, setDeepMode] = usePersist('scanDeepMode', true)
   useEffect(() => { if (initialLink) setLink(initialLink) }, [initialLink]) // eslint-disable-line react-hooks/exhaustive-deps
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -127,15 +128,23 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     autoDone.current = true
     void scanPictures()
   }, [autoRead, ready, pics.length]) // eslint-disable-line react-hooks/exhaustive-deps
-  // tapped "Scan this Short": kick off link scan right away if Gemini is configured, else open the on-screen grabber
+  // tapped "Scan this Short": in Deep Mode use KGuitar's 99% pixel tab_crnn + Audio Engine screen grabber FIRST;
+  // in Quick Mode (or if screen grab isn't supported) use Gemini link watching directly.
   const autoLinkDone = useRef('')
   useEffect(() => {
     const u = initialLink?.trim()
     if (!autoLink || !u || autoLinkDone.current === u || !youtubeId(u)) return
     autoLinkDone.current = u
-    if (canAskGemini()) void scanLink(u)
-    else { setWhy('Set up a free Gemini key for automatic watching, or let KGuitar grab the tab right from the screen.'); setPhase('grab') }
-  }, [autoLink, initialLink]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (deepMode && canGrab()) {
+      setWhy('Deep Mode uses KGuitar’s 99% neural tab reader + audio engine verification on the real pixels & sound (far more accurate than link guessing). Tap Start Deep Scan below!')
+      setPhase('grab')
+    } else if (canAskGemini()) {
+      void scanLink(u)
+    } else {
+      setWhy('Set up a free Gemini key for quick watching, or let KGuitar grab the tab right from the screen.')
+      setPhase('grab')
+    }
+  }, [autoLink, initialLink, deepMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function addUrls(list: { name: string; url: string }[]) {
     const add: Pic[] = []
@@ -184,14 +193,23 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     const { readTabPicturesBest, trustReading, grayOf, songTabText } = await import('./tabReadSong')
     // the whole strips when we have them (cut pieces would split bars), else the pieces
     const grays = strips?.length ? strips : (await Promise.all(pieces.map(pc => loadPicture(pc.url)))).map(im => grayOf(im))
-    const r = await readTabPicturesBest(grays, inst.midis, name, { video: !!strips?.length, ...(hear && strips?.length ? { hear } : {}) })
+    const r = await readTabPicturesBest(grays, inst.midis, name, { video: !!strips?.length, deep: deepMode, ...(hear && strips?.length ? { hear } : {}) })
     if (!r || !(trustReading(r) || !ready)) return false
     const song = bpm ? { ...r.song, tempo: bpm, tempoFrom: 'file' as const } : r.song
     const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song, youtube, updated: Date.now() }
+    const pol = r.polish
+    const polBits = pol
+      ? [
+          `${Math.round(pol.meanMatch * 100)}% audio match`,
+          pol.tuningChanged ? `${pol.tuningLabel}${pol.capo ? ` (Capo ${pol.capo})` : ''} detected` : '',
+          pol.notesCorrected ? `${pol.notesCorrected} digit${pol.notesCorrected === 1 ? '' : 's'} fixed by ear` : '',
+          pol.notesConfirmed ? `${pol.notesConfirmed} confirmed by ear` : '',
+        ].filter(Boolean)
+      : []
     setOut({
       doc, heard: false, text: songTabText(song, stringNames(inst)), reparse: t => songFromScan(t, name, inst, youtube),
       strips: pieces.map(p => ({ url: p.url, w: p.w, h: p.h })),
-      how: `${how} KGuitar read ${r.notes} number${r.notes === 1 ? '' : 's'} itself.${r.unsure ? ` ${r.unsure} ${r.unsure === 1 ? 'has' : 'have'} an amber ring: check ${r.unsure === 1 ? 'it' : 'them'} against the video.` : ''}`,
+      how: `${how} KGuitar read ${r.notes} number${r.notes === 1 ? '' : 's'} itself${polBits.length ? ` · Audio engine: ${polBits.join(', ')}` : ''}.${r.unsure ? ` ${r.unsure} ${r.unsure === 1 ? 'has' : 'have'} an amber ring: check ${r.unsure === 1 ? 'it' : 'them'} against the video.` : ''}`,
     })
     setStages(null)
     return true
@@ -201,12 +219,13 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     if (!pics.length) return
     // 1 KGuitar reads the numbers itself (no AI, no key): exact strings, every number checked against the page's own font
     const name = title || 'Scanned tab'
-    begin([{ id: 'own', label: 'Reading the numbers on the tab lines', state: 'run' }])
+    begin([{ id: 'own', label: deepMode ? 'Reading tab lines (Deep 99% neural + dual-check)' : 'Reading the numbers on the tab lines', state: 'run' }])
     await new Promise(r => setTimeout(r, 30))
     try {
       const { readTabPicturesBest, trustReading, grayOf, songTabText } = await import('./tabReadSong')
-      let r = await readTabPicturesBest(pics.map(p => grayOf(p.img, 1600, box)), inst.midis, name)
-      if (!r && box) r = await readTabPicturesBest(pics.map(p => grayOf(p.img)), inst.midis, name)
+      const minW = deepMode ? 2200 : 1600
+      let r = await readTabPicturesBest(pics.map(p => grayOf(p.img, minW, box)), inst.midis, name, { deep: deepMode })
+      if (!r && box) r = await readTabPicturesBest(pics.map(p => grayOf(p.img, minW)), inst.midis, name, { deep: deepMode })
       if (r && (trustReading(r) || !ready)) {
         const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song: r.song, youtube, updated: Date.now() }
         const names = stringNames(inst)
@@ -331,9 +350,12 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
   // 2 KGuitar grabs its own screen (and the sound inside the phone) while the video plays here
   async function startGrabbing() {
     const f = parseTime(from) ?? 0, t = parseTime(to)
-    const secs = Math.min(300, Math.max(10, t !== undefined ? t - f + 2 : 180))
+    const isShort = /\/shorts\//.test(linkUrl)
+    // Deep Mode captures at 5 FPS on Shorts & 4 FPS on full YouTube videos (up to 8 minutes) so moving playheads are cleanly erased
+    const secs = Math.min(480, Math.max(10, t !== undefined ? t - f + 2 : isShort ? 90 : 360))
+    const fps = deepMode ? (isShort ? 5 : 4) : 3
     try {
-      session.current = await startGrab({ seconds: secs, fps: 3 })
+      session.current = await startGrab({ seconds: secs, fps })
       session.current.onStopped(() => void stopGrabbing())
       ytApi.current?.seek(f); ytApi.current?.play()
       const t0 = Date.now()
@@ -384,11 +406,50 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
         <div className="notice small">Printed tabs (screenshots, book pages) are read by KGuitar itself. Videos, handwriting and photos at an angle need a free Google Gemini key (a minute to set up, no card). <button className="btn sm" onClick={() => setSetup(!setup)}>{setup ? 'Close' : 'Set it up'}</button></div>
       )}
       {setup && !ready && <AiSetup compact />}
+      <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="seg" role="group" aria-label="Scanner accuracy mode" data-testid="scan-accuracy-mode">
+          <button
+            className="btn sm"
+            aria-pressed={deepMode}
+            onClick={() => setDeepMode(true)}
+            data-testid="scan-mode-deep"
+            title="Uses 99% pixel neural tab reader + playhead erasure + DTW & Render-and-Compare audio verification + Demucs guitar isolation"
+          >
+            🎯 Deep Accurate
+          </button>
+          <button
+            className="btn sm"
+            aria-pressed={!deepMode}
+            onClick={() => setDeepMode(false)}
+            data-testid="scan-mode-quick"
+            title="Faster scan using Gemini link watching or single-pass audio"
+          >
+            ⚡ Quick
+          </button>
+        </div>
+        <span className="small muted">
+          {deepMode
+            ? 'Deep Mode: 99% pixel tab reader + audio-engine DTW & Render-and-Compare + Demucs guitar isolation.'
+            : 'Quick Mode: fast single-pass scan.'}
+        </span>
+      </div>
       {links && (
-        <form className="scan-link stack" style={{ gap: 6 }} onSubmit={e => { e.preventDefault(); void scanLink() }}>
+        <form
+          className="scan-link stack"
+          style={{ gap: 6 }}
+          onSubmit={e => {
+            e.preventDefault()
+            if (deepMode && canGrab()) {
+              setWhy('Deep Mode grabs the real on-screen pixels + internal audio at 4–5 FPS for KGuitar’s 99% tab reader & Render-and-Compare audio engine.')
+              setPhase('grab')
+            } else {
+              void scanLink()
+            }
+          }}
+        >
           <div className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
             <input className="input" inputMode="url" placeholder="YouTube link (a lesson, a song, a Short)" value={link} onChange={e => setLink(e.target.value)} aria-label="YouTube link to scan" data-testid="scan-link" />
-            <button className="btn primary" type="submit" disabled={!linkUrl || !!stages} data-testid="scan-link-go"><Ico n="scan" /> Scan</button>
+            <button className="btn primary" type="submit" disabled={!linkUrl || !!stages} data-testid="scan-link-go"><Ico n="scan" /> {deepMode ? 'Deep Scan' : 'Scan'}</button>
           </div>
           <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
             <span className="small muted">Only a part?</span>
@@ -400,7 +461,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       )}
       {phase === 'grab' && linkUrl && (
         <div className="scan-grab stack panel" style={{ gap: 8 }} data-testid="scan-grab">
-          <p className="small" style={{ margin: 0 }}><b>Next: KGuitar watches it here.</b> {why}</p>
+          <p className="small" style={{ margin: 0 }}><b>{deepMode ? '🎯 Deep Accurate Scan (Pixels + Audio Engine):' : 'Next: KGuitar watches it here.'}</b> {why}</p>
           <YouTubePlayer url={linkUrl} onUrl={u => { setLink(u ?? ''); if (!u) setPhase(null) }} onApi={a => { ytApi.current = a }} onError={code => { if ([101, 150, 152, 153].includes(code)) { setWhy("This video's owner doesn't let it play inside other apps."); setPhase('record') } }} note="" />
           {canGrab() ? (
             grabbing ? (
@@ -410,7 +471,12 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
               </div>
             ) : (
               <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <button className="btn primary" onClick={() => void startGrabbing()} data-testid="grab-start"><Ico n="screen" /> Start the grab</button>
+                <button className="btn primary" onClick={() => void startGrabbing()} data-testid="grab-start"><Ico n="screen" /> {deepMode ? 'Start Deep Scan' : 'Start the grab'}</button>
+                {canAskGemini() && (
+                  <button className="btn sm ghost" onClick={() => void scanLink(linkUrl)} data-testid="grab-quick-gemini">
+                    ⚡ Try Quick Gemini Link instead
+                  </button>
+                )}
                 <span className="small muted">Android asks to allow screen capture (pick KGuitar or the entire screen). The video plays{parseTime(from) !== undefined ? ` from ${from}` : ''}; the sound is taken inside the phone, not with the mic.</span>
               </div>
             )

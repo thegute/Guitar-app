@@ -16,25 +16,62 @@ export const NOTE_STEP = 128000
 export interface NoteOut { onset: Float32Array; offset: Float32Array; frame: Float32Array; velocity: Float32Array }
 export interface Note { start: number; end: number; midi: number; velocity: number; /** h p / \\ b ~ : the move this note starts (see ml/legato.ts) */ tech?: string }
 
-/** Where each chunk starts (samples) for audio of length n. */
-export function noteChunks(n: number): number[] {
-  const count = Math.max(1, Math.ceil((n - NOTE.chunk) / NOTE_STEP) + 1)
-  return Array.from({ length: count }, (_, i) => i * NOTE_STEP)
+/** Where each chunk starts (samples) for audio of length n. Pass `step = 80000` for 50% overlap (Deep Mode). */
+export function noteChunks(n: number, step = NOTE_STEP): number[] {
+  const count = Math.max(1, Math.ceil((n - NOTE.chunk) / step) + 1)
+  return Array.from({ length: count }, (_, i) => i * step)
 }
 
-/** Join the chunks' outputs (frames × 88 each, the last frame dropped) into one, keeping each chunk's middle. */
-export function joinNoteChunks(outs: NoteOut[], totalFrames: number): NoteOut {
-  const K = NOTE.keys, n = NOTE.frames - 1, st = NOTE_STEP / 160, b = (n - st) / 2
-  const join = (key: keyof NoteOut) => {
+/** Join the chunks' outputs (frames × 88 each, the last frame dropped) into one.
+ *  When `step === NOTE_STEP` (default), keeps each chunk's middle cleanly; with tighter overlap (`step < NOTE_STEP`,
+ *  e.g. 50% overlap in Deep Mode), averages overlapping frames with triangular center weights for higher accuracy. */
+export function joinNoteChunks(outs: NoteOut[], totalFrames: number, step = NOTE_STEP): NoteOut {
+  const K = NOTE.keys, n = NOTE.frames - 1, st = Math.round(step / 160)
+  if (step === NOTE_STEP) {
+    const b = (n - st) / 2
+    const join = (key: keyof NoteOut) => {
+      const out = new Float32Array(totalFrames * K)
+      let w = 0
+      outs.forEach((o, i) => {
+        const from = i === 0 ? 0 : b, to = i === outs.length - 1 ? n : n - b
+        for (let f = from; f < to && w < totalFrames; f++, w++) out.set(o[key].subarray(f * K, (f + 1) * K), w * K)
+      })
+      return out
+    }
+    return { onset: join('onset'), offset: join('offset'), frame: join('frame'), velocity: join('velocity') }
+  }
+  // Weighted overlap averaging for Deep Mode (e.g. 50% overlap)
+  const wsum = new Float32Array(totalFrames)
+  const joinAvg = (key: keyof NoteOut, fillW: boolean) => {
     const out = new Float32Array(totalFrames * K)
-    let w = 0
     outs.forEach((o, i) => {
-      const from = i === 0 ? 0 : b, to = i === outs.length - 1 ? n : n - b
-      for (let f = from; f < to && w < totalFrames; f++, w++) out.set(o[key].subarray(f * K, (f + 1) * K), w * K)
+      const f0 = i * st
+      for (let f = 0; f < n; f++) {
+        const dst = f0 + f
+        if (dst >= totalFrames) break
+        // Triangular window peaking in the center of each 10s chunk
+        const edge = Math.min(f + 1, n - f)
+        const wt = (i === 0 && f < n / 2) || (i === outs.length - 1 && f >= n / 2) ? 1 : Math.min(1, edge / (n * 0.25))
+        if (fillW) wsum[dst] += wt
+        const srcOff = f * K
+        const dstOff = dst * K
+        const arr = o[key]
+        for (let k = 0; k < K; k++) out[dstOff + k] += arr[srcOff + k] * wt
+      }
     })
+    for (let dst = 0; dst < totalFrames; dst++) {
+      const inv = wsum[dst] > 1e-6 ? 1 / wsum[dst] : 1
+      const off = dst * K
+      for (let k = 0; k < K; k++) out[off + k] *= inv
+    }
     return out
   }
-  return { onset: join('onset'), offset: join('offset'), frame: join('frame'), velocity: join('velocity') }
+  return {
+    onset: joinAvg('onset', true),
+    offset: joinAvg('offset', false),
+    frame: joinAvg('frame', false),
+    velocity: joinAvg('velocity', false),
+  }
 }
 
 /** Peaks above `thr` that rise for `nb` frames before and fall for `nb` after, with the sub-frame shift. */

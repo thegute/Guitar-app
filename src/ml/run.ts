@@ -16,13 +16,16 @@ export interface NotesOpts {
   confirm?: (secs: number) => Promise<boolean>
   /** seconds; default 120 */
   limit?: number
+  /** Deep Mode: 50% overlapping 10s chunks averaged together for higher transcription accuracy */
+  overlap50?: boolean
 }
 
 export async function guitarNotes(x: Float32Array, sr: number, o: NotesOpts = {}): Promise<{ notes: Note[]; where: string; secs: number }> {
   const t0 = performance.now()
   const audio = resample(x, sr, NOTE.sr)
   const runner = await noteRunner()
-  const starts = noteChunks(audio.length)
+  const step = o.overlap50 ? NOTE.chunk / 2 : undefined
+  const starts = noteChunks(audio.length, step)
   const outs: NoteOut[] = []
   for (let i = 0; i < starts.length; i++) {
     if (o.signal?.aborted) throw new Error('Cancelled.')
@@ -40,7 +43,7 @@ export async function guitarNotes(x: Float32Array, sr: number, o: NotesOpts = {}
     await tick()
   }
   const frames = Math.floor((audio.length / NOTE.sr) * 100) + 1
-  const notes = notesFrom(joinNoteChunks(outs, frames), frames)
+  const notes = notesFrom(joinNoteChunks(outs, frames, step), frames)
   return { notes, where: runner.where, secs: (performance.now() - t0) / 1000 }
 }
 
