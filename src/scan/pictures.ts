@@ -80,7 +80,15 @@ export function tabLook(g: Gray, s: Strip): TabLook {
       up += Math.max(0, Math.max(a, b, c) - m); down += Math.max(0, m - Math.min(a, b, c)); n++
     }
   }
-  const light = n > 0 && up > down
+  // (the staff finder may have found the white gaps between thin black lines on a picture that is dark overall: so the
+  // ground round the staff decides first: mostly light = a printed tab, mostly dark = a white one; only an in-between
+  // ground, a video showing through, leaves it to the lines)
+  const vs: number[] = []
+  for (let y = Math.max(0, Math.round(ls[0] - gap)); y <= Math.min(g.h - 1, Math.round(ls[ls.length - 1] + gap)); y += 2)
+    for (let x = x0; x <= x1; x += 3) vs.push(g.px[y * g.w + x])
+  vs.sort((a, b) => a - b)
+  const ground = vs.length ? vs[vs.length >> 1] : 0.5
+  const light = ground < 0.35 ? true : ground > 0.65 ? false : n > 0 && up > down
   // the ground between the lines, smoothed over about a string gap: even (a printed strip, a plain band) or not (a video)
   const r = Math.max(2, Math.round(gap * 0.8))
   const vals: number[] = []
