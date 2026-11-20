@@ -2440,13 +2440,51 @@ body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-re
 /* Riff Scanner → Shorts */
 .shorts-styles { flex-wrap: wrap; }
 .shorts-stage { display: grid; gap: var(--sp-3); grid-template-columns: 1fr; }
-@media (min-width: 760px) { .shorts-stage { grid-template-columns: minmax(240px, 360px) 1fr; align-items: start; } }
+@media (min-width: 760px) { .shorts-stage:not(.scanning) { grid-template-columns: minmax(240px, 360px) 1fr; align-items: start; } }
 .shorts-player { display: flex; flex-direction: column; gap: var(--sp-2); align-items: center; }
 .short-frame { height: min(68vh, 640px); width: auto; max-width: 100%; aspect-ratio: 9 / 16; border: 0; border-radius: var(--r-lg); background: #000; }
 .short-blocked { height: min(68vh, 640px); width: auto; max-width: 100%; aspect-ratio: 9 / 16; justify-content: center; padding: var(--sp-4); border-radius: var(--r-lg); background: var(--surface); }
 .shorts-nav { display: flex; gap: var(--sp-3); align-items: center; }
 .shorts-title { font-size: 1.05rem; line-height: 1.25; }
-@media (max-width: 759px) { .shorts-stage.scanning .short-frame { height: min(42vh, 400px); } }
+
+/* Riff Scanner: full-resolution Short (9:16) & Wide (16:9) frames + Full-Screen Theater Scanner Stage */
+.scan-grab .yt-frame.is-short {
+  width: min(100%, calc(66dvh * 9 / 16)); height: auto; min-height: 0; max-height: 66dvh;
+  aspect-ratio: 9 / 16; margin-inline: auto; border-radius: var(--r-md);
+}
+.scan-grab .yt-frame.is-wide { width: 100%; height: auto; min-height: 220px; max-height: 62dvh; aspect-ratio: 16 / 9; }
+.scan-grab.grabbing-fs {
+  position: fixed; inset: 0; z-index: 9999; background: #000; color: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px) 0;
+  border-radius: 0; border: 0; margin: 0;
+}
+.scan-grab.grabbing-fs .yt.yt-theater {
+  flex: 1 1 auto; width: 100%; min-height: 0;
+  display: flex; align-items: center; justify-content: center; background: #000;
+}
+.scan-grab.grabbing-fs .yt-frame.is-short {
+  flex: none;
+  width: min(100vw, calc((100dvh - 58px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) * 9 / 16));
+  height: auto; max-height: calc(100dvh - 58px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  min-height: 0; max-width: 100vw; aspect-ratio: 9 / 16; border-radius: 0; margin: 0;
+}
+.scan-grab.grabbing-fs .yt-frame.is-wide {
+  flex: none;
+  width: min(100vw, calc((100dvh - 58px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) * 16 / 9));
+  height: auto; max-height: calc(100dvh - 58px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  min-height: 0; max-width: 100vw; aspect-ratio: 16 / 9; border-radius: 0; margin: 0;
+}
+.scan-fs-bar {
+  flex: none; width: 100%; height: 56px; padding: 6px 12px;
+  display: flex; align-items: center; gap: 10px;
+  background: #111318; border-top: 1px solid rgba(255,255,255,.12); color: #fff;
+}
+.scan-rec-dot {
+  width: 10px; height: 10px; border-radius: 50%; background: #ff453a; flex: none;
+  box-shadow: 0 0 8px #ff453a; animation: scan-pulse 1.1s ease-in-out infinite;
+}
+@keyframes scan-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .35 } }
 
 /* Play → Game: the note highway */
 .game-highway { width: 100%; margin-inline: auto; border-radius: var(--r-lg); overflow: hidden; touch-action: pan-y; position: relative; }

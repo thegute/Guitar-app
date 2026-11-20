@@ -203,17 +203,25 @@ export class Stitcher {
         this.box = { ...b, y: y0, h: y1 - y0 }
       } else if (this.searched < 90) return
       else this.box = { x: 0, y: 0, w: 1, h: 1 }
-    } else if (this.kept <= 4 && !this.doneW && this.layers.length <= 1) {
-      // If the first frame caught the tab while it was still fading/sliding in horizontally, allow widening the box
+    } else if (this.kept <= 12 && !this.doneW && this.layers.length <= 4) {
+      // During the first ~2–3 seconds (while YouTube overlays/controls fade out or the tab slides in), allow
+      // widening or recentering the box if a clearly wider/cleaner staff appears!
       const { w, h } = sizeOf(src)
       const { g, scale } = grayAt(src, 1400)
       const s = findStripsRobust(g)
       if (s.length) {
         const b = unionBox(s.map(x => toBox(x, scale, w, h)))!
-        if (Math.abs(b.y - this.box.y) < 0.06 && b.w > this.box.w * 1.15) {
-          const x0 = Math.min(this.box.x, b.x), x1 = Math.max(this.box.x + this.box.w, b.x + b.w)
-          this.box = { ...this.box, x: x0, w: x1 - x0 }
-          this.layers = []; this.prev = null; this.prevProf = null
+        const gapNew = s[0].lines.length > 1 ? (s[0].lines[s[0].lines.length - 1] - s[0].lines[0]) / (s[0].lines.length - 1) / scale : this.gap
+        const wider = Math.abs(b.y - this.box.y) < 0.08 && b.w > this.box.w * 1.12
+        const cleaner = this.kept <= 6 && b.w > this.box.w * 1.25 && b.w >= 0.45
+        if (wider || cleaner) {
+          this.gap = gapNew || this.gap
+          const up = (this.gap * 2) / h, down = (this.gap * 3.5) / h
+          const y0 = Math.max(0, b.y - up), y1 = Math.min(1, b.y + b.h + down)
+          const x0 = cleaner ? b.x : Math.min(this.box.x, b.x)
+          const x1 = cleaner ? b.x + b.w : Math.max(this.box.x + this.box.w, b.x + b.w)
+          this.box = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
+          this.layers = []; this.prev = null; this.prevProf = null; this.lineYs = null
         }
       }
     }

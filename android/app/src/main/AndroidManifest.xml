@@ -13,6 +13,7 @@
 
     <application
         android:allowBackup="true"
+        android:allowAudioPlaybackCapture="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -48,11 +49,11 @@
 
         </activity>
 
-        <!-- Riff Scanner: screen grab while a video plays in KGuitar (Android asks every time) -->
+        <!-- Riff Scanner: screen grab + internal audio while a video plays in KGuitar (Android asks every time) -->
         <service
             android:name=".ScreenGrabService"
             android:exported="false"
-            android:foregroundServiceType="mediaProjection" />
+            android:foregroundServiceType="mediaProjection|microphone" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -85,4 +86,5 @@
     <!-- Riff Scanner screen grab (a foreground service while it runs) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 </manifest>

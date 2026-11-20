@@ -63,11 +63,19 @@ interface Props {
   note?: string
   /** YouTube's error code (101/150/152/153 = the owner doesn't allow playing it in other apps) */
   onError?: (code: number) => void
+  /** YouTube player state change (0=ended, 1=playing, 2=paused, 3=buffering) */
+  onStateChange?: (state: number) => void
+  /** Optional class on the .yt-frame box (e.g. 'is-short' for upright 9:16 portrait Shorts) */
+  frameClass?: string
+  /** Optional ref to the .yt-frame container for exact DOM-rect screen-grab cropping */
+  frameRef?: React.RefObject<HTMLDivElement | null>
+  /** Hide the speed/A-B bar below the video (used in full-screen Riff Scanner theater mode) */
+  hideBar?: boolean
   /** when each tab note sounds (seconds from bar 1 at the tab's tempo): turns on "Sync automatically" */
   noteSecs?: number[]
 }
 
-export function YouTubePlayer({ url, onUrl, onApi, sync, onSync, tabBpm = 90, note = 'Use headphones, so the mic hears only your guitar.', onError, noteSecs }: Props) {
+export function YouTubePlayer({ url, onUrl, onApi, sync, onSync, tabBpm = 90, note = 'Use headphones, so the mic hears only your guitar.', onError, onStateChange, frameClass, frameRef, hideBar, noteSecs }: Props) {
   const id = url ? youtubeId(url) : null
   const [draft, setDraft] = useState('')
   const [bad, setBad] = useState(false)
@@ -94,12 +102,14 @@ export function YouTubePlayer({ url, onUrl, onApi, sync, onSync, tabBpm = 90, no
       </div>
     )
   }
-  return <Player key={id} id={id} url={url!} onUrl={onUrl} onApi={onApi} sync={sync} onSync={onSync} tabBpm={tabBpm} onError={onError} noteSecs={noteSecs} />
+  return <Player key={id} id={id} url={url!} onUrl={onUrl} onApi={onApi} sync={sync} onSync={onSync} tabBpm={tabBpm} onError={onError} onStateChange={onStateChange} frameClass={frameClass} frameRef={frameRef} hideBar={hideBar} noteSecs={noteSecs} />
 }
 
-function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90, onError, noteSecs }: Props & { id: string; url: string }) {
+function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90, onError, onStateChange, frameClass, frameRef, hideBar, noteSecs }: Props & { id: string; url: string }) {
   const frame = useRef<HTMLIFrameElement>(null)
   const player = useRef<YTPlayer | null>(null)
+  const onStateRef = useRef(onStateChange)
+  onStateRef.current = onStateChange
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<number | null>(null)
   const [rate, setRate] = useState(1)
@@ -109,7 +119,7 @@ function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90, onError, not
   const [syncOpen, setSyncOpen] = useState(false)
   const start = youtubeStart(url)
   const origin = typeof location !== 'undefined' && /^https?:/.test(location.origin) ? location.origin : ''
-  const src = `https://www.youtube.com/embed/${id}?enablejsapi=1&playsinline=1&rel=0&start=${start}${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`
+  const src = `https://www.youtube.com/embed/${id}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&start=${start}${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`
 
   useEffect(() => {
     let alive = true
@@ -132,6 +142,7 @@ function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90, onError, not
               })
             },
             onError: (e: { data: number }) => { if (alive) { setError(e.data); onError?.(e.data) } },
+            onStateChange: (e: { data: number }) => { if (alive) onStateRef.current?.(e.data) },
           },
         })
       })
@@ -161,8 +172,8 @@ function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90, onError, not
   const watch = `https://www.youtube.com/watch?v=${id}`
 
   return (
-    <div className="yt">
-      <div className="yt-frame">
+    <div className={`yt${hideBar ? ' yt-theater' : ''}`}>
+      <div className={`yt-frame${frameClass ? ` ${frameClass}` : ''}`} ref={frameRef}>
         <iframe
           ref={frame}
           src={src}
@@ -181,7 +192,7 @@ function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90, onError, not
           </div>
         )}
       </div>
-      <div className="yt-bar">
+      {!hideBar && <div className="yt-bar">
         <button className="btn sm" disabled={!ready} onClick={() => { const r = RATES[(RATES.indexOf(rate) + 1) % RATES.length]; setRate(r); player.current?.setPlaybackRate(r) }} aria-label="Playback speed">
           {rate === 1 ? '1×' : rate === 0.75 ? '¾×' : '½×'}
         </button>
@@ -197,7 +208,7 @@ function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90, onError, not
         <span style={{ flex: 1 }} />
         {onSync && <button className={`btn sm${sync ? ' set' : ''}`} disabled={!ready} aria-pressed={syncOpen} onClick={() => setSyncOpen(!syncOpen)}>{sync ? 'Synced' : 'Sync with tab'}</button>}
         <button className="btn sm ghost" onClick={() => onUrl(undefined)}>Change video</button>
-      </div>
+      </div>}
       {syncOpen && onSync && <SyncPanel ready={ready} now={now} sync={sync} onSync={onSync} tabBpm={tabBpm}
         auto={noteSecs ? { noteSecs, play: () => { setRate(1); player.current?.setPlaybackRate(1); player.current?.playVideo() } } : undefined} />}
     </div>

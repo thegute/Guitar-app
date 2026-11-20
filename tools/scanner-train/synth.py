@@ -191,12 +191,21 @@ def sample(rng=random, W=512, nstr=None):
         for s_, ch in enumerate(names):
             d.text((x - GAP * S * 0.9, ys(s_, x)), ch, font=nm, fill=ink, anchor='mm')
         x += GAP * S * 0.6
-    # sometimes a time signature or "TAB" at the start
-    if rng.random() < 0.3:
-        big = font(fpath, GAP * S * 2.2)
-        for k, ch in enumerate(rng.choice(['44', '34', '68', '78', '24', 'TA'])):
-            d.text((x, ys(0, x) + (k * 2 - 0.2) * GAP * S * (nstr - 1) / 4), ch, font=big, fill=ink, anchor='lt')
-        x += GAP * S * 2.4
+    # sometimes a time signature or full 3-letter vertical "T A B" clef at the start (not notes!)
+    if rng.random() < 0.38:
+        clef_choice = rng.choice(['TAB', 'TAB', 'TAB', '44', '34', '68', '78', '24'])
+        if clef_choice == 'TAB':
+            tab_fnt = font(fpath, GAP * S * rng.uniform(1.3, 1.85))
+            span = (nstr - 1) * GAP * S
+            for k, ch in enumerate('TAB'):
+                cy = ys(0, x) + span * (0.17 + k * 0.33)
+                draw_num(d, x + GAP * S * 0.55, cy, ch, tab_fnt, ink, bg, halo and rng.random() < 0.5)
+            x += GAP * S * 2.1
+        else:
+            big = font(fpath, GAP * S * 2.2)
+            for k, ch in enumerate(clef_choice):
+                d.text((x, ys(0, x) + (k * 2 - 0.2) * GAP * S * (nstr - 1) / 4), ch, font=big, fill=ink, anchor='lt')
+            x += GAP * S * 2.4
     compound = rng.random() < 0.22
     meter = rng.choice([3, 4.5, 6, 6]) if compound else rng.choice([4, 4, 4, 3, 2, 3.5, 3])
     beam_unit = 1.5 if compound else 1.0
@@ -222,10 +231,33 @@ def sample(rng=random, W=512, nstr=None):
                 draw_num(d, gx, ys(s0, gx), str(gf), small, ink, bg, halo)
                 cols.append({'x': gx, 'kind': 'note', 'frets': {s0: gf}, 'dur': None, 'dots': 0, 'tup': 0, 'grace': 1, 'stroke': 0})
             if col['kind'] == 'note':
-                for s, f in col['frets'].items():
-                    draw_num(d, x, ys(s, x), 'X' if f == 'x' and rng.random() < 0.5 else 'x' if f == 'x' else str(f), fnt, ink, bg, halo)
-                    if rng.random() < 0.05 and f != 'x':  # a slide line / tie off to the right
-                        d.line([(x + fsize * 0.5, ys(s, x) + GAP * S * 0.2), (x + fsize * 1.1, ys(s, x) - GAP * S * 0.2)], fill=ink, width=max(1, int(S * 0.8)))
+                # YouTube Shorts active-note highlight pill / box (Mr. Tabs, Level Up Guitar Tabs, Songsterr):
+                # rounded gray/tinted pill or dark inverted badge behind the active column's digits!
+                pill_mode = rng.choice(['none', 'none', 'none', 'none', 'none', 'none', 'none', 'soft', 'box', 'invert'])
+                if pill_mode != 'none' and rng.random() < 0.35:
+                    for s, f in col['frets'].items():
+                        txt = 'X' if f == 'x' and rng.random() < 0.5 else 'x' if f == 'x' else str(f)
+                        bb = d.textbbox((x, ys(s, x)), txt, font=fnt, anchor='mm')
+                        pad = (bb[3] - bb[1]) * rng.uniform(0.16, 0.32)
+                        rect = [bb[0] - pad, bb[1] - pad * 0.8, bb[2] + pad, bb[3] + pad * 0.8]
+                        rad = max(2, int(GAP * S * rng.uniform(0.2, 0.45)))
+                        if pill_mode == 'invert':
+                            fill_p = rng.randint(ink, min(140, ink + 70))
+                            d.rounded_rectangle(rect, radius=rad, fill=fill_p)
+                            d.text((x, ys(s, x)), txt, font=fnt, fill=rng.randint(215, 255), anchor='mm')
+                        elif pill_mode == 'box':
+                            fill_p = rng.randint(155, 215)
+                            d.rounded_rectangle(rect, radius=rad, fill=fill_p, outline=rng.randint(80, 150), width=max(1, int(S * 0.7)))
+                            d.text((x, ys(s, x)), txt, font=fnt, fill=ink, anchor='mm')
+                        else:
+                            fill_p = rng.randint(150, 210)
+                            d.rounded_rectangle(rect, radius=rad, fill=fill_p)
+                            d.text((x, ys(s, x)), txt, font=fnt, fill=ink, anchor='mm')
+                else:
+                    for s, f in col['frets'].items():
+                        draw_num(d, x, ys(s, x), 'X' if f == 'x' and rng.random() < 0.5 else 'x' if f == 'x' else str(f), fnt, ink, bg, halo)
+                        if rng.random() < 0.05 and f != 'x':  # a slide line / tie off to the right
+                            d.line([(x + fsize * 0.5, ys(s, x) + GAP * S * 0.2), (x + fsize * 1.1, ys(s, x) - GAP * S * 0.2)], fill=ink, width=max(1, int(S * 0.8)))
             else:
                 draw_rest(d, rng, x, ys(0, x), ys(nstr - 1, x), b[0], ink, S)
             if rng.random() < 0.08 and col['kind'] == 'note':
@@ -371,12 +403,14 @@ def clutter(d, rng, Wpx, ys, nstr, ink, fpath, S):
             x1 = x + rng.uniform(4, 12) * GAP * S
             for xx in np.arange(x + GAP * S * 2.5, min(x1, Wpx), GAP * S * 0.6):
                 d.line([(xx, y + GAP * S * 0.5), (xx + GAP * S * 0.3, y + GAP * S * 0.5)], fill=ink, width=S)
-    for _ in range(rng.randint(0, 4)):  # ties / slurs below a string
+    for _ in range(rng.randint(0, 5)):  # ties / slurs + long let-ring curves running along strings after chords
         s = rng.randrange(nstr)
-        x = rng.uniform(0, Wpx * 0.9)
-        y = ys(s, x) + GAP * S * 0.45
-        w = rng.uniform(1.5, 6) * GAP * S
-        d.arc([x, y - GAP * S * 0.4, x + w, y + GAP * S * 0.4], 10, 170, fill=ink, width=max(1, S))
+        x = rng.uniform(0, Wpx * 0.88)
+        long_tie = rng.random() < 0.35
+        y = ys(s, x) + GAP * S * rng.choice([-0.42, 0.42])
+        w = rng.uniform(5.0, 14.0) * GAP * S if long_tie else rng.uniform(1.5, 5.5) * GAP * S
+        h_arc = GAP * S * (0.28 if long_tie else 0.4)
+        d.arc([x, y - h_arc, x + w, y + h_arc], 10, 170, fill=ink, width=max(1, int(S * rng.uniform(0.8, 1.3))))
     if rng.random() < 0.15:  # a bend arrow
         x = rng.uniform(0, Wpx * 0.9)
         d.line([(x, ys(1, x)), (x + GAP * S, ys(0, x) - GAP * S * 1.2)], fill=ink, width=S)
@@ -415,13 +449,25 @@ def degrade(img, rng):
     if rng.random() < 0.3:  # light falling across a photo
         gx = np.linspace(rng.uniform(-40, 10), rng.uniform(-40, 10), W)[None, :]
         a = a + gx
-    if rng.random() < 0.25:  # a playhead or a highlight box over a few columns
-        x0 = rng.randint(0, W - 4)
-        if rng.random() < 0.5:
-            a[:, x0:x0 + rng.randint(1, 4)] = rng.uniform(60, 200)
+    if rng.random() < 0.22:  # translucent frosted-glass video tab overlay (blurred moving hands/guitar showing through!)
+        low_w, low_h = rng.randint(5, 14), rng.randint(3, 7)
+        blobs = np.random.default_rng(rng.randint(0, 1 << 30)).uniform(-35, 25, (low_h, low_w)).astype(np.float32)
+        bg_img = Image.fromarray(np.clip(blobs + 128, 0, 255).astype(np.uint8)).resize((W, Hh), Image.BICUBIC)
+        a = a + (np.asarray(bg_img, dtype=np.float32) - 128.0) * rng.uniform(0.45, 1.0)
+    if rng.random() < 0.35:  # a playhead, Songsterr-style vertical cursor bar, or highlight band across strings
+        x0 = rng.randint(0, W - 6)
+        kind = rng.random()
+        if kind < 0.45:
+            # sharp semi-transparent vertical cursor bar crossing all 6 strings (never read as phantom X chord!)
+            bw = rng.randint(2, 8)
+            alpha = rng.uniform(0.25, 0.72)
+            col_v = rng.uniform(50, 200)
+            a[:, x0:x0 + bw] = a[:, x0:x0 + bw] * (1.0 - alpha) + col_v * alpha
+        elif kind < 0.75:
+            a[:, x0:x0 + rng.randint(1, 4)] = rng.uniform(45, 195)
         else:
-            w = rng.randint(10, 40)
-            a[:, x0:x0 + w] = a[:, x0:x0 + w] * rng.uniform(0.6, 0.9) + rng.uniform(0, 40)
+            w = rng.randint(10, 44)
+            a[:, x0:x0 + w] = a[:, x0:x0 + w] * rng.uniform(0.58, 0.88) + rng.uniform(0, 40)
     if rng.random() < 0.4:
         a = a + np.random.default_rng(rng.randint(0, 1 << 30)).normal(0, rng.uniform(2, 12), a.shape)
     c = rng.uniform(0.6, 1.1)

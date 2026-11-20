@@ -295,8 +295,8 @@ export function detectTuningAndCapoViaAudio(
   for (let i = 1; i < cands.length; i++) {
     const c = cands[i]
     const al = dtwAlignSteps(sampleSteps, timeline, c.tuning, c.capo)
-    // Require a clear improvement (+0.07 cosine similarity) over standard tuning so we never false-switch
-    if (al.meanScore > bestAlign.meanScore + (bestCand === cands[0] ? 0.07 : 0.015)) {
+    // Require a clear improvement (+0.09 cosine similarity) over standard tuning so distorted/full-band mixes never false-switch
+    if (al.meanScore > bestAlign.meanScore + (bestCand === cands[0] ? 0.09 : 0.015)) {
       bestCand = c
       bestAlign = al
     }
@@ -393,7 +393,7 @@ export function renderAndCompareSong(
 
   const { best, alignment } = detected
   const tuningChanged = best.tuning.join(',') !== baseTuning.join(',') || best.capo !== (track.capo ?? 0)
-  if (tuningChanged && alignment.meanScore >= 0.52) {
+  if (tuningChanged && alignment.meanScore >= 0.62) {
     track.tuning = [...best.tuning]
     track.capo = best.capo
     for (const { step } of flat) {
@@ -402,6 +402,10 @@ export function renderAndCompareSong(
       }
     }
   }
+
+  // Only run note-level audio swaps when DTW alignment actually locked onto the recording (avoids corrupting clean tabs on noisy mixes)
+  const strongAlign = alignment.meanScore >= 0.65
+  const okAlign = alignment.meanScore >= 0.45
 
   // Build exact harmonic salience oracle (fundamental + overtones) for note-level Render-and-Compare
   const at: Hearing = hearing(x, sr)
@@ -423,6 +427,7 @@ export function renderAndCompareSong(
     const t = alignment.stepTimes[idx]
     const sc = alignment.stepScores[idx]
     barScores.set(barIdx, [...(barScores.get(barIdx) ?? []), sc])
+    if (!okAlign) return
 
     // Compute loudest guitar-range reference at this moment
     let peakRef = 1e-9
@@ -446,21 +451,28 @@ export function renderAndCompareSong(
         continue
       }
 
-      // Only try swapping if the note was marked unsure OR its acoustic salience is genuinely weak (< 0.35)
-      if (!n.unsure && curSal >= 0.35) continue
+      // Guardrail: NEVER touch a high-confidence visual digit on noisy/distorted backing tracks!
+      // Only consider overriding a confident digit when DTW locked strongly, current note is practically silent (<0.12),
+      // and a genuine neural-net runner-up (`n.alts`) is overwhelmingly loud.
+      if (!n.unsure) {
+        if (!strongAlign || curSal >= 0.12 || !(n.alts?.length)) continue
+      }
 
       const candidateFrets = new Set<number>()
       for (const a of n.alts ?? []) if (a >= 0 && a <= 24 && a !== n.fret) candidateFrets.add(a)
-      for (const c of OCR_CONFUSIONS[n.fret] ?? []) if (c >= 0 && c <= 24 && c !== n.fret) candidateFrets.add(c)
+      if (n.unsure) {
+        for (const c of OCR_CONFUSIONS[n.fret] ?? []) if (c >= 0 && c <= 24 && c !== n.fret) candidateFrets.add(c)
+      }
       if (!candidateFrets.size) continue
 
       let bestFret = n.fret
       let bestSal = curSal
       for (const cand of candidateFrets) {
         const s = salAt(t, openMidi + capo + cand) / peakRef
-        // Candidate must be clearly louder in the real audio than the misread fret (+0.22 margin, or +0.12 if unsure)
-        const margin = n.unsure ? 0.12 : 0.25
-        if (s > bestSal + margin && s >= 0.48) {
+        // Strict margin: unsure notes need +0.14 & >= 0.50; confident visual notes need +0.45 & >= 0.68!
+        const margin = n.unsure ? 0.14 : 0.45
+        const floor = n.unsure ? 0.50 : 0.68
+        if (s > bestSal + margin && s >= floor) {
           bestSal = s
           bestFret = cand
         }
@@ -482,9 +494,9 @@ export function renderAndCompareSong(
   }
 
   return {
-    tuningLabel: tuningChanged && alignment.meanScore >= 0.52 ? best.label : 'Standard',
+    tuningLabel: tuningChanged && alignment.meanScore >= 0.62 ? best.label : 'Standard',
     capo: track.capo ?? 0,
-    tuningChanged: tuningChanged && alignment.meanScore >= 0.52,
+    tuningChanged: tuningChanged && alignment.meanScore >= 0.62,
     notesCorrected,
     notesConfirmed,
     meanMatch: alignment.meanScore,

@@ -404,9 +404,15 @@ export async function readTabCrnn(g: Gray, run: CrnnRun, opts: {
   }
   rows.sort((p, q) => p.top - q.top)
   for (const r of rows) {
-    // the string names printed at the start of a staff ("E B G D A E") look like a full chord of unsure numbers there:
-    // left out
-    const cols = r.cols.sort((p, q) => p.x - q.x).filter(c => !(c.kind === 'note' && c.x < r.left + r.gap * 2.5 && c.frets.length >= nStr - 1 && c.frets.filter(f => !f.sure).length * 2 >= c.frets.length))
+    // 1. String names ("E B G D A E") at the start of a staff look like a full chord of unsure numbers: drop them.
+    // 2. Vertical "T A B" clef letters at the very left margin (within ~1.1× gap of r.left, before the first real bar/note)
+    //    can emit a lone phantom digit (often B:1 or G:1) — drop low-margin clef phantoms right on the left edge.
+    const cols = r.cols.sort((p, q) => p.x - q.x).filter(c => {
+      if (c.kind !== 'note') return true
+      if (c.x < r.left + r.gap * 2.5 && c.frets.length >= nStr - 1 && c.frets.filter(f => !f.sure).length * 2 >= c.frets.length) return false
+      if (c.x < r.left + r.gap * 1.15 && c.frets.length === 1 && (!c.frets[0].sure || c.frets[0].fret === 1) && c.p < 0.78) return false
+      return true
+    })
     const si = systems.length
     systems.push({ lines: [...r.ls].reverse(), gap: r.gap, left: r.left, right: r.right, bars: [] }) // low string first
     sysBars.push(cols.filter(c => c.kind === 'bar').map(c => c.x))

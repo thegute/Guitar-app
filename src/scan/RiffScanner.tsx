@@ -101,16 +101,30 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
   const inst = useInstrument()
   const [link, setLink] = usePersist('scanLink', '')
   const [deepMode, setDeepMode] = usePersist('scanDeepMode', true)
-  useEffect(() => { if (initialLink) setLink(initialLink) }, [initialLink]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (initialLink) {
+      setLink(initialLink)
+      setShortLayout(/\/shorts\//.test(initialLink))
+    }
+  }, [initialLink]) // eslint-disable-line react-hooks/exhaustive-deps
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [phase, setPhase] = useState<null | 'grab' | 'record'>(null)
   const [why, setWhy] = useState('')
   const [grabbing, setGrabbing] = useState(0)
+  const [theater, setTheater] = useState(false)
+  const [shortLayout, setShortLayout] = useState(() => /\/shorts\//.test(initialLink ?? ''))
+  const [grabAudio, setGrabAudio] = useState<{ ok: boolean; err?: string } | null>(null)
   const ytApi = useRef<VideoApi | null>(null)
+  const ytFrameRef = useRef<HTMLDivElement | null>(null)
+  const grabCardRef = useRef<HTMLDivElement | null>(null)
   const session = useRef<GrabSession | null>(null)
+  useEffect(() => {
+    if (phase === 'grab' && !theater) setTimeout(() => grabCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+  }, [phase, theater])
   const [pics, setPics] = useState<Pic[]>([])
   const [box, setBox] = useState<Box | null>(null)
+  const [userCropped, setUserCropped] = useState(false)
   const [stages, setStages] = useState<Stage[] | null>(null)
   const [out, setOut] = useState<ScanOut | null>(null)
   // a scan from sound keeps working after the first result: the better version, the AI's second opinion
@@ -152,7 +166,10 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     const all = [...pics, ...add].slice(0, 12)
     setPics(all); setOut(null); setMsg('')
     // the tab area on the first picture that has staff lines: shown as a box you can adjust
-    if (!box) for (const p of all) { const b = unionBox(tabBoxes(p.img)); if (b) { setBox(b); break } }
+    if (!box) {
+      setUserCropped(false)
+      for (const p of all) { const b = unionBox(tabBoxes(p.img)); if (b) { setBox(b); break } }
+    }
   }
   const addFiles = async (files: FileList | null) => {
     if (!files?.length) return
@@ -224,8 +241,11 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     try {
       const { readTabPicturesBest, trustReading, grayOf, songTabText } = await import('./tabReadSong')
       const minW = deepMode ? 2200 : 1600
-      let r = await readTabPicturesBest(pics.map(p => grayOf(p.img, minW, box)), inst.midis, name, { deep: deepMode })
-      if (!r && box) r = await readTabPicturesBest(pics.map(p => grayOf(p.img, minW)), inst.midis, name, { deep: deepMode })
+      // Multi-page PDF books / screenshot sets: don't blindly apply Page 1's auto-crop (which starts below a title header)
+      // to Pages 2–6 unless the user explicitly dragged the crop box!
+      const applyBox = pics.length === 1 || userCropped ? box : null
+      let r = await readTabPicturesBest(pics.map(p => grayOf(p.img, minW, applyBox)), inst.midis, name, { deep: deepMode })
+      if (!r && applyBox) r = await readTabPicturesBest(pics.map(p => grayOf(p.img, minW)), inst.midis, name, { deep: deepMode })
       if (r && (trustReading(r) || !ready)) {
         const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song: r.song, youtube, updated: Date.now() }
         const names = stringNames(inst)
@@ -347,28 +367,61 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       setPhase('grab')
     }
   }
-  // 2 KGuitar grabs its own screen (and the sound inside the phone) while the video plays here
+  // 2 KGuitar expands the video to a full-screen theater stage, crops ONLY the crisp video player rect, and captures internal audio
   async function startGrabbing() {
     const f = parseTime(from) ?? 0, t = parseTime(to)
-    const isShort = /\/shorts\//.test(linkUrl)
+    const isShort = shortLayout || /\/shorts\//.test(linkUrl)
     // Deep Mode captures at 5 FPS on Shorts & 4 FPS on full YouTube videos (up to 8 minutes) so moving playheads are cleanly erased
     const secs = Math.min(480, Math.max(10, t !== undefined ? t - f + 2 : isShort ? 90 : 360))
     const fps = deepMode ? (isShort ? 5 : 4) : 3
     try {
-      session.current = await startGrab({ seconds: secs, fps })
-      session.current.onStopped(() => void stopGrabbing())
+      // Expand video player to full-screen theater FIRST so YouTube switches to crisp HD and we measure its exact full-screen DOM rect!
+      setTheater(true)
+      await new Promise<void>(res => requestAnimationFrame(() => requestAnimationFrame(() => res())))
+      let crop: Box | undefined
+      const el = ytFrameRef.current
+      if (el && typeof window !== 'undefined' && window.innerWidth > 0 && window.innerHeight > 0) {
+        const r = el.getBoundingClientRect()
+        if (r.width >= 60 && r.height >= 60) {
+          crop = {
+            x: Math.max(0, Math.min(1, r.left / window.innerWidth)),
+            y: Math.max(0, Math.min(1, r.top / window.innerHeight)),
+            w: Math.max(0.05, Math.min(1, r.width / window.innerWidth)),
+            h: Math.max(0.05, Math.min(1, r.height / window.innerHeight)),
+          }
+        }
+      }
+      const sess = await startGrab({ seconds: secs, fps, crop })
+      session.current = sess
+      setGrabAudio({ ok: sess.audioOk, err: sess.audioError })
+      sess.onStopped(() => void stopGrabbing())
       ytApi.current?.seek(f); ytApi.current?.play()
       const t0 = Date.now()
       setGrabbing(1)
-      const id = setInterval(() => { if (!session.current) { clearInterval(id); return } setGrabbing(Math.max(1, Math.round((Date.now() - t0) / 1000))) }, 1000)
-    } catch (e) { setWhy(e instanceof Error ? e.message : 'Screen capture could not start.'); session.current = null }
+      const id = setInterval(() => {
+        if (!session.current) { clearInterval(id); return }
+        setGrabbing(Math.max(1, Math.round((Date.now() - t0) / 1000)))
+        if (t !== undefined && ytApi.current && ytApi.current.time() >= t) {
+          clearInterval(id)
+          void stopGrabbing()
+        }
+      }, 400)
+    } catch (e) {
+      setTheater(false)
+      setGrabAudio(null)
+      setWhy(e instanceof Error ? e.message : 'Screen capture could not start.')
+      session.current = null
+    }
   }
   async function stopGrabbing() {
     const sess = session.current
     if (!sess) return
     session.current = null
     setGrabbing(0)
+    setTheater(false)
+    setGrabAudio(null)
     ytApi.current?.pause()
+    const scanName = title?.trim() || 'Scanned riff'
     const signal = begin([
       { id: 'frames', label: 'Finding and stitching the tab', state: 'run', pct: 0 },
       { id: 'sound', label: 'Listening to the sound (tempo)', state: 'wait' },
@@ -380,23 +433,23 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       const g = await sess.stop(p => step('frames', { pct: p }))
       step('frames', { state: g.pieces.length ? 'done' : 'fail', note: g.pieces.length ? `${g.pieces.length} strip${g.pieces.length === 1 ? '' : 's'} from ${g.frames} frames${g.scrolled ? ', scrolling tab stitched' : ''}` : 'no tab on screen' })
       const a = g.sound ? analyse(g.sound.x, g.sound.sr) : null
-      step('sound', { state: a ? 'done' : 'skip', note: a ? `${Math.round(a.bpm)} BPM` : g.sound ? 'no clear beat' : 'no sound captured' })
+      step('sound', { state: a ? 'done' : 'skip', note: a ? `${Math.round(a.bpm)} BPM` : g.sound ? 'no clear beat' : g.audioError ? `no audio (${g.audioError})` : 'no sound captured' })
       if (!g.pieces.length) {
-        if (!g.sound) throw new Error('No tab showed on screen while it played, and no sound came through. Try a screen recording with Media sounds, or Play it out loud.')
+        if (!g.sound) throw new Error(`No tab showed on screen while it played, and no sound came through${g.audioError ? ` (${g.audioError})` : ''}. Try Quick Gemini Link, a screen recording with Media sounds, or Play it out loud.`)
         // no tab on screen: work it out from the sound that played inside the phone
-        await scanSound(g.sound.x, g.sound.sr, 'Scanned riff', 'the sound of the video (inside the phone)', [{ id: 'frames', label: 'Finding and stitching the tab', state: 'done', note: 'no tab on screen' }], linkUrl)
+        await scanSound(g.sound.x, g.sound.sr, scanName, 'the sound of the video (inside the phone)', [{ id: 'frames', label: 'Finding and stitching the tab', state: 'done', note: 'no tab on screen' }], linkUrl)
         setPhase(null)
         return
       }
-      if ((!ready || await ownFirst()) && await readOwnPieces(g.pieces, 'Scanned riff', `KGuitar watched the video on screen${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined, g.strips, g.sound && g.timelines ? { x: g.sound.x, sr: g.sound.sr, timelines: g.timelines, views: g.views } : undefined)) { setOut(o => (o ? { ...o, doc: { ...o.doc, youtube: linkUrl || o.doc.youtube } } : o)); setPhase(null); return }
+      if ((!ready || await ownFirst()) && await readOwnPieces(g.pieces, scanName, `KGuitar watched the video full-screen${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined, g.strips, g.sound && g.timelines ? { x: g.sound.x, sr: g.sound.sr, timelines: g.timelines, views: g.views } : undefined)) { setOut(o => (o ? { ...o, doc: { ...o.doc, youtube: linkUrl || o.doc.youtube } } : o)); setPhase(null); return }
       if (!ready) throw new Error('KGuitar couldn\'t find a tab staff with numbers in the video. Set up the free AI reader for videos like this.')
-      await readOut(g.pieces, signal, 'Scanned riff', `KGuitar watched the video on screen and read the tab${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined)
+      await readOut(g.pieces, signal, scanName, `KGuitar watched the video on screen and read the tab${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined)
       setOut(o => (o ? { ...o, doc: { ...o.doc, youtube: linkUrl || o.doc.youtube } } : o))
       setPhase(null)
     } catch (e) { fail(e); setPhase('record') }
   }
 
-  const again = () => { sound.reset(); setOut(null); setPics([]); setBox(null); setMsg(''); setPhase(null); setWhy('') }
+  const again = () => { sound.reset(); setOut(null); setPics([]); setBox(null); setUserCropped(false); setMsg(''); setPhase(null); setWhy(''); setTheater(false); setGrabAudio(null) }
   if (out) return <ScanResult out={out} onUseInJam={onUseInJam} onAgain={again} />
   const heardView = sound.view({ onUseInJam, onAgain: again })
   if (heardView) return heardView
@@ -440,7 +493,8 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
           onSubmit={e => {
             e.preventDefault()
             if (deepMode && canGrab()) {
-              setWhy('Deep Mode grabs the real on-screen pixels + internal audio at 4–5 FPS for KGuitar’s 99% tab reader & Render-and-Compare audio engine.')
+              setShortLayout(/\/shorts\//.test(linkUrl))
+              setWhy('Deep Mode expands the video full-screen (5× sharper!) and crops only the video player + internal audio for KGuitar’s 99% neural tab reader.')
               setPhase('grab')
             } else {
               void scanLink()
@@ -460,28 +514,56 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
         </form>
       )}
       {phase === 'grab' && linkUrl && (
-        <div className="scan-grab stack panel" style={{ gap: 8 }} data-testid="scan-grab">
-          <p className="small" style={{ margin: 0 }}><b>{deepMode ? '🎯 Deep Accurate Scan (Pixels + Audio Engine):' : 'Next: KGuitar watches it here.'}</b> {why}</p>
-          <YouTubePlayer url={linkUrl} onUrl={u => { setLink(u ?? ''); if (!u) setPhase(null) }} onApi={a => { ytApi.current = a }} onError={code => { if ([101, 150, 152, 153].includes(code)) { setWhy("This video's owner doesn't let it play inside other apps."); setPhase('record') } }} note="" />
+        <div ref={grabCardRef} className={`scan-grab stack${theater ? ' grabbing-fs' : ' panel'}${shortLayout ? ' is-short' : ' is-wide'}`} style={{ gap: theater ? 0 : 8 }} data-testid="scan-grab">
+          {!theater && (
+            <div className="row" style={{ gap: 8, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+              <p className="small" style={{ margin: 0, flex: '1 1 200px' }}><b>{deepMode ? '🎯 Full-Screen Deep Scan:' : 'Next: KGuitar watches it here.'}</b> {why}</p>
+              <div className="seg" role="group" aria-label="Video shape">
+                <button className="btn sm" aria-pressed={shortLayout} onClick={() => setShortLayout(true)}>9:16 Short</button>
+                <button className="btn sm" aria-pressed={!shortLayout} onClick={() => setShortLayout(false)}>16:9 Wide</button>
+              </div>
+            </div>
+          )}
+          <YouTubePlayer
+            url={linkUrl}
+            onUrl={u => { setLink(u ?? ''); if (!u) { setPhase(null); setTheater(false) } }}
+            onApi={a => { ytApi.current = a }}
+            onError={code => { if ([101, 150, 152, 153].includes(code)) { setTheater(false); setWhy("This video's owner doesn't let it play inside other apps."); setPhase('record') } }}
+            onStateChange={st => { if (st === 0 && session.current) void stopGrabbing() }}
+            frameClass={shortLayout ? 'is-short' : 'is-wide'}
+            frameRef={ytFrameRef}
+            hideBar={theater}
+            note=""
+          />
           {canGrab() ? (
-            grabbing ? (
-              <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-                <button className="btn primary on" onClick={() => void stopGrabbing()} data-testid="grab-stop"><Ico n="stop" fill /> Stop ({grabbing} s)</button>
-                <span className="small muted">Let the tab play on screen; stop at the end of the part.</span>
+            theater ? (
+              <div className="scan-fs-bar" data-testid="scan-fs-bar">
+                <span className="scan-rec-dot" aria-hidden />
+                <b className="tabular">{grabbing ? `${grabbing} s` : 'Starting…'}</b>
+                <span className="small muted" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {grabAudio ? (grabAudio.ok ? '🔊 Internal audio · auto-stops at end' : `🔇 Video only (${grabAudio.err ?? 'no audio'})`) : 'Allow screen capture to begin'}
+                </span>
+                <button
+                  className="btn primary on"
+                  onClick={() => { if (session.current) void stopGrabbing(); else { setTheater(false); setGrabbing(0) } }}
+                  data-testid="grab-stop"
+                >
+                  <Ico n="stop" fill /> {session.current ? 'Stop & Read Tab' : 'Cancel'}
+                </button>
               </div>
             ) : (
               <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <button className="btn primary" onClick={() => void startGrabbing()} data-testid="grab-start"><Ico n="screen" /> {deepMode ? 'Start Deep Scan' : 'Start the grab'}</button>
+                <button className="btn primary" onClick={() => void startGrabbing()} data-testid="grab-start"><Ico n="screen" /> {deepMode ? 'Start Full-Screen Deep Scan' : 'Start the grab'}</button>
                 {canAskGemini() && (
                   <button className="btn sm ghost" onClick={() => void scanLink(linkUrl)} data-testid="grab-quick-gemini">
-                    ⚡ Try Quick Gemini Link instead
+                    ⚡ Quick Gemini Link
                   </button>
                 )}
-                <span className="small muted">Android asks to allow screen capture (pick KGuitar or the entire screen). The video plays{parseTime(from) !== undefined ? ` from ${from}` : ''}; the sound is taken inside the phone, not with the mic.</span>
+                <span className="small muted">Video expands full-screen for sharp HD pixels{!shortLayout ? ' (rotate phone sideways for widest 16:9 tab!)' : ''}, crops only the video, and auto-stops at the end.</span>
               </div>
             )
           ) : <p className="small muted" style={{ margin: 0 }}>This browser can't grab the screen: use a screen recording (below).</p>}
-          <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setPhase('record')}>Use a screen recording instead</button>
+          {!theater && <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setPhase('record')}>Use a screen recording instead</button>}
         </div>
       )}
       {phase === 'record' && (
@@ -508,8 +590,11 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       <p className="small muted" style={{ margin: 0 }}>A tab shown on screen is read exactly (pause on it and screenshot, a few in order if it scrolls). A screen recording of the video also works: KGuitar finds the tab, follows it as it scrolls, and takes the tempo from the sound.</p>
       {pics.length > 0 && !stages && (
         <div className="stack" style={{ gap: 8 }}>
-          <CropBox url={pics[0].url} box={box} onBox={setBox} />
-          <span className="small muted">{box ? 'The box is where the tab was found: drag it or its corners if it missed some.' : 'No staff lines found: drag the box around the tab.'}{pics.length > 1 ? ` The same box is used on all ${pics.length} pictures.` : ''}</span>
+          <CropBox url={pics[0].url} box={box} onBox={b => { setBox(b); setUserCropped(true) }} />
+          <span className="small muted">
+            {box ? 'The box is where the tab was found: drag it or its corners if it missed some.' : 'No staff lines found: drag the box around the tab.'}
+            {pics.length > 1 ? (userCropped ? ` Your manual crop box is used on all ${pics.length} pictures.` : ` All ${pics.length} pages are auto-detected individually (drag the box only if you want to crop every page).`) : ''}
+          </span>
           <div className="row" style={{ gap: 8 }}>
             <button className="btn primary" onClick={() => void scanPictures()} data-testid="scan-read">Read the tab</button>
             <button className="btn ghost sm" onClick={again}>Clear</button>

@@ -96,6 +96,18 @@ const STD = [40, 45, 50, 55, 59, 64]
   assert.equal(fixedNote.fret, 3, `Expected Render-and-Compare to correct fret 8 -> 3, got ${fixedNote.fret}`)
   assert.equal(fixedNote.unsure, undefined)
   assert.ok(pol.notesCorrected >= 1)
+
+  // Guardrail: a high-confidence visual digit (not unsure, no runner-up alts) must NEVER be corrupted by noisy backing audio
+  const noisy = new Float32Array(22050 * 3)
+  for (let i = 0; i < noisy.length; i++) noisy[i] = Math.sin(2 * Math.PI * 110 * (i / 22050)) * 0.4 + Math.sin(2 * Math.PI * 220 * (i / 22050)) * 0.25
+  const cleanSong: Song = {
+    title: 'Confident Tab Over Backing',
+    tempo: 120,
+    tracks: [{ name: 'Guitar', tuning: [...STD], capo: 0, bars: [{ steps: [0, 3, 5, 7, 5, 3, 0, 5].map(f => ({ dur: 0.5, notes: [{ string: 0, fret: f, midi: STD[0] + f }] })) }] }],
+  }
+  const polNoisy = renderAndCompareSong(cleanSong, noisy, 22050, { allowTuningSwitch: false })
+  assert.equal(polNoisy.notesCorrected, 0, 'Confident visual digits must never be overwritten by noisy backing track')
+  assert.deepEqual(cleanSong.tracks[0].bars[0].steps.map(s => s.notes[0].fret), [0, 3, 5, 7, 5, 3, 0, 5])
 }
 
 // 3. Render-and-Compare: Auto-detect Capo 2 when Short plays +2 semitones above printed frets!

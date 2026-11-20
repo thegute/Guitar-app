@@ -104,23 +104,25 @@ export function ShortsFeed({ onListen, onUseInJam }: { onListen: () => void; onU
       {busy && !cur && <p className="small muted">Finding guitar Shorts…</p>}
       {cur && (
         <div className={`shorts-stage${scan ? ' scanning' : ''}`}>
-          <div className="shorts-player">
-            <ShortPlayer key={cur.id} short={cur} onListen={onListen} />
-            <div className="shorts-nav">
-              <button className="btn" onClick={() => go(-1)} disabled={i === 0} aria-label="Previous Short"><Ico n="up" /></button>
-              <span className="small tabular">{i + 1} / {list.length}</span>
-              <button className="btn" onClick={() => go(1)} aria-label="Next Short" data-testid="shorts-next"><Ico n="down" /></button>
+          {!scan && (
+            <div className="shorts-player">
+              <ShortPlayer key={cur.id} short={cur} onListen={onListen} />
+              <div className="shorts-nav">
+                <button className="btn" onClick={() => go(-1)} disabled={i === 0} aria-label="Previous Short"><Ico n="up" /></button>
+                <span className="small tabular">{i + 1} / {list.length}</span>
+                <button className="btn" onClick={() => go(1)} aria-label="Next Short" data-testid="shorts-next"><Ico n="down" /></button>
+              </div>
             </div>
-          </div>
+          )}
           <div className="stack shorts-side" style={{ gap: 8 }}>
             <b className="shorts-title">{cur.title}</b>
             <span className="small muted">{cur.channel}{cur.secs ? ` · ${cur.secs} s` : ''}{cur.source === 'channels' ? ' · from a channel you follow' : ''}</span>
             <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-              <button className={`btn${scan ? ' on' : ' primary'}`} onClick={() => setScan(!scan)} data-testid="shorts-scan"><Ico n="scan" /> {scan ? 'Hide the scanner' : 'Scan this Short'}</button>
+              <button className={`btn${scan ? ' on' : ' primary'}`} onClick={() => setScan(!scan)} data-testid="shorts-scan"><Ico n="scan" /> {scan ? 'Back to Short' : 'Scan this Short'}</button>
               <a className="btn ghost" href={`https://www.youtube.com/shorts/${cur.id}`} target="_blank" rel="noreferrer">Open in YouTube</a>
               {!chs.some(c => c.id === cur.channelId) && <button className="btn ghost" onClick={() => { setFollowed([...followed(), { id: cur.channelId, name: cur.channel }]); bump(n => n + 1) }}>Follow {cur.channel.slice(0, 18)}</button>}
             </div>
-            {scan && <ScanVideo links autoLink initialLink={`https://www.youtube.com/shorts/${cur.id}`} youtube={`https://www.youtube.com/watch?v=${cur.id}`} onUseInJam={onUseInJam} onListen={onListen} />}
+            {scan && <ScanVideo links autoLink initialLink={`https://www.youtube.com/shorts/${cur.id}`} youtube={`https://www.youtube.com/watch?v=${cur.id}`} title={cur.title} onUseInJam={onUseInJam} onListen={onListen} />}
           </div>
         </div>
       )}

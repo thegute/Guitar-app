@@ -71,7 +71,7 @@ export function useSoundScan(youtube?: string) {
   const getModels = async () => {
     setDl({ pct: 0, error: '' })
     try {
-      await downloadModels(['notes', 'beats'], pct => setDl({ pct, error: '' }))
+      await downloadModels(deepMode ? ['notes', 'beats', 'voice'] : ['notes', 'beats'], pct => setDl({ pct, error: '' }))
       setDl(null)
       void scan.current?.runBetter()
     } catch (e) { setDl({ pct: 0, error: e instanceof Error ? e.message : 'The download stopped.' }) }
