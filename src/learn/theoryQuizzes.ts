@@ -706,6 +706,69 @@ export const THEORY_QUIZZES: QuizDef[] = [
     },
   },
   {
+    id: 'l5-spell-colour', unit: 'Guitar theory', title: 'Spell the colour chord', mic: false,
+    desc: 'Sus chords replace the 3rd (sus2 = 1 2 5, sus4 = 1 4 5); add9 and 6 keep it and add a note; a power chord is just 1 5. Name the notes.', length: 10,
+    items: () => ['D:sus4', 'A:sus2', 'C:add9', 'G:six', 'A:m6', 'E:five', 'G:sus4', 'E:sus2', 'F:add9', 'D:six', 'D:m6', 'Bb:five', 'C:sus2', 'A:add9', 'F:six'].map((k, i) => `l5-spell-colour:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const [, root, q] = item.split(':')
+      const QC: Record<string, [string, [number, number][], string]> = {
+        sus2: ['sus2', [[0, 0], [1, 2], [4, 7]], 'the 3rd replaced by the 2'],
+        sus4: ['sus4', [[0, 0], [3, 5], [4, 7]], 'the 3rd replaced by the 4'],
+        add9: ['add9', [[0, 0], [2, 4], [4, 7], [1, 2]], 'the major triad plus the 9 (no 7th)'],
+        six: ['6', [[0, 0], [2, 4], [4, 7], [5, 9]], 'the major triad plus the 6'],
+        m6: ['m6', [[0, 0], [2, 3], [4, 7], [5, 9]], 'the minor triad plus the major 6'],
+        five: ['5', [[0, 0], [4, 7]], 'root and 5th, no 3rd'],
+      }
+      const spell = (iv: [number, number][]) => iv.map(([l, x]) => noteAt(root, l, x)).join(' ')
+      const [suf, iv, how] = QC[q]
+      const ans = spell(iv)
+      const wrong = uniq(Object.entries(QC).filter(([k]) => k !== q).map(([, [, v]]) => spell(v)).filter(w => w !== ans))
+      return choose(item, `Spell ${root}${suf}.`, ans, wrong, `${ans}: ${how}.`, rnd)
+    },
+  },
+  {
+    id: 'l5-spell-ext', unit: 'Guitar theory', title: 'Spell the extended chord', mic: false,
+    desc: 'Keep stacking 3rds past the 7th: 9 = the 2, 11 = the 4, 13 = the 6, an octave up. The 7th is always in it. Name the notes, in stacking order.', length: 10,
+    items: () => ['G:dom9', 'C:maj9', 'D:m9', 'A:m11', 'C:dom13', 'F:maj9', 'E:dom9', 'G:m9', 'D:m11', 'G:dom13', 'Bb:maj9', 'A:dom9', 'E:m11', 'F:dom13', 'C:m9'].map((k, i) => `l5-spell-ext:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const [, root, q] = item.split(':')
+      const QE: Record<string, [string, [number, number][], string]> = {
+        dom9: ['9', [[0, 0], [2, 4], [4, 7], [6, 10], [1, 2]], 'the dominant 7th plus the 9'],
+        maj9: ['maj9', [[0, 0], [2, 4], [4, 7], [6, 11], [1, 2]], 'the maj7 plus the 9'],
+        m9: ['m9', [[0, 0], [2, 3], [4, 7], [6, 10], [1, 2]], 'the m7 plus the 9'],
+        m11: ['m11', [[0, 0], [2, 3], [4, 7], [6, 10], [1, 2], [3, 5]], 'the m7 plus the 9 and 11'],
+        dom13: ['13', [[0, 0], [2, 4], [4, 7], [6, 10], [1, 2], [5, 9]], 'the dominant 7th plus the 9 and 13 (the 11 left out)'],
+      }
+      const spell = (iv: [number, number][]) => iv.map(([l, x]) => noteAt(root, l, x)).join(' ')
+      const [suf, iv, how] = QE[q]
+      const ans = spell(iv)
+      // near misses: the add9 / 6 versions (no 7th) and the other qualities
+      const near = q === 'dom9' || q === 'maj9' ? [spell([[0, 0], [2, 4], [4, 7], [1, 2]])] : q === 'dom13' ? [spell([[0, 0], [2, 4], [4, 7], [5, 9]])] : []
+      const wrong = uniq([...near, ...Object.entries(QE).filter(([k]) => k !== q).map(([, [, v]]) => spell(v))].filter(w => w !== ans))
+      return choose(item, `Spell ${root}${suf}.`, ans, wrong, `${ans}: ${how}.${q === 'dom9' || q === 'maj9' ? ' Without the 7th it would be an add9.' : q === 'dom13' ? ' Without the ♭7 it would be a 6 chord.' : ''}`, rnd)
+    },
+  },
+  {
+    id: 'l5-spell-alt', unit: 'Guitar theory', title: 'Spell the altered dominant', mic: false,
+    desc: 'A dominant 7th with its 5th or 9th bent a half step: 7♭9, 7♯9, 7♯5 and 7♭5. Name the notes, spelled right.', length: 10,
+    items: () => ['G:b9', 'C:s9', 'G:s5', 'G:b5', 'A:b9', 'D:s9', 'C:s5', 'C:b5', 'E:b9', 'A:s9', 'D:s5', 'D:b5', 'D:b9', 'G:s9', 'A:s5'].map((k, i) => `l5-spell-alt:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const [, root, q] = item.split(':')
+      const D7: [number, number][] = [[0, 0], [2, 4], [4, 7], [6, 10]]
+      const QA: Record<string, [string, [number, number][], string]> = {
+        b9: ['7♭9', [...D7, [1, 1]], 'the 9 lowered a half step'],
+        s9: ['7♯9', [...D7, [1, 3]], 'the 9 raised a half step (it sounds like a minor 3rd)'],
+        s5: ['7♯5', [[0, 0], [2, 4], [4, 8], [6, 10]], 'the 5th raised a half step'],
+        b5: ['7♭5', [[0, 0], [2, 4], [4, 6], [6, 10]], 'the 5th lowered a half step'],
+      }
+      const spell = (iv: [number, number][]) => iv.map(([l, x]) => noteAt(root, l, x)).join(' ')
+      const [suf, iv, how] = QA[q]
+      const ans = spell(iv)
+      const wrong = uniq([spell([...D7, [1, 2]]), ...Object.entries(QA).filter(([k]) => k !== q).map(([, [, v]]) => spell(v))].filter(w => w !== ans))
+      return choose(item, `Spell ${root}${suf}.`, ans, wrong, `${ans}: ${root}7 with ${how}.`, rnd)
+    },
+  },
+  {
     id: 'l5-key7', unit: 'Guitar theory', title: 'The 7th chords of a key', mic: false,
     desc: 'Every major key has the same 7th-chord pattern: maj7, m7, m7, maj7, 7, m7, m7♭5. Which chord sits on this degree?', length: 10,
     items: () => ['C', 'G', 'D', 'F', 'A', 'Bb', 'E', 'Eb', 'G', 'D'].map((k, i) => `l5-key7:${k}:${i}`),

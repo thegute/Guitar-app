@@ -124,7 +124,7 @@ export const EXTENSIONS: CourseLesson = {
       goals: [
         { focus: 'Build them', tasks: [{ label: 'Extensions on C', ex: { label: 'Extensions: C9, C13, Cmaj9, Cm9 and Cm11 (the 5th left out)', tab: 'ext' }, minutes: 8, goal: 'no stops at 66 BPM' }] },
         { focus: 'Funk', tasks: [{ label: 'The E9 funk vamp', ex: { label: 'E9 funk vamp: slide in, stab, ghost', tab: 'ninthVamp' }, minutes: 8, goal: 'clean mutes at 90 BPM' }] },
-        { focus: 'Know the 7th underneath', tasks: [{ label: 'Spell the 7th chord', quiz: 'l5-spell7', minutes: 5, goal: '2 stars' }] },
+        { focus: 'Spell them', tasks: [{ label: 'Spell the extended chord', quiz: 'l5-spell-ext', minutes: 5, goal: '2 stars' }] },
         { focus: 'Hear them', tasks: [{ label: 'Chord colours by ear', quiz: 'ch-ear-7', minutes: 4 }, { label: 'Hear it: which 7th chord?', quiz: 'l5-7ths-ear', minutes: 4 }] },
         { focus: 'Blues', tasks: [{ label: 'Jam: a 12-bar blues with 9 and 13 chords', tool: 'jam', minutes: 8 }] },
       ],
@@ -146,7 +146,7 @@ export const EXTENSIONS: CourseLesson = {
     {
       kind: 'check', title: 'Check your understanding', intro: 'Spell, hear, play, explain.',
       tasks: [
-        { skill: 'Apply', label: 'Spell the 7th chord (the base of every extension)', quiz: 'l5-spell7' },
+        { skill: 'Apply', label: 'Spell the extended chord', quiz: 'l5-spell-ext' },
         { skill: 'Hear', label: 'Chord colours by ear', quiz: 'ch-ear-7' },
         { skill: 'Play', label: 'Extensions on C (mic)', ex: { label: 'Extensions: C9, C13, Cmaj9, Cm9 and Cm11 (the 5th left out)', tab: 'ext' } },
       ],
@@ -285,7 +285,7 @@ export const ALTERED: CourseLesson = {
         { focus: 'Rootless', tasks: [{ label: 'dim7 as rootless 7♭9: Bdim7 arpeggio over G', ex: { label: 'Diminished 7th arpeggio on B', spec: { kind: 'arpeggio', root: 'B', type: 'dim7', position: 0 } }, minutes: 4 }] },
         { focus: 'Hear them', tasks: [{ label: 'Hear it: plain or altered dominant?', quiz: 'l5-alt-ear', minutes: 5, goal: '2 stars' }] },
         { focus: 'Minor keys', tasks: [{ label: 'Jam: a minor-key progression ending iv – V – i', tool: 'jam', minutes: 8 }] },
-        { focus: 'The 7th underneath', tasks: [{ label: 'Spell the 7th chord', quiz: 'l5-spell7', minutes: 4 }] },
+        { focus: 'Spell them', tasks: [{ label: 'Spell the altered dominant', quiz: 'l5-spell-alt', minutes: 5, goal: '2 stars' }] },
       ],
     },
     {
@@ -305,7 +305,7 @@ export const ALTERED: CourseLesson = {
     {
       kind: 'check', title: 'Check your understanding', intro: 'Hear, play, explain.',
       tasks: [
-        { skill: 'Apply', label: 'Spell the 7th chord (then alter it in your head)', quiz: 'l5-spell7' },
+        { skill: 'Apply', label: 'Spell the altered dominant', quiz: 'l5-spell-alt' },
         { skill: 'Hear', label: 'Hear it: plain or altered dominant?', quiz: 'l5-alt-ear' },
         { skill: 'Play', label: 'Altered dominants resolving (mic)', ex: { label: 'Altered dominants: G7, G7♭9, G7♯9, G7♯5 each resolving to C; then the Hendrix E7♯9', tab: 'alt' } },
       ],
@@ -657,11 +657,13 @@ export const LEVEL5_CHECK: CourseLesson = {
       ],
     },
     {
-      kind: 'check', title: 'The check', intro: 'Ten parts across building, hearing and playing, then explain the level back to the teacher.',
+      kind: 'check', title: 'The check', intro: 'Twelve parts across building, hearing and playing, then explain the level back to the teacher.',
       tasks: [
         { skill: 'Apply', label: 'Spell the 7th chord', quiz: 'l5-spell7' },
         { skill: 'Apply', label: 'The 7th chords of a key', quiz: 'l5-key7' },
         { skill: 'Apply', label: 'Guide tones: where does each voice go?', quiz: 'l5-guide' },
+        { skill: 'Apply', label: 'Spell the extended chord', quiz: 'l5-spell-ext' },
+        { skill: 'Apply', label: 'Spell the altered dominant', quiz: 'l5-spell-alt' },
         { skill: 'Hear', label: 'Triad types by ear', quiz: 'tr-ear' },
         { skill: 'Hear', label: 'Hear it: which 7th chord?', quiz: 'l5-7ths-ear' },
         { skill: 'Hear', label: 'Hear it: plain or altered dominant?', quiz: 'l5-alt-ear' },

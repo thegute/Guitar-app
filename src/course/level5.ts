@@ -611,6 +611,7 @@ export const COLOURS: CourseLesson = {
       kind: 'practice', title: 'Practice goals', intro: 'Strum or pick slowly; say the chord and the change ("4 replaces 3", "add the 9") as you go.',
       challenge: { label: 'Dress up a whole song', ex: { label: 'Sus2, sus4, add9 and 6: colours round D and C', tab: 'susAdd' }, goal: 'then take a 3- or 4-chord song you strum and give every chord one colour change (sus4 resolving, add9, a 6 at the end) without stopping', why: 'Choosing colours in a real song, in time, is what this lesson is for: it\'s how a plain strum becomes an arrangement.' },
       goals: [
+        { focus: 'Build them', tasks: [{ label: 'Spell the colour chord', quiz: 'l5-spell-colour', minutes: 5, goal: '2 stars' }] },
         { focus: 'Sus and add in open position', tasks: [{ label: 'Sus2, sus4, add9 and 6 round D and C', ex: { label: 'Sus2, sus4, add9 and 6: colours round D and C', tab: 'susAdd' }, minutes: 8, goal: 'no stops at 70 BPM' }] },
         { focus: 'Power chords', tasks: [{ label: 'Power chords, chugged eighths', ex: { label: 'Power chords: R-5 and R-5-8, chugged eighths', tab: 'power' }, minutes: 6, goal: 'clean at 100 BPM, no stray strings' }, { label: 'Palm muting', ex: { label: 'Palm muting', drill: 'palmmute' }, minutes: 4 }] },
         { focus: 'Hear them', tasks: [{ label: 'Hear it: major, sus2, sus4, add9 or 6?', quiz: 'l5-sus-ear', minutes: 5, goal: '2 stars' }] },
@@ -635,7 +636,7 @@ export const COLOURS: CourseLesson = {
     {
       kind: 'check', title: 'Check your understanding', intro: 'Hear them, play them, then explain it back.',
       tasks: [
-        { skill: 'Apply', label: 'Spell the triad (warm-up for building colours)', quiz: 'tr-spell' },
+        { skill: 'Apply', label: 'Spell the colour chord', quiz: 'l5-spell-colour' },
         { skill: 'Hear', label: 'Hear it: major, sus2, sus4, add9 or 6?', quiz: 'l5-sus-ear' },
         { skill: 'Play', label: 'Sus, add and 6 round D and C (mic)', ex: { label: 'Sus2, sus4, add9 and 6: colours round D and C', tab: 'susAdd' } },
       ],
