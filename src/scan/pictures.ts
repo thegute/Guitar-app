@@ -349,8 +349,8 @@ export class Stitcher {
       // a long steady scroll that something on the screen hides for a moment (a hand, the light, a busy picture behind a
       // see-through tab): the tab is still moving at the same speed, for up to 3 frames
       // (and a shift far off the steady speed that only loosely matches is the picture behind moving, not the tab: a
-      // tab doesn't slow from 68 px a frame to 2; a choppy recording skips whole frames, so multiples of it still count)
-      else if ((!sh || (sh.match < 0.9 && (Math.round(sh.dx / steady) < 1 || Math.abs(sh.dx / steady - Math.round(sh.dx / steady)) > 0.15))) && this.coast < 3 && this.shifts.length >= 6 && this.shifts.slice(-6).every(d => Math.abs(d - mean) <= tol)) { sh = { dx: steady, match: 0.5 }; this.coast++ }
+      // tab doesn't slow from 68 px a frame to 2; a choppy recording skips a frame or two, so 2× and 3× it still count)
+      else if ((!sh || (sh.match < 0.9 && (Math.round(sh.dx / steady) < 1 || Math.round(sh.dx / steady) > 3 || Math.abs(sh.dx / steady - Math.round(sh.dx / steady)) > 0.15))) && this.coast < 3 && this.shifts.length >= 6 && this.shifts.slice(-6).every(d => Math.abs(d - mean) <= tol)) { sh = { dx: steady, match: 0.5 }; this.coast++ }
     }
     if (sh && sh.match !== 0.5) this.coast = 0
     this.trace.push(sh ? `${sh.dx}:${sh.match.toFixed(2)}` : 'x')
