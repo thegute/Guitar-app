@@ -83,10 +83,11 @@ function chordAndArp(notes: N[], name: string, hold = 2, each = 0.5): SongStep[]
   const sorted = [...notes].sort((a, b) => a.midi - b.midi)
   return [st(notes, hold, name), ...sorted.map(n => st([n], each))]
 }
-type G = [number, Quality, number[] | null, number?]   // root, quality, guitar frets, slash bass
-function walk(tuning: number[], title: string, items: G[], tempo = 72, hold = 2, near = 3): Song {
+/** root, quality, guitar frets (low E first, -1 = muted; null = work it out), slash bass, a name to show instead */
+export type G = [number, Quality, number[] | null, number?, string?]
+export function walk(tuning: number[], title: string, items: G[], tempo = 72, hold = 2, near = 3): Song {
   const steps: SongStep[] = []
-  for (const [r, q, frets, bass] of items) steps.push(...chordAndArp(grip(tuning, frets, r, Q[q], near, bass), chordName(r, q, bass), hold))
+  for (const [r, q, frets, bass, name] of items) steps.push(...chordAndArp(grip(tuning, frets, r, Q[q], near, bass), name ?? chordName(r, q, bass), hold))
   return song(title, tuning, bars(steps), tempo)
 }
 
@@ -94,7 +95,7 @@ function walk(tuning: number[], title: string, items: G[], tempo = 72, hold = 2,
 export const augDimTab = (t: number[]) => walk(t, 'Augmented and diminished: C+ moving in major 3rds, Bdim → C, and passing diminished chords', [
   [0, 'aug', [-1, 3, 2, 1, 1, -1]], [4, 'aug', [-1, 7, 6, 5, 5, -1]], [8, 'aug', [-1, 11, 10, 9, 9, -1]],
   [11, 'dim', [-1, 2, 3, 4, 3, -1]], [0, 'maj', [-1, 3, 2, 0, 1, 0]],
-  [0, 'maj', [-1, 3, 2, 0, 1, 0]], [1, 'dim7', [-1, 4, 5, 3, 5, -1]], [2, 'min', [-1, 5, 7, 7, 6, 5]], [3, 'dim7', [-1, 6, 7, 5, 7, -1]], [4, 'min', [0, 2, 2, 0, 0, 0]],
+  [0, 'maj', [-1, 3, 2, 0, 1, 0]], [1, 'dim7', [-1, 4, 5, 3, 5, -1], undefined, 'C♯dim7'], [2, 'min', [-1, 5, 7, 7, 6, 5]], [3, 'dim7', [-1, 6, 7, 5, 7, -1], undefined, 'D♯dim7'], [4, 'min', [0, 2, 2, 0, 0, 0]],
 ], 66)
 
 // ---- 2–3 · seventh chords ----

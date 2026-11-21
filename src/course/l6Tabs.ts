@@ -59,7 +59,7 @@ function place(tuning: number[], midis: (number | null)[], lo?: number, hi?: num
   return fingerMelody(line, tuning)
 }
 type Ev = [number | null, number, string?, string?]   // pitch (null = rest), beats, chord name, technique
-function lineSong(tuning: number[], title: string, evs: Ev[], tempo: number, lo?: number, hi?: number): Song {
+export function lineSong(tuning: number[], title: string, evs: Ev[], tempo: number, lo?: number, hi?: number): Song {
   const placed = place(tuning, evs.map(e => e[0]), lo, hi)
   const steps = evs.map(([m, d, ch, tech], i) => st(m === null || !placed[i] ? [] : [placed[i]!], d, ch, tech))
   return song(title, tuning, bars(steps), tempo)

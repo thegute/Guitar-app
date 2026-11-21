@@ -870,6 +870,83 @@ export const THEORY_QUIZZES: QuizDef[] = [
     },
   },
   {
+    id: 'l7-cadence', unit: 'Guitar theory', title: 'Name the cadence', mic: false,
+    desc: 'How a phrase ends: authentic (V → I, finished), plagal (IV → I, the "amen"), half (ends on V, a question) or deceptive (V → vi, a surprise).', length: 10,
+    items: () => ['C:V-I', 'G:IV-I', 'D:ii-V', 'C:V-vi', 'F:V-I', 'A:IV-I', 'G:I-V', 'D:V-vi', 'E:V7-I', 'C:IV-V'].map((k, i) => `l7-cadence:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const [, key, prog] = item.split(':')
+      const names = spellScale(key, [0, 2, 4, 5, 7, 9, 11])
+      const RN: Record<string, [number, string]> = { I: [0, ''], ii: [1, 'm'], IV: [3, ''], V: [4, ''], V7: [4, '7'], vi: [5, 'm'] }
+      const [a, b] = prog.split('-')
+      const ch = (r: string) => names[RN[r][0]] + RN[r][1]
+      const kind = b === 'I' ? (a.startsWith('V') ? 'Authentic' : 'Plagal') : b === 'V' ? 'Half' : 'Deceptive'
+      const why: Record<string, string> = { Authentic: 'V to I: the strongest, most final ending.', Plagal: 'IV to I: a softer ending, the "amen" of hymns and a favourite of rock and gospel.', Half: 'it stops on V: the music asks a question and has to go on.', Deceptive: 'V goes to vi instead of I: the ear expects home and gets a surprise.' }
+      return choose(item, `Key of ${key}: a phrase ends ${ch(a)} → ${ch(b)}. Which cadence?`, kind, ['Authentic', 'Plagal', 'Half', 'Deceptive'], `${kind}: ${why[kind]}`, rnd)
+    },
+  },
+  {
+    id: 'l7-secdom', unit: 'Guitar theory', title: 'Find the secondary dominant', mic: false,
+    desc: 'Any chord of the key can have its own V7: the dominant 7th a 5th above it (V7/ii, V7/vi …). Which chord leads into the target?', length: 10,
+    items: () => ['C:ii', 'C:vi', 'C:V', 'C:IV', 'G:ii', 'G:vi', 'G:V', 'D:ii', 'F:vi', 'C:iii'].map((k, i) => `l7-secdom:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const [, key, target] = item.split(':')
+      const D: Record<string, [number, string]> = { ii: [1, 'm'], iii: [2, 'm'], IV: [3, ''], V: [4, ''], vi: [5, 'm'] }
+      const names = spellScale(key, [0, 2, 4, 5, 7, 9, 11])
+      const [d, q] = D[target]
+      const tgt = names[d]
+      const dom = noteAt(tgt, 4, 7)
+      const ans = `${dom}7`
+      const wrong = uniq([`${noteAt(tgt, 3, 5)}7`, `${noteAt(tgt, 4, 7)}m7`, `${names[(d + 4) % 7]}7`, `${noteAt(tgt, 1, 2)}7`]).filter(w => w !== ans)
+      return choose(item, `Key of ${key}: which chord is V7/${target} (it leads into ${tgt}${q})?`, ans, wrong, `${ans}: ${dom} is a 5th above ${tgt}, and as a dominant 7th it has ${noteAt(tgt, 6, 11)}, the half step under ${tgt}, which pulls into it.`, rnd)
+    },
+  },
+  {
+    id: 'l7-borrowed', unit: 'Guitar theory', title: 'Borrowed or not?', mic: false,
+    desc: 'Chords borrowed from the parallel minor (iv, ♭VI, ♭VII, ♭III) colour a major key. Which chord here is borrowed?', length: 10,
+    items: () => ['C', 'G', 'D', 'F', 'A', 'C', 'G', 'E', 'D', 'C'].map((k, i) => `l7-borrowed:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const key = item.split(':')[1]
+      const names = spellScale(key, [0, 2, 4, 5, 7, 9, 11])
+      const BOR: [string, string][] = [[`${noteAt(key, 3, 5)}m`, 'iv'], [noteAt(key, 5, 8), '♭VI'], [noteAt(key, 6, 10), '♭VII'], [noteAt(key, 2, 3), '♭III']]
+      const [ans, rn] = pick(BOR, rnd)
+      const dia = [names[0], `${names[1]}m`, `${names[2]}m`, names[3], names[4], `${names[5]}m`]
+      return choose(item, `Key of ${key} major: which of these chords is borrowed from ${key} minor?`, ans, shuffle(dia, rnd).slice(0, 3), `${ans} is ${rn}: it comes from ${key} minor. The other three are chords of ${key} major.`, rnd)
+    },
+  },
+  {
+    id: 'l7-tritone', unit: 'Guitar theory', title: 'The tritone sub', mic: false,
+    desc: 'A dominant 7th can be swapped for the dominant 7th a tritone (6 frets) away: they share the same 3rd and 7th. G7 ↔ D♭7.', length: 10,
+    items: () => ['G', 'D', 'A', 'E', 'C', 'F', 'B', 'Bb', 'Eb', 'Ab'].map((k, i) => `l7-tritone:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const root = item.split(':')[1]
+      const SUB: Record<string, string> = { G: 'D♭', D: 'A♭', A: 'E♭', E: 'B♭', C: 'G♭', F: 'B', B: 'F', Bb: 'E', Eb: 'A', Ab: 'D' }
+      const show = (n: string) => n.replace('b', '♭')
+      const ans = `${SUB[root]}7`
+      const wrong = uniq([`${show(noteAt(root, 3, 5))}7`, `${show(noteAt(root, 1, 1))}7`, `${show(noteAt(root, 4, 7))}7`, `${SUB[root]}m7`]).filter(w => w !== ans)
+      const third = noteAt(root, 2, 4), seventh = noteAt(root, 6, 10)
+      return choose(item, `What is the tritone sub for ${show(root)}7?`, ans, wrong, `${ans}: six frets from ${show(root)}. Both chords contain ${show(third)} and ${show(seventh)} (one chord's 3rd is the other's 7th), so either one pulls to the same place.`, rnd)
+    },
+  },
+  {
+    id: 'l7-colour-ear', unit: 'Guitar theory', title: 'Hear it: which chord was changed?', ear: true,
+    desc: 'C, then a chord, then where it goes. Plain (a chord of the key), a secondary dominant (major where you expect minor, with a pull), or borrowed from minor (darker, a flattened note)?', length: 9, mic: false,
+    items: () => ['plain', 'sec', 'bor', 'sec', 'bor', 'plain', 'bor', 'sec', 'plain'].map((k, i) => `l7-colour-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const r = 48 + Math.floor(rnd() * 5)
+      const I = [r, r + 4, r + 7, r + 12]
+      // plain: C – Am – Dm; secondary: C – A7 – Dm; borrowed: C – Fm – C (or C – A♭ – C)
+      const prog: Record<string, number[][]> = {
+        plain: [I, [r - 3, r + 4, r + 9, r + 12], [r + 2, r + 5, r + 9, r + 14]],
+        sec: [I, [r - 3, r + 4, r + 7, r + 13], [r + 2, r + 5, r + 9, r + 14]],
+        bor: rnd() < 0.5 ? [I, [r + 5, r + 8, r + 12, r + 17], I] : [I, [r - 4, r + 3, r + 8, r + 12], I],
+      }
+      const ans = k === 'plain' ? 'Plain (from the key)' : k === 'sec' ? 'Secondary dominant' : 'Borrowed from minor'
+      const why: Record<string, string> = { plain: 'every chord came from the key: nothing surprising.', sec: 'the middle chord was major with a 7th where the key has a minor chord: it pulled hard into the next one.', bor: 'the middle chord had a flattened note (a ♭3 or ♭6 of the key): a darker, bittersweet colour.' }
+      return choose(item, 'Three chords. What was the middle one?', ans, ['Plain (from the key)', 'Secondary dominant', 'Borrowed from minor'], `${ans}: ${why[k]}`, rnd, { audio: { chords: prog[k] }, sub: 'Home, the middle chord, where it went.' })
+    },
+  },
+  {
     id: 'l5-key7', unit: 'Guitar theory', title: 'The 7th chords of a key', mic: false,
     desc: 'Every major key has the same 7th-chord pattern: maj7, m7, m7, maj7, 7, m7, m7♭5. Which chord sits on this degree?', length: 10,
     items: () => ['C', 'G', 'D', 'F', 'A', 'Bb', 'E', 'Eb', 'G', 'D'].map((k, i) => `l5-key7:${k}:${i}`),
