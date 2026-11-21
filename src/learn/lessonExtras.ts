@@ -3,6 +3,7 @@
 import type { ExerciseSpec } from '../tabs/exercises'
 import { fingerMelody } from '../tabs/fingering'
 import type { Song, SongBar } from '../tabs/model'
+import { altTab, augDimTab, bassLineTab, drop2Tab, extTab, guideTonesTab, key7Tab, ninthVampTab, powerTab, sevenShellsTab, slashTab, susAddTab, twoFiveOneTab, voiceLead7Tab } from '../course/l5Tabs'
 import { dsOverChordsTab, majorArpScaleTab, majorLinkTab, majorPositionsTab, pairsTab, setInversionsTab, setLeadTab, setsWalkTab, sixteenthsTab, spreadTab, syncopationTab } from '../course/l4bTabs'
 import { boxLinkTab, boxWithChordTab, pentDiagonalTab, pentLickBoxesTab, pentTargetsTab, triadEmbTab, triadInversionsTab, triadKeyTab, triadLeadTab } from '../course/pentTriadTabs'
 import { cagedChordTab, cagedEmbTab, cagedMinorZoneTab, cagedOneShapeTab, cagedZoneTab } from '../course/cagedTabs'
@@ -12,7 +13,7 @@ export type LessonEx = { label: string } & (
   | { spec: ExerciseSpec }
   | { songbook: { song: string; part: string } }
   | { drill: string }
-  | { tab: 'alphabetA' | 'alphabetE' | 'octaves' | 'durations' | 'intervals' | 'counting' | 'shuffle' | 'octaveWalk' | 'octaveDyads' | 'octaveCross' | 'keyTriads' | 'keyTriadsEmb' | 'cagedC' | 'cagedG' | 'cagedAm' | 'cagedZone' | 'cagedZoneE' | 'cagedZones' | 'cagedEmb' | 'caged4thsE' | 'caged4thsA' | 'cagedZoneMinor' | 'pentBoxChord' | 'pentBoxChordMaj' | 'pentLink' | 'pentDiag' | 'pentTargets' | 'pentTargets3' | 'pentLickBoxes' | 'triInvC' | 'triInvAm' | 'triInvF' | 'triLead' | 'triLeadMinor' | 'triKey' | 'triEmb' | 'majPos' | 'majPosG' | 'majArpScale' | 'majLink' | 'setInvDGB' | 'setInvADG' | 'setInvEAD' | 'setInvDGBm' | 'setsWalk' | 'setLead' | 'spread' | 'thirdsGB' | 'thirdsBE' | 'sixthsGE' | 'sixthsDB' | 'ds3rds' | 'ds6ths' | 'sixteenths' | 'syncopation' }
+  | { tab: 'alphabetA' | 'alphabetE' | 'octaves' | 'durations' | 'intervals' | 'counting' | 'shuffle' | 'octaveWalk' | 'octaveDyads' | 'octaveCross' | 'keyTriads' | 'keyTriadsEmb' | 'cagedC' | 'cagedG' | 'cagedAm' | 'cagedZone' | 'cagedZoneE' | 'cagedZones' | 'cagedEmb' | 'caged4thsE' | 'caged4thsA' | 'cagedZoneMinor' | 'pentBoxChord' | 'pentBoxChordMaj' | 'pentLink' | 'pentDiag' | 'pentTargets' | 'pentTargets3' | 'pentLickBoxes' | 'triInvC' | 'triInvAm' | 'triInvF' | 'triLead' | 'triLeadMinor' | 'triKey' | 'triEmb' | 'majPos' | 'majPosG' | 'majArpScale' | 'majLink' | 'setInvDGB' | 'setInvADG' | 'setInvEAD' | 'setInvDGBm' | 'setsWalk' | 'setLead' | 'spread' | 'thirdsGB' | 'thirdsBE' | 'sixthsGE' | 'sixthsDB' | 'ds3rds' | 'ds6ths' | 'sixteenths' | 'syncopation' | 'augDim' | 'shells7' | 'drop2' | 'key7' | 'iiVI' | 'susAdd' | 'power' | 'ext' | 'ninthVamp' | 'alt' | 'slash' | 'bassLine' | 'guide' | 'vl7' }
   | { tool: 'ear' | 'circle' | 'caged' | 'changes' | 'bends' | 'jam' }
   | { example: string }
 )
@@ -282,6 +283,21 @@ export function lessonTab(id: string, tuning: number[]): Song {
   if (id === 'ds6ths') return dsOverChordsTab(tuning, 7, 5)
   if (id === 'sixteenths') return sixteenthsTab(tuning, 4)
   if (id === 'syncopation') return syncopationTab(tuning, 7)
+  // Level 5: chords in depth
+  if (id === 'augDim') return augDimTab(tuning)
+  if (id === 'shells7') return sevenShellsTab(tuning)
+  if (id === 'drop2') return drop2Tab(tuning)
+  if (id === 'key7') return key7Tab(tuning)
+  if (id === 'iiVI') return twoFiveOneTab(tuning)
+  if (id === 'susAdd') return susAddTab(tuning)
+  if (id === 'power') return powerTab(tuning)
+  if (id === 'ext') return extTab(tuning)
+  if (id === 'ninthVamp') return ninthVampTab(tuning)
+  if (id === 'alt') return altTab(tuning)
+  if (id === 'slash') return slashTab(tuning)
+  if (id === 'bassLine') return bassLineTab(tuning)
+  if (id === 'guide') return guideTonesTab(tuning)
+  if (id === 'vl7') return voiceLead7Tab(tuning)
   // intervals: A up to each interval and back, an octave of steps
   let a = Math.min(...tuning)
   while (a % 12 !== 9) a++

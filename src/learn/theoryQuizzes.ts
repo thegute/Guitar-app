@@ -674,6 +674,123 @@ export const THEORY_QUIZZES: QuizDef[] = [
     },
   },
   {
+    id: 'l5-7ths-ear', unit: 'Guitar theory', title: 'Hear it: which 7th chord?', ear: true,
+    desc: 'All five kinds of 7th chord: major 7, dominant 7, minor 7, half-diminished (m7♭5) and diminished 7. Each has its own colour.', length: 10, mic: false,
+    items: () => ['maj7', 'dom7', 'm7', 'm7b5', 'dim7', 'dom7', 'maj7', 'm7b5', 'm7', 'dim7'].map((k, i) => `l5-7ths-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const R: Record<string, [string, number[], string]> = {
+        maj7: ['Major 7', [0, 4, 7, 11], 'dreamy and soft: the 7 is a half step under the root (jazz ballads, bossa, neo-soul).'],
+        dom7: ['Dominant 7', [0, 4, 7, 10], 'bluesy and restless: it wants to resolve (the V7, and every blues chord).'],
+        m7: ['Minor 7', [0, 3, 7, 10], 'smooth and mellow: minor without the sadness (funk, soul, the ii chord).'],
+        m7b5: ['Half-diminished (m7♭5)', [0, 3, 6, 10], 'dark but not harsh: the ii of a minor key, leaning to the V.'],
+        dim7: ['Diminished 7', [0, 3, 6, 9], 'tense and spooky, every note equally far apart: the passing chord and the silent-film villain.'],
+      }
+      const [ans, ivs, why] = R[k]
+      const base = 48 + Math.floor(rnd() * 7)
+      return choose(item, 'Which 7th chord?', ans, Object.values(R).map(r => r[0]), `${ans}: ${why}`, rnd, { audio: { chords: [ivs.map(i => base + i), ivs.map(i => base + 12 + i)] }, sub: 'The chord low, then higher. Listen for the colour, not the notes.' })
+    },
+  },
+  {
+    id: 'l5-spell7', unit: 'Guitar theory', title: 'Spell the 7th chord', mic: false,
+    desc: 'Stack thirds: root, 3rd, 5th, 7th. Name the four notes of a 7th chord, spelled right (every other letter).', length: 10,
+    items: () => ['C:maj7', 'G:dom7', 'D:m7', 'F:maj7', 'A:m7', 'E:dom7', 'B:m7b5', 'Bb:maj7', 'Eb:dom7', 'F#:m7b5', 'C:dim7', 'G:m7', 'D:dom7', 'A:maj7', 'Ab:maj7'].map((k, i) => `l5-spell7:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const [, root, q] = item.split(':')
+      const Q7: Record<string, [string, number[]]> = { maj7: ['maj7', [0, 4, 7, 11]], dom7: ['7', [0, 4, 7, 10]], m7: ['m7', [0, 3, 7, 10]], m7b5: ['m7♭5', [0, 3, 6, 10]], dim7: ['dim7', [0, 3, 6, 9]] }
+      const [suf, semis] = Q7[q]
+      const spell = (ss: number[]) => ss.map((x, i) => noteAt(root, i * 2, x)).join(' ')
+      const ans = spell(semis)
+      const wrong = Object.values(Q7).filter(([, ss]) => ss.join() !== semis.join()).map(([, ss]) => spell(ss))
+      return choose(item, `Spell ${root}${suf}.`, ans, wrong, `${ans}: root, 3rd, 5th and 7th, every other letter (${noteAt(root, 0, 0)} ${noteAt(root, 2, 0).replace(/[#b]/g, '')} ${noteAt(root, 4, 0).replace(/[#b]/g, '')} ${noteAt(root, 6, 0).replace(/[#b]/g, '')}), then the sharps and flats that give a ${suf} its intervals.`, rnd)
+    },
+  },
+  {
+    id: 'l5-key7', unit: 'Guitar theory', title: 'The 7th chords of a key', mic: false,
+    desc: 'Every major key has the same 7th-chord pattern: maj7, m7, m7, maj7, 7, m7, m7♭5. Which chord sits on this degree?', length: 10,
+    items: () => ['C', 'G', 'D', 'F', 'A', 'Bb', 'E', 'Eb', 'G', 'D'].map((k, i) => `l5-key7:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const key = item.split(':')[1]
+      const d = Math.floor(rnd() * 7)
+      const SUF = ['maj7', 'm7', 'm7', 'maj7', '7', 'm7', 'm7♭5']
+      const R = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii']
+      const names = spellScale(key, [0, 2, 4, 5, 7, 9, 11])
+      const ans = names[d] + SUF[d]
+      const wrong = uniq([...SUF.map(sf => names[d] + sf), names[(d + 1) % 7] + SUF[d], names[(d + 6) % 7] + SUF[d]])
+      return choose(item, `Key of ${key}: which 7th chord is ${R[d]}${SUF[d] === 'm7♭5' ? 'ø7' : '7'}?`, ans, wrong, `${ans}: the ${R[d]} of ${key} is ${names[d]}, and degree ${d + 1} is always a ${SUF[d]} (maj7 m7 m7 maj7 7 m7 m7♭5).`, rnd)
+    },
+  },
+  {
+    id: 'l5-sus-ear', unit: 'Guitar theory', title: 'Hear it: major, sus2, sus4, add9 or 6?', ear: true,
+    desc: 'The same root, five colours: the plain major chord, sus2 and sus4 (the 3rd replaced), add9 and 6 (a note added).', length: 10, mic: false,
+    items: () => ['maj', 'sus2', 'sus4', 'add9', 'six', 'sus4', 'add9', 'sus2', 'six', 'maj'].map((k, i) => `l5-sus-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const R: Record<string, [string, number[], string]> = {
+        maj: ['Major', [0, 4, 7, 12], 'settled and bright: the 3rd is there.'],
+        sus2: ['Sus2', [0, 2, 7, 12], 'open and airy, neither major nor minor: the 2 instead of the 3.'],
+        sus4: ['Sus4', [0, 5, 7, 12], 'tense, waiting to fall to the 3: the 4 instead of the 3.'],
+        add9: ['Add9', [0, 4, 7, 14], 'major with a shimmer on top: the 3rd stays and the 9 is added.'],
+        six: ['6', [0, 4, 7, 9], 'sweet and a little old-fashioned (or country, or swing): the 6 added.'],
+      }
+      const [ans, ivs, why] = R[k]
+      const base = 50 + Math.floor(rnd() * 6)
+      return choose(item, 'Which chord?', ans, Object.values(R).map(r => r[0]), `${ans}: ${why}`, rnd, { audio: { chords: [ivs.map(i => base + i), [base, base + 4, base + 7, base + 12], ivs.map(i => base + i)] }, sub: 'The chord, the plain major chord, the chord again.' })
+    },
+  },
+  {
+    id: 'l5-bass-ear', unit: 'Guitar theory', title: 'Hear it: which note is in the bass?', ear: true,
+    desc: 'The same C chord on top, a different bass note under it: the root (C), the 3rd (C/E), the 5th (C/G) or the ♭7 (C/B♭)?', length: 10, mic: false,
+    items: () => ['0', '4', '7', '10', '4', '0', '7', '10', '4', '7'].map((k, i) => `l5-bass-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const b = Number(item.split(':')[1])
+      const nm = pick(['C', 'D', 'E', 'F', 'G', 'A', 'Bb', 'Eb'], rnd)
+      const key = pcOf(nm)
+      const iv: Record<number, [number, number]> = { 0: [0, 0], 4: [2, 4], 7: [4, 7], 10: [6, 10] }
+      const sl = (x: number) => noteAt(nm, iv[x][0], iv[x][1])
+      const opts: Record<number, string> = { 0: `${nm} (root in the bass)`, 4: `${nm}/${sl(4)} (3rd in the bass)`, 7: `${nm}/${sl(7)} (5th in the bass)`, 10: `${nm}/${sl(10)} (♭7 in the bass)` }
+      const ans = opts[b]
+      const why: Record<number, string> = { 0: 'solid and finished.', 4: 'lighter, as if the chord is floating: the 3rd underneath makes a smooth bass line.', 7: 'strong but unsettled: it wants to move (the classic I/5 before a V).', 10: 'leaning, wanting to go down to the IV with its 3rd in the bass.' }
+      const r0 = 60 + (key > 5 ? key - 12 : key)
+      const top = [r0, r0 + 4, r0 + 7]
+      const bass = r0 - 24 + b
+      return choose(item, 'Which bass note?', ans, Object.values(opts), `${ans}: ${why[b]}`, rnd, { audio: { chords: [[bass, ...top], [bass], [bass, ...top]] }, sub: 'Chord with its bass, the bass alone, the chord again. Sing the bass note.' })
+    },
+  },
+  {
+    id: 'l5-alt-ear', unit: 'Guitar theory', title: 'Hear it: plain or altered dominant?', ear: true,
+    desc: 'A dominant 7th, or one with an altered note: ♭9 (dark, Spanish), ♯9 (the Hendrix chord), ♯5 (a rising, augmented pull)? Each then resolves home.', length: 10, mic: false,
+    items: () => ['7', 'b9', 's9', 's5', '7', 's9', 'b9', 's5', 's9', '7'].map((k, i) => `l5-alt-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const R: Record<string, [string, number[], string]> = {
+        '7': ['Dominant 7', [0, 4, 7, 10], 'the plain V7: bluesy, a clear pull home.'],
+        b9: ['7♭9', [0, 4, 10, 13], 'dark and dramatic: the ♭9 is a half step above the root (flamenco, minor-key jazz).'],
+        s9: ['7♯9', [0, 4, 10, 15], 'major and minor 3rd at once: the "Hendrix chord" (Purple Haze), funky and raw.'],
+        s5: ['7♯5', [0, 4, 8, 10], 'the 5th pushed up a half step: it rises into the next chord.'],
+      }
+      const [ans, ivs, why] = R[k]
+      const v = 43 + Math.floor(rnd() * 5)
+      const home = v + 5
+      return choose(item, 'Which dominant?', ans, Object.values(R).map(r => r[0]), `${ans}: ${why}`, rnd, { audio: { chords: [ivs.map(i => v + i), [home, home + 7, home + 16]] }, sub: 'The dominant, then the chord it resolves to.' })
+    },
+  },
+  {
+    id: 'l5-guide', unit: 'Guitar theory', title: 'Guide tones: where does each voice go?', mic: false,
+    desc: 'In a ii – V – I, the 7th of each chord falls a half step to the 3rd of the next, and each 3rd becomes the next 7th. Follow the voices.', length: 10,
+    items: () => ['C', 'G', 'F', 'D', 'Bb', 'A', 'Eb', 'E', 'G', 'C'].map((k, i) => `l5-guide:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const key = item.split(':')[1]
+      const sc = spellScale(key, [0, 2, 4, 5, 7, 9, 11])
+      const ii = sc[1], V = sc[4], I = sc[0]
+      const iiSev = noteAt(ii, 6, 10), vThird = noteAt(V, 2, 4), vSev = noteAt(V, 6, 10), iThird = noteAt(I, 2, 4)
+      const ask = rnd() < 0.5
+      const ans = ask ? vThird : iThird
+      const prompt = ask ? `ii – V – I in ${key}: the 7th of ${ii}m7 (${iiSev}) falls a half step to which note of ${V}7?` : `ii – V – I in ${key}: the 7th of ${V}7 (${vSev}) falls a half step to which note of ${I}maj7?`
+      return choose(item, prompt, ans, [...nearNotes(ans), ask ? vSev : noteAt(I, 6, 11)].filter(x => x !== ans && pcOf(x) !== pcOf(ans)), `${ans}: the ${ask ? `3rd of ${V}7` : `3rd of ${I}maj7`}. 7ths fall a half step to 3rds; that falling line is what makes ii – V – I sound so smooth.`, rnd)
+    },
+  },
+  {
     id: 'l4-deg-ear', unit: 'Guitar theory', title: 'Hear it: which note of the scale?', ear: true,
     desc: 'The key\'s home chord, then one note of its major scale: which degree is it, 1 to 7? Knowing the number by ear is knowing where you are inside a scale position.', length: 10, mic: false,
     items: () => ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map((k, i) => `l4-deg-ear:${k}:${i}`),
