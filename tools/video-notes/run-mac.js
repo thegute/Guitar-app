@@ -16,7 +16,8 @@ const sh = cmd => app.doShellScript(cmd)
 function run(argv) {
   const folder = (argv.find(a => !a.startsWith('--')) || '.').replace(/^~/, $.NSHomeDirectory().js)
   const opt = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : d }
-  const MODELS = [opt('--model', 'gemini-2.5-flash'), 'gemini-flash-latest', 'gemini-2.5-flash-lite']
+  // each model has its own free allowance (about 20 videos a day): when one is used up, the next one carries on
+  const MODELS = [...new Set([opt('--model', 'gemini-3-flash-preview'), 'gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite-preview', 'gemini-2.5-flash-lite'])]
   const only = opt('--only', '')
   const retryFailed = argv.includes('--retry-failed')
   const here = $.NSFileManager.defaultManager.currentDirectoryPath.js
@@ -78,6 +79,11 @@ function run(argv) {
         break
       }
       const err = r.error || ''
+      if ((r.status === 429 && /PerDay/i.test(err)) || ((r.status === 503 || /high demand|UNAVAILABLE/i.test(err)) && retried)) {
+        if (mi < MODELS.length - 1) { log(`  ${model} is ${r.status === 429 ? 'used up for today' : 'busy'}: switching to ${MODELS[mi + 1]}`); mi++; retried = false; continue }
+        log('STOPPED: every model\'s free allowance is used up for today. Run the same command again tomorrow; it carries on.')
+        save(); return 'Stopped at the free limit.'
+      }
       if (r.status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(err)) {
         if (limitHits++ < 2) { log('  free limit hit: waiting 70 s and trying again'); delay(70); continue }
         log('STOPPED: Google\'s free limit is used up for now (about 8 hours of YouTube video a day). Run the same command again later or tomorrow; it carries on.')
@@ -86,6 +92,7 @@ function run(argv) {
       if (r.status === 404 && mi < MODELS.length - 1) { log(`  no model ${model}: trying ${MODELS[mi + 1]}`); mi++; continue }
       if ((r.status === 400 || r.status === 403) && /API key|API_KEY/i.test(err)) { log('STOPPED: Google didn\'t accept the key in gemini-key.txt.'); return 'Key not accepted.' }
       if ((r.status >= 500 || r.status === 0) && !retried) { retried = true; log(`  error ${r.status}, trying once more in 30 s`); delay(30); continue }
+      if (r.status === 503 && mi < MODELS.length - 1) { log(`  ${model} still busy: switching to ${MODELS[mi + 1]}`); mi++; retried = false; continue }
       state.failed[job.key] = `${r.status} ${err}`; save()
       log(`  FAILED (${r.status}): ${err.slice(0, 200)}`)
       break
