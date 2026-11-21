@@ -673,6 +673,103 @@ export const THEORY_QUIZZES: QuizDef[] = [
         { audio: { chords: [a.notes.map(n => n.midi), b.notes.map(n => n.midi), [a.notes[2].midi], [b.notes[2].midi]] }, sub: 'Two chords, then just their top notes. Sing the top line.' })
     },
   },
+  {
+    id: 'l4-deg-ear', unit: 'Guitar theory', title: 'Hear it: which note of the scale?', ear: true,
+    desc: 'The key\'s home chord, then one note of its major scale: which degree is it, 1 to 7? Knowing the number by ear is knowing where you are inside a scale position.', length: 10, mic: false,
+    items: () => ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map((k, i) => `l4-deg-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const key = 48 + Math.floor(rnd() * 12)
+      const MAJ = [0, 2, 4, 5, 7, 9, 11]
+      const d = Math.floor(rnd() * 7)
+      const NAME = ['1 (do: home)', '2 (re)', '3 (mi)', '4 (fa)', '5 (sol)', '6 (la)', '7 (ti)']
+      const FEEL = ['home: nothing wants to move', 'one step above home: it wants to fall back to 1 or rise to 3', 'sweet and bright: the note that says "major"', 'a little tense: it leans down to 3', 'strong and open: home\'s partner, it can rest or lead back', 'soft and wistful: the relative minor\'s home', 'the leading note: it pulls hard up to 1']
+      const ans = NAME[d]
+      const note = key + 12 + MAJ[d]
+      return choose(item, 'Which degree of the scale?', ans, NAME, `${ans}: ${FEEL[d]}. Sing down (or up) the scale to home and count the steps.`, rnd,
+        { audio: { chords: [[key, key + 4, key + 7], [note], [key + 12], [note]] }, sub: 'The home chord, the note, home, the note again. Sing from the note to home and count.' })
+    },
+  },
+  {
+    id: 'l4-int-ear', unit: 'Guitar theory', title: 'Hear it: 3rds, 6ths, 4ths or octaves?', ear: true,
+    desc: 'Two notes of a major scale played together, the way you play double stops: is it a 3rd, a 6th, a 4th or an octave?', length: 10, mic: false,
+    items: () => ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map((k, i) => `l4-int-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const key = 52 + Math.floor(rnd() * 10)
+      const MAJ = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24]
+      const [steps, ans, why] = pick([[2, 'A 3rd', 'close and sweet: the sound of country, soul and Mayer double stops'], [5, 'A 6th', 'wide but still sweet: the Motown and country sound, played on strings with one skipped'], [3, 'A 4th', 'open and a little hollow: rock double stops, Chuck Berry'], [7, 'An octave', 'the same note twice: Wes Montgomery, and power without a chord']] as const, rnd)
+      const d = Math.floor(rnd() * 7)
+      const a = key + MAJ[d], b = key + MAJ[d + steps]
+      return choose(item, 'Which interval?', ans, ['A 3rd', 'A 6th', 'A 4th', 'An octave'], `${ans}: ${why}.`, rnd,
+        { audio: { chords: [[a, b], [a], [b], [a, b]] }, sub: 'Together, the low note, the high note, together again.' })
+    },
+  },
+  {
+    id: 'l4-pairs', unit: 'Guitar theory', title: '3rds and 6ths on the neck', mic: false,
+    desc: 'A note on one string: where is the 3rd (or 6th) above it in the key, on the string you\'d pair it with? This is how double stops are found anywhere.', length: 10,
+    items: () => ['3:0', '3:1', '6:0', '6:1', '3:0', '6:1', '3:1', '6:0', '3:0', '6:1'].map((k, i) => `l4-pairs:${k}:${i}`),
+    make: (item, inst, rnd) => {
+      const [kind, pair] = item.split(':').slice(1).map(Number)
+      const n = inst.midis.length
+      const [lo, hi] = kind === 3 ? (pair ? [n - 2, n - 1] : [n - 3, n - 2]) : (pair ? [n - 4, n - 2] : [n - 3, n - 1])
+      const keyPc = pick([0, 7, 2, 9, 4, 5], rnd)
+      const MAJ = [0, 2, 4, 5, 7, 9, 11]
+      const pcs = MAJ.map(x => (keyPc + x) % 12)
+      // a scale note on the lower string, frets 1–10
+      const cands: number[] = []
+      for (let f = 1; f <= 10; f++) if (pcs.includes((inst.midis[lo] + f) % 12)) cands.push(f)
+      const f = pick(cands, rnd)
+      const m = inst.midis[lo] + f
+      const d = pcs.indexOf(m % 12)
+      const up = kind === 3 ? 2 : 5
+      let target = m + ((MAJ[(d + up) % 7] - MAJ[d] + 12) % 12)
+      while (target - inst.midis[hi] < 0) target += 12
+      while (target - inst.midis[hi] > 15) target -= 12
+      const fret = target - inst.midis[hi]
+      const kname = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'][keyPc]
+      const ans = `Fret ${fret}`
+      const wrong = [fret - 2, fret - 1, fret + 1, fret + 2, fret + 3].filter(x => x >= 0 && x <= 15).map(x => `Fret ${x}`)
+      return choose(item, `Key of ${kname}: on the ${stringName(inst.midis, lo)} string, fret ${f}. Where is the diatonic ${kind === 3 ? '3rd' : '6th'} above it on the ${stringName(inst.midis, hi)} string?`, ans, wrong,
+        `${ans}: the ${kind === 3 ? '3rd' : '6th'} is ${up} scale notes above, so it's a major or minor ${kind === 3 ? '3rd' : '6th'} depending on where you are in the key (here ${Math.abs(target - m)} half steps).`, rnd)
+    },
+  },
+  {
+    id: 'l4-16ths-ear', unit: 'Guitar theory', title: 'Hear it: which sixteenth rhythm?', ear: true,
+    desc: 'One beat\'s rhythm, repeated over a click: four sixteenths, an eighth and two sixteenths, two sixteenths and an eighth, the gallop, or the dotted "skip"?', length: 8, mic: false,
+    items: () => ['all', 'ess', 'sse', 'dot', 'ses', 'all', 'ess', 'sse'].map((k, i) => `l4-16ths-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const R: Record<string, [string, number[], string]> = {
+        all: ['1 e & a: four sixteenths', [0.25, 0.25, 0.25, 0.25], 'four even notes a beat: the funk motor.'],
+        ess: ['1 & a: an eighth, two sixteenths', [0.5, 0.25, 0.25], 'long then two quick: "gal-lop-ing" toward the next beat.'],
+        sse: ['1 e &: two sixteenths, an eighth', [0.25, 0.25, 0.5], 'two quick then long: the metal gallop turned around.'],
+        dot: ['1 a: dotted eighth and a sixteenth', [0.75, 0.25], 'long-very-short: the skip of a shuffle, but tighter.'],
+        ses: ['1 e a: sixteenth, eighth, sixteenth', [0.25, 0.5, 0.25], 'the syncopated "e" and "a" with the & left out: funk.'],
+      }
+      const [ans, cell, why] = R[k]
+      const beats = [...cell, ...cell, ...cell, ...cell]
+      return choose(item, 'Which rhythm is each beat?', ans, Object.values(R).map(r => r[0]), `${ans}: ${why}`, rnd, { audio: { rhythm: { beats, bpm: 72 } }, sub: 'Count "1 e & a 2 e & a" along and say which syllables are played.' })
+    },
+  },
+  {
+    id: 'l4-3nps', unit: 'Guitar theory', title: 'Three-notes-per-string: where does each pattern start?', mic: false,
+    desc: 'The seven 3-notes-per-string patterns of a major scale start on each of its seven notes on the low string. Which note (and degree) starts this one?', length: 10,
+    items: () => ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'].map((k, i) => `l4-3nps:${k}:${i}`),
+    make: (item, inst, rnd) => {
+      const keyPc = pick([0, 7, 2, 9, 4], rnd)
+      const MAJ = [0, 2, 4, 5, 7, 9, 11]
+      const low = inst.midis[0]
+      const starts: { f: number; d: number }[] = []
+      for (let f = 1; f <= 14; f++) { const d = MAJ.indexOf(((low + f - keyPc) % 12 + 12) % 12); if (d >= 0) starts.push({ f, d }) }
+      const st = pick(starts, rnd)
+      // (C, G, D, A, E: sharp keys, so their notes are spelled with sharps)
+      const N = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+      const kname = N[keyPc]
+      const ans = `${ORD[st.d] === 'root' ? '1 (the root)' : `${st.d + 1} (the ${ORD[st.d]})`}`
+      const wrong = [0, 1, 2, 3, 4, 5, 6].filter(x => x !== st.d).map(x => (x === 0 ? '1 (the root)' : `${x + 1} (the ${ORD[x]})`))
+      return choose(item, `${kname} major, three notes per string: a pattern starts on the ${stringName(inst.midis, 0)} string at fret ${st.f}. Which degree is its first note?`, ans, wrong,
+        `${ans}: fret ${st.f} on that string is ${N[(low + st.f) % 12]}, the ${st.d === 0 ? 'root' : ORD[st.d]} of ${kname} major. Each pattern starts on the next scale note up the string.`, rnd)
+    },
+  },
 ]
 /** [question, answer, wrong answers, why] */
 const READ: [string, string, string[], string][] = [

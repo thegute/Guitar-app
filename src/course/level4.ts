@@ -3,6 +3,7 @@
 // Our own words; the owner's books (Fretboard Logic, the CAGED blues book, Fretboard Mastery, Triads and Inversions, the
 // Practical Guide) are pointed to, never copied. Every fret below was checked with learn/caged.ts (course/cagedTabs.ts).
 import type { CourseLesson } from './types'
+import { LEVEL4_REST } from './level4b'
 import { shapeMarks, shapesOf, scaleInShape } from './cagedTabs'
 import { boxMarks, topTriads } from './pentTriadTabs'
 
@@ -709,4 +710,4 @@ export const TOP_TRIADS: CourseLesson = {
   ],
 }
 
-export const LEVEL4: CourseLesson[] = [CAGED, PENT_BOXES, TOP_TRIADS]
+export const LEVEL4: CourseLesson[] = [CAGED, PENT_BOXES, TOP_TRIADS, ...LEVEL4_REST]

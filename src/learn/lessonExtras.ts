@@ -3,6 +3,7 @@
 import type { ExerciseSpec } from '../tabs/exercises'
 import { fingerMelody } from '../tabs/fingering'
 import type { Song, SongBar } from '../tabs/model'
+import { dsOverChordsTab, majorArpScaleTab, majorLinkTab, majorPositionsTab, pairsTab, setInversionsTab, setLeadTab, setsWalkTab, sixteenthsTab, spreadTab, syncopationTab } from '../course/l4bTabs'
 import { boxLinkTab, boxWithChordTab, pentDiagonalTab, pentLickBoxesTab, pentTargetsTab, triadEmbTab, triadInversionsTab, triadKeyTab, triadLeadTab } from '../course/pentTriadTabs'
 import { cagedChordTab, cagedEmbTab, cagedMinorZoneTab, cagedOneShapeTab, cagedZoneTab } from '../course/cagedTabs'
 
@@ -11,7 +12,7 @@ export type LessonEx = { label: string } & (
   | { spec: ExerciseSpec }
   | { songbook: { song: string; part: string } }
   | { drill: string }
-  | { tab: 'alphabetA' | 'alphabetE' | 'octaves' | 'durations' | 'intervals' | 'counting' | 'shuffle' | 'octaveWalk' | 'octaveDyads' | 'octaveCross' | 'keyTriads' | 'keyTriadsEmb' | 'cagedC' | 'cagedG' | 'cagedAm' | 'cagedZone' | 'cagedZoneE' | 'cagedZones' | 'cagedEmb' | 'caged4thsE' | 'caged4thsA' | 'cagedZoneMinor' | 'pentBoxChord' | 'pentBoxChordMaj' | 'pentLink' | 'pentDiag' | 'pentTargets' | 'pentTargets3' | 'pentLickBoxes' | 'triInvC' | 'triInvAm' | 'triInvF' | 'triLead' | 'triLeadMinor' | 'triKey' | 'triEmb' }
+  | { tab: 'alphabetA' | 'alphabetE' | 'octaves' | 'durations' | 'intervals' | 'counting' | 'shuffle' | 'octaveWalk' | 'octaveDyads' | 'octaveCross' | 'keyTriads' | 'keyTriadsEmb' | 'cagedC' | 'cagedG' | 'cagedAm' | 'cagedZone' | 'cagedZoneE' | 'cagedZones' | 'cagedEmb' | 'caged4thsE' | 'caged4thsA' | 'cagedZoneMinor' | 'pentBoxChord' | 'pentBoxChordMaj' | 'pentLink' | 'pentDiag' | 'pentTargets' | 'pentTargets3' | 'pentLickBoxes' | 'triInvC' | 'triInvAm' | 'triInvF' | 'triLead' | 'triLeadMinor' | 'triKey' | 'triEmb' | 'majPos' | 'majPosG' | 'majArpScale' | 'majLink' | 'setInvDGB' | 'setInvADG' | 'setInvEAD' | 'setInvDGBm' | 'setsWalk' | 'setLead' | 'spread' | 'thirdsGB' | 'thirdsBE' | 'sixthsGE' | 'sixthsDB' | 'ds3rds' | 'ds6ths' | 'sixteenths' | 'syncopation' }
   | { tool: 'ear' | 'circle' | 'caged' | 'changes' | 'bends' | 'jam' }
   | { example: string }
 )
@@ -261,6 +262,26 @@ export function lessonTab(id: string, tuning: number[]): Song {
   if (id === 'triLeadMinor') return triadLeadTab(tuning, 0, [[9, true], [5, false], [0, false], [7, false], [9, true]], 'C: vi – IV – I – V – vi on the top strings, moving as little as possible')
   if (id === 'triKey') return triadKeyTab(tuning, 0)
   if (id === 'triEmb') return triadEmbTab(tuning, 0)
+  // Level 4 lessons 4–8: the major scale in five positions, triads on every string set, 3rds and 6ths, sixteenths
+  if (id === 'majPos') return majorPositionsTab(tuning, 0)
+  if (id === 'majPosG') return majorPositionsTab(tuning, 7)
+  if (id === 'majArpScale') return majorArpScaleTab(tuning, 0)
+  if (id === 'majLink') return majorLinkTab(tuning, 0)
+  if (id === 'setInvDGB') return setInversionsTab(tuning, 1, 0, false)
+  if (id === 'setInvDGBm') return setInversionsTab(tuning, 1, 9, true)
+  if (id === 'setInvADG') return setInversionsTab(tuning, 2, 0, false)
+  if (id === 'setInvEAD') return setInversionsTab(tuning, 3, 0, false)
+  if (id === 'setsWalk') return setsWalkTab(tuning, 0, false, 5)
+  if (id === 'setLead') return setLeadTab(tuning, 1, 0)
+  if (id === 'spread') return spreadTab(tuning, 0)
+  if (id === 'thirdsGB') return pairsTab(tuning, 0, 'GB', 2)
+  if (id === 'thirdsBE') return pairsTab(tuning, 7, 'BE', 2)
+  if (id === 'sixthsGE') return pairsTab(tuning, 0, 'GE', 5)
+  if (id === 'sixthsDB') return pairsTab(tuning, 7, 'DB', 5)
+  if (id === 'ds3rds') return dsOverChordsTab(tuning, 0, 2)
+  if (id === 'ds6ths') return dsOverChordsTab(tuning, 7, 5)
+  if (id === 'sixteenths') return sixteenthsTab(tuning, 4)
+  if (id === 'syncopation') return syncopationTab(tuning, 7)
   // intervals: A up to each interval and back, an octave of steps
   let a = Math.min(...tuning)
   while (a % 12 !== 9) a++
