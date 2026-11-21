@@ -4,6 +4,7 @@ import type { ExerciseSpec } from '../tabs/exercises'
 import { fingerMelody } from '../tabs/fingering'
 import type { Song, SongBar } from '../tabs/model'
 import { altTab, augDimTab, bassLineTab, drop2Tab, extTab, guideTonesTab, key7Tab, ninthVampTab, powerTab, sevenShellsTab, slashTab, susAddTab, twoFiveOneTab, voiceLead7Tab } from '../course/l5Tabs'
+import { approachTab, arp7ChangesTab, arp7PositionTab, cagedArpTab, hearPlayTab, mixPentTab, phrasingTab, soulStopsTab, targetsMinorTab, targetsTab } from '../course/l6Tabs'
 import { dsOverChordsTab, majorArpScaleTab, majorLinkTab, majorPositionsTab, pairsTab, setInversionsTab, setLeadTab, setsWalkTab, sixteenthsTab, spreadTab, syncopationTab } from '../course/l4bTabs'
 import { boxLinkTab, boxWithChordTab, pentDiagonalTab, pentLickBoxesTab, pentTargetsTab, triadEmbTab, triadInversionsTab, triadKeyTab, triadLeadTab } from '../course/pentTriadTabs'
 import { cagedChordTab, cagedEmbTab, cagedMinorZoneTab, cagedOneShapeTab, cagedZoneTab } from '../course/cagedTabs'
@@ -13,7 +14,7 @@ export type LessonEx = { label: string } & (
   | { spec: ExerciseSpec }
   | { songbook: { song: string; part: string } }
   | { drill: string }
-  | { tab: 'alphabetA' | 'alphabetE' | 'octaves' | 'durations' | 'intervals' | 'counting' | 'shuffle' | 'octaveWalk' | 'octaveDyads' | 'octaveCross' | 'keyTriads' | 'keyTriadsEmb' | 'cagedC' | 'cagedG' | 'cagedAm' | 'cagedZone' | 'cagedZoneE' | 'cagedZones' | 'cagedEmb' | 'caged4thsE' | 'caged4thsA' | 'cagedZoneMinor' | 'pentBoxChord' | 'pentBoxChordMaj' | 'pentLink' | 'pentDiag' | 'pentTargets' | 'pentTargets3' | 'pentLickBoxes' | 'triInvC' | 'triInvAm' | 'triInvF' | 'triLead' | 'triLeadMinor' | 'triKey' | 'triEmb' | 'majPos' | 'majPosG' | 'majArpScale' | 'majLink' | 'setInvDGB' | 'setInvADG' | 'setInvEAD' | 'setInvDGBm' | 'setsWalk' | 'setLead' | 'spread' | 'thirdsGB' | 'thirdsBE' | 'sixthsGE' | 'sixthsDB' | 'ds3rds' | 'ds6ths' | 'sixteenths' | 'syncopation' | 'augDim' | 'shells7' | 'drop2' | 'key7' | 'iiVI' | 'susAdd' | 'power' | 'ext' | 'ninthVamp' | 'alt' | 'slash' | 'bassLine' | 'guide' | 'vl7' }
+  | { tab: 'alphabetA' | 'alphabetE' | 'octaves' | 'durations' | 'intervals' | 'counting' | 'shuffle' | 'octaveWalk' | 'octaveDyads' | 'octaveCross' | 'keyTriads' | 'keyTriadsEmb' | 'cagedC' | 'cagedG' | 'cagedAm' | 'cagedZone' | 'cagedZoneE' | 'cagedZones' | 'cagedEmb' | 'caged4thsE' | 'caged4thsA' | 'cagedZoneMinor' | 'pentBoxChord' | 'pentBoxChordMaj' | 'pentLink' | 'pentDiag' | 'pentTargets' | 'pentTargets3' | 'pentLickBoxes' | 'triInvC' | 'triInvAm' | 'triInvF' | 'triLead' | 'triLeadMinor' | 'triKey' | 'triEmb' | 'majPos' | 'majPosG' | 'majArpScale' | 'majLink' | 'setInvDGB' | 'setInvADG' | 'setInvEAD' | 'setInvDGBm' | 'setsWalk' | 'setLead' | 'spread' | 'thirdsGB' | 'thirdsBE' | 'sixthsGE' | 'sixthsDB' | 'ds3rds' | 'ds6ths' | 'sixteenths' | 'syncopation' | 'augDim' | 'shells7' | 'drop2' | 'key7' | 'iiVI' | 'susAdd' | 'power' | 'ext' | 'ninthVamp' | 'alt' | 'slash' | 'bassLine' | 'guide' | 'vl7' | 'arpCaged' | 'arpCagedAm' | 'arp7Pos' | 'arp7Changes' | 'targets' | 'targetsMinor' | 'mixPent' | 'approach' | 'phrasing' | 'soulStops' | 'hearPlay' }
   | { tool: 'ear' | 'circle' | 'caged' | 'changes' | 'bends' | 'jam' }
   | { example: string }
 )
@@ -298,6 +299,17 @@ export function lessonTab(id: string, tuning: number[]): Song {
   if (id === 'bassLine') return bassLineTab(tuning)
   if (id === 'guide') return guideTonesTab(tuning)
   if (id === 'vl7') return voiceLead7Tab(tuning)
+  if (id === 'arpCaged') return cagedArpTab(tuning, 0, false)
+  if (id === 'arpCagedAm') return cagedArpTab(tuning, 9, true)
+  if (id === 'arp7Pos') return arp7PositionTab(tuning, 0)
+  if (id === 'arp7Changes') return arp7ChangesTab(tuning, 0)
+  if (id === 'targets') return targetsTab(tuning)
+  if (id === 'targetsMinor') return targetsMinorTab(tuning)
+  if (id === 'mixPent') return mixPentTab(tuning)
+  if (id === 'approach') return approachTab(tuning)
+  if (id === 'phrasing') return phrasingTab(tuning)
+  if (id === 'soulStops') return soulStopsTab(tuning)
+  if (id === 'hearPlay') return hearPlayTab(tuning)
   // intervals: A up to each interval and back, an octave of steps
   let a = Math.min(...tuning)
   while (a % 12 !== 9) a++

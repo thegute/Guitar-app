@@ -769,6 +769,107 @@ export const THEORY_QUIZZES: QuizDef[] = [
     },
   },
   {
+    id: 'l6-tone', unit: 'Guitar theory', title: 'Which chord tone is it?', mic: false,
+    desc: 'A note over a 7th chord: is it the root, 3rd, 5th or 7th, or not a chord tone at all (a 9th, 11th or 13th)? The first question of soloing on the changes.', length: 12,
+    items: () => ['D:m7:3', 'G:7:10', 'C:maj7:4', 'A:m7:7', 'F:maj7:11', 'G:7:4', 'D:m7:2', 'E:m7:10', 'B:m7b5:6', 'C:maj7:9', 'A:7:4', 'F:maj7:7', 'G:7:5', 'D:m7:10', 'C:maj7:11'].map((k, i) => `l6-tone:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const [, root, q, ivS] = item.split(':')
+      const iv = Number(ivS)
+      const QT: Record<string, { name: string; tones: Record<number, string> }> = {
+        maj7: { name: 'maj7', tones: { 0: 'Root', 4: '3rd', 7: '5th', 11: '7th' } },
+        '7': { name: '7', tones: { 0: 'Root', 4: '3rd', 7: '5th', 10: '7th' } },
+        m7: { name: 'm7', tones: { 0: 'Root', 3: '3rd', 7: '5th', 10: '7th' } },
+        m7b5: { name: 'm7♭5', tones: { 0: 'Root', 3: '3rd', 6: '5th', 10: '7th' } },
+      }
+      const LET: Record<number, number> = { 0: 0, 2: 1, 3: 2, 4: 2, 5: 3, 6: 4, 7: 4, 9: 5, 10: 6, 11: 6 }
+      const EXT: Record<number, string> = { 2: 'the 9th', 5: 'the 11th', 9: 'the 13th' }
+      const note = noteAt(root, LET[iv], iv)
+      const t = QT[q]
+      const ans = t.tones[iv] ?? 'Not a chord tone'
+      const why = t.tones[iv] ? `${note} is the ${t.tones[iv].toLowerCase()} of ${root}${t.name}: ${t.tones[iv] === '3rd' || t.tones[iv] === '7th' ? 'a guide tone, the strongest note to land on when the chord arrives.' : t.tones[iv] === 'Root' ? 'safe and solid.' : 'a safe chord tone, a little plain.'}` : `${note} is ${EXT[iv]} of ${root}${t.name}: a colour note, lovely in passing, but it isn't one of the four chord tones.`
+      return choose(item, `Over ${root}${t.name}, the note ${note} is the chord's…`, ans, ['Root', '3rd', '5th', '7th', 'Not a chord tone'], why, rnd)
+    },
+  },
+  {
+    id: 'l6-tone-ear', unit: 'Guitar theory', title: 'Hear it: which chord tone?', ear: true,
+    desc: 'A chord, then one note over it. Root (home), 3rd (sweet, it names the chord), 5th (open, plain) or 7th (leaning)? Sing up from the root if you need to.', length: 10, mic: false,
+    items: () => ['4', '0', '7', '11', '4', '10', '7', '0', '11', '3'].map((k, i) => `l6-tone-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const iv = Number(item.split(':')[1])
+      const minor = iv === 3 || (iv === 10 && rnd() < 0.5)
+      const chordIv = minor ? [0, 3, 7, 10] : iv === 10 ? [0, 4, 7, 10] : [0, 4, 7, 11]
+      const base = 48 + Math.floor(rnd() * 7)
+      const chord = chordIv.map(i => base + i)
+      const NAME: Record<number, string> = { 0: 'Root', 3: '3rd', 4: '3rd', 7: '5th', 10: '7th', 11: '7th' }
+      const note = base + 12 + iv
+      const feel: Record<string, string> = { Root: 'home: nothing pulls', '3rd': 'sweet, and it says major or minor', '5th': 'open and plain, like the chord with no colour', '7th': 'leaning, a half or whole step from the root above' }
+      const ans = NAME[iv]
+      return choose(item, 'Which chord tone is the note?', ans, ['Root', '3rd', '5th', '7th'], `${ans}: ${feel[ans]}.`, rnd, { audio: { chords: [chord, [note], [...chord, note]] }, sub: 'The chord, the note, then both together.' })
+    },
+  },
+  {
+    id: 'l6-approach', unit: 'Guitar theory', title: 'Approach the target', mic: false,
+    desc: 'Land on a chord tone from a half step away: from below (always works), from above (from the scale or chromatic), or enclose it (above, then below, then the target).', length: 10,
+    items: () => ['E:below', 'B:below', 'F:above', 'C:below', 'G#:below', 'D:above', 'A:enclose', 'E:enclose', 'B:enclose', 'F#:below'].map((k, i) => `l6-approach:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const [, target, how] = item.split(':')
+      // a half step below is spelled with sharps (it rises into the target: D♯→E, B→C, G→G♯), above with flats (F→E, G♭→F)
+      const SH = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'], FL = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
+      const tp = pcOf(target)
+      const under = SH[(tp + 11) % 12], over = FL[(tp + 1) % 12]
+      const LET = 'CDEFGAB', li = LET.indexOf(target[0])
+      if (how === 'below') return choose(item, `Approach ${target} from a half step below. Which note comes just before it?`, under, uniq([over, SH[(tp + 10) % 12], FL[(tp + 2) % 12], LET[(li + 6) % 7]]).filter(x => x !== under && x !== target), `${under} → ${target}: a half step up into the target, the strongest approach there is (it works even when ${under} isn't in the key, because it resolves at once).`, rnd)
+      if (how === 'above') return choose(item, `Approach ${target} from a half step above. Which note comes just before it?`, over, uniq([under, FL[(tp + 2) % 12], SH[(tp + 10) % 12], LET[(li + 1) % 7]]).filter(x => x !== over && x !== target), `${over} → ${target}: a half step down into the target.`, rnd)
+      const ans = `${over} ${under} ${target}`
+      return choose(item, `Enclose ${target}: which three notes, in order?`, ans, uniq([`${target} ${over} ${under}`, `${FL[(tp + 2) % 12]} ${SH[(tp + 10) % 12]} ${target}`, `${over} ${target} ${under}`]).filter(x => x !== ans), `${ans}: a half step above, a half step below, then land. The ear hears the target coming from both sides.`, rnd)
+    },
+  },
+  {
+    id: 'l6-pent-ear', unit: 'Guitar theory', title: 'Hear it: major, minor or mixed pentatonic?', ear: true,
+    desc: 'A dominant 7th chord, then a pentatonic line over it. Major pentatonic (sweet, country), minor pentatonic (bluesy, rock) or the two mixed (the ♭3 slipping up to the 3)?', length: 9, mic: false,
+    items: () => ['maj', 'min', 'mix', 'min', 'maj', 'mix', 'maj', 'min', 'mix'].map((k, i) => `l6-pent-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const r = 45 + Math.floor(rnd() * 5)
+      const chord = [r, r + 7, r + 10, r + 16]
+      const LINES: Record<string, number[]> = { maj: [0, 2, 4, 7, 9, 7, 4, 2, 0], min: [0, 3, 5, 7, 10, 7, 5, 3, 0], mix: [3, 4, 7, 10, 9, 7, 3, 4, 0] }
+      const ans = k === 'maj' ? 'Major pentatonic' : k === 'min' ? 'Minor pentatonic' : 'Mixed'
+      const why: Record<string, string> = { maj: 'the major 3rd and 6th: sweet and bright, it sits on the chord.', min: 'the ♭3 and ♭7: bluesy, it rubs against the chord\'s major 3rd.', mix: 'the ♭3 slides up into the 3 (and the 6 and ♭7 both appear): the blues mixture.' }
+      return choose(item, 'Which pentatonic is the line?', ans, ['Major pentatonic', 'Minor pentatonic', 'Mixed'], `${ans}: ${why[k]}`, rnd, { audio: { chords: [chord], seq: LINES[k].map(i => r + 12 + i) }, sub: 'The line, then the chord it was over.' })
+    },
+  },
+  {
+    id: 'l6-phrase-ear', unit: 'Guitar theory', title: 'Hear it: same, varied or new?', ear: true,
+    desc: 'Two short phrases. Is the second the same as the first, the same idea varied (same rhythm and start, new ending), or a new idea? Hearing this is the start of phrasing.', length: 9, mic: false,
+    items: () => ['same', 'vary', 'new', 'vary', 'new', 'same', 'vary', 'new', 'vary'].map((k, i) => `l6-phrase-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const pent = [0, 3, 5, 7, 10, 12, 15]
+      const r = 57 + Math.floor(rnd() * 5)
+      const idx = [0, 1, 2, 3].map(() => Math.floor(rnd() * 5))
+      const motif = idx.map(i => r + pent[i])
+      const vary = [...motif.slice(0, 3), r + pent[(idx[3] + 2) % 7]]
+      const other = [3, 2, 1, 0].map(i => r + pent[(idx[i] + 3) % 7])
+      const second = k === 'same' ? motif : k === 'vary' ? vary : other
+      const ans = k === 'same' ? 'The same' : k === 'vary' ? 'Varied' : 'A new idea'
+      const why: Record<string, string> = { same: 'note for note the same: repetition makes an idea stick.', vary: 'the same start, a new ending: the strongest way to develop a phrase.', new: 'different notes and shape: contrast (use it after you\'ve repeated an idea).' }
+      return choose(item, 'The second phrase is…', ans, ['The same', 'Varied', 'A new idea'], `${ans}: ${why[k]}`, rnd, { audio: { seq: [...motif, ...second] }, sub: 'Four notes, then four more.' })
+    },
+  },
+  {
+    id: 'l6-melody-ear', unit: 'Guitar theory', title: 'Hear it: which degrees?', ear: true,
+    desc: 'The key\'s chord, then three notes. Name them as degrees of the key (1 is home). Once you can, you can play anything you can sing.', length: 10, mic: false,
+    items: () => ['1 2 3', '3 2 1', '1 3 5', '5 4 3', '5 6 5', '3 4 5', '1 7 1', '5 3 1', '2 3 1', '6 5 3'].map((k, i) => `l6-melody-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const D: Record<string, number> = { 1: 0, 2: 2, 3: 4, 4: 5, 5: 7, 6: 9, 7: -1 }
+      const r = 60 + Math.floor(rnd() * 5) - 2
+      const seq = k.split(' ').map(d => r + D[d])
+      const all = ['1 2 3', '3 2 1', '1 3 5', '5 4 3', '5 6 5', '3 4 5', '1 7 1', '5 3 1', '2 3 1', '6 5 3']
+      return choose(item, 'Which degrees were the three notes?', k, all.filter(x => x !== k), `${k}: hear each note against home (1). ${k.includes('7') ? 'The 7 sits just under home and pulls up to it.' : k.startsWith('5') ? 'Starting on 5 sounds open, like a question.' : 'Starting on 1 sounds settled.'}`, rnd, { audio: { chords: [[r - 12, r - 5, r, r + 4]], seq } , sub: 'The three notes, then the key\'s chord (home).' })
+    },
+  },
+  {
     id: 'l5-key7', unit: 'Guitar theory', title: 'The 7th chords of a key', mic: false,
     desc: 'Every major key has the same 7th-chord pattern: maj7, m7, m7, maj7, 7, m7, m7♭5. Which chord sits on this degree?', length: 10,
     items: () => ['C', 'G', 'D', 'F', 'A', 'Bb', 'E', 'Eb', 'G', 'D'].map((k, i) => `l5-key7:${k}:${i}`),
