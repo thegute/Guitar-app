@@ -289,10 +289,11 @@ export class Stitcher {
         this.box = { ...b, y: y0, h: y1 - y0 }
       } else if (this.searched < 90) return
       else this.box = { x: 0, y: 0, w: 1, h: 1 }
-    } else if ((this.kept <= 12 && !this.doneW && this.layers.length <= 4) || (this.kept <= 80 && this.box.w < 0.9 && this.kept % 3 === 0)) {
+    } else if ((this.kept <= 12 && !this.doneW && this.layers.length <= 4) || (this.kept <= 80 && this.box.w < 0.9 && this.kept % 3 === 0 && this.box.x > 0.1 && (!this.prev || (this.at / this.prev.w) * this.box.w < this.box.x * 0.8))) {
       // (also later on, every 3rd frame, while the first strip is still being made and the tab doesn't yet fill the
       // width: a tab that slides in from the side is first found on part of the screen. Nothing has left the screen yet
-      // while it slides in, so starting again with the wider box loses nothing.)
+      // while it slides in (nothing has moved further than the box's own left margin), so starting again with the wider
+      // box loses nothing.)
       // During the first ~2–3 seconds (while YouTube overlays/controls fade out or the tab slides in), allow
       // widening or recentering the box if a clearly wider/cleaner staff appears!
       const { w, h } = sizeOf(src)
