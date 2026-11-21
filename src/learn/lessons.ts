@@ -379,6 +379,7 @@ export const REPLACED: Record<string, string> = {
   meter: 'c3-rhythm', syncopation: 'c2-rhythm', swing: 'c3-rhythm', diatonic: 'c2-major', intervals: 'c2-intervals', keys: 'c2-keys',
   circle: 'c2-circle', 'interval-sounds': 'c2-chromatic', 'ear-together': 'c2-keys', 'harmony-intro': 'c2-triads', triads: 'c2-keychords',
   principal: 'c3-natminor', pentatonic: 'c3-minorpent', roman: 'c2-keychords',
+  sevenths: 'c5-sevenths', 'pop-chords': 'c5-colours', 'jazz-chords': 'c5-key7', slash: 'c5-slash',
 }
 export const LESSONS: Lesson[] = OFFTONIC_LESSONS.filter(l => !REPLACED[l.id])
 

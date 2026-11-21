@@ -3,7 +3,9 @@ import { LEVEL1 } from './level1'
 import { LEVEL2 } from './level2'
 import { LEVEL3 } from './level3'
 import { LEVEL4 } from './level4'
+import { LEVEL5_A } from './level5'
+import { LEVEL5_B } from './level5b'
 import type { CourseLesson } from './types'
 
-export const COURSE: CourseLesson[] = [...LEVEL1, ...LEVEL2, ...LEVEL3, ...LEVEL4]
+export const COURSE: CourseLesson[] = [...LEVEL1, ...LEVEL2, ...LEVEL3, ...LEVEL4, ...LEVEL5_A, ...LEVEL5_B]
 export const courseLesson = (id: string) => COURSE.find(l => l.id === id)

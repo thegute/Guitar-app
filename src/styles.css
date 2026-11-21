@@ -3557,4 +3557,4 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
 .key-chip.moved { border-color: var(--gold); }
 .key-chip.moved > span { color: var(--gold); }
 .key-moved { color: var(--gold); margin-top: 2px; }
-.deep-key { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.deep-key { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--surface); border-radius: var(--r-md); padding: 6px 10px; }
