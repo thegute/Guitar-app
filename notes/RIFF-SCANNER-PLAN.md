@@ -106,3 +106,16 @@ error rate (wrong note without an amber ring).
   Real recordings: bend labels gone, Everlong's 11-over-9 read right everywhere, Songsterr rest-as-0 and the phantom chord gone;
   new: a few phantom x-chords where the light Songsterr-style cursor crosses the tab (e5c8654f), one 3:14 phantom twice.
   Next training: long ties along strings after chords (Opening), a vertical cursor bar/box across the strings, Everlong's X chords.
+
+## Audio-only bench pieces (Claude Code session, 2026-11-07; committed 2026-11-21)
+- `tools/ml-bench/make_scan.py`: 9 lead/riff pieces from the modelled string (`tools/guitar_di.py`) with REAL legato (one pick,
+  then the pitch moves on the same string: h / p / s slide / b bend / br bend-release / ~ vibrato), each as dry, band (drums,
+  bass, keys, a sung voice, bus compression, AAC 128k like a screen recording) and buried (guitar 6 dB lower). truth.json has
+  every note's time, string, fret and technique (pitch checked with pyin: 56/59 right, the 3 misses are bends by design;
+  hammer-ons/pull-offs hit about 65-75% as hard as picks, slides about 30%).
+- `tools/ml-bench/make_gset.py`: GuitarSet solos (CC BY 4.0, zenodo 3371780; 5 per player) as dry mic + inside the same band
+  (notes only, no technique labels). Gives the "solo / mix" pitch F1 rows of the audio-only targets above on real playing.
+- Still to write: the scorer that runs KGuitar's own pipeline (Basic Pitch draft, guitar CRNN, 6-stem guitar stem) on these
+  and reports note P/R/F1 + technique accuracy. 6-stem HT-Demucs (StemSplitio/htdemucs-6s-onnx @49df9b6, MIT,
+  fp16 136 MB) measured here: 2.4 s per 7.8 s segment on 4 CPU cores. Downloads need huggingface.co, us.aws.cdn.hf.co and
+  zenodo.org (Claude Code environment "Guitar-app" allows them).
