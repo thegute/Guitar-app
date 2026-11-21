@@ -16,6 +16,7 @@ import { addXp, bump, logDone, usePracticeTimer } from './progress'
 import type { Go } from './path'
 import { LESSON_EXTRAS, lessonVideo, videoThumb, videoUrl, type LessonEx, type LessonVideo } from './lessonExtras'
 import { useScreenInfo } from '../assistant/screen'
+import { KeyChip, LessonKeyProvider, homeOf, movedNote, nearShift, r12, shiftMarks, useLessonKey } from './lessonKey'
 
 const READ = 'kg:lessonsRead'
 export function lessonsRead(): string[] {
@@ -107,53 +108,71 @@ function RhythmBlock({ label, beats, bpm = 80 }: { label: string; beats: number[
 }
 
 export function BlockView({ b, inst, onGo }: { b: Block; inst: Instrument; onGo: (g: Go) => void }) {
+  const { shift } = useLessonKey()
+  const k = nearShift(shift)
+  const moved = k ? ` (moved ${k > 0 ? 'up' : 'down'} ${Math.abs(k)})` : ''
   if ('p' in b) return <p>{rich(b.p)}</p>
   if ('list' in b) return <ul className="lesson-list">{b.list.map((x, i) => <li key={i}>{rich(x)}</li>)}</ul>
   if ('tip' in b) return <p className="notice small">{rich(b.tip)}</p>
-  if ('play' in b) return <button className="btn sm lesson-play" onClick={() => playExample(b.play.seq, b.play.chord, b.play.gap)}>▶ {b.play.label}</button>
-  if ('prog' in b) return <button className="btn sm lesson-play" onClick={() => playProg(b.prog.chords, b.prog.gap)}>▶ {b.prog.label}</button>
+  if ('play' in b) return <button className="btn sm lesson-play" onClick={() => playExample(b.play.seq?.map(m => m + k), b.play.chord?.map(m => m + k), b.play.gap)}>▶ {b.play.label}{moved}</button>
+  if ('prog' in b) return <button className="btn sm lesson-play" onClick={() => playProg(b.prog.chords.map(c => c.map(m => m + k)), b.prog.gap)}>▶ {b.prog.label}{moved}</button>
   if ('rhythm' in b) return <RhythmBlock {...b.rhythm} />
   if ('video' in b) return <div className="stack" style={{ gap: 4 }}>{b.video.note && <p className="small muted" style={{ margin: 0 }}>{rich(b.video.note)}</p>}<LessonVideoCard video={b.video} /></div>
   if ('circle' in b) {
     return (
       <div className="cof-wrap">
-        <CircleOfFifths tonic={b.circle.tonic} minor={b.circle.minor} size={300} onPick={(root, minor) => {
+        <CircleOfFifths tonic={k ? (b.circle.minor ? SHARPS : FLATS)[r12(pc(b.circle.tonic) + k)] : b.circle.tonic} minor={b.circle.minor} size={300} onPick={(root, minor) => {
           const r = 48 + pc(root)
           playExample([], [r, r + (minor ? 3 : 4), r + 7, r + 12])
         }} />
       </div>
     )
   }
-  if ('spots' in b) {
-    const marks = b.spots.marks(inst.midis)
-    const at = new Map(marks.map(m => [`${m.s}:${m.f}`, m]))
-    // a set end fret grows to show every mark (other tunings can put an octave further up)
-    const to = Math.min(15, Math.max(b.spots.to ?? 5, ...marks.map(m => m.f + (b.spots.to ? 1 : 2))))
+  if ('spots' in b) return <SpotsBlock spots={b.spots} inst={inst} />
+  if ('neck' in b) {
+    const home = pc(b.neck.root)
+    const r = r12(home + k)
+    const flats = k ? [1, 3, 5, 8, 10].includes(r) : /b/.test(b.neck.root) || b.neck.root === 'F'
     return (
       <figure className="lesson-spots">
-        <Fretboard tuning={inst.midis} fromFret={b.spots.from ?? 0} toFret={to} compact
-          markFor={(_m, s, f) => { const x = at.get(`${s}:${f}`); return x ? { label: x.label, role: x.role } : null }}
+        <div className="key-chip-row"><KeyChip home={home} /></div>
+        <Fretboard tuning={inst.midis} fromFret={0} toFret={b.neck.to ?? 12} compact
+          markFor={m => {
+            const iv = ((m % 12) - r + 12) % 12
+            if (!b.neck.ivs.includes(iv)) return null
+            const label = b.neck.labels === 'note' ? (flats ? FLATS : SHARPS)[m % 12] : INTERVAL_LABELS[iv]
+            return { label, role: iv === 0 ? 'root' : [3, 4, 7].includes(iv) ? 'chord' : 'scale' }
+          }}
           onTap={m => playNote(m, 0, 0.8)} />
-        {b.spots.caption && <figcaption className="small muted">{b.spots.caption}</figcaption>}
       </figure>
-    )
-  }
-  if ('neck' in b) {
-    const r = pc(b.neck.root)
-    const flats = /b/.test(b.neck.root) || b.neck.root === 'F'
-    return (
-      <Fretboard tuning={inst.midis} fromFret={0} toFret={b.neck.to ?? 12} compact
-        markFor={m => {
-          const iv = ((m % 12) - r + 12) % 12
-          if (!b.neck.ivs.includes(iv)) return null
-          const label = b.neck.labels === 'note' ? (flats ? FLATS : SHARPS)[m % 12] : INTERVAL_LABELS[iv]
-          return { label, role: iv === 0 ? 'root' : [3, 4, 7].includes(iv) ? 'chord' : 'scale' }
-        }}
-        onTap={m => playNote(m, 0, 0.8)} />
     )
   }
   const go = blockGo(b.practice)
   return go ? <button className="btn lesson-practice" onClick={() => onGo(go)}>{b.practice.label}</button> : null
+}
+
+type SpotsSpec = Extract<Block, { spots: unknown }>['spots']
+/** A neck picture with the Key menu: moves with the lesson's key. `tight` = the end fret is the last mark + 1. */
+export function SpotsBlock({ spots, inst, tight }: { spots: SpotsSpec; inst: Instrument; tight?: boolean }) {
+  const { shift } = useLessonKey()
+  const raw = spots.marks(inst.midis)
+  const home = homeOf(raw, inst.midis)
+  const from0 = spots.from ?? 0
+  // a set end fret grows to show every mark (other tunings can put an octave further up)
+  const to0 = tight ? Math.min(15, Math.max(spots.to ?? 12, ...raw.map(m => m.f + 1))) : Math.min(15, Math.max(spots.to ?? 5, ...raw.map(m => m.f + (spots.to ? 1 : 2))))
+  const { marks, from, to } = shift ? shiftMarks(raw, inst.midis, shift, from0, to0) : { marks: raw, from: from0, to: to0 }
+  const at = new Map(marks.map(m => [`${m.s}:${m.f}`, m]))
+  const note = movedNote(nearShift(shift), home)
+  return (
+    <figure className="lesson-spots">
+      <div className="key-chip-row"><KeyChip home={home} /></div>
+      <Fretboard tuning={inst.midis} fromFret={from} toFret={to} compact
+        markFor={(_m, s, f) => { const x = at.get(`${s}:${f}`); return x ? { label: x.label, role: x.role } : null }}
+        onTap={m => playNote(m, 0, 0.8)} />
+      {spots.caption && <figcaption className="small muted">{spots.caption}</figcaption>}
+      {note && <figcaption className="small key-moved">{note}</figcaption>}
+    </figure>
+  )
 }
 
 /** Watch: the lesson's YouTube video. The picture loads first; tapping it plays the video here. */
@@ -183,7 +202,12 @@ export function LessonVideoCard({ video, onPlay }: { video: LessonVideo; onPlay?
   )
 }
 
-export function LessonView({ id, inst, onExit, onOpen, onGo, onExercise }: { id: string; inst: Instrument; onExit: () => void; onOpen: (id: string) => void; onGo: (g: Go) => void; onExercise?: (ex: LessonEx) => void }) {
+type LessonViewProps = { id: string; inst: Instrument; onExit: () => void; onOpen: (id: string) => void; onGo: (g: Go) => void; onExercise?: (ex: LessonEx, shift?: number) => void }
+export function LessonView(p: LessonViewProps) {
+  return <LessonKeyProvider key={p.id} id={p.id}><LessonViewBody {...p} /></LessonKeyProvider>
+}
+function LessonViewBody({ id, inst, onExit, onOpen, onGo, onExercise }: LessonViewProps) {
+  const { shift } = useLessonKey()
   const onBook = (bid: string, page?: number) => onGo({ books: { id: bid, page } })
   const lesson = lessonById(id) ?? LESSONS[0]
   const [done, setDone] = useState(() => lessonsRead().includes(lesson.id))
@@ -230,7 +254,7 @@ export function LessonView({ id, inst, onExit, onOpen, onGo, onExercise }: { id:
           <p className="small muted" style={{ margin: 0 }}>Opens in Play: tap Listen and the notes light up as you get them. Take it slow.</p>
           <div className="lesson-exercises">
             {extra.exercises.map((ex, k) => (
-              <button key={k} className="btn lesson-ex" onClick={() => onExercise(ex)}>
+              <button key={k} className="btn lesson-ex" onClick={() => onExercise(ex, shift)}>
                 <span aria-hidden="true">{'tool' in ex ? '◎' : '♪'}</span> {ex.label}
               </button>
             ))}

@@ -7,7 +7,8 @@ import { TeachBack } from '../coach/TeachBack'
 import type { Instrument } from '../instrument'
 import type { Go } from '../learn/path'
 import type { LessonEx } from '../learn/lessonExtras'
-import { BlockView, LessonVideoCard, rich } from '../learn/LessonReader'
+import { BlockView, LessonVideoCard, SpotsBlock, rich } from '../learn/LessonReader'
+import { KeyChip, LessonKeyProvider, homeOf, useLessonKey } from '../learn/lessonKey'
 import { stars, usePracticeTimer } from '../learn/progress'
 import { Ico } from '../components/Icon'
 import { askAssistant } from '../assistant/bus'
@@ -36,12 +37,13 @@ function taskGo(t: Task): Go | null {
   return null
 }
 
-function TaskButton({ t, onGo, onExercise, done, defGoal }: { t: Task; onGo: (g: Go) => void; onExercise: (ex: LessonEx) => void; done?: boolean; defGoal?: boolean }) {
+function TaskButton({ t, onGo, onExercise, done, defGoal }: { t: Task; onGo: (g: Go) => void; onExercise: (ex: LessonEx, shift?: number) => void; done?: boolean; defGoal?: boolean }) {
   const goal = t.goal ?? (defGoal ? ('quiz' in t ? '2 stars' : 'ex' in t ? 'a clean run with the mic' : '') : '')
   const icon = 'quiz' in t ? (t.how === 'play' ? 'mic' : 'puzzle') : 'tool' in t ? (t.tool === 'jam' ? 'drum' : t.tool === 'tuner' ? 'ear' : 'sparkle') : 'play'
+  const { shift } = useLessonKey()
   return (
     <button className={`deep-task${done ? ' done' : ''}`} data-testid="deep-task"
-      onClick={() => { if ('ex' in t) onExercise(t.ex); else { const g = taskGo(t); if (g) onGo(g) } }}>
+      onClick={() => { if ('ex' in t) onExercise(t.ex, shift); else { const g = taskGo(t); if (g) onGo(g) } }}>
       <span className="deep-task-ico" aria-hidden="true"><Ico n={done ? 'check' : icon} /></span>
       <span className="deep-task-text">
         <b>{t.label}</b>
@@ -54,13 +56,7 @@ function TaskButton({ t, onGo, onExercise, done, defGoal }: { t: Task; onGo: (g:
 }
 
 function SpotsFigure({ spots, inst }: { spots: NonNullable<WorkedExample['spots']>; inst: Instrument }) {
-  const marks = spots.marks(inst.midis)
-  const at = new Map(marks.map(m => [`${m.s}:${m.f}`, m]))
-  return (
-    <Fretboard tuning={inst.midis} fromFret={spots.from ?? 0} toFret={Math.min(15, Math.max(spots.to ?? 12, ...marks.map(m => m.f + 1)))} compact
-      markFor={(_m, s, f) => { const x = at.get(`${s}:${f}`); return x ? { label: x.label, role: x.role } : null }}
-      onTap={m => playNote(m, 0, 0.8)} />
-  )
+  return <SpotsBlock spots={spots} inst={inst} tight />
 }
 
 function Example({ ex, inst, n }: { ex: WorkedExample; inst: Instrument; n: number }) {
@@ -81,7 +77,7 @@ function Example({ ex, inst, n }: { ex: WorkedExample; inst: Instrument; n: numb
   )
 }
 
-function StepBody({ step, inst, lesson, onGo, onExercise }: { step: Step; inst: Instrument; lesson: CourseLesson; onGo: (g: Go) => void; onExercise: (ex: LessonEx) => void }) {
+function StepBody({ step, inst, lesson, onGo, onExercise }: { step: Step; inst: Instrument; lesson: CourseLesson; onGo: (g: Go) => void; onExercise: (ex: LessonEx, shift?: number) => void }) {
   const p = useCourseProgress(lesson.id)
   const books = useBooks()
   const blocks = (bs: Extract<Step, { blocks: unknown }>['blocks']) => <div className="lesson-body">{bs.map((b, k) => <BlockView key={k} b={b} inst={inst} onGo={onGo} />)}</div>
@@ -124,7 +120,7 @@ function StepBody({ step, inst, lesson, onGo, onExercise }: { step: Step; inst: 
 
 /** Practice goals (not days): reach them in one sitting or several, then move on. Quiz goals tick themselves at 2 stars.
  *  A 2–3 minute warm-up carries over from the lesson before; an optional challenge round sits on top. */
-function PracticeStep({ step, lesson, done, onGo, onExercise }: { step: Extract<Step, { kind: 'practice' }>; lesson: CourseLesson; done: string[]; onGo: (g: Go) => void; onExercise: (ex: LessonEx) => void }) {
+function PracticeStep({ step, lesson, done, onGo, onExercise }: { step: Extract<Step, { kind: 'practice' }>; lesson: CourseLesson; done: string[]; onGo: (g: Go) => void; onExercise: (ex: LessonEx, shift?: number) => void }) {
   const st = stars()
   const passed = (t: Task) => 'quiz' in t && (st[t.quiz] ?? 0) >= 2
   const i = COURSE.findIndex(l => l.id === lesson.id)
@@ -165,7 +161,7 @@ function PracticeStep({ step, lesson, done, onGo, onExercise }: { step: Extract<
   )
 }
 
-function CheckStep({ step, lessonId, onGo, onExercise }: { step: Extract<Step, { kind: 'check' }>; lessonId: string; onGo: (g: Go) => void; onExercise: (ex: LessonEx) => void }) {
+function CheckStep({ step, lessonId, onGo, onExercise }: { step: Extract<Step, { kind: 'check' }>; lessonId: string; onGo: (g: Go) => void; onExercise: (ex: LessonEx, shift?: number) => void }) {
   const st = stars()
   const [showPoints, setShowPoints] = useState(false)
   return (
@@ -196,13 +192,26 @@ function CheckStep({ step, lessonId, onGo, onExercise }: { step: Extract<Step, {
   )
 }
 
-export function DeepLessonView({ lesson, inst, onExit, onGo, onExercise }: { lesson: CourseLesson; inst: Instrument; onExit: () => void; onGo: (g: Go) => void; onExercise: (ex: LessonEx) => void }) {
+type DeepProps = { lesson: CourseLesson; inst: Instrument; onExit: () => void; onGo: (g: Go) => void; onExercise: (ex: LessonEx, shift?: number) => void }
+export function DeepLessonView(props: DeepProps) {
+  return <LessonKeyProvider key={props.lesson.id} id={props.lesson.id}><DeepLessonBody {...props} /></LessonKeyProvider>
+}
+/** The key the lesson's pictures are written in: the root of its first neck picture. */
+function lessonHome(lesson: CourseLesson, midis: number[]): number | null {
+  for (const st of lesson.steps) {
+    const bs = 'blocks' in st ? st.blocks : st.kind === 'examples' ? st.examples.map(e => (e.spots ? { spots: e.spots } : null)).filter(Boolean) : []
+    for (const b of bs as Extract<Step, { blocks: unknown }>['blocks']) if (b && 'spots' in b) { const h = homeOf(b.spots.marks(midis), midis); if (h !== null) return h }
+  }
+  return null
+}
+function DeepLessonBody({ lesson, inst, onExit, onGo, onExercise }: DeepProps) {
   const p = useCourseProgress(lesson.id)
   const [at, setAtState] = useState(() => Math.min(lessonProgress(lesson.id).at ?? 0, lesson.steps.length - 1))
   const [justDone, setJustDone] = useState(false)
   const top = useRef<HTMLElement>(null)
   usePracticeTimer('theory', true, false)
   const step = lesson.steps[at]
+  const home = useMemo(() => lessonHome(lesson, inst.midis), [lesson, inst.midis])
   const go = (i: number) => {
     setAtState(i); setAt(lesson.id, i)
     top.current?.scrollIntoView({ block: 'start' })
@@ -245,6 +254,7 @@ export function DeepLessonView({ lesson, inst, onExit, onGo, onExercise }: { les
           </span>
         </div>
         {inst.id !== 'guitar' && <p className="notice small" style={{ margin: 0 }}>The pictures, tabs and quizzes follow your {inst.label.toLowerCase()}'s tuning; the string names in the text are the guitar's.</p>}
+        <div className="deep-key small"><KeyChip home={home} /><span className="muted">Every picture, sound and exercise in this lesson moves to the key you pick.</span></div>
         <div className="deep-bar" aria-label={`${pct}% done`}><span style={{ width: `${pct}%` }} /></div>
       </header>
       {card}

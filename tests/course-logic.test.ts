@@ -11,6 +11,7 @@ import { findQuiz } from '../src/learn/quiz'
 import { SONGBOOK } from '../src/tabs/songbook'
 import { INSTRUMENTS } from '../src/instrument'
 import { lessonTab } from '../src/learn/lessonExtras'
+import { shiftMarks } from '../src/learn/lessonKey'
 
 let n = 0, failed = 0
 const check = (name: string, f: () => void) => { n++; try { f() } catch (e) { failed++; console.log('  FAIL', name, (e as Error).message) } }
@@ -101,5 +102,26 @@ for (const l of COURSE) {
     }
   })
 }
+// Change the key: every picture moved to all 11 other keys stays on the neck, every mark is the same degree in the new
+// key (its note moved by the shift), note-name labels are renamed right, and a moved shape doesn't lose marks.
+for (const l of COURSE) check(`${l.id}: pictures move to every key`, () => {
+  for (const { where, sp } of spotsOf(l)) for (const [inst, midis] of TUNINGS) {
+    const raw = sp.marks(midis)
+    if (!raw.length) continue
+    for (let k = 1; k < 12; k++) {
+      const { marks, from, to } = shiftMarks(raw, midis, k, sp.from ?? 0, Math.min(15, Math.max(sp.to ?? 12, ...raw.map(m => m.f + 1))))
+      assert.ok(marks.length >= Math.min(raw.length, 1), `${where} (${inst}) +${k}: no marks`)
+      const pcs = new Set(raw.map(m => (midis[m.s] + m.f + k) % 12))
+      for (const m of marks) {
+        assert.ok(m.f >= 0 && m.f <= 15 && m.f >= from && m.f <= to && (from === 0 || m.f > from), `${where} (${inst}) +${k}: fret ${m.f} outside ${from}–${to}`)
+        assert.ok(pcs.has((midis[m.s] + m.f) % 12), `${where} (${inst}) +${k}: string ${m.s} fret ${m.f} is not a moved note`)
+        const pc = notePc(m.label)
+        if (pc !== null) assert.equal((midis[m.s] + m.f) % 12, pc, `${where} (${inst}) +${k}: labelled ${m.label}`)
+      }
+      const span = Math.max(...raw.map(m => m.f)) - Math.min(...raw.map(m => m.f))
+      if (span < 9) assert.ok(marks.length >= raw.length, `${where} (${inst}) +${k}: lost marks (${marks.length} of ${raw.length})`)
+    }
+  }
+})
 console.log(failed ? `course-logic: ${failed} of ${n} failed` : `course-logic: all ${n} checks pass (${COURSE.length} lessons)`)
 if (failed) process.exit(1)

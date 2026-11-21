@@ -1,5 +1,6 @@
 // Learn: today's goal and streak, the away-from-guitar switch, today's plan, quests, the practice course,
 // the path to mastery, and the tools (ear training, theory, CAGED, circle of fifths, chord changes, rhythm).
+import { transposeSong } from '../tabs/transpose'
 import { Win, WinArea } from '../components/Win'
 import { Ico } from '../components/Icon'
 import { ZeroToHero } from './ZeroToHero'
@@ -155,7 +156,7 @@ export function LearnScreen() {
     }
   }
   /** A lesson's "Play" exercise: a practice tab, a songbook part, a technique drill or a tool. */
-  function runLessonEx(ex: LessonEx) {
+  function runLessonEx(ex: LessonEx, shift = 0) {
     if ('tool' in ex) {
       if (ex.tool === 'jam') goTab('progressions')
       else push({ k: ex.tool })
@@ -172,6 +173,7 @@ export function LearnScreen() {
     else if ('drill' in ex) { song = drillSong(ex.drill, inst.midis); key = `drill:${ex.drill}` }
     else { song = lessonTab(ex.tab, inst.midis); key = `tab:${ex.tab}` }
     if (!song || !song.tracks[0].bars.length) return
+    if (shift) { song = transposeSong(song, shift, { inst }); key += `:k${shift}`; song = { ...song, title: `${song.title} (moved ${shift > 0 ? 'up' : 'down'} ${Math.abs(shift)})` } }
     openInPlay({ id: `lib:${inst.id}:${inst.tuning.id}:${key}`, title: song.title, source: 'lesson', inst: inst.id, song, updated: Date.now() })
   }
   function launch(g: Go) {
