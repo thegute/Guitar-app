@@ -194,6 +194,12 @@ const takes = (s, i, part = 'A') => s?.tracks?.[i]?.parts?.[part]?.takes?.length
     await page.waitForTimeout(2500)
     await page.locator('[data-testid=lp-octave]').click()
     await page.locator('[data-testid=lp-more-2] ~ *').first().count()
+    // Real bass: the notes heard and played by a recorded bass
+    await page.locator('[data-testid=lp-smartbass]').click()
+    let notes = 0
+    for (let k = 0; k < 60 && !notes; k++) { await page.waitForTimeout(500); notes = (await session(page))?.tracks?.[2]?.parts?.A?.notes?.length ?? 0 }
+    console.log(`bass: real bass heard ${notes} notes; pressed: ${await page.locator('[data-testid=lp-smartbass]').getAttribute('aria-pressed')}`)
+    if (!notes) bad('bass: Real bass heard no notes')
     await page.screenshot({ path: path.join(OUT, 'lp-bass.png') })
     errs(page, 'bass')
     await page.context().close()

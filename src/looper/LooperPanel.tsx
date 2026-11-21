@@ -266,8 +266,15 @@ function TrackCard({ st, i, onMsg, busy, setBusy }: { st: LoopStation; i: number
           <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
             <button className="chip" aria-pressed={tr.rev} onClick={() => st.setTrack(i, { rev: !tr.rev })}>Backwards</button>
             <button className="chip" aria-pressed={tr.half} onClick={() => st.setTrack(i, { half: !tr.half })} title="Half the speed, same pitch: twice as long">Half speed</button>
+            {tr.role === 'bass' && <button className="chip" aria-pressed={!!tr.smart && st.hasSmartBass(i)} disabled={!has || !!busy} data-testid="lp-smartbass"
+              title="The notes you played, played by a real recorded bass (your take stays: tap again to hear it)"
+              onClick={() => { if (tr.smart && st.hasSmartBass(i)) { st.setTrack(i, { smart: false }); return } if (st.hasSmartBass(i)) { st.setTrack(i, { smart: true }); return } setBusy('Listening to your bass line'); void st.makeSmartBass(i).then(m => { onMsg(m); setBusy(null) }).catch(() => { onMsg("Couldn't hear the notes this time."); setBusy(null) }) }}>Real bass</button>}
             {tr.role === 'bass' && <button className="chip" aria-pressed={tr.octave} onClick={() => st.setTrack(i, { octave: !tr.octave })} data-testid="lp-octave">Bass octave (−12)</button>}
             {tr.role === 'lead' && <button className="chip" aria-pressed={tr.duck} onClick={() => st.setTrack(i, { duck: !tr.duck })} data-testid="lp-duck">Others dip while it plays</button>}
+          </div>
+          <div className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button className="chip" aria-pressed={tr.tone !== false} onClick={() => st.setTrack(i, { tone: tr.tone === false })} title="Each part gets its own space: rhythm a little back and less boomy, lead forward, bass without the fizz" data-testid={`lp-tone-${i}`}>{role.label} tone</button>
+            <label className="lp-fader small" style={{ flex: 1, minWidth: 140 }}><span>Room</span><input type="range" min={0} max={0.6} step={0.02} value={tr.room ?? ({ rhythm: 0.1, embellish: 0.22, bass: 0, lead: 0.2 } as Record<Role, number>)[tr.role]} onChange={e => st.setTrack(i, { room: Number(e.target.value) })} aria-label={`Track ${i + 1} room`} /></label>
           </div>
           <label className="row small" style={{ gap: 6, alignItems: 'center' }}>Role
             <select className="select sm" value={tr.role} onChange={e => { const r = e.target.value as Role; st.setTrack(i, { role: r, octave: r === 'bass', duck: r === 'lead' }) }}>

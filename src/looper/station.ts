@@ -19,6 +19,8 @@ import type { StudioTransport } from '../studio/transport'
 import { findAttack, PlayTrigger, wrapPreRoll, armBar, autoLength, lengths, duckCurve, foldTake, mixTakes, MULTS, peaks, phaseBars, smoothSeam, tempoFromLoop } from './logic'
 import { dropTake, getTake, loadSession, putTake, saveSession } from './store'
 import { bufferOf, each, levelTake, midOf, mixStereo, stretchTake, sub, type Take } from './take'
+import { bassLine, notesIn, type BassNote } from './smartBass'
+import { playBass, type Handle } from '../audio/pluck'
 
 import { ROLES, type Role } from './roles'
 export { ROLES, type Role }
@@ -38,6 +40,9 @@ export interface PartLoop {
   offs?: Record<string, number>
   start?: number
   full?: number
+  /** smart bass: the line heard in the takes (beats), and which takes / trim it was heard from */
+  notes?: BassNote[]
+  notesOf?: string
 }
 export interface Track {
   role: Role
@@ -53,6 +58,12 @@ export interface Track {
   duck: boolean
   lenChoice: LenChoice
   parts: Partial<Record<LoopPart, PartLoop>>
+  /** the role's tone (each part gets its own space in the mix: rhythm a little back and less boomy, lead forward) */
+  tone?: boolean
+  /** how much of the shared room (reverb) it gets, 0…1 */
+  room?: number
+  /** bass: played by a real recorded bass from the notes you played, instead of your guitar an octave down */
+  smart?: boolean
 }
 export interface Session {
   tracks: Track[]
@@ -83,6 +94,31 @@ export interface Rec {
   wait?: boolean
 }
 
+/** Each role's place in the mix: low cut, a cut or lift in the middle, presence, top. */
+const TONE: Record<Role, { hp: number; lp: number; mid: [number, number]; pres: [number, number] }> = {
+  rhythm: { hp: 90, lp: 16000, mid: [330, -2.5], pres: [2800, -1] },
+  embellish: { hp: 170, lp: 16000, mid: [500, -2], pres: [3200, 1.5] },
+  bass: { hp: 35, lp: 3800, mid: [700, -2], pres: [1500, 0] },
+  lead: { hp: 130, lp: 16000, mid: [400, -1.5], pres: [2800, 2.5] },
+}
+const FLAT = { hp: 15, lp: 20000, mid: [1000, 0] as [number, number], pres: [3000, 0] as [number, number] }
+const ROOM: Record<Role, number> = { rhythm: 0.1, embellish: 0.22, bass: 0, lead: 0.2 }
+/** A soft room: stereo noise fading over ~1.4 s, darker as it fades. */
+function roomIr(ctx: BaseAudioContext): AudioBuffer {
+  const sr = ctx.sampleRate, n = Math.round(sr * 1.6)
+  const b = ctx.createBuffer(2, n, sr)
+  for (let c = 0; c < 2; c++) {
+    const d = b.getChannelData(c)
+    let lp = 0
+    for (let i = 0; i < n; i++) {
+      const t = i / sr
+      const k = 0.35 + 0.6 * Math.exp(-t * 2.5)
+      lp = lp + k * ((Math.random() * 2 - 1) - lp)
+      d[i] = lp * Math.exp(-t * 3.2) * (i < sr * 0.012 ? i / (sr * 0.012) : 1) * 0.35
+    }
+  }
+  return b
+}
 const freshTrack = (role: Role): Track => ({ role, vol: role === 'bass' ? 1.1 : 1, pan: role === 'embellish' ? 0.25 : role === 'lead' ? -0.15 : 0, mute: false, solo: false, rev: false, half: false, octave: role === 'bass', duck: role === 'lead', lenChoice: 'auto', parts: {} })
 const freshSession = (): Session => ({ tracks: ROLES.map(r => freshTrack(r.role)), part: 'A', sel: 0, bpm: null, start: 'count', align: true, beatOn: true, click: false, advance: true })
 /** The looper's own effect on what you record (its own setting: the beat maker's mic effect no longer carries over) */
@@ -90,7 +126,7 @@ export const LOOPER_FX_KEY = 'looperFx'
 const looperFx = (): MicFx => { try { return (JSON.parse(localStorage.getItem(`kg:${LOOPER_FX_KEY}`) ?? '"none"') as MicFx) || 'none' } catch { return 'none' } }
 
 interface Voice { src: AudioBufferSourceNode; fade: GainNode; start: number; end: number }
-interface Out { gain: GainNode; pan: StereoPannerNode }
+interface Out { gain: GainNode; pan: StereoPannerNode; hp: BiquadFilterNode; lp: BiquadFilterNode; mid: BiquadFilterNode; pres: BiquadFilterNode; send: GainNode }
 interface Ready { key: string; buf: AudioBuffer; lenBars: number; peaks: Float32Array; duck?: Float32Array }
 
 const trimSig = (l: PartLoop) => (l.offs ? Object.values(l.offs).map(v => v.toFixed(4)).join(',') : '')
@@ -111,6 +147,8 @@ export class LoopStation {
   private ready = new Map<string, Ready>()
   private building = new Set<string>()
   private voices: Voice[][] = [[], [], [], []]
+  /** smart bass notes scheduled ahead (stopped with the track) */
+  private bassNotes: { h: Handle; start: number; end: number }[] = []
   private until = [0, 0, 0, 0]
   private outs: Out[] = []
   private duck: GainNode
@@ -135,11 +173,22 @@ export class LoopStation {
     this.bus.connect(this.t.loopBus)
     this.duck = ctx.createGain()
     this.duck.connect(this.bus)
+    // one room shared by the four tracks (a short, soft hall made here: no file to load)
+    const room = ctx.createConvolver()
+    room.buffer = roomIr(ctx)
+    const roomOut = ctx.createGain(); roomOut.gain.value = 0.9
+    room.connect(roomOut).connect(this.bus)
     for (let i = 0; i < 4; i++) {
       const gain = ctx.createGain()
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.Q.value = 0.7
+      const mid = ctx.createBiquadFilter(); mid.type = 'peaking'; mid.Q.value = 0.9
+      const pres = ctx.createBiquadFilter(); pres.type = 'peaking'; pres.Q.value = 0.8
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 0.7
       const pan = ctx.createStereoPanner()
-      gain.connect(pan).connect(i === 3 ? this.bus : this.duck)
-      this.outs.push({ gain, pan })
+      const send = ctx.createGain()
+      gain.connect(hp).connect(mid).connect(pres).connect(lp).connect(pan).connect(i === 3 ? this.bus : this.duck)
+      pan.connect(send).connect(room)
+      this.outs.push({ gain, pan, hp, lp, mid, pres, send })
     }
     this.t.keep = () => this.t.playing && (this.hasAudio() || !!this.rec)
     this.applyMix()
@@ -185,8 +234,8 @@ export class LoopStation {
   setTrack(i: number, patch: Partial<Track>) {
     const before = this.s.tracks[i]
     this.s.tracks = this.s.tracks.map((tr, k) => (k === i ? { ...tr, ...patch } : tr))
-    const sound = patch.rev !== undefined || patch.half !== undefined || patch.octave !== undefined
-    if (sound && (patch.rev !== before.rev || patch.half !== before.half || patch.octave !== before.octave)) this.restartTrack(i)
+    const sound = patch.rev !== undefined || patch.half !== undefined || patch.octave !== undefined || patch.smart !== undefined
+    if (sound && (patch.rev !== before.rev || patch.half !== before.half || patch.octave !== before.octave || patch.smart !== before.smart)) this.restartTrack(i)
     if (patch.duck !== undefined && i === 3) this.resetDuck()
     this.applyMix()
     this.changed()
@@ -199,6 +248,12 @@ export class LoopStation {
       const on = !tr.mute && (!solo || tr.solo)
       this.outs[i].gain.gain.setTargetAtTime(on ? tr.vol : 0, now, 0.015)
       this.outs[i].pan.pan.setTargetAtTime(tr.pan, now, 0.02)
+      const o = this.outs[i], eq = tr.tone === false ? FLAT : TONE[tr.role]
+      o.hp.frequency.setTargetAtTime(eq.hp, now, 0.02)
+      o.lp.frequency.setTargetAtTime(eq.lp, now, 0.02)
+      o.mid.frequency.setTargetAtTime(eq.mid[0], now, 0.02); o.mid.gain.setTargetAtTime(eq.mid[1], now, 0.02)
+      o.pres.frequency.setTargetAtTime(eq.pres[0], now, 0.02); o.pres.gain.setTargetAtTime(eq.pres[1], now, 0.02)
+      o.send.gain.setTargetAtTime(tr.room ?? ROOM[tr.role], now, 0.05)
     })
     if (this.s.tracks[3].mute || !this.s.tracks[3].duck || (solo && !this.s.tracks[3].solo)) this.resetDuck()
   }
@@ -318,6 +373,30 @@ export class LoopStation {
     return `Moved ${Math.round(Math.abs(moved) * 1000)} ms ${moved > 0 ? 'earlier' : 'later'}: the notes sit on the beat now.`
   }
 
+  private stopBass(at: number) {
+    for (const b of this.bassNotes) if (b.end > at) { try { b.h.stop(Math.max(at, b.start)) } catch { /* gone */ } }
+    this.bassNotes = this.bassNotes.filter(b => b.end <= at)
+  }
+  /** the smart bass line is there and still matches the loop */
+  hasSmartBass(i: number, part = this.s.part) { const l = this.s.tracks[i].parts[part]; return !!l?.notes?.length && l.notesOf === this.notesSig(l) }
+  private notesSig(l: PartLoop) { return `${l.takes.join(',')}|${trimSig(l)}|${l.len}` }
+  /** Smart bass: hear the notes of the bass track's loop (Basic Pitch) and play them with a real bass. */
+  async makeSmartBass(i: number, part = this.s.part): Promise<string> {
+    const tr = this.s.tracks[i], l = tr.parts[part]
+    if (!l || !l.takes.length) return 'Record a bass line first.'
+    const sr = audio().sampleRate
+    const n = Math.round(l.len * this.barDur * sr)
+    const x = midOf(this.mixOf(l, n, sr))
+    const { transcribe } = await import('../audio/transcribe')
+    const heard = await transcribe(x, sr)
+    const notes = bassLine(heard, this.barDur / 4, l.len * 4, 0.5)
+    if (!notes.length) return "Couldn't hear a bass line in that loop: play single notes on the low strings."
+    l.notes = notes; l.notesOf = this.notesSig(l)
+    this.setTrack(i, { smart: true })
+    this.restartTrack(i); this.changed()
+    return `Real bass: ${notes.length} notes heard and played by the bass. Tap again to hear your own take.`
+  }
+
   private async addTake(t: Take | Float32Array): Promise<string> {
     const take: Take = t instanceof Float32Array ? { l: t, r: null } : t
     const id = Math.random().toString(36).slice(2, 10)
@@ -422,6 +501,21 @@ export class LoopStation {
     }
   }
   private play(i: number, r: Ready, t: number, off: number, end: number, fadeIn: boolean) {
+    const tr = this.s.tracks[i], l = tr.parts[this.s.part]
+    if (tr.role === 'bass' && tr.smart && l?.notes && l.notesOf === this.notesSig(l)) {
+      // a real bass plays the notes you played (no audio of the take)
+      const beat = this.barDur / 4
+      for (const n of notesIn(l.notes, off / beat, off / beat + (end - t) / beat)) {
+        const at = t + n.b * beat - off
+        const h = playBass(n.m, at, 0.9 * n.v, this.outs[i].gain)
+        const stop = Math.min(end, at + n.d * beat)
+        h.stop(stop)
+        this.bassNotes.push({ h, start: at, end: stop })
+      }
+      const now = audio().currentTime
+      this.bassNotes = this.bassNotes.filter(b => b.end > now - 1)
+      return
+    }
     const ctx = audio()
     const src = ctx.createBufferSource()
     src.buffer = r.buf
@@ -449,6 +543,7 @@ export class LoopStation {
     const now = audio().currentTime
     for (const v of this.voices[i]) { try { v.fade.gain.setTargetAtTime(0, now, 0.004); v.src.stop(now + 0.02) } catch { /* ended */ } }
     this.voices[i] = []
+    if (this.s.tracks[i].role === 'bass') this.stopBass(now)
     this.until[i] = now + 0.02
     if (i === 3) this.resetDuck()
   }
@@ -464,6 +559,7 @@ export class LoopStation {
   private silence() {
     const now = audio().currentTime
     for (let i = 0; i < 4; i++) { for (const v of this.voices[i]) { try { v.src.stop(now) } catch { /* ended */ } } this.voices[i] = [] }
+    this.stopBass(now)
     this.until = [0, 0, 0, 0]
     this.resetDuck()
   }

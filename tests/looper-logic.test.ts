@@ -125,3 +125,19 @@ import { findAttack, PlayTrigger, wrapPreRoll } from '../src/looper/logic'
   if (w.join() !== '10,20,31,42') throw new Error('wrap ' + w.join())
   console.log('start when I play: ok')
 }
+
+{
+  // smart bass: heard notes → one-note bass line, an octave down, folded into the bass range, pulled toward the 16ths
+  const { bassLine } = await import('../src/looper/smartBass')
+  const beat = 0.5
+  const heard = [
+    { start: 0.02, dur: 0.4, midi: 52, amp: 0.8 }, { start: 0.03, dur: 0.4, midi: 59, amp: 0.5 }, // E3 + an overtone together
+    { start: 0.52, dur: 0.3, midi: 55, amp: 0.7 },
+    { start: 1.0, dur: 0.1, midi: 70, amp: 0.05 }, // a ghost
+    { start: 1.49, dur: 2, midi: 45, amp: 0.9 },
+  ]
+  const line = bassLine(heard, beat, 8, 0.5)
+  const ok = line.length === 3 && line[0].m === 40 && line[1].m === 43 && line[2].m === 33 && Math.abs(line[0].b - 0.02) < 1e-9 && line[2].d <= 8 - line[2].b
+  console.log('smart bass line:', ok ? 'ok' : 'WRONG ' + JSON.stringify(line))
+  if (!ok) process.exitCode = 1
+}
