@@ -219,3 +219,25 @@ export const hearPlayTab = (t: number[]) => lineSong(t, 'Hear it, sing it, play 
 ], 72, 0, 5)
 
 export const L6_TABS = { cagedArpTab, arp7PositionTab, arp7ChangesTab, targetsTab, targetsMinorTab, mixPentTab, approachTab, phrasingTab, soulStopsTab, hearPlayTab }
+
+// ---- neck pictures ----
+type Mark = { s: number; f: number; label: string; role: 'root' | 'chord' | 'scale' | 'target' | 'next' }
+const IV_LABEL: Record<number, string> = { 0: 'R', 1: '♭9', 2: '9', 3: '♭3', 4: '3', 5: '4', 6: '♭5', 7: '5', 8: '♯5', 9: '6', 10: '♭7', 11: '7' }
+/** A chord's tones (intervals from the root) in the key's home position (the E-shape window on guitar), labelled by
+ *  degree; `targets` (intervals) are shown as targets (the 3rd and 7th, say). */
+export function positionMarks(tuning: number[], key: number, root: number, ivs: number[], targets: number[] = []): Mark[] {
+  const [lo, hi] = homeWindow(tuning, key)
+  return inWindow(tuning, ivs.map(i => mod(root + i)), lo, hi).map(n => {
+    const iv = mod(n.midi - root)
+    return { s: n.string, f: n.fret, label: IV_LABEL[iv], role: iv === 0 ? 'root' : targets.includes(iv) ? 'target' : 'chord' }
+  })
+}
+/** A pentatonic (or any scale) in one window, labelled by degree from `root`, with `targets` highlighted. */
+export function scaleMarks(tuning: number[], root: number, ivs: number[], lo: number, hi: number, targets: number[] = []): Mark[] {
+  const guitar = tuning.length === 6 && tuning[0] === 40
+  const [a, b] = guitar ? [lo, hi] : homeWindow(tuning, root)
+  return inWindow(tuning, ivs.map(i => mod(root + i)), a, b).map(n => {
+    const iv = mod(n.midi - root)
+    return { s: n.string, f: n.fret, label: IV_LABEL[iv], role: iv === 0 ? 'root' : targets.includes(iv) ? 'target' : 'scale' }
+  })
+}

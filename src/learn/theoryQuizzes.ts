@@ -786,7 +786,7 @@ export const THEORY_QUIZZES: QuizDef[] = [
       const note = noteAt(root, LET[iv], iv)
       const t = QT[q]
       const ans = t.tones[iv] ?? 'Not a chord tone'
-      const why = t.tones[iv] ? `${note} is the ${t.tones[iv].toLowerCase()} of ${root}${t.name}: ${t.tones[iv] === '3rd' || t.tones[iv] === '7th' ? 'a guide tone, the strongest note to land on when the chord arrives.' : t.tones[iv] === 'Root' ? 'safe and solid.' : 'a safe chord tone, a little plain.'}` : `${note} is ${EXT[iv]} of ${root}${t.name}: a colour note, lovely in passing, but it isn't one of the four chord tones.`
+      const why = t.tones[iv] ? `${note} is the ${t.tones[iv].toLowerCase()} of ${root}${t.name}: ${t.tones[iv] === '3rd' || t.tones[iv] === '7th' ? 'a guide tone, the strongest note to land on when the chord arrives.' : t.tones[iv] === 'Root' ? 'safe and solid.' : 'a safe chord tone, a little plain.'}` : `Not a chord tone: ${note} is ${EXT[iv]} of ${root}${t.name}, a colour note, lovely in passing, but it isn't one of the four chord tones.`
       return choose(item, `Over ${root}${t.name}, the note ${note} is the chord's…`, ans, ['Root', '3rd', '5th', '7th', 'Not a chord tone'], why, rnd)
     },
   },

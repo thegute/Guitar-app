@@ -1,7 +1,7 @@
 // Walk every Level 5 lesson (guitar, cover + inner), every step: no errors, no sideways overflow, pictures have marks,
 // the Key menu moves a picture, every Level 5 quiz opens. node tests/browser/level5-walk.cjs
 const { chromium } = require('playwright')
-const IDS = ['c5-augdim', 'c5-sevenths', 'c5-key7', 'c5-colours', 'c5-ext', 'c5-altered', 'c5-slash', 'c5-voicelead', 'c5-check']
+const IDS = (process.env.IDS || 'c5-augdim,c5-sevenths,c5-key7,c5-colours,c5-ext,c5-altered,c5-slash,c5-voicelead,c5-check').split(',')
 const problems = []
 const bad = m => { problems.push(m); console.log('  PROBLEM', m) }
 ;(async () => {
@@ -37,7 +37,7 @@ const bad = m => { problems.push(m); console.log('  PROBLEM', m) }
       const figsNow = await page.locator('[data-testid=deep-step] .lesson-spots').count()
       if (figsNow && !moved) bad(`${vp.n} ${id}: key change shows no moved note`)
       await sel.selectOption('0')
-      if (vp.n === 'cover' && id === 'c5-sevenths') await page.screenshot({ path: 'tests/browser/out/l5-sevenths-cover.png', fullPage: true })
+      if (vp.n === 'cover' && (id === 'c5-sevenths' || id === 'c6-doublestops')) await page.screenshot({ path: 'tests/browser/out/' + id + '-cover.png', fullPage: true })
       await page.locator('button:has-text("← Back")').first().click()
     }
     if (errs.length) bad(`${vp.n}: page errors ${errs.slice(0, 3).join(' | ')}`)
