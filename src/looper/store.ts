@@ -1,7 +1,8 @@
 // The looper's recordings live in IndexedDB (room for long loops, never in the small settings storage); the session
 // (tracks, lengths, faders, which take is in which part) is a small JSON in localStorage.
 const DB = 'kg-looper', STORE = 'takes'
-export interface StoredTake { id: string; sr: number; data: Float32Array; at: number }
+/** `data` = the left (or only) channel, `right` = the right channel of a stereo take, `bpm` = the tempo it was recorded at */
+export interface StoredTake { id: string; sr: number; data: Float32Array; right?: Float32Array; bpm?: number | null; at: number }
 
 function db(): Promise<IDBDatabase> {
   return new Promise((res, rej) => {

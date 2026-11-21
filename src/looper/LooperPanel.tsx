@@ -21,7 +21,7 @@ import { beatInPart, type PartId } from '../studio/beat'
 import { beatChords } from '../studio/practice'
 import { openJam } from '../nav'
 import { lengths } from './logic'
-import { ROLES, station, type LenChoice, type LoopPart, type LoopStation, type Role } from './station'
+import { LOOPER_FX_KEY, ROLES, station, type LenChoice, type LoopPart, type LoopStation, type Role } from './station'
 import { useScreenCommands, useScreenInfo } from '../assistant/screen'
 import { looperCommand } from './commands'
 import { chopToPads, resampleToPad, resampleToTrack, saveMix, toScanner } from './bridges'
@@ -177,7 +177,7 @@ export function LooperPanel() {
         </Win>
         <Win id="lp-set" title="Settings and footswitch" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
           <TimingCheck />
-          <MicFxPicker />
+          <MicFxPicker storeKey={LOOPER_FX_KEY} label="Effect on what you record" />
           <label className="ex-check"><input type="checkbox" checked={st.s.align} onChange={e => st.set({ align: e.target.checked })} /> Auto-align: nudge a new loop onto the beat (up to 90 ms)</label>
           <label className="ex-check"><input type="checkbox" checked={st.s.advance} onChange={e => st.set({ advance: e.target.checked })} /> After a new loop, the footswitch moves to the next empty track</label>
           <div className="lp-pedals small">

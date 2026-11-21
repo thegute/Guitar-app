@@ -6,16 +6,24 @@ import { playClick } from './metronome'
 
 const WORKLET = `
 class KgRecorder extends AudioWorkletProcessor {
-  constructor() { super(); this.buf = new Float32Array(2048); this.n = 0; this.start = 0; this.on = true;
+  constructor() { super(); this.buf = new Float32Array(2048); this.bufR = null; this.n = 0; this.start = 0; this.on = true;
     this.port.onmessage = e => { if (e.data === 'stop') this.on = false } }
   process(inputs) {
     const ch = inputs[0]
     if (ch && ch[0]) {
       const a = ch[0], b = ch[1]
+      // both channels kept (a stereo pedal); the phone's mic is one channel
+      if (b && !this.bufR && this.n === 0) this.bufR = new Float32Array(2048)
       if (this.n === 0) this.start = currentFrame
       for (let i = 0; i < a.length; i++) {
-        this.buf[this.n++] = b ? (a[i] + b[i]) * 0.5 : a[i]
-        if (this.n === this.buf.length) { this.port.postMessage({ f: this.start, d: this.buf }, [this.buf.buffer]); this.buf = new Float32Array(2048); this.n = 0; this.start = currentFrame + i + 1 }
+        if (this.bufR) this.bufR[this.n] = b ? b[i] : a[i]
+        this.buf[this.n++] = a[i]
+        if (this.n === this.buf.length) {
+          const msg = { f: this.start, d: this.buf }, tr = [this.buf.buffer]
+          if (this.bufR) { msg.r = this.bufR; tr.push(this.bufR.buffer) }
+          this.port.postMessage(msg, tr)
+          this.buf = new Float32Array(2048); this.bufR = this.bufR ? new Float32Array(2048) : null; this.n = 0; this.start = currentFrame + i + 1
+        }
       }
     }
     return this.on
@@ -26,7 +34,7 @@ registerProcessor('kg-recorder', KgRecorder)
 
 let moduleReady: Promise<void> | null = null
 
-interface Chunk { f: number; d: Float32Array }
+interface Chunk { f: number; d: Float32Array; r?: Float32Array }
 
 export class InputRecorder {
   input: OpenedInput | null = null
@@ -36,6 +44,8 @@ export class InputRecorder {
   private chunks: Chunk[] = []
   private waiters: { endFrame: number; resolve: () => void }[] = []
   lastFrame = 0
+  /** pieces of sound the phone didn't deliver while recording (gaps between chunks: heard as clicks / garbling) */
+  gaps = 0
   /** recent input level, 0..1 */
   level = 0
 
@@ -51,6 +61,7 @@ export class InputRecorder {
     this.sink.gain.value = 0
     this.sink.connect(ctx.destination)
     const onChunk = (c: Chunk) => {
+      if (this.lastFrame && c.f > this.lastFrame + 1) this.gaps++
       this.chunks.push(c)
       this.lastFrame = c.f + c.d.length
       let peak = 0
@@ -93,6 +104,24 @@ export class InputRecorder {
     this.chunks = []
     this.waiters.forEach(w => w.resolve())
     this.waiters = []
+  }
+
+  /** Both channels from context time t0 for dur seconds (r is null for a one-channel input such as the phone's mic). */
+  async captureStereo(t0: number, dur: number): Promise<{ l: Float32Array; r: Float32Array | null }> {
+    const l = await this.capture(t0, dur)
+    const sr = audio().sampleRate
+    const startF = Math.round(t0 * sr), len = l.length, endF = startF + len
+    if (!this.chunks.some(c => c.r)) return { l, r: null }
+    const r = new Float32Array(len)
+    for (const c of this.chunks) {
+      const a = Math.max(startF, c.f), b = Math.min(endF, c.f + c.d.length)
+      const src = c.r ?? c.d
+      for (let f = a; f < b; f++) r[f - startF] = src[f - c.f]
+    }
+    // a pedal that sends the same sound on both sides is really mono: kept as one channel
+    let diff = 0, tot = 0
+    for (let i = 0; i < len; i += 7) { diff += Math.abs(l[i] - r[i]); tot += Math.abs(l[i]) }
+    return { l, r: diff > tot * 0.01 ? r : null }
   }
 
   /** Samples from context time t0 for dur seconds. Waits until they have been captured. */

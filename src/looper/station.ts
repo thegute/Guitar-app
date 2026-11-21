@@ -10,14 +10,15 @@ import { kindOf, latencyMs } from '../audio/gear'
 import { haptic, quietForMic } from '../audio/tapFeel'
 import { loopTempo } from '../audio/tempo'
 import { resample } from '../ml/dsp'
-import { gridOffset, levelLoop, rotate, stretch } from '../studio/loops'
-import { applyMicFx, MIC_FX_KEY, type MicFx } from '../studio/micFx'
+import { gridOffset, rotate, stretch } from '../studio/loops'
+import { applyMicFx, type MicFx } from '../studio/micFx'
 import { shiftSamples, stretchSamples } from '../studio/pitchShift'
 import { loadBeat, pushBeat, saveBeat, setBars, type Beat, type PartId } from '../studio/beat'
 import { sharedTransport } from '../studio/shared'
 import type { StudioTransport } from '../studio/transport'
 import { findAttack, PlayTrigger, wrapPreRoll, armBar, autoLength, lengths, duckCurve, foldTake, mixTakes, MULTS, peaks, phaseBars, smoothSeam, tempoFromLoop } from './logic'
 import { dropTake, getTake, loadSession, putTake, saveSession } from './store'
+import { bufferOf, each, levelTake, midOf, mixStereo, stretchTake, sub, type Take } from './take'
 
 import { ROLES, type Role } from './roles'
 export { ROLES, type Role }
@@ -80,11 +81,15 @@ export interface Rec {
 
 const freshTrack = (role: Role): Track => ({ role, vol: role === 'bass' ? 1.1 : 1, pan: role === 'embellish' ? 0.25 : role === 'lead' ? -0.15 : 0, mute: false, solo: false, rev: false, half: false, octave: role === 'bass', duck: role === 'lead', lenChoice: 'auto', parts: {} })
 const freshSession = (): Session => ({ tracks: ROLES.map(r => freshTrack(r.role)), part: 'A', sel: 0, bpm: null, start: 'count', align: true, beatOn: true, click: false, advance: true })
-const micFx = (): MicFx => { try { return (JSON.parse(localStorage.getItem(`kg:${MIC_FX_KEY}`) ?? '"none"') as MicFx) || 'none' } catch { return 'none' } }
+/** The looper's own effect on what you record (its own setting: the beat maker's mic effect no longer carries over) */
+export const LOOPER_FX_KEY = 'looperFx'
+const looperFx = (): MicFx => { try { return (JSON.parse(localStorage.getItem(`kg:${LOOPER_FX_KEY}`) ?? '"none"') as MicFx) || 'none' } catch { return 'none' } }
 
 interface Voice { src: AudioBufferSourceNode; fade: GainNode; start: number; end: number }
 interface Out { gain: GainNode; pan: StereoPannerNode }
 interface Ready { key: string; buf: AudioBuffer; lenBars: number; peaks: Float32Array; duck?: Float32Array }
+
+const monoOf = (b: AudioBuffer) => midOf({ l: b.getChannelData(0), r: b.numberOfChannels > 1 ? b.getChannelData(1) : null })
 
 export class LoopStation {
   s: Session
@@ -92,7 +97,11 @@ export class LoopStation {
   note = ''
   version = 0
   private t: StudioTransport
-  private takes = new Map<string, Float32Array>()
+  /** the takes as they play now (fitted to the beat's tempo) */
+  private takes = new Map<string, Take>()
+  /** each take as recorded, with the tempo it was recorded at: a tempo change always stretches from these, never from
+   *  a stretched copy (stretching a stretch again and again is what garbled loops) */
+  private origs = new Map<string, { take: Take; bpm: number | null }>()
   private ready = new Map<string, Ready>()
   private building = new Set<string>()
   private voices: Voice[][] = [[], [], [], []]
@@ -199,7 +208,11 @@ export class LoopStation {
     const sr = audio().sampleRate
     await Promise.all([...ids].map(async id => {
       const t = await getTake(id)
-      if (t) this.takes.set(id, t.sr === sr ? t.data : resample(t.data, t.sr, sr))
+      if (!t) return
+      const rs = (x: Float32Array) => (t.sr === sr ? x : resample(x, t.sr, sr))
+      const take: Take = { l: rs(t.data), r: t.right ? rs(t.right) : null }
+      this.origs.set(id, { take, bpm: t.bpm ?? this.s.bpm })
+      this.takes.set(id, take)
     }))
     // takes that went missing (storage cleared) leave their loops
     for (const tr of this.s.tracks) for (const k of Object.keys(tr.parts) as LoopPart[]) {
@@ -208,12 +221,25 @@ export class LoopStation {
     }
     this.changed(false)
   }
-  private async addTake(data: Float32Array): Promise<string> {
+  /** pieces of sound the phone dropped during the last recording (0 = a clean take) */
+  dropped = 0
+  /** The looper's effect, if one is picked: EQ / fuzz / reverb on each channel, pitch effects on the middle. */
+  private async withFx(x: Take, sr: number): Promise<Take> {
+    const fx = looperFx()
+    if (fx === 'none') return x
+    if (fx === 'synth' || fx === 'octaveUp' || fx === 'octaveDown') return { l: await applyMicFx(midOf(x), sr, fx, { keepLength: true }), r: null }
+    return { l: await applyMicFx(x.l, sr, fx, { keepLength: true }), r: x.r ? await applyMicFx(x.r, sr, fx, { keepLength: true }) : null }
+  }
+  private async addTake(t: Take | Float32Array): Promise<string> {
+    const take: Take = t instanceof Float32Array ? { l: t, r: null } : t
     const id = Math.random().toString(36).slice(2, 10)
-    this.takes.set(id, data)
-    await putTake({ id, sr: audio().sampleRate, data, at: Date.now() })
+    const bpm = this.t.beat.bpm
+    this.takes.set(id, take)
+    this.origs.set(id, { take, bpm })
+    await putTake({ id, sr: audio().sampleRate, data: take.l, ...(take.r ? { right: take.r } : {}), bpm, at: Date.now() })
     return id
   }
+  private dropTakeId(id: string) { this.takes.delete(id); this.origs.delete(id); void dropTake(id) }
   private keyOf(i: number, part: LoopPart): string | null {
     const l = this.s.tracks[i].parts[part]
     if (!l || !l.takes.length) return null
@@ -239,9 +265,9 @@ export class LoopStation {
     const key = `${l.takes.join(',')}|${n}`
     let r = this.plainCache.get(key)
     if (!r) {
-      const x = mixTakes(l.takes.map(id => this.takes.get(id)!).filter(Boolean), n)
-      const buf = ctx.createBuffer(1, n, ctx.sampleRate); buf.getChannelData(0).set(x)
-      r = { key, buf, lenBars: l.len, peaks: peaks(x) }
+      const x = mixStereo(l.takes.map(id => this.takes.get(id)!).filter(Boolean), n)
+      const buf = bufferOf(ctx, x, ctx.sampleRate)
+      r = { key, buf, lenBars: l.len, peaks: peaks(midOf(x)) }
       this.plainCache.set(key, r)
       if (this.plainCache.size > 16) this.plainCache.delete(this.plainCache.keys().next().value as string)
     }
@@ -253,15 +279,17 @@ export class LoopStation {
       const tr = this.s.tracks[i], l = tr.parts[part]!
       const ctx = audio(), sr = ctx.sampleRate
       const n = Math.round(l.len * this.barDur * sr)
-      let x = mixTakes(l.takes.map(id => this.takes.get(id)!).filter(Boolean), n)
-      if (tr.role === 'bass' && tr.octave) x = await shiftSamples(x, sr, -12)
-      if (tr.rev) x = x.slice().reverse()
+      let x = mixStereo(l.takes.map(id => this.takes.get(id)!).filter(Boolean), n)
+      // the bass an octave down: one channel (a bass sits in the middle)
+      if (tr.role === 'bass' && tr.octave) x = { l: await shiftSamples(midOf(x), sr, -12), r: null }
+      if (tr.rev) x = each(x, y => y.slice().reverse())
       let lenBars = l.len
-      if (tr.half) { x = await stretchSamples(x, sr, 0.5); lenBars = l.len * 2 }
+      if (tr.half) { x = await stretchTake(x, sr, 0.5); lenBars = l.len * 2 }
       const len = Math.round(lenBars * this.barDur * sr)
-      if (x.length !== len) { const y = new Float32Array(len); y.set(x.subarray(0, len)); x = y }
-      const buf = ctx.createBuffer(1, x.length, sr); buf.getChannelData(0).set(x)
-      const r: Ready = { key, buf, lenBars, peaks: peaks(x), ...(tr.role === 'lead' ? { duck: duckCurve(x, sr) } : {}) }
+      if (x.l.length !== len) x = each(x, y => { const z = new Float32Array(len); z.set(y.subarray(0, len)); return z })
+      const buf = bufferOf(ctx, x, sr)
+      const m = midOf(x)
+      const r: Ready = { key, buf, lenBars, peaks: peaks(m), ...(tr.role === 'lead' ? { duck: duckCurve(m, sr) } : {}) }
       this.ready.set(key, r)
       while (this.ready.size > 24) this.ready.delete(this.ready.keys().next().value as string)
       // swap it in where the loop has got to
@@ -520,18 +548,21 @@ export class LoopStation {
       const extra = Math.round(0.012 * sr)
       // a new loop also keeps the moment before its first beat: a note picked a hair early comes round at the loop's end
       const pre = r.kind === 'new' ? Math.round(0.12 * sr) : 0
-      const raw = await this.recorder!.capture(r.startT + lat - pre / sr, bars * this.barDur + (extra + pre) / sr)
-      let x = await applyMicFx(levelLoop(raw, sr), sr, micFx(), { keepLength: true })
+      const gaps0 = this.recorder!.gaps
+      const raw = await this.recorder!.captureStereo(r.startT + lat - pre / sr, bars * this.barDur + (extra + pre) / sr)
+      this.dropped = this.recorder!.gaps - gaps0
+      let x = await this.withFx(levelTake(raw, sr), sr)
       const n = Math.round(bars * this.barDur * sr)
       const tr = this.s.tracks[r.track]
       if (r.kind === 'new') {
-        let take: Float32Array<ArrayBufferLike> = wrapPreRoll(x, pre, n)
-        x = x.subarray(pre)
-        if (this.s.align) { const moved = gridOffset(take, sr, this.t.stepDur); if (moved) take = rotate(take, moved * sr) }
-        take = smoothSeam(take, x.subarray(n, n + extra))
+        let take = each(x, y => wrapPreRoll(y, pre, n))
+        x = sub(x, pre)
+        if (this.s.align) { const moved = gridOffset(midOf(take), sr, this.t.stepDur); if (moved) take = each(take, y => rotate(y, moved * sr)) }
+        const after = x
+        take = { l: smoothSeam(take.l, after.l.subarray(n, n + extra)), r: take.r && after.r ? smoothSeam(take.r, after.r.subarray(n, n + extra)) : null }
         const id = await this.addTake(take)
         const old = tr.parts[r.part]
-        for (const g of old?.redo ?? []) for (const d of g) { this.takes.delete(d); void dropTake(d) }
+        for (const g of old?.redo ?? []) for (const d of g) this.dropTakeId(d)
         tr.parts[r.part] = { len: bars, origin: r.startBar, takes: [id], redo: [] }
         if (this.s.bpm === null || !this.hasOtherAudio(r.track, r.part)) this.s.bpm = this.t.beat.bpm
         this.note = `Track ${r.track + 1}: ${bars} bar${bars > 1 ? 's' : ''} recorded.`
@@ -540,12 +571,13 @@ export class LoopStation {
         const l = tr.parts[r.part]!
         const len = Math.round(l.len * this.barDur * sr)
         const phase0 = phaseBars(r.startBar, l.origin, l.len) * this.barDur * sr
-        const id = await this.addTake(foldTake(x.subarray(0, n), len, phase0))
+        const id = await this.addTake(each(sub(x, 0, n), y => foldTake(y, len, phase0)))
         l.takes.push(id)
-        for (const g of l.redo) for (const d of g) { this.takes.delete(d); void dropTake(d) }
+        for (const g of l.redo) for (const d of g) this.dropTakeId(d)
         l.redo = []
         this.note = `Track ${r.track + 1}: overdub ${l.takes.length - 1} added.`
       }
+      if (this.dropped > 0) this.note += ` The phone dropped ${this.dropped} bit${this.dropped > 1 ? 's' : ''} of sound while recording (heard as clicks): close other apps and record again if it sounds rough.`
       haptic('success')
       this.rec = null
       quietForMic(false)
@@ -574,23 +606,24 @@ export class LoopStation {
     try {
       const lat = this.latency()
       const extra = Math.round(0.012 * sr)
-      let raw = await this.recorder!.capture(r.startT + lat, secs + extra / sr)
+      const gaps0 = this.recorder!.gaps
+      let raw = await this.recorder!.captureStereo(r.startT + lat, secs + extra / sr)
+      this.dropped = this.recorder!.gaps - gaps0
       // started when you played: the loop begins at the real start of the first note (a few ms before it, never cut)
       if (this.s.start === 'play') {
-        const a = findAttack(raw.subarray(0, Math.round(0.6 * sr)), sr)
-        raw = raw.subarray(a); secs -= a / sr; r.startT += a / sr
+        const a = findAttack(midOf(raw).subarray(0, Math.round(0.6 * sr)), sr)
+        raw = sub(raw, a); secs -= a / sr; r.startT += a / sr
       }
-      const lt = loopTempo(raw.subarray(0, Math.round(secs * sr)), sr)
+      const lt = loopTempo(midOf(raw).subarray(0, Math.round(secs * sr)), sr)
       const { bpm, bars } = tempoFromLoop(secs, lt?.beats ?? null, this.t.beat.bpm)
       // the beat takes the loop's tempo, and a length the loop is a whole number of
       const beatBars = ([1, 2, 4, 8] as const).filter(b => bars % b === 0 && b <= bars).pop() ?? 1
       const b = setBars({ ...loadBeat(), bpm: Math.round(bpm * 100) / 100 }, Math.min(beatBars, 4) as Beat['bars'])
       this.useBeat(b)
-      let x = await applyMicFx(levelLoop(raw, sr), sr, micFx(), { keepLength: true })
+      const x = await this.withFx(levelTake(raw, sr), sr)
       const n = Math.round(bars * this.barDur * sr)
-      const take = smoothSeam(x.subarray(0, n).slice(), x.subarray(n, n + extra))
-      x = take
-      const id = await this.addTake(x)
+      const take: Take = { l: smoothSeam(x.l.subarray(0, n).slice(), x.l.subarray(n, n + extra)), r: x.r ? smoothSeam(x.r.subarray(0, n).slice(), x.r.subarray(n, n + extra)) : null }
+      const id = await this.addTake(take)
       const tr = this.s.tracks[r.track]
       tr.parts[r.part] = { len: bars, origin: 0, takes: [id], redo: [] }
       this.s.bpm = b.bpm
@@ -600,6 +633,7 @@ export class LoopStation {
       this.t.startFrom(r.startT)
       this.wasPlaying = false
       this.note = `Your loop is ${bars} bar${bars > 1 ? 's' : ''} at ${Math.round(b.bpm)} BPM: the beat follows it.`
+      if (this.dropped > 0) this.note += ` The phone dropped ${this.dropped} bit${this.dropped > 1 ? 's' : ''} of sound while recording (heard as clicks): close other apps and record again if it sounds rough.`
       if (this.s.advance) this.s.sel = (r.track + 1) % 4
       haptic('success')
       this.changed()
@@ -636,8 +670,8 @@ export class LoopStation {
   /** Everything gone: all tracks, both parts. */
   async clearAll() {
     this.stopNow()
-    for (const id of this.takes.keys()) void dropTake(id)
-    this.takes.clear(); this.ready.clear(); this.plainCache.clear()
+    for (const id of [...this.takes.keys()]) this.dropTakeId(id)
+    this.takes.clear(); this.origs.clear(); this.ready.clear(); this.plainCache.clear()
     const keep = this.s
     this.s = { ...freshSession(), start: keep.start, align: keep.align, beatOn: keep.beatOn, click: keep.click, advance: keep.advance }
     this.note = 'All loops cleared.'
@@ -658,16 +692,18 @@ export class LoopStation {
     this.note = `Fitting the loops to ${to} BPM…`
     this.changed(false)
     const sr = audio().sampleRate
-    const rate = to / from
-    const ids = [...this.takes.keys()]
-    for (const id of ids) {
-      const x = this.takes.get(id)!
-      const n = Math.round(x.length / rate)
-      let y: Float32Array
-      try { y = await stretchSamples(x, sr, rate) } catch { y = stretch(x, n, sr) }
-      if (y.length !== n) { const z = new Float32Array(n); z.set(y.subarray(0, n)); y = z }
+    for (const id of [...this.takes.keys()]) {
+      const o = this.origs.get(id)
+      if (!o) continue
+      const fromBpm = o.bpm ?? from
+      if (Math.abs(fromBpm - to) < 0.01) { this.takes.set(id, o.take); continue }
+      // always from the take as recorded (never from an earlier stretch)
+      const rate = to / fromBpm
+      const n = Math.round(o.take.l.length / rate)
+      let y: Take
+      try { y = await stretchTake(o.take, sr, rate) } catch { y = each(o.take, x => stretch(x, n, sr)) }
+      if (y.l.length !== n) y = each(y, x => { const z = new Float32Array(n); z.set(x.subarray(0, n)); return z })
       this.takes.set(id, y)
-      void putTake({ id, sr, data: y, at: Date.now() })
     }
     this.s.bpm = to
     this.ready.clear(); this.plainCache.clear()
@@ -680,12 +716,12 @@ export class LoopStation {
   soundOf(i: number): { x: Float32Array; sr: number; bars: number } | null {
     const r = this.readyFor(i)
     if (!r) return null
-    return { x: r.buf.getChannelData(0), sr: r.buf.sampleRate, bars: r.lenBars }
+    return { x: monoOf(r.buf), sr: r.buf.sampleRate, bars: r.lenBars }
   }
   /** The loop as you played it (the takes mixed, without backwards / half speed / bass octave). */
   rawOf(i: number): { x: Float32Array; sr: number; bars: number } | null {
     const r = this.plain(i, this.s.part)
-    return r ? { x: r.buf.getChannelData(0), sr: r.buf.sampleRate, bars: r.lenBars } : null
+    return r ? { x: monoOf(r.buf), sr: r.buf.sampleRate, bars: r.lenBars } : null
   }
   /** Put a ready-made sound (a resample) on an empty track as its loop. */
   async putOn(i: number, x: Float32Array, bars: number, startBar: number) {

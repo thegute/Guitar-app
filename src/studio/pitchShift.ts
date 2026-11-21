@@ -42,6 +42,15 @@ export async function stretchSamples(x: Float32Array, sr: number, rate: number, 
   return r.getChannelData(0).slice()
 }
 
+/** Several channels (a stereo loop) made slower or faster together, pitch kept. */
+export async function stretchStereo(chans: Float32Array[], sr: number, rate: number): Promise<Float32Array[]> {
+  const buf = new AudioBuffer({ length: chans[0].length, numberOfChannels: chans.length, sampleRate: sr })
+  chans.forEach((c, k) => buf.getChannelData(k).set(c))
+  const r = await render(buf, 0, chans[0].length / sr, 0, false, rate)
+  if (!r) throw new Error("The sound couldn't be stretched.")
+  return chans.map((_, k) => r.getChannelData(k).slice())
+}
+
 /** Keep memory in check: the 24 most recent shifted sounds. */
 function trim() {
   while (cache.size > 24) cache.delete(cache.keys().next().value as string)
