@@ -1,5 +1,18 @@
 # Gemini week log (newest first)
 
+- 2026-11-20 (Claude): **Lessons change key** (owner: "make sure all the diagrams have the ability to change the key").
+  `src/learn/lessonKey.tsx`: one shift per lesson (`kg:lessonKey:<id>`), Key menu on every neck picture (`SpotsBlock` in
+  LessonReader, also the worked-example pictures and `neck` blocks) and at the top of course lessons; ▶ sounds, the circle and the
+  lesson tabs opened in Play (`transposeSong` in LearnScreen `runLessonEx`) follow. Shapes move as one piece; whole-neck maps wrap;
+  note names respelled; a gold line says how far it moved. course-logic checks every picture in all 12 keys.
+- 2026-11-20 (Claude): **Theory course Level 5: Chords in depth** (`src/course/level5.ts`, `level5b.ts`, `l5Tabs.ts`, 7 new quizzes
+  `l5-*` in theoryQuizzes.ts): augmented/diminished, seventh chords (shells, drop 2), 7th chords of a key + ii–V–I, sus/add/6/
+  power, extensions, altered dominants, slash chords + bass lines, voice leading with guide tones, mastery check. Old lessons
+  sevenths / pop-chords / jazz-chords / slash now open the course (REPLACED). Browser walk `tests/browser/level5-walk.cjs`.
+  Level 4 lessons 4–8 + check were finished just before (level4b.ts). Test APK test-67.
+- 2026-11-20 (Claude): **Looper sound rebuild** (owner: "it sounds garbled and really bad"): stereo takes kept as recorded
+  (`looper/take.ts`), one clean level per take (no limiter), tempo changes always stretch the original, the beat maker's mic
+  effects no longer carry over (`kg:looperFx`), trim editor, per-track tone/room, Real bass (smart bass from what you played).
 - 2026-11-20 (Claude): **Riff Scanner: long strips, see-through white tabs, and the self-training lab**.
   - `crnnRead.ts` readTabCrnn: a long window where the staff finder sees no staff is split in halves (lines drifting a few px
     across a stitched strip); a staff found in only part of a window has the rest looked at again; windows with no staff
@@ -7,8 +20,8 @@
     `onPiece` hook (the lab sees each straightened piece; reading unchanged).
   - `pictures.ts`: `tabLook` (white? busy picture behind?) decided once when the staff is found (per-frame isDark flickered
     over a moving video and broke the scroll tracking into hundreds of strips); `strokesOnly` keeps only thin strokes on a busy
-    background (Level Up style); playhead = dark over 65% of the box (was 80%) in profile + playheadX; overlapScore leaves the
-    playhead out; steady scroll tolerates alternating shifts (64/72) and coasts up to 3 frames at the steady speed when the
+    background (Level Up style); (a 65% playhead threshold and leaving the playhead out of overlapScore were tried and
+    reverted: they broke cards and page joins); steady scroll tolerates alternating shifts (64/72) and coasts up to 3 frames at the steady speed when the
     picture behind hides the tab (a far-off loose match isn't taken over it); a tab that slides in keeps widening its box
     for the first ~80 frames (every 3rd). `image.ts` stretchContrast(g, light?). `hear.ts` hearing(x, sr, n).
   - `tools/scan-lab/` (fetch.py, scan-lab.cjs, run-lab.sh, install.sh, fakeshort.py, README): the Mac lab. scanner-train
