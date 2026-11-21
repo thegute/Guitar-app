@@ -2563,6 +2563,14 @@ body:has(.sheet-backdrop, .nav-scrim, .celebrate, .welcome, .art-viewer, .get-re
 @media (prefers-reduced-motion: reduce) { .lp-track.s-armed .lp-rec, .lp-track.s-dubArmed .lp-rec, .lp-parts button.armed, .lb-part.armed { animation: none; } }
 .lp-wave-wrap { position: relative; flex: 1; min-width: 0; height: 64px; border-radius: var(--r-sm); background: var(--surface-2); overflow: hidden; }
 .lp-wave { display: block; width: 100%; height: 100%; }
+.lp-trim { border-top: 1px solid var(--line, rgba(255,255,255,0.12)); padding-top: var(--sp-2, 8px); }
+.lp-trim-wave { display: block; width: 100%; height: 84px; border-radius: var(--r-sm); background: var(--surface-2); touch-action: none; }
+.lp-trim-wave line.beat { stroke: var(--ink-3); stroke-width: 1; opacity: 0.25; vector-effect: non-scaling-stroke; }
+.lp-trim-wave line.bar { stroke: var(--ink-2, var(--ink)); stroke-width: 1.5; opacity: 0.45; vector-effect: non-scaling-stroke; }
+.lp-trim-wave .pk { fill: var(--ink-3); }
+.lp-trim-sel { fill: var(--accent); fill-opacity: 0.22; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; cursor: grab; }
+.lp-trim-h { fill: var(--accent); fill-opacity: 0.18; cursor: ew-resize; }
+.lp-trim-h:hover, .lp-trim-h:active { fill-opacity: 0.35; }
 .lp-wave rect { fill: var(--tc); }
 .lp-head { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: 0; pointer-events: none; }
 .lp-hint { position: absolute; inset: 6px 8px; display: flex; align-items: center; line-height: 1.25; }

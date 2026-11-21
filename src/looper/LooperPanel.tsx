@@ -274,6 +274,7 @@ function TrackCard({ st, i, onMsg, busy, setBusy }: { st: LoopStation; i: number
               {ROLES.map(r => <option key={r.role} value={r.role}>{r.label}</option>)}
             </select>
           </label>
+          {has && <TrimEditor st={st} i={i} onMsg={onMsg} />}
           <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
             <button className="btn sm" disabled={!has || !!busy} onClick={() => void chop('hits')} data-testid={`lp-chop-${i}`}><Ico n="scissors" /> Chop onto pads: at each note</button>
             <button className="btn sm" disabled={!has || !!busy} onClick={() => void chop('beats')}><Ico n="scissors" /> on the beat</button>
@@ -282,6 +283,70 @@ function TrackCard({ st, i, onMsg, busy, setBusy }: { st: LoopStation; i: number
         </div>
       )}
     </section>
+  )
+}
+
+/** Cut the dead space and move the start: the whole recording with the part that loops lit up, a handle at each end.
+ *  The length always stays whole beats (or bars) so the loop keeps time with the beat and the other tracks. */
+function TrimEditor({ st, i, onMsg }: { st: LoopStation; i: number; onMsg: (m: string) => void }) {
+  const v = st.trimView(i)
+  const [snap, setSnap] = useState<'bar' | 'beat' | 'free'>('bar')
+  const box = useRef<SVGSVGElement>(null)
+  const drag = useRef<{ which: 'start' | 'end' | 'move'; x0: number; start: number; len: number } | null>(null)
+  const [live, setLive] = useState<{ start: number; len: number } | null>(null)
+  if (!v) return null
+  const W = 1000
+  const span = Math.max(v.fullSec, v.start + v.lenSec)
+  const cur = live ?? { start: v.start, len: v.lenSec }
+  const xOf = (sec: number) => (sec / span) * W
+  const beat = v.barSec / 4
+  const snapStart = (sec: number) => Math.max(0, snap === 'free' ? sec : Math.round(sec / (snap === 'bar' ? v.barSec : beat)) * (snap === 'bar' ? v.barSec : beat))
+  const snapLen = (sec: number) => Math.max(beat, Math.round(sec / (snap === 'bar' ? v.barSec : beat)) * (snap === 'bar' ? v.barSec : beat))
+  const secAt = (clientX: number) => { const r = box.current!.getBoundingClientRect(); return ((clientX - r.left) / r.width) * span }
+  const down = (which: 'start' | 'end' | 'move') => (e: React.PointerEvent) => {
+    e.stopPropagation(); (e.target as Element).setPointerCapture?.(e.pointerId)
+    drag.current = { which, x0: secAt(e.clientX), start: cur.start, len: cur.len }
+  }
+  const move = (e: React.PointerEvent) => {
+    const d = drag.current
+    if (!d) return
+    const dx = secAt(e.clientX) - d.x0
+    if (d.which === 'start') { const s0 = Math.min(snapStart(d.start + dx), d.start + d.len - beat); setLive({ start: s0, len: d.len - (s0 - d.start) }) }
+    else if (d.which === 'end') setLive({ start: d.start, len: d.len + dx })
+    else setLive({ start: snapStart(d.start + dx), len: d.len })
+  }
+  const up = () => {
+    const d = drag.current
+    drag.current = null
+    if (!d || !live) return
+    const len = snapLen(live.len)
+    st.setTrim(i, live.start, len / v.barSec)
+    setLive(null)
+  }
+  const bars = cur.len / v.barSec
+  const label = Number.isInteger(Math.round(bars * 4) / 4) ? `${Math.round(bars * 4) / 4} bar${bars > 1 ? 's' : ''}` : `${Math.round(bars * 4)} beats`
+  return (
+    <div className="lp-trim stack" style={{ gap: 6 }} data-testid={`lp-trim-${i}`}>
+      <div className="row small" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        <b>Trim</b><span className="muted">{label}{cur.start > 0.004 ? ` · starts ${Math.round(cur.start * 1000)} ms in` : ''}</span>
+        <span className="lp-sp" />
+        <div className="seg sm" role="group" aria-label="Snap the ends to">
+          {(['bar', 'beat', 'free'] as const).map(k => <button key={k} aria-pressed={snap === k} onClick={() => setSnap(k)}>{k === 'bar' ? 'Bars' : k === 'beat' ? 'Beats' : 'Free start'}</button>)}
+        </div>
+      </div>
+      <svg ref={box} className="lp-trim-wave" viewBox={`0 0 ${W} 100`} preserveAspectRatio="none" onPointerMove={move} onPointerUp={up} onPointerCancel={up} role="img" aria-label="The recording, with the part that loops lit up">
+        {Array.from({ length: Math.ceil(span / beat) + 1 }, (_, k) => <line key={k} x1={xOf(k * beat)} x2={xOf(k * beat)} y1={0} y2={100} className={k % 4 === 0 ? 'bar' : 'beat'} />)}
+        {Array.from(v.peaks, (p, k) => { const x = (k / v.peaks.length) * xOf(v.fullSec); return <rect key={k} x={x} width={Math.max(1, xOf(v.fullSec) / v.peaks.length - 0.6)} y={50 - p * 46} height={Math.max(1.5, p * 92)} className="pk" /> })}
+        <rect className="lp-trim-sel" x={xOf(cur.start)} width={Math.max(2, xOf(cur.len))} y={0} height={100} onPointerDown={down('move')} />
+        <rect className="lp-trim-h" x={Math.max(0, Math.min(W - 40, xOf(cur.start) - 20))} width={40} y={0} height={100} onPointerDown={down('start')} data-testid={`lp-trim-start-${i}`} />
+        <rect className="lp-trim-h" x={Math.max(0, Math.min(W - 40, xOf(cur.start + cur.len) - 20))} width={40} y={0} height={100} onPointerDown={down('end')} data-testid={`lp-trim-end-${i}`} />
+      </svg>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+        <button className="btn sm" onClick={() => onMsg(st.autoTrim(i, snap === 'beat' ? 'beat' : 'bar'))} data-testid={`lp-autotrim-${i}`}>Trim the dead space</button>
+        <button className="btn sm" onClick={() => onMsg(st.lineUp(i))} data-testid={`lp-lineup-${i}`}>Line it up with the beat</button>
+        <button className="btn sm ghost" onClick={() => st.resetTrim(i)} disabled={v.start === 0 && Math.abs(v.lenSec - v.fullSec) < 1e-3}>As recorded</button>
+      </div>
+    </div>
   )
 }
 

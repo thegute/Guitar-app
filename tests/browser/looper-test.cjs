@@ -153,6 +153,36 @@ const takes = (s, i, part = 'A') => s?.tracks?.[i]?.parts?.[part]?.takes?.length
     await page.context().close()
   }
 
+  if (want('trim')) {
+    // a 1-bar loop recorded on 2 bars: the second bar is mostly the tail of the riff; trim it by hand and automatically
+    const page = await newPage(browser, { width: 412, height: 915 })
+    await page.locator('[data-testid=lp-track-0] .lp-lens button').nth(2).click()
+    await page.locator('[data-testid=lp-rec-0]').click()
+    if (!(await waitState(page, 0, 'loop', 30000))) bad('trim: no loop')
+    await page.locator('[data-testid=lp-more-0]').click()
+    if (!(await page.locator('[data-testid=lp-trim-0]').count())) bad('trim: no trim editor')
+    await page.locator('[data-testid=lp-lineup-0]').click()
+    await page.locator('[data-testid=lp-autotrim-0]').click()
+    await page.waitForTimeout(400)
+    let s = await session(page)
+    const p = s.tracks[0].parts.A
+    console.log(`trim: auto → ${p.len} bars (was ${p.full ?? p.len}), start ${((p.start ?? 0) * 1000).toFixed(0)} ms; "${await page.locator('[data-testid=lp-note]').innerText().catch(() => '')}"`)
+    // drag the end handle in by about a bar's worth, snapped to bars
+    const h = page.locator('[data-testid=lp-trim-end-0]')
+    const bb = await h.boundingBox(), wb = await page.locator('.lp-trim-wave').boundingBox()
+    if (bb && wb) {
+      await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await page.mouse.down()
+      await page.mouse.move(bb.x + bb.width / 2 - wb.width * 0.3, bb.y + bb.height / 2, { steps: 6 }); await page.mouse.up()
+      s = await session(page)
+      console.log(`trim: dragged → ${s.tracks[0].parts.A.len} bars`)
+      if (!Number.isInteger(s.tracks[0].parts.A.len * 4)) bad('trim: length is not whole beats')
+    }
+    await page.screenshot({ path: path.join(OUT, 'lp-trim.png') })
+    if (await sideways(page)) bad('trim: sideways overflow')
+    errs(page, 'trim')
+    await page.context().close()
+  }
+
   if (want('bass')) {
     const page = await newPage(browser, { width: 840, height: 757 })
     await page.locator('[data-testid=lp-track-2] .lp-lens button').nth(1).click()

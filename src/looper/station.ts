@@ -34,6 +34,10 @@ export interface PartLoop {
   takes: string[]
   /** undone takes, newest last; a Clear is one group */
   redo: string[][]
+  /** trimmed: where each take starts playing (seconds in), the trim's start for the editor, the length before trimming */
+  offs?: Record<string, number>
+  start?: number
+  full?: number
 }
 export interface Track {
   role: Role
@@ -89,6 +93,8 @@ interface Voice { src: AudioBufferSourceNode; fade: GainNode; start: number; end
 interface Out { gain: GainNode; pan: StereoPannerNode }
 interface Ready { key: string; buf: AudioBuffer; lenBars: number; peaks: Float32Array; duck?: Float32Array }
 
+const trimSig = (l: PartLoop) => (l.offs ? Object.values(l.offs).map(v => v.toFixed(4)).join(',') : '')
+const fmtLen = (bars: number) => (Number.isInteger(bars) ? `${bars} bar${bars > 1 ? 's' : ''}` : `${Math.round(bars * 4)} beats`)
 const monoOf = (b: AudioBuffer) => midOf({ l: b.getChannelData(0), r: b.numberOfChannels > 1 ? b.getChannelData(1) : null })
 
 export class LoopStation {
@@ -230,6 +236,88 @@ export class LoopStation {
     if (fx === 'synth' || fx === 'octaveUp' || fx === 'octaveDown') return { l: await applyMicFx(midOf(x), sr, fx, { keepLength: true }), r: null }
     return { l: await applyMicFx(x.l, sr, fx, { keepLength: true }), r: x.r ? await applyMicFx(x.r, sr, fx, { keepLength: true }) : null }
   }
+  /** A part's takes played together, each from its trim start, `n` samples long. */
+  private mixOf(l: PartLoop, n: number, sr: number): Take {
+    const list = l.takes.map(id => {
+      const t = this.takes.get(id)
+      if (!t) return null
+      const off = Math.round((l.offs?.[id] ?? 0) * sr)
+      return off ? each(t, y => rotate(y, off)) : t
+    }).filter(Boolean) as Take[]
+    return mixStereo(list, n)
+  }
+
+  // ───────── trim (cut the dead space, move the start, line it up with the beat): the takes are never changed
+  /** What the trim editor shows: the untrimmed loop's waveform and where the trim sits on it (seconds). */
+  trimView(i: number, part = this.s.part): { peaks: Float32Array; fullSec: number; start: number; lenSec: number; barSec: number } | null {
+    const l = this.s.tracks[i].parts[part]
+    if (!l || !l.takes.length) return null
+    const sr = audio().sampleRate
+    const full = l.full ?? l.len
+    const n = Math.round(full * this.barDur * sr)
+    const base: PartLoop = { ...l, offs: Object.fromEntries(l.takes.map(id => [id, (l.offs?.[id] ?? 0) - (l.start ?? 0)])) }
+    return { peaks: peaks(midOf(this.mixOf(base, n, sr)), 240), fullSec: full * this.barDur, start: l.start ?? 0, lenSec: l.len * this.barDur, barSec: this.barDur }
+  }
+  /** Trim a loop: it starts `start` seconds into what was recorded and lasts `lenBars` (beats count: 0.25 = a beat). */
+  setTrim(i: number, start: number, lenBars: number, part = this.s.part) {
+    const l = this.s.tracks[i].parts[part]
+    if (!l || !l.takes.length) return
+    l.full ??= l.len
+    const d = start - (l.start ?? 0)
+    l.offs = Object.fromEntries(l.takes.map(id => [id, (l.offs?.[id] ?? 0) + d]))
+    l.start = start
+    l.len = Math.max(0.25, Math.round(lenBars * 4) / 4)
+    this.note = `Track ${i + 1} trimmed: ${fmtLen(l.len)}.`
+    this.restartTrack(i); this.changed()
+  }
+  /** Back to the loop as it was recorded. */
+  resetTrim(i: number, part = this.s.part) {
+    const l = this.s.tracks[i].parts[part]
+    if (!l || !l.takes.length || l.full === undefined) return
+    const st = l.start ?? 0
+    l.offs = Object.fromEntries(l.takes.map(id => [id, (l.offs?.[id] ?? 0) - st]))
+    l.len = l.full; l.start = 0; delete l.full
+    this.note = `Track ${i + 1}: trim undone.`
+    this.restartTrack(i); this.changed()
+  }
+  /** Trim by itself: the loop starts at your first note and ends at the last whole beat (or bar) with sound in it. */
+  autoTrim(i: number, snap: 'bar' | 'beat' = 'bar', part = this.s.part): string {
+    const v = this.trimView(i, part)
+    const l = this.s.tracks[i].parts[part]
+    if (!v || !l) return 'Nothing to trim.'
+    const sr = audio().sampleRate
+    const full = l.full ?? l.len
+    const n = Math.round(full * this.barDur * sr)
+    const base: PartLoop = { ...l, offs: Object.fromEntries(l.takes.map(id => [id, (l.offs?.[id] ?? 0) - (l.start ?? 0)])) }
+    const m = midOf(this.mixOf(base, n, sr))
+    const a = findAttack(m.subarray(0, Math.min(m.length, Math.round(sr * 1.5))), sr)
+    // the end: the last 20 ms with real sound in it (3 % of the loudest)
+    const hop = Math.round(sr * 0.02)
+    let top = 0
+    for (let k = 0; k < m.length; k++) top = Math.max(top, Math.abs(m[k]))
+    let end = m.length
+    for (let k = m.length - hop; k > a; k -= hop) { let p = 0; for (let j = k; j < k + hop; j++) p = Math.max(p, Math.abs(m[j])); if (p > top * 0.03) { end = k + hop; break } }
+    // a start that's only a hair in (under 30 ms) is the loop starting on the beat already
+    const start = a / sr < 0.03 ? 0 : a / sr
+    const beat = this.barDur / 4
+    const beats = Math.max(1, Math.ceil((end / sr - start) / beat - 0.15))
+    const lenBars = snap === 'bar' ? Math.max(1, Math.ceil(beats / 4)) : beats / 4
+    if (Math.abs(lenBars - l.len) < 1e-6 && Math.abs(start - (l.start ?? 0)) < 0.005) return 'Already tight: nothing to cut.'
+    this.setTrim(i, start, lenBars, part)
+    return `Trimmed to ${fmtLen(lenBars)}${start > 0 ? `, starting ${Math.round(start * 1000)} ms in (your first note)` : ''}.`
+  }
+  /** Move the loop so its notes land on the beat (the grid the beat maker plays). */
+  lineUp(i: number, part = this.s.part): string {
+    const l = this.s.tracks[i].parts[part]
+    if (!l || !l.takes.length) return 'Nothing to line up.'
+    const sr = audio().sampleRate
+    const n = Math.round(l.len * this.barDur * sr)
+    const moved = gridOffset(midOf(this.mixOf(l, n, sr)), sr, this.t.stepDur, 0.12)
+    if (!moved) return 'It already sits on the beat.'
+    this.setTrim(i, (l.start ?? 0) + moved, l.len, part)
+    return `Moved ${Math.round(Math.abs(moved) * 1000)} ms ${moved > 0 ? 'earlier' : 'later'}: the notes sit on the beat now.`
+  }
+
   private async addTake(t: Take | Float32Array): Promise<string> {
     const take: Take = t instanceof Float32Array ? { l: t, r: null } : t
     const id = Math.random().toString(36).slice(2, 10)
@@ -244,7 +332,7 @@ export class LoopStation {
     const l = this.s.tracks[i].parts[part]
     if (!l || !l.takes.length) return null
     const tr = this.s.tracks[i]
-    return `${i}|${part}|${l.takes.join(',')}|${l.len}|${tr.rev ? 1 : 0}|${tr.half ? 1 : 0}|${tr.role === 'bass' && tr.octave ? 1 : 0}|${audio().sampleRate}|${this.t.beat.bpm}`
+    return `${i}|${part}|${l.takes.join(',')}|${l.len}|${trimSig(l)}|${tr.rev ? 1 : 0}|${tr.half ? 1 : 0}|${tr.role === 'bass' && tr.octave ? 1 : 0}|${audio().sampleRate}|${this.t.beat.bpm}`
   }
   /** The loop as you hear it (mix of takes, then backwards / half speed / bass octave), when it's ready. */
   private readyFor(i: number, part = this.s.part): Ready | null {
@@ -262,10 +350,10 @@ export class LoopStation {
     if (!l || !l.takes.length) return null
     const ctx = audio()
     const n = Math.round(l.len * this.barDur * ctx.sampleRate)
-    const key = `${l.takes.join(',')}|${n}`
+    const key = `${l.takes.join(',')}|${n}|${trimSig(l)}`
     let r = this.plainCache.get(key)
     if (!r) {
-      const x = mixStereo(l.takes.map(id => this.takes.get(id)!).filter(Boolean), n)
+      const x = this.mixOf(l, n, ctx.sampleRate)
       const buf = bufferOf(ctx, x, ctx.sampleRate)
       r = { key, buf, lenBars: l.len, peaks: peaks(midOf(x)) }
       this.plainCache.set(key, r)
@@ -279,7 +367,7 @@ export class LoopStation {
       const tr = this.s.tracks[i], l = tr.parts[part]!
       const ctx = audio(), sr = ctx.sampleRate
       const n = Math.round(l.len * this.barDur * sr)
-      let x = mixStereo(l.takes.map(id => this.takes.get(id)!).filter(Boolean), n)
+      let x = this.mixOf(l, n, sr)
       // the bass an octave down: one channel (a bass sits in the middle)
       if (tr.role === 'bass' && tr.octave) x = { l: await shiftSamples(midOf(x), sr, -12), r: null }
       if (tr.rev) x = each(x, y => y.slice().reverse())
