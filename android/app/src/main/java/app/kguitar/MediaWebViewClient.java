@@ -146,8 +146,20 @@ public class MediaWebViewClient extends BridgeWebViewClient {
             if (size < 0 && afd != null && afd.getLength() >= 0) {
                 size = afd.getLength();
             }
+            FileInputStream preFis = null;
+            if (size < 0 && afd != null) {
+                try {
+                    preFis = afd.createInputStream();
+                    long chSize = preFis.getChannel().size();
+                    if (chSize > 0) size = chSize;
+                } catch (Exception ignored) {
+                    closeQuietly(preFis);
+                    preFis = null;
+                }
+            }
 
             if ("HEAD".equalsIgnoreCase(request.getMethod())) {
+                closeQuietly(preFis);
                 closeQuietly(afd);
                 Map<String, String> h = new HashMap<>();
                 h.put("Accept-Ranges", "bytes");
@@ -176,6 +188,7 @@ public class MediaWebViewClient extends BridgeWebViewClient {
                     to = size - 1;
                 }
                 if (from >= size || to < from) {
+                    closeQuietly(preFis);
                     closeQuietly(afd);
                     Map<String, String> h = new HashMap<>();
                     h.put("Content-Range", "bytes */" + size);
@@ -184,7 +197,7 @@ public class MediaWebViewClient extends BridgeWebViewClient {
             }
 
             if (afd != null) {
-                FileInputStream fis = afd.createInputStream();
+                FileInputStream fis = preFis != null ? preFis : afd.createInputStream();
                 if (from > 0) {
                     try {
                         long baseOffset = Math.max(0, afd.getStartOffset());
@@ -253,11 +266,10 @@ public class MediaWebViewClient extends BridgeWebViewClient {
 
     private static String guess(String name) {
         String n = name == null ? "" : name.toLowerCase(Locale.ROOT);
-        if (n.endsWith(".mp4") || n.endsWith(".m4v")) return "video/mp4";
+        if (n.endsWith(".mp4") || n.endsWith(".m4v") || n.endsWith(".mov")) return "video/mp4";
         if (n.endsWith(".webm")) return "video/webm";
-        if (n.endsWith(".mov")) return "video/quicktime";
         if (n.endsWith(".mkv")) return "video/x-matroska";
-        if (n.endsWith(".ts")) return "video/mp2t";
+        if (n.endsWith(".ts") || n.endsWith(".m2ts")) return "video/mp2t";
         if (n.endsWith(".mp3")) return "audio/mpeg";
         if (n.endsWith(".wav")) return "audio/wav";
         if (n.endsWith(".m4a")) return "audio/mp4";

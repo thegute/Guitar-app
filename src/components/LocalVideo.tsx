@@ -26,32 +26,48 @@ export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90, note
   useEffect(() => onLeavePage(() => v.current?.pause()), [])
   const [ready, setReady] = useState(false)
   const [error, setError] = useState(false)
-  const [tsMode, setTsMode] = useState(false)
+  const tsModeRef = useRef(false)
   const tsRef = useRef<TsPlayerHandle | null>(null)
   const videoSrc = mediaUrl(file.uri)
   const [rate, setRate] = useState(1)
 
   useEffect(() => {
+    let cancelled = false
+    const el = v.current
     setError(false)
-    setTsMode(false)
+    setReady(false)
+    tsModeRef.current = false
+    tsRef.current?.destroy()
+    tsRef.current = null
+    if (!el) return
+
+    void (async () => {
+      const probe = await probeVideoUrl(videoSrc)
+      if (cancelled || v.current !== el) return
+      if (probe.kind === 'http-error') { setError(true); return }
+      if (probe.kind === 'mpegts' || probe.kind === 'm2ts') {
+        tsModeRef.current = true
+        try {
+          const h = await attachMpegTsPlayer(el, videoSrc, () => { if (!cancelled) setError(true) }, probe.kind)
+          if (cancelled) { h?.destroy(); return }
+          if (h) { tsRef.current = h; setError(false); return }
+        } catch { /* fall back */ }
+        tsModeRef.current = false
+      }
+      el.src = videoSrc
+      el.load()
+    })()
+
     return () => {
+      cancelled = true
       tsRef.current?.destroy()
       tsRef.current = null
+      try { el.pause(); el.removeAttribute('src'); el.load() } catch { /* ignore */ }
     }
-  }, [file.uri])
+  }, [videoSrc])
 
-  const handleErr = async () => {
-    if (tsMode) { setError(true); return }
-    const el = v.current
-    const probe = await probeVideoUrl(videoSrc)
-    if (probe.kind === 'mpegts' && el) {
-      try {
-        setTsMode(true)
-        const h = await attachMpegTsPlayer(el, videoSrc, () => setError(true))
-        if (h) { tsRef.current = h; setError(false); return }
-      } catch { /* fall through */ }
-    }
-    setError(true)
+  const handleErr = () => {
+    if (!tsModeRef.current) setError(true)
   }
   const [mirror, setMirror] = useState(false)
   const [a, setA] = useState<number | null>(null)
@@ -102,8 +118,8 @@ export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90, note
   return (
     <div className="yt local-video">
       <div className="yt-frame">
-        <video ref={v} src={tsMode ? undefined : videoSrc} playsInline controls preload="metadata" className={mirror ? 'mirrored' : ''}
-          onLoadedMetadata={() => { setError(false); setReady(true) }} onError={() => { void handleErr() }} aria-label={niceName(file.name)} />
+        <video ref={v} playsInline controls preload="metadata" className={mirror ? 'mirrored' : ''}
+          onLoadedMetadata={() => { setError(false); setReady(true) }} onError={handleErr} aria-label={niceName(file.name)} />
         {error && (
           <div className="yt-error">
             <p>The video can't be read. If you moved or renamed the lesson folder, pick it again in Learn → Your video lessons.</p>

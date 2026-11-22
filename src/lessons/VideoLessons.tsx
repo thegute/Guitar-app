@@ -392,6 +392,7 @@ interface FloatBoxState {
   x: number // right edge normalized 0..1
   y: number // top edge normalized 0..1
   w: number // width in px
+  h?: number // optional custom height in px (drag ◢ down to expand up to full screen)
   min: boolean
   opacity?: number // 0.2 .. 1.0
 }
@@ -487,52 +488,104 @@ function LessonPlayer({
   const [resumed, setResumed] = useState<number | null>(null)
   const [done, setDone] = useState(!!progress()[v.uri]?.done)
   const [error, setError] = useState('')
-  const [tsMode, setTsMode] = useState(false)
+  const tsModeRef = useRef(false)
+  const retriedFromStartRef = useRef(false)
+  const lastProbeRef = useRef<{ kind: string; brand?: string }>({ kind: 'ok' })
   const tsPlayerRef = useRef<TsPlayerHandle | null>(null)
   const videoSrc = mediaUrl(v.uri)
 
-  // Clean up any active mpegts.js player when switching lessons or unmounting
+  // Race-free video loader: probes first 4 KB BEFORE setting <video>.src so Roy Ziv's MPEG-TS / M2TS
+  // videos launch straight into mpegts.js without React ever clobbering the MediaSource blob: URL!
   useEffect(() => {
+    let cancelled = false
+    const videoEl = el.current
     setError('')
-    setTsMode(false)
+    setResumed(null)
+    tsModeRef.current = false
+    retriedFromStartRef.current = false
+    tsPlayerRef.current?.destroy()
+    tsPlayerRef.current = null
+    if (!videoEl) return
+
+    void (async () => {
+      const probe = await probeVideoUrl(videoSrc)
+      if (cancelled || el.current !== videoEl) return
+      lastProbeRef.current = probe
+
+      if (probe.kind === 'http-error' && probe.status === 403) {
+        setError('Android folder permission expired. Tap ← Lessons, remove & re-pick the course folder with "Find my lessons".')
+        return
+      }
+      if (probe.kind === 'http-error' && probe.status === 404) {
+        setError('File not found (moved or renamed). Tap ← Lessons, then ↻ Look again.')
+        return
+      }
+      if (probe.kind === 'mpegts' || probe.kind === 'm2ts') {
+        tsModeRef.current = true
+        try {
+          const handle = await attachMpegTsPlayer(
+            videoEl,
+            videoSrc,
+            detail => {
+              if (!cancelled) setError(`Couldn't decode this MPEG-TS video (${detail}). You can open it in your phone's video player below.`)
+            },
+            probe.kind,
+          )
+          if (cancelled) { handle?.destroy(); return }
+          if (handle) {
+            tsPlayerRef.current = handle
+            setError('')
+            return
+          }
+        } catch { /* fall back to native src below */ }
+        tsModeRef.current = false
+      }
+
+      // Standard MP4 / MOV / WebM playback
+      videoEl.src = videoSrc
+      videoEl.load()
+    })()
+
     return () => {
+      cancelled = true
       tsPlayerRef.current?.destroy()
       tsPlayerRef.current = null
+      try {
+        videoEl.pause()
+        videoEl.removeAttribute('src')
+        videoEl.load()
+      } catch { /* ignore */ }
     }
-  }, [v.uri])
+  }, [videoSrc])
 
   const handleVideoError = async () => {
-    // If we already switched to mpegts.js, let its own error handler report
-    if (tsMode) return
     const videoEl = el.current
-    const probe = await probeVideoUrl(videoSrc)
-    if (probe.kind === 'mpegts' && videoEl) {
-      try {
-        setTsMode(true)
-        const handle = await attachMpegTsPlayer(videoEl, videoSrc, detail => {
-          setError(`Couldn't decode this MPEG-TS video (${detail}).`)
-        })
-        if (handle) {
-          tsPlayerRef.current = handle
-          setError('')
-          return
-        }
-      } catch { /* fall through to error banner */ }
+    if (!videoEl || tsModeRef.current) return
+    // If a saved resume-seek triggered error 3 right after loading, retry cleanly from 0:00 once
+    if (!retriedFromStartRef.current && videoEl.currentTime > 1) {
+      retriedFromStartRef.current = true
+      setResumed(null)
+      videoEl.src = videoSrc
+      videoEl.currentTime = 0
+      videoEl.load()
+      return
     }
-    if (probe.kind === 'http-error' && probe.status === 403) {
-      setError('Android folder permission expired. Tap ← Lessons, remove & re-pick the course folder with "Find my lessons".')
-    } else if (probe.kind === 'http-error' && probe.status === 404) {
-      setError('File not found (moved or renamed). Tap ← Lessons, then ↻ Look again.')
-    } else {
-      const code = videoEl?.error?.code
-      setError(`This video couldn't play inside the app${code ? ` (error ${code})` : ''}. Tap ← Lessons → ↻ Look again, or open it in your phone's video player below.`)
-    }
+    const code = videoEl.error?.code
+    const detail = videoEl.error?.message?.trim()
+    const info = [
+      code ? `error ${code}` : '',
+      lastProbeRef.current.brand ? `format: ${lastProbeRef.current.brand}` : lastProbeRef.current.kind !== 'ok' ? `format: ${lastProbeRef.current.kind}` : '',
+      detail ? detail.slice(0, 80) : '',
+    ].filter(Boolean).join(' · ')
+    setError(`This video couldn't play inside the app${info ? ` (${info})` : ''}. Tap ← Lessons → ↻ Look again, or open it in your phone's video player below.`)
   }
 
-  // Practice tools state
+  // Practice tools state + floating video chrome toggles (tuck 12 buttons behind ⚙ & 1-tap Fill Floating Window)
   const [activeTool, setActiveTool] = useState<'metronome' | 'tuner' | 'note' | null>(null)
   const [fingerOpen, setFingerOpen] = useState(false)
   const [opacityOpen, setOpacityOpen] = useState(false)
+  const [toolsOpen, setToolsOpen] = useState(false)
+  const [cleanVideo, setCleanVideo] = useState(false)
   const [lessonNote, setLessonNoteState] = useState(() => getLessonNote(v.uri))
   const [backingIdx, setBackingIdx] = useState(0)
   const [backingRate, setBackingRate] = useState(1)
@@ -571,7 +624,7 @@ function LessonPlayer({
   const markDone = (d: boolean) => { setDone(d); setProgress(v.uri, { done: d }) }
   const setSpeed = (r: number) => { setRate(r); if (el.current) el.current.playbackRate = r }
 
-  // Drag / resize handler for the floating video window
+  // Drag / resize handler for the floating video window (width + height up to full phone/tablet screen)
   const floatCardRef = useRef<HTMLDivElement>(null)
   const startFloatDrag = (e: RPE, mode: 'move' | 'size') => {
     if ((e.target as HTMLElement).closest('button') && mode === 'move') return
@@ -589,13 +642,18 @@ function LessonPlayer({
         last = {
           ...p0,
           x: Math.min(0.99, Math.max(0.15, (r.right + ev.clientX - sx) / W)),
-          y: Math.min(0.92, Math.max(0.02, (r.top + ev.clientY - sy) / H)),
+          y: Math.min(0.92, Math.max(0.01, (r.top + ev.clientY - sy) / H)),
         }
       } else {
-        const newW = Math.max(220, Math.min(W - 20, Math.round(r.width + ev.clientX - sx)))
+        const dy = ev.clientY - sy
+        const newW = Math.max(200, Math.min(W - 8, Math.round(r.width + ev.clientX - sx)))
+        const newH = (p0.h !== undefined || Math.abs(dy) > 14)
+          ? Math.max(130, Math.min(H - 12, Math.round(r.height + dy)))
+          : p0.h
         last = {
           ...p0,
           w: newW,
+          h: newH,
           x: Math.min(0.99, Math.max(0.2, (r.left + newW) / W)),
         }
       }
@@ -713,9 +771,10 @@ function LessonPlayer({
   const isSplit = hasVisualStage && layout === 'split'
   const W = typeof innerWidth === 'number' ? innerWidth : 1024
   const H = typeof innerHeight === 'number' ? innerHeight : 768
-  const cardW = Math.max(220, Math.min(floatBox.w, W - 16))
-  const cardLeft = Math.max(6, Math.min(W - cardW - 6, Math.round(floatBox.x * W - cardW)))
-  const cardTop = Math.max(6, Math.min(H - 140, Math.round(floatBox.y * H)))
+  const cardW = Math.max(200, Math.min(floatBox.w, W - 8))
+  const cardH = floatBox.h ? Math.max(130, Math.min(floatBox.h, H - 12)) : undefined
+  const cardLeft = Math.max(4, Math.min(W - cardW - 4, Math.round(floatBox.x * W - cardW)))
+  const cardTop = Math.max(6, Math.min(H - (cardH ? cardH + 6 : 140), Math.round(floatBox.y * H)))
 
   const activeBacking = lesson.backings[backingIdx] ?? lesson.backings[0]
 
@@ -992,18 +1051,19 @@ function LessonPlayer({
 
         <div
           ref={floatCardRef}
-          className={isFloating ? 'float-card course-float-video' : 'stack'}
+          className={isFloating ? `float-card course-float-video${cleanVideo ? ' clean' : ''}` : 'stack'}
           style={
             isFloating
               ? {
                   position: 'fixed',
                   width: cardW,
+                  ...(cardH ? { height: cardH } : {}),
                   left: cardLeft,
                   top: cardTop,
                   zIndex: 68,
                   display: floatBox.min ? 'none' : 'flex',
                   flexDirection: 'column',
-                  gap: 6,
+                  gap: cleanVideo ? 0 : 4,
                   opacity: floatBox.opacity ?? 1,
                   boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
                 }
@@ -1011,7 +1071,30 @@ function LessonPlayer({
           }
           data-testid={isFloating ? 'course-floating-video-card' : 'course-docked-video'}
         >
-          {isFloating && (
+          {/* In Fill-Floating-Window (Clean) mode: tiny translucent corner pill lets you drag to move or restore controls */}
+          {isFloating && cleanVideo && (
+            <div className="float-video-clean-pill">
+              <span
+                className="float-video-drag"
+                onPointerDown={e => startFloatDrag(e, 'move')}
+                title="Drag to move floating video"
+                aria-label="Drag to move"
+              >
+                ⠿
+              </span>
+              <button
+                className="float-video-restore"
+                onClick={() => setCleanVideo(false)}
+                title="Show video bar & Speed / A–B controls"
+                aria-label="Show video controls"
+                data-testid="float-video-restore"
+              >
+                ☰
+              </button>
+            </div>
+          )}
+
+          {isFloating && !cleanVideo && (
             <div
               className="fc-bar"
               onPointerDown={e => startFloatDrag(e, 'move')}
@@ -1024,15 +1107,35 @@ function LessonPlayer({
                 {lesson.title}
               </b>
               <button
-                className="fc-btn"
+                className={`fc-btn${toolsOpen || rate !== 1 || loop || mirror ? ' on' : ''}`}
+                onClick={() => setToolsOpen(o => !o)}
+                title="Speed, ±5s, A–B Loop & Mirror controls"
+                aria-label="Speed and loop tools"
+                aria-pressed={toolsOpen}
+                data-testid="float-video-tools-btn"
+                style={{ fontSize: 11, padding: '0 6px', width: 'auto' }}
+              >
+                ⚙{rate !== 1 ? ` ${speedLabel(rate)}` : ''}{loop ? ' ⟳' : ''}
+              </button>
+              <button
+                className={`fc-btn${opacityOpen || (floatBox.opacity ?? 1) < 0.98 ? ' on' : ''}`}
                 onClick={() => setOpacityOpen(o => !o)}
-                title="Adjust video transparency so you can see the book underneath"
+                title="Adjust video transparency"
                 aria-label="Video opacity"
                 aria-pressed={opacityOpen}
                 data-testid="float-video-opacity-btn"
                 style={{ fontSize: 11, padding: '0 5px', width: 'auto' }}
               >
-                ◐ {Math.round((floatBox.opacity ?? 1) * 100)}%
+                ◐
+              </button>
+              <button
+                className="fc-btn"
+                onClick={() => { setCleanVideo(true); setToolsOpen(false); setOpacityOpen(false) }}
+                title="Fill this floating window with pure video (hides bar & buttons)"
+                aria-label="Fill floating window with video"
+                data-testid="float-video-clean-btn"
+              >
+                ▴
               </button>
               <button
                 className="fc-btn"
@@ -1054,7 +1157,7 @@ function LessonPlayer({
             </div>
           )}
 
-          {isFloating && opacityOpen && (
+          {isFloating && !cleanVideo && opacityOpen && (
             <div
               className="row"
               style={{ gap: 6, padding: '4px 8px', alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
@@ -1084,15 +1187,25 @@ function LessonPlayer({
                     {Math.round(val * 100)}%
                   </button>
                 ))}
+                {floatBox.h !== undefined && (
+                  <button
+                    className="btn sm"
+                    style={{ padding: '1px 5px', minHeight: 22, fontSize: 11 }}
+                    onClick={() => saveFloat({ ...floatBox, h: undefined })}
+                    title="Reset video height to auto"
+                  >
+                    Auto H
+                  </button>
+                )}
               </div>
             </div>
           )}
 
-          <div className="lesson-video">
+          <div className={`lesson-video${isFloating && cardH ? ' fixed-h' : ''}`}>
             <video
               ref={el}
-              src={tsMode ? undefined : videoSrc}
               controls
+              controlsList={isFloating ? 'nofullscreen' : undefined}
               playsInline
               preload="metadata"
               className={mirror ? 'mirrored' : ''}
@@ -1100,7 +1213,10 @@ function LessonPlayer({
                 setError('')
                 const w = progress()[v.uri]
                 const d = e.currentTarget.duration
-                if (w && w.t > 5 && (!d || w.t < d - 5)) { e.currentTarget.currentTime = w.t; setResumed(w.t) }
+                if (!tsModeRef.current && w && w.t > 5 && d && isFinite(d) && w.t < d - 5) {
+                  e.currentTarget.currentTime = w.t
+                  setResumed(w.t)
+                }
                 e.currentTarget.playbackRate = rate
               }}
               onPlay={() => setPlaying(true)}
@@ -1108,7 +1224,7 @@ function LessonPlayer({
               onEnded={() => { setPlaying(false); markDone(true) }}
               onTimeUpdate={e => {
                 const t = e.currentTarget
-                if (!done && t.duration && t.currentTime / t.duration > 0.95) markDone(true)
+                if (!done && t.duration && isFinite(t.duration) && t.currentTime / t.duration > 0.95) markDone(true)
               }}
               onError={() => { void handleVideoError() }}
             />
@@ -1128,8 +1244,8 @@ function LessonPlayer({
               )}
             </div>
           )}
-          {resumed !== null && (
-            <p className="small muted" style={{ margin: 0 }}>
+          {!cleanVideo && resumed !== null && (
+            <p className="small muted" style={{ margin: 0, padding: isFloating ? '0 6px' : undefined }}>
               Picked up at {fmt(resumed)}.{' '}
               <button
                 className="link-btn"
@@ -1140,37 +1256,39 @@ function LessonPlayer({
             </p>
           )}
 
-          {/* Video Speed / A–B Loop / Mirror Controls Bar */}
-          <div className="lesson-bar" style={isFloating ? { gap: 4, flexWrap: 'wrap', padding: '0 4px 4px' } : undefined}>
-            <div className="seg" role="group" aria-label="Speed">
-              {SPEEDS.slice().sort((x, y) => x - y).map(r => (
-                <button key={r} className="btn sm" aria-pressed={rate === r} onClick={() => setSpeed(r)}>
-                  {speedLabel(r)}
-                </button>
-              ))}
+          {/* Video Speed / A–B Loop / Mirror Controls Bar (in floating mode, tucked inside ⚙ drawer by default!) */}
+          {(!isFloating || (!cleanVideo && toolsOpen)) && (
+            <div className="lesson-bar" style={isFloating ? { gap: 4, flexWrap: 'wrap', padding: '0 4px 4px' } : undefined} data-testid="lesson-video-tools-bar">
+              <div className="seg" role="group" aria-label="Speed">
+                {SPEEDS.slice().sort((x, y) => x - y).map(r => (
+                  <button key={r} className="btn sm" aria-pressed={rate === r} onClick={() => setSpeed(r)}>
+                    {speedLabel(r)}
+                  </button>
+                ))}
+              </div>
+              <button className="btn sm" onClick={() => { if (el.current) el.current.currentTime = Math.max(0, now() - 5) }}>−5s</button>
+              <button className="btn sm" onClick={() => { if (el.current) el.current.currentTime = now() + 5 }}>+5s</button>
+              <button className={`btn sm${a !== null ? ' set' : ''}`} onClick={() => { setA(now()); if (b !== null && b <= now()) setB(null) }}>
+                A{a !== null ? ` ${fmt(a)}` : ''}
+              </button>
+              <button className={`btn sm${b !== null ? ' set' : ''}`} disabled={a === null} onClick={() => { const t = now(); if (a !== null && t > a) { setB(t); setLoop(true) } }}>
+                B{b !== null ? ` ${fmt(b)}` : ''}
+              </button>
+              <button className="btn sm" aria-pressed={loop} disabled={a === null || b === null} onClick={() => setLoop(l => !l)}>Loop</button>
+              {(a !== null || b !== null) && (
+                <button className="btn sm" onClick={() => { setA(null); setB(null); setLoop(false) }} aria-label="Clear loop">✕</button>
+              )}
+              <button className="btn sm" aria-pressed={mirror} onClick={() => setMirror(m => !m)} title="Flip the picture so the teacher's hands match yours">
+                Mirror
+              </button>
             </div>
-            <button className="btn sm" onClick={() => { if (el.current) el.current.currentTime = Math.max(0, now() - 5) }}>−5s</button>
-            <button className="btn sm" onClick={() => { if (el.current) el.current.currentTime = now() + 5 }}>+5s</button>
-            <button className={`btn sm${a !== null ? ' set' : ''}`} onClick={() => { setA(now()); if (b !== null && b <= now()) setB(null) }}>
-              A{a !== null ? ` ${fmt(a)}` : ''}
-            </button>
-            <button className={`btn sm${b !== null ? ' set' : ''}`} disabled={a === null} onClick={() => { const t = now(); if (a !== null && t > a) { setB(t); setLoop(true) } }}>
-              B{b !== null ? ` ${fmt(b)}` : ''}
-            </button>
-            <button className="btn sm" aria-pressed={loop} disabled={a === null || b === null} onClick={() => setLoop(l => !l)}>Loop</button>
-            {(a !== null || b !== null) && (
-              <button className="btn sm" onClick={() => { setA(null); setB(null); setLoop(false) }} aria-label="Clear loop">✕</button>
-            )}
-            <button className="btn sm" aria-pressed={mirror} onClick={() => setMirror(m => !m)} title="Flip the picture so the teacher's hands match yours">
-              Mirror
-            </button>
-          </div>
+          )}
 
           {isFloating && (
             <div
               className="fc-size"
               onPointerDown={e => startFloatDrag(e, 'size')}
-              title="Drag to resize video player"
+              title="Drag sideways or down to resize floating video (even up to full screen)"
               aria-label="Drag to resize"
               role="separator"
               data-testid="float-video-resize-handle"

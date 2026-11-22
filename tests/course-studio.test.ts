@@ -7,6 +7,7 @@ import {
   setPinnedPage,
   type CourseMap,
 } from '../src/lessons/courseMap'
+import { detectVideoSignature } from '../src/lessons/mpegtsFallback'
 import type { Folder, LFile } from '../src/lessons/folders'
 
 // Mock localStorage in Node test env
@@ -149,4 +150,44 @@ const mkFile = (path: string, mime = 'application/octet-stream'): LFile => ({
   assert.equal(getLessonNote(uri).note, 'Clean on bar 4')
 }
 
-console.log('course studio map & persistence: ok')
+// 4. Local video container signature detection (Roy Ziv MPEG-TS disguised as .mp4, M2TS, MP4/MOV, MKV, AVI)
+{
+  // Standard 188-byte MPEG-TS at offset 0 (Roy Ziv Modes Navigator style)
+  const ts = new Uint8Array(600)
+  ts[0] = 0x47
+  ts[188] = 0x47
+  ts[376] = 0x47
+  assert.equal(detectVideoSignature(ts).kind, 'mpegts')
+
+  // Offset MPEG-TS (e.g. after 64 bytes of ID3/padding)
+  const tsOff = new Uint8Array(600)
+  tsOff[64] = 0x47
+  tsOff[64 + 188] = 0x47
+  tsOff[64 + 376] = 0x47
+  assert.equal(detectVideoSignature(tsOff).kind, 'mpegts')
+
+  // 192-byte Blu-ray / camcorder M2TS (4-byte timestamp + 0x47 sync byte)
+  const m2ts = new Uint8Array(600)
+  m2ts[4] = 0x47
+  m2ts[4 + 192] = 0x47
+  m2ts[4 + 384] = 0x47
+  assert.equal(detectVideoSignature(m2ts).kind, 'm2ts')
+
+  // Standard ISO MP4 (ftypisom)
+  const mp4 = new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0])
+  assert.deepEqual(detectVideoSignature(mp4), { kind: 'mp4', brand: 'isom' })
+
+  // QuickTime MOV (ftypqt  )
+  const mov = new Uint8Array([0, 0, 0, 20, 0x66, 0x74, 0x79, 0x70, 0x71, 0x74, 0x20, 0x20, 0, 0, 0, 0])
+  assert.deepEqual(detectVideoSignature(mov), { kind: 'mp4', brand: 'qt' })
+
+  // Matroska MKV (EBML header)
+  const mkv = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0x9f, 0x42])
+  assert.equal(detectVideoSignature(mkv).kind, 'mkv')
+
+  // RIFF AVI
+  const avi = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x41, 0x56, 0x49, 0x20])
+  assert.equal(detectVideoSignature(avi).kind, 'avi')
+}
+
+console.log('course studio map, persistence & video signature detection: ok')
