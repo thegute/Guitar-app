@@ -567,7 +567,8 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   // Solo over it = floating cards: while the band plays, the chord now & next (with a countdown) and the mini neck with the
   // best scale to solo with over this progression (the old Solo over it page's pick), at the band's tempo
   useEffect(() => {
-    const on = playing && page === 'jam'
+    if (page !== 'jam') return
+    const on = playing
     setFloatResting('jam', !on)
     if (!on) return
     publishFloat('jam', {
@@ -606,6 +607,17 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
     load(chords.map(c => spell(root, m, { semi: (pc(c.root) - pc(root) + 12) % 12, type: c.q })).map(c => ({ ...c, beats: rate })))
     setPage('jam')
   }
+  useEffect(() => {
+    const onVibe = (e: Event) => {
+      const d = (e as CustomEvent<{ root: string; minor: boolean; bpm?: number; chords: { root: string; q: Quality }[] }>).detail
+      if (!d) return
+      if (d.bpm && d.bpm >= 40 && d.bpm <= 220) setBpm(Math.round(d.bpm))
+      if (d.chords.length) takeFound(d.root, d.minor, d.chords)
+      else { setTonic(d.root); setMode(d.minor ? 'minor' : 'major'); setPage('jam') }
+    }
+    window.addEventListener('kg-jam-vibe', onVibe)
+    return () => window.removeEventListener('kg-jam-vibe', onVibe)
+  })
   return (
     <div className={`stack jam${playing ? ' playing' : ''}`} style={{ ['--beat' as string]: `${(60 / bpm).toFixed(3)}s` }}>
       <header className="screen-head jam-head">

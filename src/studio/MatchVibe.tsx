@@ -8,7 +8,13 @@ import { usePersist } from '../components/Controls'
 import { ChordList } from '../components/ChordName'
 import { Ico } from '../components/Icon'
 import { YouTubePlayer } from '../components/YouTubePlayer'
+import { addCardInstance, publishFloat, setFloatResting, shownCards } from '../float/bus'
+import { pocketEngine } from '../float/PocketBandCard'
+import { useInstrument } from '../instrument'
+import { openLicksInKey } from '../nav'
 import { startGrab, type GrabSession } from '../scan/grab'
+import { SHARPS, keyPrefersFlats } from '../theory/notes'
+import { scaleInfo } from '../theory/scales'
 import type { Beat } from './beat'
 import { decodeFile } from './GetSound'
 import { describeVibe, readVibe, vibeBeat, type Vibe } from './vibe'
@@ -32,7 +38,13 @@ function prepare(chans: Float32Array[], sr: number): { x: Float32Array; sr: numb
   return { x: out, sr: sr / 2 }
 }
 
-export function MatchVibe({ beat, setBeat, playing, play, stop }: { beat: Beat; setBeat: SetBeat; playing: boolean; play: () => void; stop: () => void }) {
+export function MatchVibe({
+  beat, setBeat, playing, play, stop, onDone, onLeave,
+}: {
+  beat: Beat; setBeat: SetBeat; playing: boolean; play: () => void; stop: () => void
+  onDone?: () => void; onLeave?: () => void
+}) {
+  const inst = useInstrument()
   const [vibe, setVibe] = usePersist<Vibe | null>('studioVibe', null)
   const [vibeName, setVibeName] = usePersist('studioVibeName', '')
   const [close, setClose] = usePersist('studioVibeClose', 0.75)
@@ -106,6 +118,69 @@ export function MatchVibe({ beat, setBeat, playing, play, stop }: { beat: Beat; 
   }
   const putBack = () => { if (before.current) { setBeat(before.current, true); before.current = null; applied.current = false; setMsg('Your beat is back.') } }
 
+  /** Push the detected key, chords, and tempo into Pocket Band & the floating context. */
+  const syncVibeToFloat = (v: Vibe) => {
+    const root = v.key?.root ?? beat.key ?? 'A'
+    const minor = v.key ? v.key.minor : beat.minor
+    const chordNames = v.chords.length ? v.chords.map(c => c.name) : [root + (minor ? 'm' : '')]
+    pocketEngine.set({
+      bpm: v.bpm,
+      root,
+      quality: minor ? 'min' : 'maj',
+      mode: v.chords.length > 1 ? 'prog' : 'drone',
+      chords: chordNames,
+      drumSource: 'beatmaker',
+      grooveId: v.nearest,
+    })
+    setFloatResting('studio', false)
+    publishFloat('studio', {
+      title: vibeName || 'Song vibe',
+      keyName: `${root} ${minor ? 'minor' : 'major'}`,
+      keyPcs: scaleInfo(root, minor ? 'minor' : 'major').pcs,
+      chordNow: chordNames[0],
+      chordNext: chordNames[1] ?? chordNames[0],
+      bpm: v.bpm,
+      tuning: inst.midis,
+      flats: keyPrefersFlats(root, minor),
+    })
+  }
+  const openFloatJam = (mode: 'fretboard' | 'band') => {
+    if (!vibe) return
+    syncVibeToFloat(vibe)
+    try { localStorage.setItem('kg:floatNeck5Layer', '1') } catch { /* private */ }
+    const openNow = shownCards('studio')
+    if (!openNow.includes('neck')) addCardInstance('studio', 'neck')
+    if (mode === 'fretboard' && !openNow.includes('licks')) addCardInstance('studio', 'licks')
+    if (mode === 'band' && !openNow.includes('band')) addCardInstance('studio', 'band')
+    setMsg(mode === 'band' ? 'Loaded into Pocket Band & 5-Layer Fretboard!' : '5-Layer Fretboard & Licks locked to this song’s vibe!')
+    onDone?.()
+  }
+  const sendToJam = () => {
+    if (!vibe) return
+    if (playing) stop()
+    const root = vibe.key?.root ?? beat.key ?? 'A'
+    const minor = vibe.key ? vibe.key.minor : beat.minor
+    onLeave?.()
+    onDone?.()
+    window.dispatchEvent(new CustomEvent('kg-jam-vibe', {
+      detail: {
+        root,
+        minor,
+        bpm: vibe.bpm,
+        chords: vibe.chords.map(c => ({ root: SHARPS[c.root] ?? 'C', q: c.q })),
+      },
+    }))
+  }
+  const openProLicks = () => {
+    if (!vibe) return
+    const root = vibe.key?.root ?? beat.key ?? 'A'
+    const minor = vibe.key ? vibe.key.minor : beat.minor
+    if (playing) stop()
+    onLeave?.()
+    onDone?.()
+    openLicksInKey(root, minor)
+  }
+
   return (
     <div className="stack vibe" style={{ gap: 10 }} data-testid="vibe">
       {listen ? (
@@ -143,6 +218,12 @@ export function MatchVibe({ beat, setBeat, playing, play, stop }: { beat: Beat; 
           <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <button className={`btn primary${playing ? ' on' : ''}`} onClick={() => (playing ? stop() : play())} data-testid="vibe-play">{playing ? <><Ico n="stop" fill /> Stop</> : <><Ico n="play" fill /> Hear the new beat</>}</button>
             <button className="btn" onClick={() => change({ seed: seed + 1 })} data-testid="vibe-reroll"><Ico n="shuffle" /> Reroll</button>
+          </div>
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }} data-testid="vibe-jam-actions">
+            <button className="btn sm" onClick={() => openFloatJam('fretboard')} data-testid="vibe-jam-float"><Ico n="layers" /> Fretboard &amp; Licks</button>
+            <button className="btn sm" onClick={() => openFloatJam('band')} data-testid="vibe-to-band"><Ico n="disc" /> Pocket Band</button>
+            <button className="btn sm" onClick={sendToJam} data-testid="vibe-to-jam"><Ico n="drum" /> Send to Jam</button>
+            {vibe.key && <button className="btn sm ghost" onClick={openProLicks} data-testid="vibe-licks"><Ico n="sparkles" /> Pro Licks in {vibe.key.root}{vibe.key.minor ? 'm' : ''}</button>}
           </div>
           <label className="field vibe-close"><span>How close? <span className="muted small">{close < 0.35 ? 'loose: borrows from a known groove' : close > 0.8 ? 'close: as heard' : 'in between'}</span></span>
             <span className="row" style={{ gap: 6, alignItems: 'center' }}>

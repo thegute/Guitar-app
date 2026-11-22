@@ -13,7 +13,8 @@ import { BeatLight } from './BeatLight'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { haptic, quietForMic } from '../audio/tapFeel'
-import { Ico } from '../components/Icon'
+import { Ico, type IconName } from '../components/Icon'
+import { clearFloat, publishFloat, setFloatResting, setFloatScreen, setShownInstances, toggleCard, useShownInstances, type CardId } from '../float/bus'
 import { audio } from '../audio/engine'
 import { KITS, kitInfo, prepareKit, type KitId, type Voice } from '../audio/drums'
 import { InputRecorder } from '../audio/looper'
@@ -92,6 +93,28 @@ export function StudioScreen({ active }: { active: boolean }) {
       return b
     })
   }, [])
+  const guitar = useInstrument()
+  useEffect(() => {
+    if (!active) return
+    setFloatScreen('studio')
+    setFloatResting('studio', false)
+    return () => { setFloatScreen('jam'); clearFloat('studio') }
+  }, [active])
+  useEffect(() => {
+    if (!active) return
+    const chords = beatChords(beat)
+    const keyLabel = `${beat.key} ${beat.minor ? 'minor' : 'major'}`
+    publishFloat('studio', {
+      title: beat.name || 'Beat maker',
+      keyName: keyLabel,
+      keyPcs: scaleInfo(beat.key, beat.minor ? 'minor' : 'major').pcs,
+      chordNow: chords[0]?.name ?? `${beat.key}${beat.minor ? 'm' : ''}`,
+      chordNext: chords[1]?.name,
+      bpm: beat.bpm,
+      tuning: guitar.midis,
+      flats: keyPrefersFlats(beat.key, beat.minor),
+    })
+  }, [active, beat, guitar.midis])
   useEffect(() => { tr().setBeat(beat); const id = setTimeout(() => saveBeat(beat), 300); return () => clearTimeout(id) }, [beat]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => onBeatChange(b => setBeat(b)), [setBeat])
   useEffect(() => { void prepareKit(beat.kit) }, [beat.kit])
@@ -1366,7 +1389,8 @@ function Cockpit(p: CockpitProps) {
   const [all, setAll] = usePersist('studioCkAll', false)
   const [muteMode, setMuteMode] = useState(false)
   const [help, setHelp] = useState(false)
-  const [sheet, setSheet] = useState<null | 'mix' | 'fx' | 'save' | 'more' | 'layers' | 'song' | 'vibe'>(null)
+  const [sheet, setSheet] = useState<null | 'mix' | 'fx' | 'save' | 'more' | 'layers' | 'song' | 'vibe' | 'float'>(null)
+  const openFloaters = useShownInstances('studio').filter(x => x.kind !== 'hand')
   const [w, setW] = useState(typeof innerWidth === 'number' ? innerWidth : 800)
   useEffect(() => { const f = () => setW(innerWidth); addEventListener('resize', f); return () => removeEventListener('resize', f) }, [])
   const narrow = w < 600
@@ -1406,8 +1430,45 @@ function Cockpit(p: CockpitProps) {
       <div className="ck-scroll">{all ? <Steps beat={beat} setBeat={setBeat} t={t} /> : <FocusSteps beat={beat} setBeat={setBeat} t={t} voice={sel} />}</div>
     </section>
   )
-  const sheetBody = sheet === 'mix' ? p.mixEl : sheet === 'fx' ? <FxPad t={t} playing={playing} play={p.play} /> : sheet === 'save' ? p.saveEl : sheet === 'layers' ? <Layers beat={beat} setBeat={setBeat} /> : sheet === 'song' ? <SongSheet beat={beat} setBeat={setBeat} /> : sheet === 'vibe' ? <MatchVibe beat={beat} setBeat={setBeat} playing={playing} play={() => p.play()} stop={p.stop} /> : sheet === 'more' ? p.more : null
-  const sheetTitle = { mix: 'Mix', fx: 'Effects pad', save: 'Bounce and save', layers: 'Drum layers', song: 'Song', more: 'More settings', vibe: "Match a song's vibe" }
+  const ckFloatTools: { id: CardId; label: string; icon: IconName; hint: string }[] = [
+    { id: 'neck', label: '5-Layer Fretboard', icon: 'layers', hint: `Shows ${beat.key}${beat.minor ? ' minor' : ' major'} shapes, triads & scales live` },
+    { id: 'licks', label: 'Licks & Fills', icon: 'sparkles', hint: `Pro licks & fills transposed to ${beat.key}${beat.minor ? 'm' : ''}` },
+    { id: 'circle', label: 'Circle & Key Sheet', icon: 'music', hint: 'Tap chords in key or explore the Circle of Fifths' },
+    { id: 'band', label: 'Pocket Band & Drone', icon: 'disc', hint: 'Chord drone, studio bass & Sound Pack backing' },
+    { id: 'tuner', label: 'Quick tuner', icon: 'guitar', hint: 'Check your tuning without leaving the Cockpit' },
+    { id: 'note', label: 'Sticky Note', icon: 'file', hint: 'Jot down riff ideas or chord notes for this beat' },
+    { id: 'book', label: 'Book & Tab Ref', icon: 'book', hint: 'Float a book page or tab picture over your beat' },
+  ]
+  const toggleCkFloat = (id: CardId) => {
+    if (id === 'neck') try { localStorage.setItem('kg:floatNeck5Layer', '1') } catch { /* private */ }
+    setFloatResting('studio', false)
+    toggleCard('studio', id)
+    setSheet(null)
+  }
+  const floatSheet = (
+    <div className="stack" style={{ gap: 8 }} data-testid="ck-float-sheet">
+      <p className="small muted" style={{ margin: 0 }}>
+        Pop any guitar tool right on top of the Cockpit — locked to <b>{beat.key}{beat.minor ? ' minor' : ' major'}</b> at <b>{beat.bpm} BPM</b>.
+      </p>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+        {ckFloatTools.map(tool => {
+          const isOn = openFloaters.some(x => x.kind === tool.id)
+          return (
+            <button key={tool.id} className={`btn sm${isOn ? ' on' : ''}`} aria-pressed={isOn} onClick={() => toggleCkFloat(tool.id)} title={tool.hint} data-testid={`ck-float-${tool.id}`}>
+              <Ico n={tool.icon} /> {tool.label}
+            </button>
+          )
+        })}
+      </div>
+      {openFloaters.length > 0 && (
+        <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => { setShownInstances('studio', []); setSheet(null) }} data-testid="ck-float-clear">
+          Hide all floating cards ({openFloaters.length})
+        </button>
+      )}
+    </div>
+  )
+  const sheetBody = sheet === 'mix' ? p.mixEl : sheet === 'fx' ? <FxPad t={t} playing={playing} play={p.play} /> : sheet === 'save' ? p.saveEl : sheet === 'layers' ? <Layers beat={beat} setBeat={setBeat} /> : sheet === 'song' ? <SongSheet beat={beat} setBeat={setBeat} /> : sheet === 'vibe' ? <MatchVibe beat={beat} setBeat={setBeat} playing={playing} play={() => p.play()} stop={p.stop} onDone={() => setSheet(null)} onLeave={p.onLeave} /> : sheet === 'float' ? floatSheet : sheet === 'more' ? p.more : null
+  const sheetTitle = { mix: 'Mix', fx: 'Effects pad', save: 'Bounce and save', layers: 'Drum layers', song: 'Song', more: 'More settings', vibe: "Match a song's vibe", float: 'Floating guitar tools' }
   return createPortal(
     <div className={`ck${narrow ? ' narrow' : ''}${help ? ' help' : ''}`} role="region" aria-label="Beat maker cockpit" data-testid="cockpit">
       <header className="ck-top">
@@ -1423,6 +1484,7 @@ function Cockpit(p: CockpitProps) {
         <span className="st-spacer" />
         <button className="btn sm" onClick={p.undo} disabled={!p.canUndo} aria-label="Undo" title="Undo">↶</button>
         <button className="btn sm" onClick={p.redo} disabled={!p.canRedo} aria-label="Redo" title="Redo">↷</button>
+        <button className={`btn sm${sheet === 'float' || openFloaters.length > 0 ? ' on' : ''}`} onClick={() => setSheet(sheet === 'float' ? null : 'float')} data-testid="ck-float" title="Open floating 5-Layer Fretboard, Licks, Circle or Tuner over the Cockpit" aria-label="Floating guitar tools"><Ico n="layers" />{!narrow && ' Float'}{openFloaters.length > 0 ? ` (${openFloaters.length})` : ''}</button>
         <button className={`btn sm${sheet === 'vibe' ? ' on' : ''}`} onClick={() => setSheet(sheet === 'vibe' ? null : 'vibe')} data-testid="ck-vibe" title="Make a beat with a song's feel" aria-label="Song vibe: make a beat with a song's feel"><Ico n="film" />{!narrow && ' Song vibe'}</button>
         <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')} aria-label="Ideas"><Ico n="sparkles" />{!narrow && ' Ideas'}</button>
         <button className={`btn sm${help ? ' on' : ''}`} aria-pressed={help} onClick={() => setHelp(!help)} aria-label="Show what everything does" title="Show what everything does">?</button>
@@ -1441,7 +1503,7 @@ function Cockpit(p: CockpitProps) {
       {sheet && (
         <div className="ck-sheet" role="dialog" aria-label={sheetTitle[sheet]} data-testid="ck-sheet">
           <div className="ck-head"><b>{sheetTitle[sheet]}</b><span className="st-spacer" /><button className="btn sm" onClick={() => setSheet(null)}>Done</button></div>
-          <div className="ck-scroll">{sheet === 'vibe' ? sheetBody : <WinArea area={`studioCk-${sheet}`}>{sheetBody}</WinArea>}</div>
+          <div className="ck-scroll">{sheet === 'vibe' || sheet === 'float' ? sheetBody : <WinArea area={`studioCk-${sheet}`}>{sheetBody}</WinArea>}</div>
         </div>
       )}
     </div>,
