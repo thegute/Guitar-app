@@ -47,6 +47,7 @@ import { saveSample } from './padSamples'
 import { PadEditor } from './PadEditor'
 import { ChopSheet } from './ChopSheet'
 import { GetSound } from './GetSound'
+import { MatchVibe } from './MatchVibe'
 import { applyMicFx, MIC_FX_KEY, type MicFx } from './micFx'
 import { MicFxPicker } from './MicFxPicker'
 /** the mic effect chosen now (read when a recording is kept) */
@@ -197,6 +198,7 @@ export function StudioScreen({ active }: { active: boolean }) {
 
   // the cockpit (full screen) is the beat maker's main layout; Leave goes back to the windows
   const [cockpit, setCockpit] = usePersist('studioCockpit', true)
+  const [vibeOpen, setVibeOpen] = useState(false)
   const wide = width >= 720
   const flats = keyPrefersFlats(beat.key, beat.minor)
   const header = (
@@ -210,6 +212,7 @@ export function StudioScreen({ active }: { active: boolean }) {
         <RigChip />
         <button className="btn sm" onClick={undo} disabled={!history.current.length} aria-label="Undo" title="Undo">↶</button>
         <button className="btn sm" onClick={redo} disabled={!future.current.length} aria-label="Redo" title="Redo">↷</button>
+        <button className="btn sm" onClick={() => setVibeOpen(true)} data-testid="st-vibe"><Ico n="film" /> Song vibe</button>
         <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')}><Ico n="sparkles" /> Ideas</button>
         {!cockpit && active && <button className="btn sm" onClick={() => setCockpit(true)} data-testid="st-cockpit"><Ico n="expand" /> Full screen</button>}
       </div>
@@ -315,6 +318,14 @@ export function StudioScreen({ active }: { active: boolean }) {
   )
   return (
     <div className="stack studio" style={{ gap: 10 }} ref={box}>
+      {vibeOpen && (
+        <div className="sheet-backdrop" onClick={() => setVibeOpen(false)}>
+          <div className="sheet" role="dialog" aria-modal="true" aria-label="Match a song's vibe" onClick={e => e.stopPropagation()}>
+            <div className="sheet-head"><h2>Match a song's vibe</h2><button className="btn sm" onClick={() => setVibeOpen(false)}>Close</button></div>
+            <MatchVibe beat={beat} setBeat={setBeat} playing={playing} play={() => play()} stop={stop} />
+          </div>
+        </div>
+      )}
       <WinArea area="studio" className={`st-wins${wide ? ' wide' : ''}`} defaultHidden={['steps', 'roll', 'mix', 'practice']}>
         {header}
         {pads}
@@ -1355,7 +1366,7 @@ function Cockpit(p: CockpitProps) {
   const [all, setAll] = usePersist('studioCkAll', false)
   const [muteMode, setMuteMode] = useState(false)
   const [help, setHelp] = useState(false)
-  const [sheet, setSheet] = useState<null | 'mix' | 'fx' | 'save' | 'more' | 'layers' | 'song'>(null)
+  const [sheet, setSheet] = useState<null | 'mix' | 'fx' | 'save' | 'more' | 'layers' | 'song' | 'vibe'>(null)
   const [w, setW] = useState(typeof innerWidth === 'number' ? innerWidth : 800)
   useEffect(() => { const f = () => setW(innerWidth); addEventListener('resize', f); return () => removeEventListener('resize', f) }, [])
   const narrow = w < 600
@@ -1395,8 +1406,8 @@ function Cockpit(p: CockpitProps) {
       <div className="ck-scroll">{all ? <Steps beat={beat} setBeat={setBeat} t={t} /> : <FocusSteps beat={beat} setBeat={setBeat} t={t} voice={sel} />}</div>
     </section>
   )
-  const sheetBody = sheet === 'mix' ? p.mixEl : sheet === 'fx' ? <FxPad t={t} playing={playing} play={p.play} /> : sheet === 'save' ? p.saveEl : sheet === 'layers' ? <Layers beat={beat} setBeat={setBeat} /> : sheet === 'song' ? <SongSheet beat={beat} setBeat={setBeat} /> : sheet === 'more' ? p.more : null
-  const sheetTitle = { mix: 'Mix', fx: 'Effects pad', save: 'Bounce and save', layers: 'Drum layers', song: 'Song', more: 'More settings' }
+  const sheetBody = sheet === 'mix' ? p.mixEl : sheet === 'fx' ? <FxPad t={t} playing={playing} play={p.play} /> : sheet === 'save' ? p.saveEl : sheet === 'layers' ? <Layers beat={beat} setBeat={setBeat} /> : sheet === 'song' ? <SongSheet beat={beat} setBeat={setBeat} /> : sheet === 'vibe' ? <MatchVibe beat={beat} setBeat={setBeat} playing={playing} play={() => p.play()} stop={p.stop} /> : sheet === 'more' ? p.more : null
+  const sheetTitle = { mix: 'Mix', fx: 'Effects pad', save: 'Bounce and save', layers: 'Drum layers', song: 'Song', more: 'More settings', vibe: "Match a song's vibe" }
   return createPortal(
     <div className={`ck${narrow ? ' narrow' : ''}${help ? ' help' : ''}`} role="region" aria-label="Beat maker cockpit" data-testid="cockpit">
       <header className="ck-top">
@@ -1412,7 +1423,8 @@ function Cockpit(p: CockpitProps) {
         <span className="st-spacer" />
         <button className="btn sm" onClick={p.undo} disabled={!p.canUndo} aria-label="Undo" title="Undo">↶</button>
         <button className="btn sm" onClick={p.redo} disabled={!p.canRedo} aria-label="Redo" title="Redo">↷</button>
-        <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')}><Ico n="sparkles" /> Ideas</button>
+        <button className={`btn sm${sheet === 'vibe' ? ' on' : ''}`} onClick={() => setSheet(sheet === 'vibe' ? null : 'vibe')} data-testid="ck-vibe" title="Make a beat with a song's feel" aria-label="Song vibe: make a beat with a song's feel"><Ico n="film" />{!narrow && ' Song vibe'}</button>
+        <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')} aria-label="Ideas"><Ico n="sparkles" />{!narrow && ' Ideas'}</button>
         <button className={`btn sm${help ? ' on' : ''}`} aria-pressed={help} onClick={() => setHelp(!help)} aria-label="Show what everything does" title="Show what everything does">?</button>
         <button className="btn sm" onClick={() => setSheet('more')} aria-label="More settings: style, kit, key, bars, swing, save">⋯</button>
         <button className="btn sm" onClick={p.onLeave} data-testid="ck-leave" title="Back to the windows layout"><Ico n="expand" /> Leave</button>
@@ -1429,7 +1441,7 @@ function Cockpit(p: CockpitProps) {
       {sheet && (
         <div className="ck-sheet" role="dialog" aria-label={sheetTitle[sheet]} data-testid="ck-sheet">
           <div className="ck-head"><b>{sheetTitle[sheet]}</b><span className="st-spacer" /><button className="btn sm" onClick={() => setSheet(null)}>Done</button></div>
-          <div className="ck-scroll"><WinArea area={`studioCk-${sheet}`}>{sheetBody}</WinArea></div>
+          <div className="ck-scroll">{sheet === 'vibe' ? sheetBody : <WinArea area={`studioCk-${sheet}`}>{sheetBody}</WinArea>}</div>
         </div>
       )}
     </div>,

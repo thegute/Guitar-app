@@ -3699,3 +3699,7 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
 .ck .st-pads { grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .ck .st-pads .st-pad, .ck .st-pads .st-pad.big { grid-column: auto; height: auto; aspect-ratio: 1 / 0.78; min-height: 52px; margin: 0; font-size: 15px; }
 .ck .ck-step-help { color: var(--ink-2); }
+
+/* Match a song's vibe */
+.vibe-card { display: flex; flex-direction: column; gap: 4px; padding: var(--sp-3, 12px); border-radius: var(--r-md, 12px); background: var(--surface); border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent); }
+.vibe-close { width: 100%; }
