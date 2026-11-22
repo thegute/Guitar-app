@@ -107,7 +107,7 @@ const STRING_SET_KEYS = new Set([
   'kg:exFavs', 'kg:lickFavs', 'kg:bookFavs',
 ])
 const MAX_NUMBER_MAP_KEYS = new Set([
-  'kg:circleMastery', 'kg:changesBest', 'kg:targetBest', 'kg:fillsBest', 'kg:exBest',
+  'kg:circleMastery', 'kg:cagedWarmupDone', 'kg:changesBest', 'kg:targetBest', 'kg:fillsBest', 'kg:exBest',
 ])
 
 function mergeStringSet(aRaw: string | undefined, bRaw: string | undefined): string {

@@ -18,11 +18,13 @@ import { Win, WinArea } from '../components/Win'
 import { LayerNeck } from '../components/LayerNeck'
 import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
 import { BooksWin } from '../books/BooksWin'
+import { CagedWarmup } from './CagedWarmupView'
 
 type Overlay = 'chord' | 'arp' | 'penta' | 'scale' | 'triads'
 const IV = ['R', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7']
 
 export function CagedExplorer({ inst, onExit, onQuiz }: { inst: Instrument; onExit: () => void; onQuiz: (id: string) => void }) {
+  const [mode, setMode] = usePersist<'explore' | 'warmup'>('cagedMode', 'explore')
   const [root, setRoot] = usePersist('cagedRoot', 'C')
   const [minor, setMinor] = usePersist('cagedMinor', false)
   const [sel, setSel] = usePersist<string>('cagedShape', 'all')
@@ -90,11 +92,23 @@ export function CagedExplorer({ inst, onExit, onQuiz }: { inst: Instrument; onEx
 
   return (
     <div className="stack">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
+      <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <button className="btn sm" onClick={onExit}>← Back</button>
+        <div className="seg" role="tablist" aria-label="CAGED mode">
+          <button className="btn sm" role="tab" aria-selected={mode === 'explore'} aria-pressed={mode === 'explore'} onClick={() => setMode('explore')} data-testid="caged-tab-explore">
+            🧭 Explore Shapes
+          </button>
+          <button className="btn sm" role="tab" aria-selected={mode === 'warmup'} aria-pressed={mode === 'warmup'} onClick={() => setMode('warmup')} data-testid="caged-tab-warmup">
+            🔥 Daily Warmup (5 Steps)
+          </button>
+        </div>
         <button className="btn sm" onClick={() => onQuiz('caged-name')}>Quiz me</button>
       </div>
-      <h2 style={{ margin: 0 }}>{sys} explorer</h2>
+      <h2 style={{ margin: 0 }}>{sys} {mode === 'warmup' ? 'daily warmup' : 'explorer'}</h2>
+      {mode === 'warmup' ? (
+        <CagedWarmup inst={inst} root={root} setRoot={setRoot} minor={minor} setMinor={setMinor} />
+      ) : (
+      <>
       <p className="small muted" style={{ margin: 0 }}>
         The five open-chord shapes ({inst.shapeSystem.join(', ')}) can be moved up the neck to play any chord. Placed one after another they cover the
         whole fretboard, always in the order {sys}, and each one hands over to the next on shared notes. Learn the shapes and you can play any chord
@@ -145,7 +159,8 @@ export function CagedExplorer({ inst, onExit, onQuiz }: { inst: Instrument; onEx
         <CagedVoice root={r} minor={minor} inst={inst} />
       </Win>
       <Win id="practise-it" title="Practise it" bodyClass="stack">
-        <div className="row">
+        <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+          <button className="btn primary" onClick={() => setMode('warmup')}>🔥 Open 5-Step Daily Warmup</button>
           <button className="btn" onClick={() => onQuiz('caged-name')}>Which shape is this?</button>
           <button className="btn" onClick={() => onQuiz('caged-where')}>Play it with this shape</button>
           <button className="btn" onClick={() => onQuiz('caged-order')}>The order up the neck</button>
@@ -154,6 +169,8 @@ export function CagedExplorer({ inst, onExit, onQuiz }: { inst: Instrument; onEx
       </Win>
       <BooksWin topics={['caged', 'triads', 'fretboard-notes']} />
       </WinArea>
+      </>
+      )}
     </div>
   )
 }
