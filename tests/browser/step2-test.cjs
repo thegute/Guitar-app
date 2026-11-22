@@ -137,7 +137,7 @@ E|-3---------|-----------|`
     return page
   }
   // a dark video frame: a "face cam" box up top, a small white-on-black tab strip near the bottom
-  const DRAW = `(ctx, W, H, shift) => {
+  const DRAW = `(ctx, W, H, shift, smudge) => {
     ctx.fillStyle = '#111'; ctx.fillRect(0, 0, W, H)
     ctx.fillStyle = '#6a4a3a'; ctx.fillRect(W * 0.3, 40, W * 0.4, H * 0.45)
     const gap = 9, y0 = H - 100, x0 = 30
@@ -151,6 +151,7 @@ E|-3---------|-----------|`
       const w = ctx.measureText(f).width
       ctx.fillStyle = '#111'; ctx.fillRect(x - 2, y0 + s * gap - 6, w + 4, 12)
       ctx.fillStyle = '#fff'; ctx.fillText(f, x, y0 + s * gap)
+      if (smudge && smudge.includes(i)) { ctx.fillStyle = '#111'; ctx.fillRect(x - 2, y0 + s * gap - 6, 14, 12); ctx.fillStyle = '#fff'; ctx.filter = 'blur(1.6px)'; ctx.globalAlpha = 0.75; ctx.fillText(f === '3' ? '8' : f, x, y0 + s * gap); ctx.fillText(f === '6' ? '5' : f === '8' ? '3' : '6', x + 1, y0 + s * gap); ctx.filter = 'none'; ctx.globalAlpha = 1 }
       if (i % 8 === 0) { ctx.fillRect(x - 8, y0, 1, gap * 5) }
     }
   }`
@@ -189,12 +190,14 @@ E|-3---------|-----------|`
       // "Check it in the picture": one window that follows the picked note to its spot in the original picture
       await page.locator('[data-testid=scan-result] .tab-note').nth(3).click()
       await page.waitForSelector('[data-testid=scan-source]', { timeout: 3000 }).catch(() => bad(`${vp.n}: no "Check it in the picture" window after tapping a note`))
-      const at1 = await page.locator('[data-testid=scan-source-ring]').evaluate(e => e.style.left).catch(() => '')
+      const at1 = await page.locator('[data-testid=scan-source-view]').evaluate(e => String(e.scrollLeft)).catch(() => '')
       await page.locator('[data-testid=scan-result] .tab-note').nth(12).click()
       await page.waitForTimeout(200)
       const n = await page.locator('[data-testid=scan-source]').count()
-      const at2 = await page.locator('[data-testid=scan-source-ring]').evaluate(e => e.style.left).catch(() => '')
-      console.log(`${vp.n}: picture window ×${n}, ring ${at1} → ${at2}`)
+      const at2 = await page.locator('[data-testid=scan-source-view]').evaluate(e => String(e.scrollLeft)).catch(() => '')
+      const rings = await page.locator('[data-testid=scan-source-ring]').count()
+      if (rings > 1) bad(`${vp.n}: ${rings} boxes in the picture (should be at most one)`)
+      console.log(`${vp.n}: picture window ×${n}, view ${at1} → ${at2}`)
       if (n !== 1) bad(`${vp.n}: expected one picture window, found ${n}`)
       if (!at1 || at1 === at2) bad(`${vp.n}: the picture window didn't follow the next note (${at1} → ${at2})`)
       await page.screenshot({ path: `${DIR}/step2-scan-picture-${vp.n}.png` })
@@ -208,6 +211,41 @@ E|-3---------|-----------|`
     const notes = await page.locator('.tab-note').count()
     console.log(`${vp.n}: opened in Play with ${notes} notes`)
     if (page.errors.length) bad(`${vp.n} scan errors: ${page.errors.join(' | ')}`)
+    await page.context().close()
+  }
+
+  if (want('scanred')) {
+    // smudged numbers come back unsure: the picture window puts ONE red box on the unsure note you're on, and moves it with you
+    const page = await aiPage({ width: 840, height: 757 })
+    await page.waitForSelector('[data-testid=riff-scanner]')
+    const png = await page.evaluate(draw => { const c = document.createElement('canvas'); c.width = 1280; c.height = 720; eval(draw)(c.getContext('2d'), 1280, 720, 0, [3, 9, 15, 21]); return c.toDataURL('image/png').split(',')[1] }, DRAW)
+    await page.locator('[data-testid=scan-pics]').setInputFiles({ name: 'frame.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') })
+    await page.waitForSelector('[data-testid=crop-box]')
+    await page.locator('[data-testid=scan-read]').click()
+    await page.waitForSelector('[data-testid=scan-result]', { timeout: 20000 }).catch(() => bad('red: no result'))
+    const unsure = await page.locator('[data-testid=sp-next-unsure]').innerText().catch(() => '')
+    console.log(`red: "${unsure}"`)
+    if (!unsure) console.log('red: nothing unsure in this picture (no red box to check)')
+    else {
+      await page.locator('[data-testid=sp-next-unsure]').click()
+      await page.waitForSelector('[data-testid=scan-source-ring]', { timeout: 3000 }).catch(() => bad('red: no red box on the unsure note'))
+      const b1 = await page.locator('[data-testid=scan-source-ring]').evaluate(e => e.style.left + ',' + e.style.top).catch(() => '')
+      const col = await page.locator('[data-testid=scan-source-ring]').evaluate(e => getComputedStyle(e).borderTopColor).catch(() => '')
+      await page.screenshot({ path: `${DIR}/step2-scan-red-1.png` })
+      await page.locator('[data-testid=scan-note-fixer] button:has-text("Next unsure")').click()
+      await page.waitForTimeout(250)
+      const b2 = await page.locator('[data-testid=scan-source-ring]').evaluate(e => e.style.left + ',' + e.style.top).catch(() => '')
+      const n = await page.locator('[data-testid=scan-source-ring]').count()
+      await page.screenshot({ path: `${DIR}/step2-scan-red-2.png` })
+      console.log(`red: box ${b1} → ${b2}, ${n} box(es), colour ${col}`)
+      if (n !== 1) bad(`red: ${n} boxes in the picture`)
+      if (!/255, 42, 42/.test(col)) bad(`red: box colour ${col}`)
+      if (/\b1 unsure/.test(unsure) === false && b1 === b2) bad('red: the box did not move to the next unsure note')
+      // a sure note: picture, no box
+      const sure = page.locator('[data-testid=scan-result] .tab-note:not(.unsure)').first()
+      if (await sure.count()) { await sure.click(); await page.waitForTimeout(200); const k = await page.locator('[data-testid=scan-source-ring]').count(); console.log(`red: a sure note shows ${k} box(es)`) }
+    }
+    if (page.errors.length) bad(`red errors: ${page.errors.join(' | ')}`)
     await page.context().close()
   }
 

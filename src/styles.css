@@ -3567,3 +3567,7 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
 .scan-src-ring.unsure { border-color: #ff2a2a; border-radius: 8px; box-shadow: 0 0 0 2px rgba(0,0,0,.6), 0 0 14px 3px rgba(255,42,42,.55); animation: scan-src-pulse 1.2s ease-in-out infinite; }
 @keyframes scan-src-pulse { 50% { box-shadow: 0 0 0 2px rgba(0,0,0,.6), 0 0 22px 7px rgba(255,42,42,.8); } }
 @media (prefers-reduced-motion: reduce) { .scan-src-ring.unsure { animation: none; } }
+/* the unsure note you're on is red in the tab too, matching the red box in the picture */
+.scan-sel-unsure .tab-cursor { fill: rgba(255,42,42,.14); stroke: #ff2a2a; stroke-width: 2; }
+.scan-sel-unsure .tab-note.cur.unsure rect { fill: #ff2a2a; stroke: #ff2a2a; }
+.scan-sel-unsure .tab-note.cur.unsure text { fill: #fff; }

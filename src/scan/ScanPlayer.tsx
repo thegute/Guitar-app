@@ -221,6 +221,7 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources }: { doc: SongDoc
           </div>
         </div>
       )}
+      <div className={selNote?.unsure && !playing ? 'scan-sel-unsure' : undefined}>
       <TabView track={track} mode="fret" flats={false} cursor={cur} playing={playing} states={states} version={0} spans={spans} marks={marks} strum={strumPattern(doc.song.strum) ?? null} meter={doc.song.meter ?? 4}
         onTap={(i, n) => {
           if (playing) start(i)
@@ -232,6 +233,7 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources }: { doc: SongDoc
             }
           }
         }} />
+      </div>
       {hand && hand.notes.some(n => n.fret > 0) && (
         <FingerBox where="scan" group={hand} next={next} beatsToShift={toShift} expected={expected} nStr={track.tuning.length} stringNames={strNames}
           onLoopShift={next ? () => { const b = flat[next.from]?.bar ?? 0; const lp = { from: Math.max(0, b - 1), to: b }; setLoop(lp); start(flat.findIndex(f => f.bar === lp.from), lp) } : undefined} />
