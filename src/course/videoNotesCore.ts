@@ -76,3 +76,28 @@ export function parseNote(text: string): unknown | null {
   try { return JSON.parse(t.slice(a, b + 1)) } catch { return null }
 }
 
+
+/** The whole course in short (every lesson's id, title and Learn sections), for matching a creator's videos to lessons. */
+export function courseOutline(lessons: CourseLesson[] = COURSE): string {
+  return lessons.map(l => `${l.id} · L${l.level}.${l.n} ${l.title} — sections: ${l.steps.filter(s => s.kind === 'learn').map(s => s.title.replace(/^\d+ · /, '')).join(' | ')}`).join('\n')
+}
+
+/** Prompt for one creator video: which lessons and sections of the course does it teach, and where (times)? */
+export function matchPrompt(outline: string): string {
+  return `You are helping a guitar teacher choose YouTube videos for a written course. Watch this whole video, listen to what the teacher says and plays, and decide which lessons of the course it teaches.
+
+The course (lesson id · level.lesson title — its sections):
+${outline}
+
+Answer with JSON only (no markdown fences), in this shape:
+{
+  "videoTitle": "the title as shown",
+  "lengthSec": total length in seconds,
+  "summary": "2-3 plain sentences: what the video teaches and how",
+  "level": "beginner" | "intermediate" | "advanced",
+  "style": "one line on the teaching style (talking, playing, on-screen tab, pace)",
+  "matches": [ { "lessonId": "an id from the list", "section": "the section it fits best, or \\"whole lesson\\"", "from": "m:ss", "to": "m:ss", "what": "what is taught in this part, concretely", "fit": 1 to 5 } ],
+  "notCourse": "what the video teaches that the course doesn't cover (or empty)"
+}
+Rules: only real matches (fit 3 or more); a video can match several lessons; times must come from the video; never invent content. Keep "matches" to at most 8, best first. Plain English.`
+}

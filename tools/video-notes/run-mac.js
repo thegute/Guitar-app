@@ -3,6 +3,8 @@
 // Resumable: notes already in notes.json are skipped. The key never leaves gemini-key.txt except in the request header.
 //   cd ~/Documents/KGuitar/tools/video-notes && caffeinate -i osascript -l JavaScript run-mac.js ~/Documents/KGuitar
 // Options after the folder: --model gemini-2.5-flash  --only c5-  --retry-failed
+// Creator mode: --videos <file> (one video per line: a YouTube link or id, optionally a tab and its title) matches each
+// video against the whole course instead, saving video-notes/match-<file name>.json.
 ObjC.import('Foundation')
 const app = Application.currentApplication()
 app.includeStandardAdditions = true
@@ -26,10 +28,23 @@ function run(argv) {
   if (!exists(keyFile)) return `No gemini-key.txt in ${folder}. Put your Gemini key in it (one line) and run again.`
   const out = `${folder}/video-notes`
   sh(`mkdir -p ${q(out)}`)
-  const notesFile = `${out}/notes.json`, logFile = `${out}/log.txt`, tmp = `${out}/.tmp`
+  const videosArg = opt('--videos', '')
+  const videosFile = videosArg ? videosArg.replace(/^~/, $.NSHomeDirectory().js) : ''
+  const base = videosFile ? videosFile.split('/').pop().replace(/\.[a-z]+$/i, '') : ''
+  const notesFile = videosFile ? `${out}/match-${base}.json` : `${out}/notes.json`, logFile = `${out}/log.txt`, tmp = `${out}/.tmp`
   sh(`mkdir -p ${q(tmp)}`)
   const log = m => { const line = `${new Date().toISOString()} ${m}`; console.log(line); sh(`printf '%s\\n' ${q(line)} >> ${q(logFile)}`) }
-  const jobs = JSON.parse(readText(`${here}/jobs.json`)).jobs
+  const pack = JSON.parse(readText(`${here}/jobs.json`))
+  let jobs = pack.jobs
+  if (videosFile) {
+    const text = readText(videosFile)
+    if (!text) return `Couldn't read ${videosFile}.`
+    jobs = text.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+      const [first, ...rest] = l.split('\t')
+      const m = /(?:v=|youtu\.be\/|shorts\/|^)([A-Za-z0-9_-]{11})(?:[^A-Za-z0-9_-]|$)/.exec(first)
+      return m ? { key: `match|${m[1]}`, id: m[1], title: rest.join(' ') || m[1], lessonId: base, where: 'creator', prompt: pack.matchPrompt } : null
+    }).filter(Boolean)
+  }
   const state = exists(notesFile) ? JSON.parse(readText(notesFile)) : { notes: {}, failed: {} }
   const save = () => writeText(notesFile, JSON.stringify(state, null, 1))
 
