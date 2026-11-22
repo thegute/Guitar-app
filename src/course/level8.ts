@@ -173,7 +173,7 @@ export const DORMIX: CourseLesson = {
     {
       kind: 'learn', title: '1 · Dorian: minor with a natural 6', blocks: [
         { p: 'A Dorian: **A B C D E F♯ G**. It\'s A natural minor with the 6th raised (F → F♯). That one note makes minor sound hopeful, open, a bit funky, rather than sad.' },
-        { p: 'Build it from what you know: **A minor pentatonic** (A C D E G) **+ B** (the 9th, smooth) **+ F♯** (the colour). Three notes per octave added? No, just two.' },
+        { p: 'Build it from what you know: **A minor pentatonic** (A C D E G) **+ B** (the 9th, smooth) **+ F♯** (the colour). Just two notes added to a box you already know.' },
         { p: 'The chord that gives it away is the **major IV**: in A Dorian, the IV is **D major** (D F♯ A), and F♯ is its 3rd. A minor song with a major IV chord (Am – D, Em – A, Dm – G) is almost always Dorian.' },
         { spots: modeFig('A Dorian, frets 4–8: the gold notes are F♯ (the colour) and B (the 9th): add them to the minor pentatonic box.', 9, MODE.dorian, 4, 8, [9, 2]) },
         { video: { id: 'hyZPcYf1Pe4', title: 'DORIAN SCALE - The 2nd mode of Major', note: 'Jake on Dorian: where it comes from, the IV chord and songs that use it.' } },

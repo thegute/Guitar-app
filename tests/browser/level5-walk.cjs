@@ -37,7 +37,7 @@ const bad = m => { problems.push(m); console.log('  PROBLEM', m) }
       const figsNow = await page.locator('[data-testid=deep-step] .lesson-spots').count()
       if (figsNow && !moved) bad(`${vp.n} ${id}: key change shows no moved note`)
       await sel.selectOption('0')
-      if (vp.n === 'cover' && (id === 'c5-sevenths' || id === 'c6-doublestops')) await page.screenshot({ path: 'tests/browser/out/' + id + '-cover.png', fullPage: true })
+      if (vp.n === 'cover' && (id === 'c5-sevenths' || id === 'c6-doublestops' || (process.env.SHOT || '').split(',').includes(id))) await page.screenshot({ path: 'tests/browser/out/' + id + '-cover.png', fullPage: true })
       await page.locator('button:has-text("← Back")').first().click()
     }
     if (errs.length) bad(`${vp.n}: page errors ${errs.slice(0, 3).join(' | ')}`)
