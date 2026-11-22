@@ -40,6 +40,7 @@ import { dailyGoalMin, todayLog, useProgress } from './learn/progress'
 import { ACTION_LABEL, onPedal, type PedalAction } from './controls/pedals'
 import { ShareInbox } from './components/ShareInbox'
 import { Welcome, needsWelcome, openGuide } from './components/Welcome'
+import { maybeAutoSync } from './sync/cloudSync'
 
 const TABS: { id: Tab; label: string; icon: () => JSX.Element }[] = [
   { id: 'songs', label: 'Songs', icon: IconSongs },
@@ -67,6 +68,13 @@ export default function App() {
   // what you use (counted on this phone only; Settings → You → What you use)
   // the pedal + wireless setup switches on by itself when the Pocket Master is plugged in
   useEffect(() => { watchDevices() }, [])
+  // quiet Phone ↔ Tablet cloud sync on startup & resume (only when user has added a private GitHub token)
+  useEffect(() => {
+    const t = setTimeout(() => maybeAutoSync(), 2000)
+    const onVis = () => { if (document.visibilityState === 'visible') maybeAutoSync() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => { clearTimeout(t); document.removeEventListener('visibilitychange', onVis) }
+  }, [])
   useEffect(() => { countUse(tab === 'tools' ? `tool:${toolPage}` : `screen:${tab}`) }, [tab, toolPage])
   useEffect(() => watchButtons(() => tabRef.current), [])
   useEffect(() => onGo(t => {

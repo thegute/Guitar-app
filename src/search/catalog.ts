@@ -548,4 +548,7 @@ export const FEATURES: Entry[] = [
   f({ id: 'look', title: 'The look (Psychedelic, moving colours)', where: 'Settings → Look', guide: 'The look (Psychedelic)', target: { go: { settings: 'look' } },
     text: 'The Psychedelic look; on the web its background can drift (Moving colours).',
     keys: 'look theme psychedelic background moving colours motion animation still' }),
+  f({ id: 'cloudsync', title: 'Phone & tablet sync (private)', where: 'Settings → Backup', guide: 'Phone & tablet sync', target: { go: { settings: 'backup' } },
+    text: 'Smart-merges your lessons, Circle mastery, streaks, songs, scanned riffs, beats and presets between your phone and tablet while keeping layouts separate.',
+    keys: 'sync phone tablet fold s10 cloud gist github merge progress lessons across devices backup sync now' }),
 ]
