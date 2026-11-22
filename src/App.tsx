@@ -28,6 +28,7 @@ import { useStrumState } from './audio/strumMachine'
 import { Settings } from './learn/Settings'
 import { setFloatScreen } from './float/bus'
 import { RigNotice, RigPill } from './components/AudioSetup'
+import { StudioTopBar } from './components/StudioTopBar'
 import { watchDevices } from './audio/input'
 import { onAsk, type AskContext } from './assistant/bus'
 import { stopAllSounds } from './audio/stopAll'
@@ -170,7 +171,7 @@ export default function App() {
         <StrumFloatNeck />
         <GlobalChordPeek inst={inst} />
         <RigNotice />
-        {!(tab === 'play' && ui.playFocus) && !gear && <div className="rig-bar"><RigPill /></div>}
+        {!(tab === 'play' && ui.playFocus) && !gear && <div className="rig-bar"><StudioTopBar /><RigPill /></div>}
         {gear && <Settings key={gear.n ?? 0} inst={inst} guideSec={gear.sec} onExit={() => setGear(null)} onGo={g => { setGear(null); learnGo(g) }} />}
         {!gear && <>
         {tab === 'play' && <PlayScreen key={inst.id} />}
@@ -222,7 +223,7 @@ export default function App() {
         </div>
       </nav>
       {hidden && !drawer && (
-        <button className="nav-pull" onClick={() => setDrawer(true)} aria-label="Show the menu" title="Menu"><IconMenu /></button>
+        <button className="nav-pull" onClick={() => setDrawer(true)} aria-label="Show the menu" title="Menu" data-testid="nav-pull"><IconMenu /></button>
       )}
       {drawer && <div className="nav-scrim" onClick={() => setDrawer(false)} aria-hidden />}
       <SoundPill />

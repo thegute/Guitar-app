@@ -71,7 +71,7 @@ export const FEATURES: Entry[] = [
   f({ id: 'beatloops', title: 'The looper in the beat maker', where: 'Jam → Make a beat → Looper', guide: ['Loops that line up with the beat', 'Practise over your beat'], target: { jam: { page: 'beats' } },
     text: 'The 4 looper tracks right under the pads: tap a number to record on the next bar.',
     keys: 'loop looper in time sync align quantize pedal record guitar loop beat' }),
-  f({ id: 'screenshot', title: 'Riff Scanner: tab from a screenshot or video', where: 'Songs → Add a song, or the Riff Scanner link under Jam’s buttons', guide: 'Riff Scanner', target: { jam: { page: 'find' } },
+  f({ id: 'screenshot', title: 'Riff Scanner: tab from a screenshot, Short or video', where: 'Songs → Riff Scanner (and Add a song / Jam)', guide: 'Riff Scanner', target: { go: { songs: 'scan' } },
     text: 'Screenshots, a video file or a screen recording: the tab on screen is found, sharpened, stitched and read into a real tab.',
     keys: 'youtube link scan a video gemini watch screen grab screen record riff scanner riffscanner scan scanner screenshot picture photo image ocr read tab video on screen tab from video screen recording transcribe riff' }),
   f({ id: 'shorts', title: 'Guitar Shorts feed', where: 'Riff Scanner → Shorts (link under Jam’s buttons)', guide: 'Shorts', target: { jam: { page: 'find' } },

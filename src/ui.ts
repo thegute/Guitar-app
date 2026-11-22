@@ -3,7 +3,8 @@
 import { useSyncExternalStore } from 'react'
 
 const NAV_KEY = 'kg:navHidden'
-let navHidden = (() => { try { return localStorage.getItem(NAV_KEY) === '1' } catch { return false } })()
+// Top-Left ☰ slide-out drawer by default (maximum room on small tablets; "Keep open" inside the drawer pins it).
+let navHidden = (() => { try { return localStorage.getItem(NAV_KEY) !== '0' } catch { return true } })()
 let playFocus = false
 const ART_KEY = 'kg:showArt'
 let showArt = (() => { try { return localStorage.getItem(ART_KEY) !== 'false' } catch { return true } })()

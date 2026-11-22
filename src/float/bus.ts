@@ -93,6 +93,14 @@ export function toggleCard(screen: string, id: CardId) {
   const cur = shownCards(screen)
   setShownCards(screen, cur.includes(id) ? cur.filter(c => c !== id) : [...cur, id])
 }
+/** Replace one floating card with another in place (for the unified floating window's dropdown menu). */
+export function swapCard(screen: string, fromId: CardId, toId: CardId) {
+  if (fromId === toId) return
+  const cur = shownCards(screen)
+  const next = cur.includes(toId) ? cur.filter(c => c !== fromId) : cur.map(c => (c === fromId ? toId : c))
+  if (!next.includes(toId)) next.push(toId)
+  setShownCards(screen, next)
+}
 export function useShownCards(screen: string): CardId[] {
   const [v, setV] = useState(() => shownCards(screen))
   useEffect(() => {
@@ -101,6 +109,21 @@ export function useShownCards(screen: string): CardId[] {
     cardListeners.add(f)
     return () => { cardListeners.delete(f) }
   }, [screen])
+  return v
+}
+
+// ---------- Clean Stage focus toggle (1-tap hide/show all floating cards) ----------
+let cleanStage = false
+const cleanListeners = new Set<() => void>()
+export function isCleanStage() { return cleanStage }
+export function setCleanStage(v: boolean) {
+  if (v === cleanStage) return
+  cleanStage = v
+  cleanListeners.forEach(f => f())
+}
+export function useCleanStage(): boolean {
+  const [v, setV] = useState(cleanStage)
+  useEffect(() => { const f = () => setV(cleanStage); cleanListeners.add(f); return () => { cleanListeners.delete(f) } }, [])
   return v
 }
 
