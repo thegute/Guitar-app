@@ -405,3 +405,55 @@ export function songTabText(song: Song, names: string[]): string {
   }
   return lines.join('\n\n')
 }
+
+/** A tab the AI read from the same pictures gets the picture spots of KGuitar's own reading: notes are matched in order
+ *  (string and fret, longest common run); a note with no match takes a spot between its matched neighbours, on its
+ *  string's line, and is marked unsure (nobody but the AI saw it there). */
+export function borrowSources(song: import('../tabs/model').Song, own: import('../tabs/model').Song): import('../tabs/model').Song {
+  type N = import('../tabs/model').SongNote
+  const flat = (s: import('../tabs/model').Song) => s.tracks[0]?.bars.flatMap(b => b.steps.flatMap(st => [...st.notes].sort((a, c) => a.string - c.string))) ?? []
+  const a = flat(song), b = flat(own).filter(n => n.src)
+  if (!a.length || !b.length) return song
+  const key = (n: N) => `${n.string}:${n.fret}`
+  // longest common subsequence (sizes are a few hundred notes at most)
+  const L = Array.from({ length: a.length + 1 }, () => new Uint16Array(b.length + 1))
+  for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) L[i][j] = key(a[i]) === key(b[j]) ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1])
+  const got = new Map<N, NonNullable<N['src']>>()
+  for (let i = 0, j = 0; i < a.length && j < b.length;) {
+    if (key(a[i]) === key(b[j])) { got.set(a[i], b[j].src!); i++; j++ } else if (L[i + 1][j] >= L[i][j + 1]) i++; else j++
+  }
+  if (!got.size) return song
+  // each picture staff's string lines, from the matched notes (y of a string = its line)
+  const lineY = new Map<string, Map<number, number>>()
+  for (const [n, s] of got) { const k = `${s.p}:${s.y0.toFixed(4)}`; if (!lineY.has(k)) lineY.set(k, new Map()); lineY.get(k)!.set(n.string, s.y) }
+  const yFor = (s: NonNullable<N['src']>, string: number) => {
+    const m = lineY.get(`${s.p}:${s.y0.toFixed(4)}`)
+    if (m?.has(string)) return m.get(string)!
+    const pts = m ? [...m] : []
+    if (pts.length >= 2) { // a straight line through the known strings
+      const n = pts.length, sx = pts.reduce((t, [x]) => t + x, 0), sy = pts.reduce((t, [, y]) => t + y, 0)
+      const sxx = pts.reduce((t, [x]) => t + x * x, 0), sxy = pts.reduce((t, [x, y]) => t + x * y, 0)
+      const d = n * sxx - sx * sx
+      if (d) { const k = (n * sxy - sx * sy) / d; return Math.min(s.y1, Math.max(s.y0, (sy - k * sx) / n + k * string)) }
+    }
+    return s.y
+  }
+  const idx = new Map(a.map((n, i) => [n, i]))
+  const out: import('../tabs/model').Song = JSON.parse(JSON.stringify(song))
+  const outFlat = flat(out)
+  a.forEach((n, i) => {
+    const o = outFlat[i]
+    const s = got.get(n)
+    if (s) { o.src = s; return }
+    let p = i - 1; while (p >= 0 && !got.has(a[p])) p--
+    let q = i + 1; while (q < a.length && !got.has(a[q])) q++
+    const sp = p >= 0 ? got.get(a[p])! : null, sq = q < a.length ? got.get(a[q])! : null
+    const base = sp && sq && sp.p === sq.p && sp.y0 === sq.y0 ? sp : (sp ?? sq)
+    if (!base) return
+    const x = sp && sq && sp.p === sq.p && sp.y0 === sq.y0 ? sp.x + (sq.x - sp.x) * ((i - p) / (q - p)) : base === sp ? Math.min(1, sp.x + 0.01) : Math.max(0, base.x - 0.01)
+    o.src = { ...base, x, y: yFor(base, n.string) }
+    o.unsure = true
+  })
+  void idx
+  return out
+}

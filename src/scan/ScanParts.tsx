@@ -245,7 +245,11 @@ export function ScanResult({ out, live, onUseInJam, onAgain, onFrames }: { out: 
       {note && <p className="small" role="status" style={{ margin: 0 }} data-testid="scan-note">{note}</p>}
       {check.length > 0 && <p className="small" style={{ margin: 0 }} data-testid="scan-checkbars"><b>Check bar{check.length > 1 ? 's' : ''} {check.map(b => b + 1).join(', ')}</b> (dashed): the chord heard there and the notes don't agree.</p>}
       {strum && <p className="small" style={{ margin: 0 }}>Strum heard: <b>{strum.label.replace(/^As heard /, '')}</b> (shown over the chords in Play).</p>}
-      <ScanPlayer doc={doc} marks={check} sources={adapt ? undefined : out.sources} onChangeSong={s => { setFixed({ ...doc, song: s }); setText(songTabText(s, stringNames(inst))) }} />
+      <ScanPlayer doc={doc} marks={check} sources={adapt ? undefined : out.sources}
+        noPicture={adapt && out.sources?.length ? { why: 'The picture shows the tab in its own tuning: tap "Back to its own tuning" to check notes against it.' }
+          : onFrames ? { why: 'Gemini read this video in Google\'s cloud, so the phone has no frames to show. Read it here instead and every note you tap shows the frame it came from.', onFrames }
+          : out.sources?.length ? { why: 'This note wasn\'t read from the picture (it was added or worked out another way).' }
+          : { why: out.heard ? 'This was worked out from the sound, so there is no picture to check it against.' : 'There is no picture for this scan.' } } onChangeSong={s => { setFixed({ ...doc, song: s }); setText(songTabText(s, stringNames(inst))) }} />
       {uniq.length >= 2 && (
         <Fold id="scanChords" title={`The chords (${uniq.join(' ')})`} hint="Each chord's shape and how to move between them with the least hand movement (voice leading).">
           <VoiceLeadNeck chords={uniq} tuning={inst.midis} where="scan" compact />

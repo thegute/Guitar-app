@@ -131,7 +131,8 @@ E|-3---------|-----------|`
       const img = body.contents?.[0]?.parts?.find(p => p.inline_data)?.inline_data
       if (img) { const b = Buffer.from(img.data, 'base64'); page.sent.push({ w: b.readUInt32BE(16), h: b.readUInt32BE(20), mime: img.mime_type }) }
       await new Promise(r => setTimeout(r, 300))
-      route.fulfill({ json: { candidates: [{ content: { parts: [{ text: img ? CANNED : 'NO TAB' }] } }] } })
+      const vid = body.contents?.[0]?.parts?.some(p => p.file_data)
+      route.fulfill({ json: { candidates: [{ content: { parts: [{ text: img ? CANNED : vid ? `SOURCE: screen\nTEMPO: 96\nTIME: 4/4\nTAB:\n${CANNED.split('\n').slice(2).map(l => l.trim()).join('\n')}` : 'NO TAB' }] } }] } })
     })
     await nav(page, 'Jam'); await sub(page, 'Riff Scanner')
     return page
@@ -208,8 +209,10 @@ E|-3---------|-----------|`
     if (!cur) bad(`${vp.n}: Practise it today didn't set the song`)
     await page.locator('[data-testid=scan-play]').click()
     await page.waitForSelector('.tab-note', { timeout: 5000 }).catch(() => bad(`${vp.n}: Open in Play showed no tab`))
+    await page.waitForTimeout(800)
     const notes = await page.locator('.tab-note').count()
     console.log(`${vp.n}: opened in Play with ${notes} notes`)
+    if (!notes) bad(`${vp.n}: Play shows no notes`)
     if (page.errors.length) bad(`${vp.n} scan errors: ${page.errors.join(' | ')}`)
     await page.context().close()
   }
@@ -254,6 +257,26 @@ E|-3---------|-----------|`
       }
     }
     if (page.errors.length) bad(`red errors: ${page.errors.join(' | ')}`)
+    await page.context().close()
+  }
+
+  if (want('scangemini')) {
+    // a YouTube link Gemini read in the cloud: no frames on the phone, but tapping a note still opens the window, which says so and offers to read it here
+    const page = await aiPage({ width: 412, height: 915 })
+    await page.waitForSelector('[data-testid=riff-scanner]')
+    await page.locator('[data-testid=scan-accuracy-mode] button', { hasText: 'Quick' }).click()
+    await page.locator('[data-testid=scan-link]').fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+    await page.locator('[data-testid=scan-link-go]').click()
+    await page.waitForSelector('[data-testid=scan-result]', { timeout: 20000 }).catch(async () => { bad('gemini: no result'); await page.screenshot({ path: `${DIR}/step2-scan-gemini-fail.png` }); console.log((await page.locator('[data-testid=riff-scanner]').innerText()).slice(0, 600)) })
+    await page.locator('[data-testid=scan-result] .tab-note').nth(2).click()
+    await page.waitForSelector('[data-testid=scan-source-none]', { timeout: 3000 }).catch(() => bad('gemini: no picture window after tapping a note'))
+    const btn = await page.locator('[data-testid=scan-source-frames]').count()
+    console.log(`gemini: window with "Read it here with pictures" ×${btn}`)
+    if (!btn) bad('gemini: no "Read it here with pictures" in the window')
+    await page.screenshot({ path: `${DIR}/step2-scan-gemini.png` })
+    await page.locator('[data-testid=scan-source-frames]').click()
+    await page.waitForSelector('[data-testid=scan-grab]', { timeout: 5000 }).catch(() => bad('gemini: Read it here did not open the grab step'))
+    if (page.errors.length) bad(`gemini errors: ${page.errors.join(' | ')}`)
     await page.context().close()
   }
 
@@ -331,7 +354,8 @@ E|-3---------|-----------|`
         return route.fulfill({ json: { candidates: [{ content: { parts: [{ text: 'SOURCE: screen\nTEMPO: 104\nTIME: 3/4\nKEY: G\nCHORDS: G C D\nTAB:\n' + CANNED.split('\n').slice(1).join('\n') }] } }] } })
       }
       const img = body.contents?.[0]?.parts?.find(p => p.inline_data)
-      route.fulfill({ json: { candidates: [{ content: { parts: [{ text: img ? CANNED : 'NO TAB' }] } }] } })
+      const vid = body.contents?.[0]?.parts?.some(p => p.file_data)
+      route.fulfill({ json: { candidates: [{ content: { parts: [{ text: img ? CANNED : vid ? `SOURCE: screen\nTEMPO: 96\nTIME: 4/4\nTAB:\n${CANNED.split('\n').slice(2).map(l => l.trim()).join('\n')}` : 'NO TAB' }] } }] } })
     })
     await page.route('**/www.youtube.com/**', r => r.abort())
     await nav(page, 'Jam'); await sub(page, 'Riff Scanner')

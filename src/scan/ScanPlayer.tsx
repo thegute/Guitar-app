@@ -16,7 +16,7 @@ import { pcName } from '../theory/notes'
 import { Ico } from '../components/Icon'
 import { chordTimeline } from '../tabs/harmony'
 import { strumPattern } from '../play/strumCoach'
-import { SourcePeek, type ScanSource } from './SourcePeek'
+import { NoSourcePeek, SourcePeek, type ScanSource } from './SourcePeek'
 
 const TWIN_HINTS: Record<number, number[]> = {
   0: [9, 8, 6], 1: [7, 4], 2: [3, 7], 3: [8, 5, 2], 4: [1, 9], 5: [6, 8, 3],
@@ -25,7 +25,7 @@ const TWIN_HINTS: Record<number, number[]> = {
 }
 const TECHS = ['h', 'p', '/', '\\', 'b', '~', 'x'] as const
 
-export function ScanPlayer({ doc, marks, onChangeSong, sources }: { doc: SongDoc; marks?: number[]; onChangeSong?: (song: Song) => void; sources?: ScanSource[] }) {
+export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture }: { doc: SongDoc; marks?: number[]; onChangeSong?: (song: Song) => void; sources?: ScanSource[]; noPicture?: { why: string; onFrames?: () => void } }) {
   const inst = useInstrument()
   const track = doc.song.tracks[0]
   const flat = useMemo(() => flatten(track), [track])
@@ -174,7 +174,8 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources }: { doc: SongDoc
         {loop && <button className="btn sm on" onClick={() => { setLoop(null); if (playing) start(at, null) }}>Looping bars {loop.from + 1}–{loop.to + 1} ✕</button>}
       </div>
       {peek && !picOff && sources && <SourcePeek sources={sources} src={peek.src} label={peek.label} unsure={peek.unsure} onHide={() => setPicOff(true)} />}
-      {peek && picOff && (
+      {!peek && selNote && !picOff && noPicture && onChangeSong && <NoSourcePeek why={noPicture.why} onFrames={noPicture.onFrames} onHide={() => setPicOff(true)} />}
+      {(peek || (selNote && noPicture)) && picOff && (
         <button className="btn sm ghost" onClick={() => setPicOff(false)} data-testid="scan-source-show" style={{ alignSelf: 'flex-start' }}>
           <Ico n="image" /> Check it in the picture
         </button>

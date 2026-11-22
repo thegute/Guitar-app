@@ -182,6 +182,8 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     await addUrls(list.filter(f => f.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|heic)$/i.test(f.name)).map(f => ({ name: f.name, url: URL.createObjectURL(f) })))
   }
 
+  // KGuitar's own reading of the pictures, kept when the AI reads them instead: its picture spots go on the AI's notes
+  const ownTry = useRef<{ song: import('../tabs/model').Song; sources: { url: string; w: number; h: number }[] } | null>(null)
   const begin = (list: Stage[]) => { abort.current?.abort(); abort.current = new AbortController(); setStages(list); setOut(null); setMsg(''); return abort.current.signal }
   const step = (id: string, p: Partial<Stage>) => setStages(s => (s ? setStage(s, id, p) : s))
   const fail = (e: unknown) => {
@@ -198,7 +200,13 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     if (!doc) throw new AiError("The AI's answer didn't read as a tab: open Fix the tab text below to see it.")
     if (tempoGuess && doc.song.tempoFrom !== 'file') doc = { ...doc, song: { ...doc.song, tempo: tempoGuess, tempoFrom: 'detected' } }
     step('hand', { state: 'done' }); step('tempo', { state: 'done', note: `${Math.round(doc.song.tempo ?? 90)} BPM${doc.song.tempoFrom === 'guess' ? ' (a guess)' : ''}` })
-    setOut({ doc: { ...doc, id: newId() }, heard: false, how, text, reparse: t => songFromScan(t, title, inst, youtube), strips: pieces.map(p => ({ url: p.url, w: p.w, h: p.h })) })
+    const own = ownTry.current
+    ownTry.current = null
+    let sources: { url: string; w: number; h: number }[] | undefined
+    if (own?.sources.length) {
+      try { const { borrowSources } = await import('./tabReadSong'); doc = { ...doc, song: borrowSources(doc.song, own.song) }; sources = own.sources } catch { /* no pictures */ }
+    }
+    setOut({ doc: { ...doc, id: newId() }, heard: false, how, text, reparse: t => songFromScan(t, title, inst, youtube), strips: pieces.map(p => ({ url: p.url, w: p.w, h: p.h })), ...(sources ? { sources } : {}) })
     setStages(null)
   }
 
@@ -214,7 +222,9 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     // the whole strips when we have them (cut pieces would split bars), else the pieces
     const grays = strips?.length ? strips : (await Promise.all(pieces.map(pc => loadPicture(pc.url)))).map(im => grayOf(im))
     const r = await readTabPicturesBest(grays, inst.midis, name, { video: !!strips?.length, deep: deepMode, ...(hear && strips?.length ? { hear } : {}) })
+    ownTry.current = r ? { song: r.song, sources: safeSources(() => grays.map(grayPicture)) ?? [] } : null
     if (!r || !(trustReading(r) || !ready)) return false
+    ownTry.current = null
     const song = bpm ? { ...r.song, tempo: bpm, tempoFrom: 'file' as const } : r.song
     const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song, youtube, updated: Date.now() }
     const pol = r.polish
@@ -251,7 +261,9 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       let grays = pics.map(p => grayOf(p.img, minW, applyBox))
       let r = await readTabPicturesBest(grays, inst.midis, name, { deep: deepMode })
       if (!r && applyBox) { grays = pics.map(p => grayOf(p.img, minW)); r = await readTabPicturesBest(grays, inst.midis, name, { deep: deepMode }) }
+      ownTry.current = r ? { song: r.song, sources: safeSources(() => grays.map(grayPicture)) ?? [] } : null
       if (r && (trustReading(r) || !ready)) {
+        ownTry.current = null
         const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song: r.song, youtube, updated: Date.now() }
         const names = stringNames(inst)
         setOut({
@@ -455,7 +467,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     } catch (e) { fail(e); setPhase('record') }
   }
 
-  const again = () => { sound.reset(); setOut(null); setPics([]); setBox(null); setUserCropped(false); setMsg(''); setPhase(null); setWhy(''); setTheater(false); setGrabAudio(null) }
+  const again = () => { ownTry.current = null; sound.reset(); setOut(null); setPics([]); setBox(null); setUserCropped(false); setMsg(''); setPhase(null); setWhy(''); setTheater(false); setGrabAudio(null) }
   // a video Gemini read in the cloud: offer to read it here so each note can be checked against its frame
   const framesFor = out && !out.sources?.length && linkUrl && out.doc.youtube && /Gemini watched/.test(out.how) ? () => { setOut(null); setWhy('Reading it here, so each note you tap shows the video frame it came from.'); setPhase('grab') } : undefined
   if (out) return <ScanResult out={out} onUseInJam={onUseInJam} onAgain={again} onFrames={framesFor} />

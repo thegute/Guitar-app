@@ -66,3 +66,17 @@ export function SourcePeek({ sources, src, label, unsure, onHide }: { sources: S
     </FloatCard>
   )
 }
+
+/** The same window when the note has no picture behind it: says why, and (for a video Gemini read in the cloud)
+ *  offers to read it here so every note gets its frame. */
+export function NoSourcePeek({ why, onFrames, onHide }: { why: string; onFrames?: () => void; onHide: () => void }) {
+  return (
+    <FloatCard id="scanpic" where="scan" title="Check it in the picture" icon="image" onHide={onHide} width={300} minW={200} openNarrow
+      testId="scan-source" bubbleTestId="scan-source-chip" label="No picture for this note" bubble={<>Picture</>}>
+      <div className="stack small" style={{ gap: 8 }} data-testid="scan-source-none">
+        <span>{why}</span>
+        {onFrames && <button className="btn sm primary" onClick={onFrames} data-testid="scan-source-frames">Read it here with pictures</button>}
+      </div>
+    </FloatCard>
+  )
+}
