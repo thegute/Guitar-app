@@ -1,8 +1,8 @@
 // The floating cards that aren't the hand (the hand card is drawn by the screen that knows the hand: Play, the Riff Scanner).
-// Shown per screen (float/bus.ts shownCards), each a FloatCard with:
+// Supports MULTIPLE floating windows at once (including multiple copies of the same card via instance uids!), each with:
 // - ◐ opacity meter (20%–100%), drag, resize, edge-snap, bubble shrink
-// - tiny ▾ feature dropdown menu right in the title bar to add, remove, or switch features on the spot
-// - expandable 5-Layer Fretboard (Shape · Triads · Pentatonic · Mode notes · Free fingers) inside the neck card!
+// - tiny + button to open ANY feature in a brand-new floating window alongside this one
+// - tiny ▾ dropdown menu to switch this card, expand 5-Layer Fretboard, or toggle cards
 import { useEffect, useRef, useState } from 'react'
 import { FloatCard } from '../components/FloatCard'
 import { Fretboard } from '../components/Fretboard'
@@ -18,55 +18,70 @@ import { PitchTracker } from '../audio/pitch'
 import { running as sessionNow, onSession } from '../sessions/session'
 import { busLevel, onBuses, setBusLevel, type BusName } from '../audio/engine'
 import { MIX_PARTS, audible, isMuted, isSolo, onMixer, resetMixer, toggleMute, toggleSolo } from '../audio/mixer'
-import { CARDS, swapCard, toggleCard, useCleanStage, useFloatCtx, useFloatScreen, useShownCards, type CardId, type FloatCtx, useFloatResting } from './bus'
+import {
+  CARDS, addCardInstance, removeCardInstance, swapCardInstance, toggleCard,
+  useCleanStage, useFloatCtx, useFloatScreen, useShownCards, useShownInstances, useFloatResting,
+  type CardId, type CardInstance, type FloatCtx,
+} from './bus'
+import { PocketBandBody, PocketDrummerBody } from './PocketBandCard'
+import { BookRefBody, CircleCardBody, LicksCardBody, StickyNoteBody } from './CreativeCards'
 
 export function FloatLayer() {
   const screen = useFloatScreen()
-  const shown = useShownCards(screen).filter(id => id !== 'hand')
+  const instances = useShownInstances(screen).filter(x => x.kind !== 'hand')
   const ctx = useFloatCtx()
   const resting = useFloatResting(screen)
   const clean = useCleanStage()
-  const [neck5Layer, setNeck5Layer] = useState<boolean>(() => {
-    try { return localStorage.getItem('kg:floatNeck5Layer') === '1' } catch { return false }
+  const [neckExpanded, setNeckExpanded] = useState<Record<string, boolean>>((): Record<string, boolean> => {
+    try {
+      const def = localStorage.getItem('kg:floatNeck5Layer') === '1'
+      return def ? { neck: true, 'neck-2': true } : {}
+    } catch { return {} }
   })
-  const toggle5Layer = (v?: boolean) => {
-    setNeck5Layer(cur => {
-      const next = v !== undefined ? v : !cur
-      try { localStorage.setItem('kg:floatNeck5Layer', next ? '1' : '0') } catch { /* private */ }
-      return next
+  const toggle5Layer = (uid: string, v?: boolean) => {
+    setNeckExpanded(prev => {
+      const nextVal = v !== undefined ? v : !prev[uid]
+      try { if (uid === 'neck') localStorage.setItem('kg:floatNeck5Layer', nextVal ? '1' : '0') } catch { /* private */ }
+      return { ...prev, [uid]: nextVal }
     })
   }
-  if (!shown.length || resting || clean) return null
+
+  if (!instances.length || resting || clean) return null
   return (
     <>
-      {shown.map((id, i) => {
+      {instances.map((inst, i) => {
+        const id = inst.kind
         const card = CARDS.find(c => c.id === id)!
-        const hide = () => toggleCard(screen, id)
-        const isExpandedNeck = id === 'neck' && neck5Layer
+        const isExpandedNeck = id === 'neck' && (neckExpanded[inst.uid] ?? (localStorage.getItem('kg:floatNeck5Layer') === '1'))
+        const copyNum = inst.uid.includes('-') ? ` #${inst.uid.split('-').pop()}` : ''
+        const title = (isExpandedNeck ? '5-Layer Fretboard' : card.title) + copyNum
+        const width = isExpandedNeck ? 520 : id === 'band' || id === 'book' || id === 'licks' ? 350 : id === 'drummer' || id === 'circle' || id === 'video' ? 320 : id === 'neck' ? 300 : id === 'note' || id === 'mixer' ? 280 : 230
+        const minW = isExpandedNeck ? 280 : id === 'band' || id === 'book' || id === 'licks' || id === 'drummer' ? 250 : id === 'video' || id === 'circle' ? 220 : 160
         return (
           <FloatCard
-            key={`${screen}:${id}`}
-            id={id}
+            key={`${screen}:${inst.uid}`}
+            id={inst.uid}
             where={screen}
-            title={isExpandedNeck ? '5-Layer Fretboard' : card.title}
+            title={title}
             icon={card.icon}
             order={i + 1}
-            onHide={hide}
-            width={isExpandedNeck ? 520 : id === 'video' ? 300 : id === 'neck' ? 300 : id === 'mixer' ? 270 : 230}
-            minW={isExpandedNeck ? 280 : id === 'video' ? 200 : 160}
+            openNarrow
+            onHide={() => removeCardInstance(screen, inst.uid)}
+            width={width}
+            minW={minW}
             alert={id === 'chord' && ctx.beatsToChange !== undefined && ctx.beatsToChange <= 2}
             bubble={bubbleText(id, ctx)}
             headerExtra={
-              <CardMenu
+              <CardHeaderControls
                 screen={screen}
-                currentId={id}
-                shown={shown}
-                neck5Layer={neck5Layer}
-                onToggle5Layer={() => toggle5Layer()}
+                inst={inst}
+                all={instances}
+                neck5Layer={isExpandedNeck}
+                onToggle5Layer={() => toggle5Layer(inst.uid, !isExpandedNeck)}
               />
             }
           >
-            <Body id={id} ctx={ctx} neck5Layer={neck5Layer} onToggle5Layer={() => toggle5Layer()} />
+            <Body uid={inst.uid} id={id} ctx={ctx} neck5Layer={isExpandedNeck} onToggle5Layer={() => toggle5Layer(inst.uid, !isExpandedNeck)} />
           </FloatCard>
         )
       })}
@@ -74,72 +89,101 @@ export function FloatLayer() {
   )
 }
 
-/** Tiny ▾ dropdown button inside every floating window's title bar: add, remove, or swap features + expand 5-layer fretboard. */
-function CardMenu({ screen, currentId, shown, neck5Layer, onToggle5Layer }: {
+/** Tiny `+` (Open New Card) and `▾` (Switch / Expand / Remove) buttons in every floating card's title bar. */
+function CardHeaderControls({ screen, inst, all, neck5Layer, onToggle5Layer }: {
   screen: string
-  currentId: CardId
-  shown: CardId[]
+  inst: CardInstance
+  all: CardInstance[]
   neck5Layer: boolean
   onToggle5Layer: () => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [menu, setMenu] = useState<null | 'add' | 'swap'>(null)
   const wrap = useRef<HTMLSpanElement>(null)
   useEffect(() => {
-    if (!open) return
+    if (!menu) return
     const close = (e: PointerEvent) => {
-      if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false)
+      if (wrap.current && !wrap.current.contains(e.target as Node)) setMenu(null)
     }
     addEventListener('pointerdown', close)
     return () => removeEventListener('pointerdown', close)
-  }, [open])
+  }, [menu])
 
   const options = CARDS.filter(c => c.id !== 'hand')
   return (
-    <span className="fc-menu-wrap" ref={wrap} data-no-drag>
+    <span className="fc-menu-wrap row" ref={wrap} style={{ gap: 2, flexWrap: 'nowrap' }} data-no-drag>
       <button
-        className={`fc-btn${open ? ' on' : ''}`}
-        onClick={() => setOpen(o => !o)}
-        aria-label="Add, remove, or switch floating features"
-        aria-expanded={open}
-        title="Add, remove, or switch floating features"
-        data-testid={`fc-menu-btn-${currentId}`}
+        className={`fc-btn${menu === 'add' ? ' on' : ''}`}
+        onClick={() => setMenu(m => (m === 'add' ? null : 'add'))}
+        aria-label="Open another floating card"
+        aria-expanded={menu === 'add'}
+        title="Open another floating card alongside this one"
+        data-testid={`fc-add-btn-${inst.uid}`}
+      >
+        +
+      </button>
+      <button
+        className={`fc-btn${menu === 'swap' ? ' on' : ''}`}
+        onClick={() => setMenu(m => (m === 'swap' ? null : 'swap'))}
+        aria-label="Switch or customize this floating card"
+        aria-expanded={menu === 'swap'}
+        title="Switch feature or expand 5-Layer Fretboard"
+        data-testid={`fc-menu-btn-${inst.uid}`}
       >
         ▾
       </button>
-      {open && (
-        <div className="fc-menu-pop" role="menu" data-testid={`fc-menu-pop-${currentId}`}>
-          <span className="small muted" style={{ padding: '2px 8px', fontSize: 11 }}>Switch this card to</span>
-          {options.filter(c => c.id !== currentId).map(c => (
-            <button key={`swap-${c.id}`} className="fc-menu-item" role="menuitem" onClick={() => { swapCard(screen, currentId, c.id); setOpen(false) }} data-testid={`fc-swap-${c.id}`}>
-              <Ico n={c.icon} /> {c.id === 'neck' ? '5-Layer Fretboard' : c.title}
-            </button>
-          ))}
-          <div className="fc-menu-sep" />
-          <button
-            className={`fc-menu-item${currentId === 'neck' && neck5Layer ? ' on' : ''}`}
-            role="menuitem"
-            onClick={() => {
-              if (!shown.includes('neck')) toggleCard(screen, 'neck')
-              if (currentId !== 'neck') swapCard(screen, currentId, 'neck')
-              if (!neck5Layer) onToggle5Layer()
-              else if (currentId === 'neck') onToggle5Layer()
-              setOpen(false)
-            }}
-            data-testid="fc-expand-5layer"
-          >
-            <Ico n="layers" /> {currentId === 'neck' && neck5Layer ? 'Compact mini neck' : 'Expand 5-Layer Fretboard ⤢'}
-          </button>
-          <div className="fc-menu-sep" />
-          <span className="small muted" style={{ padding: '2px 8px', fontSize: 11 }}>Add / remove floating cards</span>
+
+      {menu === 'add' && (
+        <div className="fc-menu-pop fc-menu-scroll" role="menu" data-testid={`fc-add-pop-${inst.uid}`}>
+          <span className="small muted" style={{ padding: '2px 8px', fontSize: 11 }}>Open in a new floating card</span>
           {options.map(c => {
-            const on = shown.includes(c.id)
+            const count = all.filter(x => x.kind === c.id).length
             return (
-              <button key={`tog-${c.id}`} className={`fc-menu-item${on ? ' on' : ''}`} role="menuitemcheckbox" aria-checked={on} onClick={() => toggleCard(screen, c.id)} data-testid={`fc-toggle-${c.id}`}>
-                <span style={{ width: 14, display: 'inline-block' }}>{on ? '✓' : '+'}</span>
-                <Ico n={c.icon} /> {c.id === 'neck' ? 'Fretboard (5-Layer)' : c.title}
+              <button
+                key={`add-${c.id}`}
+                className="fc-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  if (c.id === 'neck') try { localStorage.setItem('kg:floatNeck5Layer', '1') } catch { /* private */ }
+                  addCardInstance(screen, c.id)
+                  setMenu(null)
+                }}
+                data-testid={`fc-new-${c.id}`}
+              >
+                <span style={{ width: 14, display: 'inline-block' }}>+</span>
+                <Ico n={c.icon} />
+                <span style={{ flex: 1 }}>{c.title}</span>
+                {count > 0 && <span className="small muted">({count})</span>}
               </button>
             )
           })}
+        </div>
+      )}
+
+      {menu === 'swap' && (
+        <div className="fc-menu-pop fc-menu-scroll" role="menu" data-testid={`fc-menu-pop-${inst.uid}`}>
+          <button
+            className={`fc-menu-item${inst.kind === 'neck' && neck5Layer ? ' on' : ''}`}
+            role="menuitem"
+            onClick={() => {
+              if (inst.kind !== 'neck') {
+                try { localStorage.setItem('kg:floatNeck5Layer', '1') } catch { /* private */ }
+                swapCardInstance(screen, inst.uid, 'neck')
+              } else {
+                onToggle5Layer()
+              }
+              setMenu(null)
+            }}
+            data-testid="fc-expand-5layer"
+          >
+            <Ico n="layers" /> {inst.kind === 'neck' && neck5Layer ? 'Compact mini neck' : 'Expand 5-Layer Fretboard ⤢'}
+          </button>
+          <div className="fc-menu-sep" />
+          <span className="small muted" style={{ padding: '2px 8px', fontSize: 11 }}>Switch this card to</span>
+          {options.filter(c => c.id !== inst.kind).map(c => (
+            <button key={`swap-${c.id}`} className="fc-menu-item" role="menuitem" onClick={() => { swapCardInstance(screen, inst.uid, c.id); setMenu(null) }} data-testid={`fc-swap-${c.id}`}>
+              <Ico n={c.icon} /> {c.title}
+            </button>
+          ))}
         </div>
       )}
     </span>
@@ -158,10 +202,16 @@ function bubbleText(id: CardId, c: FloatCtx): string {
 
 const empty = (t: string) => <div className="fc-empty">{t}</div>
 
-function Body({ id, ctx: c, neck5Layer, onToggle5Layer }: { id: CardId; ctx: FloatCtx; neck5Layer: boolean; onToggle5Layer: () => void }) {
+function Body({ uid, id, ctx: c, neck5Layer, onToggle5Layer }: { uid: string; id: CardId; ctx: FloatCtx; neck5Layer: boolean; onToggle5Layer: () => void }) {
   switch (id) {
+    case 'drummer': return <PocketDrummerBody ctx={c} />
+    case 'band': return <PocketBandBody />
+    case 'licks': return <LicksCardBody ctx={c} />
+    case 'circle': return <CircleCardBody ctx={c} />
+    case 'note': return <StickyNoteBody ctx={c} />
+    case 'book': return <BookRefBody />
     case 'chord': {
-      if (!c.chordNow) return empty('Open a song with chords: the chord to play now and the next one show here.')
+      if (!c.chordNow) return empty('Open a song with chords (or start Pocket Band): the chord to play now and the next one show here.')
       return (
         <div className="stack" style={{ gap: 4 }} data-testid="fc-chord">
           <div className="fc-row">
@@ -174,7 +224,7 @@ function Body({ id, ctx: c, neck5Layer, onToggle5Layer }: { id: CardId; ctx: Flo
       )
     }
     case 'neck':
-      return <NeckBody c={c} expanded={neck5Layer} onToggle={onToggle5Layer} />
+      return <NeckBody uid={uid} c={c} expanded={neck5Layer} onToggle={onToggle5Layer} />
     case 'feedback': {
       const f = c.feedback
       if (!f) return empty('Start listening: what the mic hears shows here next to what the tab wants.')
@@ -203,13 +253,14 @@ function Body({ id, ctx: c, neck5Layer, onToggle5Layer }: { id: CardId; ctx: Flo
 }
 
 /** Floating Fretboard: compact live mini-neck OR expanded full 5-Layer Fretboard (Shape · Triads · Pentatonic · Mode · Free fingers). */
-function NeckBody({ c, expanded, onToggle }: { c: FloatCtx; expanded: boolean; onToggle: () => void }) {
+function NeckBody({ uid, c, expanded, onToggle }: { uid: string; c: FloatCtx; expanded: boolean; onToggle: () => void }) {
   const inst = useInstrument()
   const [manualRoot, setManualRoot] = useState(() => {
     try { return JSON.parse(localStorage.getItem('kg:progKey') ?? '"G"') as string } catch { return 'G' }
   })
   const [manualMinor, setManualMinor] = useState(false)
-  const [followChord, setFollowChord] = useState(true)
+  // Second fretboard defaults to Whole Key while first follows live Chord!
+  const [followChord, setFollowChord] = useState(() => !uid.includes('-'))
 
   const info = c.chordNow ? chordInfo(c.chordNow) : null
   const keyMatch = c.keyName ? /^([A-G][#b]?)\s*(m|min)/i.exec(c.keyName) : null
@@ -250,7 +301,7 @@ function NeckBody({ c, expanded, onToggle }: { c: FloatCtx; expanded: boolean; o
           </span>
           <button className="btn sm ghost" onClick={onToggle} data-testid="fc-neck-collapse">Compact</button>
         </div>
-        <LayerNeck rootPc={activeRootPc} minor={activeMinor} inst={inst} where="float5layer" compact />
+        <LayerNeck rootPc={activeRootPc} minor={activeMinor} inst={inst} where={`float5layer:${uid}`} compact />
       </div>
     )
   }
@@ -260,7 +311,7 @@ function NeckBody({ c, expanded, onToggle }: { c: FloatCtx; expanded: boolean; o
   if (!pcs && !info) {
     return (
       <div className="stack" style={{ gap: 6 }} data-testid="fc-neck">
-        <div className="fc-empty">Open a song or jam to follow live chords — or expand the full 5-layer fretboard anytime.</div>
+        <div className="fc-empty">Open a song, Jam, or Pocket Band to follow live chords — or expand the full 5-layer fretboard anytime.</div>
         <button className="btn sm primary" onClick={onToggle} data-testid="fc-neck-expand"><Ico n="layers" /> Open 5-Layer Fretboard</button>
       </div>
     )
@@ -332,7 +383,6 @@ function TunerBody() {
   const toggle = async () => {
     if (on) { tr.current?.stop(); tr.current = null; setOn(false); setR(null); return }
     const t = new PitchTracker({ filter: true })
-    // only clear notes (freq 0 = sound but no clear pitch), steadied by the middle of the last five readings
     const last: number[] = []
     t.onReading = rd => {
       if (!rd || rd.freq <= 0 || rd.clarity < 0.88) return
