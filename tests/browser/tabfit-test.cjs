@@ -37,7 +37,7 @@ const rowGaps = page => page.evaluate(() => {
       window.__kgTest = true
       try { if (window.top !== window || sessionStorage.getItem('seeded')) return } catch { return }
       localStorage.clear()
-      for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:navHidden': '0', 'kg:askBubble': 'false', 'kg:getReady': '0', 'kg:tab2': '"play"', 'kg:playTidy': 'false', 'kg:theme': JSON.stringify(t), 'kg:floatCards:play': '[]' })) localStorage.setItem(k, v)
+      for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:navHidden': '0', 'kg:studioCockpit': 'false', 'kg:askBubble': 'false', 'kg:getReady': '0', 'kg:tab2': '"play"', 'kg:playTidy': 'false', 'kg:theme': JSON.stringify(t), 'kg:floatCards:play': '[]' })) localStorage.setItem(k, v)
       sessionStorage.setItem('seeded', '1')
     }, theme)
     await page.goto('http://localhost:4173/')

@@ -11,6 +11,7 @@ import { parseChordQual } from '../theory/harmonicFlow'
 import { FxPad } from './FxPad'
 import { BeatLight } from './BeatLight'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { haptic, quietForMic } from '../audio/tapFeel'
 import { Ico } from '../components/Icon'
 import { audio } from '../audio/engine'
@@ -35,7 +36,7 @@ import { askAssistant } from '../assistant/bus'
 import {
   PADS, STARTERS, deleteStored, loadBeat, newId, onBeatChange, padLabel, padsFor, saveBeat, savedBeats, setBars, storeBeat, totalSteps, voiceLabel,
   PATTERNS, patternLayer, type Beat, type DrumLayer, type PNote, type Pattern, type Track,
-  PART_IDS, beatInPart, curPart, deletePart, partsMade, switchPart, type PartId,
+  PART_IDS, beatInPart, buildSong, curPart, deletePart, partsMade, switchPart, type DrumRow, type PartId,
 } from './beat'
 import { CHORD_TYPES, INSTR_GROUPS, allInstrs, chordNotes, instr, keyChord, loadInstr, type Voicing } from './sounds'
 import type { StudioTransport } from './transport'
@@ -194,6 +195,8 @@ export function StudioScreen({ active }: { active: boolean }) {
     hold: (a: PedalAction) => { if (a === 'startStop' || a === 'record') stop() },
   })
 
+  // the cockpit (full screen) is the beat maker's main layout; Leave goes back to the windows
+  const [cockpit, setCockpit] = usePersist('studioCockpit', true)
   const wide = width >= 720
   const flats = keyPrefersFlats(beat.key, beat.minor)
   const header = (
@@ -208,6 +211,7 @@ export function StudioScreen({ active }: { active: boolean }) {
         <button className="btn sm" onClick={undo} disabled={!history.current.length} aria-label="Undo" title="Undo">↶</button>
         <button className="btn sm" onClick={redo} disabled={!future.current.length} aria-label="Redo" title="Redo">↷</button>
         <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')}><Ico n="sparkles" /> Ideas</button>
+        {!cockpit && active && <button className="btn sm" onClick={() => setCockpit(true)} data-testid="st-cockpit"><Ico n="expand" /> Full screen</button>}
       </div>
       <PartsBar t={tr()} beat={beat} setBeat={setBeat} />
       <div className="st-row">
@@ -296,9 +300,19 @@ export function StudioScreen({ active }: { active: boolean }) {
   )
 
   const pads = <Pads t={tr()} beat={beat} setBeat={setBeat} recordHit={recordHit} mine={mine} setMine={setMine} undo={undo} canUndo={history.current.length > 0} />
+
   const keys = <Keys t={tr()} beat={beat} setBeat={setBeat} recStep={recStep} quant={quant} />
   const tabletop = active && posture.tabletop
 
+  if (active && cockpit) return (
+    <div className="stack studio" ref={box}>
+      <Cockpit t={tr()} beat={beat} setBeat={setBeat} playing={playing} recording={recording} play={play} stop={stop} toggleRecord={toggleRecord}
+        undo={undo} redo={redo} canUndo={history.current.length > 0} canRedo={future.current.length > 0} msg={msg} onLeave={() => setCockpit(false)}
+        pads={o => <Pads t={tr()} beat={beat} setBeat={setBeat} recordHit={recordHit} mine={mine} setMine={setMine} undo={undo} canUndo={history.current.length > 0} bare ck={o} />}
+        keys={<Keys t={tr()} beat={beat} setBeat={setBeat} recStep={recStep} quant={quant} bare />}
+        more={header} mixEl={<Mix t={tr()} beat={beat} setBeat={setBeat} />} saveEl={<BounceSave t={tr()} beat={beat} setBeat={setBeat} loops={loops} play={play} stop={stop} />} />
+    </div>
+  )
   return (
     <div className="stack studio" style={{ gap: 10 }} ref={box}>
       <WinArea area="studio" className={`st-wins${wide ? ' wide' : ''}`} defaultHidden={['steps', 'roll', 'mix', 'practice']}>
@@ -407,14 +421,22 @@ function SaveRow({ beat, setBeat }: { beat: Beat; setBeat: (b: Beat) => void }) 
 // ───────────────────────── pads (finger drumming)
 const PAD_HUE: Partial<Record<Voice, number>> = { kick: 0, snare: 28, clap: 45, rim: 60, ghost: 28, hat: 180, open: 195, pedal: 170, crash: 210, ride: 225, bell: 240, china: 255, splash: 215, tom1: 300, tom2: 310, tom3: 320, impact: 350, riser: 270, snap: 140 }
 const MAIN: Voice[] = ['kick', 'snare', 'hat']
-type PadPage = 'kit' | 'perc' | 'mine'
-function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t: StudioTransport; beat: Beat; setBeat: SetBeat; recordHit: (v: PadId, vel: number) => void; mine: MySounds; setMine: (m: MySounds) => void; undo: () => void; canUndo: boolean }) {
+type PadPage = 'kit' | 'perc' | 'mine' | 'levels'
+interface CockpitPadOpts {
+  /** a pad was played: the cockpit makes it the selected sound */
+  onPick?: (v: PadId) => void
+  /** Mute mode: a tap mutes or unmutes that sound instead of playing it */
+  muteMode?: boolean
+  /** 16 Levels plays this sound */
+  levelsOf?: PadId
+}
+function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo, bare, ck }: { t: StudioTransport; beat: Beat; setBeat: SetBeat; recordHit: (v: PadId, vel: number) => void; mine: MySounds; setMine: (m: MySounds) => void; undo: () => void; canUndo: boolean; bare?: boolean; ck?: CockpitPadOpts }) {
   const [page, setPage] = usePersist<PadPage>('studioPadPage', 'kit')
   const [repeat, setRepeat] = usePersist<number>('studioRepeat', 0)
   const [size, setSize] = usePersist<'s' | 'm' | 'l'>('studioPadSize', 'm')
   const [bank, setBank] = usePersist<BankId>('studioBank', 'A')
   // the three you use most come first, as big pads with room between them
-  const voices: PadId[] = page === 'kit' ? [...MAIN, ...padsFor(beat.kit).filter(v => !MAIN.includes(v))] : page === 'perc' ? PADS.perc : BANKS[bank] ?? BANKS.A
+  const voices: PadId[] = page === 'kit' || page === 'levels' ? [...MAIN, ...padsFor(beat.kit).filter(v => !MAIN.includes(v))] : page === 'perc' ? PADS.perc : BANKS[bank] ?? BANKS.A
   const grid = useRef<HTMLDivElement>(null)
   const repeats = useRef(new Map<number, ReturnType<typeof setInterval>>())
   const held = useRef(new Map<number, Handle>())
@@ -450,6 +472,8 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
     lastPad.current = voice
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
     if (editMode) { flash(e.currentTarget, 'hit'); haptic('light'); return }
+    if (ck?.muteMode) { flash(e.currentTarget, 'hit'); haptic('light'); setBeat(b => toggleMute(b, voice)); ck.onPick?.(voice); return }
+    ck?.onPick?.(voice)
     if (sampler.on) { flash(e.currentTarget, 'hit'); void sampler.down(voice); return }
     // the sound first, before anything else
     const r = e.currentTarget.getBoundingClientRect()
@@ -477,13 +501,16 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
     if (h) { h.stop(); held.current.delete(e.pointerId) }
   }
   useEffect(() => () => repeats.current.forEach(clearInterval), [])
-  return (
-    <Win id="pads" title="Drum pads" className="panel st-padpanel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+  const muted = (v: string) => beat.rows.some(r => r.voice === v && r.mute)
+  const levels = page === 'levels' && ck?.levelsOf
+  const body = (
+    <>
       <div className="row" style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
         <div className="seg" role="group" aria-label="Pad page">
           <button aria-pressed={page === 'kit'} onClick={() => setPage('kit')}>Drums</button>
           <button aria-pressed={page === 'perc'} onClick={() => setPage('perc')}>Percussion</button>
           <button aria-pressed={page === 'mine'} onClick={() => setPage('mine')}>Your pads</button>
+          {ck?.levelsOf && <button aria-pressed={page === 'levels'} onClick={() => setPage('levels')} data-testid="pads-levels">16 Levels</button>}
         </div>
         {page === 'mine' && (
           <div className="seg" role="group" aria-label="Bank" data-testid="pad-bank">
@@ -512,6 +539,12 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
           <span className="small"><b>Tap a pad</b> to open its settings: trim, pitch, volume, backwards, how it plays, or put a note, chord or file on it.</span>
           {canUndo && <button className="btn sm" onClick={undo}>↶ Undo</button>}
         </div>
+      ) : bare ? (
+        <label className="field st-field st-inline"><span>Hold to repeat</span>
+          <select className="select sm" value={repeat} onChange={e => setRepeat(Number(e.target.value))}>
+            <option value={0}>Off</option><option value={4}>1/4</option><option value={2}>1/8</option><option value={1}>1/16</option><option value={0.5}>1/32</option>
+          </select>
+        </label>
       ) : (
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <div className="seg" role="group" aria-label="Pad size">
@@ -524,12 +557,25 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
           </label>
         </div>
       )}
-      <div className={`st-pads size-${size}${sampler.on ? ' sampling' : ''}${editMode ? ' editing' : ''}`} ref={grid}>
+      {levels && (
+        <div className="st-pads size-m ck-levels" data-testid="levels-grid">
+          {Array.from({ length: 16 }, (_, i) => {
+            const vel = Math.round(((i + 1) / 16) * 100) / 100
+            return (
+              <button key={i} className="st-pad" style={{ ['--h' as string]: String(PAD_HUE[ck!.levelsOf as Voice] ?? 300), opacity: 0.45 + vel * 0.55 }}
+                onPointerDown={e => { e.preventDefault(); t.hit(ck!.levelsOf!, vel); haptic('light'); flash(e.currentTarget, 'hit'); recordHit(ck!.levelsOf!, vel) }} aria-label={`${padLabel(beat, ck!.levelsOf!)} at ${Math.round(vel * 100)}%`}>
+                <span>{Math.round(vel * 100)}%</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+      <div className={`st-pads size-${size}${sampler.on ? ' sampling' : ''}${editMode ? ' editing' : ''}${ck?.muteMode ? ' mute-mode' : ''}`} ref={grid} hidden={!!levels}>
         {voices.map(v => {
           const d = beat.pads?.[v]
           const empty = isUserPad(v) && !d
           return (
-            <button key={v} data-voice={v} className={`st-pad${page === 'kit' && MAIN.includes(v as Voice) ? ' big' : ''}${mine.map[v as Voice] || (d && d.src !== 'kit') ? ' mine' : ''}${empty ? ' empty' : ''}${sampler.recPad === v ? ' recording' : ''}`}
+            <button key={v} data-voice={v} className={`st-pad${ck?.muteMode && muted(v) ? ' is-muted' : ''}${page === 'kit' && MAIN.includes(v as Voice) ? ' big' : ''}${mine.map[v as Voice] || (d && d.src !== 'kit') ? ' mine' : ''}${empty ? ' empty' : ''}${sampler.recPad === v ? ' recording' : ''}`}
               style={{ ['--h' as string]: String(PAD_HUE[v as Voice] ?? (isUserPad(v) ? (Number(v.slice(1)) * 37) % 360 : 120)) }}
               onPointerDown={e => down(e, v)} onPointerUp={e => up(e, v)} onPointerCancel={e => up(e, v)} onContextMenu={e => e.preventDefault()}
               aria-label={`${padLabel(beat, v)}${editMode ? ': tap for its settings' : sampler.on ? ': hold to record' : ''}`}>
@@ -557,8 +603,15 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo }: { t
         <PadEditor pad={editing} beat={beat} setBeat={(f, r) => setBeat(f, r)} t={t} mine={mine} onClose={() => setEditing(null)}
           onRecord={d => { if (d) void sampler.down(editing); else void sampler.up(editing, true) }} recording={sampler.recPad === editing} level={sampler.level} />
       )}
-    </Win>
+    </>
   )
+  return bare ? <div className="stack ck-padbody" style={{ gap: 8 }}>{body}</div> : <Win id="pads" title="Drum pads" className="panel st-padpanel" bodyClass="stack" bodyStyle={{ gap: 8 }}>{body}</Win>
+}
+
+/** mute or unmute a sound everywhere it plays (its grid row and its rows in the layers) */
+function toggleMute(b: Beat, v: string): Beat {
+  const on = !(b.rows.find(r => r.voice === v)?.mute ?? (b.layers ?? []).some(l => l.rows.some(r => r.voice === v && r.mute)))
+  return { ...b, rows: b.rows.map(r => (r.voice === v ? { ...r, mute: on } : r)), layers: (b.layers ?? []).map(l => ({ ...l, rows: l.rows.map(r => (r.voice === v ? { ...r, mute: on } : r)) })) }
 }
 
 /** Sample mode: the input stays open (nothing cut off at the start); hold = record, a quick tap does nothing. */
@@ -810,7 +863,7 @@ function InstrumentSelect({ value, onChange, label = 'Sound', placeholder, beat 
   )
 }
 const startOctave = (id: string) => { if (id.startsWith('pad:')) return 48; const d = instr(id); return Math.max(24, Math.min(72, d.lo + 12 - (d.lo % 12))) }
-function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: Beat; setBeat: SetBeat; recStep: () => number | null; quant: number }) {
+function Keys({ t, beat, setBeat, recStep, quant, bare }: { t: StudioTransport; beat: Beat; setBeat: SetBeat; recStep: () => number | null; quant: number; bare?: boolean }) {
   const [inst, setInst] = usePersist('studioKeysInst', 'grand')
   const [size, setSize] = usePersist<'s' | 'm' | 'l'>('studioKeySize', 'm')
   const [mode, setMode] = usePersist<'off' | 'type' | 'key'>('studioChordMode', 'off')
@@ -886,8 +939,8 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
     })
   }
   const whiteKeys = midis.filter(m => !isBlack(m))
-  return (
-    <Win id="keys" title="Keyboard" className="panel st-keypanel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+  const body = (
+    <>
       <div className="st-row">
         <InstrumentSelect beat={beat} value={inst} onChange={id => { setInst(id); setLo(id.startsWith('pad:') ? 48 : startOctave(id)) }} />
         <div className="seg" role="group" aria-label="Octave">
@@ -984,8 +1037,9 @@ function Keys({ t, beat, setBeat, recStep, quant }: { t: StudioTransport; beat: 
           : mode === 'key' ? `One finger plays the right chord of ${beat.key}${beat.minor ? ' minor' : ' major'} on each dotted key.`
             : 'Play several keys at once for chords. Dotted keys are in the key. With ● on, what you play goes into the piano roll.'}
       </p>
-    </Win>
+    </>
   )
+  return bare ? <div className="stack ck-keybody" style={{ gap: 8 }}>{body}</div> : <Win id="keys" title="Keyboard" className="panel st-keypanel" bodyClass="stack" bodyStyle={{ gap: 8 }}>{body}</Win>
 }
 
 // ───────────────────────── piano roll
@@ -1275,6 +1329,257 @@ function PartsBar({ t, beat, setBeat }: { t: StudioTransport; beat: Beat; setBea
           {made.length > 1 && cur !== 'A' && <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setBeat(b => switchPart(deletePart(switchPart(b, 'A'), cur), 'A'))}>Delete part {cur}</button>}
         </div>
       )}
+    </div>
+  )
+}
+
+// ───────────────────────── the cockpit: the beat maker full screen (owner 2026-11-21: "intuitive and simple yet pro")
+// One selected sound runs the screen: tap a pad and the Steps show that sound big, the strip at the bottom shows its
+// controls. Three areas: Pads (Drums / Percussion / Your pads / 16 Levels, or the Keys), Steps, the sound strip.
+// One rule for every touch: tap = play / turn on, hold = its options, drag up and down on a step = how hard it hits.
+const padHue = (v: string) => PAD_HUE[v as Voice] ?? (isUserPad(v) ? (Number(v.slice(1)) * 37) % 360 : 120)
+const LENGTHS = [16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3]
+
+interface CockpitProps {
+  t: StudioTransport; beat: Beat; setBeat: SetBeat
+  playing: boolean; recording: boolean; play: (c?: number) => void; stop: () => void; toggleRecord: () => void
+  undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean
+  pads: (o: CockpitPadOpts) => ReactNode; keys: ReactNode; more: ReactNode; msg: string
+  onLeave: () => void; mixEl: ReactNode; saveEl: ReactNode
+}
+function Cockpit(p: CockpitProps) {
+  const { t, beat, setBeat, playing, recording } = p
+  const [sel, setSel] = usePersist<string>('studioSel', 'kick')
+  const [left, setLeft] = usePersist<'pads' | 'keys'>('studioCkLeft', 'pads')
+  const [area, setArea] = usePersist<'pads' | 'steps'>('studioCkArea', 'pads')
+  const [all, setAll] = usePersist('studioCkAll', false)
+  const [muteMode, setMuteMode] = useState(false)
+  const [help, setHelp] = useState(false)
+  const [sheet, setSheet] = useState<null | 'mix' | 'fx' | 'save' | 'more' | 'layers' | 'song'>(null)
+  const [w, setW] = useState(typeof innerWidth === 'number' ? innerWidth : 800)
+  useEffect(() => { const f = () => setW(innerWidth); addEventListener('resize', f); return () => removeEventListener('resize', f) }, [])
+  const narrow = w < 600
+  const cur = curPart(beat), made = partsMade(beat)
+  // a part tapped while it plays starts at the next bar (not in the middle of one)
+  const pickPart = (id: PartId) => {
+    if (playing && !beat.chainOn) { const at = Math.ceil((t.stepAt(audio().currentTime) + 0.01) / STEPS) * STEPS; t.livePart = { part: id, from: at } }
+    setBeat(b => switchPart(b, id, 'copy'))
+  }
+  const fill = (on: boolean) => { t.fillOn = on; if (on) haptic('light') }
+  const padsEl = p.pads({ onPick: v => setSel(v), muteMode, levelsOf: sel as PadId })
+  const leftArea = (
+    <section className="ck-area ck-left" aria-label={left === 'pads' ? 'Pads' : 'Keys'}>
+      <div className="ck-head">
+        <div className="seg" role="group" aria-label="Pads or keys">
+          <button aria-pressed={left === 'pads'} onClick={() => setLeft('pads')}>Pads</button>
+          <button aria-pressed={left === 'keys'} onClick={() => setLeft('keys')}>Keys</button>
+        </div>
+        <span className="st-spacer" />
+        {left === 'pads' && <button className={`btn sm${muteMode ? ' on' : ''}`} aria-pressed={muteMode} onClick={() => setMuteMode(!muteMode)} data-testid="ck-mute">Mute mode</button>}
+      </div>
+      {help && <p className="ck-help small">{left === 'pads' ? (muteMode ? 'Mute mode: tap a pad to silence that sound in the beat, tap again to bring it back.' : 'Tap a pad to play it and select it: the steps and the strip show that sound. Press ● and play to record. 16 Levels plays the selected sound at 16 strengths.') : 'Play notes and chords; with ● on they go into the beat.'}</p>}
+      <div className="ck-scroll">{left === 'pads' ? padsEl : p.keys}</div>
+    </section>
+  )
+  const stepsArea = (
+    <section className="ck-area ck-right" aria-label="Steps">
+      <div className="ck-head">
+        <b className="ck-sel" style={{ ['--h' as string]: String(padHue(sel)) }}><i aria-hidden />{padLabel(beat, sel)}</b>
+        <span className="st-spacer" />
+        <div className="seg" role="group" aria-label="Steps view">
+          <button aria-pressed={!all} onClick={() => setAll(false)}>This sound</button>
+          <button aria-pressed={all} onClick={() => setAll(true)} data-testid="ck-all">All</button>
+        </div>
+      </div>
+      {help && <p className="ck-help small">Tap a step to turn it on or off. Drag up or down on it to set how hard it hits. Hold it for quick repeats (×2 ×3 ×4) and a chance it plays.</p>}
+      <div className="ck-scroll">{all ? <Steps beat={beat} setBeat={setBeat} t={t} /> : <FocusSteps beat={beat} setBeat={setBeat} t={t} voice={sel} />}</div>
+    </section>
+  )
+  const sheetBody = sheet === 'mix' ? p.mixEl : sheet === 'fx' ? <FxPad t={t} playing={playing} play={p.play} /> : sheet === 'save' ? p.saveEl : sheet === 'layers' ? <Layers beat={beat} setBeat={setBeat} /> : sheet === 'song' ? <SongSheet beat={beat} setBeat={setBeat} /> : sheet === 'more' ? p.more : null
+  const sheetTitle = { mix: 'Mix', fx: 'Effects pad', save: 'Bounce and save', layers: 'Drum layers', song: 'Song', more: 'More settings' }
+  return createPortal(
+    <div className={`ck${narrow ? ' narrow' : ''}${help ? ' help' : ''}`} role="region" aria-label="Beat maker cockpit" data-testid="cockpit">
+      <header className="ck-top">
+        <button className={`btn primary st-play${playing ? ' on' : ''}`} onClick={() => (playing ? p.stop() : p.play())} aria-label={playing ? 'Stop' : 'Play'} data-testid="ck-play">{playing ? '■' : '▶'}</button>
+        <button className={`btn st-rec${recording ? ' on' : ''}`} onClick={p.toggleRecord} aria-pressed={recording} aria-label="Record what you play (a one-bar count-in first)" data-testid="ck-rec">●</button>
+        <BeatLight t={t} playing={playing} />
+        <Tempo bpm={beat.bpm} onChange={bpm => setBeat(b => ({ ...b, bpm }))} />
+        <div className="ck-parts" role="group" aria-label="Parts">
+          {PART_IDS.map(id => <button key={id} className={`st-part${id === cur ? ' cur' : ''}${made.includes(id) ? '' : ' new'}${playing && t.playPart === id ? ' playing' : ''}`} aria-pressed={id === cur} onClick={() => pickPart(id)} data-testid={`ck-part-${id}`}>{made.includes(id) ? id : `+${id}`}</button>)}
+          <button className={`btn sm${beat.chainOn ? ' on' : ''}`} onClick={() => setSheet(sheet === 'song' ? null : 'song')} data-testid="ck-song">Song</button>
+        </div>
+        <button className="btn sm ck-fill" onPointerDown={e => { e.preventDefault(); fill(true) }} onPointerUp={() => fill(false)} onPointerCancel={() => fill(false)} onPointerLeave={() => t.fillOn && fill(false)} data-testid="ck-fill">Fill</button>
+        <span className="st-spacer" />
+        <button className="btn sm" onClick={p.undo} disabled={!p.canUndo} aria-label="Undo" title="Undo">↶</button>
+        <button className="btn sm" onClick={p.redo} disabled={!p.canRedo} aria-label="Redo" title="Redo">↷</button>
+        <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')}><Ico n="sparkles" /> Ideas</button>
+        <button className={`btn sm${help ? ' on' : ''}`} aria-pressed={help} onClick={() => setHelp(!help)} aria-label="Show what everything does" title="Show what everything does">?</button>
+        <button className="btn sm" onClick={() => setSheet('more')} aria-label="More settings: style, kit, key, bars, swing, save">⋯</button>
+        <button className="btn sm" onClick={p.onLeave} data-testid="ck-leave" title="Back to the windows layout"><Ico n="expand" /> Leave</button>
+      </header>
+      {p.msg && <p className="small ck-msg" role="status">{p.msg}</p>}
+      {narrow && (
+        <div className="seg ck-switch" role="group" aria-label="Show">
+          <button aria-pressed={area === 'pads'} onClick={() => setArea('pads')}>Pads</button>
+          <button aria-pressed={area === 'steps'} onClick={() => setArea('steps')} data-testid="ck-steps-tab">Steps</button>
+        </div>
+      )}
+      <main className="ck-main">{narrow ? (area === 'pads' ? leftArea : stepsArea) : <>{leftArea}{stepsArea}</>}</main>
+      <SoundStrip beat={beat} setBeat={setBeat} t={t} voice={sel} onSheet={s => setSheet(sheet === s ? null : s)} sheet={sheet} help={help} />
+      {sheet && (
+        <div className="ck-sheet" role="dialog" aria-label={sheetTitle[sheet]} data-testid="ck-sheet">
+          <div className="ck-head"><b>{sheetTitle[sheet]}</b><span className="st-spacer" /><button className="btn sm" onClick={() => setSheet(null)}>Done</button></div>
+          <div className="ck-scroll"><WinArea area={`studioCk-${sheet}`}>{sheetBody}</WinArea></div>
+        </div>
+      )}
+    </div>,
+    document.body,
+  )
+}
+const STEPS = 16
+
+/** The selected sound's steps, big: tap = on/off, drag up/down = how hard, hold = repeats and chance. */
+function FocusSteps({ beat, setBeat, t, voice }: { beat: Beat; setBeat: SetBeat; t: StudioTransport; voice: string }) {
+  const n = totalSteps(beat)
+  const step = useStep(t)
+  const row = beat.rows.find(r => r.voice === voice)
+  const len = row?.len && row.len < n ? row.len : n
+  const [page, setPage] = useState(0)
+  const [follow, setFollow] = usePersist('studioCkFollow', true)
+  const [opts, setOpts] = useState<number | null>(null)
+  const pages = Math.ceil(len / 16)
+  const playPage = step >= 0 ? Math.floor(((row?.len && row.len < n ? (t.stepAt(audio().currentTime)) % row.len : step) | 0) / 16) : -1
+  const shown = follow && playPage >= 0 ? Math.min(playPage, pages - 1) : Math.min(page, pages - 1)
+  const cells = Array.from({ length: Math.min(16, len - shown * 16) }, (_, i) => shown * 16 + i)
+  const nowIdx = step >= 0 ? (row?.len && row.len < n ? Math.floor(t.stepAt(audio().currentTime)) % row.len : step) : -1
+  /** change this sound's row (made if it isn't in the grid yet) */
+  const edit = (f: (r: DrumRow) => DrumRow) => setBeat(b => {
+    const has = b.rows.find(r => r.voice === voice)
+    const base: DrumRow = has ?? { voice: voice as PadId, steps: Array(n).fill(0) }
+    const next = f({ ...base, steps: [...base.steps], ...(base.rat ? { rat: [...base.rat] } : {}), ...(base.prob ? { prob: [...base.prob] } : {}) })
+    return { ...b, rows: has ? b.rows.map(r => (r.voice === voice ? next : r)) : [...b.rows, next] }
+  })
+  const g = useRef<{ i: number; y: number; v0: number; moved: boolean; timer: number } | null>(null)
+  const down = (e: React.PointerEvent<HTMLButtonElement>, i: number) => {
+    e.preventDefault()
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
+    const v0 = row?.steps[i] ?? 0
+    const timer = window.setTimeout(() => { if (g.current && !g.current.moved) { g.current = null; setOpts(i); haptic('medium') } }, 450)
+    g.current = { i, y: e.clientY, v0, moved: false, timer }
+  }
+  const move = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const s = g.current
+    if (!s) return
+    const dy = s.y - e.clientY
+    if (!s.moved && Math.abs(dy) < 10) return
+    s.moved = true
+    clearTimeout(s.timer)
+    const v = Math.max(0.1, Math.min(1, (s.v0 || 0.6) + dy / 120))
+    edit(r => { r.steps[s.i] = Math.round(v * 100) / 100; return r })
+  }
+  const up = (i: number) => {
+    const s = g.current
+    g.current = null
+    if (!s) return
+    clearTimeout(s.timer)
+    if (s.moved) { t.hit(voice, row?.steps[i] ?? 0.8); return }
+    const on = (row?.steps[i] ?? 0) > 0
+    edit(r => { r.steps[i] = on ? 0 : 0.8; return r })
+    haptic('light')
+    if (!on) t.hit(voice, 0.8)
+  }
+  const o = opts !== null ? { v: row?.steps[opts] ?? 0, rat: row?.rat?.[opts] ?? 1, prob: row?.prob?.[opts] ?? 1 } : null
+  return (
+    <div className="stack ck-focus" style={{ gap: 8 }} data-testid="ck-focus">
+      {pages > 1 && (
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="seg" role="group" aria-label="Which bar">
+            {Array.from({ length: pages }, (_, k) => <button key={k} aria-pressed={shown === k} onClick={() => { setFollow(false); setPage(k) }}>Bar {k + 1}</button>)}
+          </div>
+          <label className="ex-check small"><input type="checkbox" checked={follow} onChange={e => setFollow(e.target.checked)} /> Follow the beat</label>
+        </div>
+      )}
+      <div className="ck-cells" style={{ ['--h' as string]: String(padHue(voice)) }}>
+        {cells.map(i => {
+          const v = row?.steps[i] ?? 0
+          const rat = row?.rat?.[i] ?? 1, prob = row?.prob?.[i] ?? 1
+          return (
+            <button key={i} className={`ck-cell${v > 0 ? ' on' : ''}${i === nowIdx ? ' now' : ''}${i % 4 === 0 ? ' beat' : ''}${prob < 1 ? ' maybe' : ''}`}
+              onPointerDown={e => down(e, i)} onPointerMove={move} onPointerUp={() => up(i)} onPointerCancel={() => { if (g.current) clearTimeout(g.current.timer); g.current = null }} onContextMenu={e => e.preventDefault()}
+              aria-pressed={v > 0} aria-label={`${padLabel(beat, voice)} step ${i + 1}${v > 0 ? `, ${Math.round(v * 100)}%` : ''}${rat > 1 ? `, ×${rat}` : ''}${prob < 1 ? `, ${Math.round(prob * 100)}% chance` : ''}`} data-step={i}>
+              {v > 0 && <span className="ck-vel" style={{ height: `${Math.round(v * 100)}%` }} />}
+              {v > 0 && rat > 1 && <span className="ck-rat">×{rat}</span>}
+              {v > 0 && prob < 1 && <span className="ck-prob">{Math.round(prob * 100)}%</span>}
+              <span className="ck-num">{(i % 16) + 1}</span>
+            </button>
+          )
+        })}
+      </div>
+      {o && opts !== null && (
+        <div className="ck-opts panel stack" style={{ gap: 8 }} data-testid="ck-step-opts">
+          <div className="row" style={{ alignItems: 'center', gap: 8 }}><b>Step {(opts % 16) + 1}{pages > 1 ? ` of bar ${Math.floor(opts / 16) + 1}` : ''}</b><span className="st-spacer" /><button className="btn sm" onClick={() => setOpts(null)}>Done</button></div>
+          <label className="field st-field"><span>How hard: {Math.round((o.v || 0) * 100)}%</span>
+            <input type="range" min={0} max={1} step={0.05} value={o.v} onChange={e => edit(r => { r.steps[opts] = Number(e.target.value); return r })} />
+          </label>
+          <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}><span className="small">Quick repeats</span>
+            <div className="seg" role="group" aria-label="Quick repeats">
+              {[1, 2, 3, 4].map(k => <button key={k} aria-pressed={o.rat === k} onClick={() => edit(r => { r.rat = r.rat ?? Array(n).fill(1); r.rat[opts] = k; if (!(r.steps[opts] > 0)) r.steps[opts] = 0.8; return r })} data-testid={`ck-rat-${k}`}>{k === 1 ? 'Off' : `×${k}`}</button>)}
+            </div>
+          </div>
+          <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}><span className="small">Chance it plays</span>
+            <div className="seg" role="group" aria-label="Chance">
+              {[1, 0.75, 0.5, 0.25].map(k => <button key={k} aria-pressed={o.prob === k} onClick={() => edit(r => { r.prob = r.prob ?? Array(n).fill(1); r.prob[opts] = k; if (!(r.steps[opts] > 0)) r.steps[opts] = 0.8; return r })} data-testid={`ck-prob-${k * 100}`}>{k === 1 ? 'Always' : `${k * 100}%`}</button>)}
+            </div>
+          </div>
+        </div>
+      )}
+      {!row && <p className="small muted" style={{ margin: 0 }}>{padLabel(beat, voice)} isn't in the beat yet: tap a step to add it.</p>}
+    </div>
+  )
+}
+
+/** The strip along the bottom: the selected sound's volume, its own length (polyrhythm), mute, and the sheets. */
+function SoundStrip({ beat, setBeat, t, voice, onSheet, sheet, help }: { beat: Beat; setBeat: SetBeat; t: StudioTransport; voice: string; onSheet: (s: 'mix' | 'fx' | 'save' | 'layers') => void; sheet: string | null; help: boolean }) {
+  const n = totalSteps(beat)
+  const row = beat.rows.find(r => r.voice === voice)
+  const vol = beat.voiceVol?.[voice] ?? 1
+  const len = row?.len && row.len < n ? row.len : 16
+  const lens = LENGTHS.filter(l => l <= n)
+  return (
+    <footer className="ck-strip" style={{ ['--h' as string]: String(padHue(voice)) }} data-testid="ck-strip">
+      <button className="ck-sel" onClick={() => t.hit(voice, 0.85)} title="Hear it"><i aria-hidden />{padLabel(beat, voice)}</button>
+      <label className="ck-knob"><span>Volume</span><input type="range" min={0} max={1.5} step={0.05} value={vol} onChange={e => setBeat(b => ({ ...b, voiceVol: { ...b.voiceVol, [voice]: Number(e.target.value) } }), false)} aria-label={`${padLabel(beat, voice)} volume`} /></label>
+      <label className="ck-knob"><span>Length</span>
+        <select className="select sm" value={len} onChange={e => { const L = Number(e.target.value); setBeat(b => ({ ...b, rows: b.rows.map(r => (r.voice === voice ? { ...r, len: L >= 16 ? undefined : L } : r)) })) }} disabled={!row} aria-label="How many steps this sound loops over (fewer = a polyrhythm)" data-testid="ck-len">
+          {lens.map(l => <option key={l} value={l}>{l === 16 ? '16 (normal)' : `${l} steps`}</option>)}
+        </select>
+      </label>
+      <button className={`btn sm${row?.mute ? ' on' : ''}`} aria-pressed={!!row?.mute} disabled={!row} onClick={() => setBeat(b => toggleMute(b, voice))}>Mute</button>
+      <span className="st-spacer" />
+      {(['layers', 'mix', 'fx', 'save'] as const).map(s => <button key={s} className={`btn sm${sheet === s ? ' on' : ''}`} onClick={() => onSheet(s)} data-testid={`ck-sheet-${s}`}>{s === 'layers' ? 'Layers' : s === 'mix' ? 'Mix' : s === 'fx' ? 'FX' : 'Save'}</button>)}
+      {help && <span className="ck-help small" style={{ flexBasis: '100%' }}>Length: fewer steps make this sound loop on its own (12 against 16 = a polyrhythm). Layers: one-tap patterns and your recorded passes. Mix: every volume. FX: the effects pad. Save: bounce to audio and keep the beat.</span>}
+    </footer>
+  )
+}
+
+/** The song: parts in order, play it, or build one from part A. */
+function SongSheet({ beat, setBeat }: { beat: Beat; setBeat: SetBeat }) {
+  const made = partsMade(beat), chain = beat.chain ?? []
+  return (
+    <div className="stack" style={{ gap: 8 }} data-testid="ck-song-sheet">
+      <button className="btn primary" style={{ alignSelf: 'flex-start' }} onClick={() => setBeat(b => buildSong(b))} data-testid="ck-build-song"><Ico n="sparkles" /> Build a song from part A</button>
+      <p className="small muted" style={{ margin: 0 }}>Makes B a bigger chorus (crash, open hats), C a break (no kick or snare), D an ending, and lines them up A A B A B C B D. Change any part after.</p>
+      <div className="st-chain" aria-label="Song order">
+        {chain.length === 0 && <span className="small muted">Empty: tap a part below to add it.</span>}
+        {chain.map((id, i) => (
+          <span key={i} className="chip st-chain-chip">{id}<button onClick={() => setBeat(b => ({ ...b, chain: (b.chain ?? []).filter((_, k) => k !== i) }))} aria-label={`Remove ${id} from the song`}>✕</button></span>
+        ))}
+      </div>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+        {made.map(id => <button key={id} className="btn sm" onClick={() => setBeat(b => ({ ...b, chain: [...(b.chain ?? []), id] }))}>+ {id}</button>)}
+        {chain.length > 0 && <button className="btn sm ghost" onClick={() => setBeat(b => ({ ...b, chain: [] }))}>Clear</button>}
+      </div>
+      <label className="ex-check"><input type="checkbox" checked={!!beat.chainOn} onChange={e => setBeat(b => ({ ...b, chainOn: e.target.checked }))} /> Play the song (off: ▶ loops the part you're editing)</label>
     </div>
   )
 }

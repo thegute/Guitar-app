@@ -15,7 +15,7 @@ async function newPage(browser, viewport, seed = {}) {
   await page.addInitScript(s => {
     if (sessionStorage.getItem('seeded')) return
     localStorage.clear()
-    for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:navHidden': '0', 'kg:askBubble': 'false', 'kg:layoutHint': '1', 'kg:arrange': '1', 'kg:getReady': '0', ...s })) localStorage.setItem(k, v)
+    for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:navHidden': '0', 'kg:studioCockpit': 'false', 'kg:askBubble': 'false', 'kg:layoutHint': '1', 'kg:arrange': '1', 'kg:getReady': '0', ...s })) localStorage.setItem(k, v)
     sessionStorage.setItem('seeded', '1')
   }, seed)
   await page.goto('http://localhost:4173/')

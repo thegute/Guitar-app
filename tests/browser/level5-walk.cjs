@@ -9,7 +9,7 @@ const bad = m => { problems.push(m); console.log('  PROBLEM', m) }
   for (const [vp, theme, inst] of [[{ width: 412, height: 915, n: 'cover' }, 'psy', 'guitar'], [{ width: 840, height: 757, n: 'inner' }, 'day', 'guitar'], [{ width: 412, height: 915, n: 'uke' }, 'night', 'ukulele']]) {
     const ctx = await b.newContext({ viewport: vp, hasTouch: true })
     const page = await ctx.newPage(); const errs = []; page.on('pageerror', e => errs.push(e.message))
-    await page.addInitScript(([t, i]) => { window.__kgTest = true; if (sessionStorage.getItem('s')) return; localStorage.clear(); for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:navHidden': '0', 'kg:getReady': '0', 'kg:tab2': '"learn"', 'kg:tipsMode': '"off"', 'kg:theme': JSON.stringify(t), 'kg:instrument': JSON.stringify(i) })) localStorage.setItem(k, v); sessionStorage.setItem('s', '1') }, [theme, inst])
+    await page.addInitScript(([t, i]) => { window.__kgTest = true; if (sessionStorage.getItem('s')) return; localStorage.clear(); for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:navHidden': '0', 'kg:studioCockpit': 'false', 'kg:getReady': '0', 'kg:tab2': '"learn"', 'kg:tipsMode': '"off"', 'kg:theme': JSON.stringify(t), 'kg:instrument': JSON.stringify(i) })) localStorage.setItem(k, v); sessionStorage.setItem('s', '1') }, [theme, inst])
     await page.goto('http://localhost:4173/'); await page.waitForSelector('.today-card')
     for (const id of IDS) {
       if (!await page.locator(`[data-testid=course-lesson-${id}]`).count()) {

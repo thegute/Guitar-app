@@ -3656,3 +3656,46 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
 .lesson-tab-view canvas { display: block; }
 .lesson-tab-view .scan-player, .lesson-tab-view > div { background: var(--surface); }
 .tab-file.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* ── beat maker cockpit (StudioScreen Cockpit): full screen, transport on top, pads | steps, the sound strip ── */
+.ck { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; gap: 6px; padding: calc(env(safe-area-inset-top, 0px) + 6px) 8px calc(env(safe-area-inset-bottom, 0px) + 6px); background: var(--bg); color: var(--ink); }
+[data-theme="psy"] .ck { background: radial-gradient(120% 80% at 70% 0%, #3a0a63 0, #14002b 60%); }
+.ck-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 4px 6px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line, rgba(127,127,127,.25)); }
+.ck-top .st-play { width: 46px; height: 46px; border-radius: 50%; font-size: 18px; padding: 0; }
+.ck-top .st-rec { width: 40px; height: 40px; border-radius: 50%; padding: 0; color: var(--coral); }
+.ck-top .st-rec.on { background: var(--coral); color: #fff; }
+.ck-parts { display: flex; gap: 3px; align-items: center; }
+.ck-fill:active, .ck-fill.on { background: var(--gold); color: #1a1200; }
+.ck-msg { margin: 0; padding: 0 6px; }
+.ck-switch { align-self: stretch; }
+.ck-switch button { flex: 1; font-size: 16px; padding: 8px 0; }
+.ck-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 8px; }
+.ck.narrow .ck-main { grid-template-columns: minmax(0, 1fr); }
+.ck-area { min-height: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line, rgba(127,127,127,.25)); }
+.ck-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ck-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.ck-help { margin: 0; color: var(--gold-text); }
+.ck-sel { display: inline-flex; align-items: center; gap: 6px; font: 700 17px 'Barlow Condensed', sans-serif; background: none; border: 0; color: var(--ink); padding: 0 4px; }
+.ck-sel i { width: 14px; height: 14px; border-radius: 4px; background: hsl(var(--h) 85% 55%); display: inline-block; }
+.ck-cells { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.ck-cell { position: relative; aspect-ratio: 1 / 0.78; min-height: 48px; border-radius: 10px; border: 1px solid var(--line, rgba(127,127,127,.3)); background: color-mix(in srgb, var(--ink) 6%, transparent); overflow: hidden; touch-action: none; padding: 0; }
+.ck-cell.beat { border-color: color-mix(in srgb, var(--ink) 35%, transparent); }
+.ck-cell.on { background: color-mix(in srgb, hsl(var(--h) 85% 55%) 22%, transparent); border-color: hsl(var(--h) 85% 55%); }
+.ck-vel { position: absolute; left: 0; right: 0; bottom: 0; background: hsl(var(--h) 85% 55%); opacity: .85; }
+.ck-cell.maybe .ck-vel { background: repeating-linear-gradient(45deg, hsl(var(--h) 85% 55%) 0 5px, transparent 5px 10px); }
+.ck-cell.now { box-shadow: 0 0 0 2px var(--gold) inset, 0 0 12px var(--gold); }
+.ck-num { position: absolute; top: 3px; left: 5px; font: 600 11px 'Barlow Condensed', sans-serif; color: var(--ink); opacity: .7; }
+.ck-rat, .ck-prob { position: absolute; right: 4px; font: 700 12px 'Barlow Condensed', sans-serif; color: #fff; text-shadow: 0 0 3px #000; }
+.ck-rat { top: 3px; } .ck-prob { bottom: 3px; }
+.ck-opts { position: relative; }
+.ck-strip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; border-radius: var(--r-md); background: var(--surface); border: 1px solid hsl(var(--h) 70% 50% / .6); }
+.ck-knob { display: inline-flex; align-items: center; gap: 6px; font: 600 13px 'Barlow Condensed', sans-serif; }
+.ck-knob input[type=range] { width: 110px; }
+.ck-sheet { position: fixed; z-index: 61; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 64px); width: min(720px, calc(100vw - 16px)); max-height: 70vh; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--accent); box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+.ck .st-pads.mute-mode .st-pad.is-muted { opacity: .35; filter: grayscale(.7); }
+.ck .ck-levels { grid-template-columns: repeat(4, 1fr); }
+
+/* in the cockpit the pads are one even 4 × 4 grid that fits its area (big kick / snare / hat only in the windows layout) */
+.ck .st-pads { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.ck .st-pads .st-pad, .ck .st-pads .st-pad.big { grid-column: auto; height: auto; aspect-ratio: 1 / 0.78; min-height: 52px; margin: 0; font-size: 15px; }
+.ck .ck-step-help { color: var(--ink-2); }

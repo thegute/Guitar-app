@@ -17,7 +17,7 @@ async function newPage(browser, seed = {}, viewport = { width: 840, height: 757 
     window.__kgTest = true
     try { if (window.top !== window || sessionStorage.getItem('seeded')) return } catch { return }
     localStorage.clear()
-    localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:navHidden', '0'); localStorage.setItem('kg:askBubble', 'false'); localStorage.setItem('kg:looperBubble', 'false'); localStorage.setItem('kg:getReady', '0'); localStorage.setItem('kg:tipsMode', '"off"')
+    localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:navHidden', '0'); localStorage.setItem('kg:studioCockpit', 'false'); localStorage.setItem('kg:askBubble', 'false'); localStorage.setItem('kg:looperBubble', 'false'); localStorage.setItem('kg:getReady', '0'); localStorage.setItem('kg:tipsMode', '"off"')
     for (const [k, v] of Object.entries(s)) localStorage.setItem(k, JSON.stringify(v))
     sessionStorage.setItem('seeded', '1')
   }, seed)

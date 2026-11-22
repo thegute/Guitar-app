@@ -26,7 +26,7 @@ function floatWav(f32, rate) {
   page.on('pageerror', e => errors.push(e.message))
   await page.addInitScript(() => {
     window.__kgTest = true
-    try { localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:navHidden', '0') } catch { /* frame */ }
+    try { localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:navHidden', '0'); localStorage.setItem('kg:studioCockpit', 'false') } catch { /* frame */ }
     // tap the speakers: every node that connects to the destination goes through one recorder first
     const orig = AudioNode.prototype.connect
     let rec = null

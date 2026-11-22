@@ -18,7 +18,7 @@ let bad = 0; const fail = m => { bad++; console.log('  PROBLEM ' + m) }
   for (const [w, h, n] of [[840, 757, 'inner'], [412, 915, 'cover']]) {
   const p = await b.newPage({ viewport: { width: w, height: h } })
   const errs = []; p.on('pageerror', e => errs.push(e.message))
-  await p.addInitScript(() => { if (sessionStorage.getItem('s')) return; localStorage.clear(); for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:navHidden': '0', 'kg:getReady': '0', 'kg:askBubble': 'false', 'kg:looperBubble': 'false', 'kg:tipsMode': '"off"', 'kg:sub:learn': '"explore"' })) localStorage.setItem(k, v); sessionStorage.setItem('s', '1') })
+  await p.addInitScript(() => { if (sessionStorage.getItem('s')) return; localStorage.clear(); for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:navHidden': '0', 'kg:studioCockpit': 'false', 'kg:getReady': '0', 'kg:askBubble': 'false', 'kg:looperBubble': 'false', 'kg:tipsMode': '"off"', 'kg:sub:learn': '"explore"' })) localStorage.setItem(k, v); sessionStorage.setItem('s', '1') })
   await p.goto('http://localhost:4173/'); await p.waitForTimeout(1500)
   await p.locator('nav.nav button:has-text("Learn")').first().click(); await p.waitForTimeout(800)
   await p.locator('button:has-text("Course Studio"), button:has-text("Your video lessons")').first().click(); await p.waitForTimeout(800)

@@ -72,6 +72,9 @@ export class StudioTransport {
   countInTotal = 0
   countInSwung = false
   click = false
+  /** Fill held down: a roll plays over the beat */
+  fillOn = false
+  private crashNext = false
   private stepFns = new Set<(step: number) => void>()
   /** your own samples for some pads (phone only): played instead of the kit's sound */
   custom = new Map<Voice, AudioBuffer>()
@@ -252,9 +255,22 @@ export class StudioTransport {
       const part = this.livePart && this.next >= this.livePart.from ? this.livePart.part : order[Math.floor(this.next / n) % order.length]
       const b = beatInPart(this.beat, part)
       for (const r of allRows(b)) {
-        const v = r.steps[s]
-        if (v > 0) this.drum(r.voice, t, Math.min(1.5, v * r.gain))
+        // a row with its own length cycles on its own (polyrhythm)
+        const i = r.len && r.len > 0 && r.len < n ? this.next % r.len : s
+        const v = r.steps[i]
+        if (!(v > 0)) continue
+        const chance = r.prob?.[i]
+        if (chance !== undefined && chance < 1 && Math.random() >= chance) continue
+        const k = Math.max(1, Math.min(4, Math.round(r.rat?.[i] ?? 1)))
+        for (let j = 0; j < k; j++) this.drum(r.voice, t + (j * this.stepDur) / k, Math.min(1.5, v * r.gain * (j ? 0.82 : 1)))
       }
+      // Fill (held): a snare roll rising into toms over the last beat; let go and the next bar starts with a crash
+      if (this.fillOn) {
+        const q = s % 16
+        const voice = q < 12 ? 'snare' : (['tom1', 'tom1', 'tom2', 'tom3'] as const)[q - 12]
+        this.drum(voice, t, 0.45 + 0.5 * (q / 15))
+        this.crashNext = true
+      } else if (this.crashNext && s % 16 === 0) { this.drum('crash', t, 0.95); this.crashNext = false }
       for (const tr of b.tracks) {
         if (tr.mute) continue
         for (const note of tr.notes) {

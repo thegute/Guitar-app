@@ -20,7 +20,7 @@ async function newPage(browser, viewport = { width: 412, height: 915 }, seed = {
     try { if (window.top !== window || sessionStorage.getItem('seeded')) return } catch { return }
     localStorage.clear()
     localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:navHidden', '0'); localStorage.setItem('kg:askBubble', 'false'); localStorage.setItem('kg:looperBubble', 'false'); localStorage.setItem('kg:getReady', '0')
-    localStorage.setItem('kg:tab2', '"progressions"'); localStorage.setItem('kg:sub:jam', '"beats"')
+    localStorage.setItem('kg:tab2', '"progressions"'); localStorage.setItem('kg:sub:jam', '"beats"'); localStorage.setItem('kg:studioCockpit', 'false')
     for (const [k, v] of Object.entries(s)) localStorage.setItem(k, JSON.stringify(v))
     sessionStorage.setItem('seeded', '1')
   }, seed)

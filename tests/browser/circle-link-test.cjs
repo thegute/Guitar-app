@@ -6,7 +6,7 @@ let bad = 0; const fail = m => { bad++; console.log('  PROBLEM', m) }
   const b = await chromium.launch()
   const page = await b.newPage({ viewport: { width: 840, height: 757 } })
   const errs = []; page.on('pageerror', e => errs.push(e.message))
-  await page.addInitScript(() => { window.__kgTest = true; if (sessionStorage.getItem('s')) return; localStorage.clear(); for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:navHidden': '0', 'kg:getReady': '0', 'kg:tab2': '"learn"', 'kg:tipsMode': '"off"', 'kg:askBubble': 'false', 'kg:looperBubble': 'false', 'kg:lessonKey:c7-secdom': '-3' })) localStorage.setItem(k, v); sessionStorage.setItem('s', '1') })
+  await page.addInitScript(() => { window.__kgTest = true; if (sessionStorage.getItem('s')) return; localStorage.clear(); for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:navHidden': '0', 'kg:studioCockpit': 'false', 'kg:getReady': '0', 'kg:tab2': '"learn"', 'kg:tipsMode': '"off"', 'kg:askBubble': 'false', 'kg:looperBubble': 'false', 'kg:lessonKey:c7-secdom': '-3' })) localStorage.setItem(k, v); sessionStorage.setItem('s', '1') })
   await page.goto('http://localhost:4173/'); await page.waitForSelector('.today-card')
   await page.locator('.subtabs [role=tab]:has-text("Explore")').first().click()
   await page.click('.tool:has-text("Theory")')

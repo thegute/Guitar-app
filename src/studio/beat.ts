@@ -6,7 +6,15 @@ import { CHORD_TYPES, chordNotes } from './sounds'
 import { isUserPad, type PadDef, type PadId } from './pads'
 
 export const STEPS_PER_BAR = 16
-export interface DrumRow { voice: PadId; steps: number[]; mute?: boolean }
+export interface DrumRow {
+  voice: PadId; steps: number[]; mute?: boolean
+  /** per step: quick repeats inside the step (2–4; 1 or missing = one hit) */
+  rat?: number[]
+  /** per step: the chance it plays each time round (0–1; missing = always) */
+  prob?: number[]
+  /** the row's own length in steps (a polyrhythm: 3 against 4 …); missing = the whole beat */
+  len?: number
+}
 export interface PNote { s: number; l: number; m: number; v: number }
 export interface Track { id: string; inst: string; notes: PNote[]; vol: number; mute?: boolean; space: number }
 export interface Beat {
@@ -195,7 +203,7 @@ export function deleteStored(name: string) { try { localStorage.setItem(SAVED, J
 export function setBars(b: Beat, bars: Beat['bars']): Beat {
   const n = bars * 16, old = totalSteps(b)
   const fit = (c: PartContent): PartContent => ({
-    rows: c.rows.map(r => ({ ...r, steps: Array.from({ length: n }, (_, i) => r.steps[i % old] ?? 0) })),
+    rows: c.rows.map(r => ({ ...r, steps: Array.from({ length: n }, (_, i) => r.steps[i % old] ?? 0), ...(r.rat ? { rat: Array.from({ length: n }, (_, i) => r.rat![i % old] ?? 1) } : {}), ...(r.prob ? { prob: Array.from({ length: n }, (_, i) => r.prob![i % old] ?? 1) } : {}), ...(r.len && r.len > n ? { len: n } : {}) })),
     layers: (c.layers ?? []).map(L => ({ ...L, rows: L.rows.map(r => ({ ...r, steps: Array.from({ length: n }, (_, i) => r.steps[i % old] ?? 0) })) })),
     tracks: c.tracks.map(t => ({ ...t, notes: n > old ? Array.from({ length: n / old }, (_, k) => t.notes.map(x => ({ ...x, s: x.s + k * old }))).flat() : t.notes.filter(x => x.s < n) })),
   })
@@ -271,9 +279,9 @@ export function patternLayer(p: Pattern, bars: number): DrumLayer {
   return { id: newId(), label: p.label, rows: [{ voice: p.voice, steps: Array.from({ length: bars }, () => one).flat() }] }
 }
 /** Every drum row that plays: the grid plus the layers that aren't muted (with their volume). */
-export function allRows(b: Beat): { voice: PadId; steps: number[]; gain: number }[] {
+export function allRows(b: Beat): { voice: PadId; steps: number[]; gain: number; rat?: number[]; prob?: number[]; len?: number }[] {
   const vv = (v: string) => b.voiceVol?.[v] ?? 1
-  const out = b.rows.filter(r => !r.mute).map(r => ({ voice: r.voice, steps: r.steps, gain: vv(r.voice) }))
+  const out: ReturnType<typeof allRows> = b.rows.filter(r => !r.mute).map(r => ({ voice: r.voice, steps: r.steps, gain: vv(r.voice), rat: r.rat, prob: r.prob, len: r.len }))
   for (const L of b.layers ?? []) if (!L.mute) for (const r of L.rows) if (!r.mute) out.push({ voice: r.voice, steps: r.steps, gain: (L.vol ?? 1) * vv(r.voice) })
   return out
 }
@@ -287,4 +295,32 @@ export function applyBeatChange(c: { starter?: string | null; bpm?: number | nul
   if (c.swing !== undefined && c.swing !== null) b = { ...b, swing: Math.max(0, Math.min(0.33, c.swing)) }
   for (const id of c.patterns ?? []) { const p = PATTERNS.find(x => x.id === id); if (p && !(b.layers ?? []).some(l => l.label === p.label)) b = { ...b, layers: [...(b.layers ?? []), patternLayer(p, b.bars)] } }
   pushBeat(b)
+}
+
+/** Auto-build a song from part A: B = a bigger chorus (crash on each 4 bars, open hats, a touch louder), C = a break
+ *  (no kick, snare or clap), D = an ending (the last bar cut to one hit and a crash); played A A B A B C B D. */
+export function buildSong(b0: Beat): Beat {
+  const b = curPart(b0) === 'A' ? b0 : switchPart(b0, 'A')
+  const n = totalSteps(b)
+  const A: PartContent = { rows: b.rows, layers: b.layers ?? [], tracks: b.tracks }
+  const clone = (c: PartContent): PartContent => JSON.parse(JSON.stringify(c)) as PartContent
+  const add = (rows: DrumRow[], voice: Voice, f: (i: number) => number): DrumRow[] => {
+    const steps = Array.from({ length: n }, (_, i) => f(i))
+    return rows.some(r => r.voice === voice) ? rows.map(r => (r.voice === voice ? { ...r, steps: r.steps.map((v, i) => Math.max(v, steps[i])) } : r)) : [...rows, { voice, steps }]
+  }
+  const every = Math.min(n, 64)
+  const B = clone(A)
+  B.rows = add(add(B.rows, 'crash', i => (i % every === 0 ? 0.9 : 0)), 'open', i => (i % 4 === 2 ? 0.55 : 0))
+  B.tracks = B.tracks.map(t => ({ ...t, vol: Math.min(1.3, t.vol * 1.12) }))
+  const loud = ['kick', 'snare', 'clap']
+  const C = clone(A)
+  C.rows = C.rows.filter(r => !loud.includes(r.voice))
+  C.layers = (C.layers ?? []).map(l => ({ ...l, rows: l.rows.filter(r => !loud.includes(r.voice)) }))
+  const D = clone(A)
+  const last = n - 16
+  const cut = (r: DrumRow): DrumRow => ({ ...r, steps: r.steps.map((v, i) => (i > last ? 0 : v)) })
+  D.rows = add(D.rows.map(cut), 'crash', i => (i === last ? 1 : 0))
+  D.layers = (D.layers ?? []).map(l => ({ ...l, rows: l.rows.map(cut) }))
+  D.tracks = D.tracks.map(t => ({ ...t, notes: t.notes.filter(x => x.s <= last) }))
+  return { ...b, part: 'A', parts: { B, C, D }, chain: ['A', 'A', 'B', 'A', 'B', 'C', 'B', 'D'], chainOn: true }
 }
