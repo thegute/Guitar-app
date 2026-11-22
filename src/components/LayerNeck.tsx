@@ -30,6 +30,8 @@ interface Props {
   shape?: string
   /** smaller neck (peek bubble) */
   compact?: boolean
+  /** sleek floating-card chrome: slim single-row dropdown bar + collapsible Options drawer */
+  floating?: boolean
   /** hide the jump-to chips (inside the tool they'd link to) */
   noLinks?: ('caged' | 'chord' | 'scale' | 'licks')[]
 }
@@ -44,7 +46,7 @@ const LAYER_PRESETS: { id: string; label: string; layers: LayerId[]; nps?: boole
   { id: 'all', label: 'All 5 Layers', layers: ['caged', 'triads', 'penta', 'bridge', 'free'] },
 ]
 
-export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, noLinks = [], shape: fixedShape }: Props) {
+export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, floating, noLinks = [], shape: fixedShape }: Props) {
   const shapes = useMemo(() => cagedShapes(rootPc, minor, inst), [rootPc, minor, inst])
   const [shapeSel, setShapeSel] = usePersist<string>(`layerShape:${where}`, preferShape ?? '')
   const [wholeNeck, setWholeNeck] = usePersist<boolean>(`layerWhole:${where}`, false)
@@ -58,6 +60,7 @@ export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, no
   const [dsKind, setDsKind] = usePersist<'3rds' | '4ths' | '6ths'>('layerDoubleKind', '3rds')
   const [dsSel, setDsSel] = useState(-1)
   const [droning, setDroning] = useState(false)
+  const [optsOpen, setOptsOpen] = useState(false)
   const [prevCh, setPrevCh] = useState<{ rootPc: number; minor: boolean } | null>(null)
   const mode = minor ? modeMin : modeMaj
   const set = useMemo(
@@ -142,6 +145,126 @@ export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, no
   const name = SHARPS[rootPc] + (minor ? 'm' : '')
   const scaleName = (MODES[minor ? 'min' : 'maj'].find(m => m.id === mode)?.id ?? 'ionian')
   const activePreset = LAYER_PRESETS.find(p => p.layers.length === on.length && p.layers.every(l => on.includes(l)))?.id ?? ''
+  const toggleDrone = () => {
+    if (droning) { drone.stop(); setDroning(false) }
+    else { drone.start(36 + rootPc, [minor ? 3 : 4]); setDroning(true) }
+  }
+
+  if (floating) {
+    return (
+      <div className="layer-neck floating stack" style={{ gap: 5 }} data-testid="layer-neck">
+        <div className="ln-float-bar">
+          <div className="seg ln-seg" role="group" aria-label="Neck range">
+            <button aria-pressed={!wholeNeck} onClick={() => setWholeNeck(false)} data-testid="layer-range-box">Box</button>
+            <button aria-pressed={wholeNeck} onClick={() => setWholeNeck(true)} data-testid="layer-range-whole">Neck</button>
+          </div>
+          {!wholeNeck && shapes.length > 1 && !fixedShape && (
+            <select
+              className="select sm ln-sel"
+              value={shape ?? ''}
+              onChange={e => setShapeSel(e.target.value)}
+              aria-label="CAGED shape"
+              data-testid="layer-shape-select"
+            >
+              {shapes.map(s => <option key={s.letter} value={s.letter}>{s.letter} · f{Math.max(1, s.lo)}</option>)}
+            </select>
+          )}
+          <select
+            className="select sm ln-sel"
+            value={activePreset}
+            onChange={e => {
+              const p = LAYER_PRESETS.find(x => x.id === e.target.value)
+              if (p) setOn([...p.layers])
+            }}
+            aria-label="Layer preset"
+            data-testid="layer-preset-select"
+          >
+            <option value="">Custom ({on.length})</option>
+            {LAYER_PRESETS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+          </select>
+          <button
+            className={`btn sm ln-btn${droning ? ' on' : ''}`}
+            aria-pressed={droning}
+            onClick={toggleDrone}
+            title={droning ? `Stop ${name} drone` : `Hold ${name} chord drone`}
+            aria-label={droning ? 'Stop drone' : `Drone ${name}`}
+            data-testid="drone"
+          >
+            <Ico n={droning ? 'stop' : 'sound'} />
+          </button>
+          <button
+            className={`btn sm ln-btn${optsOpen ? ' on' : ''}`}
+            aria-expanded={optsOpen}
+            onClick={() => setOptsOpen(v => !v)}
+            data-testid="layer-float-opts"
+          >
+            Options {optsOpen ? '▴' : '▾'}
+          </button>
+        </div>
+
+        {optsOpen && (
+          <div className="ln-float-drawer stack" style={{ gap: 6 }} data-testid="layer-float-drawer">
+            <div className="layer-toggles ln-mini-toggles" role="group" aria-label="Layers">
+              {LAYERS.map(l => (
+                <button key={l.id} className={`chip layer-chip lay-${l.id}`} aria-pressed={on.includes(l.id)} onClick={() => toggle(l.id)} title={l.what}>{l.label}</button>
+              ))}
+              <button className="chip layer-chip" aria-pressed={nps} onClick={() => setNps(!nps)} title="Three notes per string">3/str</button>
+              <button className="chip layer-chip" aria-pressed={dsOn} onClick={() => setDsOn(!dsOn)} title="3rds, 4ths and 6ths double-stops" data-testid="ds-toggle">Doubles</button>
+              <button className="chip layer-chip" aria-pressed={flowOn} onClick={() => setFlowOn(!flowOn)} title="Voice-leading Flow (Anchor vs Moving)" data-testid="flow-toggle">Flow</button>
+            </div>
+            {(on.includes('bridge') || nps) && (
+              <label className="row small" style={{ gap: 6, alignItems: 'center' }}>
+                <span className="muted">Mode</span>
+                <select className="select sm ln-sel" value={mode} onChange={e => (minor ? setModeMin(e.target.value as ModeId) : setModeMaj(e.target.value as ModeId))} aria-label="Mode">
+                  {MODES[minor ? 'min' : 'maj'].map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                </select>
+              </label>
+            )}
+            {dsOn && (
+              <div className="stack" style={{ gap: 4 }} data-testid="double-stops">
+                <div className="row" style={{ gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span className="small muted">Double-stops:</span>
+                  {(['3rds', '4ths', '6ths'] as const).map(k => (
+                    <button key={k} className={`chip${dsKind === k ? ' on' : ''}`} aria-pressed={dsKind === k} onClick={() => setDsKind(k)}>{k}</button>
+                  ))}
+                </div>
+                <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
+                  {doubles.length ? doubles.slice(0, 12).map((d, i) => (
+                    <button key={i} className={`chip${dsSel === i ? ' on' : ''}`} aria-pressed={dsSel === i} onClick={() => {
+                      setDsSel(i)
+                      const ctx = audio(); void ctx.resume()
+                      playNote(d.lo.midi, ctx.currentTime + 0.02, 0.85); playNote(d.hi.midi, ctx.currentTime + 0.02, 0.85)
+                      setWhat(d.what)
+                    }}>{strNames[d.lo.s]}{d.lo.f}+{strNames[d.hi.s]}{d.hi.f}</button>
+                  )) : <span className="small muted">None around this shape.</span>}
+                </div>
+              </div>
+            )}
+            <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
+              {!noLinks.includes('caged') && <button className="btn sm ghost ln-btn" onClick={() => { put('cagedRoot', SHARPS[rootPc]); put('cagedMinor', minor); learnGo({ tool: 'caged' }) }}>CAGED</button>}
+              {!noLinks.includes('chord') && <button className="btn sm ghost ln-btn" onClick={() => launch({ chord: { root: SHARPS[rootPc], suffix: minor ? 'minor' : 'major' } })}>Chords</button>}
+              {!noLinks.includes('licks') && <button className="btn sm ghost ln-btn" onClick={() => { put('lickWantKey', { root: KEYS[rootPc], minor }); learnGo({ licks: '' }) }} data-testid="licks-over">Licks</button>}
+              {!noLinks.includes('scale') && <button className="btn sm ghost ln-btn" onClick={() => launch({ scale: { root: SHARPS[rootPc], scale: scaleName === 'ionian' ? 'major' : scaleName } })}>Scales</button>}
+            </div>
+            <div className="layer-legend small" style={{ display: 'flex' }} aria-hidden>
+              <i className="lg-root" />root <i className="lg-chord" />chord <i className="lg-triad" />triad <i className="lg-scale" />penta <i className="lg-pass" />mode <i className="lg-embel" />free
+            </div>
+          </div>
+        )}
+
+        <Fretboard tuning={inst.midis} fromFret={lo} toFret={Math.min(22, Math.max(hi, lo + 5))} markFor={markFor} onTap={tap} arrows={flowArrows} zoomId={`layers-${where}`} compact={compact} />
+
+        {(what || flowOn) && (
+          <div className="small muted" style={{ fontSize: 11, lineHeight: 1.3 }} role="status">
+            {flowOn && flowInfo
+              ? <><b>{flowInfo.prevName} → {name}:</b> Anchor ({[...flowInfo.anchors].map(p => SHARPS[p]).join(', ') || 'none'}) · Move ({[...flowInfo.moving].map(p => SHARPS[p]).join(', ')})</>
+              : what}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className={`layer-neck stack${compact ? ' compact' : ''}`} style={{ gap: 8 }} data-testid="layer-neck">
       <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -203,7 +326,7 @@ export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, no
       <Fretboard tuning={inst.midis} fromFret={lo} toFret={Math.min(22, Math.max(hi, lo + 5))} markFor={markFor} onTap={tap} arrows={flowArrows} zoomId={`layers-${where}`} compact={compact} />
       <p className="small muted" style={{ margin: 0 }} role="status">{what || (set.shape ? `${name}, ${set.shape.letter} shape. Tap any note to hear it; a violet one plays the chord and then the hammer-on.` : `${name}.`)}</p>
       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-        <button className={`btn sm${droning ? ' on' : ''}`} aria-pressed={droning} onClick={() => { if (droning) { drone.stop(); setDroning(false) } else { drone.start(36 + rootPc, [minor ? 3 : 4]); setDroning(true) } }} data-testid="drone">
+        <button className={`btn sm${droning ? ' on' : ''}`} aria-pressed={droning} onClick={toggleDrone} data-testid="drone">
           <Ico n={droning ? 'stop' : 'sound'} /> {droning ? 'Stop drone' : `Drone ${name}`}
         </button>
         {!noLinks.includes('caged') && <button className="btn sm ghost" onClick={() => { put('cagedRoot', SHARPS[rootPc]); put('cagedMinor', minor); learnGo({ tool: 'caged' }) }}>CAGED explorer</button>}

@@ -2359,6 +2359,15 @@ html:not([data-arrange]) .win-grip, html:not([data-arrange]) .win-btn, html:not(
 .layer-chip.lay-bridge::before { background: var(--fb-mode); }
 .layer-chip.lay-free::before { background: transparent; box-shadow: inset 0 0 0 2px var(--fb-embel); }
 .layer-neck.compact .layer-legend { display: none; }
+/* sleek floating 5-layer fretboard chrome: slim dropdown bar + collapsible options drawer, full-size fretboard */
+.ln-float-bar { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.ln-seg { padding: 1px; gap: 1px; }
+.ln-seg > button { min-height: 24px; padding: 1px 7px; font-size: 11.5px; line-height: 1.1; }
+.ln-sel { min-height: 26px !important; height: 26px; padding: 0 20px 0 7px !important; font-size: 11.5px !important; width: auto !important; max-width: 150px; }
+.ln-btn { min-height: 26px !important; padding: 2px 7px !important; font-size: 11.5px !important; gap: 4px; }
+.ln-float-drawer { padding: 6px 7px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--surface-2) 85%, transparent); border: 1px solid var(--hairline); }
+.ln-mini-toggles { gap: 4px; }
+.ln-mini-toggles .chip { min-height: 24px; padding: 2px 7px; font-size: 11.5px; }
 /* voice-leading arrows on the neck */
 .fb-arrow { fill: none; stroke-width: 2.4; stroke-linecap: round; pointer-events: none; }
 .fb-arrow.guide { stroke: var(--fb-gold); }

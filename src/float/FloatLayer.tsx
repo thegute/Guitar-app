@@ -55,7 +55,7 @@ export function FloatLayer() {
         const isExpandedNeck = id === 'neck' && (neckExpanded[inst.uid] ?? (localStorage.getItem('kg:floatNeck5Layer') === '1'))
         const copyNum = inst.uid.includes('-') ? ` #${inst.uid.split('-').pop()}` : ''
         const title = (isExpandedNeck ? '5-Layer Fretboard' : card.title) + copyNum
-        const width = isExpandedNeck ? 520 : id === 'band' || id === 'book' || id === 'licks' ? 350 : id === 'drummer' || id === 'circle' || id === 'video' ? 320 : id === 'neck' ? 300 : id === 'note' || id === 'mixer' ? 280 : 230
+        const width = isExpandedNeck ? 440 : id === 'band' || id === 'book' || id === 'licks' ? 350 : id === 'drummer' || id === 'circle' || id === 'video' ? 320 : id === 'neck' ? 300 : id === 'note' || id === 'mixer' ? 280 : 230
         const minW = isExpandedNeck ? 280 : id === 'band' || id === 'book' || id === 'licks' || id === 'drummer' ? 250 : id === 'video' || id === 'circle' ? 220 : 160
         return (
           <FloatCard
@@ -279,29 +279,29 @@ function NeckBody({ uid, c, expanded, onToggle }: { uid: string; c: FloatCtx; ex
         ? !!keyMatch
         : manualMinor
     return (
-      <div className="stack" style={{ gap: 6 }} data-testid="fc-neck-5layer">
-        <div className="row small" style={{ gap: 6, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+      <div className="stack" style={{ gap: 4 }} data-testid="fc-neck-5layer">
+        <div className="ln-float-bar" style={{ justifyContent: 'space-between' }}>
           <span className="row" style={{ gap: 4, alignItems: 'center' }}>
             {(info || keyRootMatch) ? (
-              <div className="seg" role="group" aria-label="Fretboard lock">
-                {info && <button className="btn sm" aria-pressed={followChord} onClick={() => setFollowChord(true)}>Chord ({c.chordNow})</button>}
-                <button className="btn sm" aria-pressed={!followChord || !info} onClick={() => setFollowChord(false)}>{c.keyName || `${manualRoot}${manualMinor ? 'm' : ''}`}</button>
+              <div className="seg ln-seg" role="group" aria-label="Fretboard lock">
+                {info && <button aria-pressed={followChord} onClick={() => setFollowChord(true)}>{c.chordNow}</button>}
+                <button aria-pressed={!followChord || !info} onClick={() => setFollowChord(false)}>{c.keyName || `${manualRoot}${manualMinor ? 'm' : ''}`}</button>
               </div>
             ) : (
               <>
-                <select className="select sm" style={{ width: 'auto' }} value={manualRoot} onChange={e => setManualRoot(e.target.value)} aria-label="Fretboard key">
+                <select className="select sm ln-sel" value={manualRoot} onChange={e => setManualRoot(e.target.value)} aria-label="Fretboard key">
                   {KEYS.map(k => <option key={k} value={k}>{k}</option>)}
                 </select>
-                <div className="seg" role="group" aria-label="Major or minor">
-                  <button className="btn sm" aria-pressed={!manualMinor} onClick={() => setManualMinor(false)}>Maj</button>
-                  <button className="btn sm" aria-pressed={manualMinor} onClick={() => setManualMinor(true)}>Min</button>
+                <div className="seg ln-seg" role="group" aria-label="Major or minor">
+                  <button aria-pressed={!manualMinor} onClick={() => setManualMinor(false)}>Maj</button>
+                  <button aria-pressed={manualMinor} onClick={() => setManualMinor(true)}>Min</button>
                 </div>
               </>
             )}
           </span>
-          <button className="btn sm ghost" onClick={onToggle} data-testid="fc-neck-collapse">Compact</button>
+          <button className="btn sm ghost ln-btn" onClick={onToggle} data-testid="fc-neck-collapse">Compact</button>
         </div>
-        <LayerNeck rootPc={activeRootPc} minor={activeMinor} inst={inst} where={`float5layer:${uid}`} compact />
+        <LayerNeck rootPc={activeRootPc} minor={activeMinor} inst={inst} where={`float5layer:${uid}`} compact floating />
       </div>
     )
   }
