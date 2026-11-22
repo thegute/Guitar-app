@@ -18,7 +18,7 @@ fs.mkdirSync(DIR, { recursive: true })
   page.on('pageerror', e => errors.push('pageerror: ' + e.message))
   page.on('console', m => { if (m.type() === 'error' && !/youtube|ERR_|net::/i.test(m.text())) errors.push('console: ' + m.text()) })
   await page.addInitScript(() => {
-    try { localStorage.setItem('kg:welcomed', '1') } catch { /* frame */ }
+    try { localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:navHidden', '0'); localStorage.setItem('kg:looperBubble', 'false'); localStorage.setItem('kg:askBubble', 'false') } catch { /* frame */ }
     // tap the final output as raw float samples (no codec in between, so peaks are exact)
     const orig = AudioNode.prototype.connect
     let rec = null
@@ -31,6 +31,7 @@ fs.mkdirSync(DIR, { recursive: true })
           sp.__isTap = true
           sp.onaudioprocess = e => {
             if (!rec) return
+            window.__tapRate = c.sampleRate // the rate of the context that actually plays (another context may set up a tap too)
             // interleave left/right
             const L = e.inputBuffer.getChannelData(0), R = e.inputBuffer.getChannelData(1), o = new Float32Array(L.length * 2)
             for (let i = 0; i < L.length; i++) { o[2 * i] = L[i]; o[2 * i + 1] = R[i] }
@@ -89,8 +90,10 @@ fs.mkdirSync(DIR, { recursive: true })
   const styles = (process.argv[2] || 'Metal,Reggae,Folk,Jazz,Rock,Funk,Country').split(',')
   for (const st of styles) {
     if (!(await page.isVisible('.jam-options'))) await page.click('button:has-text("Options")')
-    await page.click(`.jam-options >> text=${st}`)
-    await page.click('.jam-options [aria-label="How many chords"] >> text=4')
+    const sel = page.locator(`select:has(option[value="${st.toLowerCase()}"])`).first()
+    if (await sel.count()) await sel.selectOption(st.toLowerCase()); else await page.click(`.jam-options >> text=${st}`)
+    const four = page.locator('[aria-label="How many chords"] >> text=4').first()
+    if (await four.count() && await four.isVisible()) await four.click()
     await page.click('button:has-text("New progression")')
     await page.waitForTimeout(200)
     const names = await page.$$eval('.prog-card .pc-name', e => e.map(x => x.textContent).join(' '))
