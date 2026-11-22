@@ -238,7 +238,7 @@ export const SYMMETRIC: CourseLesson = {
 // ---- Lesson 8: what to play over any chord ---------------------------------------------------------------------
 const CS = 'ii – V – I in C twice: D Dorian, G Mixolydian, C major; then G altered and C Lydian for colour'
 export const OVER_ANY: CourseLesson = {
-  id: 'c8-overchord', level: 8, n: 8, title: 'What to play over any chord', minutes: 80,
+  id: 'c8-overchord', level: 8, n: 8, title: 'What to play over any chord', key: 0, minutes: 80,
   goal: 'Choose a scale for any chord from three questions (what kind of chord, what key it\'s in, where it\'s going), use the chord-scale map, and solo over a ii – V – I with plain and coloured choices.',
   builds: ['all of Level 8 so far', 'seventh chords', 'targeting chord tones', 'reharmonisation'],
   topics: ['chord-scale', 'improvisation', 'modes', 'jazz', 'ii-V-I', 'soloing'],

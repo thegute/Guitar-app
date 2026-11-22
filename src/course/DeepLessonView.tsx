@@ -9,6 +9,8 @@ import type { Go } from '../learn/path'
 import type { LessonEx } from '../learn/lessonExtras'
 import { BlockView, LessonVideoCard, SpotsBlock, rich } from '../learn/LessonReader'
 import { KeyChip, LessonKeyProvider, homeOf, useLessonKey } from '../learn/lessonKey'
+import { circleChapterFor, openCircleForLesson } from '../circle/links'
+import { lessonHome } from './home'
 import { stars, usePracticeTimer } from '../learn/progress'
 import { Ico } from '../components/Icon'
 import { askAssistant } from '../assistant/bus'
@@ -197,13 +199,6 @@ export function DeepLessonView(props: DeepProps) {
   return <LessonKeyProvider key={props.lesson.id} id={props.lesson.id}><DeepLessonBody {...props} /></LessonKeyProvider>
 }
 /** The key the lesson's pictures are written in: the root of its first neck picture. */
-function lessonHome(lesson: CourseLesson, midis: number[]): number | null {
-  for (const st of lesson.steps) {
-    const bs = 'blocks' in st ? st.blocks : st.kind === 'examples' ? st.examples.map(e => (e.spots ? { spots: e.spots } : null)).filter(Boolean) : []
-    for (const b of bs as Extract<Step, { blocks: unknown }>['blocks']) if (b && 'spots' in b) { const h = homeOf(b.spots.marks(midis), midis); if (h !== null) return h }
-  }
-  return null
-}
 function DeepLessonBody({ lesson, inst, onExit, onGo, onExercise }: DeepProps) {
   const p = useCourseProgress(lesson.id)
   const [at, setAtState] = useState(() => Math.min(lessonProgress(lesson.id).at ?? 0, lesson.steps.length - 1))
@@ -212,6 +207,8 @@ function DeepLessonBody({ lesson, inst, onExit, onGo, onExercise }: DeepProps) {
   usePracticeTimer('theory', true, false)
   const step = lesson.steps[at]
   const home = useMemo(() => lessonHome(lesson, inst.midis), [lesson, inst.midis])
+  const circleCh = circleChapterFor(lesson.id)
+  const { shift } = useLessonKey()
   const go = (i: number) => {
     setAtState(i); setAt(lesson.id, i)
     top.current?.scrollIntoView({ block: 'start' })
@@ -255,6 +252,7 @@ function DeepLessonBody({ lesson, inst, onExit, onGo, onExercise }: DeepProps) {
         </div>
         {inst.id !== 'guitar' && <p className="notice small" style={{ margin: 0 }}>The pictures, tabs and quizzes follow your {inst.label.toLowerCase()}'s tuning; the string names in the text are the guitar's.</p>}
         <div className="deep-key small"><KeyChip home={home} /><span className="muted">Every picture, sound and exercise in this lesson moves to the key you pick.</span></div>
+        {circleCh && <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => openCircleForLesson(lesson.id, (home ?? 0) + shift)} data-testid="lesson-to-circle"><Ico n="target" /> Practise this on the Circle (Ch {circleCh.num}: {circleCh.title})</button>}
         <div className="deep-bar" aria-label={`${pct}% done`}><span style={{ width: `${pct}%` }} /></div>
       </header>
       {card}

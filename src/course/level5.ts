@@ -352,7 +352,7 @@ export const SEVENTHS: CourseLesson = {
 
 // ---- Lesson 3: the 7th chords of a key -----------------------------------------------------------------------------
 export const KEY_SEVENTHS: CourseLesson = {
-  id: 'c5-key7', level: 5, n: 3, title: 'The 7th chords of a key, and ii – V – I', minutes: 90,
+  id: 'c5-key7', level: 5, n: 3, title: 'The 7th chords of a key, and ii – V – I', key: 0, minutes: 90,
   goal: 'Name and play the seven 7th chords of any major key (Imaj7 ii7 iii7 IVmaj7 V7 vi7 viiø7) and of the relative minor, group them by job (tonic, predominant, dominant), play ii – V – I in shells and drop 2 with the smallest moves, and hear why V7 points so strongly to I.',
   builds: ['seventh chords', 'the chords of a key', 'Roman numerals', 'the circle of fifths'],
   topics: ['diatonic 7th chords', 'ii-V-I', 'harmonic function', 'tritone', 'jazz', 'progressions'],

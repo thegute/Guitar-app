@@ -15,7 +15,7 @@ const Fm = [1, 3, 3, 1, 1, 1], Ab = [4, 6, 6, 5, 4, 4], Bb = [-1, 1, 3, 3, 3, 1]
 
 // ---- Lesson 1: cadences --------------------------------------------------------------------------------------------
 export const CADENCES: CourseLesson = {
-  id: 'c7-cadences', level: 7, n: 1, title: 'Cadences: how phrases end', minutes: 70,
+  id: 'c7-cadences', level: 7, n: 1, title: 'Cadences: how phrases end', key: 0, minutes: 70,
   goal: 'Recognise and use the four cadences (authentic, plagal, half and deceptive) as the punctuation of music, hear them in songs, play them in major and minor keys, and use them on purpose when you write, arrange or solo.',
   builds: ['the chords of a key', 'hearing the V → I pull', 'the 7th chords of a key'],
   topics: ['cadences', 'harmony', 'progressions', 'phrases', 'songwriting', 'ear'],
@@ -252,7 +252,7 @@ export const MINOR_KEYS: CourseLesson = {
 
 // ---- Lesson 3: secondary dominants ---------------------------------------------------------------------------------
 export const SEC_DOM: CourseLesson = {
-  id: 'c7-secdom', level: 7, n: 3, title: 'Secondary dominants: a V7 for every chord', minutes: 80,
+  id: 'c7-secdom', level: 7, n: 3, title: 'Secondary dominants: a V7 for every chord', key: 0, minutes: 80,
   goal: 'Build the secondary dominant (V7/x) of any chord in a key, hear the non-key note it brings, use them to make any chord feel like a brief new home, chain them round the circle of fifths, and solo over them by targeting their 3rds.',
   builds: ['the 7th chords of a key', 'cadences', 'the circle of fifths', 'targeting chord tones'],
   topics: ['secondary dominants', 'tonicization', 'harmony', 'progressions', 'jazz', 'ragtime', 'soloing'],
@@ -365,7 +365,7 @@ export const SEC_DOM: CourseLesson = {
 
 // ---- Lesson 4: borrowed chords -------------------------------------------------------------------------------------
 export const BORROWED: CourseLesson = {
-  id: 'c7-borrowed', level: 7, n: 4, title: 'Borrowed chords: colours from the parallel minor', minutes: 75,
+  id: 'c7-borrowed', level: 7, n: 4, title: 'Borrowed chords: colours from the parallel minor', key: 0, minutes: 75,
   goal: 'Use chords borrowed from the parallel minor key (iv, ♭VI, ♭VII, ♭III) in a major key, know the classic moves (IV – iv – I, ♭VI – ♭VII – I, ♭VII – IV – I), hear their bittersweet or heroic colour, and solo over them.',
   builds: ['the chords of a key', 'minor keys', 'secondary dominants'],
   topics: ['borrowed chords', 'modal interchange', 'modal mixture', 'iv minor', 'rock', 'pop', 'film music'],

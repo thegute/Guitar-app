@@ -13,7 +13,7 @@ const sDm7 = [-1, 5, 3, 5, -1, -1], sG7 = [3, -1, 3, 4, -1, -1], sCmaj7 = [-1, 3
 
 // ---- Lesson 5: key centres and key changes -------------------------------------------------------------------------
 export const KEY_CHANGES: CourseLesson = {
-  id: 'c7-keys', level: 7, n: 5, title: 'Key centres and key changes', minutes: 75,
+  id: 'c7-keys', level: 7, n: 5, title: 'Key centres and key changes', key: 0, minutes: 75,
   goal: 'Find the key centre of a song (and notice when it moves), tell a brief visit (tonicisation) from a real key change (modulation), and use the main ways songs change key: pivot chords, a new V7, direct lifts, and moves to the relative or parallel key.',
   builds: ['keys and the circle of fifths', 'secondary dominants', 'borrowed chords', 'cadences'],
   topics: ['key changes', 'modulation', 'pivot chord', 'key centre', 'circle of fifths', 'songwriting'],
@@ -130,7 +130,7 @@ export const KEY_CHANGES: CourseLesson = {
 
 // ---- Lesson 6: diatonic substitution and reharmonisation -----------------------------------------------------------
 export const REHARM: CourseLesson = {
-  id: 'c7-reharm', level: 7, n: 6, title: 'Diatonic substitution and reharmonisation', minutes: 80,
+  id: 'c7-reharm', level: 7, n: 6, title: 'Diatonic substitution and reharmonisation', key: 0, minutes: 80,
   goal: 'Swap chords for others that share their notes (I ↔ vi ↔ iii, IV ↔ ii, V ↔ vii°), check every swap against the melody, and reharmonise a simple tune step by step: substitutes, 7ths, secondary dominants and ii – V\'s.',
   builds: ['the 7th chords of a key', 'secondary dominants', 'borrowed chords'],
   topics: ['substitution', 'reharmonisation', 'arranging', 'chord function', 'jazz', 'songwriting'],
@@ -241,7 +241,7 @@ export const REHARM: CourseLesson = {
 
 // ---- Lesson 7: tritone subs and passing diminished ------------------------------------------------------------------
 export const TRITONE: CourseLesson = {
-  id: 'c7-tritone', level: 7, n: 7, title: 'Tritone subs and passing diminished chords', minutes: 80,
+  id: 'c7-tritone', level: 7, n: 7, title: 'Tritone subs and passing diminished chords', key: 0, minutes: 80,
   goal: 'Replace any dominant 7th with the dominant 7th a tritone away (G7 → D♭7) and know why it works, use it to make the bass walk down by half steps, put passing diminished chords between chords a whole step apart, and hear and solo over both.',
   builds: ['secondary dominants', 'altered dominants', 'augmented and diminished', 'voice leading'],
   topics: ['tritone substitution', 'passing diminished', 'chromatic bass', 'jazz', 'reharmonisation'],

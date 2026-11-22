@@ -487,7 +487,7 @@ export const SLASH: CourseLesson = {
 
 // ---- Lesson 8: voice leading ---------------------------------------------------------------------------------------
 export const VOICE_LEADING: CourseLesson = {
-  id: 'c5-voicelead', level: 5, n: 8, title: 'Voice leading: guide tones and the smoothest path', minutes: 90,
+  id: 'c5-voicelead', level: 5, n: 8, title: 'Voice leading: guide tones and the smoothest path', key: 0, minutes: 90,
   goal: 'Hear chords as voices that move, follow the guide tones (3rds and 7ths) through a progression, play any progression of 7th chords with every voice moving the smallest distance, use the top voice as a melody, and connect it to soloing by targeting guide tones on the changes.',
   builds: ['seventh chords', 'the 7th chords of a key', 'triads on every string set', 'slash chords and bass lines'],
   topics: ['voice leading', 'guide tones', 'comping', 'drop 2', 'shell voicings', 'chord tones', 'jazz'],

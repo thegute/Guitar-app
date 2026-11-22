@@ -14,6 +14,9 @@ import { playDrum } from '../audio/drums'
 import { ChromaListener } from '../audio/chroma'
 import { FLATS, SHARPS, keyPrefersFlats, pc } from '../theory/notes'
 import { learnGo, openInPlay, openLicksInKey, openScanner } from '../nav'
+import { COURSE } from '../course'
+import { lessonHome } from '../course/home'
+import { openLessonInKey } from './links'
 import { newId, youtubeId } from '../tabs/library'
 import { addCardInstance, emitBandAddChord, publishFloat } from '../float/bus'
 import {
@@ -703,7 +706,7 @@ export function CircleMasteryStudio({
               <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center', paddingTop: 4 }}>
                 <span className="small muted">Go deeper in KGuitar Theory Course:</span>
                 {chapter.courseLinks.map(lk => (
-                  <button key={lk.id} className="btn sm ghost" onClick={() => learnGo({ lesson: lk.id })}>
+                  <button key={lk.id} className="btn sm ghost" onClick={() => { const l = COURSE.find(x => x.id === lk.id); openLessonInKey(lk.id, tonic, l ? lessonHome(l, tuning) : null) }} title={`Opens the lesson in ${tonic}${minor ? ' minor' : ''}`}>
                     <Ico n="book" /> {lk.label}
                   </button>
                 ))}
@@ -818,7 +821,7 @@ export function CircleMasteryStudio({
                   <p className="small muted" style={{ margin: '2px 0 0' }}>
                     {drill === 'walk'
                       ? 'Play each highlighted chord cleanly — your mic hears it, flashes green, and advances the arrow around the Circle.'
-                      : 'Isolate the 3rd & 7th guide tones on the D & G strings! Watch the Anchor note stay put while one finger glides 1 fret.'}
+                      : 'Isolate the 3rd & 7th guide tones on the D & G strings! Watch the common tone stay put while one finger glides 1 fret.'}
                   </p>
                 </div>
                 <div className="row" style={{ gap: 6 }}>

@@ -43,6 +43,8 @@ export interface CourseLesson {
   goal: string
   /** reading/listening time (the practice goals come on top) */
   minutes: number
+  /** the key the lesson is written in (pitch class), when its first neck picture sits on another root (the Key menu's names) */
+  key?: number
   /** earlier lessons this one builds on */
   builds?: string[]
   topics: string[]

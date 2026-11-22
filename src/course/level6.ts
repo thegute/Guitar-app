@@ -281,7 +281,7 @@ export const SEVENTH_ARPS: CourseLesson = {
 
 // ---- Lesson 3: targeting chord tones on the changes ----------------------------------------------------------------
 export const TARGETING: CourseLesson = {
-  id: 'c6-targets', level: 6, n: 3, title: 'Targeting chord tones on the changes', minutes: 85,
+  id: 'c6-targets', level: 6, n: 3, title: 'Targeting chord tones on the changes', key: 0, minutes: 85,
   goal: 'Land on a chord tone, above all the 3rd, exactly when each chord arrives; plan a line backwards from its targets; and do it over ii – V – I, the minor ii – V – i and a 12-bar blues, so a solo follows the chords instead of floating over them.',
   builds: ['seventh arpeggios', 'voice leading and guide tones', 'pentatonic positions'],
   topics: ['target notes', 'chord tones', 'guide tones', 'playing the changes', 'blues', 'jazz', 'soloing'],

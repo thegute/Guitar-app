@@ -62,6 +62,7 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
     courseLinks: [
       { id: 'c2-circle', label: 'Level 2: Key signatures & circle' },
       { id: 'c3-pull', label: 'Level 3: Hearing the V → I pull' },
+      { id: 'c7-cadences', label: 'Level 7: Cadences' },
     ],
     whyItSoundsGreat:
       'Every time you step ONE wedge counter-clockwise on the Circle of Fifths (say B → E → A → D → G → C → F), the root drops by a 5th (or climbs a 4th). Your ear hears every chord as a mini V → I resolution — like dominoes tipping forward with unstoppable musical momentum.',
@@ -72,7 +73,7 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
       },
       {
         heading: '2. The 6-Chord Key Slice (Your Safe Home Zone)',
-        body: 'Pick any key on the wheel. Its 6 main diatonic chords sit right next to each other in one compact slice: Home (I) in the middle, IV one click counter-clockwise, V one click clockwise, and the three minor chords (ii, vi, iii) tucked directly inside them. Neighbouring keys share 6 out of 7 notes!',
+        body: 'These are what the theory course calls the chords of the key (Level 2). Pick any key on the wheel. Its 6 main diatonic chords sit right next to each other in one compact slice: Home (I) in the middle, IV one click counter-clockwise, V one click clockwise, and the three minor chords (ii, vi, iii) tucked directly inside them. Neighbouring keys share 6 out of 7 notes!',
       },
       {
         heading: '3. Why Guitarists Actually Play the "Circle of 4ths"',
@@ -113,6 +114,7 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
     courseLinks: [
       { id: 'c5-sevenths', label: 'Level 5: Seventh chords & shells' },
       { id: 'c5-voicelead', label: 'Level 5: Voice leading & guide tones' },
+      { id: 'c5-key7', label: 'Level 5: The 7th chords of a key & ii – V – I' },
     ],
     whyItSoundsGreat:
       'A chord’s root tells you its name, and the 5th just adds weight — but the 3rd and 7th (the "Guide Tones") define the ENTIRE emotional colour. Whenever chords move around the Circle of 4ths, the 7th of chord #1 drops by ONE fret to become the 3rd of chord #2. Your hand barely moves, yet the harmony sounds rich and pro.',
@@ -122,8 +124,8 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
         body: 'In a Dm7 → G7 → Cmaj7 progression, ignore the roots for a second and watch just two notes on the D and G strings: Dm7 has F (3rd) and C (7th). To play G7, KEEP F glued down and drop C by ONE fret to B! To play Cmaj7, KEEP B glued down and drop F by ONE fret to E! Two notes, one fret at a time.',
       },
       {
-        heading: '2. Common Tones = Glue ("Anchor Notes")',
-        body: 'Every time you keep a shared note ringing from the previous chord, your brain hears smooth continuity instead of choppy "chord jumping." In our 5-Layer Fretboard, turn on the Flow toggle to see Anchor Notes glow gold-and-emerald!',
+        heading: '2. Common Tones = Glue ("common tones (the notes that stay put)")',
+        body: 'Every time you keep a shared note ringing from the previous chord, your brain hears smooth continuity instead of choppy "chord jumping." In our 5-Layer Fretboard, turn on the Flow toggle to see common tones (the notes that stay put) glow gold-and-emerald!',
       },
       {
         heading: '3. Shell Voicings Unlock Every Jazz & Neo-Soul Song',
@@ -143,7 +145,7 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
     ],
     mistakes: [
       { wrong: 'Strumming full 6-string root-position barre chords on every change.', right: 'Use 3-note shells (Root + 3rd + 7th) so the bass, harmony, and melody all breathe.' },
-      { wrong: 'Lifting all four fingers off the neck between chords.', right: 'Spot the Anchor Note first — keep that finger planted and pivot the others around it.' },
+      { wrong: 'Lifting all four fingers off the neck between chords.', right: 'Spot the common tone (the note that stays put) first — keep that finger planted and pivot the others around it.' },
     ],
     videos: [
       { id: '9ppYNb8_CUg', teacher: 'marbinmusic', title: 'Guide Tones: The Simplest Way to Improvise Chords and Solo Within Changes', watchFor: 'Tracking only the 3rd and 7th, for chords and for solo lines.' },
@@ -216,6 +218,7 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
     courseLinks: [
       { id: 'c6-arps', label: 'Level 6: Arpeggios in CAGED' },
       { id: 'c6-arp7', label: 'Level 6: 7th arpeggios in one position' },
+      { id: 'c6-targets', label: 'Level 6: Targeting chord tones' },
     ],
     whyItSoundsGreat:
       'When you hear Mauricio Murúa’s viral "Circle of Arpeggios" or "Twister" clips, he isn’t playing random scale runs — he is outlining EACH chord’s 1–3–5–7 arpeggio in ONE neck position as the Circle turns underneath. Because he skips strings instead of walking adjacent strings, the melody leaps gracefully like a harp or cello suite.',
@@ -268,6 +271,7 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
       { id: 'c7-minor', label: 'Level 7: Harmonic minor' },
       { id: 'c7-secdom', label: 'Level 7: Secondary dominants' },
       { id: 'c7-tritone', label: 'Level 7: Tritone substitutions' },
+      { id: 'c7-borrowed', label: 'Level 7: Borrowed chords' },
     ],
     whyItSoundsGreat:
       'Staying strictly inside the 6 diatonic chords is pleasant, but stepping ONE wedge outside the key slice creates goosebumps. On the Circle of Fifths, EVERY pro "outside" trick has a dead-simple visual rule you can spot at a glance.',
