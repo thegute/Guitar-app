@@ -3,6 +3,8 @@
 // named after the players who shaped them, the notes are written for this app.
 import type { LickStyleId } from './styles'
 import { CLASSIC_LICKS } from './classicLicks'
+import { PRO_LICKS_A } from './proLicksA'
+import { PRO_LICKS_B } from './proLicksB'
 
 export type LickKind = 'lick' | 'arpeggio' | 'run' | 'riff' | 'ending' | 'double-stop' | 'turnaround'
 export interface Breakdown {
@@ -604,11 +606,13 @@ export const LICKS: LickDef[] = [
     { id: 'pc-resolve', name: 'Floating resolution', level: 1, kind: 'ending', chord: 'Emaj7', tab: 'q 2:9+1:11 2:7+1:9 h 2:9+1:7~ | w 5:7+4:6+3:8+2:7+1:7' },
   ]),
   ...CLASSIC_LICKS,
+  ...PRO_LICKS_A,
+  ...PRO_LICKS_B,
 ]
 
 export const lickById = (id: string) => LICKS.find(l => l.id === id)
 
-// ── every style gets up to 45 must-know licks: the hand-written breakdowns first, then a breakdown made from the tab
+// ── every style gets up to 60 must-know licks: the hand-written breakdowns first, then a breakdown made from the tab
 import { parseLick } from './notation'
 const TECH: [string, string][] = [['b1½', 'big bend'], ['b½', 'half-step bend'], ['b¼', 'quarter bend'], ['pb', 'pre-bend'], ['b', 'whole-step bend'], ['h', 'hammer-on'], ['p', 'pull-off'], ['/', 'slide'], ['\\', 'slide down'], ['r', 'release'], ['~', 'vibrato'], ['PM', 'palm mute'], ['harm', 'harmonic'], ['T', 'tap'], ['x', 'dead note']]
 const STRING = ['', 'high E', 'B', 'G', 'D', 'A', 'low E']
@@ -643,6 +647,6 @@ function autoBreakdown(l: LickDef): Breakdown {
 }
 for (const id of [...new Set(LICKS.map(l => l.style))]) {
   const own = LICKS.filter(l => l.style === id).sort((a, b) => Number(!!b.must) - Number(!!a.must) || a.level - b.level)
-  own.slice(0, 45).forEach(l => { if (!l.must) l.must = autoBreakdown(l) })
+  own.slice(0, 60).forEach(l => { if (!l.must) l.must = autoBreakdown(l) })
 }
 export const mustKnow = () => LICKS.filter(l => l.must)
