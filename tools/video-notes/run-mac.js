@@ -43,8 +43,18 @@ function run(argv) {
       const [first, ...rest] = l.split('\t')
       const m = /(?:v=|youtu\.be\/|shorts\/|^)([A-Za-z0-9_-]{11})(?:[^A-Za-z0-9_-]|$)/.exec(first)
       const secs = Number(rest[1]) || 0
-      return m ? { key: `match|${m[1]}`, id: m[1], title: rest[0] || m[1], secs, lessonId: base, where: 'creator', prompt: pack.matchPrompt } : null
-    }).filter(Boolean)
+      if (!m) return null
+      const one = { key: `match|${m[1]}`, id: m[1], title: rest[0] || m[1], secs, lessonId: base, where: 'creator', prompt: pack.matchPrompt }
+      // longer than 50 minutes: watched in 40-minute parts (times in the answers stay times in the whole video)
+      if (secs <= 3000) return [one]
+      const parts = []
+      for (let from = 0, k = 1; from < secs; from += 2400, k++) {
+        const to = Math.min(secs, from + 2400)
+        const mm = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`
+        parts.push(Object.assign({}, one, { key: `match|${m[1]}|${k}`, secs: to - from, from, to, prompt: pack.matchPrompt + `\n\nWatch only the part from ${mm(from)} to ${mm(to)} of this long video (part ${k}). Give every time as a time in the whole video.` }))
+      }
+      return parts
+    }).filter(Boolean).reduce((a, b) => a.concat(b), [])
   }
   const state = exists(notesFile) ? JSON.parse(readText(notesFile)) : { notes: {}, failed: {} }
   const save = () => writeText(notesFile, JSON.stringify(state, null, 1))
@@ -58,7 +68,7 @@ function run(argv) {
   const watch = (job, model) => {
     const body = {
       // creator videos can be an hour long: low resolution (and fewer frames for long ones) keeps them inside the free limits
-      contents: [{ role: 'user', parts: [Object.assign({ file_data: { file_uri: `https://www.youtube.com/watch?v=${job.id}` } }, job.secs > 1500 ? { video_metadata: { fps: job.secs > 3000 ? 0.25 : 0.5 } } : {}), { text: job.prompt }] }],
+      contents: [{ role: 'user', parts: [Object.assign({ file_data: { file_uri: `https://www.youtube.com/watch?v=${job.id}` } }, (job.secs > 1500 || job.from !== undefined) ? { video_metadata: Object.assign(job.secs > 1500 ? { fps: job.secs > 3000 ? 0.25 : 0.5 } : {}, job.from !== undefined ? { start_offset: `${job.from}s`, end_offset: `${job.to}s` } : {}) } : {}), { text: job.prompt }] }],
       generationConfig: Object.assign({ maxOutputTokens: 8000, responseMimeType: 'application/json', temperature: 0.2 }, videosFile ? { mediaResolution: 'MEDIA_RESOLUTION_LOW' } : {}),
     }
     writeText(`${tmp}/body.json`, JSON.stringify(body))
