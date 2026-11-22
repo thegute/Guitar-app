@@ -68,11 +68,12 @@ export function OverlayHud() {
     { symbol: 'Em', root: 'E', minor: true, at: 1 },
   ])
 
-  // HUD appearance controls
+  // HUD appearance & collapsible menu controls
   const [hudOpacity, setHudOpacity] = useState(0.95)
   const [hudZoom, setHudZoom] = useState(1)
   const [showAppear, setShowAppear] = useState(false)
-  const [ghost, setGhost] = useState(false)
+  const [menuHidden, setMenuHidden] = useState(false)
+  const [chordDrawer, setChordDrawer] = useState(false)
 
   // Live Ear state (mic / speaker listener for Songsterr / YouTube / Spotify)
   const [listening, setListening] = useState(false)
@@ -273,150 +274,173 @@ export function OverlayHud() {
     bridge?.setOpacity(clamped)
   }
 
-  const toggleGhost = () => {
-    const next = !ghost
-    setGhost(next)
-    bridge?.setGhost(next)
-  }
-
   return (
     <div
-      className="ov-root"
+      className={`ov-root${menuHidden ? ' ov-pure' : ''}`}
       style={{ opacity: isNative ? 1 : hudOpacity }}
       data-testid="overlay-hud"
     >
-      {/* Top Compact Live Ear & Controls Header */}
-      <div className="ov-bar">
+      {/* Pure Canvas Mode: tiny corner pill brings controls right back */}
+      {menuHidden && (
         <button
-          className={`btn sm${listening ? ' primary' : ''}`}
-          onClick={() => void toggleListen()}
-          data-testid="ov-listen"
-          title="Listen to Songsterr, YouTube or your guitar to detect chords & key live"
+          className={`ov-restore-pill${listening ? ' live' : ''}`}
+          onClick={() => setMenuHidden(false)}
+          data-testid="ov-show-menu"
+          title="Show menu & controls"
+          aria-label="Show menu"
         >
-          {listening ? '● Live Ear' : '🎤 Listen'}
+          ☰ {listening ? '● ' : ''}{activeSymbol}
         </button>
+      )}
 
-        <div className="ov-now" title={`Detected key: ${keyRoot}${keyMinor ? ' minor' : ' major'}`}>
-          <strong className="ov-chord">{activeSymbol}</strong>
-          <span className="ov-key">Key {keyRoot}{keyMinor ? 'm' : ''}{listening && liveConfidence > 0 ? ` · ${liveConfidence}%` : ''}</span>
-        </div>
+      {/* Single Ultra-Slim Top Micro-Bar (scrolls away cleanly when you swipe up!) */}
+      {!menuHidden && (
+        <div className="ov-chrome">
+          <div className="ov-bar">
+            <button
+              className={`ov-icon-btn${listening ? ' live' : ''}`}
+              onClick={() => void toggleListen()}
+              data-testid="ov-listen"
+              title="Listen to Songsterr, YouTube or your guitar to detect chords & key live"
+              aria-label={listening ? 'Stop Live Ear' : 'Start Live Ear'}
+            >
+              {listening ? '●' : '🎤'}
+            </button>
 
-        <div className="ov-actions">
-          <button
-            className={`btn sm ghost${showAppear ? ' on' : ''}`}
-            onClick={() => setShowAppear(v => !v)}
-            title="Opacity & Zoom"
-            aria-label="Opacity and Zoom"
-          >
-            ◐
-          </button>
-          {isNative && (
-            <>
-              <button className={`btn sm ghost${ghost ? ' on' : ''}`} onClick={toggleGhost} title="Ghost click-through mode">👻</button>
-              <button className="btn sm ghost" onClick={() => bridge?.collapse()} title="Shrink to edge pill">–</button>
-              <button className="btn sm ghost" onClick={() => bridge?.close()} title="Close overlay">×</button>
-            </>
+            <button
+              className={`ov-chord-pill${chordDrawer ? ' on' : ''}`}
+              onClick={() => setChordDrawer(v => !v)}
+              data-testid="ov-chord-drawer-btn"
+              title={`Chord ${activeSymbol} · Key ${keyRoot}${keyMinor ? 'm' : ''} (tap for chord trail, solo scale, manual chord & Capo)`}
+              aria-expanded={chordDrawer}
+            >
+              <strong>{activeSymbol}</strong>
+              <span className="ov-pill-key">{keyRoot}{keyMinor ? 'm' : ''}{capo > 0 ? ` C${capo}` : ''}</span>
+              <span className="ov-caret">{chordDrawer ? '▴' : '▾'}</span>
+            </button>
+
+            <div className="ov-tabs seg" role="tablist" aria-label="Overlay tools">
+              {([
+                ['neck', 'Neck'],
+                ['circle', 'Circle'],
+                ['licks', 'Licks'],
+                ['tools', 'Tools'],
+              ] as const).map(([id, label]) => (
+                <button key={id} role="tab" aria-selected={tab === id} aria-pressed={tab === id} onClick={() => setTab(id)} data-testid={`ov-tab-${id}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              className={`ov-icon-btn${showAppear ? ' on' : ''}`}
+              onClick={() => setShowAppear(v => !v)}
+              title="Opacity & Zoom"
+              aria-label="Opacity and Zoom"
+            >
+              ◐
+            </button>
+
+            <button
+              className="ov-icon-btn"
+              onClick={() => { setMenuHidden(true); setChordDrawer(false); setShowAppear(false) }}
+              data-testid="ov-hide-menu"
+              title="Hide menu (full Fretboard / Circle view)"
+              aria-label="Hide menu"
+            >
+              ▴
+            </button>
+
+            {!isNative && (
+              <button className="ov-icon-btn" onClick={() => { location.href = '/' }} title="Back to full KGuitar">↗</button>
+            )}
+          </div>
+
+          {/* Opacity & Zoom Strip (collapsible) */}
+          {showAppear && (
+            <div className="ov-appear row small">
+              <span className="muted">Opacity</span>
+              <input
+                type="range"
+                min={30}
+                max={100}
+                step={5}
+                value={Math.round(hudOpacity * 100)}
+                onChange={e => changeOpacity(Number(e.target.value) / 100)}
+                style={{ flex: 1, minWidth: 60 }}
+              />
+              <span className="tabular">{Math.round(hudOpacity * 100)}%</span>
+              <span className="muted" style={{ marginLeft: 4 }}>Zoom</span>
+              <button className="fc-op-chip" onClick={() => setHudZoom(z => Math.max(0.75, Math.round((z - 0.1) * 100) / 100))}>−</button>
+              <button className="fc-op-chip tabular" onClick={() => setHudZoom(1)}>{Math.round(hudZoom * 100)}%</button>
+              <button className="fc-op-chip" onClick={() => setHudZoom(z => Math.min(1.4, Math.round((z + 0.1) * 100) / 100))}>+</button>
+            </div>
           )}
-          {!isNative && (
-            <button className="btn sm ghost" onClick={() => { location.href = '/' }} title="Back to full KGuitar">Full App ↗</button>
-          )}
-        </div>
-      </div>
 
-      {/* Opacity & Zoom Strip */}
-      {showAppear && (
-        <div className="ov-appear row small">
-          <span className="muted">Opacity</span>
-          <input
-            type="range"
-            min={30}
-            max={100}
-            step={5}
-            value={Math.round(hudOpacity * 100)}
-            onChange={e => changeOpacity(Number(e.target.value) / 100)}
-            style={{ flex: 1, minWidth: 60 }}
-          />
-          <span className="tabular">{Math.round(hudOpacity * 100)}%</span>
-          <span className="muted" style={{ marginLeft: 4 }}>Zoom</span>
-          <button className="fc-op-chip" onClick={() => setHudZoom(z => Math.max(0.75, Math.round((z - 0.1) * 100) / 100))}>−</button>
-          <button className="fc-op-chip tabular" onClick={() => setHudZoom(1)}>{Math.round(hudZoom * 100)}%</button>
-          <button className="fc-op-chip" onClick={() => setHudZoom(z => Math.min(1.4, Math.round((z + 0.1) * 100) / 100))}>+</button>
+          {earErr && <div className="ov-err small">{earErr}</div>}
+
+          {/* Collapsible Chord / Trail / Solo Scale / Capo Drawer (closed by default to maximize Fretboard & Circle!) */}
+          {chordDrawer && (
+            <div className="ov-drawer stack" data-testid="ov-chord-drawer">
+              <div className="ov-scale small">
+                <span className="muted">Solo:</span> <b>{bestScale}</b>
+                {listening && liveConfidence > 0 && <span className="muted"> ({liveConfidence}%)</span>}
+              </div>
+              <div className="ov-trail">
+                {trail.map((t, i) => (
+                  <button
+                    key={`${t.symbol}-${i}`}
+                    className={`ov-chip${i === trail.length - 1 ? ' now' : ''}`}
+                    onClick={() => { setRoot(t.root); setQual(t.minor ? 'm' : '') }}
+                  >
+                    {t.symbol}
+                  </button>
+                ))}
+                <button className="ov-chip jam" onClick={sendTrailToJam} title="Send detected chords straight into KGuitar Jam">
+                  → Jam
+                </button>
+              </div>
+              <div className="row" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                <select
+                  className="select sm"
+                  value={root}
+                  onChange={e => pickManualChord(e.target.value, qual)}
+                  aria-label="Chord root"
+                  style={{ minHeight: 26, padding: '1px 6px', fontSize: 12 }}
+                >
+                  {KEYS.map(k => <option key={k} value={k}>{k}</option>)}
+                </select>
+                {QUALS.map(q => (
+                  <button
+                    key={q || 'maj'}
+                    className={`chip${qual === q ? ' on' : ''}`}
+                    style={{ minHeight: 24, padding: '1px 7px', fontSize: 11 }}
+                    onClick={() => pickManualChord(root, q)}
+                  >
+                    {q || 'Maj'}
+                  </button>
+                ))}
+                <label className="small muted row" style={{ gap: 4, marginLeft: 'auto' }}>
+                  Capo
+                  <select
+                    className="select sm"
+                    value={capo}
+                    onChange={e => setCapo(Number(e.target.value))}
+                    style={{ minHeight: 24, padding: '1px 4px', fontSize: 11 }}
+                  >
+                    {[0, 1, 2, 3, 4, 5, 6, 7].map(c => <option key={c} value={c}>{c === 0 ? 'Off' : `Fret ${c}`}</option>)}
+                  </select>
+                </label>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {earErr && <div className="ov-err small">{earErr}</div>}
-
-      {/* Best Solo Scale + Live Chord Trail Strip */}
-      <div className="ov-strip">
-        <div className="ov-scale small">
-          <span className="muted">Solo:</span> <b>{bestScale}</b>
-        </div>
-        <div className="ov-trail">
-          {trail.map((t, i) => (
-            <button
-              key={`${t.symbol}-${i}`}
-              className={`ov-chip${i === trail.length - 1 ? ' now' : ''}`}
-              onClick={() => { setRoot(t.root); setQual(t.minor ? 'm' : '') }}
-            >
-              {t.symbol}
-            </button>
-          ))}
-          <button className="ov-chip jam" onClick={sendTrailToJam} title="Send detected chords straight into KGuitar Jam">
-            → Jam
-          </button>
-        </div>
-      </div>
-
-      {/* Compact Tab Switcher */}
-      <div className="ov-tabs seg" role="tablist" aria-label="Overlay tools">
-        {([
-          ['neck', 'Neck'],
-          ['circle', 'Circle'],
-          ['licks', 'Licks'],
-          ['tools', 'Tools'],
-        ] as const).map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={tab === id} aria-pressed={tab === id} onClick={() => setTab(id)} data-testid={`ov-tab-${id}`}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Main Zoomable Content Body */}
+      {/* Main Zoomable Content Body (scrolls together with the top bar!) */}
       <div className="ov-body" style={hudZoom !== 1 ? { zoom: hudZoom } : undefined}>
         {tab === 'neck' && (
-          <div className="stack" style={{ gap: 6 }}>
-            <div className="row" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-              <select
-                className="select sm"
-                value={root}
-                onChange={e => pickManualChord(e.target.value, qual)}
-                aria-label="Chord root"
-                style={{ minHeight: 28, padding: '2px 6px', fontSize: 12 }}
-              >
-                {KEYS.map(k => <option key={k} value={k}>{k}</option>)}
-              </select>
-              {QUALS.map(q => (
-                <button
-                  key={q || 'maj'}
-                  className={`chip${qual === q ? ' on' : ''}`}
-                  style={{ minHeight: 26, padding: '2px 7px', fontSize: 11 }}
-                  onClick={() => pickManualChord(root, q)}
-                >
-                  {q || 'Maj'}
-                </button>
-              ))}
-              <label className="small muted row" style={{ gap: 4, marginLeft: 'auto' }}>
-                Capo
-                <select
-                  className="select sm"
-                  value={capo}
-                  onChange={e => setCapo(Number(e.target.value))}
-                  style={{ minHeight: 26, padding: '1px 4px', fontSize: 11 }}
-                >
-                  {[0, 1, 2, 3, 4, 5, 6, 7].map(c => <option key={c} value={c}>{c === 0 ? 'Off' : `Fret ${c}`}</option>)}
-                </select>
-              </label>
-            </div>
+          <div className="ov-neck-wrap">
             <LayerNeck
               rootPc={effectiveRootPc}
               minor={isChordMinor}
@@ -430,13 +454,13 @@ export function OverlayHud() {
         )}
 
         {tab === 'circle' && (
-          <div className="stack" style={{ gap: 6, alignItems: 'center' }}>
+          <div className="ov-circle-wrap">
             <CircleOfFifths
               tonic={keyRoot}
               minor={keyMinor}
               active={{ root, minor: isChordMinor }}
               trail={trail.map(t => ({ root: t.root, minor: t.minor }))}
-              size={240}
+              size={260}
               onPick={(r, m) => {
                 pickManualChord(r, m ? 'm' : '')
                 const sh = shapesFor({ root: r, type: m ? 'minor' : 'major' }, inst)[0]
@@ -446,7 +470,7 @@ export function OverlayHud() {
                 }
               }}
             />
-            <span className="small muted">Tap any wedge on the Circle to hear it &amp; light up the fretboard.</span>
+            {!menuHidden && <span className="small muted" style={{ fontSize: 11 }}>Tap any wedge to hear it &amp; light up the fretboard.</span>}
           </div>
         )}
 

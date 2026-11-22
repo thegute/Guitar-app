@@ -3740,24 +3740,52 @@ html:not([data-arrange]) .win-zoom { display: none; }
 .ck-sheet-body { max-height: min(68dvh, calc(100dvh - 140px)); overflow-y: auto; overscroll-behavior: contain; padding-bottom: 6px; }
 .ck-sheet-body .st-xy { height: min(210px, 32dvh); min-height: 140px; }
 
-/* Android Floating Overlay Bubble HUD (?overlay=1) */
+/* Android Floating Overlay Bubble HUD (?overlay=1) — whole sheet scrolls so menus glide away cleanly */
 .ov-root {
-  position: fixed; inset: 0; display: flex; flex-direction: column; gap: 6px;
-  padding: 6px 8px 10px; overflow: hidden;
+  position: fixed; inset: 0; display: flex; flex-direction: column; gap: 4px;
+  padding: 4px 6px 14px; overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
   background: radial-gradient(120% 90% at 80% 0%, rgba(56, 16, 98, 0.96), rgba(16, 7, 32, 0.97) 68%);
   color: var(--ink);
 }
-.ov-bar { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; min-height: 32px; }
-.ov-now { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex: 1; overflow: hidden; }
-.ov-chord { font: 800 18px/1 var(--display, sans-serif); color: var(--gold, #ffd35c); white-space: nowrap; }
-.ov-key { font-size: 11px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ov-actions { display: inline-flex; align-items: center; gap: 3px; flex: none; }
-.ov-appear {
-  padding: 4px 8px; border-radius: var(--r-sm); gap: 6px; align-items: center; flex-wrap: wrap;
+.ov-root.ov-pure { padding: 2px 4px 10px; gap: 2px; }
+.ov-root.ov-pure .ln-float-bar,
+.ov-root.ov-pure .ln-float-drawer { display: none; }
+.ov-restore-pill {
+  position: fixed; top: 4px; right: 4px; z-index: 25;
+  border: 1px solid var(--accent); background: rgba(24, 9, 48, 0.86);
+  color: var(--gold, #ffd35c); border-radius: var(--r-pill);
+  padding: 2px 9px; min-height: 24px; font: 700 11px var(--ui); cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+.ov-restore-pill.live { border-color: #ff5b7c; }
+.ov-chrome { display: flex; flex-direction: column; gap: 4px; flex: none; }
+.ov-bar { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; min-height: 28px; }
+.ov-icon-btn {
+  flex: none; min-width: 26px; height: 26px; padding: 0 5px;
+  border-radius: var(--r-sm); border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.07); color: var(--ink);
+  font: 700 12px var(--ui); cursor: pointer; display: grid; place-items: center;
+}
+.ov-icon-btn.on { border-color: var(--accent); color: var(--accent); background: rgba(180, 100, 255, 0.18); }
+.ov-icon-btn.live { border-color: #ff4f73; background: #ff4f73; color: #fff; }
+.ov-chord-pill {
+  flex: none; display: inline-flex; align-items: baseline; gap: 4px;
+  height: 26px; padding: 0 7px; border-radius: var(--r-sm);
+  border: 1px solid var(--line); background: rgba(255, 255, 255, 0.07);
+  color: var(--gold, #ffd35c); font: 800 13px/1 var(--display, sans-serif); cursor: pointer;
+}
+.ov-chord-pill.on { border-color: var(--gold, #ffd35c); background: rgba(255, 211, 92, 0.14); }
+.ov-pill-key { font: 600 10px var(--ui); color: var(--ink-2); }
+.ov-caret { font-size: 10px; color: var(--ink-2); }
+.ov-tabs { flex: 1; min-width: 0; }
+.ov-tabs button { flex: 1; min-height: 26px; font-size: 11px; padding: 2px 4px; white-space: nowrap; }
+.ov-appear, .ov-drawer {
+  padding: 5px 7px; border-radius: var(--r-sm); gap: 5px;
   background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line);
 }
+.ov-appear { align-items: center; flex-wrap: wrap; }
 .ov-err { padding: 4px 8px; border-radius: var(--r-sm); background: rgba(255, 70, 70, 0.16); color: #ffb3b3; }
-.ov-strip { display: flex; flex-direction: column; gap: 4px; }
 .ov-scale { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ov-trail { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; padding-bottom: 1px; }
 .ov-chip {
@@ -3766,12 +3794,16 @@ html:not([data-arrange]) .win-zoom { display: none; }
 }
 .ov-chip.now { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .ov-chip.jam { border-color: var(--gold); color: var(--gold); }
-.ov-tabs { flex: none; }
-.ov-tabs button { flex: 1; min-height: 28px; font-size: 12px; padding: 3px 6px; }
-.ov-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
+.ov-body { flex: 1 0 auto; min-width: 0; }
+.ov-neck-wrap { width: 100%; overflow-x: auto; }
+.ov-circle-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%;
+}
+.ov-circle-wrap svg { max-width: min(100%, 300px); height: auto; display: block; }
 .ov-card {
   padding: 8px; border-radius: var(--r-md);
   background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line);
 }
+
 
 

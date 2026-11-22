@@ -283,26 +283,27 @@ public class OverlayService extends Service {
         hudRoot.setElevation(dp(12));
         hudRoot.setClipToOutline(true);
 
-        // Native top drag bar
+        // Slim native top drag bar (keeps maximum vertical room for Fretboard & Circle)
         LinearLayout topBar = new LinearLayout(this);
         topBar.setOrientation(LinearLayout.HORIZONTAL);
         topBar.setGravity(Gravity.CENTER_VERTICAL);
-        topBar.setPadding(dp(10), dp(5), dp(6), dp(5));
+        topBar.setPadding(dp(8), dp(2), dp(5), dp(2));
         topBar.setBackgroundColor(Color.parseColor("#E6220D42"));
 
         TextView grip = new TextView(this);
-        grip.setText("⠿ KGuitar");
+        grip.setText("⠿ KG");
         grip.setTextColor(Color.parseColor("#E6D4FF"));
-        grip.setTextSize(13f);
+        grip.setTextSize(11.5f);
         grip.setTypeface(Typeface.DEFAULT_BOLD);
         topBar.addView(grip);
 
         hudChordLabel = new TextView(this);
         hudChordLabel.setText("");
         hudChordLabel.setTextColor(Color.parseColor("#FFD35C"));
-        hudChordLabel.setTextSize(13f);
+        hudChordLabel.setTextSize(11.5f);
         hudChordLabel.setTypeface(Typeface.DEFAULT_BOLD);
-        hudChordLabel.setPadding(dp(8), 0, dp(6), 0);
+        hudChordLabel.setSingleLine(true);
+        hudChordLabel.setPadding(dp(6), 0, dp(4), 0);
         LinearLayout.LayoutParams chordLp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         topBar.addView(hudChordLabel, chordLp);
 
@@ -354,8 +355,8 @@ public class OverlayService extends Service {
 
         hudRoot.addView(bodyWrap, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        int initW = Math.min(Math.round(screenW * 0.90f), dp(460));
-        int initH = Math.min(Math.round(screenH * 0.42f), dp(360));
+        int initW = Math.min(Math.round(screenW * 0.92f), dp(480));
+        int initH = Math.min(Math.round(screenH * 0.48f), dp(410));
         hudParams = new WindowManager.LayoutParams(
             initW,
             initH,
@@ -457,16 +458,16 @@ public class OverlayService extends Service {
         b.setText(text);
         b.setContentDescription(desc);
         b.setTextColor(Color.WHITE);
-        b.setTextSize(12f);
+        b.setTextSize(11f);
         b.setTypeface(Typeface.DEFAULT_BOLD);
         b.setGravity(Gravity.CENTER);
-        b.setPadding(dp(8), dp(4), dp(8), dp(4));
+        b.setPadding(dp(7), dp(2), dp(7), dp(2));
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Color.parseColor("#33FFFFFF"));
-        bg.setCornerRadius(dp(8));
+        bg.setCornerRadius(dp(6));
         b.setBackground(bg);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.setMarginStart(dp(4));
+        lp.setMarginStart(dp(3));
         b.setLayoutParams(lp);
         return b;
     }
