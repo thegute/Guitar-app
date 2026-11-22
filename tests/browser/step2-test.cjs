@@ -225,6 +225,7 @@ E|-3---------|-----------|`
     await page.waitForSelector('[data-testid=scan-result]', { timeout: 20000 }).catch(() => bad('red: no result'))
     const unsure = await page.locator('[data-testid=sp-next-unsure]').innerText().catch(() => '')
     console.log(`red: "${unsure}"`)
+    if (await page.locator('[data-testid=scan-source]').count()) bad('red: the picture window opened before a note was tapped')
     if (!unsure) console.log('red: nothing unsure in this picture (no red box to check)')
     else {
       await page.locator('[data-testid=sp-next-unsure]').click()
@@ -243,7 +244,14 @@ E|-3---------|-----------|`
       if (/\b1 unsure/.test(unsure) === false && b1 === b2) bad('red: the box did not move to the next unsure note')
       // a sure note: picture, no box
       const sure = page.locator('[data-testid=scan-result] .tab-note:not(.unsure)').first()
-      if (await sure.count()) { await sure.click(); await page.waitForTimeout(200); const k = await page.locator('[data-testid=scan-source-ring]').count(); console.log(`red: a sure note shows ${k} box(es)`) }
+      if (await sure.count()) {
+        await sure.click(); await page.waitForTimeout(200)
+        const k = await page.locator('[data-testid=scan-source-ring]').count()
+        const g = await page.locator('[data-testid=scan-source-ring]').evaluate(e => getComputedStyle(e).borderTopColor).catch(() => '')
+        console.log(`red: a sure note shows ${k} box(es), colour ${g}`)
+        if (k !== 1 || !/34, 211, 107/.test(g)) bad(`red: a sure note should show one green box (${k}, ${g})`)
+        await page.screenshot({ path: `${DIR}/step2-scan-green.png` })
+      }
     }
     if (page.errors.length) bad(`red errors: ${page.errors.join(' | ')}`)
     await page.context().close()
@@ -293,6 +301,10 @@ E|-3---------|-----------|`
       if (best < got.length * 0.85) bad(`video: only ${best} of ${got.length} notes match the video in order`)
       // 12 s × 60 px/s of scrolling: more numbers than one frame shows (about 10)
       if (Number(own[1]) < 18) bad(`video: KGuitar read only ${own[1]} numbers: the scrolling tab wasn't stitched`)
+      // tap a note: the picture window shows the video frame (the stitched strip) with one box on that note
+      await page.locator('[data-testid=scan-result] .tab-note').nth(5).click()
+      await page.waitForSelector('[data-testid=scan-source-ring]', { timeout: 3000 }).catch(() => bad('video: no picture window with a box after tapping a note'))
+      await page.screenshot({ path: `${DIR}/step2-scan-video-picture.png` })
     } else {
       if (!page.sent.length) bad(`video: no tab strips were read (${msg})`)
       const widest = Math.max(0, ...page.sent.map(x => x.w))

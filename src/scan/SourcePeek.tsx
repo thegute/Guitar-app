@@ -1,5 +1,5 @@
 // "Check it in the picture": ONE floating window (move, resize, shrink to a bubble, hide; remembered) that shows the
-// spot in the scanned picture where the selected note was read, centred on it; a note KGuitar wasn't sure of gets a red box (only that one, never the sure ones). Pick another note (or
+// spot in the scanned picture where the selected note was read, with one glowing box round it: red when KGuitar wasn't sure of it, green when it was. Pick another note (or
 // "Next unsure") and the same window jumps there, switching picture if that note came from a different strip.
 // Zoom with + / − or a pinch; drag the picture sideways to look around.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -50,8 +50,8 @@ export function SourcePeek({ sources, src, label, unsure, onHide }: { sources: S
           onMouseUp={() => { drag.current = null }} onMouseLeave={() => { drag.current = null }}>
           <div style={{ position: 'relative', width: W, height: H }}>
             <img src={pic.url} alt={`Scanned tab picture ${src.p + 1}`} draggable={false} style={{ width: W, height: H, display: 'block' }} />
-            {unsure && <span className="scan-src-ring unsure" data-testid="scan-source-ring"
-              style={{ left: src.x * W - ring / 2, top: src.y * H - ring / 2, width: ring, height: ring }} />}
+            <span className={`scan-src-ring ${unsure ? 'unsure' : 'sure'}`} data-testid="scan-source-ring"
+              style={{ left: src.x * W - ring / 2, top: src.y * H - ring / 2, width: ring, height: ring }} />
           </div>
         </div>
         <div className="row small" style={{ gap: 4, alignItems: 'center', justifyContent: 'space-between' }}>

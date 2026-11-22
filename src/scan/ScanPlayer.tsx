@@ -145,16 +145,14 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources }: { doc: SongDoc
     return [...new Set([...baseAlts, ...twins])].filter(f => f !== selNote.fret && f >= 0 && f <= 24).slice(0, 4)
   }, [selNote])
 
-  // the one "Check it in the picture" window: the picked note, or the first unsure one when nothing is picked
+  // the one "Check it in the picture" window: it follows the note you tap
   const [picOff, setPicOff] = useState(false)
   const peek = useMemo(() => {
     if (!sources?.length || !onChangeSong) return null
+    // only once you tap a note (or Next unsure): one box, red when unsure, green when sure
     if (selNote?.src && selFlat) return { src: selNote.src, label: `bar ${selFlat.bar + 1}, ${strNames[selNote.string]} string`, unsure: !!selNote.unsure }
-    const u = unsureList.find(x => flat[x.flatIdx]?.step.notes.find(n => n.string === x.string)?.src)
-    if (!u) return null
-    const n = flat[u.flatIdx].step.notes.find(m => m.string === u.string)!
-    return { src: n.src!, label: `bar ${flat[u.flatIdx].bar + 1}, ${strNames[n.string]} string`, unsure: true }
-  }, [sources, onChangeSong, selNote, selFlat, unsureList, flat, strNames])
+    return null
+  }, [sources, onChangeSong, selNote, selFlat, strNames])
 
   return (
     <div className="scan-player stack" style={{ gap: 6 }} data-testid="scan-player">

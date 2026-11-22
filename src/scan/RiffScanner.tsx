@@ -456,7 +456,9 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
   }
 
   const again = () => { sound.reset(); setOut(null); setPics([]); setBox(null); setUserCropped(false); setMsg(''); setPhase(null); setWhy(''); setTheater(false); setGrabAudio(null) }
-  if (out) return <ScanResult out={out} onUseInJam={onUseInJam} onAgain={again} />
+  // a video Gemini read in the cloud: offer to read it here so each note can be checked against its frame
+  const framesFor = out && !out.sources?.length && linkUrl && out.doc.youtube && /Gemini watched/.test(out.how) ? () => { setOut(null); setWhy('Reading it here, so each note you tap shows the video frame it came from.'); setPhase('grab') } : undefined
+  if (out) return <ScanResult out={out} onUseInJam={onUseInJam} onAgain={again} onFrames={framesFor} />
   const heardView = sound.view({ onUseInJam, onAgain: again })
   if (heardView) return heardView
   return (

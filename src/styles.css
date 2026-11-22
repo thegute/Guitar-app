@@ -3563,7 +3563,7 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
 .scan-src-view { overflow: auto; border-radius: var(--r-sm); background: #fff; cursor: grab; touch-action: pan-x pan-y; overscroll-behavior: contain; }
 .scan-src-view:active { cursor: grabbing; }
 .scan-src-view img { user-select: none; -webkit-user-drag: none; max-width: none; }
-.scan-src-ring { position: absolute; border-radius: 50%; border: 3px solid var(--mint); box-shadow: 0 0 0 2px rgba(0,0,0,.55), 0 0 12px rgba(0,0,0,.35); pointer-events: none; }
+.scan-src-ring { position: absolute; border-radius: 8px; border: 3px solid #22d36b; box-shadow: 0 0 0 2px rgba(0,0,0,.6), 0 0 14px 3px rgba(34,211,107,.55); pointer-events: none; }
 .scan-src-ring.unsure { border-color: #ff2a2a; border-radius: 8px; box-shadow: 0 0 0 2px rgba(0,0,0,.6), 0 0 14px 3px rgba(255,42,42,.55); animation: scan-src-pulse 1.2s ease-in-out infinite; }
 @keyframes scan-src-pulse { 50% { box-shadow: 0 0 0 2px rgba(0,0,0,.6), 0 0 22px 7px rgba(255,42,42,.8); } }
 @media (prefers-reduced-motion: reduce) { .scan-src-ring.unsure { animation: none; } }

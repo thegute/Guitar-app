@@ -947,6 +947,99 @@ export const THEORY_QUIZZES: QuizDef[] = [
     },
   },
   {
+    id: 'l8-parent', unit: 'Guitar theory', title: 'Which major scale is the mode from?', mic: false,
+    desc: 'A mode uses the notes of a major scale, starting on a different note: Dorian from its 2nd, Phrygian 3rd, Lydian 4th, Mixolydian 5th, Aeolian 6th, Locrian 7th. Which major scale holds this mode\'s notes?', length: 10,
+    items: () => ['D:dorian', 'E:phrygian', 'F:lydian', 'G:mixolydian', 'A:dorian', 'B:phrygian', 'A:mixolydian', 'Bb:lydian', 'E:dorian', 'C:mixolydian', 'F#:phrygian', 'D:lydian'].map((k, i) => `l8-parent:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const [, root, mode] = item.split(':')
+      const DEG: Record<string, [number, number, string]> = { dorian: [1, 2, '2nd'], phrygian: [2, 4, '3rd'], lydian: [3, 5, '4th'], mixolydian: [4, 7, '5th'], aeolian: [5, 9, '6th'], locrian: [6, 11, '7th'] }
+      const [steps, semis, ord] = DEG[mode]
+      const parent = noteAt(root, 7 - steps, 12 - semis)
+      const name = mode[0].toUpperCase() + mode.slice(1)
+      const wrong = uniq([root, noteAt(parent, 4, 7), noteAt(parent, 3, 5), noteAt(root, 4, 7), noteAt(root, 3, 5)])
+      return choose(item, `${root} ${name} uses the notes of which major scale?`, parent, wrong.map(w => w), `${parent}: ${name} starts on the ${ord} note of its major scale, and ${root} is the ${ord} note of ${parent} major (${spellScale(parent).join(' ')}).`, rnd)
+    },
+  },
+  {
+    id: 'l8-colour', unit: 'Guitar theory', title: 'The colour note of a mode', mic: false,
+    desc: 'Every mode has one note that sets it apart from plain major or minor: Lydian ♯4, Mixolydian ♭7, Dorian ♮6, Aeolian ♭6, Phrygian ♭2, Locrian ♭5. Which note is it here?', length: 10,
+    items: () => ['A:dorian', 'G:mixolydian', 'F:lydian', 'E:phrygian', 'D:dorian', 'C:lydian', 'D:mixolydian', 'B:phrygian', 'E:aeolian', 'B:locrian'].map((k, i) => `l8-colour:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const [, root, mode] = item.split(':')
+      const M: Record<string, [number[], number, string]> = {
+        dorian: [[0, 2, 3, 5, 7, 9, 10], 5, 'the ♮6: natural minor has a ♭6, Dorian raises it, so minor sounds hopeful and funky'],
+        mixolydian: [[0, 2, 4, 5, 7, 9, 10], 6, 'the ♭7: major with a flat 7th, the bluesy rock sound'],
+        lydian: [[0, 2, 4, 6, 7, 9, 11], 3, 'the ♯4: major with a raised 4th, dreamy and floating'],
+        phrygian: [[0, 1, 3, 5, 7, 8, 10], 1, 'the ♭2: a half step above the root, dark and Spanish-sounding'],
+        aeolian: [[0, 2, 3, 5, 7, 8, 10], 5, 'the ♭6: the sad note of natural minor (Dorian has a ♮6 there)'],
+        locrian: [[0, 1, 3, 5, 6, 8, 10], 4, 'the ♭5: the root chord itself is diminished, so it never feels at rest'],
+      }
+      const [ivs, idx, why] = M[mode]
+      const notes = spellScale(root, ivs)
+      const ans = notes[idx]
+      const name = mode[0].toUpperCase() + mode.slice(1)
+      return choose(item, `Which note gives ${root} ${name} its colour?`, ans, notes.filter((_, i) => i !== idx && i !== 0), `${ans}: ${why}. ${root} ${name}: ${notes.join(' ')}.`, rnd)
+    },
+  },
+  {
+    id: 'l8-vamp', unit: 'Guitar theory', title: 'Which mode is the vamp?', mic: false,
+    desc: 'A modal song sits on two or three chords going back and forth. The first chord is home; the other chord gives away the mode (Am7 – D: the F♯ in D makes A Dorian).', length: 10,
+    items: () => ['Am7 – D|A Dorian', 'G – F|G Mixolydian', 'F – G/F|F Lydian', 'Em – F|E Phrygian', 'Am – F – G|A Aeolian', 'Dm7 – G|D Dorian', 'D – C|D Mixolydian', 'C – D/C|C Lydian', 'Bm – C|B Phrygian', 'E – D|E Mixolydian'].map((k, i) => `l8-vamp:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const [vamp, ans] = item.split(':')[1].split('|')
+      const root = ans.split(' ')[0]
+      const wrong = ['Dorian', 'Mixolydian', 'Lydian', 'Phrygian', 'Aeolian', 'Ionian (major)'].map(m => `${root} ${m}`)
+      const why: Record<string, string> = { Dorian: 'a minor home chord with a MAJOR IV (the ♮6 is its 3rd)', Mixolydian: 'a major home chord with a major chord a whole step DOWN (♭VII: its root is the ♭7)', Lydian: 'a major home chord with a major chord a whole step UP (II: its 3rd is the ♯4)', Phrygian: 'a minor home chord with a major chord a half step UP (♭II: its root is the ♭2)', Aeolian: 'a minor home chord with ♭VI and ♭VII (the ♭6 is in the ♭VI)' }
+      const m = ans.split(' ')[1]
+      return choose(item, `A song vamps ${vamp} (the first chord is home). Which mode?`, ans, wrong, `${ans}: ${why[m]}.`, rnd)
+    },
+  },
+  {
+    id: 'l8-chordscale', unit: 'Guitar theory', title: 'What to play over the chord', mic: false,
+    desc: 'The chord tells you the scale: m7 → Dorian, 7 → Mixolydian, maj7♯11 → Lydian, 7♯11 → Lydian dominant, 7alt → altered, 7♭9 to minor → Phrygian dominant, 7♯5 → whole-tone, dim7 → whole-half, m7♭5 → Locrian, m(maj7) → melodic minor.', length: 10,
+    items: () => ['Dm7 (ii in C)|D Dorian', 'G7 (going to C)|G Mixolydian', 'G7alt (going to C)|G altered', 'D7♯11|D Lydian dominant', 'Fmaj7♯11|F Lydian', 'E7♭9 (going to Am)|E Phrygian dominant', 'G7♯5|G whole-tone', 'Bdim7|B whole-half diminished', 'Am(maj7)|A melodic minor', 'Bm7♭5 (vii in C)|B Locrian', 'G7♭9 (13 on top)|G half-whole diminished'].map((k, i) => `l8-chordscale:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const [chord, ans] = item.split(':')[1].split('|')
+      const root = ans.split(' ')[0]
+      const all = ['Dorian', 'Mixolydian', 'Lydian', 'altered', 'Lydian dominant', 'Phrygian dominant', 'whole-tone', 'whole-half diminished', 'half-whole diminished', 'melodic minor', 'Locrian', 'Aeolian', 'major (Ionian)'].map(s => `${root} ${s}`)
+      const why: Record<string, string> = {
+        Dorian: 'a minor 7th chord that is the ii of its key: Dorian is the key\'s notes from the 2nd degree (its ♮6 is the key\'s own note)',
+        Mixolydian: 'a plain dominant 7th going to its I: Mixolydian is the key\'s notes from the 5th degree',
+        altered: 'every tension altered (♭9 ♯9 ♯11 ♭13): the 7th mode of melodic minor a half step up (A♭ melodic minor for G)',
+        'Lydian dominant': 'a dominant with a ♯11: Mixolydian with a raised 4th, the 4th mode of melodic minor',
+        Lydian: 'a major 7th with a ♯11: the raised 4th avoids the clash of the plain 4th against the 3rd',
+        'Phrygian dominant': 'a V7♭9 going to a minor chord: the 5th mode of harmonic minor (the key\'s minor scale with its 7th raised)',
+        'whole-tone': 'a dominant with a ♯5: whole-tone has 9, ♯11 and ♯5 and no perfect 5th',
+        'whole-half diminished': 'a dim7 chord: four chord tones plus a note a whole step above each',
+        'half-whole diminished': 'a dominant with ♭9 and natural 13: the half-whole scale has ♭9 ♯9 ♯11 and 13 with a perfect 5th',
+        'melodic minor': 'a minor chord with a major 7th: only melodic minor has both the ♭3 and the 7',
+        Locrian: 'a half-diminished chord: Locrian is the only mode with a ♭5 and ♭7 on a minor root',
+      }
+      const kind = ans.slice(root.length + 1)
+      return choose(item, `What scale fits ${chord}?`, ans, all, `${ans}: ${why[kind]}.`, rnd)
+    },
+  },
+  {
+    id: 'l8-mode-ear', unit: 'Guitar theory', title: 'Hear it: which mode?', ear: true,
+    desc: 'The home chord, then the mode played up from its root. Bright to dark: Lydian (♯4) – Ionian – Mixolydian (♭7) – Dorian (minor, ♮6) – Aeolian (♭6) – Phrygian (♭2). First hear major or minor, then the colour note.', length: 10, mic: false,
+    items: () => ['lyd', 'mix', 'dor', 'phr', 'aeo', 'ion', 'dor', 'mix', 'lyd', 'phr'].map((k, i) => `l8-mode-ear:${k}:${i}`),
+    make: (item, _inst, rnd) => {
+      const k = item.split(':')[1]
+      const S: Record<string, [string, number[], string]> = {
+        lyd: ['Lydian', [0, 2, 4, 6, 7, 9, 11, 12], 'major, with the ♯4 floating between the 3rd and 5th.'],
+        ion: ['Ionian (major)', [0, 2, 4, 5, 7, 9, 11, 12], 'plain major: do re mi.'],
+        mix: ['Mixolydian', [0, 2, 4, 5, 7, 9, 10, 12], 'major, but the 7th is a whole step under the top: bluesy.'],
+        dor: ['Dorian', [0, 2, 3, 5, 7, 9, 10, 12], 'minor, with a bright ♮6 near the top.'],
+        aeo: ['Aeolian (natural minor)', [0, 2, 3, 5, 7, 8, 10, 12], 'minor, with the sad ♭6.'],
+        phr: ['Phrygian', [0, 1, 3, 5, 7, 8, 10, 12], 'minor, and the very first step is a half step: dark and Spanish.'],
+      }
+      const [ans, ivs, why] = S[k]
+      const root = 45 + Math.floor(rnd() * 7)
+      const minor = ivs[2] === 3
+      return choose(item, 'Which mode?', ans, Object.values(S).map(x => x[0]), `${ans}: ${why}`, rnd, { audio: { chords: [[root, root + (minor ? 3 : 4), root + 7, root + 12]], seq: ivs.map(i => root + 12 + i) }, sub: 'Major or minor chord first? Then listen for the one note that differs.' })
+    },
+  },
+  {
     id: 'l5-key7', unit: 'Guitar theory', title: 'The 7th chords of a key', mic: false,
     desc: 'Every major key has the same 7th-chord pattern: maj7, m7, m7, maj7, 7, m7, m7♭5. Which chord sits on this degree?', length: 10,
     items: () => ['C', 'G', 'D', 'F', 'A', 'Bb', 'E', 'Eb', 'G', 'D'].map((k, i) => `l5-key7:${k}:${i}`),

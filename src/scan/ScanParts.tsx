@@ -129,7 +129,7 @@ export function scanChords(doc: SongDoc): string[] {
   } catch { return [] }
 }
 
-export function ScanResult({ out, live, onUseInJam, onAgain }: { out: ScanOut; live?: LiveScan; onUseInJam?: (chords: string[]) => void; onAgain: () => void }) {
+export function ScanResult({ out, live, onUseInJam, onAgain, onFrames }: { out: ScanOut; live?: LiveScan; onUseInJam?: (chords: string[]) => void; onAgain: () => void; onFrames?: () => void }) {
   const inst = useInstrument()
   const [which, setWhich] = useState<'first' | 'better'>('first')
   // your own changes stay when a better version or the AI's labels arrive: title, tempo / time, a fixed tab text
@@ -235,6 +235,12 @@ export function ScanResult({ out, live, onUseInJam, onAgain }: { out: ScanOut; l
           <textarea className="input tab-text mono" value={text} onChange={e => setText(e.target.value)} rows={Math.min(24, text.split('\n').length + 1)} spellCheck={false} aria-label="The tab it read" />
           <button className="btn sm primary" style={{ alignSelf: 'flex-start' }} onClick={reread}>Read it again</button>
         </>
+      )}
+      {onFrames && !out.sources?.length && (
+        <div className="notice small row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }} data-testid="scan-frames-offer">
+          <span style={{ flex: '1 1 220px' }}>Gemini read this in the cloud, so there are no video frames on the phone to check the notes against. Read it here instead and every note you tap shows the frame it came from.</span>
+          <button className="btn sm primary" onClick={onFrames} data-testid="scan-frames"><Ico n="image" /> Read it here with pictures</button>
+        </div>
       )}
       {note && <p className="small" role="status" style={{ margin: 0 }} data-testid="scan-note">{note}</p>}
       {check.length > 0 && <p className="small" style={{ margin: 0 }} data-testid="scan-checkbars"><b>Check bar{check.length > 1 ? 's' : ''} {check.map(b => b + 1).join(', ')}</b> (dashed): the chord heard there and the notes don't agree.</p>}
