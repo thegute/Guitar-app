@@ -241,8 +241,8 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
     videos: [
       { id: '5w9xeadMZDA', teacher: 'Mauricio Murúa', title: 'Guitar Circle of Arpeggios', watchFor: 'Listen to how seamlessly each arpeggio flows into the next around the Circle!' },
       { id: 'FMryR2CGtC4', teacher: 'Mauricio Murúa', title: 'Guitar Twister 20', watchFor: 'Notice his wide string-skipping picking pattern weaving through the changing chords.' },
-      { id: 'becl0GjXBiM', teacher: 'Online Axe Academy', title: 'The DIATONIC Circle of 5ths — 2 Amazing Exercises', watchFor: 'Drilling all 7 diatonic 7th arpeggios and 3rd/7th guide tones around the Circle.' },
-      { id: 'qUoV6l19jZE', teacher: 'Guitar Fretboard', title: 'CAGED 7th Arpeggios + Circle of Fourths = Total Fretboard Freedom', watchFor: 'Staying locked in ONE CAGED box while navigating the entire diatonic Circle of 4ths.' },
+      { id: 'becl0GjXBiM', teacher: 'Online Sax Academy', title: 'The DIATONIC Circle of 5ths — 2 Amazing Exercises', watchFor: 'Drilling all 7 diatonic 7th arpeggios and 3rd/7th guide tones around the Circle.' },
+      { id: 'qUoV6l19jZE', teacher: 'Dan Cosley', title: 'CAGED 7th Arpeggios + Circle of Fourths = Total Fretboard Freedom', watchFor: 'Staying locked in ONE CAGED box while navigating the entire diatonic Circle of 4ths.' },
       { id: 'L_La1p8Nq9A', teacher: 'LoG Sounds', title: 'LoG Power Ups #21 — Small Arpeggios (Part 1)', watchFor: 'How small 3- and 4-note arpeggio cells link effortlessly across chord changes.' },
     ],
   },
