@@ -39,6 +39,7 @@ import { SoundPacks } from '../components/SoundPacks'
 import { enableReminders, reminderSettings, remindersAvailable, updateReminderSettings, type ReminderSettings } from './reminders'
 import { Win, WinArea } from '../components/Win'
 import { handSize, setHandSize, type HandSize } from '../hand/neck'
+import { isAndroidApp, overlayStatus, toggleSystemOverlay } from '../overlay/bridge'
 
 
 /** The gear page: everything about how the app is set up, the floating cards, and the manual. Opened from the menu's
@@ -318,6 +319,9 @@ export function Settings({ inst, onExit, onGo, guideSec }: { inst: Instrument; o
       </WinArea>}
       {page === 'cards' && (
         <WinArea area="setCards">
+          <Win id="system-overlay" title="Float over other apps (Songsterr, YouTube, Spotify)" className="panel" bodyClass="stack" bodyStyle={{ gap: 10 }}>
+            <SystemOverlayPanel />
+          </Win>
           <Win id="gear-cards" title="Floating cards" className="panel" bodyClass="stack" bodyStyle={{ gap: 12 }}>
             <div className="stack" style={{ gap: 12 }} data-testid="gear-cards">
               <p className="small muted" style={{ margin: 0 }}>
@@ -465,3 +469,51 @@ function TipsSettings() {
     </>
   )
 }
+
+/** Settings → Cards → Float over other apps (Songsterr, YouTube, Spotify). */
+function SystemOverlayPanel() {
+  const android = isAndroidApp()
+  const [running, setRunning] = useState(false)
+  const [granted, setGranted] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    if (!android) return
+    void overlayStatus().then(s => { setRunning(s.running); setGranted(s.granted) })
+  }, [android])
+
+  async function toggle() {
+    const r = await toggleSystemOverlay()
+    setRunning(r.running)
+    if (r.ok) setGranted(true)
+    if (r.message) setMsg(r.message)
+  }
+
+  return (
+    <div className="stack" style={{ gap: 8 }} data-testid="system-overlay-panel">
+      <p className="small muted" style={{ margin: 0 }}>
+        Float a sleek KGuitar bubble right on top of <b>Songsterr</b>, <b>YouTube</b>, <b>Spotify</b> or any other app —
+        with <b>Live Ear</b> (hears chords, key, best solo scale &amp; chord trail), the <b>5-Layer Fretboard + Capo</b>,
+        {' '}<b>Circle of Fifths</b>, <b>Pro Licks</b>, <b>Quick Tuner</b>, <b>Chord Lookup</b>, <b>Sticky Notes</b>, and
+        {' '}<b>Ghost click-through mode</b> (so you can tap Songsterr right through the fretboard).
+      </p>
+      <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {android ? (
+          <button type="button" className={`btn${running ? '' : ' primary'}`} onClick={() => void toggle()} data-testid="settings-overlay-toggle">
+            {running ? '■ Turn off Floating Bubble' : granted ? '▶ Launch Floating Bubble' : 'Allow & Launch Floating Bubble'}
+          </button>
+        ) : (
+          <button type="button" className="btn primary" onClick={() => window.open('/?overlay=1', '_blank')}>
+            Preview Floating HUD (Web)
+          </button>
+        )}
+      </div>
+      <p className="small muted" style={{ margin: 0 }}>
+        <b>Quick tip:</b> Swipe down from the top of your Android screen while inside Songsterr, tap Edit Quick Settings, and add the
+        {' '}<b>KGuitar Bubble</b> tile — then you can toggle the bubble anytime in 1 tap without even leaving Songsterr!
+      </p>
+      {msg && <p className="small" role="status" style={{ margin: 0 }}>{msg}</p>}
+    </div>
+  )
+}
+

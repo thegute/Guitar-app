@@ -41,6 +41,9 @@ import { ACTION_LABEL, onPedal, type PedalAction } from './controls/pedals'
 import { ShareInbox } from './components/ShareInbox'
 import { Welcome, needsWelcome, openGuide } from './components/Welcome'
 import { maybeAutoSync } from './sync/cloudSync'
+import { OverlayHud } from './overlay/OverlayHud'
+import { consumeOverlayRoute, isOverlayMode } from './overlay/bridge'
+import { openJam, openScanner } from './nav'
 
 const TABS: { id: Tab; label: string; icon: () => JSX.Element }[] = [
   { id: 'songs', label: 'Songs', icon: IconSongs },
@@ -50,6 +53,11 @@ const TABS: { id: Tab; label: string; icon: () => JSX.Element }[] = [
 ]
 
 export default function App() {
+  if (isOverlayMode()) return <OverlayHud />
+  return <MainApp />
+}
+
+function MainApp() {
   const [saved, setTab] = usePersist<string>('tab2', 'play')
   const [toolPage, setToolPage] = usePersist<ToolPage>('toolPage', isToolPage(saved) ? saved : 'tuner')
   // leaving a page stops what it was playing
@@ -68,10 +76,23 @@ export default function App() {
   // what you use (counted on this phone only; Settings → You → What you use)
   // the pedal + wireless setup switches on by itself when the Pocket Master is plugged in
   useEffect(() => { watchDevices() }, [])
-  // quiet Phone ↔ Tablet cloud sync on startup & resume (only when user has added a private GitHub token)
+  // quiet Phone ↔ Tablet cloud sync & deep-link check from Android Floating Bubble on startup & resume
   useEffect(() => {
+    const checkRoute = () => {
+      void consumeOverlayRoute().then(route => {
+        if (route === 'scan') openScanner({ mode: 'scan' })
+        else if (route === 'vibe') openJam('beats')
+        else if (route === 'jam') openJam('jam')
+      })
+    }
+    checkRoute()
     const t = setTimeout(() => maybeAutoSync(), 2000)
-    const onVis = () => { if (document.visibilityState === 'visible') maybeAutoSync() }
+    const onVis = () => {
+      if (document.visibilityState === 'visible') {
+        maybeAutoSync()
+        checkRoute()
+      }
+    }
     document.addEventListener('visibilitychange', onVis)
     return () => { clearTimeout(t); document.removeEventListener('visibilitychange', onVis) }
   }, [])

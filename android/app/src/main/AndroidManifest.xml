@@ -55,6 +55,28 @@
             android:exported="false"
             android:foregroundServiceType="mediaProjection|microphone" />
 
+        <!-- Floating KGuitar Bubble HUD over Songsterr, YouTube, Spotify or any other app -->
+        <service
+            android:name=".OverlayService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse|microphone">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Floating guitar fretboard and live chord overlay HUD over music apps" />
+        </service>
+
+        <!-- Android Quick Settings Tile ("KGuitar Bubble") to toggle the floating HUD without leaving Songsterr -->
+        <service
+            android:name=".OverlayTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_kguitar"
+            android:label="KGuitar Bubble"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -83,8 +105,10 @@
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
-    <!-- Riff Scanner screen grab (a foreground service while it runs) -->
+    <!-- Riff Scanner screen grab & Floating Overlay Bubble (foreground services while running) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 </manifest>

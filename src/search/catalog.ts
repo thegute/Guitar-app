@@ -554,4 +554,7 @@ export const FEATURES: Entry[] = [
   f({ id: 'universalwin', title: 'Universal windows (move, resize, zoom & float)', where: 'Every screen', guide: 'Universal windows (move, resize, zoom & pop out)', target: { go: { settings: 'look' } },
     text: 'Move, resize side-by-side on tablets, zoom (− / +), tuck away, or pop out any window (❐) and dock it back (⤓ Dock), with separate phone & tablet layouts.',
     keys: 'windows resize move zoom pop out float dock layout phone tablet split divider cockpit sheets minimize' }),
+  f({ id: 'systemoverlay', title: 'Float over Songsterr & other apps (Bubble HUD)', where: 'Float ▾ menu · Settings → Cards · Android Quick Settings', guide: 'Float over Songsterr & other apps', target: { go: { settings: 'cards' } },
+    text: 'Floats a live-listening 5-Layer Fretboard, chord & key detector, Circle of Fifths, Pro Licks, Tuner & Ghost click-through HUD over Songsterr, YouTube or Spotify.',
+    keys: 'songsterr overlay bubble float over other apps youtube spotify ghost click through appear on top quick settings tile live ear hud' }),
 ]

@@ -11,6 +11,7 @@ import {
   type CardId,
 } from '../float/bus'
 import { learnGo, openJam, openLicksInKey, openScanner } from '../nav'
+import { isAndroidApp, overlayStatus, toggleSystemOverlay } from '../overlay/bridge'
 
 function readSaved(key: string, fallback: string): string {
   try {
@@ -27,7 +28,15 @@ export function StudioTopBar() {
   const [menu, setMenu] = useState<null | 'context' | 'float'>(null)
   const [presetName, setPresetName] = useState('')
   const [savingPreset, setSavingPreset] = useState(false)
+  const [ovRunning, setOvRunning] = useState(false)
+  const [ovMsg, setOvMsg] = useState('')
   const wrap = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (menu === 'float' && isAndroidApp()) {
+      void overlayStatus().then(s => setOvRunning(s.running))
+    }
+  }, [menu])
 
   useEffect(() => {
     if (!menu) { setSavingPreset(false); return }
@@ -100,16 +109,39 @@ export function StudioTopBar() {
       {/* Multi-Card Floating Window Launcher + Arrange + Workspace Presets */}
       <span className="fc-menu-wrap">
         <button
-          className={`btn sm ghost studio-pill${menu === 'float' || activeCount > 0 ? ' on' : ''}`}
+          className={`btn sm ghost studio-pill${menu === 'float' || activeCount > 0 || ovRunning ? ' on' : ''}`}
           onClick={() => setMenu(m => (m === 'float' ? null : 'float'))}
           aria-expanded={menu === 'float'}
-          title="Open multiple floating cards, arrange layout, or load a Workspace Preset"
+          title="Open multiple floating cards, arrange layout, or float over Songsterr / other apps"
           data-testid="studio-float-btn"
         >
           <Ico n="layers" /> Float{activeCount > 0 ? ` (${activeCount})` : ''} ▾
         </button>
         {menu === 'float' && (
-          <div className="fc-menu-pop fc-menu-scroll" style={{ minWidth: 255 }} role="menu" data-testid="studio-float-menu">
+          <div className="fc-menu-pop fc-menu-scroll" style={{ minWidth: 265 }} role="menu" data-testid="studio-float-menu">
+            <button
+              className={`fc-menu-item${ovRunning ? ' on' : ''}`}
+              role="menuitem"
+              data-testid="studio-system-overlay"
+              onClick={async () => {
+                if (!isAndroidApp()) {
+                  window.open('/?overlay=1', '_blank')
+                  setMenu(null)
+                  return
+                }
+                const r = await toggleSystemOverlay()
+                setOvRunning(r.running)
+                setOvMsg(r.message ?? '')
+                if (r.ok && r.running) setMenu(null)
+              }}
+            >
+              <Ico n="expand" />
+              <span style={{ flex: 1 }}>
+                {ovRunning ? '● Stop Bubble over apps' : 'Float over Songsterr / apps'}
+              </span>
+            </button>
+            {ovMsg && <div className="small muted" style={{ padding: '2px 8px', fontSize: 11 }}>{ovMsg}</div>}
+            <div className="fc-menu-sep" />
             {activeCount > 0 && (
               <>
                 <div className="row" style={{ gap: 4, padding: '2px 4px' }}>

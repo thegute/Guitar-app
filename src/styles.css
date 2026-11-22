@@ -3740,3 +3740,38 @@ html:not([data-arrange]) .win-zoom { display: none; }
 .ck-sheet-body { max-height: min(68dvh, calc(100dvh - 140px)); overflow-y: auto; overscroll-behavior: contain; padding-bottom: 6px; }
 .ck-sheet-body .st-xy { height: min(210px, 32dvh); min-height: 140px; }
 
+/* Android Floating Overlay Bubble HUD (?overlay=1) */
+.ov-root {
+  position: fixed; inset: 0; display: flex; flex-direction: column; gap: 6px;
+  padding: 6px 8px 10px; overflow: hidden;
+  background: radial-gradient(120% 90% at 80% 0%, rgba(56, 16, 98, 0.96), rgba(16, 7, 32, 0.97) 68%);
+  color: var(--ink);
+}
+.ov-bar { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; min-height: 32px; }
+.ov-now { display: flex; align-items: baseline; gap: 6px; min-width: 0; flex: 1; overflow: hidden; }
+.ov-chord { font: 800 18px/1 var(--display, sans-serif); color: var(--gold, #ffd35c); white-space: nowrap; }
+.ov-key { font-size: 11px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-actions { display: inline-flex; align-items: center; gap: 3px; flex: none; }
+.ov-appear {
+  padding: 4px 8px; border-radius: var(--r-sm); gap: 6px; align-items: center; flex-wrap: wrap;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line);
+}
+.ov-err { padding: 4px 8px; border-radius: var(--r-sm); background: rgba(255, 70, 70, 0.16); color: #ffb3b3; }
+.ov-strip { display: flex; flex-direction: column; gap: 4px; }
+.ov-scale { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov-trail { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; padding-bottom: 1px; }
+.ov-chip {
+  flex: 0 0 auto; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06);
+  color: var(--ink); border-radius: var(--r-pill); padding: 2px 8px; font: 700 11px var(--ui); cursor: pointer;
+}
+.ov-chip.now { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.ov-chip.jam { border-color: var(--gold); color: var(--gold); }
+.ov-tabs { flex: none; }
+.ov-tabs button { flex: 1; min-height: 28px; font-size: 12px; padding: 3px 6px; }
+.ov-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
+.ov-card {
+  padding: 8px; border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line);
+}
+
+
