@@ -23,6 +23,7 @@ import { RigChip } from '../components/AudioSetup'
 import { usePersist } from '../components/Controls'
 import { Fold } from '../components/Fold'
 import { Win, WinArea, useWinShow } from '../components/Win'
+import { FloatCard } from '../components/FloatCard'
 import { Fretboard } from '../components/Fretboard'
 import { TabView } from '../components/TabView'
 import { HandGuide } from '../components/HandGuide'
@@ -1394,10 +1395,24 @@ function Cockpit(p: CockpitProps) {
   const [muteMode, setMuteMode] = useState(false)
   const [help, setHelp] = useState(false)
   const [sheet, setSheet] = useState<null | 'mix' | 'fx' | 'save' | 'more' | 'layers' | 'song' | 'vibe' | 'float'>(null)
+  const [ckSplit, setCkSplit] = usePersist<number>('ckSplit', 46)
+  const mainRef = useRef<HTMLElement>(null)
   const openFloaters = useShownInstances('studio').filter(x => x.kind !== 'hand')
   const [w, setW] = useState(typeof innerWidth === 'number' ? innerWidth : 800)
   useEffect(() => { const f = () => setW(innerWidth); addEventListener('resize', f); return () => removeEventListener('resize', f) }, [])
   const narrow = w < 600
+  const dragSplit = (e: React.PointerEvent) => {
+    e.preventDefault()
+    const el = mainRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const mv = (ev: PointerEvent) => {
+      const pct = Math.round(((ev.clientX - rect.left) / Math.max(1, rect.width)) * 100)
+      setCkSplit(Math.max(28, Math.min(72, pct)))
+    }
+    const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up) }
+    addEventListener('pointermove', mv); addEventListener('pointerup', up); addEventListener('pointercancel', up)
+  }
   const cur = curPart(beat), made = partsMade(beat)
   // a part tapped while it plays starts at the next bar (not in the middle of one)
   const pickPart = (id: PartId) => {
@@ -1473,6 +1488,7 @@ function Cockpit(p: CockpitProps) {
   )
   const sheetBody = sheet === 'mix' ? p.mixEl : sheet === 'fx' ? <FxPad t={t} playing={playing} play={p.play} /> : sheet === 'save' ? p.saveEl : sheet === 'layers' ? <Layers beat={beat} setBeat={setBeat} /> : sheet === 'song' ? <SongSheet beat={beat} setBeat={setBeat} /> : sheet === 'vibe' ? <MatchVibe beat={beat} setBeat={setBeat} playing={playing} play={() => p.play()} stop={p.stop} onDone={() => setSheet(null)} onLeave={p.onLeave} /> : sheet === 'float' ? floatSheet : sheet === 'more' ? p.more : null
   const sheetTitle = { mix: 'Mix', fx: 'Effects pad', save: 'Bounce and save', layers: 'Drum layers', song: 'Song', more: 'More settings', vibe: "Match a song's vibe", float: 'Floating guitar tools' }
+  const sheetIcon: Record<NonNullable<typeof sheet>, IconName> = { mix: 'sliders', fx: 'sparkles', save: 'disc', layers: 'layers', song: 'music', more: 'sliders', vibe: 'film', float: 'layers' }
   return createPortal(
     <div className={`ck${narrow ? ' narrow' : ''}${help ? ' help' : ''}`} role="region" aria-label="Beat maker cockpit" data-testid="cockpit">
       <header className="ck-top">
@@ -1502,13 +1518,49 @@ function Cockpit(p: CockpitProps) {
           <button aria-pressed={area === 'steps'} onClick={() => setArea('steps')} data-testid="ck-steps-tab">Steps</button>
         </div>
       )}
-      <main className="ck-main">{narrow ? (area === 'pads' ? leftArea : stepsArea) : <>{leftArea}{stepsArea}</>}</main>
+      <main
+        className="ck-main"
+        ref={mainRef}
+        style={!narrow ? { gridTemplateColumns: `minmax(0, ${ckSplit}fr) 10px minmax(0, ${100 - ckSplit}fr)` } : undefined}
+      >
+        {narrow ? (
+          area === 'pads' ? leftArea : stepsArea
+        ) : (
+          <>
+            {leftArea}
+            <div
+              className="ck-split"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Drag to resize Pads and Steps (double-tap to reset)"
+              title="Drag to resize Pads & Steps (double-tap to reset)"
+              onPointerDown={dragSplit}
+              onDoubleClick={() => setCkSplit(46)}
+              data-testid="ck-split"
+            />
+            {stepsArea}
+          </>
+        )}
+      </main>
       <SoundStrip beat={beat} setBeat={setBeat} t={t} voice={sel} onSheet={s => setSheet(sheet === s ? null : s)} sheet={sheet} help={help} />
       {sheet && (
-        <div className="ck-sheet" role="dialog" aria-label={sheetTitle[sheet]} data-testid="ck-sheet">
-          <div className="ck-head"><b>{sheetTitle[sheet]}</b><span className="st-spacer" /><button className="btn sm" onClick={() => setSheet(null)}>Done</button></div>
-          <div className="ck-scroll">{sheet === 'vibe' || sheet === 'float' ? sheetBody : <WinArea area={`studioCk-${sheet}`}>{sheetBody}</WinArea>}</div>
-        </div>
+        <FloatCard
+          id={`ck-sheet-${sheet}`}
+          where="studio-cockpit"
+          title={sheetTitle[sheet]}
+          bubble={sheetTitle[sheet]}
+          icon={sheetIcon[sheet]}
+          width={sheet === 'vibe' || sheet === 'mix' || sheet === 'more' ? 500 : 400}
+          minW={260}
+          openNarrow
+          onHide={() => setSheet(null)}
+          testId="ck-sheet"
+          headerExtra={<button className="fc-btn fc-dock-btn" onClick={() => setSheet(null)}>Done</button>}
+        >
+          <div className="ck-sheet-body">
+            {sheet === 'vibe' || sheet === 'float' ? sheetBody : <WinArea area={`studioCk-${sheet}`}>{sheetBody}</WinArea>}
+          </div>
+        </FloatCard>
       )}
     </div>,
     document.body,

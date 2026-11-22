@@ -551,4 +551,7 @@ export const FEATURES: Entry[] = [
   f({ id: 'cloudsync', title: 'Phone & tablet sync (private)', where: 'Settings → Backup', guide: 'Phone & tablet sync', target: { go: { settings: 'backup' } },
     text: 'Smart-merges your lessons, Circle mastery, streaks, songs, scanned riffs, beats and presets between your phone and tablet while keeping layouts separate.',
     keys: 'sync phone tablet fold s10 cloud gist github merge progress lessons across devices backup sync now' }),
+  f({ id: 'universalwin', title: 'Universal windows (move, resize, zoom & float)', where: 'Every screen', guide: 'Universal windows (move, resize, zoom & pop out)', target: { go: { settings: 'look' } },
+    text: 'Move, resize side-by-side on tablets, zoom (− / +), tuck away, or pop out any window (❐) and dock it back (⤓ Dock), with separate phone & tablet layouts.',
+    keys: 'windows resize move zoom pop out float dock layout phone tablet split divider cockpit sheets minimize' }),
 ]

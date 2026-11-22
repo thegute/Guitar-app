@@ -3719,3 +3719,24 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
 /* Match a song's vibe */
 .vibe-card { display: flex; flex-direction: column; gap: 4px; padding: var(--sp-3, 12px); border-radius: var(--r-md, 12px); background: var(--surface); border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent); }
 .vibe-close { width: 100%; }
+
+/* Universal movable/resizable/zoomable/pop-out windows & Cockpit split */
+.win-zoom { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+.win-zbtn { min-width: 28px; padding: 0 6px; font-size: 15px; font-weight: 700; }
+.win-zpct { min-width: 42px; padding: 0 5px; font-size: 11px; font-weight: 700; }
+html:not([data-arrange]) .win-zoom { display: none; }
+.fc-dock-btn { padding: 0 8px; font-size: 12px; font-weight: 600; width: auto; white-space: nowrap; }
+.fc-body { min-width: 0; }
+.ck-split {
+  width: 10px; align-self: stretch; cursor: col-resize; touch-action: none;
+  display: grid; place-items: center; position: relative; border-radius: 6px;
+}
+.ck-split::before {
+  content: ''; width: 4px; height: 48px; border-radius: 99px;
+  background: color-mix(in srgb, var(--ink) 28%, transparent);
+  transition: background .15s, height .15s;
+}
+.ck-split:hover::before, .ck-split:active::before { background: var(--accent); height: 72px; }
+.ck-sheet-body { max-height: min(68dvh, calc(100dvh - 140px)); overflow-y: auto; overscroll-behavior: contain; padding-bottom: 6px; }
+.ck-sheet-body .st-xy { height: min(210px, 32dvh); min-height: 140px; }
+

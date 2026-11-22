@@ -12,7 +12,8 @@ import { pinchTargetAt } from './Zoomable'
 /** what a card must not sit on: anything you tap or drag */
 const CONTROLS = 'button, [role=tab], [role=separator], .split, .win-size, input, select, textarea, a'
 
-interface Place { x: number; y: number; w: number; h?: number; min: boolean; opacity?: number }
+interface Place { x: number; y: number; w: number; h?: number; min: boolean; opacity?: number; zoom?: number }
+export const clampCardZoom = (z: number) => Math.round(Math.max(0.75, Math.min(1.5, z)) * 100) / 100
 const sizeClass = () => (typeof innerWidth === 'number' && innerWidth < 600 ? 'narrow' : 'wide')
 // the hand card keeps the finger box's old remembered places
 const KEY = (id: string, where: string) => (id === 'hand' ? `kg:fingerBox:${where}:${sizeClass()}` : `kg:floatPlace:${id}:${where}:${sizeClass()}`)
@@ -20,7 +21,11 @@ function stored(id: string, where: string): Place | null {
   try {
     const v = JSON.parse(localStorage.getItem(KEY(id, where)) ?? 'null') as Place | null
     if (v && typeof v.x === 'number') {
-      return { ...v, opacity: typeof v.opacity === 'number' ? Math.max(0.2, Math.min(1, v.opacity)) : 1 }
+      return {
+        ...v,
+        opacity: typeof v.opacity === 'number' ? Math.max(0.2, Math.min(1, v.opacity)) : 1,
+        zoom: typeof v.zoom === 'number' ? clampCardZoom(v.zoom) : 1,
+      }
     }
   } catch { /* default */ }
   return null
@@ -242,7 +247,12 @@ function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width =
         else if (innerHeight - (topPx + r.height) < 16) topPx = Math.max(6, innerHeight - r.height - 6)
         last = { ...p0, x: Math.min(1, Math.max(0, rightPx / innerWidth)), y: Math.min(0.97, Math.max(0, topPx / innerHeight)) }
       } else {
-        last = { ...p0, w: Math.max(minW, Math.min(innerWidth - 16, r.width + ev.clientX - sx)), x: Math.min(1, (r.right + ev.clientX - sx) / innerWidth) }
+        const dy = ev.clientY - sy
+        const nextW = Math.max(minW, Math.min(innerWidth - 16, r.width + ev.clientX - sx))
+        const nextH = (p0.h !== undefined || Math.abs(dy) > 16)
+          ? Math.max(120, Math.min(innerHeight - 32, Math.round(r.height + dy)))
+          : p0.h
+        last = { ...p0, w: nextW, h: nextH, x: Math.min(1, (r.right + ev.clientX - sx) / innerWidth) }
       }
       setPlace(last)
     }
@@ -251,6 +261,8 @@ function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width =
   }
 
   const cardOpacity = place.opacity ?? 1
+  const cardZoom = clampCardZoom(place.zoom ?? 1)
+  const setCardZoom = (next: number) => save({ ...place, zoom: clampCardZoom(next) })
 
   if (place.min) {
     return (
@@ -270,11 +282,11 @@ function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width =
         {headerExtra}
         {!noOpacity && (
           <button
-            className={`fc-btn fc-op-btn${opacityOpen || cardOpacity < 0.98 ? ' on' : ''}`}
+            className={`fc-btn fc-op-btn${opacityOpen || cardOpacity < 0.98 || cardZoom !== 1 || place.h !== undefined ? ' on' : ''}`}
             onClick={() => setOpacityOpen(o => !o)}
-            aria-label="Card opacity"
+            aria-label="Card opacity and zoom"
             aria-pressed={opacityOpen}
-            title={`Opacity: ${Math.round(cardOpacity * 100)}%`}
+            title={`Opacity ${Math.round(cardOpacity * 100)}% · Zoom ${Math.round(cardZoom * 100)}%`}
             data-testid={`fc-opacity-btn-${id}`}
           >
             ◐
@@ -284,29 +296,49 @@ function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width =
         {onHide && <button className="fc-btn" onClick={onHide} aria-label="Hide this card" title="Hide (bring it back from Cards)">×</button>}
       </div>
       {!noOpacity && opacityOpen && (
-        <div className="fc-opacity-bar row small" data-no-drag data-testid={`fc-opacity-bar-${id}`}>
-          <span className="muted" style={{ fontSize: 11 }}>Opacity</span>
-          <input
-            type="range"
-            min={20}
-            max={100}
-            step={5}
-            value={Math.round(cardOpacity * 100)}
-            onChange={e => save({ ...place, opacity: Number(e.target.value) / 100 })}
-            aria-label="Card opacity slider"
-            data-testid={`fc-opacity-slider-${id}`}
-            style={{ flex: 1, minWidth: 60 }}
-          />
-          <span className="tabular" style={{ fontSize: 11, minWidth: 32, textAlign: 'right' }}>{Math.round(cardOpacity * 100)}%</span>
-          {[0.45, 0.75, 1].map(v => (
-            <button key={v} className={`fc-op-chip${Math.abs(cardOpacity - v) < 0.04 ? ' on' : ''}`} onClick={() => save({ ...place, opacity: v })}>
-              {Math.round(v * 100)}%
-            </button>
-          ))}
+        <div className="fc-opacity-bar stack small" data-no-drag data-testid={`fc-opacity-bar-${id}`}>
+          <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+            <span className="muted" style={{ fontSize: 11, minWidth: 42 }}>Opacity</span>
+            <input
+              type="range"
+              min={20}
+              max={100}
+              step={5}
+              value={Math.round(cardOpacity * 100)}
+              onChange={e => save({ ...place, opacity: Number(e.target.value) / 100 })}
+              aria-label="Card opacity slider"
+              data-testid={`fc-opacity-slider-${id}`}
+              style={{ flex: 1, minWidth: 60 }}
+            />
+            <span className="tabular" style={{ fontSize: 11, minWidth: 32, textAlign: 'right' }}>{Math.round(cardOpacity * 100)}%</span>
+            {[0.45, 0.75, 1].map(v => (
+              <button key={v} className={`fc-op-chip${Math.abs(cardOpacity - v) < 0.04 ? ' on' : ''}`} onClick={() => save({ ...place, opacity: v })}>
+                {Math.round(v * 100)}%
+              </button>
+            ))}
+          </div>
+          <div className="row" style={{ gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="muted" style={{ fontSize: 11, minWidth: 42 }}>Zoom</span>
+            <button className="fc-op-chip" data-testid={`fc-zoom-out-${id}`} onClick={() => setCardZoom(cardZoom - 0.1)} aria-label="Zoom out">−</button>
+            <button className={`fc-op-chip tabular${cardZoom === 1 ? ' on' : ''}`} data-testid={`fc-zoom-val-${id}`} onClick={() => setCardZoom(1)} title="Reset zoom to 100%">{Math.round(cardZoom * 100)}%</button>
+            <button className="fc-op-chip" data-testid={`fc-zoom-in-${id}`} onClick={() => setCardZoom(cardZoom + 0.1)} aria-label="Zoom in">+</button>
+            {place.h !== undefined && (
+              <button className="fc-op-chip" style={{ marginLeft: 'auto' }} onClick={() => save({ ...place, h: undefined })} title="Auto-fit height">Auto height</button>
+            )}
+          </div>
         </div>
       )}
-      {children}
-      <div className="fc-size" onPointerDown={e => drag(e, 'size')} title="Drag to resize" aria-label="Drag to resize" role="separator">◢</div>
+      <div
+        className="fc-body"
+        style={{
+          ...(cardZoom !== 1 ? { zoom: cardZoom } : {}),
+          ...(place.h !== undefined ? { maxHeight: Math.max(80, place.h - 46), overflowY: 'auto' } : {}),
+        }}
+      >
+        {children}
+      </div>
+      <div className="fc-size" onPointerDown={e => drag(e, 'size')} title="Drag to resize width & height" aria-label="Drag to resize" role="separator">◢</div>
     </div>
   )
 }
+
