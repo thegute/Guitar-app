@@ -3,6 +3,7 @@
 //   Shorts         swipe through guitar Shorts and scan or play along with one
 //   Listen         the live mic (chords or a melody as you play) and notes from a recording
 // Tabs read off the screen are the most accurate; anything worked out from the sound asks "Does this look right?".
+import { ReviewsWaiting } from './ReviewBox'
 import type { Gray } from './image'
 import { useEffect, useRef, useState } from 'react'
 import { Ico } from '../components/Icon'
@@ -65,6 +66,7 @@ export function RiffScanner({ listen, onUseInJam, startMode }: {
   }, [setMode])
   return (
     <div className="riff-scanner stack" style={{ gap: 10 }} data-testid="riff-scanner">
+      <ReviewsWaiting />
       <div className="scan-modes" role="tablist" aria-label="Riff Scanner">
         {([['scan', 'film', 'Scan a video', 'Link, screenshots or a file'], ['shorts', 'shuffle', 'Shorts', 'Swipe through guitar Shorts'], ['listen', 'mic', 'Listen', 'The mic: chords or notes']] as const).map(([id, icon, label, sub]) => (
           <button key={id} role="tab" aria-selected={mode === id} className={`scan-mode${mode === id ? ' on' : ''}`} onClick={() => setMode(id)} data-testid={`scan-mode-${id}`}>

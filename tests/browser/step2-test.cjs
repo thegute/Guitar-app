@@ -257,6 +257,22 @@ E|-3---------|-----------|`
         await page.screenshot({ path: `${DIR}/step2-scan-green.png` })
       }
     }
+    // Send for review: tick what went wrong, write a line, save for later, then send the waiting scans as one file
+    await page.locator('[data-testid=scan-review]').click()
+    await page.locator('[data-testid=scan-review-box] button', { hasText: 'Wrong fret numbers' }).click()
+    await page.locator('[data-testid=scan-review-note]').fill('bar 1 should be 7 on the D string')
+    await page.locator('[data-testid=scan-review-save]').click()
+    await page.waitForSelector('[data-testid=scan-reviews-waiting]', { timeout: 5000 }).catch(() => bad('review: no "waiting for review" line'))
+    const waitTxt = await page.locator('[data-testid=scan-reviews-waiting]').innerText().catch(() => '')
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 8000 }).catch(() => null), page.locator('[data-testid=scan-reviews-send]').click()])
+    if (!dl) bad('review: no file came out')
+    else {
+      const f = `${DIR}/scan-review.json`; await dl.saveAs(f)
+      const j = JSON.parse(require('fs').readFileSync(f, 'utf8'))
+      const r = j.reviews?.[0]
+      console.log(`review: "${waitTxt.split('\n')[0]}" → ${dl.suggestedFilename()}: ${j.reviews.length} scan, problems ${r?.problems}, note "${r?.note}", ${r?.sources.length} picture(s), ${r?.first.tracks[0].bars.length} bars`)
+      if (!r || !r.problems.includes('Wrong fret numbers') || !/D string/.test(r.note) || !r.sources.length || !r.sources[0].url.startsWith('data:')) bad('review: the file is missing something')
+    }
     if (page.errors.length) bad(`red errors: ${page.errors.join(' | ')}`)
     await page.context().close()
   }

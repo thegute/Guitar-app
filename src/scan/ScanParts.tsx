@@ -7,6 +7,7 @@ import type { Box } from './pictures'
 import type { SongDoc } from '../tabs/library'
 import { saveSong } from '../tabs/library'
 import { openInPlay } from '../nav'
+import { ReviewBox } from './ReviewBox'
 import { ScanPlayer } from './ScanPlayer'
 import { Fold } from '../components/Fold'
 import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
@@ -143,6 +144,7 @@ export function ScanResult({ out, live, onUseInJam, onAgain, onFrames }: { out: 
   const [text, setText] = useState(out.text ?? '')
   const [edit, setEdit] = useState(false)
   const [showStrips, setShowStrips] = useState(false)
+  const [review, setReview] = useState(false)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState('')
   const [title, setTitle] = useState(out.doc.title)
@@ -223,6 +225,7 @@ export function ScanResult({ out, live, onUseInJam, onAgain, onFrames }: { out: 
             {otherTuning && <button className={`btn sm${adapt ? ' on' : ' ghost'}`} aria-pressed={adapt} onClick={() => setAdapt(!adapt)} data-testid="scan-adapt">{adapt ? 'Back to its own tuning' : 'Play in my tuning'}</button>}
             {out.strips && out.strips.length > 0 && <button className={`btn sm ghost${showStrips ? ' on' : ''}`} onClick={() => setShowStrips(!showStrips)} aria-expanded={showStrips} data-testid="scan-strip-toggle">{showStrips ? 'Hide scanned strip' : 'Show scanned strip'}</button>}
             {out.text !== undefined && <button className="btn sm ghost" onClick={() => setEdit(!edit)} aria-expanded={edit}>Fix the tab text</button>}
+            <button className={`btn sm ghost${review ? ' on' : ''}`} onClick={() => setReview(!review)} aria-expanded={review} data-testid="scan-review"><Ico n="flag" /> Send for review</button>
           </div>
         </div>
       )}
@@ -236,6 +239,7 @@ export function ScanResult({ out, live, onUseInJam, onAgain, onFrames }: { out: 
           </div>
         </div>
       )}
+      {review && <ReviewBox out={out} doc={doc} onClose={() => setReview(false)} />}
       {edit && (
         <>
           <textarea className="input tab-text mono" value={text} onChange={e => setText(e.target.value)} rows={Math.min(24, text.split('\n').length + 1)} spellCheck={false} aria-label="The tab it read" />
