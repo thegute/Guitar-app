@@ -77,13 +77,35 @@ public class OverlayPlugin extends Plugin {
 
     private void launchOverlay(PluginCall call) {
         boolean expanded = call.getBoolean("expanded", true);
+        String tab = call.getString("tab", "neck");
         Intent svc = new Intent(getContext(), OverlayService.class);
         svc.setAction(OverlayService.ACTION_START);
         svc.putExtra(OverlayService.EXTRA_START_EXPANDED, expanded);
+        svc.putExtra(OverlayService.EXTRA_TAB, tab);
         ContextCompat.startForegroundService(getContext(), svc);
         JSObject r = new JSObject();
         r.put("ok", true);
         r.put("running", true);
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void addBubble(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(getContext())) {
+            JSObject r = new JSObject();
+            r.put("ok", false);
+            r.put("needsPermission", true);
+            call.resolve(r);
+            return;
+        }
+        String tab = call.getString("tab", "");
+        Intent svc = new Intent(getContext(), OverlayService.class);
+        svc.setAction(OverlayService.ACTION_ADD);
+        if (tab != null && !tab.isEmpty()) svc.putExtra(OverlayService.EXTRA_TAB, tab);
+        ContextCompat.startForegroundService(getContext(), svc);
+        JSObject r = new JSObject();
+        r.put("ok", true);
+        r.put("count", OverlayService.windowCount());
         call.resolve(r);
     }
 
@@ -102,6 +124,7 @@ public class OverlayPlugin extends Plugin {
     public void isRunning(PluginCall call) {
         JSObject r = new JSObject();
         r.put("running", OverlayService.isRunning());
+        r.put("count", OverlayService.windowCount());
         call.resolve(r);
     }
 

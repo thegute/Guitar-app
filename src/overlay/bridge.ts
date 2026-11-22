@@ -6,9 +6,10 @@ import { SHARPS, FLATS, keyPrefersFlats, pc } from '../theory/notes'
 export interface KGOverlayPlugin {
   canDrawOverlays(): Promise<{ granted: boolean; running: boolean }>
   requestOverlayPermission(): Promise<{ granted: boolean }>
-  startOverlay(opts?: { expanded?: boolean }): Promise<{ ok: boolean; running?: boolean; needsPermission?: boolean }>
+  startOverlay(opts?: { expanded?: boolean; tab?: string }): Promise<{ ok: boolean; running?: boolean; needsPermission?: boolean }>
+  addBubble(opts?: { tab?: string }): Promise<{ ok: boolean; count?: number; needsPermission?: boolean }>
   stopOverlay(): Promise<{ ok: boolean; running: boolean }>
-  isRunning(): Promise<{ running: boolean }>
+  isRunning(): Promise<{ running: boolean; count?: number }>
   updateChord(opts: { text: string }): Promise<void>
   consumeRoute(): Promise<{ route: string }>
 }
@@ -22,7 +23,9 @@ export interface NativeOverlayJsBridge {
   setGhost(on: boolean): void
   setOpacity(alpha: number): void
   setChord(text: string): void
+  setTab?(tab: string): void
   setFocusable(focusable: boolean): void
+  addBubble?(tab: string): void
   openMain(route: string): void
 }
 
@@ -35,6 +38,16 @@ declare global {
 export function isOverlayMode(): boolean {
   if (typeof location === 'undefined') return false
   return new URLSearchParams(location.search).get('overlay') === '1'
+}
+
+export function overlayInitialTab(): string {
+  if (typeof location === 'undefined') return 'neck'
+  return new URLSearchParams(location.search).get('tab') || 'neck'
+}
+
+export function overlayWindowId(): string {
+  if (typeof location === 'undefined') return 'w1'
+  return new URLSearchParams(location.search).get('wid') || 'w1'
 }
 
 export function isNativeOverlayWebView(): boolean {
@@ -71,7 +84,7 @@ export async function toggleSystemOverlay(): Promise<{ ok: boolean; running: boo
     const st = await KGOverlay.canDrawOverlays()
     if (st.running) {
       await KGOverlay.stopOverlay()
-      return { ok: true, running: false, message: 'Floating bubble turned off.' }
+      return { ok: true, running: false, message: 'Floating bubbles turned off.' }
     }
     if (!st.granted) {
       await KGOverlay.requestOverlayPermission()
@@ -82,16 +95,34 @@ export async function toggleSystemOverlay(): Promise<{ ok: boolean; running: boo
         message: 'Allow "Appear on top" for KGuitar in the settings screen that just opened, then tap Float over apps again.',
       }
     }
-    const r = await KGOverlay.startOverlay({ expanded: true })
+    const r = await KGOverlay.startOverlay({ expanded: true, tab: 'neck' })
     return {
       ok: !!r.ok,
       running: !!r.running,
       needsPermission: r.needsPermission,
-      message: r.ok ? 'KGuitar Bubble is live! Switch to Songsterr, YouTube or Spotify — it stays right on top.' : 'Could not start overlay.',
+      message: r.ok ? 'KGuitar Bubble is live! Switch to Songsterr, YouTube or Spotify — tap + to open multiple bubbles.' : 'Could not start overlay.',
     }
   } catch {
     return { ok: false, running: false, message: 'Could not start the Android overlay.' }
   }
+}
+
+export async function addSystemBubble(tab = ''): Promise<boolean> {
+  const b = nativeBridge()
+  if (b?.addBubble) {
+    try { b.addBubble(tab); return true } catch { return false }
+  }
+  if (isAndroidApp()) {
+    try {
+      const r = await KGOverlay.addBubble({ tab })
+      return !!r.ok
+    } catch { return false }
+  }
+  if (typeof window !== 'undefined') {
+    window.open(`/?overlay=1&tab=${encodeURIComponent(tab || 'hand')}`, '_blank')
+    return true
+  }
+  return false
 }
 
 export async function consumeOverlayRoute(): Promise<string> {
@@ -112,6 +143,67 @@ export function pushOverlayChordLabel(text: string) {
   }
   if (isAndroidApp()) {
     void KGOverlay.updateChord({ text }).catch(() => {})
+  }
+}
+
+// ───────────── Live Multi-Bubble Sync (all open overlay bubbles share chord/key/trail/capo live!) ─────────────
+
+export interface SharedOverlayState {
+  root: string
+  qual: string
+  keyRoot: string
+  keyMinor: boolean
+  capo: number
+  bpm: number
+  trail: TrailChord[]
+  fromWid: string
+  at: number
+}
+
+const SYNC_STORAGE_KEY = 'kg:overlayLiveState'
+const SYNC_CHANNEL = 'kg-overlay-sync'
+
+export function loadSharedOverlayState(): SharedOverlayState | null {
+  try {
+    const raw = localStorage.getItem(SYNC_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as SharedOverlayState
+    if (parsed && typeof parsed.root === 'string' && typeof parsed.keyRoot === 'string') return parsed
+  } catch { /* ignore */ }
+  return null
+}
+
+export function broadcastOverlayState(state: SharedOverlayState) {
+  try { localStorage.setItem(SYNC_STORAGE_KEY, JSON.stringify(state)) } catch { /* full */ }
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const ch = new BroadcastChannel(SYNC_CHANNEL)
+      ch.postMessage(state)
+      ch.close()
+    }
+  } catch { /* unsupported */ }
+}
+
+export function subscribeOverlayState(myWid: string, onUpdate: (s: SharedOverlayState) => void): () => void {
+  const handle = (s: SharedOverlayState | null) => {
+    if (!s || s.fromWid === myWid) return
+    onUpdate(s)
+  }
+  let ch: BroadcastChannel | null = null
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      ch = new BroadcastChannel(SYNC_CHANNEL)
+      ch.onmessage = e => handle(e.data as SharedOverlayState)
+    }
+  } catch { ch = null }
+  const onStorage = (e: StorageEvent) => {
+    if (e.key !== SYNC_STORAGE_KEY || !e.newValue) return
+    try { handle(JSON.parse(e.newValue) as SharedOverlayState) } catch { /* ignore */ }
+  }
+  window.addEventListener('storage', onStorage)
+  return () => {
+    window.removeEventListener('storage', onStorage)
+    try { ch?.close() } catch { /* noop */ }
   }
 }
 

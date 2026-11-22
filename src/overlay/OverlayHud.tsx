@@ -12,9 +12,10 @@ import { PitchDetector } from 'pitchy'
 import { LayerNeck } from '../components/LayerNeck'
 import { CircleOfFifths } from '../components/CircleOfFifths'
 import { ChordDiagram } from '../components/ChordDiagram'
+import { HandShape } from '../components/HandShape'
 import { LicksCardBody } from '../float/CreativeCards'
 import { Ico } from '../components/Icon'
-import { useInstrument } from '../instrument'
+import { stringName, useInstrument } from '../instrument'
 import { usePracticeTimer } from '../learn/progress'
 import { audio } from '../audio/engine'
 import { openInput, type OpenedInput } from '../audio/input'
@@ -27,16 +28,24 @@ import { shapesFor } from '../theory/shapes'
 import { KEYS, SHARPS, FLATS, keyPrefersFlats, pc } from '../theory/notes'
 import { detectKey } from '../tabs/keyDetect'
 import {
+  addSystemBubble,
   appendChordTrail,
+  broadcastOverlayState,
   formatTrailForJam,
   guessBestScale,
   isNativeOverlayWebView,
+  loadSharedOverlayState,
   nativeBridge,
+  overlayInitialTab,
+  overlayWindowId,
   pushOverlayChordLabel,
+  subscribeOverlayState,
   type TrailChord,
 } from './bridge'
+import { scaleBoxesToHandGroups, voicingToHandGroup } from './handGuideHelper'
 
-type HudTab = 'neck' | 'circle' | 'licks' | 'tools'
+type HudTab = 'neck' | 'hand' | 'circle' | 'licks' | 'tools'
+const VALID_TABS: HudTab[] = ['neck', 'hand', 'circle', 'licks', 'tools']
 const QUALS = ['', 'm', '7', 'm7', 'maj7'] as const
 
 const hudDrone = new Drone()
@@ -54,19 +63,29 @@ export function OverlayHud() {
   const inst = useInstrument()
   const isNative = isNativeOverlayWebView()
   const bridge = nativeBridge()
+  const wid = useMemo(() => overlayWindowId(), [])
 
   // Practicing over Songsterr / YouTube automatically counts toward KGuitar's daily streak!
   usePracticeTimer('jam', true, true)
 
-  const [tab, setTab] = useState<HudTab>('neck')
-  const [root, setRoot] = useState('E')
-  const [qual, setQual] = useState<string>('m')
-  const [keyRoot, setKeyRoot] = useState('G')
-  const [keyMinor, setKeyMinor] = useState(false)
-  const [capo, setCapo] = useState(0)
-  const [trail, setTrail] = useState<TrailChord[]>([
-    { symbol: 'Em', root: 'E', minor: true, at: 1 },
-  ])
+  const initialShared = useMemo(() => loadSharedOverlayState(), [])
+  const [tab, setTab] = useState<HudTab>(() => {
+    const t = overlayInitialTab() as HudTab
+    return VALID_TABS.includes(t) ? t : 'neck'
+  })
+  const [root, setRoot] = useState(initialShared?.root ?? 'E')
+  const [qual, setQual] = useState<string>(initialShared?.qual ?? 'm')
+  const [keyRoot, setKeyRoot] = useState(initialShared?.keyRoot ?? 'G')
+  const [keyMinor, setKeyMinor] = useState(initialShared?.keyMinor ?? false)
+  const [capo, setCapo] = useState(initialShared?.capo ?? 0)
+  const [trail, setTrail] = useState<TrailChord[]>(
+    initialShared?.trail?.length ? initialShared.trail : [{ symbol: 'Em', root: 'E', minor: true, at: 1 }],
+  )
+
+  // Hand Fingers tab controls (Chord voicings vs 5 Solo Scale boxes)
+  const [handMode, setHandMode] = useState<'chord' | 'scale'>('chord')
+  const [voicingIdx, setVoicingIdx] = useState(0)
+  const [boxIdx, setBoxIdx] = useState(0)
 
   // HUD appearance & collapsible menu controls
   const [hudOpacity, setHudOpacity] = useState(0.95)
@@ -87,21 +106,48 @@ export function OverlayHud() {
   // Tools: Chord Lookup, Tap Tempo, Drone, Sticky Note
   const [lookup, setLookup] = useState('Em7')
   const [droneOn, setDroneOn] = useState(false)
-  const [bpm, setBpm] = useState(100)
+  const [bpm, setBpm] = useState(initialShared?.bpm ?? 100)
   const tapsRef = useRef<number[]>([])
   const [sticky, setSticky] = useState(() => {
     try { return localStorage.getItem('kg:sticky:overlay') ?? '' } catch { return '' }
   })
 
+  // Prevent echo loops when applying state broadcast from another open bubble
+  const applyingRemote = useRef(false)
+
   const activeSymbol = `${root}${qual}`
   const isChordMinor = qual === 'm' || qual === 'm7'
   const effectiveRootPc = (pc(root) - capo + 12) % 12
+  const effectiveKeyPc = (pc(keyRoot) - capo + 12) % 12
+  const effectiveRootName = (keyPrefersFlats(keyRoot, keyMinor) ? FLATS : SHARPS)[effectiveRootPc]
   const bestScale = useMemo(() => guessBestScale(keyRoot, keyMinor, activeSymbol), [keyRoot, keyMinor, activeSymbol])
 
-  // Sync live chord to the native Edge Pill & HUD drag bar
+  // Notify native drag bar & Edge Pill of current tab & chord
+  useEffect(() => { bridge?.setTab?.(tab) }, [bridge, tab])
   useEffect(() => {
     pushOverlayChordLabel(`${activeSymbol} · Key ${keyRoot}${keyMinor ? 'm' : ''}`)
   }, [activeSymbol, keyRoot, keyMinor])
+
+  // Broadcast state changes to all other open overlay bubbles (so 1 Live Ear drives ALL open bubbles!)
+  useEffect(() => {
+    if (applyingRemote.current) { applyingRemote.current = false; return }
+    broadcastOverlayState({ root, qual, keyRoot, keyMinor, capo, bpm, trail, fromWid: wid, at: Date.now() })
+  }, [root, qual, keyRoot, keyMinor, capo, bpm, trail, wid])
+
+  // Subscribe to updates from sibling overlay bubbles
+  useEffect(() => subscribeOverlayState(wid, s => {
+    applyingRemote.current = true
+    setRoot(s.root)
+    setQual(s.qual)
+    setKeyRoot(s.keyRoot)
+    setKeyMinor(s.keyMinor)
+    setCapo(s.capo)
+    setBpm(s.bpm)
+    if (s.trail?.length) setTrail(s.trail)
+  }), [wid])
+
+  // Reset chord voicing index when chord changes
+  useEffect(() => { setVoicingIdx(0) }, [effectiveRootName, qual])
 
   useEffect(() => () => {
     hudDrone.stop()
@@ -261,6 +307,25 @@ export function OverlayHud() {
     } catch { return [] }
   }, [lookup, activeSymbol, inst])
 
+  // Chord voicings & 5 solo scale boxes for the live "Where to put your fingers (1-2-3-4)" Hand tab
+  const activeChordShapes = useMemo(() => {
+    try {
+      const p = parseSymbol(`${effectiveRootName}${qual}`)
+      return shapesFor({ root: p.root, type: p.suffix }, inst).slice(0, 5)
+    } catch { return [] }
+  }, [effectiveRootName, qual, inst])
+  const curVoicing = activeChordShapes[voicingIdx % Math.max(1, activeChordShapes.length)] ?? null
+  const chordHandGroup = useMemo(() => (curVoicing ? voicingToHandGroup(curVoicing) : null), [curVoicing])
+  const scaleBoxes = useMemo(
+    () => scaleBoxesToHandGroups(effectiveKeyPc, keyMinor, inst.midis),
+    [effectiveKeyPc, keyMinor, inst.midis],
+  )
+  const curScaleBox = scaleBoxes[boxIdx % Math.max(1, scaleBoxes.length)] ?? null
+  const stringNames = useMemo(
+    () => Array.from({ length: inst.midis.length }, (_, s) => stringName(inst.midis, s)),
+    [inst.midis],
+  )
+
   const floatCtx = useMemo(() => ({
     keyName: `${keyRoot}${keyMinor ? 'm' : ''}`,
     chordNow: activeSymbol,
@@ -311,7 +376,7 @@ export function OverlayHud() {
               className={`ov-chord-pill${chordDrawer ? ' on' : ''}`}
               onClick={() => setChordDrawer(v => !v)}
               data-testid="ov-chord-drawer-btn"
-              title={`Chord ${activeSymbol} · Key ${keyRoot}${keyMinor ? 'm' : ''} (tap for chord trail, solo scale, manual chord & Capo)`}
+              title={`Chord ${activeSymbol} · Key ${keyRoot}${keyMinor ? 'm' : ''} (tap for chord trail, solo scale, manual chord, Capo & + Bubble)`}
               aria-expanded={chordDrawer}
             >
               <strong>{activeSymbol}</strong>
@@ -322,6 +387,7 @@ export function OverlayHud() {
             <div className="ov-tabs seg" role="tablist" aria-label="Overlay tools">
               {([
                 ['neck', 'Neck'],
+                ['hand', 'Hand'],
                 ['circle', 'Circle'],
                 ['licks', 'Licks'],
                 ['tools', 'Tools'],
@@ -345,7 +411,7 @@ export function OverlayHud() {
               className="ov-icon-btn"
               onClick={() => { setMenuHidden(true); setChordDrawer(false); setShowAppear(false) }}
               data-testid="ov-hide-menu"
-              title="Hide menu (full Fretboard / Circle view)"
+              title="Hide menu (full Fretboard / Hand / Circle view)"
               aria-label="Hide menu"
             >
               ▴
@@ -379,7 +445,7 @@ export function OverlayHud() {
 
           {earErr && <div className="ov-err small">{earErr}</div>}
 
-          {/* Collapsible Chord / Trail / Solo Scale / Capo Drawer (closed by default to maximize Fretboard & Circle!) */}
+          {/* Collapsible Chord / Trail / Solo Scale / Capo / + Multi-Bubble Drawer */}
           {chordDrawer && (
             <div className="ov-drawer stack" data-testid="ov-chord-drawer">
               <div className="ov-scale small">
@@ -432,6 +498,19 @@ export function OverlayHud() {
                   </select>
                 </label>
               </div>
+              <div className="row small" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span className="muted" style={{ fontSize: 11 }}>Open extra bubble:</span>
+                {(['neck', 'hand', 'circle', 'licks'] as const).map(kind => (
+                  <button
+                    key={kind}
+                    className="ov-chip"
+                    onClick={() => { void addSystemBubble(kind); setChordDrawer(false) }}
+                    data-testid={`ov-spawn-${kind}`}
+                  >
+                    + {kind === 'neck' ? 'Fretboard' : kind === 'hand' ? 'Hand Fingers' : kind === 'circle' ? 'Circle' : 'Licks'}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -450,6 +529,110 @@ export function OverlayHud() {
               floating
               noLinks={['caged', 'chord', 'scale', 'licks']}
             />
+          </div>
+        )}
+
+        {tab === 'hand' && (
+          <div className="ov-hand-wrap stack" style={{ gap: 6 }} data-testid="ov-hand-panel">
+            {!menuHidden && (
+              <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div className="seg" role="group" aria-label="Hand diagram mode">
+                  <button aria-pressed={handMode === 'chord'} onClick={() => setHandMode('chord')} style={{ minHeight: 24, fontSize: 11, padding: '2px 8px' }}>
+                    Chord ({activeSymbol})
+                  </button>
+                  <button aria-pressed={handMode === 'scale'} onClick={() => setHandMode('scale')} style={{ minHeight: 24, fontSize: 11, padding: '2px 8px' }}>
+                    Solo Box ({keyRoot}{keyMinor ? 'm' : ''})
+                  </button>
+                </div>
+                {handMode === 'chord' && curVoicing && (
+                  <button
+                    className="btn sm"
+                    style={{ minHeight: 24, padding: '2px 8px', fontSize: 11, marginLeft: 'auto' }}
+                    onClick={() => {
+                      const midis = curVoicing.frets.map((f, i) => (f < 0 ? -1 : inst.midis[i] + f + capo)).filter(x => x >= 0)
+                      if (midis.length) strum(midis, audio().currentTime, { spread: 0.03, gain: 0.75, sound: activeSound() })
+                    }}
+                  >
+                    ▶ Strum
+                  </button>
+                )}
+              </div>
+            )}
+
+            {handMode === 'chord' ? (
+              chordHandGroup && curVoicing ? (
+                <>
+                  <div className="ov-hand-stage">
+                    <HandShape
+                      group={chordHandGroup}
+                      next={null}
+                      moveSoon={false}
+                      expected={[]}
+                      nStr={inst.midis.length}
+                      stringNames={stringNames}
+                    />
+                    <ChordDiagram
+                      name={activeSymbol}
+                      voicing={curVoicing}
+                      size={0.78}
+                      onClick={() => {
+                        const midis = curVoicing.frets.map((f, i) => (f < 0 ? -1 : inst.midis[i] + f + capo)).filter(x => x >= 0)
+                        if (midis.length) strum(midis, audio().currentTime, { spread: 0.03, gain: 0.75, sound: activeSound() })
+                      }}
+                    />
+                  </div>
+                  {!menuHidden && activeChordShapes.length > 1 && (
+                    <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
+                      {activeChordShapes.map((_, idx) => (
+                        <button
+                          key={idx}
+                          className={`ov-chip${voicingIdx === idx ? ' now' : ''}`}
+                          onClick={() => setVoicingIdx(idx)}
+                        >
+                          Shape {idx + 1}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <span className="small muted">No chord shape found for {activeSymbol}.</span>
+              )
+            ) : (
+              curScaleBox ? (
+                <>
+                  <div className="ov-hand-stage">
+                    <HandShape
+                      group={curScaleBox.group}
+                      next={null}
+                      moveSoon={false}
+                      expected={[]}
+                      nStr={inst.midis.length}
+                      stringNames={stringNames}
+                    />
+                  </div>
+                  {!menuHidden && (
+                    <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
+                      {scaleBoxes.map((b, idx) => (
+                        <button
+                          key={b.label}
+                          className={`ov-chip${boxIdx === idx ? ' now' : ''}`}
+                          onClick={() => setBoxIdx(idx)}
+                        >
+                          {b.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : null
+            )}
+
+            {!menuHidden && (
+              <div className="small muted" style={{ fontSize: 10.5 }}>
+                <b>Fingers:</b> 1 Index · 2 Middle · 3 Ring · 4 Pinky · ○ Open{capo > 0 ? ` · Capo ${capo}` : ''}
+              </div>
+            )}
           </div>
         )}
 
