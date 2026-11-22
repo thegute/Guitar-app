@@ -94,6 +94,8 @@ const C = [48, 60, 64, 67], G = [43, 59, 62, 67], Am = [45, 60, 64, 69], F = [41
     const b = vibeBeat(v, { close: 1, seed: 2, chords: true })
     ok(b.rows.every(r => r.len === 12 * b.bars), 'waltz beat: rows loop every 12 steps a bar')
     ok(b.rows.find(r => r.voice === 'kick')!.steps[12] > 0, 'waltz beat: bar 2 starts on step 12 with a kick')
+    ok(b.tracks.length === 2 && b.tracks.every(t => t.len === 12 * b.bars), 'waltz beat: chord and bass tracks loop every 12 steps a bar')
+    ok(b.tracks.every(t => t.notes.every(n => n.s < 12 * b.bars) && t.notes.some(n => n.s === 12)), 'waltz beat: bar 2 chords & bass start on step 12')
   }
 }
 

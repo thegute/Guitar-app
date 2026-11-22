@@ -273,8 +273,9 @@ export class StudioTransport {
       } else if (this.crashNext && s % 16 === 0) { this.drum('crash', t, 0.95); this.crashNext = false }
       for (const tr of b.tracks) {
         if (tr.mute) continue
+        const ts = tr.len && tr.len > 0 && tr.len < n ? this.next % tr.len : s
         for (const note of tr.notes) {
-          if (note.s !== s) continue
+          if (note.s !== ts) continue
           const from = this.lastNote.get(tr.id)
           const dur = note.l * this.stepDur * 0.98
           if (tr.inst.startsWith('pad:')) { const h = this.padNote(tr.inst.slice(4), note.m, t, note.v, this.bus(tr.id).g, note.l); if (h) this.held.push(h) }
@@ -282,7 +283,8 @@ export class StudioTransport {
           this.lastNote.set(tr.id, note.m)
         }
       }
-      if (this.click && s % 4 === 0) playClick(t, 'wood', s % 16 === 0 ? 'accent' : 'beat', 0.6)
+      const clickBar = b.rows.length > 0 && b.rows.every(r => r.len === b.bars * 12) ? 12 : 16
+      if (this.click && this.next % 4 === 0) playClick(t, 'wood', this.next % clickBar === 0 ? 'accent' : 'beat', 0.6)
       // the loop layers restart at the top of each pass
       if (s === 0 && this.next > 0) this.restartLayers(this.nextT)
       this.queue.push({ t, s, part })

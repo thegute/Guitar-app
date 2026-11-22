@@ -313,14 +313,17 @@ export function vibeBeat(v: Vibe, o: VibeOpts, base?: Partial<Beat>): Beat {
   const key = v.key ?? { root: 'A', minor: true }
   const tracks: Track[] = []
   if (o.chords && v.chords.length) {
+    const barSteps: 12 | 16 = v.beatsPerBar === 3 ? 12 : 16
+    const trackLen = v.beatsPerBar === 3 ? 12 * bars : undefined
     const kpc = SHARPS.indexOf(key.root)
     const type = (q: Quality) => (q === 'm' ? 'min' : q === '7' ? '7' : q === 'm7' ? 'm7' : 'maj')
     const prog: [number, string][] = Array.from({ length: bars }, (_, b) => { const c = v.chords[b % v.chords.length]; return [((c.root - kpc) % 12 + 12) % 12, type(c.q)] })
     const hatsBusy = v.profile.hat.filter(x => x > 0.5).length
     const pattern = v.swing >= 0.15 ? 'stabs' : hatsBusy >= 10 ? 'pulse' : 'hold'
-    tracks.push({ id: newId(), inst: 'grand', notes: chordNotesFor(prog, key.root, 57, pattern), vol: 0.55, space: 0.25 })
-    const kickSteps = rows[0].steps.slice(0, 16).map((x, i) => (x ? i : -1)).filter(i => i >= 0)
-    tracks.push({ id: newId(), inst: 'bass', notes: bassNotesFor(prog, key.root, 33, kickSteps.length ? kickSteps : [0, 8], 2), vol: 0.8, space: 0.03 })
+    tracks.push({ id: newId(), inst: 'grand', notes: chordNotesFor(prog, key.root, 57, pattern, 'close', barSteps), vol: 0.55, space: 0.25, ...(trackLen ? { len: trackLen } : {}) })
+    const kickSteps = rows[0].steps.slice(0, barSteps).map((x, i) => (x ? i : -1)).filter(i => i >= 0)
+    const fallbackKick = v.beatsPerBar === 3 ? [0, 4, 8] : [0, 8]
+    tracks.push({ id: newId(), inst: 'bass', notes: bassNotesFor(prog, key.root, 33, kickSteps.length ? kickSteps : fallbackKick, 2, barSteps), vol: 0.8, space: 0.03, ...(trackLen ? { len: trackLen } : {}) })
   }
   return {
     name: 'Song vibe', bpm: v.bpm, bars: bars as Beat['bars'], swing: v.swing, kit: o.kit ?? gk?.kit ?? 'studio', rows, tracks,

@@ -16,7 +16,11 @@ export interface DrumRow {
   len?: number
 }
 export interface PNote { s: number; l: number; m: number; v: number }
-export interface Track { id: string; inst: string; notes: PNote[]; vol: number; mute?: boolean; space: number }
+export interface Track {
+  id: string; inst: string; notes: PNote[]; vol: number; mute?: boolean; space: number
+  /** the track's own loop length in steps (e.g. 12 * bars for 3/4 waltz); missing = the whole beat */
+  len?: number
+}
 export interface Beat {
   name: string
   bpm: number
@@ -84,26 +88,27 @@ export function rowsFromGroove(id: string, bars: number): DrumRow[] {
 }
 
 /** Notes for a chord progression: each chord a bar long, as a pattern ("hold", "stabs" on the beats, "arp" up in 8ths). */
-export function chordNotesFor(prog: [number, string][], key: string, octaveRoot: number, pattern: 'hold' | 'stabs' | 'offbeat' | 'arp' | 'pulse', voicing: 'close' | 'open' = 'close'): PNote[] {
+export function chordNotesFor(prog: [number, string][], key: string, octaveRoot: number, pattern: 'hold' | 'stabs' | 'offbeat' | 'arp' | 'pulse', voicing: 'close' | 'open' = 'close', barSteps: 12 | 16 = 16): PNote[] {
   const out: PNote[] = []
   const k = pc(key)
   prog.forEach(([semi, type], bar) => {
     const root = octaveRoot + ((k + semi) % 12)
     const ivs = CHORD_TYPES.find(c => c.id === type)?.ivs ?? [0, 4, 7]
     const ns = chordNotes(root, ivs, voicing)
-    const s0 = bar * 16
-    if (pattern === 'hold') ns.forEach(m => out.push({ s: s0, l: 16, m, v: 0.7 }))
-    else if (pattern === 'stabs') [0, 4, 8, 12].forEach(s => ns.forEach(m => out.push({ s: s0 + s, l: 2, m, v: 0.75 })))
-    else if (pattern === 'offbeat') [2, 6, 10, 14].forEach(s => ns.forEach(m => out.push({ s: s0 + s, l: 1, m, v: 0.7 })))
-    else if (pattern === 'pulse') [0, 3, 6, 8, 11, 14].forEach(s => ns.forEach(m => out.push({ s: s0 + s, l: 2, m, v: 0.7 })))
-    else ns.concat(ns.slice(1, -1).reverse()).concat(ns).slice(0, 8).forEach((m, i) => out.push({ s: s0 + i * 2, l: 2, m, v: 0.7 }))
+    const s0 = bar * barSteps
+    if (pattern === 'hold') ns.forEach(m => out.push({ s: s0, l: barSteps, m, v: 0.7 }))
+    else if (pattern === 'stabs') (barSteps === 12 ? [0, 4, 8] : [0, 4, 8, 12]).forEach(s => ns.forEach(m => out.push({ s: s0 + s, l: 2, m, v: 0.75 })))
+    else if (pattern === 'offbeat') (barSteps === 12 ? [2, 6, 10] : [2, 6, 10, 14]).forEach(s => ns.forEach(m => out.push({ s: s0 + s, l: 1, m, v: 0.7 })))
+    else if (pattern === 'pulse') (barSteps === 12 ? [0, 4, 6, 8, 10] : [0, 3, 6, 8, 11, 14]).forEach(s => ns.forEach(m => out.push({ s: s0 + s, l: 2, m, v: 0.7 })))
+    else ns.concat(ns.slice(1, -1).reverse()).concat(ns).slice(0, barSteps / 2).forEach((m, i) => out.push({ s: s0 + i * 2, l: 2, m, v: 0.7 }))
   })
   return out
 }
 /** A bass line: the root of each chord, on a rhythm. */
-export function bassNotesFor(prog: [number, string][], key: string, low: number, rhythm: number[], len = 2): PNote[] {
+export function bassNotesFor(prog: [number, string][], key: string, low: number, rhythm: number[], len = 2, barSteps: 12 | 16 = 16): PNote[] {
   const k = pc(key)
-  return prog.flatMap(([semi], bar) => rhythm.map(s => ({ s: bar * 16 + s, l: len, m: low + ((k + semi) % 12), v: 0.85 })))
+  const hits = rhythm.filter(s => s >= 0 && s < barSteps)
+  return prog.flatMap(([semi], bar) => hits.map(s => ({ s: bar * barSteps + s, l: len, m: low + ((k + semi) % 12), v: 0.85 })))
 }
 
 /** Starter beats for the styles you asked about: drums, chords and bass in a key, ready to change. */
@@ -205,7 +210,14 @@ export function setBars(b: Beat, bars: Beat['bars']): Beat {
   const fit = (c: PartContent): PartContent => ({
     rows: c.rows.map(r => ({ ...r, steps: Array.from({ length: n }, (_, i) => r.steps[i % old] ?? 0), ...(r.rat ? { rat: Array.from({ length: n }, (_, i) => r.rat![i % old] ?? 1) } : {}), ...(r.prob ? { prob: Array.from({ length: n }, (_, i) => r.prob![i % old] ?? 1) } : {}), ...(r.len && r.len > n ? { len: n } : {}) })),
     layers: (c.layers ?? []).map(L => ({ ...L, rows: L.rows.map(r => ({ ...r, steps: Array.from({ length: n }, (_, i) => r.steps[i % old] ?? 0) })) })),
-    tracks: c.tracks.map(t => ({ ...t, notes: n > old ? Array.from({ length: n / old }, (_, k) => t.notes.map(x => ({ ...x, s: x.s + k * old }))).flat() : t.notes.filter(x => x.s < n) })),
+    tracks: c.tracks.map(t => {
+      const oldLen = t.len ?? old
+      const nextLen = t.len ? Math.max(1, Math.round((t.len * bars) / b.bars)) : n
+      const notes = nextLen > oldLen
+        ? Array.from({ length: Math.ceil(nextLen / oldLen) }, (_, k) => t.notes.map(x => ({ ...x, s: x.s + k * oldLen }))).flat().filter(x => x.s < nextLen)
+        : t.notes.filter(x => x.s < nextLen)
+      return { ...t, notes, ...(t.len ? { len: nextLen } : {}) }
+    }),
   })
   const parts = b.parts ? Object.fromEntries(Object.entries(b.parts).map(([k, c]) => [k, c ? fit(c) : c])) as Beat['parts'] : undefined
   return { ...b, bars, ...fit({ rows: b.rows, layers: b.layers, tracks: b.tracks }), ...(parts ? { parts } : {}) }
