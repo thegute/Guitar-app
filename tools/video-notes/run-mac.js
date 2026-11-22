@@ -59,17 +59,30 @@ function run(argv) {
   const state = exists(notesFile) ? JSON.parse(readText(notesFile)) : { notes: {}, failed: {} }
   const save = () => writeText(notesFile, JSON.stringify(state, null, 1))
 
+  // the answer is one object, or sometimes a list of them (one per topic): a list is merged into one note
+  const merge = list => {
+    const objs = list.filter(o => o && typeof o === 'object')
+    if (!objs.length) return null
+    const out = Object.assign({}, objs[0])
+    for (const k of ['matches', 'parts']) if (objs.some(o => Array.isArray(o[k]))) out[k] = objs.reduce((a, o) => a.concat(o[k] || []), [])
+    const nc = objs.map(o => o.notCourse).filter(Boolean)
+    if (nc.length > 1) out.notCourse = nc.join(' ')
+    return out
+  }
+  const tryJSON = t => { try { const v = JSON.parse(t); return Array.isArray(v) ? merge(v) : v } catch (e) { return null } }
   const parse = text => {
     const t = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '')
+    const whole = tryJSON(t)
+    if (whole) return whole
     const a = t.indexOf('{'), b = t.lastIndexOf('}')
     if (a < 0 || b <= a) return null
-    try { return JSON.parse(t.slice(a, b + 1)) } catch (e) { return null }
+    return tryJSON(t.slice(a, b + 1)) || tryJSON(`[${t.slice(a, b + 1)}]`)
   }
   const watch = (job, model) => {
     const body = {
       // creator videos can be an hour long: low resolution (and fewer frames for long ones) keeps them inside the free limits
       contents: [{ role: 'user', parts: [Object.assign({ file_data: { file_uri: `https://www.youtube.com/watch?v=${job.id}` } }, (job.secs > 1500 || job.from !== undefined) ? { video_metadata: Object.assign(job.secs > 1500 ? { fps: job.secs > 3000 ? 0.25 : 0.5 } : {}, job.from !== undefined ? { start_offset: `${job.from}s`, end_offset: `${job.to}s` } : {}) } : {}), { text: job.prompt }] }],
-      generationConfig: Object.assign({ maxOutputTokens: 8000, responseMimeType: 'application/json', temperature: 0.2 }, videosFile ? { mediaResolution: 'MEDIA_RESOLUTION_LOW' } : {}),
+      generationConfig: Object.assign({ maxOutputTokens: videosFile ? 24000 : 8000, responseMimeType: 'application/json', temperature: 0.2 }, videosFile ? { mediaResolution: 'MEDIA_RESOLUTION_LOW' } : {}),
     }
     writeText(`${tmp}/body.json`, JSON.stringify(body))
     let code = '0'
@@ -86,7 +99,11 @@ function run(argv) {
     return { status, text, usage: data.usageMetadata }
   }
 
-  const todo = jobs.filter(j => (!only || j.lessonId.indexOf(only) === 0) && !state.notes[j.key] && (retryFailed || !state.failed[j.key]))
+  // answers kept as text are read again with the better reader first; only ones still unreadable are watched again
+  let fixed = 0
+  for (const k of Object.keys(state.notes)) { const r = state.notes[k]; if (!r.note && r.raw) { const n = parse(r.raw); if (n) { r.note = n; delete r.raw; fixed++ } } }
+  if (fixed) { save(); log(`read ${fixed} earlier answer(s) again`) }
+  const todo = jobs.filter(j => (!only || j.lessonId.indexOf(only) === 0) && !(state.notes[j.key] && state.notes[j.key].note) && (retryFailed || !state.failed[j.key]))
   log(`${todo.length} videos to watch (${Object.keys(state.notes).length} done already, ${jobs.length} in the course)`)
   let mi = 0, limitHits = 0
   for (const job of todo) {
@@ -101,7 +118,7 @@ function run(argv) {
         if (!note) rec.raw = r.text.slice(0, 8000)
         state.notes[job.key] = rec
         delete state.failed[job.key]; save(); limitHits = 0
-        log(`  done${note ? `: fit ${note.fit}/5, ${(note.parts || []).length} parts` : ' (answer was not JSON, kept as text)'}${r.usage ? `, ${r.usage.promptTokenCount} tokens` : ''}`)
+        log(`  done${note ? (videosFile ? `: ${(note.matches || []).length} matches` : `: fit ${note.fit}/5, ${(note.parts || []).length} parts`) : ' (answer was not JSON, kept as text)'}${r.usage ? `, ${r.usage.promptTokenCount} tokens` : ''}`)
         delay(20)
         break
       }
