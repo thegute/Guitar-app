@@ -42,7 +42,8 @@ function run(argv) {
     jobs = text.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
       const [first, ...rest] = l.split('\t')
       const m = /(?:v=|youtu\.be\/|shorts\/|^)([A-Za-z0-9_-]{11})(?:[^A-Za-z0-9_-]|$)/.exec(first)
-      return m ? { key: `match|${m[1]}`, id: m[1], title: rest.join(' ') || m[1], lessonId: base, where: 'creator', prompt: pack.matchPrompt } : null
+      const secs = Number(rest[1]) || 0
+      return m ? { key: `match|${m[1]}`, id: m[1], title: rest[0] || m[1], secs, lessonId: base, where: 'creator', prompt: pack.matchPrompt } : null
     }).filter(Boolean)
   }
   const state = exists(notesFile) ? JSON.parse(readText(notesFile)) : { notes: {}, failed: {} }
@@ -56,8 +57,9 @@ function run(argv) {
   }
   const watch = (job, model) => {
     const body = {
-      contents: [{ role: 'user', parts: [{ file_data: { file_uri: `https://www.youtube.com/watch?v=${job.id}` } }, { text: job.prompt }] }],
-      generationConfig: { maxOutputTokens: 8000, responseMimeType: 'application/json', temperature: 0.2 },
+      // creator videos can be an hour long: low resolution (and fewer frames for long ones) keeps them inside the free limits
+      contents: [{ role: 'user', parts: [Object.assign({ file_data: { file_uri: `https://www.youtube.com/watch?v=${job.id}` } }, job.secs > 1500 ? { video_metadata: { fps: job.secs > 3000 ? 0.25 : 0.5 } } : {}), { text: job.prompt }] }],
+      generationConfig: Object.assign({ maxOutputTokens: 8000, responseMimeType: 'application/json', temperature: 0.2 }, videosFile ? { mediaResolution: 'MEDIA_RESOLUTION_LOW' } : {}),
     }
     writeText(`${tmp}/body.json`, JSON.stringify(body))
     let code = '0'
