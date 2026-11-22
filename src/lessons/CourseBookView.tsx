@@ -6,6 +6,7 @@
 // - Renders crisp Tab / Fretboard Diagram images (.png / .webp) with a 1-tap `🖼 Tab | 📖 Study Guide (p.X)` switcher
 //   when a lesson has both!
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { PageInput } from '../components/PageInput'
 import { LessonFolders, lessonsAvailable, mediaUrl, readLessonBytes, type LFile } from './folders'
 import {
   getPinnedPage,
@@ -317,15 +318,12 @@ export function CourseBookView({
               </button>
               <label className="row small" style={{ gap: 4, alignItems: 'center' }}>
                 Page
-                <input
-                  className="input tabular"
-                  type="number"
-                  inputMode="numeric"
+                <PageInput
                   min={1}
                   max={numPages}
                   value={page}
                   style={{ width: 64, padding: '2px 6px' }}
-                  onChange={e => setPage(clampPage(Number(e.target.value)))}
+                  onChange={v => setPage(clampPage(v))}
                   data-testid="course-pdf-page-input"
                 />
                 <span className="muted">of {numPages}</span>

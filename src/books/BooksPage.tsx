@@ -13,6 +13,7 @@ import { setPendingBookPdf } from './pending'
 import { pageView } from './pageText'
 import { usePersist } from '../components/Controls'
 import { Zoomable } from '../components/Zoomable'
+import { PageInput } from '../components/PageInput'
 import { Win, WinArea } from '../components/Win'
 
 function Shelf({ books, onOpen }: { books: BookMeta[]; onOpen: (b: BookMeta) => void }) {
@@ -122,7 +123,7 @@ function Reader({ book, page: page0, onBack }: { book: BookMeta; page?: number; 
       )}
       <div className="books-pager">
         <button className="btn sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)} aria-label="Previous page">‹</button>
-        <label className="small">Page <input className="input" type="number" min={1} max={book.pages} value={page} onChange={e => setPage(Math.max(1, Math.min(book.pages, Number(e.target.value) || 1)))} style={{ width: 72 }} /> of {book.pages}</label>
+        <label className="small">Page <PageInput min={1} max={book.pages} value={page} onChange={setPage} style={{ width: 72 }} /> of {book.pages}</label>
         <button className="btn sm" disabled={page >= book.pages} onClick={() => setPage(p => p + 1)} aria-label="Next page">›</button>
       </div>
       {chapter && <p className="small muted" style={{ margin: 0 }}>{chapter}</p>}

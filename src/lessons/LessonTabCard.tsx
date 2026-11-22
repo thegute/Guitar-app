@@ -6,6 +6,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { FloatCard } from '../components/FloatCard'
 import { Ico } from '../components/Icon'
+import { PageInput } from '../components/PageInput'
 import { usePinch } from '../components/Zoomable'
 import { useInstrument, type Instrument } from '../instrument'
 import { openInPlay } from '../nav'
@@ -162,7 +163,11 @@ function PdfPane({ o }: { o: LessonTabOpen }) {
       <div className="row small" style={{ gap: 4, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <span className="row" style={{ gap: 4, alignItems: 'center' }}>
           <button className="btn sm ghost" disabled={page <= 1} onClick={() => setPage(p => p - 1)} aria-label="Page before">‹</button>
-          <span data-testid="lesson-tab-page">Page {page}{pages ? ` of ${pages}` : ''}</span>
+          <span className="row" style={{ gap: 4, alignItems: 'center' }} data-testid="lesson-tab-page">
+            Page
+            <PageInput min={1} max={pages || 999} value={page} onChange={setPage} style={{ width: 52, minHeight: 28, padding: '0 6px' }} aria-label="Lesson tab page number" />
+            {pages ? ` of ${pages}` : ''}
+          </span>
           <button className="btn sm ghost" disabled={!!pages && page >= pages} onClick={() => setPage(p => p + 1)} aria-label="Next page">›</button>
         </span>
         <ZoomButtons z={z} set={set} />
@@ -174,13 +179,34 @@ function PdfPane({ o }: { o: LessonTabOpen }) {
 }
 
 function PicPane({ o }: { o: LessonTabOpen }) {
+  const inst = useInstrument()
   const { view, z, set } = useZoom('kg:lessonTabPicZoom')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const toPlay = async () => {
+    setBusy(true); setMsg('Reading this picture…')
+    const vLink = o.video ? localVideoLink(o.video) : undefined
+    try {
+      const gray = await urlToGray(mediaUrl(o.file.uri))
+      const { readTabPicturesBest } = await import('../scan/tabReadSong')
+      const read = await readTabPicturesBest([gray], inst.midis, niceName(o.file.name), { deep: true })
+      if (!read || read.notes < 4) throw new Error('No tab staff found in this picture to play (it may be a chord diagram or notes only).')
+      const doc: SongDoc = { id: newId(), title: niceName(o.file.name), source: 'text', inst: inst.id, song: read.song, youtube: vLink, updated: Date.now() }
+      await saveSong(doc)
+      openInPlay(doc)
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'That picture could not be read.') }
+    setBusy(false)
+  }
   return (
     <>
       <div ref={view} className="lesson-tab-view" data-testid="lesson-tab-pic" style={{ maxHeight: 'min(50vh, 460px)' }}>
         <img src={mediaUrl(o.file.uri)} alt={niceName(o.file.name)} style={{ width: `${z * 100}%`, maxWidth: 'none', display: 'block' }} draggable={false} />
       </div>
-      <div className="row" style={{ justifyContent: 'flex-end' }}><ZoomButtons z={z} set={set} /></div>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <button className="btn sm" disabled={busy} onClick={() => void toPlay()} data-testid="lesson-tab-pic-play"><Ico n="play" /> Play this picture (opens in Play)</button>
+        <ZoomButtons z={z} set={set} />
+      </div>
+      {msg && <span className="small muted" role="status">{msg}</span>}
     </>
   )
 }

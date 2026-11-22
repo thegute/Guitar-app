@@ -1,6 +1,7 @@
 // A PDF book (more than 8 pages): pick the pages that hold the tab you want. Shows small pictures of the chosen
 // pages so you can check before reading. Reads at most 8 pages at a time (the picture reader takes up to 6).
 import { useEffect, useState } from 'react'
+import { PageInput } from './PageInput'
 
 export const BOOK_PAGES = 8
 
@@ -27,19 +28,18 @@ export function PdfPages({ name, bytes, pages, busy, onRead, onCancel }: {
   }, [bytes, a, b])
 
   const read = () => { try { localStorage.setItem(key, String(a)) } catch { /* private */ } onRead(a, b) }
-  const num = (v: string) => Math.max(1, Math.min(pages, Math.round(Number(v) || 1)))
 
   return (
     <div className="pdf-pages panel stack" style={{ gap: 8 }} data-testid="pdf-pages" role="group" aria-label="Pick the pages to read">
       <p className="small" style={{ margin: 0 }}><b>"{name.replace(/\.[^.]+$/, '')}"</b> has {pages} pages. Which pages hold the tab you want? (Up to {BOOK_PAGES} at a time; the book's own page numbers may be a few off.)</p>
       <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <label className="row small" style={{ gap: 4, alignItems: 'center' }}>Page
-          <input className="input tabular" type="number" inputMode="numeric" min={1} max={pages} value={from} style={{ width: 76 }}
-            onChange={e => { const v = num(e.target.value); setFrom(v); if (to < v || to > v + BOOK_PAGES - 1) setTo(Math.min(pages, v + 1)) }} data-testid="pdf-from" />
+          <PageInput min={1} max={pages} value={from} style={{ width: 76 }} aria-label="Start page"
+            onChange={v => { setFrom(v); if (to < v || to > v + BOOK_PAGES - 1) setTo(Math.min(pages, v + 1)) }} data-testid="pdf-from" />
         </label>
         <label className="row small" style={{ gap: 4, alignItems: 'center' }}>to
-          <input className="input tabular" type="number" inputMode="numeric" min={a} max={Math.min(pages, a + BOOK_PAGES - 1)} value={to} style={{ width: 76 }}
-            onChange={e => setTo(num(e.target.value))} data-testid="pdf-to" />
+          <PageInput min={a} max={Math.min(pages, a + BOOK_PAGES - 1)} value={to} style={{ width: 76 }} aria-label="End page"
+            onChange={v => setTo(v)} data-testid="pdf-to" />
         </label>
         <button className="btn sm" onClick={() => { setFrom(Math.max(1, a - (b - a + 1))); setTo(Math.max(1, a - 1)) }} disabled={a <= 1} aria-label="Earlier pages">‹</button>
         <button className="btn sm" onClick={() => { const n = b - a + 1; setFrom(Math.min(pages, b + 1)); setTo(Math.min(pages, b + n)) }} disabled={b >= pages} aria-label="Later pages">›</button>

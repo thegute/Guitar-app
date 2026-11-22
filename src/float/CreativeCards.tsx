@@ -5,6 +5,7 @@
 //   #8 BookRefBody     — Mini Book & Tab Reference Card (My Books PDF pages or uploaded image, zoom/pan, bookmarks, Scan page)
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Ico } from '../components/Icon'
+import { PageInput } from '../components/PageInput'
 import { CircleOfFifths } from '../components/CircleOfFifths'
 import { useInstrument } from '../instrument'
 import { audio } from '../audio/engine'
@@ -540,7 +541,7 @@ export function BookRefBody() {
         <div className="row" style={{ gap: 4, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <span className="row" style={{ gap: 3, alignItems: 'center' }}>
             <button className="btn sm" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>‹</button>
-            <input className="input" type="number" min={1} max={activeBook.pages || 999} value={page} onChange={e => setPage(Math.max(1, Number(e.target.value) || 1))} style={{ width: 54, minHeight: 28, padding: '0 6px' }} aria-label="Page number" />
+            <PageInput min={1} max={activeBook.pages || 999} value={page} onChange={setPage} style={{ width: 54, minHeight: 28, padding: '0 6px' }} aria-label="Page number" />
             <span className="muted">/ {activeBook.pages}</span>
             <button className="btn sm" disabled={activeBook.pages > 0 && page >= activeBook.pages} onClick={() => setPage(p => p + 1)}>›</button>
           </span>
