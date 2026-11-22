@@ -1,4 +1,4 @@
-// Circle of Fifths Pro Masterclass (6 Deep Interactive Chapters + 20 Curated YouTube Videos)
+// Circle of Fifths Pro Masterclass (6 Deep Interactive Chapters + 25 YouTube lessons)
 // & Interactive Practice Studio (5 Live Mic + Visual Drills: Wheel Walk, Guide-Tone 1-Fret Drop,
 // Endless Original Circle Etude Generator, 12-Key Wheel Challenge, and Gravity Ear Trainer).
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -18,7 +18,7 @@ import { newId, youtubeId } from '../tabs/library'
 import { addCardInstance, emitBandAddChord, publishFloat } from '../float/bus'
 import {
   CIRCLE_FOURTHS, CIRCLE_PATHS, STANDARD_MIDI,
-  analyzeVoiceLeading, buildCircleChord, buildGuideToneShell, buildTopTriadGrip, buildVoiceLedGrip,
+  analyzeVoiceLeading, transposeNames, buildCircleChord, buildGuideToneShell, buildTopTriadGrip, buildVoiceLedGrip,
   explainCircleChord, generateCircleEtude, instantiatePath,
   loadKeyMastery, markKeyMastered, resetKeyMastery,
   type CircleChord, type CircleChordQual, type EtudeLevel, type EtudePicking, type EtudeTexture, type EtudeZone,
@@ -165,7 +165,7 @@ function VoiceLeadBoard({
         }}
       />
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        <span className="small" style={{ color: '#a7f3d0' }}>
+        <span className="small" style={{ color: 'var(--mint-text)' }}>
           <b>{vl.headline}</b>
         </span>
         <button className="btn sm" onClick={() => soundCircleChord(chord, 0, grip)}>
@@ -206,6 +206,7 @@ export function CircleMasteryStudio({
   const [customWatchUrl, setCustomWatchUrl] = useState('')
   const [playingProg, setPlayingProg] = useState(false)
   const progTimers = useRef<number[]>([])
+  const vidApi = useRef<{ seek: (t: number) => void; play: () => void } | null>(null)
 
   // Shared Practice Mode state
   const [drill, setDrill] = usePersist<DrillId>('circleDrill', 'walk')
@@ -262,6 +263,25 @@ export function CircleMasteryStudio({
     clearProgTimers()
     setBoardView(chapter.id === 'ch2-guidetones' ? 'shell' : chapter.id === 'ch3-peaceful' ? 'voicing' : 'voicing')
   }, [chapter.id])
+
+  // a chapter's walk is in a major or a minor key: the Major / Minor switch follows it, so the names, sounds and
+  // "outside the key" notes all agree
+  const chapterMinor = CIRCLE_PATHS.find(p => p.id === chapter.pathId)?.minorKey ?? false
+  useEffect(() => {
+    if (mode === 'masterclass' && minor !== chapterMinor) setMinor(chapterMinor)
+  }, [mode, chapterMinor, minor]) // eslint-disable-line react-hooks/exhaustive-deps
+  const moveText = (t: string) => {
+    if (!chapter.workedKey) return t
+    // fret positions move with the key too (the shortest way, kept on the neck)
+    let d = (pc(tonic) - pc(chapter.workedKey.tonic) + 12) % 12
+    if (d > 6) d -= 12
+    const f = (n: number) => { let x = n + d; while (x < 0) x += 12; while (x > 15) x -= 12; return x }
+    const moved = t.replace(/([Ff]rets? )(\d+)(–(\d+))?/g, (_m, w: string, a: string, _r, b?: string) => {
+      const lo = f(Number(a)), hi = b ? lo + (Number(b) - Number(a)) : 0
+      return `${w}${lo}${b ? `–${hi}` : ''}`
+    })
+    return transposeNames(moved, chapter.workedKey.tonic, tonic)
+  }
 
   // Publish live chord to floating cards (so floating 5-Layer Fretboard / Licks stay synced!)
   const liveCh = mode === 'masterclass'
@@ -458,8 +478,8 @@ export function CircleMasteryStudio({
             ))}
           </div>
           <div className="seg">
-            <button aria-pressed={!minor} onClick={() => setMinor(false)}>Major</button>
-            <button aria-pressed={minor} onClick={() => setMinor(true)}>Minor</button>
+            <button aria-pressed={!minor} disabled={mode === 'masterclass' && chapterMinor} title={mode === 'masterclass' && chapterMinor ? 'This chapter walks round a minor key' : undefined} onClick={() => setMinor(false)}>Major</button>
+            <button aria-pressed={minor} disabled={mode === 'masterclass' && !chapterMinor} title={mode === 'masterclass' && !chapterMinor ? 'This chapter walks round a major key' : undefined} onClick={() => setMinor(true)}>Minor</button>
           </div>
         </div>
       </div>
@@ -558,7 +578,7 @@ export function CircleMasteryStudio({
               <div className="stack" style={{ gap: 8 }}>
                 <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                   <span className="small" style={{ fontWeight: 700 }}>
-                    Interactive Fretboard — {liveCh?.symbol} {liveCh?.outsideTag && <span style={{ color: '#c084fc' }}>({liveCh.outsideTag})</span>}
+                    Interactive Fretboard — {liveCh?.symbol} {liveCh?.outsideTag && <span style={{ color: 'var(--accent)' }}>({liveCh.outsideTag})</span>}
                   </span>
                   <div className="seg">
                     <button aria-pressed={boardView === 'voicing'} onClick={() => setBoardView('voicing')}>Full Voicing</button>
@@ -579,7 +599,7 @@ export function CircleMasteryStudio({
                       padding: '6px 9px',
                     }}
                   >
-                    <b style={{ color: explanation.outside ? '#d8b4fe' : 'var(--amber)' }}>{explanation.badge}:</b> {explanation.text}
+                    <b style={{ color: explanation.outside ? 'var(--accent)' : 'var(--gold-text)' }}>{explanation.badge}:</b> {explanation.text}
                   </div>
                 )}
                 <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
@@ -600,19 +620,19 @@ export function CircleMasteryStudio({
                       onSwitchMode('practice')
                     }}
                   >
-                    🎯 Practice This Chapter
+                    <Ico n="target" /> Practice This Chapter
                   </button>
                   <button
                     className="btn sm"
                     onClick={() => launchEtudeInPlay({ pathId: chapter.pathId, ...chapter.practicePreset, picking })}
                   >
-                    🎸 Play Etude Tab
+                    <Ico n="guitar" /> Play Etude Tab
                   </button>
                   <button className="btn sm ghost" onClick={() => sendToPocketBand(chapterPath)}>
-                    🥁 Send to Pocket Band
+                    <Ico n="drum" /> Send to Pocket Band
                   </button>
                   <button className="btn sm ghost" onClick={() => openLicksInKey(tonic, minor)}>
-                    ✨ Licks in {tonic}{minor ? 'm' : ''}
+                    <Ico n="sparkles" /> Licks in {tonic}{minor ? 'm' : ''}
                   </button>
                 </div>
               </div>
@@ -654,14 +674,14 @@ export function CircleMasteryStudio({
 
             {/* Worked Voice-Leading Breakdown */}
             <div className="stack" style={{ gap: 6 }}>
-              <div className="small" style={{ fontWeight: 700 }}>{chapter.workedTitle}</div>
+              <div className="small" style={{ fontWeight: 700 }}>{moveText(chapter.workedTitle)}{chapter.workedKey ? ` (in ${tonic} ${chapter.workedKey.minor ? 'minor' : 'major'})` : ''}</div>
               <div className="cof-worked-table">
                 {chapter.worked.map((w, i) => (
                   <div key={i} className="cof-worked-row">
-                    <b>{w.move}</b>
-                    <span className="small" style={{ color: '#6ee7b7' }}>Anchor: {w.anchor}</span>
-                    <span className="small" style={{ color: '#fcd34d' }}>Move: {w.shift}</span>
-                    <span className="small muted">{w.why}</span>
+                    <b>{moveText(w.move)}</b>
+                    <span className="small" style={{ color: 'var(--mint-text)' }}>Anchor: {moveText(w.anchor)}</span>
+                    <span className="small" style={{ color: 'var(--gold-text)' }}>Move: {moveText(w.shift)}</span>
+                    <span className="small muted">{moveText(w.why)}</span>
                   </div>
                 ))}
               </div>
@@ -672,8 +692,8 @@ export function CircleMasteryStudio({
               <div className="small" style={{ fontWeight: 700 }}>Common Pitfalls to Dodge</div>
               {chapter.mistakes.map((m, i) => (
                 <div key={i} className="small" style={{ display: 'grid', gap: 2, padding: '6px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.025)' }}>
-                  <span style={{ color: '#fca5a5' }}>✕ {m.wrong}</span>
-                  <span style={{ color: '#6ee7b7' }}>✓ {m.right}</span>
+                  <span style={{ color: 'var(--coral)' }}>✕ {m.wrong}</span>
+                  <span style={{ color: 'var(--mint-text)' }}>✓ {m.right}</span>
                 </div>
               ))}
             </div>
@@ -684,10 +704,10 @@ export function CircleMasteryStudio({
                 <span className="small muted">Go deeper in KGuitar Theory Course:</span>
                 {chapter.courseLinks.map(lk => (
                   <button key={lk.id} className="btn sm ghost" onClick={() => learnGo({ lesson: lk.id })}>
-                    📚 {lk.label}
+                    <Ico n="book" /> {lk.label}
                   </button>
                 ))}
-                <button className="btn sm ghost" onClick={() => onQuiz('cof-chords')}>⚡ Circle Quiz</button>
+                <button className="btn sm ghost" onClick={() => onQuiz('cof-chords')}><Ico n="zap" /> Circle Quiz</button>
               </div>
             )}
           </div>
@@ -695,7 +715,7 @@ export function CircleMasteryStudio({
           {/* Curated Video Lessons + Custom Mauricio / YouTube Link Loader */}
           <div className="panel stack" style={{ gap: 10 }}>
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-              <h3 style={{ margin: 0 }}>📹 Curated Video Lessons ({chapter.videos.length} hand-picked for Ch. {chapter.num})</h3>
+              <h3 style={{ margin: 0 }}><Ico n="film" /> Curated Video Lessons ({chapter.videos.length} hand-picked for Ch. {chapter.num})</h3>
               <span className="small muted">Speed (0.5×–1×) & A–B loop built in — float Circle or 5-Layer Fretboard over the video!</span>
             </div>
             <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
@@ -715,8 +735,19 @@ export function CircleMasteryStudio({
                 <b>What to watch for:</b> {chapter.videos[selectedVidIdx].watchFor}
               </div>
             )}
+            {!customWatchUrl && chapter.videos[selectedVidIdx]?.parts && (
+              <div className="row small" style={{ gap: 5, flexWrap: 'wrap', alignItems: 'center' }} data-testid="cof-video-parts">
+                <span className="muted">Jump to:</span>
+                {chapter.videos[selectedVidIdx].parts!.map(pt => (
+                  <button key={pt.at} className="btn sm ghost" onClick={() => { vidApi.current?.seek(pt.at); vidApi.current?.play() }}>
+                    {Math.floor(pt.at / 60)}:{String(pt.at % 60).padStart(2, '0')} {pt.what}
+                  </button>
+                ))}
+              </div>
+            )}
             <YouTubePlayer
               url={customWatchUrl || `https://www.youtube.com/watch?v=${chapter.videos[selectedVidIdx]?.id ?? chapter.videos[0].id}`}
+              onApi={a => { vidApi.current = a }}
               onUrl={u => setCustomWatchUrl(u ?? '')}
               note="Float the Circle GPS or 5-Layer Fretboard right beside this video while you play along."
             />
@@ -740,7 +771,7 @@ export function CircleMasteryStudio({
                 disabled={!youtubeId(customUrl)}
                 onClick={() => openScanner({ link: customUrl.trim() })}
               >
-                🔍 Scan with Riff Scanner
+                <Ico n="scan" /> Scan with Riff Scanner
               </button>
             </div>
           </div>
@@ -755,7 +786,7 @@ export function CircleMasteryStudio({
                 else onSwitchMode('practice')
               }}
             >
-              {chIdx < CIRCLE_CHAPTERS.length - 1 ? `Next: Ch. ${chIdx + 2} →` : '🎯 Jump into Practice Studio →'}
+              {chIdx < CIRCLE_CHAPTERS.length - 1 ? `Next: Ch. ${chIdx + 2} →` : <><Ico n="target" /> Jump into Practice Studio →</>}
             </button>
           </div>
         </div>
@@ -792,7 +823,7 @@ export function CircleMasteryStudio({
                 </div>
                 <div className="row" style={{ gap: 6 }}>
                   <button className={`btn sm${micOn ? ' primary' : ''}`} onClick={toggleMic}>
-                    {micOn ? '🎤 Listening (Stop)' : '🎤 Start Mic Wait-for-Me'}
+                    <Ico n="mic" /> {micOn ? 'Listening (Stop)' : 'Start Mic Wait-for-Me'}
                   </button>
                   <button className="btn sm" onClick={() => liveCh && soundCircleChord(liveCh)}><Ico n="sound" /> Hear</button>
                   <button className="btn sm" onClick={() => setWalkIdx(i => (i + 1) % practicePath.length)}>Next →</button>
@@ -811,7 +842,7 @@ export function CircleMasteryStudio({
                     </button>
                   ))}
                 </div>
-                {walkLoops > 0 && <span className="small" style={{ color: '#6ee7b7', fontWeight: 700 }}>🔥 {walkLoops} clean lap{walkLoops === 1 ? '' : 's'}!</span>}
+                {walkLoops > 0 && <span className="small" style={{ color: 'var(--mint-text)', fontWeight: 700 }}><Ico n="flame" /> {walkLoops} clean lap{walkLoops === 1 ? '' : 's'}!</span>}
               </div>
 
               {micOn && (
@@ -870,10 +901,10 @@ export function CircleMasteryStudio({
                       {playingProg ? '■ Stop Demo' : '▶ Auto-Play Path'}
                     </button>
                     <button className="btn sm primary" onClick={() => launchEtudeInPlay({ pathId, texture: drill === 'guides' ? 'triads' : texture, level, zone, picking, bpm })}>
-                      🎸 Open Full Tab in Play
+                      <Ico n="guitar" /> Open Full Tab in Play
                     </button>
                     <button className="btn sm ghost" onClick={() => sendToPocketBand(practicePath)}>
-                      🥁 Send to Pocket Band
+                      <Ico n="drum" /> Send to Pocket Band
                     </button>
                   </div>
                 </div>
@@ -945,10 +976,10 @@ export function CircleMasteryStudio({
                       {playingProg ? '■ Stop Preview' : '▶ Hear Etude'}
                     </button>
                     <button className="btn sm primary" onClick={() => launchEtudeInPlay({ pathId, texture, level, zone, picking, bpm })}>
-                      🎸 Open in Play (with Circle + 5-Layer Rig)
+                      <Ico n="guitar" /> Open in Play (with Circle + 5-Layer Rig)
                     </button>
                     <button className="btn sm ghost" onClick={() => sendToPocketBand(etudePreview.chords)}>
-                      🥁 Send Chords to Pocket Band
+                      <Ico n="drum" /> Send Chords to Pocket Band
                     </button>
                   </div>
                 </div>
@@ -968,10 +999,10 @@ export function CircleMasteryStudio({
                 </div>
                 <div className="row" style={{ gap: 6 }}>
                   <button className={`btn sm${micOn ? ' primary' : ''}`} onClick={toggleMic}>
-                    {micOn ? '🎤 Mic Wait-for-Me ON' : '🎤 Mic Wait-for-Me'}
+                    <Ico n="mic" /> {micOn ? 'Mic Wait-for-Me ON' : 'Mic Wait-for-Me'}
                   </button>
                   <button className={`btn sm${key12Timed ? ' primary' : ''}`} onClick={() => setKey12Timed(v => !v)}>
-                    {key12Timed ? `■ Stop Click (Beat ${key12Beat || 1})` : '🥁 Timed Click Mode'}
+                    {key12Timed ? `■ Stop Click (Beat ${key12Beat || 1})` : <><Ico n="drum" /> Timed Click Mode</>}
                   </button>
                 </div>
               </div>
@@ -991,7 +1022,7 @@ export function CircleMasteryStudio({
                   BPM
                   <input type="number" className="input" style={{ width: 62, padding: '3px 6px' }} min={45} max={160} value={bpm} onChange={e => setBpm(Math.max(45, Math.min(160, Number(e.target.value) || 80)))} />
                 </label>
-                <span className="small" style={{ color: '#6ee7b7', marginLeft: 'auto' }}>
+                <span className="small" style={{ color: 'var(--mint-text)', marginLeft: 'auto' }}>
                   Mastered: <b>{Object.values(mastery).filter(v => v >= 1).length} / 12 keys</b>
                 </span>
                 <button className="btn sm ghost" onClick={() => setMastery(resetKeyMastery())}>Reset Ring</button>
@@ -1047,7 +1078,7 @@ export function CircleMasteryStudio({
                     Listen to the Circle move and name what your ears heard — then watch the arrow reveal itself on the wheel!
                   </p>
                 </div>
-                <span className="small" style={{ color: '#fcd34d', fontWeight: 700 }}>🔥 Streak: {earStreak}</span>
+                <span className="small" style={{ color: 'var(--gold-text)', fontWeight: 700 }}><Ico n="flame" /> Streak: {earStreak}</span>
               </div>
 
               <div className="cof-stage-grid">

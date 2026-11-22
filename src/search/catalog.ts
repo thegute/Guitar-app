@@ -378,7 +378,7 @@ export const FEATURES: Entry[] = [
     text: 'Any chord in five shapes up the whole neck, with arpeggios, pentatonic and triads inside.',
     keys: 'caged five shapes system whole neck chord shapes up the neck positions' }),
   f({ id: 'circle', title: 'Circle of fifths', where: 'Learn → Explore (also Float ▾ → Circle)', guide: 'Circle of fifths', target: { go: { tool: 'circle' } },
-    text: 'Explore keys, take the 6-chapter Pro Circle Masterclass (interactive Circle + voice-leading fretboard + 20 curated YouTube lessons), or run 5 live Practice Mode drills (Mic Wheel Walk, Guide-Tone 1-Fret Drill, Circle Etude Generator, 12-Key Challenge, Gravity Ear Trainer).',
+    text: 'Explore keys, take the 6-chapter Pro Circle Masterclass (interactive Circle + voice-leading fretboard + 25 YouTube lessons, LoG and Signals first), or run 5 live Practice Mode drills (Mic Wheel Walk, Guide-Tone 1-Fret Drill, Circle Etude Generator, 12-Key Challenge, Gravity Ear Trainer).',
     keys: 'circle of fifths circle of fourths circlefifths masterclass practice mode harmonic gps trail arrows guide tones voice leading peaceful voicings circle of arpeggios twister string skipping secondary dominants tritone sub 12 key challenge keys key signature sharps flats chords in a key relative minor' }),
   f({ id: 'changes', title: 'One-minute chord changes', where: 'Learn → Explore', guide: 'One-minute chord changes', target: { go: { tool: 'changes' } },
     text: 'Switch between two chords as many times as you can in a minute; it can listen and count for you.',

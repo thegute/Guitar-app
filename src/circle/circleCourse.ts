@@ -1,5 +1,6 @@
-// 6-Chapter Pro Circle of Fifths Masterclass with 20 curated YouTube lessons (including Mauricio Murúa,
-// Chris Sherland, Signals Music Studio, Jens Larsen, Paul Davids, LoG Sounds, Active Melody, Berklee Online),
+// 6-Chapter Pro Circle of Fifths Masterclass with 25 YouTube lessons, LoG and Signals Music Studio first where they cover
+// the chapter (owner's favourites), plus Mauricio Murúa, Chris Sherland, Jens Larsen and others; every one checked with
+// oEmbed (exists and plays inside the app), `parts` = the video's own chapter times,
 // plain-English deep theory, clickable Hear-It chord moves, worked guide-tone breakdowns, and Practice hooks.
 import type { EtudeLevel, EtudeTexture, EtudeZone } from './circleEngine'
 
@@ -8,6 +9,8 @@ export interface MasterclassVideo {
   title: string
   teacher: string
   watchFor: string
+  /** where to jump in: seconds from the start + what happens there (from the video's own chapters) */
+  parts?: { at: number; what: string }[]
 }
 
 export interface HearDemo {
@@ -38,6 +41,8 @@ export interface CircleChapter {
   whyItSoundsGreat: string
   deepDive: { heading: string; body: string }[]
   workedTitle: string
+  /** the key the worked example is written in: it is moved to the key you pick (none = no note names to move) */
+  workedKey?: { tonic: string; minor: boolean }
   worked: WorkedStep[]
   demos: HearDemo[]
   mistakes: { wrong: string; right: string }[]
@@ -74,7 +79,8 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
         body: 'Look at your open guitar strings from thick to thin: E → A → D → G! Your guitar is literally tuned in counter-clockwise steps around the Circle of Fifths. That means moving across strings at the SAME fret walks you straight around the Circle of 4ths!',
       },
     ],
-    workedTitle: 'The Classic 8-Chord Minor Gravity Walk (in E minor — transposes with your key)',
+    workedTitle: 'The Classic 8-Chord Minor Gravity Walk',
+    workedKey: { tonic: 'E', minor: true },
     worked: [
       { move: 'i → iv (Em → Am)', anchor: 'E stays put', shift: 'G → A, B → C', why: '1 click counter-clockwise: opens the journey with deep warmth.' },
       { move: 'iv → VII (Am → D7)', anchor: 'A & C stay put', shift: 'E → F#', why: 'Another 4th drop: D7 points right at the relative major (G).' },
@@ -90,9 +96,9 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
       { wrong: 'Jumping all over the fretboard for each root note.', right: 'Remember your strings (E–A–D–G) already move in 4ths — stay in one 4-fret zone!' },
     ],
     videos: [
-      { id: 'fiAay-Ld_IM', teacher: 'Chris Sherland Guitar', title: 'Circle Of Fifths On Guitar', watchFor: 'How the wheel maps straight onto the fretboard grid and why going backwards gives you 4ths.' },
-      { id: 'YFe7Jchras0', teacher: 'Guitar Theory', title: 'How to ACTUALLY Understand The Circle of 5ths on Guitar', watchFor: 'The 6-chord key slice and how neighbouring keys share pivot chords.' },
-      { id: 'qF3mJzDulJ8', teacher: 'Active Melody', title: 'How to Actually USE the Circle of 5ths', watchFor: 'Practical guitar demonstration of spotting IV, V, and secondary dominants instantly on the wheel.' },
+      { id: 'fiAay-Ld_IM', teacher: 'Chris Sherland', title: 'Circle Of Fifths On Guitar', watchFor: 'How the wheel lies on the fretboard: neighbouring keys and why going backwards gives you 4ths.', parts: [{ at: 259, what: 'The lesson' }, { at: 827, what: 'Wrap up' }] },
+      { id: 'YFe7Jchras0', teacher: 'Samjamguitar', title: 'The Circle of Fifths Explained for Guitar', watchFor: 'The 6-chord key slice and how neighbouring keys share chords.' },
+      { id: 'qF3mJzDulJ8', teacher: 'Active Melody', title: 'Circle of Fifths Explained (For Guitar)', watchFor: 'Spotting IV, V and secondary dominants on the wheel, played on the guitar.' },
     ],
   },
   {
@@ -124,7 +130,8 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
         body: 'Add a simple bass root on the low E or A string underneath those two D/G-string guide tones and you have a 3-note Shell Voicing. Every jazz, neo-soul, R&B, and peaceful fingerstyle arrangement is built on top of this exact 3-note skeleton.',
       },
     ],
-    workedTitle: 'The 1-Fret Domino Effect in a ii7 → V7 → Imaj7 (C major)',
+    workedTitle: 'The 1-Fret Domino Effect in a ii7 → V7 → Imaj7',
+    workedKey: { tonic: 'C', minor: false },
     worked: [
       { move: 'Dm7 (D – F – C)', anchor: 'Start position', shift: 'F = b3, C = b7', why: 'Warm minor-7th tension ready to tip forward.' },
       { move: 'Dm7 → G7 (G – F – B)', anchor: 'F stays glued!', shift: 'C drops 1 fret → B (3rd of G7)', why: 'Creates the classic tritone (F + B) demanding resolution.' },
@@ -139,9 +146,10 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
       { wrong: 'Lifting all four fingers off the neck between chords.', right: 'Spot the Anchor Note first — keep that finger planted and pivot the others around it.' },
     ],
     videos: [
-      { id: '9ppYNb8_CUg', teacher: 'Jens Larsen', title: 'Guide Tones: The Simplest Way to Improvise Chords and Solo', watchFor: 'How tracking ONLY the 3rd and 7th transforms both your chord voicings and your solos.' },
-      { id: '1tThogfLBW0', teacher: 'Jazz Guitar', title: 'Jazz Chord Essentials: Shell Voicings', watchFor: 'The exact E-string and A-string 3-note shells moving smoothly by 1 fret.' },
-      { id: '0fB1ZaLfB2w', teacher: 'Guitar Harmony', title: 'IMPROVE Your Chords with Common Tones and Voice Leading', watchFor: 'How keeping 1 or 2 common tones glued turns basic progressions into lush arrangements.' },
+      { id: '9ppYNb8_CUg', teacher: 'marbinmusic', title: 'Guide Tones: The Simplest Way to Improvise Chords and Solo Within Changes', watchFor: 'Tracking only the 3rd and 7th, for chords and for solo lines.' },
+      { id: '1tThogfLBW0', teacher: 'Jens Larsen', title: 'Jazz Chord Essentials: Shell Voicings', watchFor: 'The 3-note shells on the E and A strings that move by one fret.' },
+      { id: 'hXKx5ctsvJw', teacher: 'Jamey Arent', title: 'Voice Leading the ii-V-I: Connect Your Chords', watchFor: 'The 7th dropping to the 3rd, chord after chord, on a real ii – V – I.' },
+      { id: 'WSPiHgoghjs', teacher: 'LoG', title: 'Quickies #9: Connecting Lines Through Chords', watchFor: 'Log connects a line through the changes by stepping to the nearest chord tone: guide tones as a melody.' },
     ],
   },
   {
@@ -174,6 +182,7 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
       },
     ],
     workedTitle: 'Peaceful Voicing Colour Upgrades Around I → vi → ii → V',
+    workedKey: { tonic: 'C', minor: false },
     worked: [
       { move: 'I → Imaj7 / Iadd9', anchor: 'Root + 5th ring warm', shift: 'Add 9th (2 frets up from root) on high string', why: 'Instant shimmering acoustic/clean-electric glow.' },
       { move: 'vi → vi9 (e.g. Am9)', anchor: 'Keep the 9th (B) ringing!', shift: 'Only bass drops to A', why: 'Same top note turns from major 7th into minor 9th!' },
@@ -189,10 +198,10 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
       { wrong: 'Playing every note at the exact same loud volume.', right: 'Play the bass softly with the thumb and let the highest melody note sing slightly louder.' },
     ],
     videos: [
-      { id: '-XJXbxTMkUQ', teacher: 'Paul Davids', title: 'Basic Chord Trick | Inversions + Voice Leading', watchFor: 'How simple inversions transform stiff block chords into cinematic movement.' },
-      { id: 'UkatcvIuF4U', teacher: 'Signals Music Studio', title: 'How To Arrange Chords into BEAUTIFUL 4-PART HARMONIES', watchFor: 'Thinking of your guitar strings as 4 independent singers moving by tiny steps.' },
-      { id: 'QPuRjy7Re8k', teacher: 'Jazz Guitar', title: 'Voice Leading Drop-2 Voicings Through the Cycle of 4ths', watchFor: 'Walking Cmaj7 → Fmaj7 → Bm7b5 → Em7 → Am7 → Dm7 → G7 smoothly across the fretboard.' },
-      { id: 'j39gPN-3scA', teacher: 'Melodic Chord Phrases', title: 'How To Get Inner Voice Movement in Your Chords', watchFor: 'Moving just ONE inner voice inside a grip for that solo-guitar magic.' },
+      { id: 'UkatcvIuF4U', teacher: 'Signals Music Studio', title: 'How To Arrange Chords into Beautiful 4-Part Harmonies', watchFor: 'Each string as a singer moving by the smallest step.', parts: [{ at: 111, what: 'Basic concepts' }, { at: 375, what: 'Arranging in 3 voices' }, { at: 790, what: 'Arranging in 4 voices' }, { at: 980, what: 'Make it into music' }] },
+      { id: 'hSWHyJ6mrzg', teacher: 'LoG', title: 'Power Ups #20: Chord Inversions (Part 1)', watchFor: 'Finding the inversion closest to where your hand already is.' },
+      { id: 'QPuRjy7Re8k', teacher: 'Phil Sargent', title: 'Voice Leading Drop-2 Voicings Through the Cycle of 4ths', watchFor: 'Drop-2 grips walking the cycle of 4ths with tiny moves.' },
+      { id: 'j39gPN-3scA', teacher: 'Tim Lerch', title: 'How To Get Inner Voice Movement in Your Chords', watchFor: 'Moving one inner voice inside a grip for that solo-guitar sound.' },
     ],
   },
   {
@@ -225,6 +234,7 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
       },
     ],
     workedTitle: 'Inside One Box (Frets 5–8) Across the Minor Circle of 4ths',
+    workedKey: { tonic: 'A', minor: true },
     worked: [
       { move: 'Bar 1: Am7', anchor: 'Fret 5–8 zone', shift: 'Outline A – C – E – G', why: 'Lock your index finger on fret 5 as home anchor.' },
       { move: 'Bar 2: Dm7', anchor: 'C & A stay inside the box!', shift: 'Only add D & F (1 fret shift)', why: 'Zero shifting up or down the neck.' },
@@ -239,11 +249,10 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
       { wrong: 'Rushing string skips with tense picking.', right: 'Use slow Wait-for-Me mode at 60% speed first; keep your wrist relaxed and let notes ring.' },
     ],
     videos: [
-      { id: '5w9xeadMZDA', teacher: 'Mauricio Murúa', title: 'Guitar Circle of Arpeggios', watchFor: 'Listen to how seamlessly each arpeggio flows into the next around the Circle!' },
-      { id: 'FMryR2CGtC4', teacher: 'Mauricio Murúa', title: 'Guitar Twister 20', watchFor: 'Notice his wide string-skipping picking pattern weaving through the changing chords.' },
-      { id: 'becl0GjXBiM', teacher: 'Online Sax Academy', title: 'The DIATONIC Circle of 5ths — 2 Amazing Exercises', watchFor: 'Drilling all 7 diatonic 7th arpeggios and 3rd/7th guide tones around the Circle.' },
-      { id: 'qUoV6l19jZE', teacher: 'Dan Cosley', title: 'CAGED 7th Arpeggios + Circle of Fourths = Total Fretboard Freedom', watchFor: 'Staying locked in ONE CAGED box while navigating the entire diatonic Circle of 4ths.' },
-      { id: 'L_La1p8Nq9A', teacher: 'LoG Sounds', title: 'LoG Power Ups #21 — Small Arpeggios (Part 1)', watchFor: 'How small 3- and 4-note arpeggio cells link effortlessly across chord changes.' },
+      { id: '5w9xeadMZDA', teacher: 'Mauricio Murúa', title: 'Guitar Circle of Arpeggios', watchFor: 'How each arpeggio flows into the next around the circle.' },
+      { id: 'L_La1p8Nq9A', teacher: 'LoG', title: 'Power Ups #21: Small Arpeggios (Part 1)', watchFor: 'Small 3- and 4-note arpeggio cells that link across chord changes in one area.' },
+      { id: 'PXpTyCGLIKU', teacher: 'LoG', title: 'Quickies #22: Circle Progressions In Your Licks', watchFor: 'Log turns a circle progression into licks: the lines follow the chords round the wheel.' },
+      { id: 'qUoV6l19jZE', teacher: 'Dan Cosley', title: 'CAGED 7th Arpeggios + Circle of Fourths', watchFor: 'Staying in one CAGED area while the chords move round the circle of 4ths.' },
     ],
   },
   {
@@ -280,10 +289,11 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
         body: 'Want instant movie-soundtrack nostalgia in a major key? Reach 3 clicks counter-clockwise into your parallel minor to grab iv (Fm in C) or ♭VI (Ab) or ♭VII (Bb).',
       },
     ],
-    workedTitle: '3 Instant Outside-the-Slice Visual Moves (in C major)',
+    workedTitle: '3 Instant Outside-the-Slice Visual Moves',
+    workedKey: { tonic: 'C', minor: false },
     worked: [
       { move: 'V7/ii: A7 → Dm7', anchor: 'G (b7 of A7) drops to F', shift: 'C# (outside!) pulls 1 fret up → D', why: 'Bright gospel/jazz spark heading into the ii chord.' },
-      { move: 'Tritone Sub: Dm7 → Db7 → Cmaj7', anchor: 'F & B (Cb) stay glued!', shift: 'Bass glides D → Db → C', why: 'Directly across the Circle — identical guide tones, silky chromatic bass.' },
+      { move: 'Tritone Sub: Dm7 → Db7 → Cmaj7', anchor: 'F & B stay glued (the same two guide tones in both chords)', shift: 'Bass glides D → Db → C', why: 'Directly across the Circle — identical guide tones, silky chromatic bass.' },
       { move: 'Borrowed iv: Fmaj7 → Fm7 → Cmaj7', anchor: 'F & C stay glued', shift: 'A drops 1 fret → Ab → G', why: 'That classic bittersweet "Beatles / film score" heart-tug.' },
     ],
     demos: [
@@ -296,10 +306,11 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
       { wrong: 'Thinking Tritone Subs require weird theory math.', right: 'Just jump directly across the Circle — or play the dominant 7th ONE fret above your target chord!' },
     ],
     videos: [
-      { id: 'py4HaueW50Q', teacher: 'Signals Music Studio', title: 'Secondary Dominants — Write Better Chord Progressions!', watchFor: 'Jake’s super clear breakdown of adding a V7 before ANY chord in your key.' },
-      { id: 'nBLIWx0bia4', teacher: 'LoG Sounds', title: 'Playing Over the "5 of" a Minor Chord', watchFor: 'Smart fretboard hack for nailing that Harmonic Minor V7 → i tension.' },
-      { id: 'NlqvZ0Q_Wpk', teacher: 'Jens Larsen', title: 'Tritone Substitution Is a Really Great Hack', watchFor: 'Why jumping across the Circle works seamlessly because the 3rd and 7th swap places.' },
-      { id: 'Vwo5yleFesM', teacher: 'Jazz & Blues Guitar', title: 'How To Use Tritone Substitutions The Easy Way', watchFor: 'Ready-to-play guitar shapes for dropping Tritone Subs straight into jams.' },
+      { id: 'py4HaueW50Q', teacher: 'Signals Music Studio', title: 'Secondary Dominants: Write Better Chord Progressions', watchFor: 'A V7 before any chord of the key, and how each one resolves.', parts: [{ at: 128, what: 'Secondary dominants' }, { at: 322, what: 'V7/IV' }, { at: 407, what: 'V7/V' }, { at: 469, what: 'V7/vi and resolving tricks' }] },
+      { id: '7IdttvJSedg', teacher: 'Signals Music Studio', title: 'Writing Progressions with Borrowed Chords', watchFor: 'Borrowing iv, ♭VI and ♭VII from the parallel minor, the bittersweet colours.' },
+      { id: 'TkG_3UNNAH0', teacher: 'LoG', title: 'Playing over a Minor 4', watchFor: 'What to play when the IV turns minor (the borrowed iv), with a backing track.' },
+      { id: 'nBLIWx0bia4', teacher: 'LoG', title: 'Playing over the "5 of" a Minor Chord', watchFor: 'The harmonic-minor V7 going home to i: which notes make it pull.' },
+      { id: 'NlqvZ0Q_Wpk', teacher: 'Jens Larsen', title: 'Tritone Substitution Is a Really Great Hack', watchFor: 'Why the chord across the circle shares the same 3rd and 7th.', parts: [{ at: 48, what: 'What is a tritone sub?' }, { at: 157, what: 'Tritone subs in progressions' }, { at: 204, what: 'Scales and arpeggios' }, { at: 485, what: 'Turning it into altered lines' }] },
     ],
   },
   {
@@ -347,11 +358,11 @@ export const CIRCLE_CHAPTERS: CircleChapter[] = [
       { wrong: 'Playing too fast before your ears predict the next chord.', right: 'Sing or hum the 3rd of the next chord before you fret it — that connects your ear directly to your fingers.' },
     ],
     videos: [
-      { id: 'EQMC6_N9y7U', teacher: 'Signals Music Studio', title: 'The Circle of Fifths for SONGWRITING', watchFor: 'Using the Circle to invent fresh chord progressions, borrows, and smooth modulations.' },
-      { id: 'RhnvpxY-Lkk', teacher: 'Chris Sherland Guitar', title: 'ii–V–I Turnarounds Around the Circle of Fifths', watchFor: 'The exact low-mental-load hack for chaining ii–V–Is around all 12 keys.' },
-      { id: 'wlnY0JnIWEc', teacher: 'Chris Sherland Guitar', title: 'Circle Of Fifths Workout!', watchFor: 'How to turn ANY single chord, triad, or riff into a complete 12-key mastery drill.' },
-      { id: '1DcOm0v3XAQ', teacher: 'Berklee Online', title: 'How to Use the Circle of Fourths as a Practice Tool', watchFor: 'Conservatory method for drilling scales, arpeggios, and voicings around all 12 keys.' },
-      { id: 'hXKx5ctsvJw', teacher: 'Jens Larsen', title: 'Voice Leading the ii–V–I — Connect Your Chords!', watchFor: 'Putting voice leading, guide tones, and melodic phrasing together on real changes.' },
+      { id: 'wlnY0JnIWEc', teacher: 'Chris Sherland', title: 'Circle Of Fifths Workout!', watchFor: 'Turning any chord, triad or riff into a 12-key drill.', parts: [{ at: 120, what: 'The lesson' }] },
+      { id: 'RhnvpxY-Lkk', teacher: 'Chris Sherland', title: 'ii – V – I Turnarounds Around the Circle of Fifths', watchFor: 'Chaining ii – V – Is through all 12 keys without thinking too hard.', parts: [{ at: 196, what: 'The lesson' }] },
+      { id: 'A2qo0gK86Yg', teacher: 'LoG', title: 'Power Ups #18: Playing Over Changes (Part 1)', watchFor: 'A constant line through every chord, landing on chord tones as they change.' },
+      { id: '4hGhTlEpa94', teacher: 'LoG', title: 'Quickies #12: Smooth Key Changes', watchFor: 'Moving a line from one key to the next so the change sounds smooth.' },
+      { id: 'Vxac3hHrxg8', teacher: 'Signals Music Studio', title: 'Intro to Modulations and Key Changes', watchFor: 'Pivot chords and direct changes, with the circle as the map.' },
     ],
   },
 ]

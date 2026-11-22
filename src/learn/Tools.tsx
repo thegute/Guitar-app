@@ -1,4 +1,5 @@
 // Practice tools: one-minute chord changes, the rhythm trainer and the circle of fifths explorer.
+import { Ico } from '../components/Icon'
 import { micWhere } from '../audio/input'
 import { haptic } from '../audio/tapFeel'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -527,8 +528,8 @@ export function CircleTool({ onExit, onQuiz }: { onExit: () => void; onQuiz: (id
         <button className="btn sm" onClick={onExit}>← Back</button>
         <div className="seg" role="tablist" aria-label="Circle of fifths modes">
           <button role="tab" aria-selected={tab === 'explore'} aria-pressed={tab === 'explore'} onClick={() => setTab('explore')}>Explore</button>
-          <button role="tab" aria-selected={tab === 'masterclass'} aria-pressed={tab === 'masterclass'} onClick={() => setTab('masterclass')}>📖 Masterclass (6 Ch)</button>
-          <button role="tab" aria-selected={tab === 'practice'} aria-pressed={tab === 'practice'} onClick={() => setTab('practice')}>🎯 Practice Mode (5 Drills)</button>
+          <button role="tab" aria-selected={tab === 'masterclass'} aria-pressed={tab === 'masterclass'} onClick={() => setTab('masterclass')}><Ico n="book" /> Masterclass (6 Ch)</button>
+          <button role="tab" aria-selected={tab === 'practice'} aria-pressed={tab === 'practice'} onClick={() => setTab('practice')}><Ico n="target" /> Practice Mode (5 Drills)</button>
         </div>
         <button className="btn sm" onClick={() => onQuiz('cof-neighbours')}>Quiz me</button>
       </div>
@@ -560,8 +561,8 @@ export function CircleTool({ onExit, onQuiz }: { onExit: () => void; onQuiz: (id
               </Win>
               <Win id="practise" title="Practise it" bodyClass="stack" bodyStyle={{ gap: 6 }}>
                 <div className="row">
-                  <button className="btn sm primary" onClick={() => setTab('masterclass')}>📖 Open 6-Chapter Masterclass</button>
-                  <button className="btn sm primary" onClick={() => setTab('practice')}>🎯 Open 5-Drill Practice Mode</button>
+                  <button className="btn sm primary" onClick={() => setTab('masterclass')}><Ico n="book" /> Open 6-Chapter Masterclass</button>
+                  <button className="btn sm primary" onClick={() => setTab('practice')}><Ico n="target" /> Open 5-Drill Practice Mode</button>
                 </div>
                 <div className="row">
                   <button className="btn sm" onClick={() => onQuiz('cof-sig')}>Key signatures</button>

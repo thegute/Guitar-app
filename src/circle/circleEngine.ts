@@ -1,6 +1,7 @@
 // Pro Circle of Fifths Theory, Voice-Leading Analyzer, Harmonic Explainer, Original Etude Generator,
 // and 12-Key Mastery Tracking. 100% pure & unit-testable.
 import { FLATS, SHARPS, keyPrefersFlats, pc } from '../theory/notes'
+import { noteAt } from '../theory/spell'
 import type { Song, SongBar, SongNote, SongStep } from '../tabs/model'
 
 export const STANDARD_MIDI = [40, 45, 50, 55, 59, 64] // E2 A2 D3 G3 B3 E4
@@ -217,8 +218,23 @@ export interface VoiceLeadSummary {
   headline: string
 }
 
+// chord tones spelled from the chord's root letter (Cm: E♭ and B♭, never D♯ and A♯); other notes by the key's preference
+const STEP_OF = [0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 6]
+export function spellInChord(ch: CircleChord, p: number): string {
+  const iv = ((p - ch.rootPc) % 12 + 12) % 12
+  try { return noteAt(ch.root, STEP_OF[iv], iv) } catch { return (ch.root.includes('b') ? FLATS : SHARPS)[p] }
+}
+
 export function analyzeVoiceLeading(prev: CircleChord | null, cur: CircleChord, flats = false): VoiceLeadSummary {
-  const names = flats ? FLATS : SHARPS
+  const plain = flats ? FLATS : SHARPS
+  // a note is named the way the chord it belongs to spells it (the new chord first)
+  const names = new Proxy([] as string[], { get: (_t, k) => {
+    const p = Number(k)
+    if (!Number.isInteger(p)) return undefined
+    if (cur.pcs.includes(p)) return spellInChord(cur, p)
+    if (prev?.pcs.includes(p)) return spellInChord(prev, p)
+    return plain[p]
+  } })
   if (!prev) {
     return {
       anchors: [],
@@ -710,4 +726,20 @@ export function markKeyMastered(keyName: string, delta = 1): Record<string, numb
 export function resetKeyMastery(): Record<string, number> {
   try { localStorage.removeItem(MASTERY_KEY) } catch { /* ignore */ }
   return {}
+}
+
+/** Move every note / chord name in a line of text from one key to another, spelled properly (E minor → C minor:
+ *  "Em → Am" becomes "Cm → Fm", "F#m7b5" becomes "Dm7b5"). Words like "Bar", "Add" or "Bass" are left alone. */
+export function transposeNames(text: string, from: string, to: string): string {
+  const LET = 'CDEFGAB'
+  const steps = (LET.indexOf(to[0]) - LET.indexOf(from[0]) + 7) % 7
+  const semis = (pc(to) - pc(from) + 12) % 12
+  if (!semis && !steps) return text
+  return text.replace(/(?<![A-Za-z])([A-G])(#|b|♯|♭)?(?![a-ln-z])/g, (_m, l: string, acc?: string) => {
+    const name = l + (acc === '♯' ? '#' : acc === '♭' ? 'b' : acc ?? '')
+    let out: string
+    try { out = noteAt(name, steps, semis) } catch { return name }
+    // double flats / sharps and Cb Fb E# B# read better as the plain note a guitarist would say
+    return /bb|##|x/.test(out) || /^(Cb|Fb|E#|B#)$/.test(out) ? (keyPrefersFlats(to) ? FLATS : SHARPS)[pc(out.replace(/x/, '##'))] : out
+  })
 }
