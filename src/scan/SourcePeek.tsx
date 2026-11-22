@@ -1,5 +1,5 @@
 // "Check it in the picture": ONE floating window (move, resize, shrink to a bubble, hide; remembered) that shows the
-// spot in the scanned picture where the selected note was read, with an amber ring round it. Pick another note (or
+// spot in the scanned picture where the selected note was read, with a ring round it (red box for a note KGuitar wasn't sure of). Pick another note (or
 // "Next unsure") and the same window jumps there, switching picture if that note came from a different strip.
 // Zoom with + / − or a pinch; drag the picture sideways to look around.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
