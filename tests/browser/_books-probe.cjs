@@ -20,7 +20,7 @@ async function newPage(browser, vp, seed) {
     window.__kgTest = true
     try { if (window.top !== window || sessionStorage.getItem('seeded')) return } catch { return }
     localStorage.clear()
-    for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:getReady': '0', 'kg:tab2': '"learn"', 'kg:tipsMode': '"off"', ...s })) localStorage.setItem(k, v)
+    for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:navHidden': '0', 'kg:getReady': '0', 'kg:tab2': '"learn"', 'kg:tipsMode': '"off"', ...s })) localStorage.setItem(k, v)
     sessionStorage.setItem('seeded', '1')
   }, seed)
   await page.goto('http://localhost:4173/')

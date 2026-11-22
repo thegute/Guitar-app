@@ -169,7 +169,7 @@ const TINY_PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42m
     if (sessionStorage.getItem('seeded')) return
     localStorage.clear()
     localStorage.setItem('kg:welcomed', '1')
-    localStorage.setItem('kg:psyDefault', '1')
+    localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:navHidden', '0')
     localStorage.setItem('kg:getReady', '0')
     localStorage.setItem('kg:tab2', JSON.stringify('learn'))
     localStorage.setItem('kg:sub:learn', JSON.stringify('explore'))

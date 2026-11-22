@@ -58,7 +58,7 @@ async function newPage(browser, seed = {}, viewport = SIZES.cover) {
     window.__kgTest = true
     try { if (window.top !== window || sessionStorage.getItem('seeded')) return } catch { return }
     localStorage.clear()
-    localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:getReady', '0')
+    localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:navHidden', '0'); localStorage.setItem('kg:getReady', '0')
     for (const [k, v] of Object.entries(s)) localStorage.setItem(k, JSON.stringify(v))
     sessionStorage.setItem('seeded', '1')
   }, seed)
@@ -171,7 +171,7 @@ async function web(browser) {
     const page = await ctx.newPage()
     const errors = []
     page.on('pageerror', e => errors.push(e.message))
-    await page.addInitScript(() => { if (sessionStorage.getItem('seeded')) return; localStorage.clear(); localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:getReady', '0'); sessionStorage.setItem('seeded', '1') })
+    await page.addInitScript(() => { if (sessionStorage.getItem('seeded')) return; localStorage.clear(); localStorage.setItem('kg:welcomed', '1'); localStorage.setItem('kg:psyDefault', '1'); localStorage.setItem('kg:navHidden', '0'); localStorage.setItem('kg:getReady', '0'); sessionStorage.setItem('seeded', '1') })
     await page.goto('http://localhost:4173/')
     await page.waitForSelector('nav.nav')
     for (const t of ['Play', 'Songs', 'Learn', 'Jam', 'Tools']) {

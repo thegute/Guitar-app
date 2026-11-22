@@ -20,7 +20,7 @@ async function newPage(browser, viewport, seed = {}) {
   await page.addInitScript(s => {
     try { if (window.top !== window || sessionStorage.getItem('seeded')) return } catch { return }
     localStorage.clear()
-    for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:askBubble': 'false', 'kg:layoutHint': '1', 'kg:getReady': '0', ...s })) localStorage.setItem(k, v)
+    for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:navHidden': '0', 'kg:askBubble': 'false', 'kg:layoutHint': '1', 'kg:getReady': '0', ...s })) localStorage.setItem(k, v)
     sessionStorage.setItem('seeded', '1')
   }, seed)
   await page.goto('http://localhost:4173/')
@@ -172,7 +172,7 @@ E|-3---------|-----------|`
     await page.waitForSelector('[data-testid=scan-result]', { timeout: 20000 }).catch(() => bad(`${vp.n}: no result`))
     const sent = page.sent[0]
     const ownHow = await page.locator('[data-testid=scan-result] p.small.muted').first().innerText().catch(() => '')
-    const own = /KGuitar read (\d+) number/.exec(ownHow)
+    const own = /(?:KGuitar read|Read) (\d+) (?:number|note)/.exec(ownHow)
     if (own) {
       // the trained reader is in the app: it reads the picture itself (the AI is only the fallback)
       console.log(`${vp.n}: KGuitar read ${own[1]} numbers itself`)
@@ -228,15 +228,16 @@ E|-3---------|-----------|`
     await page.waitForSelector('[data-testid=scan-result]', { timeout: 20000 }).catch(() => bad('red: no result'))
     const unsure = await page.locator('[data-testid=sp-next-unsure]').innerText().catch(() => '')
     console.log(`red: "${unsure}"`)
-    if (await page.locator('[data-testid=scan-source]').count()) bad('red: the picture window opened before a note was tapped')
+    console.log(`red: picture window open before any tap: ${await page.locator('[data-testid=scan-source]').count() ? 'yes (on the first unsure note)' : 'no'}`)
+    await page.screenshot({ path: `${DIR}/step2-scan-red-0.png` })
     if (!unsure) console.log('red: nothing unsure in this picture (no red box to check)')
     else {
-      await page.locator('[data-testid=sp-next-unsure]').click()
+      if (!(await page.locator('[data-testid=scan-source]').count())) await page.locator('[data-testid=sp-next-unsure]').click()
       await page.waitForSelector('[data-testid=scan-source-ring]', { timeout: 3000 }).catch(() => bad('red: no red box on the unsure note'))
       const b1 = await page.locator('[data-testid=scan-source-ring]').evaluate(e => e.style.left + ',' + e.style.top).catch(() => '')
       const col = await page.locator('[data-testid=scan-source-ring]').evaluate(e => getComputedStyle(e).borderTopColor).catch(() => '')
       await page.screenshot({ path: `${DIR}/step2-scan-red-1.png` })
-      await page.locator('[data-testid=scan-note-fixer] button:has-text("Next unsure")').click()
+      await page.locator('[data-testid=scan-source] button[aria-label*="Next"], [data-testid=scan-note-fixer] button:has-text("Next unsure")').first().click()
       await page.waitForTimeout(250)
       const b2 = await page.locator('[data-testid=scan-source-ring]').evaluate(e => e.style.left + ',' + e.style.top).catch(() => '')
       const n = await page.locator('[data-testid=scan-source-ring]').count()
@@ -303,7 +304,7 @@ E|-3---------|-----------|`
     const how = await page.locator('[data-testid=scan-result] p.small.muted').first().innerText().catch(() => '')
     console.log(`video: ${msg || how} · strips sent ${page.sent.map(x => `${x.w}×${x.h}`).join(', ')}`)
     // with an AI reader set up the strips go to it; without one KGuitar reads the whole stitched strip(s) itself
-    const own = /KGuitar read (\d+) number/.exec(how)
+    const own = /(?:KGuitar read|Read) (\d+) (?:number|note)/.exec(how)
     if (own) {
       // what it read, against what the video drew: note i on string (i*7)%6 from the top, fret (i*5)%13, in order
       await page.locator('[data-testid=scan-result] button', { hasText: 'Fix the tab text' }).click()

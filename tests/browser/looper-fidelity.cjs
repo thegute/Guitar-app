@@ -28,7 +28,7 @@ function wav(file, chans, sr) {
   await page.addInitScript(() => {
     try { if (sessionStorage.getItem('seeded')) return } catch { return }
     localStorage.clear()
-    for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:askBubble': 'false', 'kg:looperBubble': 'false', 'kg:tab2': '"progressions"', 'kg:sub:jam': '"loop"' })) localStorage.setItem(k, v)
+    for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:navHidden': '0', 'kg:askBubble': 'false', 'kg:looperBubble': 'false', 'kg:tab2': '"progressions"', 'kg:sub:jam': '"loop"' })) localStorage.setItem(k, v)
     sessionStorage.setItem('seeded', '1')
   })
   await page.goto(`http://localhost:${PORT}/`)

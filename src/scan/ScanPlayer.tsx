@@ -64,6 +64,9 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
   }, [flat])
 
   // Auto-pop the Visual Checker on unsure note #1 as soon as a scan loads with unsure notes & pictures!
+  // (this reset runs before the auto-open below, so the first unsure note keeps the cursor)
+  useEffect(() => () => player.current?.stop(), [])
+  useEffect(() => { player.current?.stop(); setAt(-1); setFrom(0); setLoop(null) }, [doc.song.title])
   const autoOpenedId = useRef('')
   useEffect(() => {
     const key = `${doc.id}:${sources?.length ?? 0}`
@@ -79,8 +82,6 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
     }
   }, [doc.id, sources?.length, unsureList.length, onChangeSong]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => () => player.current?.stop(), [])
-  useEffect(() => { player.current?.stop(); setAt(-1); setFrom(0); setLoop(null) }, [doc.song.title])
 
   const audition = (midi: number, string: number) => {
     try {

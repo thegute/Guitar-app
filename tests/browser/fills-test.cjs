@@ -18,7 +18,7 @@ const sideways = page => page.evaluate(() => document.documentElement.scrollWidt
       window.__kgTest = true
       if (sessionStorage.getItem('s')) return
       localStorage.clear()
-      for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:getReady': '0', 'kg:askBubble': 'false', 'kg:sub:learn': '"explore"' })) localStorage.setItem(k, v)
+      for (const [k, v] of Object.entries({ 'kg:welcomed': '1', 'kg:psyDefault': '1', 'kg:navHidden': '0', 'kg:getReady': '0', 'kg:askBubble': 'false', 'kg:sub:learn': '"explore"' })) localStorage.setItem(k, v)
       sessionStorage.setItem('s', '1')
     })
     await page.goto('http://localhost:4173/')
