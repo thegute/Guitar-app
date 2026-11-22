@@ -122,7 +122,7 @@ export function ShortsFeed({ onListen, onUseInJam }: { onListen: () => void; onU
               <a className="btn ghost" href={`https://www.youtube.com/shorts/${cur.id}`} target="_blank" rel="noreferrer">Open in YouTube</a>
               {!chs.some(c => c.id === cur.channelId) && <button className="btn ghost" onClick={() => { setFollowed([...followed(), { id: cur.channelId, name: cur.channel }]); bump(n => n + 1) }}>Follow {cur.channel.slice(0, 18)}</button>}
             </div>
-            {scan && <ScanVideo links autoLink initialLink={`https://www.youtube.com/shorts/${cur.id}`} youtube={`https://www.youtube.com/watch?v=${cur.id}`} title={cur.title} onUseInJam={onUseInJam} onListen={onListen} />}
+            {scan && <ScanVideo links autoLink compactShort initialLink={`https://www.youtube.com/shorts/${cur.id}`} youtube={`https://www.youtube.com/watch?v=${cur.id}`} title={cur.title} onUseInJam={onUseInJam} onListen={onListen} />}
           </div>
         </div>
       )}

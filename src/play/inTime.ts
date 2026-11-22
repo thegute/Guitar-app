@@ -225,6 +225,7 @@ export interface VideoApi {
   time(): number
   playing(): boolean
   rate(): number
+  setRate?(r: number): void
   play(): void
   pause(): void
   seek(t: number): void

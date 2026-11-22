@@ -220,4 +220,15 @@ E|-3---------|-----------|
   ok(lines[0].startsWith('e |') && lines[0].includes('0') && lines[0].includes('2'), `songTabText puts high e notes on top ("${lines[0]}")`)
   ok(lines[5].startsWith('E |') && lines[5].includes('3'), `songTabText puts low E notes on bottom ("${lines[5]}")`)
 }
+// parseCropVerdicts + attachFallbackSources: Zoom-Crop Vision AI Referee & fallback Visual Checker spots
+{
+  const { parseCropVerdicts } = await import('../src/scan/cropReferee')
+  const { attachFallbackSources } = await import('../src/scan/tabReadSong')
+  const v = parseCropVerdicts('```json\n[{"id":1,"val":"8","conf":"high"},{"id":2,"val":"x","conf":"low"},{"id":3,"val":"none","conf":"high"}]\n```')
+  ok(v.length === 3 && v[0].value === 8 && v[0].confidence === 'high' && v[1].value === 'x' && v[2].value === 'none', 'parseCropVerdicts parses numeric, dead, and blank verdicts')
+  const doc = songFromScan('e|-0-2-|\nB|---3-|\nG|-----|\nD|-----|\nA|-----|\nE|-3---|', 'Fallback check', current())!
+  const withSrc = attachFallbackSources(doc.song, 2)
+  const allNotes = withSrc.tracks[0].bars.flatMap(b => b.steps.flatMap(st => st.notes))
+  ok(allNotes.length > 0 && allNotes.every(n => !!n.src && n.src.p >= 0 && n.src.p < 2 && n.src.x > 0 && n.src.x < 1), 'attachFallbackSources assigns valid strip coords to every note')
+}
 console.log(`scan image: ${checks} checks, 0 failed`)

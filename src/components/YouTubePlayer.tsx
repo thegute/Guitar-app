@@ -139,6 +139,7 @@ function Player({ id, url, onUrl, onApi, sync, onSync, tabBpm = 90, onError, onS
                 play: () => p()?.playVideo(),
                 pause: () => p()?.pauseVideo(),
                 seek: t => p()?.seekTo(Math.max(0, t), true),
+                setRate: r => { setRate(r); p()?.setPlaybackRate(r) },
               })
             },
             onError: (e: { data: number }) => { if (alive) { setError(e.data); onError?.(e.data) } },

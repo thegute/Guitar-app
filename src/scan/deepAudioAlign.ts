@@ -342,18 +342,25 @@ export interface PolishSummary {
   tuningChanged: boolean
   notesCorrected: number
   notesConfirmed: number
+  /** Confident visual notes promoted to unsure because the guitar audio strongly disagreed (Audio Surprise) */
+  notesFlagged: number
   meanMatch: number
   /** 0-based bar indices where visual reading and audio still disagreed (< 0.42 match) */
   weakBars: number[]
+  /** 0-based bar index -> earliest DTW-aligned timestamp (seconds) in the video audio, for Floating Video bar-seek */
+  barTimes: Record<number, number>
 }
 
 /**
  * Full Render-and-Compare ("Analysis-by-Synthesis") Audio Verification Pass on a visually read Song:
  *  1. Builds 25 fps audio chroma timeline
  *  2. Auto-detects Tuning & Capo (Standard, Drop D, Eb, D Std, Open G, Capos 1–7)
- *  3. Locks every note step to its exact audio millisecond via DTW
+ *  3. Locks every note step to its exact audio millisecond via DTW (saving barTimes for Floating Video bar-seek)
  *  4. For every unsure or weak-scoring note, tests its visual runner-up frets (`alts` + OCR confusions)
  *     against the real audio's harmonic salience at that exact millisecond and picks the winner!
+ *  5. Audio Surprise: when DTW locked strongly, flags confidently-read notes that are virtually silent while a
+ *     different fret rings loudly (or the audio is completely silent = phantom cursor note) so the Zoom-Crop AI
+ *     and Visual Checker catch them!
  */
 export function renderAndCompareSong(
   song: Song,
@@ -363,7 +370,7 @@ export function renderAndCompareSong(
 ): PolishSummary {
   const track = song.tracks[0]
   if (!track || !x.length) {
-    return { tuningLabel: 'Standard', capo: track?.capo ?? 0, tuningChanged: false, notesCorrected: 0, notesConfirmed: 0, meanMatch: 0, weakBars: [] }
+    return { tuningLabel: 'Standard', capo: track?.capo ?? 0, tuningChanged: false, notesCorrected: 0, notesConfirmed: 0, notesFlagged: 0, meanMatch: 0, weakBars: [], barTimes: {} }
   }
 
   // Collect all note-bearing steps with their bar index
@@ -374,12 +381,12 @@ export function renderAndCompareSong(
     }
   })
   if (flat.length < 4) {
-    return { tuningLabel: 'Standard', capo: track.capo ?? 0, tuningChanged: false, notesCorrected: 0, notesConfirmed: 0, meanMatch: 0, weakBars: [] }
+    return { tuningLabel: 'Standard', capo: track.capo ?? 0, tuningChanged: false, notesCorrected: 0, notesConfirmed: 0, notesFlagged: 0, meanMatch: 0, weakBars: [], barTimes: {} }
   }
 
   const timeline = buildAudioTimeline(x, sr)
   if (timeline.frames.length < 8) {
-    return { tuningLabel: 'Standard', capo: track.capo ?? 0, tuningChanged: false, notesCorrected: 0, notesConfirmed: 0, meanMatch: 0, weakBars: [] }
+    return { tuningLabel: 'Standard', capo: track.capo ?? 0, tuningChanged: false, notesCorrected: 0, notesConfirmed: 0, notesFlagged: 0, meanMatch: 0, weakBars: [], barTimes: {} }
   }
 
   const baseTuning = track.tuning
@@ -421,11 +428,14 @@ export function renderAndCompareSong(
 
   let notesCorrected = 0
   let notesConfirmed = 0
+  let notesFlagged = 0
   const barScores = new Map<number, number[]>()
+  const barTimes: Record<number, number> = {}
 
   flat.forEach(({ barIdx, step }, idx) => {
     const t = alignment.stepTimes[idx]
     const sc = alignment.stepScores[idx]
+    if (barTimes[barIdx] === undefined && Number.isFinite(t)) barTimes[barIdx] = t
     barScores.set(barIdx, [...(barScores.get(barIdx) ?? []), sc])
     if (!okAlign) return
 
@@ -436,7 +446,7 @@ export function renderAndCompareSong(
       for (let m = 38; m <= 88; m++) peakRef = Math.max(peakRef, f0(m))
     }
 
-    for (const n of step.notes as (SongNote & { unsure?: boolean; alts?: number[] })[]) {
+    for (const n of step.notes as (SongNote & { unsure?: boolean; alts?: number[]; hint?: string })[]) {
       if (n.tech === 'x') continue
       const openMidi = track.tuning[n.string]
       if (openMidi === undefined) continue
@@ -451,11 +461,31 @@ export function renderAndCompareSong(
         continue
       }
 
-      // Guardrail: NEVER touch a high-confidence visual digit on noisy/distorted backing tracks!
-      // Only consider overriding a confident digit when DTW locked strongly, current note is practically silent (<0.12),
-      // and a genuine neural-net runner-up (`n.alts`) is overwhelmingly loud.
+      // Guardrail: NEVER silently alter a high-confidence visual digit without runner-up evidence.
+      // However, if DTW locked strongly and the visual note is nearly silent in the guitar audio (< 0.08),
+      // check Audio Surprise: if an OCR look-alike or nearby fret rings overwhelmingly loud, flag it unsure!
       if (!n.unsure) {
-        if (!strongAlign || curSal >= 0.12 || !(n.alts?.length)) continue
+        if (!strongAlign || curSal >= 0.12) continue
+        if (!(n.alts?.length)) {
+          // Audio Surprise: check look-alike frets (0↔9, 3↔8, 5↔6, 1↔7, etc.) on this string
+          const surpriseCands = (OCR_CONFUSIONS[n.fret] ?? []).filter(c => c >= 0 && c <= 24 && c !== n.fret)
+          let loudFret = -1
+          let loudSal = curSal
+          for (const cand of surpriseCands) {
+            const s = salAt(t, openMidi + capo + cand) / peakRef
+            if (s > loudSal + 0.50 && s >= 0.72) {
+              loudSal = s
+              loudFret = cand
+            }
+          }
+          if (loudFret >= 0) {
+            n.unsure = true
+            n.alts = [loudFret, ...(n.alts ?? []).filter(a => a !== loudFret)].slice(0, 4)
+            n.hint = `Audio heard fret ${loudFret} instead of ${n.fret} — double-check in picture.`
+            notesFlagged++
+          }
+          continue
+        }
       }
 
       const candidateFrets = new Set<number>()
@@ -499,8 +529,10 @@ export function renderAndCompareSong(
     tuningChanged: tuningChanged && alignment.meanScore >= 0.62,
     notesCorrected,
     notesConfirmed,
+    notesFlagged,
     meanMatch: alignment.meanScore,
     weakBars,
+    barTimes,
   }
 }
 

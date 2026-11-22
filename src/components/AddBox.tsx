@@ -14,6 +14,7 @@ import { TAB_SITES } from '../tabs/tabSites'
 import { SiteSearch } from './SiteSearch'
 import { Ico } from './Icon'
 import { saveForLater } from '../tabs/toLearn'
+import { openScanner } from '../nav'
 
 export type BoxKind = 'empty' | 'name' | 'youtube' | 'site' | 'tab' | 'other'
 
@@ -110,6 +111,7 @@ export function AddBox({ onOpen, onFiles, onScan, onSavedForLater }: {
       <div className="row" style={{ gap: 8 }}>
         <button className="btn" onClick={() => file.current?.click()} data-testid="add-file"><Ico n="upload" /> Choose a file</button>
         <button className="btn" onClick={() => void paste()}>Paste</button>
+        <button className="btn" onClick={() => openScanner()} data-testid="add-open-scanner"><Ico n="scan" /> Riff Scanner</button>
         {v && <button className="btn ghost" onClick={() => { setV(''); setTitle(''); setQuery(''); setMsg('') }}>Clear</button>}
         <input ref={file} type="file" multiple hidden onChange={e => { const fs = [...(e.target.files ?? [])]; e.target.value = ''; if (fs.length) onFiles(fs) }} data-testid="add-file-input" />
       </div>

@@ -12,12 +12,17 @@ import { pinchTargetAt } from './Zoomable'
 /** what a card must not sit on: anything you tap or drag */
 const CONTROLS = 'button, [role=tab], [role=separator], .split, .win-size, input, select, textarea, a'
 
-interface Place { x: number; y: number; w: number; h?: number; min: boolean }
+interface Place { x: number; y: number; w: number; h?: number; min: boolean; opacity?: number }
 const sizeClass = () => (typeof innerWidth === 'number' && innerWidth < 600 ? 'narrow' : 'wide')
 // the hand card keeps the finger box's old remembered places
 const KEY = (id: string, where: string) => (id === 'hand' ? `kg:fingerBox:${where}:${sizeClass()}` : `kg:floatPlace:${id}:${where}:${sizeClass()}`)
 function stored(id: string, where: string): Place | null {
-  try { const v = JSON.parse(localStorage.getItem(KEY(id, where)) ?? 'null') as Place | null; if (v && typeof v.x === 'number') return v } catch { /* default */ }
+  try {
+    const v = JSON.parse(localStorage.getItem(KEY(id, where)) ?? 'null') as Place | null
+    if (v && typeof v.x === 'number') {
+      return { ...v, opacity: typeof v.opacity === 'number' ? Math.max(0.2, Math.min(1, v.opacity)) : 1 }
+    }
+  } catch { /* default */ }
   return null
 }
 
@@ -84,16 +89,21 @@ interface Props {
   order?: number
   /** start open even on a narrow screen (a card you asked for by tapping something) */
   openNarrow?: boolean
+  /** optional extra compact controls placed in the card's title bar (e.g. feature dropdown menu) */
+  headerExtra?: ReactNode
+  /** hide the opacity button if a card manages its own */
+  noOpacity?: boolean
 }
 
 export function FloatCard(p: Props) {
   return createPortal(<FloatCardIn {...p} />, document.body)
 }
 
-function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width = 240, minW = 160, alert, dodgeCursor, label, testId, bubbleTestId, order = 0, openNarrow }: Props) {
+function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width = 240, minW = 160, alert, dodgeCursor, label, testId, bubbleTestId, order = 0, openNarrow, headerExtra, noOpacity }: Props) {
   // on a narrow screen (the Fold's cover, a phone) a card you haven't opened yourself starts as a small bubble, so it never covers the tab
-  const fresh = (): Place => stored(id, where) ?? { x: 0.98, y: Math.min(0.85, 0.3 + order * 0.14), w: Math.min(width, Math.round((typeof innerWidth === 'number' ? innerWidth : 400) * 0.6)), min: sizeClass() === 'narrow' && !openNarrow }
+  const fresh = (): Place => stored(id, where) ?? { x: 0.98, y: Math.min(0.85, 0.3 + order * 0.14), w: Math.min(width, Math.round((typeof innerWidth === 'number' ? innerWidth : 400) * 0.6)), min: sizeClass() === 'narrow' && !openNarrow, opacity: 1 }
   const [place, setPlace] = useState<Place>(fresh)
+  const [opacityOpen, setOpacityOpen] = useState(false)
   const [z, setZ] = useState(() => bringToFront())
   const cls = useRef(sizeClass())
   useEffect(() => {
@@ -190,7 +200,7 @@ function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width =
   const left = (bw: number) => Math.max(4, Math.min(innerWidth - bw - 4, place.x * innerWidth - bw))
   const top = (bh: number) => Math.max(4, Math.min(innerHeight - bh - 4, place.y * innerHeight))
   const drag = (e: RPE, mode: 'move' | 'size') => {
-    if ((e.target as HTMLElement).closest('button') && mode === 'move') return
+    if ((e.target as HTMLElement).closest('button, input, select, [data-no-drag]') && mode === 'move') return
     e.preventDefault()
     touch()
     const el = box.current
@@ -200,13 +210,25 @@ function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width =
     const p0 = { ...place }
     let last = p0
     const mv = (ev: PointerEvent) => {
-      if (mode === 'move') last = { ...p0, x: Math.min(1, Math.max(0, (r.right + ev.clientX - sx) / innerWidth)), y: Math.min(0.97, Math.max(0, (r.top + ev.clientY - sy) / innerHeight)) }
-      else last = { ...p0, w: Math.max(minW, Math.min(innerWidth - 16, r.width + ev.clientX - sx)), x: Math.min(1, (r.right + ev.clientX - sx) / innerWidth) }
+      if (mode === 'move') {
+        let rightPx = r.right + ev.clientX - sx
+        let topPx = r.top + ev.clientY - sy
+        // gentle magnetic edge-snap within 16 px of screen edges
+        if (rightPx - r.width < 16) rightPx = r.width + 6
+        else if (innerWidth - rightPx < 16) rightPx = innerWidth - 6
+        if (topPx < 16) topPx = 6
+        else if (innerHeight - (topPx + r.height) < 16) topPx = Math.max(6, innerHeight - r.height - 6)
+        last = { ...p0, x: Math.min(1, Math.max(0, rightPx / innerWidth)), y: Math.min(0.97, Math.max(0, topPx / innerHeight)) }
+      } else {
+        last = { ...p0, w: Math.max(minW, Math.min(innerWidth - 16, r.width + ev.clientX - sx)), x: Math.min(1, (r.right + ev.clientX - sx) / innerWidth) }
+      }
       setPlace(last)
     }
     const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up); save(last) }
     addEventListener('pointermove', mv); addEventListener('pointerup', up); addEventListener('pointercancel', up)
   }
+
+  const cardOpacity = place.opacity ?? 1
 
   if (place.min) {
     return (
@@ -217,14 +239,50 @@ function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width =
     )
   }
   return (
-    <div className={`float-card${alert ? ' alert' : ''}${dodge ? ' dodge' : ''}`} data-self ref={box} style={{ width: W, left: left(W), top: top(150), zIndex: 65 + z }}
+    <div className={`float-card${alert ? ' alert' : ''}${dodge ? ' dodge' : ''}`} data-self ref={box}
+      style={{ width: W, left: left(W), top: top(150), zIndex: 65 + z, ...(dodge ? {} : { opacity: cardOpacity }) }}
       onPointerDownCapture={touch} data-testid={testId ?? `float-${id}`} role="region" aria-label={label ?? (typeof title === 'string' ? title : undefined)}>
       <div className="fc-bar" onPointerDown={e => drag(e, 'move')} title="Drag to move">
         <span className="fc-grip" aria-hidden>⠿</span>
         <b>{title}</b>
+        {headerExtra}
+        {!noOpacity && (
+          <button
+            className={`fc-btn fc-op-btn${opacityOpen || cardOpacity < 0.98 ? ' on' : ''}`}
+            onClick={() => setOpacityOpen(o => !o)}
+            aria-label="Card opacity"
+            aria-pressed={opacityOpen}
+            title={`Opacity: ${Math.round(cardOpacity * 100)}%`}
+            data-testid={`fc-opacity-btn-${id}`}
+          >
+            ◐
+          </button>
+        )}
         <button className="fc-btn" onClick={() => save({ ...place, min: true })} aria-label="Shrink to a bubble" title="Shrink">–</button>
         {onHide && <button className="fc-btn" onClick={onHide} aria-label="Hide this card" title="Hide (bring it back from Cards)">×</button>}
       </div>
+      {!noOpacity && opacityOpen && (
+        <div className="fc-opacity-bar row small" data-no-drag data-testid={`fc-opacity-bar-${id}`}>
+          <span className="muted" style={{ fontSize: 11 }}>Opacity</span>
+          <input
+            type="range"
+            min={20}
+            max={100}
+            step={5}
+            value={Math.round(cardOpacity * 100)}
+            onChange={e => save({ ...place, opacity: Number(e.target.value) / 100 })}
+            aria-label="Card opacity slider"
+            data-testid={`fc-opacity-slider-${id}`}
+            style={{ flex: 1, minWidth: 60 }}
+          />
+          <span className="tabular" style={{ fontSize: 11, minWidth: 32, textAlign: 'right' }}>{Math.round(cardOpacity * 100)}%</span>
+          {[0.45, 0.75, 1].map(v => (
+            <button key={v} className={`fc-op-chip${Math.abs(cardOpacity - v) < 0.04 ? ' on' : ''}`} onClick={() => save({ ...place, opacity: v })}>
+              {Math.round(v * 100)}%
+            </button>
+          ))}
+        </div>
+      )}
       {children}
       <div className="fc-size" onPointerDown={e => drag(e, 'size')} title="Drag to resize" aria-label="Drag to resize" role="separator">◢</div>
     </div>

@@ -55,6 +55,14 @@ export function RiffScanner({ listen, onUseInJam, startMode }: {
 }) {
   const [saved, setMode] = usePersist<ScanMode>('scanMode', startMode ?? 'scan')
   const mode: ScanMode = saved === 'shorts' || saved === 'listen' ? saved : 'scan'
+  useEffect(() => {
+    const f = (e: Event) => {
+      const d = (e as CustomEvent<{ mode?: ScanMode }>).detail
+      if (d?.mode) setMode(d.mode)
+    }
+    addEventListener('kg-open-scanner', f)
+    return () => removeEventListener('kg-open-scanner', f)
+  }, [setMode])
   return (
     <div className="riff-scanner stack" style={{ gap: 10 }} data-testid="riff-scanner">
       <div className="scan-modes" role="tablist" aria-label="Riff Scanner">
@@ -84,7 +92,7 @@ export function RiffScanner({ listen, onUseInJam, startMode }: {
 }
 
 /** Screenshots, or a video / audio file → a tab. */
-export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onListen, initialLink, autoRead = false, autoLink = false, title }: {
+export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onListen, initialLink, autoRead = false, autoLink = false, compactShort = false, title }: {
   onUseInJam?: (chords: string[]) => void
   youtube?: string
   initialPics?: { name: string; url: string }[]
@@ -92,9 +100,11 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
   autoRead?: boolean
   /** scan initialLink straight away (tapped "Scan this Short" in the Shorts feed) */
   autoLink?: boolean
+  /** launched from ShortsFeed: hide unrelated upload/link clutter and put Deep Scan right at the top */
+  compactShort?: boolean
   /** the song's name when it's read (e.g. the book and its pages) */
   title?: string
-  /** offer a YouTube link (Gemini watches it → KGuitar grabs its screen → your screen recording) */
+  /** offer a YouTube link (Full-Screen Deep Scan → screen recording → optional Quick cloud scan) */
   links?: boolean
   /** "Play it out loud": go to the mic */
   onListen?: () => void
@@ -104,6 +114,17 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
   const inst = useInstrument()
   const [link, setLink] = usePersist('scanLink', '')
   const [deepMode, setDeepMode] = usePersist('scanDeepMode', true)
+  useEffect(() => {
+    const f = (e: Event) => {
+      const d = (e as CustomEvent<{ link?: string }>).detail
+      if (d?.link) {
+        setLink(d.link)
+        setShortLayout(/\/shorts\//.test(d.link))
+      }
+    }
+    addEventListener('kg-open-scanner', f)
+    return () => removeEventListener('kg-open-scanner', f)
+  }, [setLink])
   useEffect(() => {
     if (initialLink) {
       setLink(initialLink)
@@ -152,8 +173,8 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     const u = initialLink?.trim()
     if (!autoLink || !u || autoLinkDone.current === u || !youtubeId(u)) return
     autoLinkDone.current = u
-    if (deepMode && canGrab()) {
-      setWhy('Deep Mode uses KGuitar’s 99% neural tab reader + audio engine verification on the real pixels & sound (far more accurate than link guessing). Tap Start Deep Scan below!')
+    if ((deepMode || compactShort) && canGrab()) {
+      setWhy('Captures crisp full-screen frames + sound so every unsure note pops up in "Check it in the picture".')
       setPhase('grab')
     } else if (canAskGemini()) {
       void scanLink(u)
@@ -161,7 +182,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       setWhy('Set up a free Gemini key for quick watching, or let KGuitar grab the tab right from the screen.')
       setPhase('grab')
     }
-  }, [autoLink, initialLink, deepMode]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [autoLink, initialLink, deepMode, compactShort]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function addUrls(list: { name: string; url: string }[]) {
     const add: Pic[] = []
@@ -204,7 +225,19 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     ownTry.current = null
     let sources: { url: string; w: number; h: number }[] | undefined
     if (own?.sources.length) {
-      try { const { borrowSources } = await import('./tabReadSong'); doc = { ...doc, song: borrowSources(doc.song, own.song) }; sources = own.sources } catch { /* no pictures */ }
+      try {
+        const { borrowSources, attachFallbackSources } = await import('./tabReadSong')
+        doc = { ...doc, song: borrowSources(doc.song, own.song) }
+        sources = own.sources
+        // Ensure notes that didn't match ownTry still get a strip spot so Visual Checker always opens
+        doc = { ...doc, song: attachFallbackSources(doc.song, sources.length) }
+      } catch { /* no pictures */ }
+    } else if (pieces.length) {
+      try {
+        const { attachFallbackSources } = await import('./tabReadSong')
+        sources = pieces.map(p => ({ url: p.url, w: p.w, h: p.h }))
+        doc = { ...doc, song: attachFallbackSources(doc.song, sources.length) }
+      } catch { /* no pictures */ }
     }
     setOut({ doc: { ...doc, id: newId() }, heard: false, how, text, reparse: t => songFromScan(t, title, inst, youtube), strips: pieces.map(p => ({ url: p.url, w: p.w, h: p.h })), ...(sources ? { sources } : {}) })
     setStages(null)
@@ -217,7 +250,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     try { await (await import('../ml/models')).tabCrnnRunner(); return true } catch { return false }
   }
 
-  async function readOwnPieces(pieces: Piece[], name: string, how: string, bpm?: number, strips?: Gray[], hear?: import('./tabReadSong').VideoSound): Promise<boolean> {
+  async function readOwnPieces(pieces: Piece[], name: string, how: string, bpm?: number, strips?: Gray[], hear?: import('./tabReadSong').VideoSound, signal?: AbortSignal): Promise<boolean> {
     const { readTabPicturesBest, trustReading, grayOf, songTabText, grayPicture } = await import('./tabReadSong')
     // the whole strips when we have them (cut pieces would split bars), else the pieces
     const grays = strips?.length ? strips : (await Promise.all(pieces.map(pc => loadPicture(pc.url)))).map(im => grayOf(im))
@@ -225,6 +258,19 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     ownTry.current = r ? { song: r.song, sources: safeSources(() => grays.map(grayPicture)) ?? [] } : null
     if (!r || !(trustReading(r) || !ready)) return false
     ownTry.current = null
+    let cropSummary: import('./cropReferee').CropRefSummary | null = null
+    if (deepMode && ready && r.unsure > 0) {
+      try {
+        step('ai', { state: 'run', note: `double-checking ${Math.min(12, r.unsure)} tricky spot${r.unsure === 1 ? '' : 's'}` })
+        const { refineUnsureWithCropAi } = await import('./cropReferee')
+        cropSummary = await refineUnsureWithCropAi(r.song, grays, { signal })
+        // Recount remaining unsure notes after Zoom-Crop AI check
+        let rem = 0
+        for (const tr of r.song.tracks) for (const b of tr.bars) for (const st of b.steps) for (const n of st.notes as { unsure?: boolean }[]) if (n.unsure) rem++
+        r.unsure = rem
+        step('ai', { state: 'done', note: cropSummary.checked ? `checked ${cropSummary.checked} spot${cropSummary.checked === 1 ? '' : 's'}` : undefined })
+      } catch { /* keep local read */ }
+    }
     const song = bpm ? { ...r.song, tempo: bpm, tempoFrom: 'file' as const } : r.song
     const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song, youtube, updated: Date.now() }
     const pol = r.polish
@@ -232,15 +278,21 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       ? [
           `${Math.round(pol.meanMatch * 100)}% audio match`,
           pol.tuningChanged ? `${pol.tuningLabel}${pol.capo ? ` (Capo ${pol.capo})` : ''} detected` : '',
-          pol.notesCorrected ? `${pol.notesCorrected} digit${pol.notesCorrected === 1 ? '' : 's'} fixed by ear` : '',
+          pol.notesCorrected ? `${pol.notesCorrected} fixed by ear` : '',
           pol.notesConfirmed ? `${pol.notesConfirmed} confirmed by ear` : '',
+          pol.notesFlagged ? `${pol.notesFlagged} flagged by audio` : '',
         ].filter(Boolean)
       : []
+    const cropBits = cropSummary && (cropSummary.confirmed || cropSummary.corrected)
+      ? [`AI crop check: ${[cropSummary.confirmed ? `${cropSummary.confirmed} confirmed` : '', cropSummary.corrected ? `${cropSummary.corrected} fixed` : ''].filter(Boolean).join(', ')}`]
+      : []
+    const extraBits = [...polBits, ...cropBits]
     setOut({
       doc, heard: false, text: songTabText(song, stringNames(inst)), reparse: t => songFromScan(t, name, inst, youtube),
       strips: pieces.map(p => ({ url: p.url, w: p.w, h: p.h })),
       sources: safeSources(() => grays.map(grayPicture)),
-      how: `${how} KGuitar read ${r.notes} number${r.notes === 1 ? '' : 's'} itself${polBits.length ? ` · Audio engine: ${polBits.join(', ')}` : ''}.${r.unsure ? ` ${r.unsure} ${r.unsure === 1 ? 'has' : 'have'} an amber ring: check ${r.unsure === 1 ? 'it' : 'them'} against the video.` : ''}`,
+      ...(pol?.barTimes && Object.keys(pol.barTimes).length ? { barTimes: pol.barTimes } : {}),
+      how: `${how} Read ${r.notes} note${r.notes === 1 ? '' : 's'}${extraBits.length ? ` · ${extraBits.join(' · ')}` : ''}.${r.unsure ? ` ${r.unsure} unsure spot${r.unsure === 1 ? '' : 's'} ready to verify in the picture.` : ' All notes look clean!'}`,
     })
     setStages(null)
     return true
@@ -250,7 +302,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     if (!pics.length) return
     // 1 KGuitar reads the numbers itself (no AI, no key): exact strings, every number checked against the page's own font
     const name = title || 'Scanned tab'
-    begin([{ id: 'own', label: deepMode ? 'Reading tab lines (Deep 99% neural + dual-check)' : 'Reading the numbers on the tab lines', state: 'run' }])
+    const sig = begin([{ id: 'own', label: deepMode ? 'Reading the tab on screen (Accurate)' : 'Reading the numbers on the tab lines', state: 'run' }])
     await new Promise(r => setTimeout(r, 30))
     try {
       const { readTabPicturesBest, trustReading, grayOf, songTabText, grayPicture } = await import('./tabReadSong')
@@ -264,13 +316,22 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       ownTry.current = r ? { song: r.song, sources: safeSources(() => grays.map(grayPicture)) ?? [] } : null
       if (r && (trustReading(r) || !ready)) {
         ownTry.current = null
+        if (deepMode && ready && r.unsure > 0) {
+          try {
+            const { refineUnsureWithCropAi } = await import('./cropReferee')
+            await refineUnsureWithCropAi(r.song, grays, { signal: sig })
+            let rem = 0
+            for (const tr of r.song.tracks) for (const b of tr.bars) for (const st of b.steps) for (const n of st.notes as { unsure?: boolean }[]) if (n.unsure) rem++
+            r.unsure = rem
+          } catch { /* non-fatal */ }
+        }
         const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song: r.song, youtube, updated: Date.now() }
         const names = stringNames(inst)
         setOut({
           doc, heard: false, text: songTabText(r.song, names), reparse: t => songFromScan(t, name, inst, youtube),
           strips: pics.map(p => ({ url: p.url, w: p.img.naturalWidth || p.img.width, h: p.img.naturalHeight || p.img.height })),
           sources: safeSources(() => grays.map(grayPicture)),
-          how: `KGuitar read ${r.notes} number${r.notes === 1 ? '' : 's'} on ${r.staves} staff${r.staves === 1 ? '' : 's'} itself${r.meter !== 4 ? ` (${r.meter}/4)` : ''}.${r.unsure ? ` ${r.unsure} ${r.unsure === 1 ? 'has' : 'have'} an amber ring: check ${r.unsure === 1 ? 'it' : 'them'} against the page.` : ''} Note lengths come from the rhythm printed under the tab, or from how the notes are spaced.`,
+          how: `Read ${r.notes} note${r.notes === 1 ? '' : 's'} on ${r.staves} staff${r.staves === 1 ? '' : 's'}${r.meter !== 4 ? ` (${r.meter}/4)` : ''}.${r.unsure ? ` ${r.unsure} unsure spot${r.unsure === 1 ? '' : 's'} ready to verify in the picture.` : ' All notes look clean!'}`,
         })
         setStages(null)
         return
@@ -281,7 +342,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     const signal = begin([
       { id: 'frames', label: 'Finding the tab', state: 'run' },
       { id: 'sharpen', label: 'Enlarging and sharpening', state: 'wait' },
-      { id: 'ai', label: 'Reading it (Gemini + Groq race)', state: 'wait' },
+      { id: 'ai', label: 'Reading tricky tab with AI', state: 'wait' },
       { id: 'hand', label: 'Placing it on the neck', state: 'wait' },
       { id: 'tempo', label: 'Tempo', state: 'wait' },
     ])
@@ -299,8 +360,8 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     const title = f.name.replace(/\.[^.]+$/, '') || 'Scanned riff'
     const signal = begin([
       ...(isVideo ? [{ id: 'frames', label: 'Looking through the video for a tab', state: 'run' as const }] : []),
-      { id: 'sound', label: 'Listening to the sound (tempo)', state: isVideo ? 'wait' : 'run' },
-      ...(isVideo ? [{ id: 'ai', label: 'Reading the tab (Gemini + Groq race)', state: 'wait' as const }] : []),
+      { id: 'sound', label: 'Checking tempo & audio', state: isVideo ? 'wait' : 'run' },
+      ...(isVideo ? [{ id: 'ai', label: 'Reading tab & checking tricky spots', state: 'wait' as const }] : []),
       { id: 'notes', label: 'Writing down the notes', state: 'wait' },
       { id: 'hand', label: 'Placing it on the neck', state: 'wait' },
       { id: 'tempo', label: 'Tempo', state: 'wait' },
@@ -323,9 +384,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       const a = snd ? analyse(snd.x, snd.sr) : null
       step('sound', { state: snd ? 'done' : 'skip', note: a ? `${Math.round(a.bpm)} BPM, ${a.meter.num}/${a.meter.den}` : snd ? 'no clear beat' : 'no sound track' })
       if (signal.aborted) throw new Error('Cancelled.')
-      // video frames: the AI reader first when it's set up (KGuitar's own reader still misses some numbers in small,
-      // blurry video text); KGuitar's own reader when there's no AI
-      if (pieces.length && (!ready || await ownFirst()) && await readOwnPieces(pieces, title, `Read from the tab on screen in "${f.name}"${a ? ', tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined, strips, snd && timelines ? { x: snd.x, sr: snd.sr, timelines, views } : undefined)) return
+      if (pieces.length && (!ready || await ownFirst()) && await readOwnPieces(pieces, title, `Read from the tab on screen in "${f.name}"${a ? ', tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined, strips, snd && timelines ? { x: snd.x, sr: snd.sr, timelines, views } : undefined, signal)) return
       if (pieces.length && ready) {
         step('notes', { state: 'skip', note: 'read from the screen instead' })
         await readOut(pieces, signal, title, `Read from the tab on screen in "${f.name}"${a ? `, tempo from its sound` : ''}.`, a ? Math.round(a.bpm) : undefined)
@@ -441,9 +500,9 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     ytApi.current?.pause()
     const scanName = title?.trim() || 'Scanned riff'
     const signal = begin([
-      { id: 'frames', label: 'Finding and stitching the tab', state: 'run', pct: 0 },
-      { id: 'sound', label: 'Listening to the sound (tempo)', state: 'wait' },
-      { id: 'ai', label: 'Reading the tab (Gemini + Groq race)', state: 'wait' },
+      { id: 'frames', label: 'Capturing video frames & tab strips', state: 'run', pct: 0 },
+      { id: 'sound', label: 'Checking tempo & audio', state: 'wait' },
+      { id: 'ai', label: 'Reading tab & checking tricky spots', state: 'wait' },
       { id: 'hand', label: 'Placing it on the neck', state: 'wait' },
       { id: 'tempo', label: 'Tempo', state: 'wait' },
     ])
@@ -453,15 +512,15 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       const a = g.sound ? analyse(g.sound.x, g.sound.sr) : null
       step('sound', { state: a ? 'done' : 'skip', note: a ? `${Math.round(a.bpm)} BPM` : g.sound ? 'no clear beat' : g.audioError ? `no audio (${g.audioError})` : 'no sound captured' })
       if (!g.pieces.length) {
-        if (!g.sound) throw new Error(`No tab showed on screen while it played, and no sound came through${g.audioError ? ` (${g.audioError})` : ''}. Try Quick Gemini Link, a screen recording with Media sounds, or Play it out loud.`)
+        if (!g.sound) throw new Error(`No tab showed on screen while it played, and no sound came through${g.audioError ? ` (${g.audioError})` : ''}. Try a screen recording with Media sounds, Quick Cloud Guess, or Play it out loud.`)
         // no tab on screen: work it out from the sound that played inside the phone
-        await scanSound(g.sound.x, g.sound.sr, scanName, 'the sound of the video (inside the phone)', [{ id: 'frames', label: 'Finding and stitching the tab', state: 'done', note: 'no tab on screen' }], linkUrl)
+        await scanSound(g.sound.x, g.sound.sr, scanName, 'the sound of the video (inside the phone)', [{ id: 'frames', label: 'Capturing video frames & tab strips', state: 'done', note: 'no tab on screen' }], linkUrl)
         setPhase(null)
         return
       }
-      if ((!ready || await ownFirst()) && await readOwnPieces(g.pieces, scanName, `KGuitar watched the video full-screen${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined, g.strips, g.sound && g.timelines ? { x: g.sound.x, sr: g.sound.sr, timelines: g.timelines, views: g.views } : undefined)) { setOut(o => (o ? { ...o, doc: { ...o.doc, youtube: linkUrl || o.doc.youtube } } : o)); setPhase(null); return }
+      if ((!ready || await ownFirst()) && await readOwnPieces(g.pieces, scanName, `Scanned full-screen${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined, g.strips, g.sound && g.timelines ? { x: g.sound.x, sr: g.sound.sr, timelines: g.timelines, views: g.views } : undefined, signal)) { setOut(o => (o ? { ...o, doc: { ...o.doc, youtube: linkUrl || o.doc.youtube } } : o)); setPhase(null); return }
       if (!ready) throw new Error('KGuitar couldn\'t find a tab staff with numbers in the video. Set up the free AI reader for videos like this.')
-      await readOut(g.pieces, signal, scanName, `KGuitar watched the video on screen and read the tab${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined)
+      await readOut(g.pieces, signal, scanName, `Scanned full-screen and read with AI${a ? '; tempo from its sound' : ''}.`, a ? Math.round(a.bpm) : undefined)
       setOut(o => (o ? { ...o, doc: { ...o.doc, youtube: linkUrl || o.doc.youtube } } : o))
       setPhase(null)
     } catch (e) { fail(e); setPhase('record') }
@@ -476,37 +535,39 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
   return (
     <div className="scan-video stack" style={{ gap: 10 }}>
       {!ready && (
-        <div className="notice small">Printed tabs (screenshots, book pages) are read by KGuitar itself. Videos, handwriting and photos at an angle need a free Google Gemini key (a minute to set up, no card). <button className="btn sm" onClick={() => setSetup(!setup)}>{setup ? 'Close' : 'Set it up'}</button></div>
+        <div className="notice small">Printed tabs (screenshots, book pages) are read by KGuitar itself. Tricky videos and zoomed AI spot-checks use a free Google Gemini key (a minute to set up, no card). <button className="btn sm" onClick={() => setSetup(!setup)}>{setup ? 'Close' : 'Set it up'}</button></div>
       )}
       {setup && !ready && <AiSetup compact />}
-      <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <div className="seg" role="group" aria-label="Scanner accuracy mode" data-testid="scan-accuracy-mode">
-          <button
-            className="btn sm"
-            aria-pressed={deepMode}
-            onClick={() => setDeepMode(true)}
-            data-testid="scan-mode-deep"
-            title="Uses 99% pixel neural tab reader + playhead erasure + DTW & Render-and-Compare audio verification + Demucs guitar isolation"
-          >
-            🎯 Deep Accurate
-          </button>
-          <button
-            className="btn sm"
-            aria-pressed={!deepMode}
-            onClick={() => setDeepMode(false)}
-            data-testid="scan-mode-quick"
-            title="Faster scan using Gemini link watching or single-pass audio"
-          >
-            ⚡ Quick
-          </button>
+      {!compactShort && (
+        <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="seg" role="group" aria-label="Scanner accuracy mode" data-testid="scan-accuracy-mode">
+            <button
+              className="btn sm"
+              aria-pressed={deepMode}
+              onClick={() => setDeepMode(true)}
+              data-testid="scan-mode-deep"
+              title="Reads the real tab pixels on screen, checks notes against the guitar audio, and pops up Picture Check for unsure notes"
+            >
+              🎯 Accurate (Picture Check)
+            </button>
+            <button
+              className="btn sm"
+              aria-pressed={!deepMode}
+              onClick={() => setDeepMode(false)}
+              data-testid="scan-mode-quick"
+              title="Faster cloud scan without local video frames or Picture Check"
+            >
+              ⚡ Quick (No Picture)
+            </button>
+          </div>
+          <span className="small muted">
+            {deepMode
+              ? 'Reads the real tab pixels + audio check, and opens Picture Check on any unsure notes.'
+              : 'Fast cloud guess (no video frames to visually verify).'}
+          </span>
         </div>
-        <span className="small muted">
-          {deepMode
-            ? 'Deep Mode: 99% pixel tab reader + audio-engine DTW & Render-and-Compare + Demucs guitar isolation.'
-            : 'Quick Mode: fast single-pass scan.'}
-        </span>
-      </div>
-      {links && (
+      )}
+      {links && !compactShort && (
         <form
           className="scan-link stack"
           style={{ gap: 6 }}
@@ -514,7 +575,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
             e.preventDefault()
             if (deepMode && canGrab()) {
               setShortLayout(/\/shorts\//.test(linkUrl))
-              setWhy('Deep Mode expands the video full-screen (5× sharper!) and crops only the video player + internal audio for KGuitar’s 99% neural tab reader.')
+              setWhy('Captures crisp full-screen frames + internal audio so every unsure note pops up in "Check it in the picture".')
               setPhase('grab')
             } else {
               void scanLink()
@@ -536,13 +597,39 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
       {phase === 'grab' && linkUrl && (
         <div ref={grabCardRef} className={`scan-grab stack${theater ? ' grabbing-fs' : ' panel'}${shortLayout ? ' is-short' : ' is-wide'}`} style={{ gap: theater ? 0 : 8 }} data-testid="scan-grab">
           {!theater && (
-            <div className="row" style={{ gap: 8, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-              <p className="small" style={{ margin: 0, flex: '1 1 200px' }}><b>{deepMode ? '🎯 Full-Screen Deep Scan:' : 'Next: KGuitar watches it here.'}</b> {why}</p>
-              <div className="seg" role="group" aria-label="Video shape">
-                <button className="btn sm" aria-pressed={shortLayout} onClick={() => setShortLayout(true)}>9:16 Short</button>
-                <button className="btn sm" aria-pressed={!shortLayout} onClick={() => setShortLayout(false)}>16:9 Wide</button>
+            <>
+              <div className="row" style={{ gap: 8, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                {canGrab() ? (
+                  <button className="btn primary" onClick={() => void startGrabbing()} data-testid="grab-start">
+                    <Ico n="screen" /> Start Full-Screen Deep Scan
+                  </button>
+                ) : (
+                  <p className="small muted" style={{ margin: 0 }}>Screen grab needs the Android app or desktop browser: use a screen recording below.</p>
+                )}
+                <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div className="seg" role="group" aria-label="Video shape">
+                    <button className="btn sm" aria-pressed={shortLayout} onClick={() => setShortLayout(true)}>9:16 Short</button>
+                    <button className="btn sm" aria-pressed={!shortLayout} onClick={() => setShortLayout(false)}>16:9 Wide</button>
+                  </div>
+                  <button className="btn sm ghost" onClick={() => setPhase('record')}>Screen recording</button>
+                  {canAskGemini() && (
+                    <button className="btn sm ghost" onClick={() => void scanLink(linkUrl)} data-testid="grab-quick-gemini" title="Faster cloud read, but no Picture Check">
+                      ⚡ Quick (no picture)
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+              <p className="small muted" style={{ margin: 0 }}>
+                <b>🎯 Full-Screen Deep Scan (Picture Check):</b> {why || 'Expands full-screen for sharp tab pixels + internal audio, auto-stops at the end, and pops up Picture Check for any unsure notes.'}
+              </p>
+              {compactShort && (
+                <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span className="small muted">Only a part?</span>
+                  <input className="input" style={{ width: 72, flex: 'none' }} placeholder="from 0:05" value={from} onChange={e => setFrom(e.target.value)} aria-label="From (minutes:seconds)" />
+                  <input className="input" style={{ width: 72, flex: 'none' }} placeholder="to 0:45" value={to} onChange={e => setTo(e.target.value)} aria-label="To (minutes:seconds)" />
+                </div>
+              )}
+            </>
           )}
           <YouTubePlayer
             url={linkUrl}
@@ -555,35 +642,22 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
             hideBar={theater}
             note=""
           />
-          {canGrab() ? (
-            theater ? (
-              <div className="scan-fs-bar" data-testid="scan-fs-bar">
-                <span className="scan-rec-dot" aria-hidden />
-                <b className="tabular">{grabbing ? `${grabbing} s` : 'Starting…'}</b>
-                <span className="small muted" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {grabAudio ? (grabAudio.ok ? '🔊 Internal audio · auto-stops at end' : `🔇 Video only (${grabAudio.err ?? 'no audio'})`) : 'Allow screen capture to begin'}
-                </span>
-                <button
-                  className="btn primary on"
-                  onClick={() => { if (session.current) void stopGrabbing(); else { setTheater(false); setGrabbing(0) } }}
-                  data-testid="grab-stop"
-                >
-                  <Ico n="stop" fill /> {session.current ? 'Stop & Read Tab' : 'Cancel'}
-                </button>
-              </div>
-            ) : (
-              <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <button className="btn primary" onClick={() => void startGrabbing()} data-testid="grab-start"><Ico n="screen" /> {deepMode ? 'Start Full-Screen Deep Scan' : 'Start the grab'}</button>
-                {canAskGemini() && (
-                  <button className="btn sm ghost" onClick={() => void scanLink(linkUrl)} data-testid="grab-quick-gemini">
-                    ⚡ Quick Gemini Link
-                  </button>
-                )}
-                <span className="small muted">Video expands full-screen for sharp HD pixels{!shortLayout ? ' (rotate phone sideways for widest 16:9 tab!)' : ''}, crops only the video, and auto-stops at the end.</span>
-              </div>
-            )
-          ) : <p className="small muted" style={{ margin: 0 }}>This browser can't grab the screen: use a screen recording (below).</p>}
-          {!theater && <button className="btn sm ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setPhase('record')}>Use a screen recording instead</button>}
+          {canGrab() && theater && (
+            <div className="scan-fs-bar" data-testid="scan-fs-bar">
+              <span className="scan-rec-dot" aria-hidden />
+              <b className="tabular">{grabbing ? `${grabbing} s` : 'Starting…'}</b>
+              <span className="small muted" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {grabAudio ? (grabAudio.ok ? '🔊 Internal audio · auto-stops at end' : `🔇 Video only (${grabAudio.err ?? 'no audio'})`) : 'Allow screen capture to begin'}
+              </span>
+              <button
+                className="btn primary on"
+                onClick={() => { if (session.current) void stopGrabbing(); else { setTheater(false); setGrabbing(0) } }}
+                data-testid="grab-stop"
+              >
+                <Ico n="stop" fill /> {session.current ? 'Stop & Read Tab' : 'Cancel'}
+              </button>
+            </div>
+          )}
         </div>
       )}
       {phase === 'record' && (
@@ -602,12 +676,16 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
           </div>
         </div>
       )}
-      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <label className="btn primary"><input type="file" accept="image/*" multiple hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} data-testid="scan-pics" /><Ico n="camera" /> Screenshots</label>
-        <label className="btn"><input type="file" accept="video/*,audio/*" hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} data-testid="scan-file" /><Ico n="upload" /> Video or audio file</label>
-      </div>
-      <VoiceOutToggle />
-      <p className="small muted" style={{ margin: 0 }}>A tab shown on screen is read exactly (pause on it and screenshot, a few in order if it scrolls). A screen recording of the video also works: KGuitar finds the tab, follows it as it scrolls, and takes the tempo from the sound.</p>
+      {!compactShort && (
+        <>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <label className="btn primary"><input type="file" accept="image/*" multiple hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} data-testid="scan-pics" /><Ico n="camera" /> Screenshots</label>
+            <label className="btn"><input type="file" accept="video/*,audio/*" hidden onChange={e => { void addFiles(e.target.files); e.target.value = '' }} data-testid="scan-file" /><Ico n="upload" /> Video or audio file</label>
+          </div>
+          <VoiceOutToggle />
+          <p className="small muted" style={{ margin: 0 }}>A tab shown on screen is read directly (screenshots or a screen recording both work): KGuitar follows scrolling tabs, checks notes against the sound, and opens Picture Check on any unsure notes.</p>
+        </>
+      )}
       {pics.length > 0 && !stages && (
         <div className="stack" style={{ gap: 8 }}>
           <CropBox url={pics[0].url} box={box} onBox={b => { setBox(b); setUserCropped(true) }} />

@@ -457,3 +457,32 @@ export function borrowSources(song: import('../tabs/model').Song, own: import('.
   void idx
   return out
 }
+
+/** When Vision AI fell back on grabbed strips and KGuitar's own reader couldn't borrow per-note coordinates, attach
+ *  proportional strip positions so the Visual Checker popup STILL opens on the real captured frames (never a dead end!). */
+export function attachFallbackSources(song: import('../tabs/model').Song, stripCount: number): import('../tabs/model').Song {
+  if (stripCount <= 0) return song
+  const track = song.tracks[0]
+  if (!track?.bars.length) return song
+  const out: import('../tabs/model').Song = JSON.parse(JSON.stringify(song))
+  const t = out.tracks[0]
+  const nBars = t.bars.length
+  const nStr = Math.max(1, t.tuning.length)
+  t.bars.forEach((b, bi) => {
+    const p = Math.min(stripCount - 1, Math.floor((bi / nBars) * stripCount))
+    const barStart = (bi / nBars) * stripCount - p
+    const barSpan = Math.min(1 - barStart, stripCount / nBars)
+    const steps = b.steps.length || 1
+    b.steps.forEach((st, si) => {
+      const x = Math.max(0.03, Math.min(0.97, barStart + ((si + 0.5) / steps) * barSpan))
+      for (const n of st.notes) {
+        if (n.src) continue
+        // high string sits near top of strip (0.2), low string near bottom (0.8)
+        const frac = nStr > 1 ? 1 - n.string / (nStr - 1) : 0.5
+        const y = 0.2 + frac * 0.6
+        n.src = { p, x, y, y0: 0.08, y1: 0.92 }
+      }
+    })
+  })
+  return out
+}

@@ -54,16 +54,28 @@ export function setSubPage(screen: 'songs' | 'learn' | 'jam' | 'settings', page:
   // a screen that's already open switches too
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new CustomEvent('kg-subpage', { detail: { screen, page } }))
 }
-export function openSongs(section: 'mine' | 'songbook' | 'practice' | 'add' | 'library' | 'learning' = 'songbook') {
+export function openSongs(section: 'mine' | 'songbook' | 'practice' | 'add' | 'scan' | 'library' | 'learning' = 'songbook') {
   // the exercise library moved to Learn → Exercises (old links still say 'practice')
   if (section === 'practice') { learnGo({ learn: 'exercises' }); return }
   // My songs and the Songbook are one Library now: older links open it showing that kind
-  if (section !== 'add') {
+  if (section !== 'add' && section !== 'scan') {
     const show = section === 'library' ? 'all' : section
     try { localStorage.setItem('kg:libShow', JSON.stringify(show)) } catch { /* private */ }
     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new CustomEvent('kg-libshow', { detail: show }))
   }
-  setSubPage('songs', section === 'add' ? 'add' : 'library')
+  setSubPage('songs', section === 'add' ? 'add' : section === 'scan' ? 'scan' : 'library')
+  go('songs')
+}
+/** Open the full Riff Scanner right in Songs → Riff Scanner (optionally picking Shorts/Listen or pre-filling a YouTube link). */
+export function openScanner(opts: { mode?: 'scan' | 'shorts' | 'listen'; link?: string } = {}) {
+  try {
+    if (opts.mode) localStorage.setItem('kg:scanMode', JSON.stringify(opts.mode))
+    if (opts.link) localStorage.setItem('kg:scanLink', JSON.stringify(opts.link))
+  } catch { /* private */ }
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new CustomEvent('kg-open-scanner', { detail: opts }))
+  }
+  setSubPage('songs', 'scan')
   go('songs')
 }
 /** Open Songs → Library filtered to a specific key (`"7:1"` for Em, or `"all"`). */

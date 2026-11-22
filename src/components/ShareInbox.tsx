@@ -1,7 +1,7 @@
 // What happened to something you shared into KGuitar from another app.
 import { useEffect, useState } from 'react'
 import { onShared, type ShareResult } from '../shareIn'
-import { go, openInPlay } from '../nav'
+import { go, openInPlay, openScanner } from '../nav'
 import { useInstrument } from '../instrument'
 
 export function ShareInbox() {
@@ -26,11 +26,12 @@ export function ShareInbox() {
         )}
         {r.kind === 'video' && (
           <>
-            <h2 style={{ margin: 0 }}>{r.song ? 'Video added' : 'Open a song first'}</h2>
-            <p className="small" style={{ margin: 0 }}>{r.song ? `The video is now attached to "${r.song}" in Play.` : 'Open the song in Play, then share the video again (or paste the link under the tab).'}</p>
-            <div className="row" style={{ justifyContent: 'flex-end' }}>
+            <h2 style={{ margin: 0 }}>{r.song ? 'Video shared' : 'YouTube video ready'}</h2>
+            <p className="small" style={{ margin: 0 }}>{r.song ? `Attached to "${r.song}" in Play — or scan the tab straight from this video with the Riff Scanner.` : 'Scan the tab straight from this video in the Riff Scanner, or open a song in Play to attach it.'}</p>
+            <div className="row" style={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}>
               <button className="btn" onClick={close}>OK</button>
-              {r.song && <button className="btn primary" onClick={() => { go('play'); close() }}>Go to Play</button>}
+              {r.song && <button className="btn" onClick={() => { go('play'); close() }}>Go to Play</button>}
+              <button className="btn primary" onClick={() => { openScanner({ mode: 'scan', link: r.url }); close() }}>Scan with Riff Scanner</button>
             </div>
           </>
         )}

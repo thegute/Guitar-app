@@ -99,6 +99,8 @@ export interface ScanOut {
   strips?: { url: string; w: number; h: number }[]
   /** the pictures KGuitar's own reader read, in order (a note's `src.p` points here): the "Check it in the picture" card */
   sources?: { url: string; w: number; h: number }[]
+  /** 0-based bar index -> audio timestamp in seconds (from DTW alignment) for Floating Video bar-seek */
+  barTimes?: Record<number, number>
 }
 
 /** A scan from sound still working in the background: the better version, the AI's second opinion, downloads. */
@@ -207,17 +209,21 @@ export function ScanResult({ out, live, onUseInJam, onAgain, onFrames }: { out: 
           </div>
         </div>
       ) : (
-        <div className="scan-actions row" style={{ gap: 6, flexWrap: 'wrap' }}>
-          <button className="btn primary" onClick={() => void play('wait')} data-testid="scan-play"><Ico n="play" fill /> Open in Play</button>
-          <button className="btn" onClick={() => void play('time')} data-testid="scan-play-time"><Ico n="target" /> Play it in time</button>
-          <button className="btn" onClick={() => void today()} data-testid="scan-today"><Ico n="calendar" /> Practise it today</button>
-          {onUseInJam && chords.length >= 2 && <button className="btn" onClick={() => onUseInJam(chords)} data-testid="scan-jam"><Ico n="guitar" /> Use the chords in Jam</button>}
-          <button className="btn" onClick={toChain} data-testid="scan-chain"><Ico n="plus" /> Add to my lick chain</button>
-          <button className="btn" disabled={busy === 'pad'} onClick={() => void toPad()} data-testid="scan-pad"><Ico n="drum" /> {busy === 'pad' ? 'Putting it on a pad…' : 'Sample to a pad'}</button>
-          {otherTuning && <button className={`btn${adapt ? ' on' : ''}`} aria-pressed={adapt} onClick={() => setAdapt(!adapt)} data-testid="scan-adapt">{adapt ? 'Back to its own tuning' : 'Play it in my tuning'}</button>}
-          {out.strips && out.strips.length > 0 && <button className={`btn ghost${showStrips ? ' on' : ''}`} onClick={() => setShowStrips(!showStrips)} aria-expanded={showStrips} data-testid="scan-strip-toggle">{showStrips ? 'Hide scanned strip' : 'Show scanned strip'}</button>}
-          {out.text !== undefined && <button className="btn ghost" onClick={() => setEdit(!edit)} aria-expanded={edit}>Fix the tab text</button>}
-          <button className="btn ghost" onClick={onAgain}>Scan something else</button>
+        <div className="stack" style={{ gap: 6 }}>
+          <div className="scan-actions row" style={{ gap: 6, flexWrap: 'wrap' }}>
+            <button className="btn primary" onClick={() => void play('wait')} data-testid="scan-play"><Ico n="play" fill /> Open in Play</button>
+            <button className="btn" onClick={() => void play('time')} data-testid="scan-play-time"><Ico n="target" /> Play it in time</button>
+            <button className="btn" onClick={() => void today()} data-testid="scan-today"><Ico n="calendar" /> Practise it today</button>
+            <button className="btn ghost" onClick={onAgain}>Scan another</button>
+          </div>
+          <div className="scan-actions-secondary row" style={{ gap: 5, flexWrap: 'wrap' }}>
+            {onUseInJam && chords.length >= 2 && <button className="btn sm ghost" onClick={() => onUseInJam(chords)} data-testid="scan-jam"><Ico n="guitar" /> Use chords in Jam</button>}
+            <button className="btn sm ghost" onClick={toChain} data-testid="scan-chain"><Ico n="plus" /> Add to my lick chain</button>
+            <button className="btn sm ghost" disabled={busy === 'pad'} onClick={() => void toPad()} data-testid="scan-pad"><Ico n="drum" /> {busy === 'pad' ? 'Sampling…' : 'Sample to a pad'}</button>
+            {otherTuning && <button className={`btn sm${adapt ? ' on' : ' ghost'}`} aria-pressed={adapt} onClick={() => setAdapt(!adapt)} data-testid="scan-adapt">{adapt ? 'Back to its own tuning' : 'Play in my tuning'}</button>}
+            {out.strips && out.strips.length > 0 && <button className={`btn sm ghost${showStrips ? ' on' : ''}`} onClick={() => setShowStrips(!showStrips)} aria-expanded={showStrips} data-testid="scan-strip-toggle">{showStrips ? 'Hide scanned strip' : 'Show scanned strip'}</button>}
+            {out.text !== undefined && <button className="btn sm ghost" onClick={() => setEdit(!edit)} aria-expanded={edit}>Fix the tab text</button>}
+          </div>
         </div>
       )}
       {showStrips && out.strips && out.strips.length > 0 && (
@@ -245,7 +251,7 @@ export function ScanResult({ out, live, onUseInJam, onAgain, onFrames }: { out: 
       {note && <p className="small" role="status" style={{ margin: 0 }} data-testid="scan-note">{note}</p>}
       {check.length > 0 && <p className="small" style={{ margin: 0 }} data-testid="scan-checkbars"><b>Check bar{check.length > 1 ? 's' : ''} {check.map(b => b + 1).join(', ')}</b> (dashed): the chord heard there and the notes don't agree.</p>}
       {strum && <p className="small" style={{ margin: 0 }}>Strum heard: <b>{strum.label.replace(/^As heard /, '')}</b> (shown over the chords in Play).</p>}
-      <ScanPlayer doc={doc} marks={check} sources={adapt ? undefined : out.sources}
+      <ScanPlayer doc={doc} marks={check} sources={adapt ? undefined : out.sources} barTimes={out.barTimes}
         noPicture={adapt && out.sources?.length ? { why: 'The picture shows the tab in its own tuning: tap "Back to its own tuning" to check notes against it.' }
           : onFrames ? { why: 'Gemini read this video in Google\'s cloud, so the phone has no frames to show. Read it here instead and every note you tap shows the frame it came from.', onFrames }
           : out.sources?.length ? { why: 'This note wasn\'t read from the picture (it was added or worked out another way).' }

@@ -2,7 +2,9 @@
 // the songbook; one search and filter chips) and Add a song (one box: a name, a link, a file, a picture or a recording).
 import { stopAllSounds } from '../audio/stopAll'
 import { Win, WinArea } from '../components/Win'
-import { ScanVideo } from '../scan/RiffScanner'
+import { RiffScanner, ScanVideo } from '../scan/RiffScanner'
+import { SongFinder } from '../components/SongFinder'
+import { Transcriber } from '../components/Transcriber'
 import { Songbook } from '../components/Songbook'
 import { JumpBackIn } from '../components/JumpBackIn'
 import { SubTabs, useSubTab } from '../components/SubTabs'
@@ -28,7 +30,7 @@ import { keyOptionId, shiftKeyName } from '../tabs/transpose'
 import { onToLearn, removeToLearn, toLearnList } from '../tabs/toLearn'
 
 
-const PAGES = ['library', 'add'] as const
+const PAGES = ['library', 'scan', 'add'] as const
 type Page = typeof PAGES[number]
 const SHOW_HINT: Partial<Record<string, string>> = {
   plan: 'Reviews due, songs with a trouble spot, and what you\'re learning now.',
@@ -59,10 +61,30 @@ export function SongsScreen() {
       </header>
       <SubTabs label="Songs" value={page} onChange={setPage} tabs={[
         { id: 'library', label: 'Library', badge: count || null },
+        { id: 'scan', label: 'Riff Scanner' },
         { id: 'add', label: 'Add a song' },
       ]} />
-      {page === 'library' && <LibraryPage songs={songs} currentId={currentId} onOpen={open} refresh={refresh} onAdd={() => setPage('add')} />}
-      {page === 'add' && <AddPage onOpen={open} onAdded={async () => { await refresh(); setLibShow('mine'); setPage('library') }} />}
+      {page === 'library' && <LibraryPage songs={songs} currentId={currentId} onOpen={open} refresh={refresh} onAdd={() => setPage('add')} onScan={() => setPage('scan')} />}
+      {page === 'scan' && (
+        <RiffScanner
+          onUseInJam={names => {
+            try { localStorage.setItem('kg:jamImportChords', JSON.stringify(names)) } catch { /* private */ }
+            setSubPage('jam', 'jam')
+            go('progressions')
+          }}
+          listen={(
+            <WinArea area="songsScanListen">
+              <Win id="listen" title="Listen for the chords" className="panel" bodyClass="stack">
+                <SongFinder onUseInJam={() => { setSubPage('jam', 'jam'); go('progressions') }} onOpen={d0 => { const doc = { ...d0, origin: 'recording' as const }; void saveSong(doc).then(() => openInPlay(doc)) }} />
+              </Win>
+              <Win id="notes" title="Notes from a recording (accurate)" className="panel" bodyClass="stack">
+                <Transcriber onOpen={d0 => { const doc = { ...d0, origin: 'recording' as const }; void saveSong(doc).then(() => openInPlay(doc)) }} />
+              </Win>
+            </WinArea>
+          )}
+        />
+      )}
+      {page === 'add' && <AddPage onOpen={open} onAdded={async () => { await refresh(); setLibShow('mine'); setPage('library') }} onOpenScanner={() => setPage('scan')} />}
     </div>
   )
 }
@@ -110,8 +132,8 @@ interface Progress { id: string; title: string; part?: string; keyLabel?: string
 
 /** Songs → Library: "Learning now" first (in progress and reviews due), then your songs, then the songbook. One search
  *  for all of it; chips to show one kind. */
-function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
-  songs: SongDoc[] | null; currentId: string; onOpen: (d: SongDoc) => void; refresh: () => Promise<void>; onAdd: () => void
+function LibraryPage({ songs, currentId, onOpen, refresh, onAdd, onScan }: {
+  songs: SongDoc[] | null; currentId: string; onOpen: (d: SongDoc) => void; refresh: () => Promise<void>; onAdd: () => void; onScan: () => void
 }) {
   const inst = useInstrument()
   const [show, setShow] = usePersist<LibShow>('libShow', 'all')
@@ -194,7 +216,8 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
   return (
     <WinArea area="songsLibrary" prefer={['jump', 'find', 'learning', 'learned', 'later', 'list', 'filters', 'songs']}>
       <Win id="jump" title="Practice and jump back in" className="panel"><JumpBackIn compact /></Win>
-      <Win id="find" title="Find a song" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+      <Win id="find" title="Find a song" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}
+        extra={<div className="row" style={{ gap: 6 }}><button className="btn sm primary" onClick={onScan} data-testid="lib-open-scanner"><Ico n="scan" /> Riff Scanner</button><button className="btn sm" onClick={onAdd} data-testid="lib-open-add">Add a song</button></div>}>
         <input className="input" type="search" placeholder="Search your songs and the songbook" value={q} onChange={e => setQ(e.target.value)} aria-label="Search your songs and the songbook" data-testid="lib-search" />
         <div className="chips lib-shows" role="group" aria-label="Show">
           {SHOWS.map(o => (
@@ -266,7 +289,7 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
       )}
       {(show === 'all' || show === 'mine') && <SavedForLater onAdd={onAdd} />}
       {(show === 'all' || show === 'mine' || show === 'plan' || show === 'scanned' || show === 'backing') && (
-        <MySongs songs={songs} currentId={currentId} keyById={keyById} keyObjById={keyObjById} onOpen={onOpen} refresh={refresh} onAdd={onAdd} onSongbook={() => setShow('songbook')} query={q}
+        <MySongs songs={songs} currentId={currentId} keyById={keyById} keyObjById={keyObjById} onOpen={onOpen} refresh={refresh} onAdd={onAdd} onScan={onScan} onSongbook={() => setShow('songbook')} query={q}
           only={pick} title={show === 'plan' ? 'In your practice plan' : show === 'scanned' ? 'Scanned' : show === 'backing' ? 'With backing tracks' : undefined} />
       )}
       {(show === 'all' || show === 'songbook') && <Songbook currentId={currentId} onOpen={onOpen} query={q} keyFilter={keyFilter} embedded />}
@@ -274,8 +297,8 @@ function LibraryPage({ songs, currentId, onOpen, refresh, onAdd }: {
   )
 }
 
-function MySongs({ songs, currentId, keyById, keyObjById, onOpen, refresh, onAdd, onSongbook, query, only, title }: {
-  songs: SongDoc[] | null; currentId: string; keyById: Map<string, string>; keyObjById: Map<string, { root: string; minor: boolean; capo: number }>; onOpen: (d: SongDoc) => void; refresh: () => Promise<void>; onAdd: () => void; onSongbook: () => void; query: string
+function MySongs({ songs, currentId, keyById, keyObjById, onOpen, refresh, onAdd, onScan, onSongbook, query, only, title }: {
+  songs: SongDoc[] | null; currentId: string; keyById: Map<string, string>; keyObjById: Map<string, { root: string; minor: boolean; capo: number }>; onOpen: (d: SongDoc) => void; refresh: () => Promise<void>; onAdd: () => void; onScan: () => void; onSongbook: () => void; query: string
   only?: (d: SongDoc) => boolean; title?: string
 }) {
   const inst = useInstrument()
@@ -298,9 +321,10 @@ function MySongs({ songs, currentId, keyById, keyObjById, onOpen, refresh, onAdd
       <Win id="list" title="Your songs" className="panel empty-state">
         <PsyDogCard seed="songs-empty" className="empty-card" />
         <h2>No songs of your own yet</h2>
-        <p className="small muted">{`Add a Guitar Pro file or paste a tab you found online, or start with a song from the songbook. Songs you add in ${inst.label.toLowerCase()} mode stay in ${inst.label.toLowerCase()} mode.`}</p>
+        <p className="small muted">{`Add a Guitar Pro file or paste a tab you found online, scan a video or Short with the Riff Scanner, or start with a song from the songbook. Songs you add in ${inst.label.toLowerCase()} mode stay in ${inst.label.toLowerCase()} mode.`}</p>
         <div className="row" style={{ justifyContent: 'center' }}>
           <button className="btn primary" onClick={onAdd}>Add a song</button>
+          <button className="btn" onClick={onScan}><Ico n="scan" /> Riff Scanner</button>
           <button className="btn" onClick={onSongbook}>Open the songbook</button>
         </div>
         {moved && <p className="small muted" role="status">{moved}</p>}
@@ -368,7 +392,7 @@ function MySongs({ songs, currentId, keyById, keyObjById, onOpen, refresh, onAdd
   )
 }
 
-function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: () => Promise<void> }) {
+function AddPage({ onOpen, onAdded, onOpenScanner }: { onOpen: (d: SongDoc) => void; onAdded: () => Promise<void>; onOpenScanner: () => void }) {
   const inst = useInstrument()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -495,11 +519,11 @@ function AddPage({ onOpen, onAdded }: { onOpen: (d: SongDoc) => void; onAdded: (
         {error && <p className="notice small" role="alert">{error}</p>}
       </Win>
       <Win id="picture" title="Riff Scanner: a video, a picture of a tab or a scanned PDF" bodyClass="stack" bodyStyle={{ gap: 8 }}
-        extra={<button className="btn sm" onClick={() => { setSubPage('jam', 'find'); go('progressions') }} data-testid="open-scanner"><Ico n="scan" /> Full scanner</button>}>
+        extra={<button className="btn sm primary" onClick={onOpenScanner} data-testid="open-scanner"><Ico n="scan" /> Full Riff Scanner</button>}>
         <div ref={pictures} />
         {scanned && !scanned.fromBook && <p className="notice small" style={{ margin: 0 }}>The tab in "{scanned.name}" is printed as pictures (a scan, or numbers drawn as shapes): KGuitar reads it below by itself.</p>}
         <ScanVideo key={`${scanned && !scanned.fromBook ? scanned.name : ''}|${scanLink ?? ''}`} youtube={scanLink} links initialLink={scanLink} autoRead={!!scanned && !scanned.fromBook} title={scanned && !scanned.fromBook ? scanned.name : undefined} initialPics={scanned && !scanned.fromBook ? scanned.pics.map(p => ({ name: p.name, url: p.url })) : undefined} />
-        <p className="small muted" style={{ margin: 0 }}>The full Riff Scanner (Full scanner, or the link under Jam's three buttons) also scans YouTube links and Shorts, and listens.</p>
+        <p className="small muted" style={{ margin: 0 }}>Tap <b>Riff Scanner</b> in the Songs bar above (or <b>Full Riff Scanner</b>) for YouTube Shorts, Deep Scan with Picture Check, and Listen.</p>
       </Win>
     </WinArea>
   )
