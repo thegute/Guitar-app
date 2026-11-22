@@ -21,8 +21,9 @@ import { workshop, type FillStyle } from '../fills/make'
 import { songTabText } from '../scan/tabReadSong'
 import { stringNames } from '../tabs/importer'
 import { listBooks, bookPdf, type BookMeta } from '../books/store'
-import { openInPlay, openScanner } from '../nav'
-import { emitBandAddChord, publishFloat, useFloatScreen, type FloatCtx } from './bus'
+import { openCircleMastery, openInPlay, openScanner } from '../nav'
+import { addCardInstance, emitBandAddChord, publishFloat, useFloatScreen, type FloatCtx } from './bus'
+import { explainCircleChord, generateCircleEtude } from '../circle/circleEngine'
 
 function activeKeyOf(c: FloatCtx): { root: string; minor: boolean } {
   if (c.keyName) {
@@ -147,13 +148,26 @@ export function LicksCardBody({ ctx }: { ctx: FloatCtx }) {
   )
 }
 
-// ---------- #6: Mini Circle of Fifths & Key Cheat-Sheet Floating Card ----------
+// ---------- #6: Live Harmonic GPS Circle of Fifths & Tap-a-Path Floating Card ----------
+function parseWheelChord(sym: string | undefined | null): { root: string; minor: boolean; dim?: boolean } | null {
+  if (!sym) return null
+  const m = /^([A-G][#b]?)(.*)/.exec(sym.trim())
+  if (!m) return null
+  const rest = m[2]
+  const dim = /dim|°|m7b5|ø/i.test(rest)
+  const minor = !dim && /^m(?!aj)|^min|^-/i.test(rest)
+  return { root: m[1], minor, dim }
+}
+
 export function CircleCardBody({ ctx }: { ctx: FloatCtx }) {
-  const [view, setView] = useState<'strip' | 'wheel'>('strip')
+  const screen = useFloatScreen()
+  const [view, setView] = useState<'wheel' | 'strip' | 'path'>('wheel')
   const detected = activeKeyOf(ctx)
   const [root, setRoot] = useState(detected.root)
   const [minor, setMinor] = useState(detected.minor)
   const [picked, setPicked] = useState<string | null>(null)
+  const [liveTrail, setLiveTrail] = useState<string[]>([])
+  const [customPath, setCustomPath] = useState<string[]>([])
 
   useEffect(() => {
     if (ctx.keyName) {
@@ -161,6 +175,15 @@ export function CircleCardBody({ ctx }: { ctx: FloatCtx }) {
       setRoot(k.root); setMinor(k.minor)
     }
   }, [ctx.keyName])
+
+  // Record live chord changes from Play / Jam / Pocket Band as a glowing Harmonic GPS trail!
+  useEffect(() => {
+    if (!ctx.chordNow) return
+    setLiveTrail(prev => {
+      if (prev[prev.length - 1] === ctx.chordNow) return prev
+      return [...prev, ctx.chordNow!].slice(-8)
+    })
+  }, [ctx.chordNow])
 
   const p = pc(root)
   const diatonic = minor
@@ -198,6 +221,11 @@ export function CircleCardBody({ ctx }: { ctx: FloatCtx }) {
 
   const hitChord = (ch: string) => {
     setPicked(ch)
+    if (view === 'path') {
+      setCustomPath(prev => [...prev, ch].slice(-8))
+    } else {
+      setLiveTrail(prev => (prev[prev.length - 1] === ch ? prev : [...prev, ch].slice(-8)))
+    }
     const info = chordInfo(ch)
     if (info) {
       const cAudio = audio()
@@ -215,11 +243,32 @@ export function CircleCardBody({ ctx }: { ctx: FloatCtx }) {
     }
   }
 
+  const shownSym = ctx.chordNow ?? picked
+  const activeTrailSyms = view === 'path' ? customPath : liveTrail
+  const prevSym = activeTrailSyms.length >= 2 ? activeTrailSyms[activeTrailSyms.length - 2] : undefined
+  const gps = shownSym ? explainCircleChord(shownSym, prevSym, root, minor) : null
+
+  const makeEtudeFromPath = () => {
+    const seq = customPath.length >= 2 ? customPath : liveTrail.length >= 2 ? liveTrail : undefined
+    const { song } = generateCircleEtude({
+      tonic: root,
+      pathId: minor ? 'minor-gravity' : 'peaceful-open',
+      customChords: seq,
+      texture: 'peaceful',
+      level: 'starter',
+      zone: 'open',
+      picking: 'finger',
+    })
+    addCardInstance('play', 'circle')
+    addCardInstance('play', 'neck')
+    openInPlay({ id: newId(), title: song.title, artist: song.artist, source: 'lesson', song, updated: Date.now() })
+  }
+
   return (
     <div className="stack small" style={{ gap: 6 }} data-testid="fc-circle">
       <div className="row" style={{ gap: 4, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <span className="row" style={{ gap: 4 }}>
-          <select className="select sm" style={{ width: 60 }} value={root} onChange={e => setRoot(e.target.value)} aria-label="Key">
+          <select className="select sm" style={{ width: 58 }} value={root} onChange={e => setRoot(e.target.value)} aria-label="Key">
             {KEYS.map(k => <option key={k} value={k}>{k}</option>)}
           </select>
           <div className="seg" role="group" aria-label="Major or minor">
@@ -228,8 +277,9 @@ export function CircleCardBody({ ctx }: { ctx: FloatCtx }) {
           </div>
         </span>
         <div className="seg" role="group" aria-label="View">
-          <button className="btn sm" aria-pressed={view === 'strip'} onClick={() => setView('strip')}>Key Strip</button>
-          <button className="btn sm" aria-pressed={view === 'wheel'} onClick={() => setView('wheel')}>Wheel</button>
+          <button className="btn sm" aria-pressed={view === 'wheel'} onClick={() => setView('wheel')}>GPS</button>
+          <button className="btn sm" aria-pressed={view === 'strip'} onClick={() => setView('strip')}>Key</button>
+          <button className="btn sm" aria-pressed={view === 'path'} onClick={() => setView('path')}>Path</button>
         </div>
       </div>
 
@@ -237,15 +287,15 @@ export function CircleCardBody({ ctx }: { ctx: FloatCtx }) {
         <div className="stack" style={{ gap: 5 }}>
           <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
             {diatonic.map(d => (
-              <button key={d.deg} className={`btn sm${picked === d.ch ? ' primary' : ''}`} onClick={() => hitChord(d.ch)} style={{ padding: '2px 8px' }}>
+              <button key={d.deg} className={`btn sm${shownSym === d.ch ? ' primary' : ''}`} onClick={() => hitChord(d.ch)} style={{ padding: '2px 8px' }}>
                 <span className="muted" style={{ fontSize: 10, marginRight: 3 }}>{d.deg}</span><b>{d.ch}</b>
               </button>
             ))}
           </div>
           <div className="row" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="muted" style={{ fontSize: 11 }}>Color:</span>
+            <span className="muted" style={{ fontSize: 11 }}>Outside:</span>
             {borrowed.map(d => (
-              <button key={d.deg} className={`btn sm${picked === d.ch ? ' primary' : ' ghost'}`} onClick={() => hitChord(d.ch)} style={{ padding: '2px 7px' }}>
+              <button key={d.deg} className={`btn sm${shownSym === d.ch ? ' primary' : ' ghost'}`} onClick={() => hitChord(d.ch)} style={{ padding: '2px 7px' }}>
                 <span className="muted" style={{ fontSize: 10, marginRight: 3 }}>{d.deg}</span><b>{d.ch}</b>
               </button>
             ))}
@@ -256,19 +306,71 @@ export function CircleCardBody({ ctx }: { ctx: FloatCtx }) {
           <CircleOfFifths
             tonic={root}
             minor={minor}
-            active={picked ? (() => { const m = /^([A-G][#b]?)(m(?!aj)|dim)?/.exec(picked); return m ? { root: m[1], minor: m[2] === 'm', dim: m[2] === 'dim' } : null })() : null}
-            size={220}
-            onPick={(r, m) => hitChord(`${r}${m ? 'm' : ''}`)}
+            active={parseWheelChord(shownSym)}
+            nextChord={view === 'wheel' ? parseWheelChord(ctx.chordNext) : null}
+            trail={activeTrailSyms.map(parseWheelChord).filter((x): x is { root: string; minor: boolean; dim?: boolean } => !!x)}
+            allowDim
+            size={224}
+            onPick={(r, m, d) => hitChord(`${r}${d ? 'dim' : m ? 'm' : ''}`)}
           />
         </div>
       )}
 
-      {picked && (
-        <div className="row" style={{ gap: 6, alignItems: 'center', justifyContent: 'space-between', paddingTop: 3, borderTop: '1px solid var(--hairline)' }}>
-          <span>Picked <b>{picked}</b> (lit on 5-Layer Neck)</span>
-          <button className="btn sm primary" onClick={() => emitBandAddChord(picked)} data-testid="circle-add-band">+ Add to Band</button>
+      {/* 1-Line Plain-English Harmonic GPS Explanation */}
+      {gps && view !== 'path' && (
+        <div
+          style={{
+            fontSize: 11.5,
+            lineHeight: 1.35,
+            padding: '5px 8px',
+            borderRadius: 7,
+            background: gps.outside ? 'rgba(168,85,247,0.14)' : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${gps.outside ? 'rgba(168,85,247,0.4)' : 'var(--hairline)'}`,
+          }}
+        >
+          <b style={{ color: gps.outside ? '#d8b4fe' : 'var(--amber)' }}>{gps.badge}:</b> {gps.text}
         </div>
       )}
+
+      {/* Tap-a-Path Builder Controls */}
+      {view === 'path' && (
+        <div className="stack" style={{ gap: 5, paddingTop: 3, borderTop: '1px solid var(--hairline)' }}>
+          <div className="row" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+            {customPath.length ? customPath.map((c, i) => (
+              <span key={`${c}-${i}`} className="chip on" style={{ fontSize: 11, padding: '1px 6px' }}>{i + 1}.{c}</span>
+            )) : <span className="muted">Tap wedges on the wheel to draw a Circle path (up to 8 chords).</span>}
+          </div>
+          <div className="row" style={{ gap: 5, flexWrap: 'wrap' }}>
+            <button
+              className="btn sm primary"
+              disabled={customPath.length < 2}
+              onClick={() => { customPath.forEach(c => emitBandAddChord(c)); addCardInstance(screen, 'band') }}
+            >
+              ▶ Send to Band
+            </button>
+            <button className="btn sm" disabled={customPath.length < 2} onClick={makeEtudeFromPath}>
+              🎸 Make Etude
+            </button>
+            {customPath.length > 0 && <button className="btn sm ghost" onClick={() => setCustomPath([])}>Clear</button>}
+          </div>
+        </div>
+      )}
+
+      {/* Footer: Interconnected Quick Actions */}
+      <div className="row" style={{ gap: 5, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', paddingTop: 3, borderTop: '1px solid var(--hairline)' }}>
+        <div className="row" style={{ gap: 4 }}>
+          <button className="btn sm ghost" onClick={() => openCircleMastery('masterclass')} title="Open 6-Chapter Pro Circle Masterclass">🎓 Mastery</button>
+          <button className="btn sm ghost" onClick={() => openCircleMastery('practice')} title="Open 5-Drill Circle Practice Mode">🎯 Drills</button>
+        </div>
+        <div className="row" style={{ gap: 4 }}>
+          {liveTrail.length > 1 && view === 'wheel' && (
+            <button className="btn sm ghost" onClick={() => setLiveTrail([])} title="Clear GPS trail">Clear</button>
+          )}
+          {shownSym && (
+            <button className="btn sm primary" onClick={() => emitBandAddChord(shownSym)} data-testid="circle-add-band">+ Band</button>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

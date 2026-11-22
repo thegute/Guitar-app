@@ -119,6 +119,14 @@ export function openLicksInKey(root: string, minor: boolean, opts?: { worksOver?
   } catch { /* private */ }
   learnGo({ licks: 'all' })
 }
+/** Open Learn → Circle of Fifths directly on 'explore', 'masterclass' (6 chapters), or 'practice' (5 drills). */
+export function openCircleMastery(tab: 'explore' | 'masterclass' | 'practice' = 'masterclass') {
+  try { localStorage.setItem('kg:circleTab', JSON.stringify(tab)) } catch { /* private */ }
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new CustomEvent('kg-circle-tab', { detail: tab }))
+  }
+  learnGo({ tool: 'circle' })
+}
 // ---- one exercise from the exercise library (Learn → Exercises)
 let pendingExercise: string | null = null
 const exerciseListeners = new Set<(code: string) => void>()

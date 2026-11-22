@@ -54,30 +54,73 @@ export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, no
   const [modeMin, setModeMin] = usePersist<ModeId>('layerModeMin', 'aeolian')
   const [nps, setNps] = usePersist('layerNps', false)
   const [dsOn, setDsOn] = usePersist('layerDoubles', false)
+  const [flowOn, setFlowOn] = usePersist('layerFlow', false)
   const [dsKind, setDsKind] = usePersist<'3rds' | '4ths' | '6ths'>('layerDoubleKind', '3rds')
   const [dsSel, setDsSel] = useState(-1)
   const [droning, setDroning] = useState(false)
+  const [prevCh, setPrevCh] = useState<{ rootPc: number; minor: boolean } | null>(null)
   const mode = minor ? modeMin : modeMaj
   const set = useMemo(
     () => layerSpots({ rootPc, minor, inst, shape, layers: new Set(on), mode, nps, window: wholeNeck ? [0, 15] : undefined }),
     [rootPc, minor, inst, shape, on, mode, nps, wholeNeck],
   )
-  // the drone follows the chord while it's on, and stops when you leave
+  // track previous chord for Flow (Anchor vs Moving notes) & keep drone following
   const last = useRef({ rootPc, minor })
   useEffect(() => {
-    if (droning && (last.current.rootPc !== rootPc || last.current.minor !== minor)) drone.start(36 + rootPc, [minor ? 3 : 4])
-    last.current = { rootPc, minor }
+    if (last.current.rootPc !== rootPc || last.current.minor !== minor) {
+      setPrevCh({ rootPc: last.current.rootPc, minor: last.current.minor })
+      if (droning) drone.start(36 + rootPc, [minor ? 3 : 4])
+      last.current = { rootPc, minor }
+    }
   }, [rootPc, minor, droning])
   useEffect(() => () => { drone.stop() }, [])
+
+  // Flow voice-leading pitch classes (Anchor = shared chord tones, Moving = new chord tones)
+  const flowInfo = useMemo(() => {
+    if (!flowOn || !prevCh) return null
+    const curPcs = [rootPc, (rootPc + (minor ? 3 : 4)) % 12, (rootPc + 7) % 12]
+    const prevPcs = [prevCh.rootPc, (prevCh.rootPc + (prevCh.minor ? 3 : 4)) % 12, (prevCh.rootPc + 7) % 12]
+    const anchors = new Set(curPcs.filter(p => prevPcs.includes(p)))
+    const moving = new Set(curPcs.filter(p => !prevPcs.includes(p)))
+    return { curPcs, prevPcs, anchors, moving, prevName: SHARPS[prevCh.rootPc] + (prevCh.minor ? 'm' : '') }
+  }, [flowOn, prevCh, rootPc, minor])
+
   const doubles = useMemo(() => (dsOn ? doubleStops({ rootPc, minor, tuning: inst.midis, window: set.window }).filter(d => d.kind === dsKind) : []), [dsOn, dsKind, rootPc, minor, inst.midis, set.window])
   useEffect(() => setDsSel(-1), [doubles])
   const strNames = inst.midis.map((m, i) => { const n = SHARPS[m % 12]; return i === inst.midis.length - 1 && inst.midis.filter(x => x % 12 === m % 12).length > 1 ? n.toLowerCase() : n })
   const pathKeys = useMemo(() => new Map(set.path.map((p, i) => [`${p.s}-${p.f}`, i + 1])), [set.path])
-  const markFor = (_m: number, s: number, f: number): Mark | null => {
+  const lo = wholeNeck ? 0 : Math.max(0, Math.min(set.window[0], ...set.path.map(p => p.f)) - 1)
+  const hi = wholeNeck ? 15 : Math.max(set.window[1], ...set.path.map(p => p.f)) + 1
+
+  const flowArrows = useMemo(() => {
+    if (!flowInfo) return undefined
+    const arr: { s1: number; f1: number; s2: number; f2: number; kind?: 'guide' | 'move' | 'look' }[] = []
+    for (let s = 0; s < inst.midis.length; s++) {
+      for (let f = lo; f <= hi; f++) {
+        const p = (inst.midis[s] + f) % 12
+        if (!flowInfo.moving.has(p)) continue
+        for (const d of [-1, 1, -2, 2]) {
+          const pf = f - d
+          if (pf >= lo && pf <= hi && flowInfo.prevPcs.includes((inst.midis[s] + pf) % 12) && !flowInfo.anchors.has((inst.midis[s] + pf) % 12)) {
+            arr.push({ s1: s, f1: pf, s2: s, f2: f, kind: Math.abs(d) === 1 ? 'guide' : 'move' })
+            break
+          }
+        }
+      }
+    }
+    return arr.slice(0, 6)
+  }, [flowInfo, inst.midis, lo, hi])
+
+  const markFor = (m: number, s: number, f: number): Mark | null => {
     const d = doubles[dsSel]
     if (d && ((d.lo.s === s && d.lo.f === f) || (d.hi.s === s && d.hi.f === f))) return { label: d.kind[0], role: 'target' }
     const sp = set.spots.get(`${s}-${f}`)
     const step = pathKeys.get(`${s}-${f}`)
+    if (flowInfo && sp && (sp.role === 'root' || sp.role === 'chord' || sp.role === 'triad')) {
+      const p = m % 12
+      if (flowInfo.anchors.has(p)) return { label: sp.label, role: 'common' }
+      if (flowInfo.moving.has(p)) return { label: sp.label, role: 'next' }
+    }
     if (sp) return { label: sp.label, role: sp.role }
     if (step) { const p = set.path[step - 1]; return { label: p.label, role: p.role === 'root' ? 'root' : 'pass' } }
     return null
@@ -96,8 +139,6 @@ export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, no
     setWhat(sp?.what ?? `${sp?.label ?? ''} ${SHARPS[midi % 12]}`.trim())
   }
   const toggle = (id: LayerId) => setOn(on.includes(id) ? on.filter(x => x !== id) : [...on, id])
-  const lo = wholeNeck ? 0 : Math.max(0, Math.min(set.window[0], ...set.path.map(p => p.f)) - 1)
-  const hi = wholeNeck ? 15 : Math.max(set.window[1], ...set.path.map(p => p.f)) + 1
   const name = SHARPS[rootPc] + (minor ? 'm' : '')
   const scaleName = (MODES[minor ? 'min' : 'maj'].find(m => m.id === mode)?.id ?? 'ionian')
   const activePreset = LAYER_PRESETS.find(p => p.layers.length === on.length && p.layers.every(l => on.includes(l)))?.id ?? ''
@@ -132,7 +173,15 @@ export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, no
         ))}
         <button className="chip layer-chip" aria-pressed={nps} onClick={() => setNps(!nps)} title="The whole mode, three notes per string, from the shape's root">3 per string</button>
         <button className="chip layer-chip" aria-pressed={dsOn} onClick={() => setDsOn(!dsOn)} title="Two notes at once around the shape: 3rds, 4ths and 6ths (Hendrix, Mayer, soul)" data-testid="ds-toggle">Double-stops</button>
+        <button className="chip layer-chip" aria-pressed={flowOn} onClick={() => setFlowOn(!flowOn)} title="Voice-leading Flow: highlights Anchor notes (stay put) vs Moving notes when chords change" data-testid="flow-toggle">Flow</button>
       </div>
+      {flowOn && (
+        <div className="small muted" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.28)', borderRadius: 8, padding: '4px 8px' }}>
+          {flowInfo
+            ? <><b>{flowInfo.prevName} → {name}:</b> Anchor ({[...flowInfo.anchors].map(p => SHARPS[p]).join(', ') || 'none'}) stay put · Moving ({[...flowInfo.moving].map(p => SHARPS[p]).join(', ')}) shift 1–2 frets.</>
+            : <>Flow ready — change chords (via Circle, Pocket Band, or Play) to see Anchor vs. Moving notes.</>}
+        </div>
+      )}
       {dsOn && (
         <div className="stack" style={{ gap: 4 }} data-testid="double-stops">
           <Chips label="Double-stops" items={[{ id: '3rds', label: '3rds (Mayer, soul)' }, { id: '4ths', label: '4ths (Hendrix)' }, { id: '6ths', label: '6ths (skip a string)' }]} value={dsKind} onChange={v => setDsKind(v as '3rds' | '4ths' | '6ths')} wrap />
@@ -151,7 +200,7 @@ export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, no
       {(on.includes('bridge') || nps) && (
         <Chips label="Mode" items={MODES[minor ? 'min' : 'maj'].map(m => ({ id: m.id, label: m.label }))} value={mode} onChange={v => (minor ? setModeMin(v) : setModeMaj(v))} wrap />
       )}
-      <Fretboard tuning={inst.midis} fromFret={lo} toFret={Math.min(22, Math.max(hi, lo + 5))} markFor={markFor} onTap={tap} zoomId={`layers-${where}`} compact={compact} />
+      <Fretboard tuning={inst.midis} fromFret={lo} toFret={Math.min(22, Math.max(hi, lo + 5))} markFor={markFor} onTap={tap} arrows={flowArrows} zoomId={`layers-${where}`} compact={compact} />
       <p className="small muted" style={{ margin: 0 }} role="status">{what || (set.shape ? `${name}, ${set.shape.letter} shape. Tap any note to hear it; a violet one plays the chord and then the hammer-on.` : `${name}.`)}</p>
       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
         <button className={`btn sm${droning ? ' on' : ''}`} aria-pressed={droning} onClick={() => { if (droning) { drone.stop(); setDroning(false) } else { drone.start(36 + rootPc, [minor ? 3 : 4]); setDroning(true) } }} data-testid="drone">
@@ -163,7 +212,7 @@ export function LayerNeck({ rootPc, minor, inst, where, preferShape, compact, no
         {!noLinks.includes('scale') && <button className="btn sm ghost" onClick={() => launch({ scale: { root: SHARPS[rootPc], scale: scaleName === 'ionian' ? 'major' : scaleName } })}>{scaleLabel(minor, mode)} in Scales</button>}
       </div>
       <div className="layer-legend small" aria-hidden>
-        <i className="lg-root" />root <i className="lg-chord" />chord <i className="lg-triad" />triad <i className="lg-scale" />pentatonic <i className="lg-pass" />mode note <i className="lg-embel" />free finger
+        <i className="lg-root" />root <i className="lg-chord" />chord <i className="lg-triad" />triad <i className="lg-scale" />pentatonic <i className="lg-pass" />mode note <i className="lg-embel" />free finger{flowOn && <> · <b>Flow:</b> gold+green = anchor, green = moving</>}
       </div>
     </div>
   )
