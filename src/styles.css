@@ -3558,3 +3558,10 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
 .key-chip.moved > span { color: var(--gold); }
 .key-moved { color: var(--gold); margin-top: 2px; }
 .deep-key { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--surface); border-radius: var(--r-md); padding: 6px 10px; }
+
+/* Riff Scanner: "Check it in the picture" (scan/SourcePeek.tsx) */
+.scan-src-view { overflow: auto; border-radius: var(--r-sm); background: #fff; cursor: grab; touch-action: pan-x pan-y; overscroll-behavior: contain; }
+.scan-src-view:active { cursor: grabbing; }
+.scan-src-view img { user-select: none; -webkit-user-drag: none; max-width: none; }
+.scan-src-ring { position: absolute; border-radius: 50%; border: 3px solid var(--mint); box-shadow: 0 0 0 2px rgba(0,0,0,.55), 0 0 12px rgba(0,0,0,.35); pointer-events: none; }
+.scan-src-ring.unsure { border-color: #f5a623; }

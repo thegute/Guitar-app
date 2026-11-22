@@ -97,6 +97,8 @@ export interface ScanOut {
   check?: number[]
   /** the stitched video tab strip(s) or picture(s) that were read, so you can compare them directly above the tab */
   strips?: { url: string; w: number; h: number }[]
+  /** the pictures KGuitar's own reader read, in order (a note's `src.p` points here): the "Check it in the picture" card */
+  sources?: { url: string; w: number; h: number }[]
 }
 
 /** A scan from sound still working in the background: the better version, the AI's second opinion, downloads. */
@@ -237,7 +239,7 @@ export function ScanResult({ out, live, onUseInJam, onAgain }: { out: ScanOut; l
       {note && <p className="small" role="status" style={{ margin: 0 }} data-testid="scan-note">{note}</p>}
       {check.length > 0 && <p className="small" style={{ margin: 0 }} data-testid="scan-checkbars"><b>Check bar{check.length > 1 ? 's' : ''} {check.map(b => b + 1).join(', ')}</b> (dashed): the chord heard there and the notes don't agree.</p>}
       {strum && <p className="small" style={{ margin: 0 }}>Strum heard: <b>{strum.label.replace(/^As heard /, '')}</b> (shown over the chords in Play).</p>}
-      <ScanPlayer doc={doc} marks={check} onChangeSong={s => { setFixed({ ...doc, song: s }); setText(songTabText(s, stringNames(inst))) }} />
+      <ScanPlayer doc={doc} marks={check} sources={adapt ? undefined : out.sources} onChangeSong={s => { setFixed({ ...doc, song: s }); setText(songTabText(s, stringNames(inst))) }} />
       {uniq.length >= 2 && (
         <Fold id="scanChords" title={`The chords (${uniq.join(' ')})`} hint="Each chord's shape and how to move between them with the least hand movement (voice leading).">
           <VoiceLeadNeck chords={uniq} tuning={inst.midis} where="scan" compact />

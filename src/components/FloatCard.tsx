@@ -82,15 +82,17 @@ interface Props {
   bubbleTestId?: string
   /** the nth card shown (so they don't all start in one corner) */
   order?: number
+  /** start open even on a narrow screen (a card you asked for by tapping something) */
+  openNarrow?: boolean
 }
 
 export function FloatCard(p: Props) {
   return createPortal(<FloatCardIn {...p} />, document.body)
 }
 
-function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width = 240, minW = 160, alert, dodgeCursor, label, testId, bubbleTestId, order = 0 }: Props) {
+function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width = 240, minW = 160, alert, dodgeCursor, label, testId, bubbleTestId, order = 0, openNarrow }: Props) {
   // on a narrow screen (the Fold's cover, a phone) a card you haven't opened yourself starts as a small bubble, so it never covers the tab
-  const fresh = (): Place => stored(id, where) ?? { x: 0.98, y: Math.min(0.85, 0.3 + order * 0.14), w: Math.min(width, Math.round((typeof innerWidth === 'number' ? innerWidth : 400) * 0.6)), min: sizeClass() === 'narrow' }
+  const fresh = (): Place => stored(id, where) ?? { x: 0.98, y: Math.min(0.85, 0.3 + order * 0.14), w: Math.min(width, Math.round((typeof innerWidth === 'number' ? innerWidth : 400) * 0.6)), min: sizeClass() === 'narrow' && !openNarrow }
   const [place, setPlace] = useState<Place>(fresh)
   const [z, setZ] = useState(() => bringToFront())
   const cls = useRef(sizeClass())

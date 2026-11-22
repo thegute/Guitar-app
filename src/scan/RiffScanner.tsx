@@ -44,6 +44,9 @@ export function songFromScan(text: string, title: string, inst: ReturnType<typeo
   return bpm ? { ...doc, song: { ...doc.song, tempo: bpm, tempoFrom: 'file' } } : doc
 }
 
+/** the pictures for the "Check it in the picture" card; a phone that can't make them just doesn't show the card */
+function safeSources(make: () => { url: string; w: number; h: number }[]) { try { return make() } catch { return undefined } }
+
 export function RiffScanner({ listen, onUseInJam, startMode }: {
   /** the Listen page's own windows (live mic, notes from a recording) */
   listen: React.ReactNode
@@ -207,7 +210,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
   }
 
   async function readOwnPieces(pieces: Piece[], name: string, how: string, bpm?: number, strips?: Gray[], hear?: import('./tabReadSong').VideoSound): Promise<boolean> {
-    const { readTabPicturesBest, trustReading, grayOf, songTabText } = await import('./tabReadSong')
+    const { readTabPicturesBest, trustReading, grayOf, songTabText, grayPicture } = await import('./tabReadSong')
     // the whole strips when we have them (cut pieces would split bars), else the pieces
     const grays = strips?.length ? strips : (await Promise.all(pieces.map(pc => loadPicture(pc.url)))).map(im => grayOf(im))
     const r = await readTabPicturesBest(grays, inst.midis, name, { video: !!strips?.length, deep: deepMode, ...(hear && strips?.length ? { hear } : {}) })
@@ -226,6 +229,7 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     setOut({
       doc, heard: false, text: songTabText(song, stringNames(inst)), reparse: t => songFromScan(t, name, inst, youtube),
       strips: pieces.map(p => ({ url: p.url, w: p.w, h: p.h })),
+      sources: safeSources(() => grays.map(grayPicture)),
       how: `${how} KGuitar read ${r.notes} number${r.notes === 1 ? '' : 's'} itself${polBits.length ? ` · Audio engine: ${polBits.join(', ')}` : ''}.${r.unsure ? ` ${r.unsure} ${r.unsure === 1 ? 'has' : 'have'} an amber ring: check ${r.unsure === 1 ? 'it' : 'them'} against the video.` : ''}`,
     })
     setStages(null)
@@ -239,19 +243,21 @@ export function ScanVideo({ onUseInJam, youtube, initialPics, links = false, onL
     begin([{ id: 'own', label: deepMode ? 'Reading tab lines (Deep 99% neural + dual-check)' : 'Reading the numbers on the tab lines', state: 'run' }])
     await new Promise(r => setTimeout(r, 30))
     try {
-      const { readTabPicturesBest, trustReading, grayOf, songTabText } = await import('./tabReadSong')
+      const { readTabPicturesBest, trustReading, grayOf, songTabText, grayPicture } = await import('./tabReadSong')
       const minW = deepMode ? 2200 : 1600
       // Multi-page PDF books / screenshot sets: don't blindly apply Page 1's auto-crop (which starts below a title header)
       // to Pages 2–6 unless the user explicitly dragged the crop box!
       const applyBox = pics.length === 1 || userCropped ? box : null
-      let r = await readTabPicturesBest(pics.map(p => grayOf(p.img, minW, applyBox)), inst.midis, name, { deep: deepMode })
-      if (!r && applyBox) r = await readTabPicturesBest(pics.map(p => grayOf(p.img, minW)), inst.midis, name, { deep: deepMode })
+      let grays = pics.map(p => grayOf(p.img, minW, applyBox))
+      let r = await readTabPicturesBest(grays, inst.midis, name, { deep: deepMode })
+      if (!r && applyBox) { grays = pics.map(p => grayOf(p.img, minW)); r = await readTabPicturesBest(grays, inst.midis, name, { deep: deepMode }) }
       if (r && (trustReading(r) || !ready)) {
         const doc: SongDoc = { id: newId(), title: name, source: 'text', inst: inst.id, song: r.song, youtube, updated: Date.now() }
         const names = stringNames(inst)
         setOut({
           doc, heard: false, text: songTabText(r.song, names), reparse: t => songFromScan(t, name, inst, youtube),
           strips: pics.map(p => ({ url: p.url, w: p.img.naturalWidth || p.img.width, h: p.img.naturalHeight || p.img.height })),
+          sources: safeSources(() => grays.map(grayPicture)),
           how: `KGuitar read ${r.notes} number${r.notes === 1 ? '' : 's'} on ${r.staves} staff${r.staves === 1 ? '' : 's'} itself${r.meter !== 4 ? ` (${r.meter}/4)` : ''}.${r.unsure ? ` ${r.unsure} ${r.unsure === 1 ? 'has' : 'have'} an amber ring: check ${r.unsure === 1 ? 'it' : 'them'} against the page.` : ''} Note lengths come from the rhythm printed under the tab, or from how the notes are spaced.`,
         })
         setStages(null)

@@ -185,6 +185,20 @@ E|-3---------|-----------|`
     }
     if (await page.locator('[data-testid=scan-check]').count()) bad(`${vp.n}: a tab read off the screen shouldn't ask "Does this look right?"`)
     await page.screenshot({ path: `${DIR}/step2-scan-result-${vp.n}.png` })
+    if (own) {
+      // "Check it in the picture": one window that follows the picked note to its spot in the original picture
+      await page.locator('[data-testid=scan-result] .tab-note').nth(3).click()
+      await page.waitForSelector('[data-testid=scan-source]', { timeout: 3000 }).catch(() => bad(`${vp.n}: no "Check it in the picture" window after tapping a note`))
+      const at1 = await page.locator('[data-testid=scan-source-ring]').evaluate(e => e.style.left).catch(() => '')
+      await page.locator('[data-testid=scan-result] .tab-note').nth(12).click()
+      await page.waitForTimeout(200)
+      const n = await page.locator('[data-testid=scan-source]').count()
+      const at2 = await page.locator('[data-testid=scan-source-ring]').evaluate(e => e.style.left).catch(() => '')
+      console.log(`${vp.n}: picture window ×${n}, ring ${at1} → ${at2}`)
+      if (n !== 1) bad(`${vp.n}: expected one picture window, found ${n}`)
+      if (!at1 || at1 === at2) bad(`${vp.n}: the picture window didn't follow the next note (${at1} → ${at2})`)
+      await page.screenshot({ path: `${DIR}/step2-scan-picture-${vp.n}.png` })
+    }
     if (await sideways(page)) bad(`${vp.n}: sideways overflow in the scanner`)
     await page.locator('[data-testid=scan-today]').click()
     const cur = await page.evaluate(() => localStorage.getItem('kg:playSong:guitar'))

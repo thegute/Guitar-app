@@ -16,7 +16,7 @@ import { pixelRhythm } from './pixelRhythm'
 export interface ReadNote { string: number; fret: number; x: number; sure: number; dead?: boolean; tech?: string; alts?: number[] }
 export interface ReadStep { x: number; notes: ReadNote[]; dur: number; /** pick / strum direction printed over it */ stroke?: 'down' | 'up'; /** a grace note (small, no stem) */ grace?: boolean }
 export interface ReadBar { steps: ReadStep[]; beats: number; x0: number; x1: number }
-export interface ReadSystem { lines: number[]; gap: number; left: number; right: number; bars: ReadBar[]; /** which part (Guitar 1, 2 …) when a system stacks several staves; 0 when there is one */ part?: number; partName?: string }
+export interface ReadSystem { lines: number[]; gap: number; left: number; right: number; bars: ReadBar[]; /** which picture it was read from (index in the pictures given to the reader) */ pic?: number; /** which part (Guitar 1, 2 …) when a system stacks several staves; 0 when there is one */ part?: number; partName?: string }
 export interface TabReading { systems: ReadSystem[]; unsure: number; notes: number; meter: number }
 
 export interface Comp { x0: number; x1: number; y0: number; y1: number; n: number }

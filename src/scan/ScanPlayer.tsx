@@ -16,6 +16,7 @@ import { pcName } from '../theory/notes'
 import { Ico } from '../components/Icon'
 import { chordTimeline } from '../tabs/harmony'
 import { strumPattern } from '../play/strumCoach'
+import { SourcePeek, type ScanSource } from './SourcePeek'
 
 const TWIN_HINTS: Record<number, number[]> = {
   0: [9, 8, 6], 1: [7, 4], 2: [3, 7], 3: [8, 5, 2], 4: [1, 9], 5: [6, 8, 3],
@@ -24,7 +25,7 @@ const TWIN_HINTS: Record<number, number[]> = {
 }
 const TECHS = ['h', 'p', '/', '\\', 'b', '~', 'x'] as const
 
-export function ScanPlayer({ doc, marks, onChangeSong }: { doc: SongDoc; marks?: number[]; onChangeSong?: (song: Song) => void }) {
+export function ScanPlayer({ doc, marks, onChangeSong, sources }: { doc: SongDoc; marks?: number[]; onChangeSong?: (song: Song) => void; sources?: ScanSource[] }) {
   const inst = useInstrument()
   const track = doc.song.tracks[0]
   const flat = useMemo(() => flatten(track), [track])
@@ -144,6 +145,17 @@ export function ScanPlayer({ doc, marks, onChangeSong }: { doc: SongDoc; marks?:
     return [...new Set([...baseAlts, ...twins])].filter(f => f !== selNote.fret && f >= 0 && f <= 24).slice(0, 4)
   }, [selNote])
 
+  // the one "Check it in the picture" window: the picked note, or the first unsure one when nothing is picked
+  const [picOff, setPicOff] = useState(false)
+  const peek = useMemo(() => {
+    if (!sources?.length || !onChangeSong) return null
+    if (selNote?.src && selFlat) return { src: selNote.src, label: `bar ${selFlat.bar + 1}, ${strNames[selNote.string]} string`, unsure: !!selNote.unsure }
+    const u = unsureList.find(x => flat[x.flatIdx]?.step.notes.find(n => n.string === x.string)?.src)
+    if (!u) return null
+    const n = flat[u.flatIdx].step.notes.find(m => m.string === u.string)!
+    return { src: n.src!, label: `bar ${flat[u.flatIdx].bar + 1}, ${strNames[n.string]} string`, unsure: true }
+  }, [sources, onChangeSong, selNote, selFlat, unsureList, flat, strNames])
+
   return (
     <div className="scan-player stack" style={{ gap: 6 }} data-testid="scan-player">
       <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -163,6 +175,12 @@ export function ScanPlayer({ doc, marks, onChangeSong }: { doc: SongDoc; marks?:
         )}
         {loop && <button className="btn sm on" onClick={() => { setLoop(null); if (playing) start(at, null) }}>Looping bars {loop.from + 1}–{loop.to + 1} ✕</button>}
       </div>
+      {peek && !picOff && sources && <SourcePeek sources={sources} src={peek.src} label={peek.label} unsure={peek.unsure} onHide={() => setPicOff(true)} />}
+      {peek && picOff && (
+        <button className="btn sm ghost" onClick={() => setPicOff(false)} data-testid="scan-source-show" style={{ alignSelf: 'flex-start' }}>
+          <Ico n="image" /> Check it in the picture
+        </button>
+      )}
       {onChangeSong && selNote && selFlat && (
         <div className="panel small stack" style={{ gap: 6, padding: '8px 10px' }} data-testid="scan-note-fixer">
           <div className="row" style={{ gap: 6, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>

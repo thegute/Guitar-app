@@ -14,6 +14,9 @@ export interface SongNote {
   unsure?: boolean
   /** runner-up fret guesses from the scanner (e.g. [6, 0] when an 8 was read on a blurry frame) */
   alts?: number[]
+  /** where the scanner read it: picture p (of the scan's pictures), the note at x, y and its staff from y0 to y1, all as
+   *  fractions of the picture's width / height (Riff Scanner's "Check it in the picture" card zooms there) */
+  src?: { p: number; x: number; y: number; y0: number; y1: number }
 }
 export interface SongStep {
   notes: SongNote[]

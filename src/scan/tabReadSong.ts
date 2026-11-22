@@ -34,7 +34,8 @@ export function readTabPictures(pics: Gray[], tuning: number[], title: string): 
   if (!votes.size) return null
   const meter = [...votes].sort((a, b) => b[1] - a[1])[0][0]
   readings = readings.map((r, i) => (r.notes && r.meter !== meter ? readTab(pics[i], { strings, beats: meter }) : r))
-  return readingSong(readings, tuning, title, meter)
+  readings.forEach((r, i) => r.systems.forEach(sy => { sy.pic ??= i }))
+  return readingSong(readings, tuning, title, meter, undefined, pics.map(g => ({ w: g.w, h: g.h })))
 }
 
 /** how many of a's items appear in b in the same order */
@@ -226,8 +227,10 @@ export async function readTabPicturesBest(pics: Gray[], tuning: number[], title:
     }
   }
 
+  // each staff remembers its picture before pages are merged (a merged staff may come from another picture)
+  again.forEach((r, i) => r.systems.forEach(sy => { sy.pic ??= i }))
   readings = o.video ? dropLoop(dropRepeats(mergePages(again))) : again
-  const built = readingSong(readings, tuning, title, meter)
+  const built = readingSong(readings, tuning, title, meter, undefined, pics.map(g => ({ w: g.w, h: g.h })))
   if (!built) return null
 
   // Deep Mode Audio Engine Render-and-Compare + DTW Alignment + Tuning/Capo Auto-Detection!
@@ -253,14 +256,17 @@ export async function readTabPicturesBest(pics: Gray[], tuning: number[], title:
 
 /** Several pages' readings → one song (exported for tests). Staves stacked in one system (Guitar 1 / 2 / 3) become their
  *  own tracks; a tuning / capo / tempo the page prints is used. */
-export function readingSong(readings: TabReading[], tuning: number[], title: string, meter: number, found?: TuningFound): PictureReading | null {
+export function readingSong(readings: TabReading[], tuning: number[], title: string, meter: number, found?: TuningFound, sizes?: { w: number; h: number }[]): PictureReading | null {
   const tun = found?.midis && found.midis.length === tuning.length ? found.midis : tuning
   const capo = found?.capo ?? 0
   const parts: { name?: string; bars: SongBar[] }[] = []
   let notes = 0, unsure = 0, staves = 0
-  for (const r of readings) {
+  for (const [ri, r] of readings.entries()) {
     for (const s of r.systems) {
       if (!s.bars.some(b => b.steps.length)) continue
+      const pic = s.pic ?? ri, size = sizes?.[pic]
+      const top = Math.min(...s.lines), bottom = Math.max(...s.lines)
+      const srcOf = (n: { x: number; string: number }) => size && Number.isFinite(top) ? { p: pic, x: n.x / size.w, y: (s.lines[n.string] ?? top) / size.h, y0: Math.max(0, top - s.gap * 1.6) / size.h, y1: Math.min(size.h, bottom + s.gap * 1.6) / size.h } : undefined
       staves++
       const part = (parts[s.part ?? 0] ??= { bars: [] })
       if (s.partName && !part.name) part.name = s.partName
@@ -284,6 +290,7 @@ export function readingSong(readings: TabReading[], tuning: number[], title: str
                 ...(tech ? { tech } : {}),
                 ...(doubt ? { unsure: true } : {}),
                 ...(alts?.length ? { alts } : {}),
+                ...(srcOf(n) ? { src: srcOf(n)! } : {}),
               }
             }),
           })),
@@ -357,6 +364,22 @@ export function grayOf(img: HTMLImageElement | HTMLCanvasElement, minWidth = 160
   // a dark-mode screenshot (light lines on black): turned round so ink is dark (a dark video frame with a white tab
   // strip in it is left as it is)
   return inkDark({ w, h, px })
+}
+
+/** A grey picture the reader saw, as an image for the "Check it in the picture" card (note positions are fractions of
+ *  it, so a picture scaled down to stay inside the phone's canvas limits still lines up). */
+export function grayPicture(g: Gray): { url: string; w: number; h: number } {
+  const s = Math.min(1, 8000 / g.w, 3000 / g.h)
+  const w = Math.max(1, Math.round(g.w * s)), h = Math.max(1, Math.round(g.h * s))
+  const full = document.createElement('canvas')
+  full.width = g.w; full.height = g.h
+  const fx = full.getContext('2d')!
+  const im = fx.createImageData(g.w, g.h)
+  for (let i = 0; i < g.w * g.h; i++) { const v = Math.round(Math.max(0, Math.min(1, g.px[i])) * 255); im.data[i * 4] = v; im.data[i * 4 + 1] = v; im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255 }
+  fx.putImageData(im, 0, 0)
+  let c = full
+  if (s < 1) { c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d')!; x.imageSmoothingQuality = 'high'; x.drawImage(full, 0, 0, w, h) }
+  return { url: c.toDataURL('image/jpeg', 0.82), w, h }
 }
 
 /** The song as a plain text tab (for "Fix the tab text"), high string on top; spacing follows the note lengths. */
