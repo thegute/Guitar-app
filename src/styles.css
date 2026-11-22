@@ -1708,8 +1708,8 @@ video.mirrored { transform: scaleX(-1); }
 .st-views button { padding: 7px 12px; }
 
 /* pads: lit like a pad controller; each pad answers its own finger */
-.st-pads { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; touch-action: none; user-select: none; -webkit-user-select: none; }
-.st-pad { --h: 120; position: relative; aspect-ratio: 1 / 0.82; min-height: 64px; border-radius: var(--r-sm); cursor: pointer; touch-action: none;
+.st-pads { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; touch-action: pan-y; user-select: none; -webkit-user-select: none; padding-inline: 6px; }
+.st-pad { --h: 120; position: relative; aspect-ratio: 1 / 0.82; min-height: 64px; border-radius: var(--r-sm); cursor: pointer; touch-action: pan-y;
   border: 1px solid hsl(var(--h) 60% 45% / 0.55); color: var(--ink); font: 600 15px/1.1 var(--ui);
   background: linear-gradient(180deg, hsl(var(--h) 70% 55% / 0.22), hsl(var(--h) 70% 40% / 0.12));
   box-shadow: inset 0 -3px 0 hsl(var(--h) 60% 35% / 0.25); display: flex; align-items: flex-end; justify-content: flex-start; padding: 8px; }
@@ -2193,6 +2193,7 @@ html:not([data-arrange]) .win-grip, html:not([data-arrange]) .win-btn, html:not(
 [data-theme='psy'] .st-pads.editing .st-pad { background: #1f0b3a; color: #fff; }
 .st-meter, .pad-meter { --lv: 0; flex: none; width: 10px; height: 28px; border-radius: 5px; background: linear-gradient(to top, var(--mint) calc(var(--lv) * 100%), var(--line) 0); }
 .pad-meter { display: inline-block; height: 20px; vertical-align: middle; margin-left: 10px; }
+.st-pads.sampling, .st-pads.sampling .st-pad, .st-pads.hold-repeat .st-pad { touch-action: none; }
 .st-pads.sampling .st-pad { border: 2px solid var(--coral); background: color-mix(in srgb, var(--coral) 18%, var(--surface)); color: var(--ink); }
 .st-pads.sampling .st-pad.recording { background: var(--coral); color: #fff; animation: st-recpulse 0.8s ease-in-out infinite; }
 @keyframes st-recpulse { 50% { filter: brightness(1.25); } }
@@ -3683,11 +3684,13 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
 .ck-area { min-height: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line, rgba(127,127,127,.25)); }
 .ck-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ck-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.ck-left .ck-scroll, .ck-right .ck-scroll { display: flex; flex-direction: column; }
 .ck-help { margin: 0; color: var(--gold-text); }
 .ck-sel { display: inline-flex; align-items: center; gap: 6px; font: 700 17px 'Barlow Condensed', sans-serif; background: none; border: 0; color: var(--ink); padding: 0 4px; }
 .ck-sel i { width: 14px; height: 14px; border-radius: 4px; background: hsl(var(--h) 85% 55%); display: inline-block; }
-.ck-cells { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.ck-cell { position: relative; aspect-ratio: 1 / 0.78; min-height: 48px; border-radius: 10px; border: 1px solid var(--line, rgba(127,127,127,.3)); background: color-mix(in srgb, var(--ink) 6%, transparent); overflow: hidden; touch-action: none; padding: 0; }
+.ck-focus { flex: 1 0 auto; display: flex; flex-direction: column; gap: 6px; padding-bottom: 6px; }
+.ck-cells { flex: 1 1 0; min-height: 184px; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, minmax(42px, 1fr)); gap: 6px; }
+.ck-cell { position: relative; height: 100%; aspect-ratio: auto; min-height: 42px; max-height: 108px; border-radius: 10px; border: 1px solid var(--line, rgba(127,127,127,.3)); background: color-mix(in srgb, var(--ink) 6%, transparent); overflow: hidden; touch-action: none; padding: 0; }
 .ck-cell.beat { border-color: color-mix(in srgb, var(--ink) 35%, transparent); }
 .ck-cell.on { background: color-mix(in srgb, hsl(var(--h) 85% 55%) 22%, transparent); border-color: hsl(var(--h) 85% 55%); }
 .ck-vel { position: absolute; left: 0; right: 0; bottom: 0; background: hsl(var(--h) 85% 55%); opacity: .85; }
@@ -3700,13 +3703,17 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
 .ck-strip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; border-radius: var(--r-md); background: var(--surface); border: 1px solid hsl(var(--h) 70% 50% / .6); }
 .ck-knob { display: inline-flex; align-items: center; gap: 6px; font: 600 13px 'Barlow Condensed', sans-serif; }
 .ck-knob input[type=range] { width: 110px; }
-.ck-sheet { position: fixed; z-index: 61; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 64px); width: min(720px, calc(100vw - 16px)); max-height: 70vh; display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--accent); box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+.ck-sheet { position: fixed; z-index: 61; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 58px); width: min(720px, calc(100vw - 16px)); max-height: min(72dvh, calc(100dvh - 116px)); display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--accent); box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+.ck-sheet .st-xy { height: min(210px, 32dvh); min-height: 140px; }
+.ck .sheet-backdrop { z-index: 64; }
 .ck .st-pads.mute-mode .st-pad.is-muted { opacity: .35; filter: grayscale(.7); }
 .ck .ck-levels { grid-template-columns: repeat(4, 1fr); }
 
-/* in the cockpit the pads are one even 4 × 4 grid that fits its area (big kick / snare / hat only in the windows layout) */
-.ck .st-pads { grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.ck .st-pads .st-pad, .ck .st-pads .st-pad.big { grid-column: auto; height: auto; aspect-ratio: 1 / 0.78; min-height: 52px; margin: 0; font-size: 15px; }
+/* in the cockpit the pads are one even 4 × 4 grid sized to fit its pane cleanly without bottom cutoff */
+.ck .ck-padbody { flex: 1 0 auto; display: flex; flex-direction: column; gap: 6px; padding-bottom: 6px; }
+.ck .st-pads { flex: 1 1 0; min-height: 184px; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, minmax(40px, 1fr)); gap: 5px; }
+.ck .st-pads[hidden] { display: none; }
+.ck .st-pads .st-pad, .ck .st-pads .st-pad.big { grid-column: auto; height: 100%; aspect-ratio: auto; min-height: 40px; max-height: 108px; margin: 0; font-size: 14px; }
 .ck .ck-step-help { color: var(--ink-2); }
 
 /* Match a song's vibe */

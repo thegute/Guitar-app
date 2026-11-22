@@ -77,6 +77,7 @@ function tone(ctx: AudioContext, dest: AudioNode, when: number, f0: number, f1: 
 
 function synthDrum(voice: Voice, when: number, level: number, d: AudioNode) {
   const ctx = audio()
+  when = Math.max(when, ctx.currentTime)
   if (PERC.has(voice)) { percLive(ctx, voice, when, level, d); return }
   switch (voice) {
     case 'kick':

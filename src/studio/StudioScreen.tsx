@@ -96,6 +96,7 @@ export function StudioScreen({ active }: { active: boolean }) {
   const guitar = useInstrument()
   useEffect(() => {
     if (!active) return
+    tr().beatBus.gain.setTargetAtTime(1, audio().currentTime, 0.02)
     setFloatScreen('studio')
     setFloatResting('studio', false)
     return () => { setFloatScreen('jam'); clearFloat('studio') }
@@ -502,9 +503,12 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo, bare,
     up: () => { void sampler.up(lastPad.current, true) },
   } : {})
   const down = (e: React.PointerEvent<HTMLButtonElement>, voice: PadId) => {
-    e.preventDefault()
     lastPad.current = voice
-    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
+    const needsHold = sampler.on || repeat > 0 || (beat.pads?.[voice]?.mode ?? 'oneshot') !== 'oneshot'
+    if (needsHold) {
+      e.preventDefault()
+      try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
+    }
     if (editMode) { flash(e.currentTarget, 'hit'); haptic('light'); return }
     if (ck?.muteMode) { flash(e.currentTarget, 'hit'); haptic('light'); setBeat(b => toggleMute(b, voice)); ck.onPick?.(voice); return }
     ck?.onPick?.(voice)
@@ -604,7 +608,7 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo, bare,
           })}
         </div>
       )}
-      <div className={`st-pads size-${size}${sampler.on ? ' sampling' : ''}${editMode ? ' editing' : ''}${ck?.muteMode ? ' mute-mode' : ''}`} ref={grid} hidden={!!levels}>
+      <div className={`st-pads size-${size}${sampler.on ? ' sampling' : ''}${repeat > 0 ? ' hold-repeat' : ''}${editMode ? ' editing' : ''}${ck?.muteMode ? ' mute-mode' : ''}`} ref={grid} hidden={!!levels}>
         {voices.map(v => {
           const d = beat.pads?.[v]
           const empty = isUserPad(v) && !d
@@ -1573,24 +1577,8 @@ function FocusSteps({ beat, setBeat, t, voice }: { beat: Beat; setBeat: SetBeat;
           <label className="ex-check small"><input type="checkbox" checked={follow} onChange={e => setFollow(e.target.checked)} /> Follow the beat</label>
         </div>
       )}
-      <div className="ck-cells" style={{ ['--h' as string]: String(padHue(voice)) }}>
-        {cells.map(i => {
-          const v = row?.steps[i] ?? 0
-          const rat = row?.rat?.[i] ?? 1, prob = row?.prob?.[i] ?? 1
-          return (
-            <button key={i} className={`ck-cell${v > 0 ? ' on' : ''}${i === nowIdx ? ' now' : ''}${i % 4 === 0 ? ' beat' : ''}${prob < 1 ? ' maybe' : ''}`}
-              onPointerDown={e => down(e, i)} onPointerMove={move} onPointerUp={() => up(i)} onPointerCancel={() => { if (g.current) clearTimeout(g.current.timer); g.current = null }} onContextMenu={e => e.preventDefault()}
-              aria-pressed={v > 0} aria-label={`${padLabel(beat, voice)} step ${i + 1}${v > 0 ? `, ${Math.round(v * 100)}%` : ''}${rat > 1 ? `, ×${rat}` : ''}${prob < 1 ? `, ${Math.round(prob * 100)}% chance` : ''}`} data-step={i}>
-              {v > 0 && <span className="ck-vel" style={{ height: `${Math.round(v * 100)}%` }} />}
-              {v > 0 && rat > 1 && <span className="ck-rat">×{rat}</span>}
-              {v > 0 && prob < 1 && <span className="ck-prob">{Math.round(prob * 100)}%</span>}
-              <span className="ck-num">{(i % 16) + 1}</span>
-            </button>
-          )
-        })}
-      </div>
       {o && opts !== null && (
-        <div className="ck-opts panel stack" style={{ gap: 8 }} data-testid="ck-step-opts">
+        <div className="ck-opts panel stack" style={{ gap: 6, padding: 8 }} data-testid="ck-step-opts">
           <div className="row" style={{ alignItems: 'center', gap: 8 }}><b>Step {(opts % 16) + 1}{pages > 1 ? ` of bar ${Math.floor(opts / 16) + 1}` : ''}</b><span className="st-spacer" /><button className="btn sm" onClick={() => setOpts(null)}>Done</button></div>
           <label className="field st-field"><span>How hard: {Math.round((o.v || 0) * 100)}%</span>
             <input type="range" min={0} max={1} step={0.05} value={o.v} onChange={e => edit(r => { r.steps[opts] = Number(e.target.value); return r })} />
@@ -1607,6 +1595,22 @@ function FocusSteps({ beat, setBeat, t, voice }: { beat: Beat; setBeat: SetBeat;
           </div>
         </div>
       )}
+      <div className="ck-cells" style={{ ['--h' as string]: String(padHue(voice)) }}>
+        {cells.map(i => {
+          const v = row?.steps[i] ?? 0
+          const rat = row?.rat?.[i] ?? 1, prob = row?.prob?.[i] ?? 1
+          return (
+            <button key={i} className={`ck-cell${v > 0 ? ' on' : ''}${i === nowIdx ? ' now' : ''}${i % 4 === 0 ? ' beat' : ''}${prob < 1 ? ' maybe' : ''}`}
+              onPointerDown={e => down(e, i)} onPointerMove={move} onPointerUp={() => up(i)} onPointerCancel={() => { if (g.current) clearTimeout(g.current.timer); g.current = null }} onContextMenu={e => e.preventDefault()}
+              aria-pressed={v > 0} aria-label={`${padLabel(beat, voice)} step ${i + 1}${v > 0 ? `, ${Math.round(v * 100)}%` : ''}${rat > 1 ? `, ×${rat}` : ''}${prob < 1 ? `, ${Math.round(prob * 100)}% chance` : ''}`} data-step={i}>
+              {v > 0 && <span className="ck-vel" style={{ height: `${Math.round(v * 100)}%` }} />}
+              {v > 0 && rat > 1 && <span className="ck-rat">×{rat}</span>}
+              {v > 0 && prob < 1 && <span className="ck-prob">{Math.round(prob * 100)}%</span>}
+              <span className="ck-num">{(i % 16) + 1}</span>
+            </button>
+          )
+        })}
+      </div>
       {!row && <p className="small muted" style={{ margin: 0 }}>{padLabel(beat, voice)} isn't in the beat yet: tap a step to add it.</p>}
     </div>
   )

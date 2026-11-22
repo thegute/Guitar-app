@@ -398,13 +398,21 @@ export class StudioTransport {
   }
   /** Hit a pad now (finger drumming): plays at once, on the beat's kit. */
   hit(voice: string, vel = 0.9): Handle | null {
-    return this.drum(voice, 0, Math.min(1.5, vel * (this.beat.voiceVol?.[voice] ?? 1)), false)
+    const ctx = audio()
+    if (ctx.state === 'suspended') void ctx.resume()
+    const now = ctx.currentTime
+    this.beatBus.gain.setTargetAtTime(1, now, 0.01)
+    return this.drum(voice, now, Math.min(1.5, vel * (this.beat.voiceVol?.[voice] ?? 1)), false)
   }
   /** Press a key now; returns the note so it can be released. */
   press(trackId: string, inst: string, midi: number, vel = 0.8): Handle {
-    if (inst.startsWith('pad:')) return this.padNote(inst.slice(4), midi, 0, vel, this.bus(trackId).g) ?? { stop: () => {} }
+    const ctx = audio()
+    if (ctx.state === 'suspended') void ctx.resume()
+    const now = ctx.currentTime
+    this.beatBus.gain.setTargetAtTime(1, now, 0.01)
+    if (inst.startsWith('pad:')) return this.padNote(inst.slice(4), midi, now, vel, this.bus(trackId).g) ?? { stop: () => {} }
     const from = this.lastNote.get(trackId)
     this.lastNote.set(trackId, midi)
-    return playInstr(inst, midi, 0, vel, { dest: this.bus(trackId).g, from: instr(inst).slide || instr(inst).synth === 'sub808' ? from : undefined })
+    return playInstr(inst, midi, now, vel, { dest: this.bus(trackId).g, from: instr(inst).slide || instr(inst).synth === 'sub808' ? from : undefined })
   }
 }
