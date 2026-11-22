@@ -1,5 +1,14 @@
 # Gemini week log (newest first)
 
+- 2026-11-21 (Claude): **Riff Scanner "Check it in the picture"** (owner's design): `scan/SourcePeek.tsx` one FloatCard (`scanpic`) that
+  follows the tapped note to its spot in the picture/frame KGuitar read (`SongNote.src` {p,x,y,y0,y1} from `readingSong` sizes,
+  `grayPicture`, `ScanOut.sources`); one glowing box only: red = unsure, green = sure; opens only on a tap; `NoSourcePeek` says why
+  when there's no picture (Gemini cloud read → "Read it here with pictures" → grab phase); AI strip readings borrow spots from
+  KGuitar's own reading (`borrowSources`, LCS on string:fret). The tapped unsure note is red in the tab too (`.scan-sel-unsure`).
+  Owner: no rings on every note (too cluttered), one at a time, same window. Tests: step2 `scan,scanred,scangemini,scanvideo`.
+- 2026-11-21 (Claude): **Theory course Level 8: Modes and beyond** (`level8.ts`, `level8b.ts`, `l8Tabs.ts`, quizzes l8-parent,
+  l8-colour, l8-vamp, l8-chordscale, l8-mode-ear): 9 lessons + final check, videos mostly Signals Music Studio and LoG (oEmbed-checked).
+  The old Offtonic modes / scales lessons and L7's cadences, secondary, interchange now redirect (`REPLACED`).
 - 2026-11-20 (Claude): **Lessons change key** (owner: "make sure all the diagrams have the ability to change the key").
   `src/learn/lessonKey.tsx`: one shift per lesson (`kg:lessonKey:<id>`), Key menu on every neck picture (`SpotsBlock` in
   LessonReader, also the worked-example pictures and `neck` blocks) and at the top of course lessons; ▶ sounds, the circle and the
