@@ -745,3 +745,33 @@ export function preload(midis: number[], sound?: SoundId) {
   if (baseOf(id) !== 'synth') void loadSound(id)
   if (!banks.has(baseOf(id))) for (const m of midis) bufferFor(m)
 }
+
+let deadNoise: AudioBuffer | null = null
+/** Short percussive muted-string "chuck" (dead note x in tabs). */
+export function playDeadNote(when = 0, gain = 0.55, dest?: AudioNode, strings = 1) {
+  try {
+    const ctx = audio()
+    const t = Math.max(when || ctx.currentTime, ctx.currentTime)
+    if (!deadNoise || deadNoise.sampleRate !== ctx.sampleRate) {
+      const len = Math.floor(ctx.sampleRate * 0.09)
+      deadNoise = ctx.createBuffer(1, len, ctx.sampleRate)
+      const d = deadNoise.getChannelData(0)
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.018))
+    }
+    const to = dest ?? out()
+    const src = ctx.createBufferSource()
+    src.buffer = deadNoise
+    const bp = ctx.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.frequency.value = strings >= 3 ? 1150 : 1650
+    bp.Q.value = strings >= 3 ? 1.1 : 1.8
+    const g = ctx.createGain()
+    const peak = Math.min(1, gain * (strings >= 3 ? 0.55 : 0.38))
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), t + 0.002)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + (strings >= 3 ? 0.055 : 0.036))
+    src.connect(bp).connect(g).connect(to)
+    src.start(t)
+    src.stop(t + 0.085)
+  } catch { /* headless */ }
+}

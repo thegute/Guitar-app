@@ -16,12 +16,13 @@ export interface ScanSource { url: string; w: number; h: number }
 type Src = NonNullable<SongNote['src']>
 
 const BAND = 110 // the staff's height on screen at 1×
-const TECHS = ['h', 'p', '/', '\\', 'b', '~', 'x'] as const
+const TECHS = ['h', 'p', '/', '\\', 'b', '~', 'PM'] as const
 
 export interface PeekFixer {
   bar: number
   stringName: string
   note: SongNote
+  stepNoteCount: number
   altFrets: number[]
   hint?: string
   unsurePos?: number // 1-based index among unsure notes
@@ -36,6 +37,8 @@ export interface PeekFixer {
   onConfirm: () => void
   onPickFret: (f: number) => void
   onNudgeFret: (d: number) => void
+  onMuteNote: () => void
+  onMuteAll: () => void
   onMoveString: (d: number) => void
   onToggleTech: (t: string) => void
   onDelete: () => void
@@ -111,7 +114,7 @@ export function SourcePeek({ sources, src, label, unsure, onHide, fixer }: {
         </div>
         <div className="row small" style={{ gap: 4, alignItems: 'center', justifyContent: 'space-between' }}>
           <span className="muted" style={{ fontSize: 12 }}>
-            {fixer ? <><b>Bar {fixer.bar}</b> · <b>{fixer.stringName}</b> · fret <b>{fixer.note.tech === 'x' ? 'x' : fixer.note.fret}</b>{fixer.note.tech && fixer.note.tech !== 'x' ? ` (${fixer.note.tech})` : ''}</> : label}
+            {fixer ? <><b>Bar {fixer.bar}</b> · <b>{fixer.stringName}</b> · {fixer.note.tech === 'x' ? <b>x (muted)</b> : <>fret <b>{fixer.note.fret}</b>{fixer.note.tech ? ` (${fixer.note.tech})` : ''}</>}</> : label}
             {sources.length > 1 ? ` · pic ${src.p + 1}/${sources.length}` : ''}
           </span>
           <span className="row" style={{ gap: 3, flexWrap: 'nowrap' }}>
@@ -134,8 +137,11 @@ export function SourcePeek({ sources, src, label, unsure, onHide, fixer }: {
                   Fret {f}
                 </button>
               ))}
-              <button className="btn sm" disabled={fixer.note.fret <= 0} onClick={() => fixer.onNudgeFret(-1)} data-testid="fix-fret-dn" title="Fret −1">−1</button>
-              <button className="btn sm" disabled={fixer.note.fret >= 24} onClick={() => fixer.onNudgeFret(1)} data-testid="fix-fret-up" title="Fret +1">+1</button>
+              <button className="btn sm" disabled={fixer.note.tech !== 'x' && fixer.note.fret <= 0} onClick={() => fixer.onNudgeFret(-1)} data-testid="fix-fret-dn" title="Fret −1">−1</button>
+              <button className="btn sm" disabled={fixer.note.tech !== 'x' && fixer.note.fret >= 24} onClick={() => fixer.onNudgeFret(1)} data-testid="fix-fret-up" title="Fret +1">+1</button>
+              <button className={`btn sm${fixer.note.tech === 'x' ? ' on' : ''}`} onClick={fixer.onMuteNote} data-testid="fix-tech-x" title="Set this note to x (muted / chuck)">
+                x Mute
+              </button>
               <button className="btn sm ghost" onClick={fixer.onAudition} title="Hear this note" aria-label="Hear this note"><Ico n="ear" /></button>
               {fixer.hasVideo && (
                 <button className={`btn sm${fixer.videoOpen ? ' on' : ' ghost'}`} onClick={fixer.onToggleVideo} data-testid="peek-video-btn" title="Watch & hear original video in a floating window">
@@ -150,15 +156,21 @@ export function SourcePeek({ sources, src, label, unsure, onHide, fixer }: {
               </button>
             </div>
             {more && (
-              <div className="row" style={{ gap: 4, alignItems: 'center', flexWrap: 'wrap', paddingTop: 2, borderTop: '1px solid var(--hairline)' }}>
+              <div className="row" style={{ gap: 4, alignItems: 'center', flexWrap: 'wrap', paddingTop: 4, borderTop: '1px solid var(--hairline)' }}>
                 <button className="btn sm" disabled={!fixer.canStrUp} onClick={() => fixer.onMoveString(1)} data-testid="fix-str-up">↑ {fixer.strUpLabel ?? ''}</button>
                 <button className="btn sm" disabled={!fixer.canStrDn} onClick={() => fixer.onMoveString(-1)} data-testid="fix-str-dn">↓ {fixer.strDnLabel ?? ''}</button>
+                {fixer.stepNoteCount > 1 && (
+                  <button className="btn sm" onClick={fixer.onMuteAll} data-testid="fix-mute-all" title="Mark every string in this strum as x (muted chuck)">
+                    x Chuck chord
+                  </button>
+                )}
                 {TECHS.map(tc => (
                   <button key={tc} className={`btn sm${fixer.note.tech === tc ? ' on' : ' ghost'}`} onClick={() => fixer.onToggleTech(tc)} data-testid={`fix-tech-${tc}`}>
                     {tc}
                   </button>
                 ))}
-                <button className="btn sm danger" onClick={fixer.onDelete} data-testid="fix-del">Delete</button>
+                <span style={{ flex: 1 }} />
+                <button className="btn sm danger" onClick={fixer.onDelete} data-testid="fix-del">Delete note</button>
               </div>
             )}
           </div>

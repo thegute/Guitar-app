@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SongDoc } from '../tabs/library'
 import { flatten, type Song, type SongNote } from '../tabs/model'
 import { TabPlayer } from '../audio/tabPlayer'
-import { activeSound, playNote, soundForProgram } from '../audio/pluck'
+import { activeSound, playDeadNote, playNote, soundForProgram } from '../audio/pluck'
 import { audio } from '../audio/engine'
 import { TabView } from '../components/TabView'
 import { FingerBox } from '../components/FingerBox'
@@ -24,7 +24,7 @@ const TWIN_HINTS: Record<number, number[]> = {
   6: [8, 5, 0], 7: [1, 2], 8: [6, 3, 0, 9], 9: [0, 8], 10: [12, 18], 11: [14, 17],
   12: [10, 13, 15], 13: [15, 12], 14: [11, 19], 15: [16, 13], 16: [18, 15], 17: [11, 19],
 }
-const TECHS = ['h', 'p', '/', '\\', 'b', '~', 'x'] as const
+const TECHS = ['h', 'p', '/', '\\', 'b', '~', 'PM'] as const
 
 export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTimes }: {
   doc: SongDoc
@@ -144,7 +144,8 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
               if (!clean.unsure) delete clean.unsure
               outNotes.push(clean)
               nextSel = { flatIdx: sel.flatIdx, string: clean.string }
-              if (clean.tech !== 'x') audition(midi, clean.string)
+              if (clean.tech === 'x') playDeadNote(0, 0.65, undefined, 1)
+              else audition(midi, clean.string)
             } else {
               nextSel = null
             }
@@ -173,6 +174,38 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
       }
     } else {
       setSel(nextSel)
+    }
+  }
+
+  /** Mark every note in the selected chord/strum step as a muted chuck (x). */
+  const muteSelectedStep = () => {
+    if (!sel || !selFlat || !onChangeSong) return
+    const { bar: bi, idx: si } = selFlat
+    const capo = track.capo ?? 0
+    setUndoStack(st => [...st.slice(-19), JSON.parse(JSON.stringify(doc.song)) as Song])
+    const bars = track.bars.map((b, bIdx) => bIdx !== bi ? b : {
+      ...b,
+      steps: b.steps.map((st, sIdx) => sIdx !== si ? st : {
+        ...st,
+        notes: st.notes.map(n => {
+          const clean: SongNote = { ...n, fret: 0, midi: (track.tuning[n.string] ?? 40) + capo, tech: 'x' }
+          delete clean.unsure
+          return clean
+        }),
+      }),
+    })
+    playDeadNote(0, 0.75, undefined, Math.max(3, selFlat.step.notes.length))
+    onChangeSong({ ...doc.song, tracks: [{ ...track, bars }, ...doc.song.tracks.slice(1)] })
+    const rem = unsureList.filter(u => u.flatIdx !== sel.flatIdx)
+    if (selFlat.step.notes.some(n => n.unsure)) {
+      if (rem.length > 0) {
+        const pick = rem.find(u => u.flatIdx > sel.flatIdx) ?? rem[0]
+        setSel(pick)
+        setFrom(pick.flatIdx)
+      } else {
+        setSel(null)
+        setVerifiedBanner(true)
+      }
     }
   }
 
@@ -232,6 +265,7 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
     bar: selFlat.bar + 1,
     stringName: strNames[selNote.string],
     note: selNote,
+    stepNoteCount: selFlat.step.notes.length,
     altFrets,
     hint: (selNote as SongNote & { hint?: string }).hint,
     unsurePos,
@@ -245,11 +279,13 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
     videoOpen: vidOpen,
     onConfirm: () => updateSelectedNote(n => ({ ...n, unsure: undefined }), true),
     onPickFret: f => updateSelectedNote(n => ({ ...n, fret: f, tech: n.tech === 'x' ? undefined : n.tech }), true),
-    onNudgeFret: d => updateSelectedNote(n => ({ ...n, fret: Math.max(0, Math.min(24, n.fret + d)), tech: n.tech === 'x' ? undefined : n.tech }), false),
+    onNudgeFret: d => updateSelectedNote(n => ({ ...n, fret: n.tech === 'x' ? Math.max(0, d) : Math.max(0, Math.min(24, n.fret + d)), tech: n.tech === 'x' ? undefined : n.tech }), false),
+    onMuteNote: () => updateSelectedNote(n => (n.tech === 'x' ? { ...n, tech: undefined } : { ...n, fret: 0, tech: 'x' }), true),
+    onMuteAll: muteSelectedStep,
     onMoveString: d => updateSelectedNote(n => ({ ...n, string: Math.max(0, Math.min(track.tuning.length - 1, n.string + d)) }), false),
     onToggleTech: tc => updateSelectedNote(n => ({ ...n, tech: n.tech === tc ? undefined : tc }), false),
     onDelete: () => updateSelectedNote(() => null, true),
-    onAudition: () => { if (selNote.tech !== 'x') audition(selNote.midi, selNote.string) },
+    onAudition: () => { if (selNote.tech === 'x') playDeadNote(0, 0.65, undefined, 1); else audition(selNote.midi, selNote.string) },
     onUndo: undoLast,
     onPrevUnsure: () => jumpUnsure(-1),
     onNextUnsure: () => jumpUnsure(1),
@@ -308,13 +344,13 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
         <div className="panel small stack" style={{ gap: 6, padding: '8px 10px' }} data-testid="scan-note-fixer">
           <div className="row" style={{ gap: 6, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
             <span>
-              <b>Bar {selFlat.bar + 1}</b> · <b>{strNames[selNote.string]}</b> string · fret <b>{selNote.tech === 'x' ? 'x' : selNote.fret}</b>{selNote.tech && selNote.tech !== 'x' ? ` (${selNote.tech})` : ''}
+              <b>Bar {selFlat.bar + 1}</b> · <b>{strNames[selNote.string]}</b> string · {selNote.tech === 'x' ? <b>x (muted)</b> : <>fret <b>{selNote.fret}</b>{selNote.tech ? ` (${selNote.tech})` : ''}</>}
               {selNote.unsure ? <span className="muted"> · amber ring (unsure)</span> : null}
             </span>
             <div className="row" style={{ gap: 4 }}>
               {selNote.unsure && <button className="btn sm primary" onClick={() => updateSelectedNote(n => ({ ...n, unsure: undefined }), true)} data-testid="fix-ok">Looks right ✓</button>}
               {unsureList.length > 0 && <button className="btn sm" onClick={() => jumpUnsure(1)}>Next unsure →</button>}
-              <button className="btn sm ghost" onClick={() => setSel(null)} aria-label="Close note fixer">✕</button>
+              <button className="btn sm ghost" onClick={() => setSel(null)} aria-label="Close note fixer">Done</button>
             </div>
           </div>
           <div className="row" style={{ gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -329,8 +365,12 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
               </>
             )}
             <span className="muted">Fret:</span>
-            <button className="btn sm" disabled={selNote.fret <= 0} onClick={() => updateSelectedNote(n => ({ ...n, fret: Math.max(0, n.fret - 1), tech: n.tech === 'x' ? undefined : n.tech }))} data-testid="fix-fret-dn">−1</button>
-            <button className="btn sm" disabled={selNote.fret >= 24} onClick={() => updateSelectedNote(n => ({ ...n, fret: Math.min(24, n.fret + 1), tech: n.tech === 'x' ? undefined : n.tech }))} data-testid="fix-fret-up">+1</button>
+            <button className="btn sm" disabled={selNote.tech !== 'x' && selNote.fret <= 0} onClick={() => updateSelectedNote(n => ({ ...n, fret: n.tech === 'x' ? 0 : Math.max(0, n.fret - 1), tech: n.tech === 'x' ? undefined : n.tech }))} data-testid="fix-fret-dn">−1</button>
+            <button className="btn sm" disabled={selNote.tech !== 'x' && selNote.fret >= 24} onClick={() => updateSelectedNote(n => ({ ...n, fret: n.tech === 'x' ? 1 : Math.min(24, n.fret + 1), tech: n.tech === 'x' ? undefined : n.tech }))} data-testid="fix-fret-up">+1</button>
+            <button className={`btn sm${selNote.tech === 'x' ? ' on' : ''}`} onClick={() => updateSelectedNote(n => (n.tech === 'x' ? { ...n, tech: undefined } : { ...n, fret: 0, tech: 'x' }), true)} data-testid="fix-tech-x" title="Set this note to x (muted / chuck)">x Mute</button>
+            {selFlat.step.notes.length > 1 && (
+              <button className="btn sm" onClick={muteSelectedStep} data-testid="fix-mute-all" title="Mark every string in this strum as x (muted chuck)">x Chuck chord</button>
+            )}
             <span className="muted">String:</span>
             <button className="btn sm" disabled={selNote.string >= track.tuning.length - 1} onClick={() => updateSelectedNote(n => ({ ...n, string: Math.min(track.tuning.length - 1, n.string + 1) }))} data-testid="fix-str-up">↑ {strNames[selNote.string + 1] ?? ''}</button>
             <button className="btn sm" disabled={selNote.string <= 0} onClick={() => updateSelectedNote(n => ({ ...n, string: Math.max(0, n.string - 1) }))} data-testid="fix-str-dn">↓ {strNames[selNote.string - 1] ?? ''}</button>
@@ -340,7 +380,7 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
                 {tc}
               </button>
             ))}
-            <button className="btn sm ghost" onClick={() => updateSelectedNote(() => null, true)} data-testid="fix-del">Delete note</button>
+            <button className="btn sm danger" onClick={() => updateSelectedNote(() => null, true)} data-testid="fix-del">Delete note</button>
           </div>
         </div>
       )}

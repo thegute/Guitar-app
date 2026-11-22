@@ -3,7 +3,7 @@
 import { liveSound, quietSound } from './stopAll'
 import { bendOf, isRelease } from '../licks/notation'
 import { audio, setDelayTempo } from './engine'
-import { playNote, strum, isPowerChord, activeSound, soundInfo, type SoundId } from './pluck'
+import { playDeadNote, playNote, strum, isPowerChord, activeSound, soundInfo, type SoundId } from './pluck'
 import type { FlatStep } from '../tabs/model'
 import { BandVoices, type BandEvent } from './band'
 import type { TempoMap } from '../play/tempoMap'
@@ -94,7 +94,9 @@ export class TabPlayer {
         if (!this.part) { this.queue.push({ t, i, spb, dur: st.dur }); t += st.dur * spb; i++; continue }
         const notes = st.notes
         const ns = notes.filter(n => n.tech !== 'x')
+        const deadCount = notes.length - ns.length
         notes.forEach(n => { if (n.tech === 'x') { this.ringing.get(n.string)?.stop(t); this.ringing.delete(n.string); lastMidiByString.delete(n.string) } })
+        if (deadCount > 0 && ns.length === 0) playDeadNote(t, 0.7 * this.level, undefined, deadCount)
         // through a distorted amp, players mute other strings when they pick the next single note (keeping the same string alive for legato crossfade)
         if (amp && ns.length === 1) {
           const onlyStr = ns[0].string
