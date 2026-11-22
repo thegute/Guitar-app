@@ -28,6 +28,7 @@ import { freqToMidi, midiName } from '../theory/notes'
 import { SPEEDS } from '../components/LocalVideo'
 import { Win, WinArea } from '../components/Win'
 import { CourseBookView } from './CourseBookView'
+import { LessonTabHost, closeLessonTab, followLesson, openLessonTab, useLessonTab } from './LessonTabCard'
 import { CourseFingerCard } from './CourseFingerCard'
 import { attachMpegTsPlayer, probeVideoUrl, type TsPlayerHandle } from './mpegtsFallback'
 import {
@@ -65,6 +66,7 @@ const hash = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) h = 
 
 export function VideoLessons({ onExit }: { onExit: () => void }) {
   useRegisterFeatureIntro('course-studio')
+  useEffect(() => () => closeLessonTab(), [])
   const [folders, setFolders] = useState<Folder[]>(() => savedFolders())
   const [maps, setMaps] = useState<Record<string, CourseMap | null>>(() => {
     const init: Record<string, CourseMap | null> = {}
@@ -158,7 +160,8 @@ export function VideoLessons({ onExit }: { onExit: () => void }) {
     const resolved = resolveCourse(cur, maps[cur.tree])
     const i = resolved.lessons.findIndex(x => x.video.uri === open.uri)
     if (i >= 0) {
-      return (
+      return (<>
+        <LessonTabHost />
         <LessonPlayer
           key={open.uri}
           course={resolved}
@@ -171,12 +174,13 @@ export function VideoLessons({ onExit }: { onExit: () => void }) {
             if (j >= 0 && j < resolved.lessons.length) setOpen({ tree: cur.tree, uri: resolved.lessons[j].video.uri })
           }}
         />
-      )
+      </>)
     }
   }
 
   return (
     <div className="stack video-lessons">
+      <LessonTabHost />
       <button className="btn sm" style={{ justifySelf: 'start' }} onClick={onExit}>← Back</button>
       <h1 style={{ margin: 0 }}>Your video lessons</h1>
       <input
@@ -361,51 +365,23 @@ async function docFromFile(f: LFile, bytes: Uint8Array, inst: Instrument): Promi
   return { title: song.title || niceName(f.name), artist: song.artist, source: 'gp', inst: inst.id, song, updated: Date.now() }
 }
 
-/** A chapter's tab files: Guitar Pro and text tabs open in Play (with a video if one is given). */
-function TabFiles({ tabs, video }: { tabs: LFile[]; video?: LFile }) {
-  const inst = useInstrument()
-  const [msg, setMsg] = useState('')
-  const [img, setImg] = useState<string | null>(null)
-  async function openTab(t: LFile) {
-    setMsg('')
-    const k = kindOf(t)
-    try {
-      if (k === 'pdf') {
-        if (lessonsAvailable()) { await LessonFolders.openExternal({ uri: t.uri, mime: 'application/pdf' }); return }
-        window.open(mediaUrl(t.uri), '_blank')
-        return
-      }
-      if (k === 'image') { setImg(img === t.uri ? null : t.uri); return }
-      setMsg('Opening…')
-      const id = `lf:${hash(t.uri)}:${inst.id}`
-      let doc = await getSong(id)
-      if (!doc) {
-        const bytes = await readLessonBytes(t.uri)
-        doc = { ...(await docFromFile(t, bytes, inst)), id }
-      }
-      if (video) doc = { ...doc, youtube: localVideoLink(video) }
-      await saveSong(doc)
-      setMsg('')
-      openInPlay(doc)
-    } catch (e) {
-      setMsg((e as Error).message || "Couldn't open that file.")
-    }
-  }
+/** A chapter's or lesson's tab files: each opens in the one "Lesson tab" floating window (PDF pages, pictures and
+ *  Guitar Pro / text tabs shown inside KGuitar, next to the video). */
+function TabFiles({ tabs, video, pageFor }: { tabs: LFile[]; video?: LFile; pageFor?: (f: LFile) => number | undefined }) {
+  const open = useLessonTab()
   return (
     <div className="stack" style={{ gap: 4 }}>
-      <span className="small muted">Tabs{video ? ' (open in Play with this video beside them)' : ''}</span>
+      <span className="small muted">Tabs (tap one: it opens in a floating window{video ? ' beside the video' : ''})</span>
       {tabs.map(t => {
         const k = kindOf(t)
         return (
-          <button key={t.uri} className="course-video tab-file" onClick={() => void openTab(t)}>
+          <button key={t.uri} className={`course-video tab-file${open?.file.uri === t.uri ? ' on' : ''}`} onClick={() => openLessonTab({ file: t, list: tabs, video, page: pageFor?.(t) })} data-testid="lesson-tab-file">
             <span className="cv-mark" aria-hidden><Ico n={k === 'pdf' ? 'file' : k === 'image' ? 'image' : 'guitar'} /></span>
             <span className="cv-name">{niceName(t.name)}</span>
-            <span className="small muted">{k === 'pdf' ? 'PDF' : k === 'image' ? 'Show' : 'Play'}</span>
+            <span className="small muted">{k === 'pdf' ? 'PDF' : k === 'image' ? 'Picture' : 'Tab'}</span>
           </button>
         )
       })}
-      {img && <img className="lesson-img" src={mediaUrl(img)} alt="Tab from the lesson folder" />}
-      {msg && <p className="small notice" style={{ margin: 0 }} role="status">{msg}</p>}
     </div>
   )
 }
@@ -451,6 +427,16 @@ function LessonPlayer({
   const v = lesson.video
   const inst = useInstrument()
   const strumState = useStrumState()
+  // this lesson's tabs: its own PDF pages first, then the chapter's tab files; an open "Lesson tab" window follows along
+  const lessonTabs = useMemo(() => {
+    const own = [lesson.pdf?.file, ...lesson.extraPdfs.map(p => p.file), ...lesson.gpTabs.map(g => g.file), ...lesson.images.map(i => i.file)].filter((f): f is LFile => !!f)
+    const seen = new Set<string>()
+    return [...own, ...lesson.chapterTabs].filter(f => (seen.has(f.uri) ? false : (seen.add(f.uri), true)))
+  }, [lesson])
+  const pageFor = (f: LFile) => (lesson.pdf?.file.uri === f.uri ? lesson.pdf.startPage : lesson.extraPdfs.find(p => p.file.uri === f.uri)?.startPage)
+  useEffect(() => {
+    if (lessonTabs.length) followLesson({ file: lessonTabs[0], list: lessonTabs, video: lesson.video, page: pageFor(lessonTabs[0]) })
+  }, [lesson.video.uri]) // eslint-disable-line react-hooks/exhaustive-deps
   const el = useRef<HTMLVideoElement>(null)
   const backingEl = useRef<HTMLAudioElement>(null)
 
@@ -1206,10 +1192,10 @@ function LessonPlayer({
         )}
       </div>
 
-      {lesson.chapterTabs.length > 0 && (
+      {lessonTabs.length > 0 && (
         <WinArea area="lessonPlayer">
           <Win id="lp-tabs" title="Tabs for this lesson" className="panel" bodyClass="stack" bodyStyle={{ gap: 6 }}>
-            <TabFiles tabs={lesson.chapterTabs} video={v} />
+            <TabFiles tabs={lessonTabs} video={v} pageFor={pageFor} />
           </Win>
         </WinArea>
       )}

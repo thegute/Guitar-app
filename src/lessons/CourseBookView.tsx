@@ -39,7 +39,7 @@ async function loadPdfjs() {
   return lib
 }
 
-async function getPdfDoc(file: LFile): Promise<CachedPdf> {
+export async function getPdfDoc(file: LFile): Promise<CachedPdf> {
   const idx = pdfCache.findIndex(c => c.uri === file.uri)
   if (idx >= 0) {
     const hit = pdfCache.splice(idx, 1)[0]

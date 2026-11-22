@@ -3650,3 +3650,9 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
     align-items: center;
   }
 }
+
+/* the "Lesson tab" floating window (lessons/LessonTabCard.tsx) */
+.lesson-tab-view { overflow: auto; border-radius: var(--r-sm); background: #fff; overscroll-behavior: contain; touch-action: pan-x pan-y; }
+.lesson-tab-view canvas { display: block; }
+.lesson-tab-view .scan-player, .lesson-tab-view > div { background: var(--surface); }
+.tab-file.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
