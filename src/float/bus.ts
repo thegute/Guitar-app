@@ -1,6 +1,6 @@
-// Floating cards: what the screen you're on is doing right now (published by Play, Jam, the beat maker …) and which cards
-// are shown on each screen. The cards themselves are in float/FloatLayer.tsx; the shell (move, resize, bubble, hide) in
-// components/FloatCard.tsx.
+// Floating cards: what the screen you're on is doing right now (published by Play, Jam, the beat maker, Pocket Band …)
+// and which floating card instances are open on each screen (supports multiple floating cards at once, including
+// multiple copies of the same card like two 5-Layer Fretboards or two Book Pages, plus Workspace Presets & Arrange).
 import { useEffect, useState } from 'react'
 
 export interface FloatCtx {
@@ -8,7 +8,7 @@ export interface FloatCtx {
   chordNow?: string
   chordNext?: string
   beatsToChange?: number
-  /** the key's notes (pitch classes) and its name, for the mini neck */
+  /** the key's notes (pitch classes) and its name, for the mini neck / licks / circle */
   keyPcs?: number[]
   keyName?: string
   /** where your hand is (first fret of the box), so the mini neck shows that part of the neck */
@@ -56,60 +56,196 @@ export function useFloatCtx(): FloatCtx {
   return ctx
 }
 
-// ---------- which cards are shown, per screen ----------
-export type CardId = 'hand' | 'chord' | 'neck' | 'feedback' | 'bar' | 'tempo' | 'tuner' | 'video' | 'timer' | 'mixer'
-export const CARDS: { id: CardId; title: string; icon: 'hand' | 'music' | 'layers' | 'ear' | 'target' | 'zap' | 'guitar' | 'film' | 'timer' | 'sliders'; hint: string }[] = [
-  { id: 'hand', title: 'Hand', icon: 'hand', hint: 'Where your fingers go: the four frets your hand covers, each finger in colour, and the next shift' },
-  { id: 'chord', title: 'Chord now & next', icon: 'music', hint: 'The chord to play now, the next one and a beat countdown to the change' },
-  { id: 'neck', title: 'Mini neck', icon: 'layers', hint: 'The key’s notes around your hand, with the chord’s notes lit and its root in red' },
-  { id: 'feedback', title: 'What you played', icon: 'ear', hint: 'What the mic heard against what the tab wants' },
-  { id: 'bar', title: 'Bar & beat', icon: 'target', hint: 'Which bar and beat you’re on, and the loop' },
-  { id: 'tempo', title: 'Tempo', icon: 'zap', hint: 'The tempo with a beat flash; change the speed right on the card' },
-  { id: 'tuner', title: 'Quick tuner', icon: 'guitar', hint: 'A small tuner needle for a quick check between songs' },
-  { id: 'video', title: 'Mini video', icon: 'film', hint: 'The song’s YouTube video in a small floating player' },
-  { id: 'timer', title: 'Practice timer', icon: 'timer', hint: 'Your practice session’s step and time left, or a stopwatch' },
-  { id: 'mixer', title: 'Mixer', icon: 'sliders', hint: 'Band behind me: the volume of your part, the drums, the bass and the other parts, each with mute and solo; the chord band’s style' },
+// ---------- Cross-card chord / progression events (Circle → Pocket Band & 5-Layer Neck) ----------
+const bandChordListeners = new Set<(chord: string) => void>()
+export function onBandAddChord(f: (chord: string) => void) { bandChordListeners.add(f); return () => { bandChordListeners.delete(f) } }
+export function emitBandAddChord(chord: string) { bandChordListeners.forEach(f => f(chord)) }
+
+// ---------- Floating card catalog ----------
+export type CardId =
+  | 'hand' | 'chord' | 'neck' | 'feedback' | 'bar' | 'tempo' | 'tuner' | 'video' | 'timer' | 'mixer'
+  | 'drummer' | 'band' | 'licks' | 'circle' | 'note' | 'book'
+
+export type CardIcon =
+  | 'hand' | 'music' | 'layers' | 'ear' | 'target' | 'zap' | 'guitar' | 'film' | 'timer' | 'sliders'
+  | 'drum' | 'sparkles' | 'book' | 'file' | 'disc'
+
+export const CARDS: { id: CardId; title: string; icon: CardIcon; hint: string; group?: 'core' | 'band' | 'ref' }[] = [
+  { id: 'hand', title: 'Hand', icon: 'hand', group: 'core', hint: 'Where your fingers go: the four frets your hand covers, each finger in colour, and the next shift' },
+  { id: 'neck', title: '5-Layer Fretboard', icon: 'layers', group: 'core', hint: 'Mini neck or expanded 5-Layer Fretboard (Shape · Triads · Pentatonic · Mode · Free fingers)' },
+  { id: 'drummer', title: 'Pocket Drummer', icon: 'drum', group: 'band', hint: 'Drums by themselves across all 7 styles, kits, My Beat Maker, Tap Tempo, Gap Click & AI fills' },
+  { id: 'band', title: 'Pocket Band & Drone', icon: 'disc', group: 'band', hint: 'Single chord drone or progression with Sound Packs, Studio Bass, drums/Beat Maker, mixer & AI fills' },
+  { id: 'licks', title: 'Licks & Fills', icon: 'sparkles', group: 'ref', hint: 'Must-Know Licks and Fills Workshop ideas transposed live to your key & chord' },
+  { id: 'circle', title: 'Circle & Key Sheet', icon: 'music', group: 'ref', hint: 'Diatonic & borrowed chords + mini Circle of Fifths: tap to hear, light up fretboard, or add to Band' },
+  { id: 'note', title: 'Sticky Note', icon: 'file', group: 'ref', hint: 'Per-song / per-lesson notes with quick tags and voice dictation' },
+  { id: 'book', title: 'Book & Tab Ref', icon: 'book', group: 'ref', hint: 'Float a zoomable page from My Books (or any tab screenshot) with bookmarks & Scan this page' },
+  { id: 'chord', title: 'Chord now & next', icon: 'music', group: 'core', hint: 'The chord to play now, the next one and a beat countdown to the change' },
+  { id: 'feedback', title: 'What you played', icon: 'ear', group: 'core', hint: 'What the mic heard against what the tab wants' },
+  { id: 'bar', title: 'Bar & beat', icon: 'target', group: 'core', hint: 'Which bar and beat you’re on, and the loop' },
+  { id: 'tempo', title: 'Tempo', icon: 'zap', group: 'core', hint: 'The tempo with a beat flash; change the speed right on the card' },
+  { id: 'tuner', title: 'Quick tuner', icon: 'guitar', group: 'core', hint: 'A small tuner needle for a quick check between songs' },
+  { id: 'video', title: 'Mini video', icon: 'film', group: 'core', hint: 'The song’s YouTube video in a small floating player' },
+  { id: 'timer', title: 'Practice timer', icon: 'timer', group: 'core', hint: 'Your practice session’s step and time left, or a stopwatch' },
+  { id: 'mixer', title: 'Mixer', icon: 'sliders', group: 'band', hint: 'Band behind me: volume, mute and solo for each part' },
 ]
+
+export interface CardInstance { uid: string; kind: CardId }
+
 const KEY = (screen: string) => `kg:floatCards:${screen}`
+const VALID_IDS = new Set<string>(CARDS.map(c => c.id))
 // Jam: the chord and the mini neck pop up while the band plays (Jam rests its cards when nothing is playing)
 const DEFAULTS: Record<string, CardId[]> = { play: ['hand'], scan: ['hand'], learn: ['hand'], jam: ['chord', 'neck'] }
 
-export function shownCards(screen: string): CardId[] {
+function parseInstances(raw: unknown): CardInstance[] | null {
+  if (!Array.isArray(raw)) return null
+  const out: CardInstance[] = []
+  const seen = new Set<string>()
+  for (const item of raw) {
+    if (typeof item === 'string' && VALID_IDS.has(item)) {
+      if (!seen.has(item)) { seen.add(item); out.push({ uid: item, kind: item as CardId }) }
+    } else if (item && typeof item === 'object') {
+      const o = item as { uid?: unknown; kind?: unknown }
+      if (typeof o.uid === 'string' && typeof o.kind === 'string' && VALID_IDS.has(o.kind) && !seen.has(o.uid)) {
+        seen.add(o.uid)
+        out.push({ uid: o.uid, kind: o.kind as CardId })
+      }
+    }
+  }
+  return out
+}
+
+export function shownInstances(screen: string): CardInstance[] {
   try {
-    const v = JSON.parse(localStorage.getItem(KEY(screen)) ?? 'null') as CardId[] | null
-    if (Array.isArray(v)) return v
-    // Play: the old "Where your fingers go" switch
+    const raw = JSON.parse(localStorage.getItem(KEY(screen)) ?? 'null') as unknown
+    const parsed = parseInstances(raw)
+    if (parsed) return parsed
     if (screen === 'play' && localStorage.getItem('kg:handGuide') === 'false') return []
   } catch { /* default */ }
-  return DEFAULTS[screen] ?? []
+  return (DEFAULTS[screen] ?? []).map(kind => ({ uid: kind, kind }))
 }
+
+export function shownCards(screen: string): CardId[] {
+  return [...new Set(shownInstances(screen).map(x => x.kind))]
+}
+
 const cardListeners = new Set<() => void>()
-export function setShownCards(screen: string, ids: CardId[]) {
-  try { localStorage.setItem(KEY(screen), JSON.stringify(ids)) } catch { /* full */ }
-  if (screen === 'play') try { localStorage.setItem('kg:handGuide', JSON.stringify(ids.includes('hand'))) } catch { /* full */ }
+export function setShownInstances(screen: string, list: CardInstance[]) {
+  try { localStorage.setItem(KEY(screen), JSON.stringify(list)) } catch { /* full */ }
+  if (screen === 'play') try { localStorage.setItem('kg:handGuide', JSON.stringify(list.some(x => x.kind === 'hand'))) } catch { /* full */ }
   cardListeners.forEach(f => f())
 }
+
+export function setShownCards(screen: string, ids: CardId[]) {
+  setShownInstances(screen, [...new Set(ids)].map(kind => ({ uid: kind, kind })))
+}
+
 export function toggleCard(screen: string, id: CardId) {
-  const cur = shownCards(screen)
-  setShownCards(screen, cur.includes(id) ? cur.filter(c => c !== id) : [...cur, id])
+  const cur = shownInstances(screen)
+  if (cur.some(x => x.kind === id)) setShownInstances(screen, cur.filter(x => x.kind !== id))
+  else setShownInstances(screen, [...cur, { uid: id, kind: id }])
 }
-/** Replace one floating card with another in place (for the unified floating window's dropdown menu). */
+
+/** Open a brand-new floating window for `kind` (supports multiple copies of the same card!). Returns its uid. */
+export function addCardInstance(screen: string, kind: CardId): string {
+  const cur = shownInstances(screen)
+  let uid: string = kind
+  if (cur.some(x => x.uid === uid)) {
+    let n = 2
+    while (cur.some(x => x.uid === `${kind}-${n}`)) n++
+    uid = `${kind}-${n}`
+  }
+  setShownInstances(screen, [...cur, { uid, kind }])
+  return uid
+}
+
+export function removeCardInstance(screen: string, uid: string) {
+  setShownInstances(screen, shownInstances(screen).filter(x => x.uid !== uid))
+}
+
+/** Replace one floating card instance's feature in place. */
+export function swapCardInstance(screen: string, uid: string, toKind: CardId) {
+  const cur = shownInstances(screen)
+  const target = cur.find(x => x.uid === uid)
+  if (!target || target.kind === toKind) return
+  setShownInstances(screen, cur.map(x => (x.uid === uid ? { ...x, kind: toKind } : x)))
+}
+
+/** Legacy helper: replace first card of fromId with toId. */
 export function swapCard(screen: string, fromId: CardId, toId: CardId) {
-  if (fromId === toId) return
-  const cur = shownCards(screen)
-  const next = cur.includes(toId) ? cur.filter(c => c !== fromId) : cur.map(c => (c === fromId ? toId : c))
-  if (!next.includes(toId)) next.push(toId)
-  setShownCards(screen, next)
+  const cur = shownInstances(screen)
+  const hit = cur.find(x => x.kind === fromId)
+  if (hit) swapCardInstance(screen, hit.uid, toId)
+  else addCardInstance(screen, toKindSafe(toId))
 }
-export function useShownCards(screen: string): CardId[] {
-  const [v, setV] = useState(() => shownCards(screen))
+const toKindSafe = (id: CardId) => id
+
+export function useShownInstances(screen: string): CardInstance[] {
+  const [v, setV] = useState(() => shownInstances(screen))
   useEffect(() => {
-    setV(shownCards(screen))
-    const f = () => setV(shownCards(screen))
+    setV(shownInstances(screen))
+    const f = () => setV(shownInstances(screen))
     cardListeners.add(f)
     return () => { cardListeners.delete(f) }
   }, [screen])
   return v
+}
+
+export function useShownCards(screen: string): CardId[] {
+  const insts = useShownInstances(screen)
+  return [...new Set(insts.map(x => x.kind))]
+}
+
+// ---------- Arrange / Minimize All / Workspace Presets ----------
+export interface FloatPreset {
+  id: string
+  name: string
+  cards: CardInstance[]
+  builtin?: boolean
+  neck5Layer?: boolean
+}
+
+export const BUILTIN_PRESETS: FloatPreset[] = [
+  { id: 'jam-rig', name: 'Jam Rig (5-Layer + Band + Licks)', builtin: true, neck5Layer: true, cards: [{ uid: 'neck', kind: 'neck' }, { uid: 'band', kind: 'band' }, { uid: 'licks', kind: 'licks' }] },
+  { id: 'mode-study', name: 'Mode Study (Band + 5-Layer + Circle)', builtin: true, neck5Layer: true, cards: [{ uid: 'band', kind: 'band' }, { uid: 'neck', kind: 'neck' }, { uid: 'circle', kind: 'circle' }] },
+  { id: 'book-practice', name: 'Book Practice (Book + Drummer + Note)', builtin: true, cards: [{ uid: 'book', kind: 'book' }, { uid: 'drummer', kind: 'drummer' }, { uid: 'note', kind: 'note' }] },
+  { id: 'dual-neck', name: 'Dual Fretboard (2× 5-Layer)', builtin: true, neck5Layer: true, cards: [{ uid: 'neck', kind: 'neck' }, { uid: 'neck-2', kind: 'neck' }] },
+]
+
+const PRESETS_KEY = 'kg:floatPresets'
+export function savedPresets(): FloatPreset[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PRESETS_KEY) ?? '[]') as FloatPreset[]
+    return Array.isArray(raw) ? raw : []
+  } catch { return [] }
+}
+export function savePreset(name: string, screen: string) {
+  const cards = shownInstances(screen).filter(c => c.kind !== 'hand')
+  if (!cards.length) return
+  const list = savedPresets().filter(p => p.name !== name)
+  list.unshift({ id: `u-${Date.now()}`, name, cards })
+  try { localStorage.setItem(PRESETS_KEY, JSON.stringify(list.slice(0, 8))) } catch { /* full */ }
+  cardListeners.forEach(f => f())
+}
+export function deletePreset(id: string) {
+  const list = savedPresets().filter(p => p.id !== id)
+  try { localStorage.setItem(PRESETS_KEY, JSON.stringify(list)) } catch { /* full */ }
+  cardListeners.forEach(f => f())
+}
+export function applyPreset(screen: string, preset: FloatPreset) {
+  const keepHand = shownInstances(screen).filter(c => c.kind === 'hand')
+  if (preset.neck5Layer) try { localStorage.setItem('kg:floatNeck5Layer', '1') } catch { /* private */ }
+  setCleanStage(false)
+  setShownInstances(screen, [...keepHand, ...preset.cards])
+  setTimeout(() => arrangeFloatCards(), 80)
+}
+
+/** Neatly arrange all open floating cards in non-overlapping positions on screen. */
+export function arrangeFloatCards() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('kg-float-arrange'))
+}
+/** Shrink all open floating cards into compact edge bubbles (or restore them). */
+export function minimizeAllCards(min = true) {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('kg-float-minall', { detail: { min } }))
 }
 
 // ---------- Clean Stage focus toggle (1-tap hide/show all floating cards) ----------

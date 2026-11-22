@@ -163,6 +163,28 @@ function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width =
     return () => { ro?.disconnect(); mo?.disconnect(); clearTimeout(t); clearInterval(iv) }
   }, [id, where, order, place.min])
   const save = (pl: Place) => { setPlace(pl); try { localStorage.setItem(KEY(id, where), JSON.stringify(pl)) } catch { /* full */ } }
+  // Arrange (⊞) neatly tiles open floating cards without overlapping; Minimize All shrinks/restores them
+  useEffect(() => {
+    const onArrange = () => {
+      const W0 = typeof innerWidth === 'number' ? innerWidth : 800
+      const H0 = typeof innerHeight === 'number' ? innerHeight : 900
+      const cols = W0 >= 680 ? 2 : 1
+      const idx = Math.max(0, order - 1)
+      const col = idx % cols
+      const row = Math.floor(idx / cols)
+      const cardW = Math.min(Math.max(minW, width), Math.floor((W0 - 24) / cols))
+      const leftPx = col === 0 ? 10 : Math.max(10, W0 - cardW - 10)
+      const topPx = Math.min(H0 - 180, 56 + row * 240)
+      save({ ...place, min: false, w: cardW, x: Math.min(1, (leftPx + cardW) / W0), y: Math.max(0.05, topPx / H0) })
+    }
+    const onMinAll = (e: Event) => {
+      const min = !!(e as CustomEvent<{ min?: boolean }>).detail?.min
+      save({ ...place, min })
+    }
+    addEventListener('kg-float-arrange', onArrange)
+    addEventListener('kg-float-minall', onMinAll)
+    return () => { removeEventListener('kg-float-arrange', onArrange); removeEventListener('kg-float-minall', onMinAll) }
+  }, [id, where, order, width, minW, place]) // eslint-disable-line react-hooks/exhaustive-deps
   // a two-finger pinch on the card zooms what's under it (the tab, a neck): one finger still moves and taps the card
   useEffect(() => {
     const el = box.current

@@ -3612,3 +3612,9 @@ li.past .session-step-btn .ss-mark { color: var(--mint); }
 .yt-frame.is-wide-peek { width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: var(--r-sm); }
 .scan-peek-fixer { padding-top: 4px; border-top: 1px solid var(--hairline); }
 .scan-actions-secondary { opacity: 0.92; }
+.fc-menu-scroll { max-height: 62vh; overflow-y: auto; overscroll-behavior: contain; }
+.fc-mini-tab {
+  margin: 0; padding: 6px 8px; border-radius: var(--r-sm);
+  background: var(--rosewood-2); border: 1px solid var(--hairline);
+  font-size: 11px; line-height: 1.28; overflow-x: auto; max-width: 100%;
+}

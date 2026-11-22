@@ -1,10 +1,15 @@
 // Slim top studio strip sitting beside RigPill (clear of the Top-Left ☰ menu button):
 // - Live Context pill (active key & BPM; 1 tap jumps to Riff Scanner, Shorts, Jam, Fills, Licks in this key, or Looper)
-// - Unified Floating Window launcher (⊞ Float ▾) to open/add/remove any floating card including the 5-Layer Fretboard
+// - Unified Floating Window launcher (Float ▾): + Open New Card (supports multiple copies!), ⊞ Arrange, Minimize All,
+//   and 1-tap Workspace Presets (Jam Rig, Mode Study, Book Practice, Dual Fretboard, + Save Current Layout!)
 // - Clean Stage focus toggle (1 tap hides/restores all floating cards while playing)
 import { useEffect, useRef, useState } from 'react'
 import { Ico } from './Icon'
-import { CARDS, setCleanStage, toggleCard, useCleanStage, useFloatCtx, useFloatScreen, useShownCards, type CardId } from '../float/bus'
+import {
+  BUILTIN_PRESETS, CARDS, addCardInstance, applyPreset, arrangeFloatCards, deletePreset, minimizeAllCards,
+  savePreset, savedPresets, setCleanStage, useCleanStage, useFloatCtx, useFloatScreen, useShownInstances,
+  type CardId,
+} from '../float/bus'
 import { learnGo, openJam, openLicksInKey, openScanner } from '../nav'
 
 function readSaved(key: string, fallback: string): string {
@@ -16,14 +21,16 @@ function readSaved(key: string, fallback: string): string {
 
 export function StudioTopBar() {
   const screen = useFloatScreen()
-  const shown = useShownCards(screen)
+  const instances = useShownInstances(screen)
   const ctx = useFloatCtx()
   const clean = useCleanStage()
   const [menu, setMenu] = useState<null | 'context' | 'float'>(null)
+  const [presetName, setPresetName] = useState('')
+  const [savingPreset, setSavingPreset] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!menu) return
+    if (!menu) { setSavingPreset(false); return }
     const close = (e: PointerEvent) => {
       if (wrap.current && !wrap.current.contains(e.target as Node)) setMenu(null)
     }
@@ -40,15 +47,16 @@ export function StudioTopBar() {
   const ctxRoot = rootMatch ? rootMatch[1] : savedTonic
   const ctxMinor = /m(?!aj)/i.test(keyLabel)
 
-  const open5Layer = () => {
-    try { localStorage.setItem('kg:floatNeck5Layer', '1') } catch { /* private */ }
+  const openNew = (kind: CardId) => {
+    if (kind === 'neck') try { localStorage.setItem('kg:floatNeck5Layer', '1') } catch { /* private */ }
     setCleanStage(false)
-    if (!shown.includes('neck')) toggleCard(screen, 'neck')
+    addCardInstance(screen, kind)
     setMenu(null)
   }
 
   const options = CARDS.filter(c => c.id !== 'hand')
-  const activeCount = shown.filter(id => id !== 'hand').length
+  const activeCount = instances.filter(x => x.kind !== 'hand').length
+  const userPresets = savedPresets()
 
   return (
     <div className="studio-top-bar row" ref={wrap} style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -89,30 +97,56 @@ export function StudioTopBar() {
         )}
       </span>
 
-      {/* Unified Floating Window Launcher */}
+      {/* Multi-Card Floating Window Launcher + Arrange + Workspace Presets */}
       <span className="fc-menu-wrap">
         <button
           className={`btn sm ghost studio-pill${menu === 'float' || activeCount > 0 ? ' on' : ''}`}
           onClick={() => setMenu(m => (m === 'float' ? null : 'float'))}
           aria-expanded={menu === 'float'}
-          title="Open, add, or remove floating windows (including the 5-Layer Fretboard)"
+          title="Open multiple floating cards, arrange layout, or load a Workspace Preset"
           data-testid="studio-float-btn"
         >
           <Ico n="layers" /> Float{activeCount > 0 ? ` (${activeCount})` : ''} ▾
         </button>
         {menu === 'float' && (
-          <div className="fc-menu-pop" role="menu" data-testid="studio-float-menu">
-            <button className="fc-menu-item on" role="menuitem" onClick={open5Layer} data-testid="studio-open-5layer">
-              <Ico n="layers" /> Open 5-Layer Fretboard ⤢
-            </button>
+          <div className="fc-menu-pop fc-menu-scroll" style={{ minWidth: 255 }} role="menu" data-testid="studio-float-menu">
+            {activeCount > 0 && (
+              <>
+                <div className="row" style={{ gap: 4, padding: '2px 4px' }}>
+                  <button className="btn sm" style={{ flex: 1 }} onClick={() => { arrangeFloatCards(); setMenu(null) }} data-testid="studio-arrange">⊞ Arrange</button>
+                  <button className="btn sm ghost" style={{ flex: 1 }} onClick={() => { minimizeAllCards(true); setMenu(null) }} data-testid="studio-min-all">Bubbles</button>
+                  <button className="btn sm ghost" onClick={() => setSavingPreset(s => !s)} title="Save current cards as a preset">★ Save</button>
+                </div>
+                {savingPreset && (
+                  <form className="row" style={{ gap: 4, padding: '4px' }} onSubmit={e => { e.preventDefault(); if (presetName.trim()) { savePreset(presetName.trim(), screen); setPresetName(''); setSavingPreset(false) } }}>
+                    <input className="input" style={{ minHeight: 28, fontSize: 12 }} placeholder="Preset name…" value={presetName} onChange={e => setPresetName(e.target.value)} autoFocus />
+                    <button className="btn sm primary" type="submit">Save</button>
+                  </form>
+                )}
+                <div className="fc-menu-sep" />
+              </>
+            )}
+
+            <span className="small muted" style={{ padding: '2px 8px', fontSize: 11 }}>Workspace Presets</span>
+            {[...userPresets, ...BUILTIN_PRESETS].map(p => (
+              <div key={p.id} className="row" style={{ gap: 2, flexWrap: 'nowrap', alignItems: 'center' }}>
+                <button className="fc-menu-item" style={{ flex: 1 }} role="menuitem" onClick={() => { applyPreset(screen, p); setMenu(null) }} data-testid={`preset-${p.id}`}>
+                  <Ico n="sparkles" /> {p.name}
+                </button>
+                {!p.builtin && <button className="btn sm ghost" onClick={() => deletePreset(p.id)} aria-label={`Delete ${p.name}`}>✕</button>}
+              </div>
+            ))}
+
             <div className="fc-menu-sep" />
-            <span className="small muted" style={{ padding: '2px 8px', fontSize: 11 }}>Floating cards on this screen</span>
+            <span className="small muted" style={{ padding: '2px 8px', fontSize: 11 }}>+ Open in new floating card</span>
             {options.map(c => {
-              const on = shown.includes(c.id as CardId)
+              const count = instances.filter(x => x.kind === c.id).length
               return (
-                <button key={c.id} className={`fc-menu-item${on ? ' on' : ''}`} role="menuitemcheckbox" aria-checked={on} onClick={() => { setCleanStage(false); toggleCard(screen, c.id as CardId) }} data-testid={`studio-toggle-${c.id}`}>
-                  <span style={{ width: 14, display: 'inline-block' }}>{on ? '✓' : '+'}</span>
-                  <Ico n={c.icon} /> {c.id === 'neck' ? 'Fretboard (5-Layer)' : c.title}
+                <button key={c.id} className={`fc-menu-item${count > 0 ? ' on' : ''}`} role="menuitem" onClick={() => openNew(c.id)} data-testid={`studio-add-${c.id}`}>
+                  <span style={{ width: 14, display: 'inline-block' }}>+</span>
+                  <Ico n={c.icon} />
+                  <span style={{ flex: 1 }}>{c.title}</span>
+                  {count > 0 && <span className="small muted">({count})</span>}
                 </button>
               )
             })}
