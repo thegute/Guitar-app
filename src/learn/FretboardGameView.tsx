@@ -10,7 +10,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Win, WinArea } from '../components/Win'
 import { InputPicker } from '../components/InputPicker'
 import { audio } from '../audio/engine'
-import { playNote, strum } from '../audio/pluck'
+import {
+  playNote,
+  strum,
+  allSounds,
+  activeSound,
+  onSoundChange,
+  setSoundChoice,
+  soundChoice,
+  soundInfo,
+  loadSound,
+  type SoundId,
+} from '../audio/pluck'
 import { playClick } from '../audio/metronome'
 import { haptic } from '../audio/tapFeel'
 import { NoteListener } from '../tabs/follow'
@@ -195,6 +206,10 @@ export function FretboardGameView({ inst, onExit }: Props) {
 
   // Input & helper settings
   const [inputMode, setInputMode] = useState<'mic' | 'tap'>(() => (isAway() ? 'tap' : 'mic'))
+  const [hearTarget, setHearTarget] = useState<boolean>(() => {
+    try { return localStorage.getItem('kg:fgHearTarget') !== '0' } catch { return true }
+  })
+  const [soundSel, setSoundSel] = useState<'auto' | SoundId>(() => soundChoice())
   const [voiceOn, setVoiceOn] = useState(false)
   const [showHeatmap, setShowHeatmap] = useState(false)
   const [leftHanded, setLeftHanded] = useState(() => {
@@ -264,6 +279,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
   const [lastHitSpot, setLastHitSpot] = useState<FretSpot | null>(null)
   const [hitGeoLink, setHitGeoLink] = useState<{ s1: number; f1: number; s2: number; f2: number } | null>(null)
   const [wrongSpot, setWrongSpot] = useState<{ s: number; f: number } | null>(null)
+  const [wrongBanner, setWrongBanner] = useState<{ wrongLabel: string; rightLabel: string; phase: 'wrong' | 'right' } | null>(null)
   const [revealSpot, setRevealSpot] = useState<FretSpot | null>(null)
   const [coachTip, setCoachTip] = useState<string>('')
   const [inspectSpot, setInspectSpot] = useState<FretSpot | null>(null)
@@ -282,6 +298,8 @@ export function FretboardGameView({ inst, onExit }: Props) {
   const orbIdRef = useRef(1)
   const fadeTimerRef = useRef<number | null>(null)
   const countdownTimersRef = useRef<number[]>([])
+  const missTimersRef = useRef<number[]>([])
+  const ignoreMicUntilRef = useRef(0)
   const rushOrbsRef = useRef<RushOrb[]>([])
   rushOrbsRef.current = rushOrbs
   const rushBossRef = useRef<RushBoss | null>(null)
@@ -301,22 +319,49 @@ export function FretboardGameView({ inst, onExit }: Props) {
   const stateRef = useRef({
     lens, mode, stageId, score, combo, bestRunCombo, hits, misses, hearts, wave,
     sniperClears, gauntletKeyIdx, gauntletStrIdx, gauntletGoingUp, gauntletBpm,
-    gauntletDir, soloChordIdx, dailyPhase, voiceOn, filter, rushLockChunk,
+    gauntletDir, soloChordIdx, dailyPhase, voiceOn, hearTarget, filter, rushLockChunk,
     intervalStyle, lensKey, scaleId, triadQuality, soloLevel, timeLeftMs,
   })
   stateRef.current = {
     lens, mode, stageId, score, combo, bestRunCombo, hits, misses, hearts, wave,
     sniperClears, gauntletKeyIdx, gauntletStrIdx, gauntletGoingUp, gauntletBpm,
-    gauntletDir, soloChordIdx, dailyPhase, voiceOn, filter, rushLockChunk,
+    gauntletDir, soloChordIdx, dailyPhase, voiceOn, hearTarget, filter, rushLockChunk,
     intervalStyle, lensKey, scaleId, triadQuality, soloLevel, timeLeftMs,
   }
 
   usePracticeTimer('quiz', running && countdown === 0, inputMode === 'mic')
 
-  // Cleanup countdown & fade timers on unmount
+  // Stay synced with KGuitar's global sound / .kgpack selector and preload chosen pack
+  useEffect(() => {
+    void loadSound(activeSound())
+    return onSoundChange(() => {
+      setSoundSel(soundChoice())
+      void loadSound(activeSound())
+    })
+  }, [])
+
+  const clearMissTimers = useCallback(() => {
+    missTimersRef.current.forEach(t => clearTimeout(t))
+    missTimersRef.current = []
+  }, [])
+
+  /** Play 1+ guitar cue notes using the chosen sound pack, briefly gating mic echo so speaker sound never triggers a false hit. */
+  const playCue = useCallback((cueMidis: number[], delaySec = 0.03, stepSec = 0.42, durSec = 0.65) => {
+    if (!cueMidis.length) return
+    const gateMs = Math.round((delaySec + (cueMidis.length - 1) * stepSec + 0.55) * 1000)
+    ignoreMicUntilRef.current = Math.max(ignoreMicUntilRef.current, performance.now() + gateMs)
+    try {
+      const ctx = audio()
+      void ctx.resume()
+      cueMidis.forEach((m, i) => playNote(m, ctx.currentTime + delaySec + i * stepSec, durSec))
+    } catch { /* ignore */ }
+  }, [])
+
+  // Cleanup countdown, fade & wrong-note follow-up timers on unmount
   useEffect(() => () => {
     countdownTimersRef.current.forEach(t => clearTimeout(t))
     if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current)
+    missTimersRef.current.forEach(t => clearTimeout(t))
   }, [])
 
   const soloChords = useMemo(() => {
@@ -530,6 +575,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
       setRushBoss(boss)
       rushOrbsRef.current = []
       setRushOrbs([])
+      if (st.hearTarget && bossSpots[0]) playCue([bossSpots[0].midi], 0.04, 0.35, 0.7)
       if (st.voiceOn) speakPrompt(`Boss wave! ${bossTitle}`)
       return
     }
@@ -541,22 +587,19 @@ export function FretboardGameView({ inst, onExit }: Props) {
     let label = ''
     let sub = ''
     let isColor = false
+    let intervalAnchorForCue: FretSpot | null = null
 
     if (curLens === 'intervals') {
       const anc = anchorOverride ?? anchorRef.current ?? pickIntervalAnchor(midis, st.filter, st.intervalStyle === 'fixed' ? rootPc : undefined)
       anchorRef.current = anc
       setIntervalAnchor(anc)
+      intervalAnchorForCue = anc
       const picked = pickIntervalTarget(midis, st.filter, anc, lastSpotKeyRef.current)
       spot = picked.spot
       if (st.intervalStyle === 'ear') {
         label = '👂 ?'
         sub = 'By Ear'
-        try {
-          const ctx = audio()
-          void ctx.resume()
-          playNote(anc.midi, ctx.currentTime + 0.03, 0.45)
-          playNote(spot.midi, ctx.currentTime + 0.42, 0.65)
-        } catch { /* ignore */ }
+        playCue([anc.midi, spot.midi], 0.03, 0.4, 0.65)
       } else {
         label = picked.short
         sub = picked.name
@@ -617,10 +660,15 @@ export function FretboardGameView({ inst, onExit }: Props) {
     const next = [...existingOrbs, orb]
     rushOrbsRef.current = next
     setRushOrbs(next)
+    // Pre-play the right note as the orb launches so ears + eyes wire together!
+    if (st.hearTarget && !(curLens === 'intervals' && st.intervalStyle === 'ear')) {
+      if (intervalAnchorForCue) playCue([intervalAnchorForCue.midi, spot.midi], 0.03, 0.34, 0.6)
+      else playCue([spot.midi], 0.03, 0.35, 0.65)
+    }
     if (st.voiceOn && existingOrbs.length === 0 && label !== '👂 ?') {
       speakPrompt(`${spokenNote(label)} on ${friendlyStringLabel(midis, spot.s)}`)
     }
-  }, [allNeckSpots, midis, nStr, tKey])
+  }, [allNeckSpots, midis, nStr, playCue, tKey])
 
   // Deal next prompt for Guided Path, Speed Blitz, Metronome Run, Build the Shape, Identify Fret & Daily
   const dealNext = useCallback((opts?: {
@@ -645,7 +693,9 @@ export function FretboardGameView({ inst, onExit }: Props) {
     const flt = opts?.forceWeak ? { ...st.filter, weakOnly: true } : st.filter
     const rootPc = pc(st.lensKey)
 
+    clearMissTimers()
     setWrongSpot(null)
+    setWrongBanner(null)
     setRevealSpot(null)
     setCoachTip('')
     shownAtRef.current = performance.now()
@@ -662,6 +712,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
           shapeFound: [],
           triad: tri,
         })
+        if (st.hearTarget && tri.spots.length) playCue(tri.spots.map(sp => sp.midi), 0.04, 0.2, 0.65)
         if (st.voiceOn) speakPrompt(`Build ${tri.symbol} triad on ${tri.stringSetLabel}`)
         return
       }
@@ -683,6 +734,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
           shapeSpots: spots,
           shapeFound: [],
         })
+        if (st.hearTarget && spots[0]) playCue([anc.midi, spots[0].midi], 0.03, 0.38, 0.65)
         if (st.voiceOn) speakPrompt(`Find every ${ivMeta.name} from ${SHARPS[anc.pc]}`)
         return
       }
@@ -699,6 +751,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
           shapeSpots: finalSpots,
           shapeFound: [],
         })
+        if (st.hearTarget && finalSpots[0]) playCue([finalSpots[0].midi], 0.04, 0.35, 0.68)
         return
       }
       // Notes or Chord Tones: Find all 6 occurrences of a note!
@@ -713,6 +766,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
         shapeFound: [],
         preferFlat,
       })
+      if (st.hearTarget && spots[0]) playCue([spots[0].midi], 0.04, 0.35, 0.68)
       if (st.voiceOn) speakPrompt(`Find every ${spokenNote(noteName)} across all strings`)
       return
     }
@@ -726,10 +780,15 @@ export function FretboardGameView({ inst, onExit }: Props) {
       const to = Math.min(15, Math.max(from + 4, flt.toFret || 12))
       const goal = buildSoloGoal(chord, st.soloLevel, from, to)
       setPrompt({ solo: goal, soloIdx: 0, soloFound: [] })
+      ignoreMicUntilRef.current = Math.max(ignoreMicUntilRef.current, performance.now() + 950)
       try {
         const ctx = audio()
         void ctx.resume()
         strum(goal.chordMidis, ctx.currentTime + 0.04, { spread: 0.028, gain: 0.52 })
+        if (st.hearTarget) {
+          const firstSpot = spotsForPc(midis, goal.targetPcs[0], from, to)[0]
+          if (firstSpot) playNote(firstSpot.midi, ctx.currentTime + 0.42, 0.68)
+        }
       } catch { /* ignore */ }
       if (st.voiceOn) speakPrompt(`${chord.symbol}. Play ${goal.labels[0]}`)
       return
@@ -740,7 +799,8 @@ export function FretboardGameView({ inst, onExit }: Props) {
       const pair = pickOctavePair(midis, hm, lastSpotKeyRef.current)
       lastSpotKeyRef.current = spotKey(pair.target.s, pair.target.f)
       setPrompt({ spot: pair.target, anchor: pair.anchor, label: fullPcLabel(pair.anchor.pc), sub: `Octave from ${friendlyStringLabel(midis, pair.anchor.s)}` })
-      try { const ctx = audio(); void ctx.resume(); playNote(pair.anchor.midi, ctx.currentTime + 0.04, 0.55) } catch { /* ignore */ }
+      if (st.hearTarget) playCue([pair.anchor.midi, pair.target.midi], 0.04, 0.38, 0.65)
+      else playCue([pair.anchor.midi], 0.04, 0.35, 0.55)
       if (st.voiceOn) speakPrompt(`Find the octave of ${spokenNote(fullPcLabel(pair.anchor.pc))} on ${friendlyStringLabel(midis, pair.target.s)}`)
       return
     }
@@ -763,12 +823,8 @@ export function FretboardGameView({ inst, onExit }: Props) {
         sub: byEar ? `Listen & find on ${friendlyStringLabel(midis, picked.spot.s)}` : `${picked.name} from ${SHARPS[anc.pc]}`,
         earPair: [anc.midi, picked.spot.midi],
       })
-      try {
-        const ctx = audio()
-        void ctx.resume()
-        playNote(anc.midi, ctx.currentTime + 0.03, 0.45)
-        if (byEar) playNote(picked.spot.midi, ctx.currentTime + 0.45, 0.7)
-      } catch { /* ignore */ }
+      if (byEar || st.hearTarget) playCue([anc.midi, picked.spot.midi], 0.03, 0.4, 0.68)
+      else playCue([anc.midi], 0.03, 0.35, 0.5)
       if (st.voiceOn && !byEar) speakPrompt(`Play the ${picked.name} on ${friendlyStringLabel(midis, picked.spot.s)}`)
       return
     }
@@ -785,6 +841,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
         label: info?.label ?? '1',
         sub: `${st.lensKey} ${sc.label}${info?.isColor ? ' · Color tone!' : ''}`,
       })
+      if (st.hearTarget) playCue([spot.midi], 0.04, 0.35, 0.68)
       if (st.voiceOn) speakPrompt(`Degree ${spokenNote(info?.label ?? '1')} on ${friendlyStringLabel(midis, spot.s)}`)
       return
     }
@@ -798,6 +855,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
       const iv = ((spot.pc - rootPc) % 12 + 12) % 12
       const lbl = iv === 0 ? 'R' : iv === 3 ? '♭3' : iv === 4 ? '3' : '5'
       setPrompt({ spot, label: lbl, sub: `${st.lensKey}${st.triadQuality === 'min' ? 'm' : ''} Triad` })
+      if (st.hearTarget) playCue([spot.midi], 0.04, 0.35, 0.68)
       if (st.voiceOn) speakPrompt(`${lbl} of ${st.lensKey} on ${friendlyStringLabel(midis, spot.s)}`)
       return
     }
@@ -811,6 +869,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
       const f = ((targetPc - (midis[sIdx] % 12)) + 12) % 12
       const spot: FretSpot = { s: sIdx, f, midi: midis[sIdx] + f, pc: targetPc }
       setPrompt({ spot, label: displayPc(targetPc, 'both', preferFlat), preferFlat })
+      if (st.hearTarget) playCue([spot.midi], 0.03, 0.35, 0.65)
       if (st.voiceOn && sIdx === 0) speakPrompt(`Sweep ${spokenNote(displayPc(targetPc, 'both', preferFlat))} across all strings`)
       return
     }
@@ -828,16 +887,19 @@ export function FretboardGameView({ inst, onExit }: Props) {
     setPrompt({ spot, label: noteLabel, preferFlat })
 
     if (sub === 'name') {
-      try { const ctx = audio(); void ctx.resume(); playNote(spot.midi, ctx.currentTime + 0.04, 0.75) } catch { /* ignore */ }
+      playCue([spot.midi], 0.04, 0.35, 0.75)
       if (st.voiceOn) speakPrompt(`Name fret ${spot.f} on ${friendlyStringLabel(midis, spot.s)}`)
-    } else if (st.voiceOn) {
-      speakPrompt(`${spokenNote(noteLabel)} on ${friendlyStringLabel(midis, spot.s)}`)
+    } else {
+      if (st.hearTarget) playCue([spot.midi], 0.04, 0.35, 0.68)
+      if (st.voiceOn) speakPrompt(`${spokenNote(noteLabel)} on ${friendlyStringLabel(midis, spot.s)}`)
     }
-  }, [allNeckSpots, midis, nStr, tKey])
+  }, [allNeckSpots, clearMissTimers, midis, nStr, playCue, tKey])
 
   const endRun = useCallback(() => {
     countdownTimersRef.current.forEach(t => clearTimeout(t))
     countdownTimersRef.current = []
+    clearMissTimers()
+    setWrongBanner(null)
     setCountdown(0)
     setRevealHeld(false)
     setRevealFading(false)
@@ -893,13 +955,15 @@ export function FretboardGameView({ inst, onExit }: Props) {
       isNewBest,
       missedSpots: missedListRef.current.slice(0, 12),
     })
-  }, [persist])
+  }, [clearMissTimers, persist])
 
   // Start with crisp 3… 2… 1… Memory Fade!
   const startGame = useCallback((nextMode = mode, opts?: { stage?: number; forceWeak?: boolean; skipCountdown?: boolean }) => {
     countdownTimersRef.current.forEach(t => clearTimeout(t))
     countdownTimersRef.current = []
     if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current)
+    clearMissTimers()
+    setWrongBanner(null)
 
     const m = nextMode
     const stg = opts?.stage ?? stageId
@@ -1043,6 +1107,8 @@ export function FretboardGameView({ inst, onExit }: Props) {
     const { points, badge } = calcHitPoints(ms, nextCombo)
     const nextHits = st.hits + 1
 
+    clearMissTimers()
+    setWrongBanner(null)
     runTimesRef.current.push(ms)
     setCombo(nextCombo)
     setBestRunCombo(nextBestCombo)
@@ -1068,20 +1134,47 @@ export function FretboardGameView({ inst, onExit }: Props) {
       setTimeout(() => { if (runningRef.current) dealNext() }, 250)
     }
     return { points, badge, nextHits, ms }
-  }, [addBurst, dealNext, flashHitSpot, inputMode, persist, pulseString, tKey])
+  }, [addBurst, clearMissTimers, dealNext, flashHitSpot, inputMode, persist, pulseString, tKey])
 
-  const registerMiss = useCallback((target: FretSpot, attempted?: { s: number; f: number }, customMsg?: string, loseHeart = true) => {
+  const registerMiss = useCallback((target: FretSpot, attempted?: { s: number; f: number }, customMsg?: string, loseHeart = true, wrongMidiOverride?: number) => {
     const ms = Math.max(300, performance.now() - shownAtRef.current)
     const st = stateRef.current
+    clearMissTimers()
     setCombo(0)
     setMisses(m => m + 1)
     logAnswer(false, 0)
     haptic('warning')
+
+    const wrongMidi = wrongMidiOverride ?? (attempted ? midis[attempted.s] + attempted.f : undefined)
+    const wrongLabel = wrongMidi !== undefined ? fullPcLabel(((wrongMidi % 12) + 12) % 12) : ''
+    const rightLabel = fullPcLabel(target.pc)
+
     if (attempted) {
       setWrongSpot(attempted)
-      addBurst(attempted.s, attempted.f, '✕', 'miss')
-      setTimeout(() => setWrongSpot(null), 500)
+      addBurst(attempted.s, attempted.f, '✕ WRONG!', 'miss')
+      missTimersRef.current.push(window.setTimeout(() => setWrongSpot(null), 650))
     }
+
+    // Play the wrong note immediately (so your ear hears what you hit), show a bold WRONG NOTE graphic,
+    // then play the RIGHT note sound ~460ms later so your ear hears the exact correction!
+    const willDie = st.mode === 'survival' && loseHeart && st.hearts <= 1
+    if (wrongMidi !== undefined) {
+      setWrongBanner({ wrongLabel, rightLabel, phase: 'wrong' })
+      if (inputMode === 'tap') playCue([wrongMidi], 0.01, 0.3, 0.45)
+    } else if (!willDie) {
+      setWrongBanner({ wrongLabel: '', rightLabel, phase: 'right' })
+    }
+
+    if (!willDie) {
+      const tRight = window.setTimeout(() => {
+        if (!runningRef.current) return
+        setWrongBanner({ wrongLabel, rightLabel, phase: 'right' })
+        playCue([target.midi], 0.01, 0.35, 0.72)
+      }, wrongMidi !== undefined ? 460 : 60)
+      const tClear = window.setTimeout(() => setWrongBanner(null), 1750)
+      missTimersRef.current.push(tRight, tClear)
+    }
+
     if (hintMode !== 'off') setRevealSpot(target)
     const defaultTip = st.lens === 'intervals' && anchorRef.current
       ? intervalTip(target, anchorRef.current)
@@ -1099,7 +1192,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
       setHearts(nextHearts)
       if (nextHearts <= 0) setTimeout(() => endRun(), 380)
     }
-  }, [addBurst, endRun, hintMode, midis, persist, tKey])
+  }, [addBurst, clearMissTimers, endRun, hintMode, inputMode, midis, persist, playCue, tKey])
 
   const handleAttempt = useCallback((attempt: { s?: number; f?: number; midi?: number; pc?: number; fromMic?: boolean }) => {
     const st = stateRef.current
@@ -1230,6 +1323,10 @@ export function FretboardGameView({ inst, onExit }: Props) {
           setPrompt({ ...p, soloIdx: nextIdx, soloFound: nextFound })
           registerHit(matchedSpot, false, `${targetLabel} ✓`)
           shownAtRef.current = performance.now()
+          if (st.hearTarget) {
+            const nextSpot = spotsForPc(midis, p.solo.targetPcs[nextIdx], p.solo.fromFret, p.solo.toFret)[0]
+            if (nextSpot) playCue([nextSpot.midi], 0.34, 0.35, 0.65)
+          }
           if (st.voiceOn) speakPrompt(`Next: ${p.solo.labels[nextIdx]}`)
         }
       } else if (!attempt.fromMic && attempt.s !== undefined && attempt.f !== undefined) {
@@ -1244,7 +1341,12 @@ export function FretboardGameView({ inst, onExit }: Props) {
     if (sub === 'name' && p.spot) {
       if (attempt.pc !== undefined) {
         if (attempt.pc === p.spot.pc) registerHit(p.spot, true)
-        else registerMiss(p.spot, undefined, `That fret is ${fullPcLabel(p.spot.pc)}. ${shortcutTip(midis, p.spot)}`)
+        else {
+          const diff = ((attempt.pc - p.spot.pc) % 12 + 12) % 12
+          const signed = diff > 6 ? diff - 12 : diff
+          const wrongMidi = p.spot.midi + signed
+          registerMiss(p.spot, undefined, `That fret is ${fullPcLabel(p.spot.pc)}. ${shortcutTip(midis, p.spot)}`, true, wrongMidi)
+        }
       } else if (attempt.fromMic && attempt.midi !== undefined) {
         if (((attempt.midi % 12) + 12) % 12 === p.spot.pc) registerHit(p.spot, true)
       }
@@ -1317,7 +1419,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
         registerMiss(target, { s: attempt.s, f: attempt.f })
       }
     }
-  }, [addBurst, dealNext, fireLaser, midis, nStr, registerHit, registerMiss, spawnRushEntity])
+  }, [addBurst, dealNext, fireLaser, midis, nStr, playCue, registerHit, registerMiss, spawnRushEntity])
 
   // Real-guitar microphone listener
   const listenerRef = useRef<NoteListener | null>(null)
@@ -1331,6 +1433,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
     listenerRef.current = listener
     listener.onNote = e => {
       if (stopped || !runningRef.current || countdownRef.current > 0 || revealHeldRef.current) return
+      if (performance.now() < ignoreMicUntilRef.current) return
       setHeardLabel(midiName(e.midi))
       handleAttempt({ midi: e.midi, fromMic: true })
     }
@@ -1511,6 +1614,8 @@ export function FretboardGameView({ inst, onExit }: Props) {
   const stopIfRunning = () => {
     countdownTimersRef.current.forEach(t => clearTimeout(t))
     countdownTimersRef.current = []
+    clearMissTimers()
+    setWrongBanner(null)
     setCountdown(0)
     setRevealHeld(false)
     setRevealFading(false)
@@ -1665,6 +1770,21 @@ export function FretboardGameView({ inst, onExit }: Props) {
                 </span>
               )
             })}
+            <button
+              className="btn sm ghost"
+              onClick={() => {
+                const remaining = prompt.shapeSpots!.filter(sp => !prompt.shapeFound?.includes(spotKey(sp.s, sp.f)))
+                const pick = remaining[0] ?? prompt.shapeSpots![0]
+                if (!pick) return
+                if (prompt.triad) playCue(prompt.shapeSpots!.map(sp => sp.midi), 0.02, 0.18, 0.65)
+                else if (prompt.anchor) playCue([prompt.anchor.midi, pick.midi], 0.02, 0.36, 0.65)
+                else playCue([pick.midi], 0.02, 0.35, 0.7)
+              }}
+              data-testid="fg-replay-btn"
+              title="Hear the target note again"
+            >
+              🔊 Hear Note
+            </button>
           </div>
         </div>
       )
@@ -1737,27 +1857,26 @@ export function FretboardGameView({ inst, onExit }: Props) {
           </div>
           <div className="row" style={{ gap: 6, alignItems: 'center' }}>
             {subMode === 'gauntlet' && <span className={`fg-beat-dot${gauntletBeatPulse ? ' pulse' : ''}`} aria-hidden />}
-            {prompt.earPair && (
-              <button
-                className="btn sm ghost"
-                onClick={() => {
-                  try {
-                    const ctx = audio()
-                    void ctx.resume()
-                    playNote(prompt.earPair![0], ctx.currentTime + 0.02, 0.45)
-                    playNote(prompt.earPair![1], ctx.currentTime + 0.44, 0.7)
-                  } catch { /* ignore */ }
-                }}
-              >
-                🔊 Replay Interval
-              </button>
-            )}
+            <button
+              className="btn sm ghost"
+              onClick={() => {
+                if (prompt.earPair) playCue([prompt.earPair[0], prompt.earPair[1]], 0.02, 0.42, 0.7)
+                else if (prompt.spot) playCue([prompt.spot.midi], 0.02, 0.35, 0.72)
+              }}
+              data-testid="fg-replay-btn"
+              title="Hear the target note again"
+            >
+              🔊 {prompt.earPair ? 'Replay Interval' : 'Hear Note'}
+            </button>
           </div>
         </div>
       )
     }
     return null
   }
+
+  const soundOptions = allSounds()
+  const currentSoundInfo = soundInfo(activeSound())
 
   return (
     <div className="stack fg-root" style={{ gap: 10 }} data-testid="fretboard-game">
@@ -1777,6 +1896,40 @@ export function FretboardGameView({ inst, onExit }: Props) {
               👆 Touch Screen
             </button>
           </div>
+          <select
+            className="select sm fg-sound-sel"
+            value={soundSel}
+            aria-label="Guitar sound or sound pack"
+            title={`Sound: ${currentSoundInfo.label} — choose any built-in guitar or imported sound pack`}
+            data-testid="fg-sound-select"
+            onChange={e => {
+              const v = e.target.value as 'auto' | SoundId
+              setSoundChoice(v)
+              setSoundSel(v)
+              const resolved = activeSound()
+              void loadSound(resolved).then(() => playCue([55], 0.03, 0.3, 0.65))
+            }}
+          >
+            <option value="auto">🎸 Sound: Auto ({currentSoundInfo.label})</option>
+            {soundOptions.map(s => (
+              <option key={s.id} value={s.id}>🎸 {s.label}</option>
+            ))}
+          </select>
+          <button
+            className={`btn sm${hearTarget ? ' set' : ''}`}
+            aria-pressed={hearTarget}
+            onClick={() => {
+              setHearTarget(h => {
+                const next = !h
+                try { localStorage.setItem('kg:fgHearTarget', next ? '1' : '0') } catch { /* ignore */ }
+                return next
+              })
+            }}
+            data-testid="fg-hear-btn"
+            title="Play the target note sound before you tap so your ear learns every fret"
+          >
+            👂 Hear Note
+          </button>
           <button className={`btn sm${voiceOn ? ' set' : ''}`} aria-pressed={voiceOn} onClick={() => setVoiceOn(v => !v)} data-testid="fg-voice-btn" title="Calls out notes/intervals aloud so you can watch your real guitar">
             🔊 Voice
           </button>
@@ -2183,15 +2336,39 @@ export function FretboardGameView({ inst, onExit }: Props) {
               paused={revealHeld}
               leftHanded={leftHanded}
               inputMode={inputMode}
-              onReplayEar={lens === 'intervals' && intervalStyle === 'ear' && rushOrbs[0] ? () => {
-                try {
-                  const ctx = audio()
-                  void ctx.resume()
-                  playNote(activeAnchor.midi, ctx.currentTime + 0.02, 0.45)
-                  playNote(rushOrbs[0].spot.midi, ctx.currentTime + 0.44, 0.65)
-                } catch { /* ignore */ }
-              } : undefined}
+              onReplayEar={
+                rushOrbs[0]
+                  ? () => {
+                      if (lens === 'intervals') playCue([activeAnchor.midi, rushOrbs[0].spot.midi], 0.02, 0.4, 0.65)
+                      else playCue([rushOrbs[0].spot.midi], 0.02, 0.35, 0.7)
+                    }
+                  : rushBoss?.spots[0]
+                    ? () => playCue([rushBoss.spots[0].midi], 0.02, 0.35, 0.7)
+                    : undefined
+              }
             />
+          )}
+
+          {wrongBanner && (
+            <div className={`fg-wrong-banner ${wrongBanner.phase}`} data-testid="fg-wrong-banner" role="status" aria-live="polite">
+              {wrongBanner.phase === 'wrong' ? (
+                <>
+                  <span className="fg-wrong-tag">✕ WRONG NOTE</span>
+                  <span>
+                    {wrongBanner.wrongLabel ? `That was ${wrongBanner.wrongLabel} — ` : ''}
+                    listening for <b>{wrongBanner.rightLabel}</b>…
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="fg-right-tag">🔊 RIGHT NOTE</span>
+                  <span>
+                    Listen: <b>{wrongBanner.rightLabel}</b>
+                    {wrongBanner.wrongLabel ? ` (not ${wrongBanner.wrongLabel})` : ''}
+                  </span>
+                </>
+              )}
+            </div>
           )}
 
           {coachTip && (
