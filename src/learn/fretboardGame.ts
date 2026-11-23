@@ -1,21 +1,24 @@
-// Fretboard Mastery Game engine: structured 6-stage curriculum + endless arcade modes,
-// per-fret speed & accuracy heatmap, spaced-repetition weak-spot targeting, Circle-of-4ths
-// Metronome Gauntlet, Octave Constellation Sniper, Tom Quayle Solo-style Interval/Changes
-// trainer, smart coaching shortcuts on misses, and Phone ↔ Tablet sync-safe persistence.
+// Fretboard Mastery Game engine:
+// - 5 Training Lenses: Notes, Intervals (Fixed/Moving/By-Ear), Chord Tones, Scale Degrees, Triads
+// - 5 Core Modes: Endless Mode (6-string orb radar), Guided Path (6 stages), Speed Blitz (60s),
+//   Metronome Run (auto +5 BPM), Build the Shape (find all / connect shapes) + Identify Fret & Daily 3-Min
+// - Study Primer chunk engine (Fret Boxes + String Sets), per-fret speed & accuracy Heatmap,
+//   spaced-repetition weak-spot targeting, smart coaching shortcuts, and Phone ↔ Tablet sync merge.
 import { FLATS, INTERVAL_LABELS, SHARPS, pc } from '../theory/notes'
 import { typeTones, type ProgChord } from '../theory/progressions'
 import type { Instrument } from '../instrument'
 
 export type GameMode =
-  | 'path'
-  | 'survival'
-  | 'blitz'
-  | 'gauntlet'
-  | 'sniper'
-  | 'solo'
-  | 'name'
-  | 'daily'
+  | 'survival' // Endless Mode
+  | 'path'     // Guided Path
+  | 'blitz'    // Speed Blitz
+  | 'gauntlet' // Metronome Run
+  | 'sniper'   // Build the Shape
+  | 'name'     // Identify the Fret (quick reverse mode)
+  | 'daily'    // Daily 3-Min Workout
 
+export type TrainingLens = 'notes' | 'intervals' | 'chords' | 'degrees' | 'triads'
+export type IntervalStyle = 'fixed' | 'moving' | 'ear'
 export type AccidentalMode = 'natural' | 'sharps' | 'flats' | 'both'
 export type HeatTier = 'unseen' | 'red' | 'amber' | 'green' | 'gold'
 
@@ -73,7 +76,7 @@ export interface StageDef {
   why: string
   accent: string
   kind: 'landmarks' | 'bass' | 'octaves' | 'naturals' | 'chromatic' | 'intervals'
-  unlockMastery: number // previous stage % needed (0 for stage 1)
+  unlockMastery: number
 }
 
 export const CIRCLE_FOURTHS_PCS = [0, 5, 10, 3, 8, 1, 6, 11, 4, 9, 2, 7] // C F Bb Eb Ab Db Gb B E A D G
@@ -133,8 +136,8 @@ export const STAGES: StageDef[] = [
   },
   {
     id: 6,
-    title: 'Stage 6 · Solo Intervals & Changes',
-    short: 'Solo Pro',
+    title: 'Stage 6 · Intervals & Chord Tones',
+    short: 'Intervals Pro',
     goal: 'Find 3rds, 5ths, 7ths & 9ths over live chord changes',
     why: 'Turns note names into real improvisation — think in musical colors, not scale boxes.',
     accent: '#ec4899',
@@ -142,6 +145,227 @@ export const STAGES: StageDef[] = [
     unlockMastery: 60,
   },
 ]
+
+/** String set presets adapting cleanly to 6-string guitar or 4-string uke/baritone. */
+export function stringSetPresets(nStr: number): { id: string; label: string; strings: number[] }[] {
+  if (nStr === 6) {
+    return [
+      { id: 'all', label: 'All 6', strings: [] },
+      { id: 'low', label: 'Low E–A', strings: [0, 1] },
+      { id: 'mid', label: 'Mid D–G', strings: [2, 3] },
+      { id: 'high', label: 'Top B–e', strings: [4, 5] },
+      { id: 'low3', label: 'Low 3 (E–A–D)', strings: [0, 1, 2] },
+      { id: 'top3', label: 'Top 3 (G–B–e)', strings: [3, 4, 5] },
+    ]
+  }
+  return [
+    { id: 'all', label: `All ${nStr}`, strings: [] },
+    { id: 'low', label: 'Low 2', strings: [0, Math.min(1, nStr - 1)] },
+    { id: 'high', label: 'Top 2', strings: [Math.max(0, nStr - 2), nStr - 1] },
+  ]
+}
+
+// ---------- Scale Degrees & Mode Color Definitions ----------
+
+export interface ScaleLensDef {
+  id: string
+  label: string
+  steps: number[]
+  labels: string[]
+  /** Semitone offsets that give this mode its signature flavor (highlighted cyan) */
+  colorSteps: number[]
+}
+
+export const SCALE_LENSES: ScaleLensDef[] = [
+  { id: 'major', label: 'Major (Ionian)', steps: [0, 2, 4, 5, 7, 9, 11], labels: ['1', '2', '3', '4', '5', '6', '7'], colorSteps: [4, 11] },
+  { id: 'minor', label: 'Natural Minor', steps: [0, 2, 3, 5, 7, 8, 10], labels: ['1', '2', '♭3', '4', '5', '♭6', '♭7'], colorSteps: [3, 8] },
+  { id: 'pent-min', label: 'Minor Pentatonic', steps: [0, 3, 5, 7, 10], labels: ['1', '♭3', '4', '5', '♭7'], colorSteps: [3, 10] },
+  { id: 'pent-maj', label: 'Major Pentatonic', steps: [0, 2, 4, 7, 9], labels: ['1', '2', '3', '5', '6'], colorSteps: [4, 9] },
+  { id: 'dorian', label: 'Dorian (Sweet 6)', steps: [0, 2, 3, 5, 7, 9, 10], labels: ['1', '2', '♭3', '4', '5', '6', '♭7'], colorSteps: [9] },
+  { id: 'mixolydian', label: 'Mixolydian (Bluesy ♭7)', steps: [0, 2, 4, 5, 7, 9, 10], labels: ['1', '2', '3', '4', '5', '6', '♭7'], colorSteps: [10] },
+  { id: 'lydian', label: 'Lydian (Dreamy ♯4)', steps: [0, 2, 4, 6, 7, 9, 11], labels: ['1', '2', '3', '♯4', '5', '6', '7'], colorSteps: [6] },
+]
+
+export function scaleDegreeInfo(
+  notePc: number,
+  rootPc: number,
+  scaleId: string,
+): { label: string; isRoot: boolean; isColor: boolean; semitone: number } | null {
+  const sc = SCALE_LENSES.find(x => x.id === scaleId) ?? SCALE_LENSES[0]
+  const iv = ((notePc - rootPc) % 12 + 12) % 12
+  const idx = sc.steps.indexOf(iv)
+  if (idx < 0) return null
+  return {
+    label: sc.labels[idx],
+    isRoot: iv === 0,
+    isColor: sc.colorSteps.includes(iv),
+    semitone: iv,
+  }
+}
+
+// ---------- Interval Lens Helpers (Fixed Root, Moving Root, By Ear) ----------
+
+export const CORE_INTERVALS = [
+  { semi: 3, short: '♭3', name: 'Minor 3rd', shape: '1 string up, 2 frets back (or 3 frets up same string)' },
+  { semi: 4, short: '3', name: 'Major 3rd', shape: '1 string up, 1 fret back (same fret across G→B!)' },
+  { semi: 5, short: '4', name: 'Perfect 4th', shape: '1 string up, same fret (1 fret up across G→B!)' },
+  { semi: 7, short: '5', name: 'Perfect 5th', shape: '1 string up, 2 frets up (power-chord shape; +3 across G→B)' },
+  { semi: 9, short: '6', name: 'Major 6th', shape: '2 strings up, 1 fret back (or 1 string up, 4 frets up)' },
+  { semi: 10, short: '♭7', name: 'Minor 7th', shape: '2 strings up, same fret (1 fret up across G→B!)' },
+  { semi: 11, short: '7', name: 'Major 7th', shape: '2 strings up, 1 fret up (2 frets up across G→B!)' },
+  { semi: 12, short: 'Oct', name: 'Octave', shape: '2 strings up, 2 frets up (3 frets up across G→B!)' },
+] as const
+
+export function intervalLabelFromRoot(midi: number, rootMidi: number): { short: string; name: string; semi: number } {
+  const diff = midi - rootMidi
+  if (diff === 0) return { short: 'R', name: 'Root', semi: 0 }
+  if (diff === 12 || diff === -12) return { short: 'Oct', name: 'Octave', semi: 12 }
+  const iv = ((diff % 12) + 12) % 12
+  const found = CORE_INTERVALS.find(x => x.semi === iv)
+  if (found) return { short: found.short, name: found.name, semi: iv }
+  return { short: INTERVAL_LABELS[iv], name: INTERVAL_LABELS[iv], semi: iv }
+}
+
+export function intervalTip(target: FretSpot, anchor: FretSpot): string {
+  const diff = target.midi - anchor.midi
+  const iv = diff === 12 ? 12 : ((diff % 12) + 12) % 12
+  const meta = CORE_INTERVALS.find(x => x.semi === iv)
+  const ds = target.s - anchor.s
+  const df = target.f - anchor.f
+  const dirF = df === 0 ? 'same fret' : df > 0 ? `${df} fret${df === 1 ? '' : 's'} right` : `${Math.abs(df)} fret${Math.abs(df) === 1 ? '' : 's'} left`
+  const dirS = ds === 0 ? 'same string' : ds > 0 ? `${ds} string${ds === 1 ? '' : 's'} higher` : `${Math.abs(ds)} string${Math.abs(ds) === 1 ? '' : 's'} lower`
+  return `${meta?.name ?? INTERVAL_LABELS[iv]} (${meta?.short ?? ''}): from Root, go ${dirS}, ${dirF}.`
+}
+
+/** Pick an anchor Root spot inside the active chunk (preferring lower strings so upper intervals sit cleanly!). */
+export function pickIntervalAnchor(
+  midis: number[],
+  filter: GameFilter,
+  fixedRootPc?: number,
+  rnd = Math.random,
+): FretSpot {
+  const all = filterSpots(midis, { ...filter, accidentals: 'both' })
+  if (!all.length) return { s: 0, f: 5, midi: midis[0] + 5, pc: (midis[0] + 5) % 12 }
+  let cands = all
+  if (fixedRootPc !== undefined) {
+    const matching = all.filter(sp => sp.pc === ((fixedRootPc % 12) + 12) % 12)
+    if (matching.length) cands = matching
+  }
+  // Prefer lower strings (0, 1, 2) so intervals sit above the anchor cleanly
+  const lowCands = cands.filter(sp => sp.s <= Math.max(1, Math.floor(midis.length / 2) - 1))
+  const pool = lowCands.length ? lowCands : cands
+  return pool[Math.floor(rnd() * pool.length)]
+}
+
+/** Pick a target interval spot relative to an anchor Root inside the active chunk. */
+export function pickIntervalTarget(
+  midis: number[],
+  filter: GameFilter,
+  anchor: FretSpot,
+  avoidKey = '',
+  rnd = Math.random,
+): { spot: FretSpot; semi: number; short: string; name: string } {
+  const allowedSemis = new Set<number>(CORE_INTERVALS.map(x => x.semi))
+  const box = filterSpots(midis, { ...filter, accidentals: 'both' })
+  const cands = box.filter(sp => {
+    if (spotKey(sp.s, sp.f) === spotKey(anchor.s, anchor.f)) return false
+    if (spotKey(sp.s, sp.f) === avoidKey) return false
+    const diff = sp.midi - anchor.midi
+    if (diff === 12) return true
+    const iv = ((diff % 12) + 12) % 12
+    return diff > 0 && diff <= 14 && allowedSemis.has(iv)
+  })
+  const fallback = cands.length
+    ? cands
+    : box.filter(sp => spotKey(sp.s, sp.f) !== spotKey(anchor.s, anchor.f) && ((sp.midi - anchor.midi + 120) % 12) !== 0)
+  const chosen = (fallback.length ? fallback : box)[Math.floor(rnd() * Math.max(1, (fallback.length ? fallback : box).length))]
+    ?? { s: Math.min(midis.length - 1, anchor.s + 1), f: anchor.f + 2, midi: anchor.midi + 7, pc: (anchor.pc + 7) % 12 }
+  const info = intervalLabelFromRoot(chosen.midi, anchor.midi)
+  return { spot: chosen, ...info }
+}
+
+// ---------- Triads Lens Helpers ----------
+
+export interface TriadChallenge {
+  symbol: string
+  rootPc: number
+  quality: 'maj' | 'min'
+  /** Exact 3 spots on 3 adjacent strings inside the chunk! */
+  spots: FretSpot[]
+  labels: string[]
+  stringSetLabel: string
+}
+
+/** Build a playable 3-string closed triad challenge inside [fromFret, toFret] & active strings. */
+export function buildTriadChallenge(
+  midis: number[],
+  rootPc: number,
+  quality: 'maj' | 'min',
+  filter: GameFilter,
+  rnd = Math.random,
+): TriadChallenge {
+  const n = midis.length
+  const r = ((rootPc % 12) + 12) % 12
+  const third = (r + (quality === 'maj' ? 4 : 3)) % 12
+  const fifth = (r + 7) % 12
+  const tones = [r, third, fifth]
+  const toneLabels: Record<number, string> = { [r]: 'R', [third]: quality === 'maj' ? '3' : '♭3', [fifth]: '5' }
+  const symbol = `${SHARPS[r]}${quality === 'min' ? 'm' : ''}`
+
+  // Pick a 3-string adjacent group compatible with filter.strings
+  const groups: number[][] = []
+  for (let s = 0; s <= n - 3; s++) groups.push([s, s + 1, s + 2])
+  const matchingGroups = filter.strings.length >= 3
+    ? groups.filter(g => g.every(s => filter.strings.includes(s)))
+    : filter.strings.length > 0
+      ? groups.filter(g => g.some(s => filter.strings.includes(s)))
+      : groups
+  const pickedGroup = (matchingGroups.length ? matchingGroups : groups)[
+    Math.floor(rnd() * Math.max(1, (matchingGroups.length ? matchingGroups : groups).length))
+  ] ?? [Math.max(0, n - 3), Math.max(0, n - 2), n - 1]
+
+  // Find a compact 3-note grip (fret span <= 4) within [fromFret, toFret] (or 0..12 fallback)
+  const searchGrip = (fMin: number, fMax: number): FretSpot[] | null => {
+    const candidates: FretSpot[][] = []
+    for (let f0 = fMin; f0 <= fMax; f0++) {
+      const p0 = (midis[pickedGroup[0]] + f0) % 12
+      if (!tones.includes(p0)) continue
+      for (let f1 = Math.max(fMin, f0 - 3); f1 <= Math.min(fMax, f0 + 3); f1++) {
+        const p1 = (midis[pickedGroup[1]] + f1) % 12
+        if (!tones.includes(p1) || p1 === p0) continue
+        const need = tones.find(t => t !== p0 && t !== p1)!
+        for (let f2 = Math.max(fMin, Math.min(f0, f1) - 3); f2 <= Math.min(fMax, Math.max(f0, f1) + 3); f2++) {
+          const p2 = (midis[pickedGroup[2]] + f2) % 12
+          if (p2 !== need) continue
+          const span = Math.max(f0, f1, f2) - Math.min(f0, f1, f2)
+          if (span <= 4) {
+            candidates.push([
+              { s: pickedGroup[0], f: f0, midi: midis[pickedGroup[0]] + f0, pc: p0 },
+              { s: pickedGroup[1], f: f1, midi: midis[pickedGroup[1]] + f1, pc: p1 },
+              { s: pickedGroup[2], f: f2, midi: midis[pickedGroup[2]] + f2, pc: p2 },
+            ])
+          }
+        }
+      }
+    }
+    return candidates.length ? candidates[Math.floor(rnd() * candidates.length)] : null
+  }
+
+  const spots = searchGrip(filter.fromFret, filter.toFret) ?? searchGrip(0, 12) ?? [
+    { s: pickedGroup[0], f: 0, midi: midis[pickedGroup[0]], pc: midis[pickedGroup[0]] % 12 },
+  ]
+  const stringSetLabel = pickedGroup.map(s => SHARPS[midis[s] % 12]).join('–')
+  return {
+    symbol,
+    rootPc: r,
+    quality,
+    spots,
+    labels: spots.map(sp => toneLabels[sp.pc] ?? SHARPS[sp.pc]),
+    stringSetLabel,
+  }
+}
+
+// ---------- Persistence & Cloud Sync Merge ----------
 
 const STORAGE_KEY = 'kg:fretGame'
 
@@ -245,7 +469,6 @@ export function mergeFretGameData(a: Partial<FretGameData> | null | undefined, b
   return out
 }
 
-/** Display a pitch class cleanly according to the selected accidental mode. */
 export function displayPc(p: number, acc: AccidentalMode = 'both', preferFlat = false): string {
   const n = ((p % 12) + 12) % 12
   if (NATURAL_PCS.has(n)) return SHARPS[n]
@@ -260,7 +483,6 @@ export function fullPcLabel(p: number): string {
   return SHARPS[n] === FLATS[n] ? SHARPS[n] : `${SHARPS[n]}/${FLATS[n]}`
 }
 
-/** Friendly spoken string name for Voice Callouts ("low E", "A", "D", "G", "B", "high e"). */
 export function friendlyStringLabel(midis: number[], s: number): string {
   const name = SHARPS[((midis[s] % 12) + 12) % 12]
   if (midis.length === 6 && midis[0] % 12 === 4 && midis[5] % 12 === 4) {
@@ -272,7 +494,6 @@ export function friendlyStringLabel(midis: number[], s: number): string {
   return `${name} (${ord})`
 }
 
-/** Classify a fret's mastery heat tier from accuracy + reaction speed. */
 export function fretHeat(stat: FretStat | undefined): HeatTier {
   if (!stat || stat.seen === 0) return 'unseen'
   const acc = stat.right / Math.max(1, stat.seen)
@@ -282,7 +503,6 @@ export function fretHeat(stat: FretStat | undefined): HeatTier {
   return 'green'
 }
 
-/** Record one hit or miss for a fret and return updated FretGameData (pure). */
 export function recordFretResult(
   data: FretGameData,
   tKey: string,
@@ -300,7 +520,6 @@ export function recordFretResult(
         seen: prev.seen + 1,
         right: prev.right + (ok ? 1 : 0),
         wrong: prev.wrong + (ok ? 0 : 1),
-        // Exponential moving average so recent improvements turn red frets green quickly!
         avgMs: ok ? Math.round(prev.avgMs * 0.65 + clampedMs * 0.35) : Math.round(Math.max(prev.avgMs, clampedMs)),
         bestMs: ok ? Math.min(prev.bestMs || clampedMs, clampedMs) : prev.bestMs,
         lastAt: Date.now(),
@@ -324,7 +543,6 @@ export function recordFretResult(
   }
 }
 
-/** Enumerate all candidate FretSpots matching a filter. */
 export function filterSpots(midis: number[], filter: GameFilter): FretSpot[] {
   const strs = filter.strings.length
     ? filter.strings.filter(s => s >= 0 && s < midis.length)
@@ -341,12 +559,10 @@ export function filterSpots(midis: number[], filter: GameFilter): FretSpot[] {
   return out
 }
 
-/** Enumerate spots belonging to a specific Campaign Stage (1..6). */
 export function stageSpots(midis: number[], stageId: number): FretSpot[] {
   const n = midis.length
   const out: FretSpot[] = []
   if (stageId === 1) {
-    // Open strings + dot landmarks 0, 3, 5, 7, 9, 12
     for (let s = 0; s < n; s++) {
       for (const f of LANDMARK_FRETS) {
         const midi = midis[s] + f
@@ -356,12 +572,10 @@ export function stageSpots(midis: number[], stageId: number): FretSpot[] {
     return out
   }
   if (stageId === 2) {
-    // Low E and A strings (or lowest 2 strings), frets 0..12
     const low = n >= 2 ? [0, 1] : [0]
     return filterSpots(midis, { fromFret: 0, toFret: 12, strings: low, accidentals: 'both' })
   }
   if (stageId === 3) {
-    // Target octaves on strings 2..n-1 (D, G, B, high e), frets 0..12
     const upper = []
     for (let s = Math.min(2, n - 1); s < n; s++) upper.push(s)
     return filterSpots(midis, { fromFret: 0, toFret: 12, strings: upper, accidentals: 'natural' })
@@ -369,11 +583,9 @@ export function stageSpots(midis: number[], stageId: number): FretSpot[] {
   if (stageId === 4) {
     return filterSpots(midis, { fromFret: 0, toFret: 12, strings: [], accidentals: 'natural' })
   }
-  // Stage 5 & 6 cover full chromatic neck 0..12
   return filterSpots(midis, { fromFret: 0, toFret: 12, strings: [], accidentals: 'both' })
 }
 
-/** Compute mastery % (0..100) for a given list of spots. */
 export function spotsMastery(spots: FretSpot[], heatMap: Record<string, FretStat> | undefined): {
   pct: number
   green: number
@@ -400,11 +612,10 @@ export function spotsMastery(spots: FretSpot[], heatMap: Record<string, FretStat
   return { pct, green, gold, amber, red, unseen, avgMs: msCount ? Math.round(msSum / msCount) : 0 }
 }
 
-/** Return the weakest (red/amber/slowest) spots in a pool for "Drill My Weak Spots". */
 export function weakestSpots(spots: FretSpot[], heatMap: Record<string, FretStat> | undefined, limit = 18): FretSpot[] {
   const scored = spots.map(sp => {
     const st = heatMap?.[spotKey(sp.s, sp.f)]
-    if (!st || st.seen === 0) return { sp, priority: 2 } // unseen = medium priority
+    if (!st || st.seen === 0) return { sp, priority: 2 }
     const tier = fretHeat(st)
     const acc = st.right / Math.max(1, st.seen)
     const prio =
@@ -418,7 +629,6 @@ export function weakestSpots(spots: FretSpot[], heatMap: Record<string, FretStat
   return scored.slice(0, Math.min(limit, scored.length)).map(x => x.sp)
 }
 
-/** Spaced-repetition weighted spot picker: drills weak & overdue spots much more often. */
 export function pickWeightedSpot(
   spots: FretSpot[],
   heatMap: Record<string, FretStat> | undefined,
@@ -450,7 +660,6 @@ export function pickWeightedSpot(
   return pool[pool.length - 1]
 }
 
-/** For Stage 3 (Octave Web): pick an anchor spot on a lower string and its target octave 1–3 strings higher. */
 export function pickOctavePair(
   midis: number[],
   heatMap: Record<string, FretStat> | undefined,
@@ -482,7 +691,6 @@ export function pickOctavePair(
     return { anchor: sp, target: { ...sp, f: 12, midi: midis[0] + 12 }, shapeTip: '12 frets up = exact octave' }
   }
   const filtered = pairs.length > 1 ? pairs.filter(p => spotKey(p.target.s, p.target.f) !== avoidTargetKey) : pairs
-  // Weight by weakness of the target spot
   const weights = filtered.map(p => {
     const tier = fretHeat(heatMap?.[spotKey(p.target.s, p.target.f)])
     return tier === 'red' ? 8 : tier === 'amber' ? 4 : tier === 'unseen' ? 3 : 1
@@ -496,7 +704,6 @@ export function pickOctavePair(
   return filtered[filtered.length - 1]
 }
 
-/** All places a pitch class lives on the neck within [fromFret, toFret] (one per string for 0..11, or all in range). */
 export function spotsForPc(midis: number[], targetPc: number, fromFret = 0, toFret = 12, onePerString = false): FretSpot[] {
   const p = ((targetPc % 12) + 12) % 12
   const out: FretSpot[] = []
@@ -512,7 +719,6 @@ export function spotsForPc(midis: number[], targetPc: number, fromFret = 0, toFr
   return out
 }
 
-/** Build glowing octave constellation edges connecting spots of the same note across adjacent strings. */
 export function octaveConstellationLinks(spots: FretSpot[]): { s1: number; f1: number; s2: number; f2: number }[] {
   const sorted = [...spots].sort((a, b) => a.s - b.s || a.f - b.f)
   const links: { s1: number; f1: number; s2: number; f2: number }[] = []
@@ -526,19 +732,15 @@ export function octaveConstellationLinks(spots: FretSpot[]): { s1: number; f1: n
   return links
 }
 
-/** Plain-English coaching shortcut shown when a player misses a note so every miss teaches! */
 export function shortcutTip(midis: number[], spot: FretSpot): string {
   const name = fullPcLabel(spot.pc)
   if (spot.f === 0) return `${name} is the open ${friendlyStringLabel(midis, spot.s)} string.`
   if (spot.f === 12) return `Fret 12 is always the double-dot octave of the open string (${name}).`
-  // Check nearest dot landmark (3, 5, 7, 9, 12)
   const nearDot = LANDMARK_FRETS.find(d => d > 0 && Math.abs(d - spot.f) <= 1)
   if (nearDot !== undefined && nearDot === spot.f) {
     return `${name} sits right on the fret-${spot.f} dot on the ${friendlyStringLabel(midis, spot.s)} string.`
   }
-  // Standard guitar octave shortcut from Low E or A
   if (midis.length === 6 && spot.s >= 2) {
-    // Find lower octave on Low E or A
     for (const anchorS of [0, 1]) {
       const fAnchor = spot.midi - 12 - midis[anchorS]
       if (fAnchor >= 0 && fAnchor <= 12) {
@@ -550,7 +752,6 @@ export function shortcutTip(midis: number[], spot: FretSpot): string {
       return `High e matches Low E! Same fret ${spot.f} on both outside strings = ${name}.`
     }
   }
-  // Natural half-step anchor (B-C or E-F)
   if (spot.pc === 5) return `E→F has no sharp in between — ${name} is just 1 fret above E!`
   if (spot.pc === 0) return `B→C has no sharp in between — ${name} is just 1 fret above B!`
   if (nearDot !== undefined) {
@@ -560,19 +761,15 @@ export function shortcutTip(midis: number[], spot: FretSpot): string {
   return `${name} is on ${friendlyStringLabel(midis, spot.s)}, fret ${spot.f}.`
 }
 
-// ---------- Solo Mode (Tom Quayle-style Interval & Chord Changes Trainer) ----------
+// ---------- Chord Tones / Solo Changes Goal Builder ----------
 
 export interface SoloGoal {
   chordSymbol: string
   rootPc: number
   chordMidis: number[]
-  /** Interval semitones (0..11) to play in order */
   intervals: number[]
-  /** Pretty labels like ['R', '3', '5', '7'] */
   labels: string[]
-  /** Target pitch classes matching each interval */
   targetPcs: number[]
-  /** Recommended 5-fret zone */
   fromFret: number
   toFret: number
 }
@@ -586,7 +783,6 @@ export const SOLO_LEVELS: { id: SoloLevel; label: string; desc: string }[] = [
   { id: 'random3', label: 'Mixed Intervals', desc: '3 shuffled chord tones — breaks box autopilot!' },
 ]
 
-/** Build one Solo-mode interval challenge for a given chord inside [fromFret, toFret]. */
 export function buildSoloGoal(
   chord: Pick<ProgChord, 'root' | 'type' | 'symbol'>,
   level: SoloLevel,
@@ -595,22 +791,18 @@ export function buildSoloGoal(
   rnd = Math.random,
 ): SoloGoal {
   const rootPc = pc(chord.root)
-  const rawTones = typeTones(chord.type) // e.g. [0, 4, 7] or [0, 3, 7, 10]
+  const rawTones = typeTones(chord.type)
   const third = rawTones.find(t => t === 3 || t === 4) ?? 4
   const fifth = rawTones.find(t => t === 6 || t === 7 || t === 8) ?? 7
   const seventh = rawTones.find(t => t === 9 || t === 10 || t === 11) ?? (third === 4 ? 11 : 10)
-  const ninth = 2 // major 9th
+  const ninth = 2
 
   let intervals: number[]
-  if (level === 'triads') {
-    intervals = [0, third, fifth]
-  } else if (level === 'sevenths') {
-    intervals = [0, third, fifth, seventh]
-  } else if (level === 'color') {
-    intervals = [third, fifth, seventh, ninth]
-  } else {
+  if (level === 'triads') intervals = [0, third, fifth]
+  else if (level === 'sevenths') intervals = [0, third, fifth, seventh]
+  else if (level === 'color') intervals = [third, fifth, seventh, ninth]
+  else {
     const pool = [0, third, fifth, seventh]
-    // Fisher-Yates shuffle
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(rnd() * (i + 1))
       ;[pool[i], pool[j]] = [pool[j], pool[i]]
@@ -621,23 +813,12 @@ export function buildSoloGoal(
   const labelFor = (iv: number) => (iv === 2 && level === 'color' ? '9' : INTERVAL_LABELS[((iv % 12) + 12) % 12])
   const labels = intervals.map(labelFor)
   const targetPcs = intervals.map(iv => (rootPc + iv) % 12)
-  // Soft voicing midis for the backing pad strum
   const baseMidi = 48 + rootPc
   const chordMidis = [baseMidi, baseMidi + fifth, baseMidi + 12 + third, ...(level === 'triads' ? [] : [baseMidi + seventh])]
 
-  return {
-    chordSymbol: chord.symbol,
-    rootPc,
-    chordMidis,
-    intervals,
-    labels,
-    targetPcs,
-    fromFret,
-    toFret,
-  }
+  return { chordSymbol: chord.symbol, rootPc, chordMidis, intervals, labels, targetPcs, fromFret, toFret }
 }
 
-/** Score calculation with combo multiplier + lightning speed bonus. */
 export function calcHitPoints(ms: number, comboAfter: number): { points: number; mult: number; badge: string } {
   const mult = comboAfter >= 15 ? 5 : comboAfter >= 10 ? 4 : comboAfter >= 6 ? 3 : comboAfter >= 3 ? 2 : 1
   const speedBonus = ms <= 900 ? 50 : ms <= 1500 ? 25 : 0
@@ -645,7 +826,6 @@ export function calcHitPoints(ms: number, comboAfter: number): { points: number;
   return { points: (50 + speedBonus) * mult, mult, badge }
 }
 
-/** Grade (S, A, B, C) from accuracy and avg speed. */
 export function sessionGrade(accuracyPct: number, avgMs: number): 'S' | 'A' | 'B' | 'C' {
   if (accuracyPct >= 95 && avgMs > 0 && avgMs <= 1300) return 'S'
   if (accuracyPct >= 88 && (avgMs === 0 || avgMs <= 2100)) return 'A'
@@ -653,7 +833,6 @@ export function sessionGrade(accuracyPct: number, avgMs: number): 'S' | 'A' | 'B
   return 'C'
 }
 
-/** Spoken text for Blindfold / Eyes-Up Voice Callout mode. */
 export function speakPrompt(text: string): void {
   try {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
@@ -662,23 +841,24 @@ export function speakPrompt(text: string): void {
     u.rate = 1.08
     u.pitch = 1.0
     window.speechSynthesis.speak(u)
-  } catch { /* ignore on devices without TTS */ }
+  } catch { /* ignore */ }
 }
 
-/** Convert a note name to speech-friendly pronunciation ("F sharp", "B flat"). */
 export function spokenNote(label: string): string {
-  return label
-    .replace(/#/g, ' sharp')
-    .replace(/b|♭/g, ' flat')
-    .replace(/\//g, ' or ')
+  return label.replace(/#/g, ' sharp').replace(/b|♭/g, ' flat').replace(/\//g, ' or ')
 }
 
-// ---------- Note Rush / Fret Defense (Endless Arcade Lane Game) ----------
+// ---------- Endless Mode (6-String Arcade Lane Defense) ----------
 
 export interface RushOrb {
   id: number
   spot: FretSpot
+  /** Label drawn inside the orb (e.g. 'A', '♭3', '5', '👂 ?') — NEVER a fret number! */
   label: string
+  /** Optional subtitle / interval tag */
+  sub?: string
+  /** True when the orb represents a mode color note (cyan glow) */
+  isColor?: boolean
   /** Progress from right (100) toward the shield on the left (0) */
   x: number
   /** Units per second toward 0 */
@@ -688,7 +868,7 @@ export interface RushOrb {
 
 export interface RushBoss {
   id: number
-  pc: number
+  title: string
   label: string
   spots: FretSpot[]
   found: string[]
@@ -709,89 +889,47 @@ export interface RushWaveSpec {
   isBoss: boolean
 }
 
-/** Progressive wave tuning for Endless Note Rush (Fret Defense): approachable at Wave 1, exciting forever! */
 export function rushWaveSpec(wave: number, nStr: number): RushWaveSpec {
   const w = Math.max(1, wave)
   const isBoss = w % 5 === 0
   if (isBoss) {
     return {
       wave: w,
-      title: `👑 Wave ${w} · Octave Boss`,
+      title: `👑 Wave ${w} · Boss Wave`,
       fromFret: 0,
       toFret: 11,
       strings: [],
       accidentals: w >= 10 ? 'both' : 'natural',
       maxConcurrent: 1,
-      speedPerSec: Math.min(5.2, 3.0 + (w / 5 - 1) * 0.45),
+      speedPerSec: Math.min(5.0, 2.9 + (w / 5 - 1) * 0.45),
       isBoss: true,
     }
   }
   if (w === 1) {
-    return {
-      wave: w,
-      title: 'Wave 1 · Bass Warm-Up',
-      fromFret: 0,
-      toFret: 5,
-      strings: nStr >= 2 ? [0, 1] : [0],
-      accidentals: 'natural',
-      maxConcurrent: 1,
-      speedPerSec: 10.5,
-      isBoss: false,
-    }
+    return { wave: w, title: 'Wave 1 · Bass Warm-Up', fromFret: 0, toFret: 5, strings: nStr >= 2 ? [0, 1] : [0], accidentals: 'natural', maxConcurrent: 1, speedPerSec: 10.0, isBoss: false }
   }
   if (w === 2) {
-    return {
-      wave: w,
-      title: 'Wave 2 · Low Strings (0–7)',
-      fromFret: 0,
-      toFret: 7,
-      strings: nStr >= 3 ? [0, 1, 2] : [],
-      accidentals: 'natural',
-      maxConcurrent: 1,
-      speedPerSec: 12,
-      isBoss: false,
-    }
+    return { wave: w, title: 'Wave 2 · Low Strings (0–7)', fromFret: 0, toFret: 7, strings: nStr >= 3 ? [0, 1, 2] : [], accidentals: 'natural', maxConcurrent: 1, speedPerSec: 11.5, isBoss: false }
   }
   if (w === 3) {
-    return {
-      wave: w,
-      title: 'Wave 3 · All Strings (0–7)',
-      fromFret: 0,
-      toFret: 7,
-      strings: [],
-      accidentals: 'natural',
-      maxConcurrent: 1,
-      speedPerSec: 13.5,
-      isBoss: false,
-    }
+    return { wave: w, title: 'Wave 3 · All Strings (0–7)', fromFret: 0, toFret: 7, strings: [], accidentals: 'natural', maxConcurrent: 1, speedPerSec: 13.0, isBoss: false }
   }
   if (w === 4) {
-    return {
-      wave: w,
-      title: 'Wave 4 · Full Neck Naturals',
-      fromFret: 0,
-      toFret: 12,
-      strings: [],
-      accidentals: 'natural',
-      maxConcurrent: 2,
-      speedPerSec: 14,
-      isBoss: false,
-    }
+    return { wave: w, title: 'Wave 4 · Full Neck Naturals', fromFret: 0, toFret: 12, strings: [], accidentals: 'natural', maxConcurrent: 2, speedPerSec: 13.5, isBoss: false }
   }
   return {
     wave: w,
-    title: `Wave ${w} · Chromatic Rush`,
+    title: `Wave ${w} · Full Speed`,
     fromFret: 0,
     toFret: 12,
     strings: [],
     accidentals: 'both',
-    maxConcurrent: w >= 8 ? 2 : 2,
-    speedPerSec: Math.min(26, 14.5 + (w - 5) * 1.15),
+    maxConcurrent: 2,
+    speedPerSec: Math.min(24, 14.0 + (w - 5) * 1.05),
     isBoss: false,
   }
 }
 
-/** Match a touchscreen tap OR guitar mic MIDI pitch against active Note Rush orbs or Boss armor. */
 export function matchRushAttempt(
   orbs: RushOrb[],
   boss: RushBoss | null,
@@ -809,7 +947,6 @@ export function matchRushAttempt(
     }
     return match ? { kind: 'boss', spot: match } : null
   }
-  // Prioritize the orb closest to the shield (smallest x)
   const sorted = [...orbs].sort((a, b) => a.x - b.x)
   for (const orb of sorted) {
     if (attempt.s !== undefined && attempt.f !== undefined) {
@@ -820,4 +957,3 @@ export function matchRushAttempt(
   }
   return null
 }
-

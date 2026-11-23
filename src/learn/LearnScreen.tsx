@@ -288,7 +288,7 @@ export function LearnScreen() {
 
   const groups: { title: string; tools: { id: Route['k']; title: string; sub: string; needs?: boolean }[] }[] = [
     { title: 'Play better', tools: [
-      { id: 'fretgame', title: 'Fretboard game', sub: 'Study Primer, Note Rush (Fret Defense), 6-stage path, live heatmap, Blitz, 4ths Gauntlet & Solo Intervals' },
+      { id: 'fretgame', title: 'Fretboard game', sub: 'Notes, Intervals, Chord Tones, Scales & Triads · Study Primer, Endless Mode, Speed Blitz, Metronome Run & Build the Shape' },
       { id: 'techniques', title: 'Technique', sub: `${techniquesDone().size} of ${TECHNIQUES.length} skills practised` },
       { id: 'licks', title: 'Must-know licks', sub: `${LICK_STYLES.length} styles, explained step by step` },
       { id: 'chainer', title: 'Lick chainer', sub: 'Line up licks into a solo' },
