@@ -10,7 +10,7 @@ export type Go =
   /** My books: the shelf, a book at a page, or a search */
   | { books: { id?: string; page?: number; q?: string } }
   | { lesson: string }
-  | { tool: 'ear' | 'caged' | 'changes' | 'rhythm' | 'circle' | 'lessons' | 'settings' | 'progress' | 'guide' | 'techniques' | 'bends' | 'targets' | 'cr' | 'earpath' | 'fills' | 'videos' | 'recordings' | 'chainer' }
+  | { tool: 'ear' | 'caged' | 'changes' | 'rhythm' | 'circle' | 'lessons' | 'settings' | 'progress' | 'guide' | 'techniques' | 'bends' | 'targets' | 'cr' | 'earpath' | 'fills' | 'videos' | 'recordings' | 'chainer' | 'fretgame' }
   | { tab: 'play' | 'progressions' | 'tuner' }
   | { exercise: 'spider' | 'penta1' | `type:${string}` }
   /** a saved song; loop null = stop looping; speed = playback speed to start at */

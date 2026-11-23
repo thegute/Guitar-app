@@ -5,6 +5,7 @@
 // audio gear calibration, and API/sync tokens NEVER overwrite another device.
 import { makeBackup, type Backup } from '../backup'
 import { listSongs, saveSong, type SongDoc } from '../tabs/library'
+import { mergeFretGameData, type FretGameData } from '../learn/fretboardGame'
 
 export interface SyncConfig {
   token: string
@@ -289,6 +290,7 @@ export function mergeBackups(local: Backup, remote: Backup): { merged: Backup; s
     if (lv === rv) { storage[k] = lv; continue }
 
     if (k === 'kg:course') storage[k] = mergeCourse(lv, rv)
+    else if (k === 'kg:fretGame') storage[k] = JSON.stringify(mergeFretGameData(parseJson<Partial<FretGameData>>(lv, {}), parseJson<Partial<FretGameData>>(rv, {})))
     else if (STRING_SET_KEYS.has(k)) storage[k] = mergeStringSet(lv, rv)
     else if (MAX_NUMBER_MAP_KEYS.has(k)) storage[k] = mergeMaxMap(lv, rv)
     else if (k === 'kg:practiceLog') storage[k] = mergePracticeLog(lv, rv)
