@@ -68,7 +68,7 @@ import { onLeavePage } from '../audio/stopAll'
 import { FingerBox } from '../components/FingerBox'
 import { FloatPicker } from '../float/FloatLayer'
 import { clearFloat, publishFloat, shownCards, toggleCard, useShownCards } from '../float/bus'
-import { groupAt, handGroups } from '../play/handShape'
+import { groupAt, handGroups, liveHandState } from '../play/handShape'
 import { easierTrack, editKey, fixedFingers, otherSpots, withMoves } from '../hand/edits'
 import { adaptTrack } from '../hand/adapt'
 import { bestCapo, capoTrack } from '../hand/capo'
@@ -1337,13 +1337,27 @@ export function PlayScreen() {
     const n = pcName(t % 12, flats)
     return s === track.tuning.length - 1 && track.tuning.filter(x => x % 12 === t % 12).length > 1 ? n.toLowerCase() : n
   })
-  // the floating finger box: beats until the hand has to move
-  const beatsToShift = hand && handNext ? flat.slice(Math.max(0, handAt), handNext.from).reduce((t, f) => t + f.step.dur, 0) : Infinity
+  // the floating Live Left-Hand Coach: pre-positions on open strings & updates live on EVERY note
+  const liveHand = liveHandState(flat, hands, handAt, strNames)
+  const beatsToShift = liveHand ? liveHand.beatsToShift : (hand && handNext ? flat.slice(Math.max(0, handAt), handNext.from).reduce((t, f) => t + f.step.dur, 0) : Infinity)
   const handOn = cardsShown.includes('hand')
   const setHandOn = (on: boolean) => { if (on !== handOn) toggleCard('play', 'hand') }
-  const fingerBox = handOn && hand && hand.notes.some(n => n.fret > 0) && !(stand && bigView) ? (
-    <FingerBox group={hand} next={handNext} beatsToShift={beatsToShift} expected={expected} nStr={track.tuning.length} stringNames={strNames} onHide={() => setHandOn(false)}
-      onLoopShift={handNext ? () => { const b = flat[handNext.from]?.bar ?? 0; setLoop({ from: Math.max(0, b - 1), to: b }); countUse('play:loopShift') } : undefined} />
+  const fingerBox = handOn && liveHand && liveHand.group.notes.some(n => n.fret > 0) && !(stand && bigView) ? (
+    <FingerBox
+      group={liveHand.group}
+      next={liveHand.nextGroup}
+      beatsToShift={beatsToShift}
+      expected={expected}
+      nowNotes={liveHand.nowNotes}
+      nextNotes={liveHand.nextNotes}
+      holdNotes={liveHand.holdNotes}
+      prePosition={liveHand.prePosition}
+      cue={liveHand.cue}
+      nStr={track.tuning.length}
+      stringNames={strNames}
+      onHide={() => setHandOn(false)}
+      onLoopShift={liveHand.nextGroup ? () => { const b = flat[liveHand.nextGroup!.from]?.bar ?? 0; setLoop({ from: Math.max(0, b - 1), to: b }); countUse('play:loopShift') } : undefined}
+    />
   ) : null
   void handLeft
   // strum-along: the chord to play next, with its shape
@@ -1492,6 +1506,16 @@ export function PlayScreen() {
       {recording && (
         <button className="btn sm rec on" aria-pressed onClick={() => void toggleRec()} aria-label="Stop recording"><Ico n="stop" fill /> {Math.floor(recSecs / 60)}:{String(recSecs % 60).padStart(2, '0')}</button>
       )}
+      <button
+        className={`btn sm${handOn ? ' on' : ''}`}
+        data-find="hand-btn"
+        data-testid="play-hand-toggle"
+        aria-pressed={handOn}
+        onClick={() => setHandOn(!handOn)}
+        title="Show or hide the Live Left-Hand Coach (where your 4 fingers park & move)"
+      >
+        <Ico n="hand" /><span className="opts-label">Hand</span>
+      </button>
       <button className="btn sm coach-btn" data-find="coach" data-testid="coach-btn" onClick={() => { countUse('play:coach'); coach.ask() }} aria-label="Coach: what should I fix?"><Ico n="sparkles" /><span className="opts-label">Coach</span></button>
       <button className="btn sm opts-btn" data-find="opts" aria-expanded={opts} onClick={() => setOpts(true)} aria-label="Options: speed, sound, band, record, how the tab looks">
         <IconSliders /><span className="opts-label">Options</span>

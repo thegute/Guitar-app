@@ -2312,7 +2312,12 @@ html:not([data-arrange]) .win-grip, html:not([data-arrange]) .win-btn, html:not(
 .fbx-dot.fing-1 text, .fbx-dot.fing-4 text { fill: #fff; }
 .fbx-dot.fing-0 circle { fill: transparent; stroke: var(--f0); stroke-width: 1.6; }
 .fbx-dot.fing-0 text { fill: var(--ink); }
-.fbx-dot.next circle { stroke: var(--ink); stroke-width: 3; paint-order: stroke; }
+.fbx-dot.next circle { stroke: #fff; stroke-width: 2.6; paint-order: stroke; }
+.fbx-dot.live-now { filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.45)); }
+.fbx-dot.dim { opacity: 0.34; }
+.fbx-hand.pre { stroke-dasharray: 4 3; opacity: 0.85; }
+.fbx-cue { line-height: 1.3; color: var(--ink); font-weight: 600; padding: 3px 6px; border-radius: var(--r-sm); background: rgba(255, 255, 255, 0.05); border: 1px solid var(--hairline); }
+.fbx-hold-pill { margin-left: auto; font-size: 10.5px; font-weight: 700; color: #38bdf8; }
 .fbx-barre { fill: color-mix(in srgb, var(--fc) 55%, transparent); }
 .fbx-arrow { stroke: var(--gold); stroke-width: 2; fill: none; }
 .fbx-arrowhead { fill: var(--gold); }

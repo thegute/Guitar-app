@@ -10,7 +10,7 @@ import { activeSound, playDeadNote, playNote, soundForProgram } from '../audio/p
 import { audio } from '../audio/engine'
 import { TabView } from '../components/TabView'
 import { FingerBox } from '../components/FingerBox'
-import { groupAt, handGroups } from '../play/handShape'
+import { liveHandState, handGroups } from '../play/handShape'
 import { songTempo } from '../play/tempoMap'
 import { useInstrument } from '../instrument'
 import { pcName } from '../theory/notes'
@@ -95,6 +95,7 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
     const p = (player.current ??= new TabPlayer())
     p.onStep = k => setAt(k)
     p.onEnd = () => { setAt(-1); setFrom(0) }
+    p.onStop = () => setAt(-1)
     p.sound = activeSound(soundForProgram(track.program))
     p.meter = doc.song.meter ?? 4
     const map = songTempo(doc.song)
@@ -111,10 +112,7 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
   useEffect(() => { if (playing) start(at) }, [speed]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const cur = playing ? at : from
-  const hg = groupAt(hands, cur)
-  const hand = hg >= 0 ? hands[hg] : null
-  const next = hg >= 0 ? hands[hg + 1] ?? null : null
-  const toShift = hand && next ? flat.slice(Math.max(0, cur), next.from).reduce((t, f) => t + f.step.dur, 0) : Infinity
+  const liveHand = liveHandState(flat, hands, cur, strNames)
   const expected = flat[cur]?.step.notes ?? []
 
   const selFlat = sel ? flat[sel.flatIdx] : null
@@ -398,9 +396,22 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
             }
           }} />
       </div>
-      {hand && hand.notes.some(n => n.fret > 0) && (
-        <FingerBox where="scan" group={hand} next={next} beatsToShift={toShift} expected={expected} nStr={track.tuning.length} stringNames={strNames}
-          onLoopShift={next ? () => { const b = flat[next.from]?.bar ?? 0; const lp = { from: Math.max(0, b - 1), to: b }; setLoop(lp); start(flat.findIndex(f => f.bar === lp.from), lp) } : undefined} />
+      {liveHand && liveHand.group.notes.some(n => n.fret > 0) && (
+        <FingerBox
+          where="scan"
+          group={liveHand.group}
+          next={liveHand.nextGroup}
+          beatsToShift={liveHand.beatsToShift}
+          expected={expected}
+          nowNotes={liveHand.nowNotes}
+          nextNotes={liveHand.nextNotes}
+          holdNotes={liveHand.holdNotes}
+          prePosition={liveHand.prePosition}
+          cue={liveHand.cue}
+          nStr={track.tuning.length}
+          stringNames={strNames}
+          onLoopShift={liveHand.nextGroup ? () => { const b = flat[liveHand.nextGroup!.from]?.bar ?? 0; const lp = { from: Math.max(0, b - 1), to: b }; setLoop(lp); start(flat.findIndex(f => f.bar === lp.from), lp) } : undefined}
+        />
       )}
     </div>
   )

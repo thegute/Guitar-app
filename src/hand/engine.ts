@@ -135,6 +135,15 @@ function assign(notes: HNote[], a: number, L: number, reach: number, fixed?: Map
     for (let x = 0; x < k; x++) for (let y = x + 1; y < k; y++) {
       if (spots[x].f === spots[y].f && p[x] !== p[y] && (spots[x].s < spots[y].s) !== (p[x] < p[y])) c += 0.25
     }
+    // Power chords (root + 5th, or root + 5th + octave, 2 frets up on adjacent strings):
+    // real guitarists play these with 1-3 or 1-3-4 (or 1-3 barre), never cramped 1-2-3 stretches.
+    if ((k === 2 || k === 3) && spots[0].f === a) {
+      const s0 = spots[0].s
+      const isPower2 = k === 2 && spots[1].s === s0 + 1 && spots[1].f === a + 2
+      const isPower3 = k === 3 && spots[1].s === s0 + 1 && spots[1].f === a + 2 && spots[2].s === s0 + 2 && spots[2].f === a + 2
+      if (isPower2 && p[0] === 1 && p[1] === 3) c -= 0.35
+      if (isPower3 && p[0] === 1 && p[1] === 3 && p[2] === 4) c -= 0.55
+    }
     // barres: a finger laid across strings. Nothing in between may be lower than the barre; a full index barre is
     // normal, short barres and other fingers less so
     for (let f = 1; f <= 4; f++) {
@@ -225,14 +234,42 @@ export function planFingers(steps: HStep[], o: HandOpts): HandPlan {
   const total = cost[at]
   const anchors = new Array<number>(N)
   for (let i = N - 1; i >= 0; i--) { anchors[i] = A[at]; if (i > 0) at = back[i - 1][at] }
-  return {
-    cost: total,
-    steps: steps.map((st, i) => {
-      if (!fretted(st)) return null
-      const v = own(i, anchors[i])
-      return { anchor: anchors[i], fingers: v.fingers, ...(v.barre ? { barre: v.barre } : {}) }
-    }),
+  const planned = steps.map((st, i) => {
+    if (!fretted(st)) return null
+    const v = own(i, anchors[i])
+    return { anchor: anchors[i], fingers: v.fingers.slice(), ...(v.barre ? { barre: v.barre } : {}) }
+  })
+
+  // Real-guitarist continuity pass: inside one hand position, avoid hopping the same finger across
+  // adjacent strings on the same fret during arpeggios/riffs when the next finger sits right there
+  // (e.g. D-7 with Ring 3 immediately followed by G-7 → Pinky 4, unless user fixed the finger).
+  for (let i = 1; i < N; i++) {
+    const prev = planned[i - 1]
+    const cur = planned[i]
+    if (!prev || !cur || prev.anchor !== cur.anchor) continue
+    if (steps[i - 1].notes.length !== 1 || steps[i].notes.length !== 1) continue
+    if (o.fixed?.has(i)) continue
+    const pn = steps[i - 1].notes[0]
+    const cn = steps[i].notes[0]
+    if (pn.fret <= 0 || cn.fret <= 0) continue
+    if (pn.fret !== cn.fret || pn.string === cn.string) continue
+    const pf = prev.fingers[0]
+    const cf = cur.fingers[0]
+    if (pf !== cf || pf <= 0) continue
+    // On anchor+2 (typically Ring 3) moving to a higher string on the same fret during a fast note/arpeggio:
+    // use Pinky 4 on the higher string (classic guitar arpeggio / rock riff fingering) if next note doesn't need 4 at +3.
+    const nextStep = steps[i + 1]
+    const nextNeeds4 = !!nextStep && nextStep.notes.some(n => n.fret >= cur.anchor + 3)
+    if (pf === 3 && cn.string === pn.string + 1 && cn.fret === cur.anchor + 2 && !nextNeeds4 && steps[i - 1].dur <= 1) {
+      cur.fingers[0] = 4
+    } else if (pf === 2 && cn.string === pn.string + 1 && cn.fret === cur.anchor + 1 && steps[i - 1].dur <= 0.5) {
+      // On anchor+1 (Middle 2) moving to higher string on same fret: Ring 3 when fret+2 isn't immediately needed
+      const nextNeeds3 = !!nextStep && nextStep.notes.some(n => n.fret === cur.anchor + 2)
+      if (!nextNeeds3) cur.fingers[0] = 3
+    }
   }
+
+  return { cost: total, steps: planned }
 }
 
 // ───────────────────────── placing pitches ─────────────────────────

@@ -5,12 +5,16 @@
 // - tiny ▾ dropdown menu to switch this card, expand 5-Layer Fretboard, or toggle cards
 import { useEffect, useRef, useState } from 'react'
 import { FloatCard } from '../components/FloatCard'
+import { FingerNeck } from '../components/FingerBox'
 import { Fretboard } from '../components/Fretboard'
 import { LayerNeck } from '../components/LayerNeck'
 import { ChordDiagram } from '../components/ChordDiagram'
 import { Ico } from '../components/Icon'
+import { cachedFlowVoicing, useChordGrips } from '../chordGrips'
+import { FLOW_VOICING_STYLES, type FlowVoicingStyle } from '../theory/flowVoicings'
 import { chordInfo } from '../tabs/harmony'
 import { chordShapes, useInstrument } from '../instrument'
+import type { HandGroup } from '../play/handShape'
 import { parseSymbol } from '../theory/chords'
 import { youtubeId, youtubeStart } from '../tabs/library'
 import { KEYS, freqToMidi, midiName, pc } from '../theory/notes'
@@ -28,7 +32,8 @@ import { BookRefBody, CircleCardBody, LicksCardBody, StickyNoteBody } from './Cr
 
 export function FloatLayer() {
   const screen = useFloatScreen()
-  const instances = useShownInstances(screen).filter(x => x.kind !== 'hand')
+  const ownsTabHand = screen === 'play' || screen === 'scan'
+  const instances = useShownInstances(screen).filter(x => !(ownsTabHand && x.kind === 'hand'))
   const ctx = useFloatCtx()
   const resting = useFloatResting(screen)
   const clean = useCleanStage()
@@ -56,8 +61,8 @@ export function FloatLayer() {
         const isExpandedNeck = id === 'neck' && (neckExpanded[inst.uid] ?? (localStorage.getItem('kg:floatNeck5Layer') === '1'))
         const copyNum = inst.uid.includes('-') ? ` #${inst.uid.split('-').pop()}` : ''
         const title = (isExpandedNeck ? '5-Layer Fretboard' : card.title) + copyNum
-        const width = isExpandedNeck ? 440 : id === 'band' || id === 'book' || id === 'licks' ? 350 : id === 'drummer' || id === 'circle' || id === 'video' ? 320 : id === 'neck' ? 300 : id === 'note' || id === 'mixer' ? 280 : 230
-        const minW = isExpandedNeck ? 280 : id === 'band' || id === 'book' || id === 'licks' || id === 'drummer' ? 250 : id === 'video' || id === 'circle' ? 220 : 160
+        const width = isExpandedNeck ? 440 : id === 'band' || id === 'book' || id === 'licks' ? 350 : id === 'drummer' || id === 'circle' || id === 'video' ? 320 : id === 'neck' ? 300 : id === 'hand' || id === 'note' || id === 'mixer' ? 280 : 230
+        const minW = isExpandedNeck ? 280 : id === 'band' || id === 'book' || id === 'licks' || id === 'drummer' ? 250 : id === 'video' || id === 'circle' ? 220 : id === 'hand' ? 190 : 160
         return (
           <FloatCard
             key={`${screen}:${inst.uid}`}
@@ -109,7 +114,7 @@ function CardHeaderControls({ screen, inst, all, neck5Layer, onToggle5Layer }: {
     return () => removeEventListener('pointerdown', close)
   }, [menu])
 
-  const options = CARDS.filter(c => c.id !== 'hand')
+  const options = CARDS
   return (
     <span className="fc-menu-wrap row" ref={wrap} style={{ gap: 2, flexWrap: 'nowrap' }} data-no-drag>
       <button
@@ -193,18 +198,94 @@ function CardHeaderControls({ screen, inst, all, neck5Layer, onToggle5Layer }: {
 
 function bubbleText(id: CardId, c: FloatCtx): string {
   switch (id) {
+    case 'hand': return c.chordNow ? `Hand · ${c.chordNow}` : 'Hand Coach'
     case 'chord': return c.chordNow ? `${c.chordNow}${c.chordNext ? ` → ${c.chordNext}` : ''}` : 'Chord'
     case 'bar': return c.bar ? `Bar ${c.bar}` : 'Bar'
     case 'tempo': return c.bpm ? `${Math.round(c.bpm * (c.speed ?? 1))} BPM` : 'Tempo'
     case 'feedback': return c.feedback ? c.feedback.heard : 'Played'
-    default: return CARDS.find(x => x.id === id)!.title
+    default: return CARDS.find(x => x.id === id)?.title ?? 'Card'
   }
 }
 
 const empty = (t: string) => <div className="fc-empty">{t}</div>
 
+function LiveHandFloatBody({ ctx }: { ctx: FloatCtx }) {
+  const inst = useInstrument()
+  const { style, setStyle } = useChordGrips()
+  const keyFallback = ctx.keyName
+    ? (() => {
+        const m = /^([A-G][#b]?)\s*(minor|m\b)?/i.exec(ctx.keyName)
+        return m ? `${m[1]}${m[2] ? 'm' : ''}` : ''
+      })()
+    : ''
+  const sym = ctx.chordNow || keyFallback || 'C'
+  const res = cachedFlowVoicing(sym, inst, style)
+  if (!res) return empty('Play a chord, start Jam/Strum Machine, or open a song to see live 4-finger left-hand placement.')
+
+  const v = res.voicing
+  const posFrets = v.frets.filter(f => f > 0)
+  const base = v.baseFret > 1 ? v.baseFret : (posFrets.length && Math.max(...posFrets) > 4 ? Math.min(...posFrets) : 1)
+  const notes = v.frets
+    .map((fret, string) => ({ string, fret, finger: fret === 0 ? 0 : (v.fingers[string] || Math.max(1, Math.min(4, fret - base + 1))) }))
+    .filter(n => n.fret >= 0)
+  const barreFret = v.barres[0]
+  const barreStrings = barreFret ? v.frets.map((f, s) => (f === barreFret ? s : -1)).filter(s => s >= 0) : []
+  const group: HandGroup = {
+    from: 0,
+    to: 1,
+    base,
+    open: base === 1 && posFrets.every(f => f <= 4),
+    notes,
+    ...(barreFret && barreStrings.length >= 2 ? { barre: { finger: 1, fret: barreFret, strings: barreStrings } } : {}),
+  }
+  const strNames = inst.tuning.notes.map((n, s) => {
+    const pc = n.replace(/\d+$/, '')
+    return s === inst.strings - 1 && inst.tuning.notes.filter(x => x.replace(/\d+$/, '') === pc).length > 1 ? pc.toLowerCase() : pc
+  })
+  const frameText = group.open ? 'Frets 1–4' : `Frets ${group.base}–${group.base + 3}`
+  const cue = group.barre
+    ? `${sym}: barre fret ${group.barre.fret} with 1 (Index) · ${frameText}`
+    : `${sym}${res.inversion ? ` (${res.inversion} inv)` : ''} · park hand on ${frameText}`
+
+  return (
+    <div className="stack" style={{ gap: 5 }} data-testid="fc-hand">
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
+          <b style={{ fontSize: 16 }} data-chord={sym}>{sym}</b>
+          {ctx.chordNext && ctx.chordNext !== sym && (
+            <span className="small muted">→ <b data-chord={ctx.chordNext}>{ctx.chordNext}</b></span>
+          )}
+        </span>
+        <select
+          className="select sm"
+          value={style}
+          onChange={e => setStyle(e.target.value as FlowVoicingStyle)}
+          aria-label="Hand Coach chord shape"
+          style={{ width: 'auto', minWidth: 82 }}
+        >
+          {FLOW_VOICING_STYLES.map(s => (
+            <option key={s.id} value={s.id}>{s.short}</option>
+          ))}
+        </select>
+      </div>
+      <FingerNeck
+        group={group}
+        next={null}
+        shiftSoon={false}
+        expected={[]}
+        nowNotes={notes}
+        cue={cue}
+        nStr={inst.strings}
+        stringNames={strNames}
+        label={`Hand Coach: ${sym} (${frameText})`}
+      />
+    </div>
+  )
+}
+
 function Body({ uid, id, ctx: c, neck5Layer, onToggle5Layer }: { uid: string; id: CardId; ctx: FloatCtx; neck5Layer: boolean; onToggle5Layer: () => void }) {
   switch (id) {
+    case 'hand': return <LiveHandFloatBody ctx={c} />
     case 'drummer': return <PocketDrummerBody ctx={c} />
     case 'band': return <PocketBandBody />
     case 'licks': return <LicksCardBody ctx={c} />
@@ -446,12 +527,11 @@ function TimerBody() {
 }
 
 /** Choose the floating cards for a screen (Play's Options, the gear's Floating cards). */
-const HAND_SCREENS = ['play', 'learn']
 export function FloatPicker({ screen }: { screen: string }) {
   const shown = useShownCards(screen)
   return (
     <div className="float-picker" role="group" aria-label="Floating cards" data-testid="float-picker">
-      {CARDS.filter(c => c.id !== 'hand' || HAND_SCREENS.includes(screen)).map(c => (
+      {CARDS.map(c => (
         <button key={c.id} className="chip" aria-pressed={shown.includes(c.id)} onClick={() => toggleCard(screen, c.id)} title={c.hint} data-card={c.id}>
           <Ico n={c.icon} /> {c.title}
         </button>

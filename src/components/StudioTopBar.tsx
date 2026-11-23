@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Ico } from './Icon'
 import {
   BUILTIN_PRESETS, CARDS, addCardInstance, applyPreset, arrangeFloatCards, deletePreset, minimizeAllCards,
-  savePreset, savedPresets, setCleanStage, useCleanStage, useFloatCtx, useFloatScreen, useShownInstances,
+  savePreset, savedPresets, setCleanStage, setFloatResting, useCleanStage, useFloatCtx, useFloatScreen, useShownInstances,
   type CardId,
 } from '../float/bus'
 import { learnGo, openJam, openLicksInKey, openScanner } from '../nav'
@@ -59,12 +59,19 @@ export function StudioTopBar() {
   const openNew = (kind: CardId) => {
     if (kind === 'neck') try { localStorage.setItem('kg:floatNeck5Layer', '1') } catch { /* private */ }
     setCleanStage(false)
+    setFloatResting(screen, false)
+    if (kind === 'hand' && (screen === 'play' || screen === 'scan')) {
+      const hasHand = instances.some(x => x.kind === 'hand')
+      if (!hasHand) addCardInstance(screen, 'hand')
+      setMenu(null)
+      return
+    }
     addCardInstance(screen, kind)
     setMenu(null)
   }
 
-  const options = CARDS.filter(c => c.id !== 'hand')
-  const activeCount = instances.filter(x => x.kind !== 'hand').length
+  const options = CARDS
+  const activeCount = instances.filter(x => !(x.kind === 'hand' && (screen === 'play' || screen === 'scan'))).length
   const userPresets = savedPresets()
 
   return (

@@ -71,7 +71,7 @@ export type CardIcon =
   | 'drum' | 'sparkles' | 'book' | 'file' | 'disc'
 
 export const CARDS: { id: CardId; title: string; icon: CardIcon; hint: string; group?: 'core' | 'band' | 'ref' }[] = [
-  { id: 'hand', title: 'Hand', icon: 'hand', group: 'core', hint: 'Where your fingers go: the four frets your hand covers, each finger in colour, and the next shift' },
+  { id: 'hand', title: 'Hand Coach', icon: 'hand', group: 'core', hint: 'Live Left-Hand Coach: 4-fret finger lanes (1–4), active press, hold anchors, next note & shifts' },
   { id: 'neck', title: '5-Layer Fretboard', icon: 'layers', group: 'core', hint: 'Mini neck or expanded 5-Layer Fretboard (Shape · Triads · Pentatonic · Mode · Free fingers)' },
   { id: 'drummer', title: 'Pocket Drummer', icon: 'drum', group: 'band', hint: 'Drums by themselves across all 7 styles, kits, My Beat Maker, Tap Tempo, Gap Click & AI fills' },
   { id: 'band', title: 'Pocket Band & Drone', icon: 'disc', group: 'band', hint: 'Single chord drone or progression with Sound Packs, Studio Bass, drums/Beat Maker, mixer & AI fills' },
@@ -94,7 +94,7 @@ export interface CardInstance { uid: string; kind: CardId }
 const KEY = (screen: string) => `kg:floatCards:${screen}`
 const VALID_IDS = new Set<string>(CARDS.map(c => c.id))
 // Jam: the chord and the mini neck pop up while the band plays (Jam rests its cards when nothing is playing)
-const DEFAULTS: Record<string, CardId[]> = { play: ['hand'], scan: ['hand'], learn: ['hand'], jam: ['chord', 'neck'] }
+const DEFAULTS: Record<string, CardId[]> = { play: ['hand'], scan: ['hand'], learn: [], jam: ['chord', 'neck'] }
 
 function parseInstances(raw: unknown): CardInstance[] | null {
   if (!Array.isArray(raw)) return null
