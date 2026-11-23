@@ -190,4 +190,31 @@ const mkFile = (path: string, mime = 'application/octet-stream'): LFile => ({
   assert.equal(detectVideoSignature(avi).kind, 'avi')
 }
 
-console.log('course studio map, persistence & video signature detection: ok')
+import { INSTRUMENTS } from '../src/instrument'
+import { noteToMidi } from '../src/theory/notes'
+import { extractTabFromAiReply } from '../src/scan/aiTabRead'
+
+// 5. AI Vision tab transcription extractor (code fences, double-digit frets, BPM, unicode dashes, garbage rejection)
+{
+  const def = INSTRUMENTS.guitar
+  const guitarInst = { ...def, tuning: def.tunings[0], midis: def.tunings[0].notes.map(noteToMidi), isUke: false }
+  const reply = [
+    'BPM: 108',
+    '```tab',
+    'e|---------10-12-14-|',
+    'B|----10-12---------|',
+    'G|--11--------------|',
+    'D|------------------|',
+    'A|------------------|',
+    'E|------------------|',
+    '```',
+  ].join('\n')
+  const doc = extractTabFromAiReply(reply, guitarInst, 'Exercise 1 (p.4)')
+  assert.ok(doc, 'parses fenced AI Vision tab reply')
+  assert.equal(doc!.song.tempo, 108)
+  const frets = doc!.song.tracks[0].bars.flatMap(b => b.steps.flatMap(st => st.notes.map(n => n.fret)))
+  assert.deepEqual(frets, [11, 10, 12, 10, 12, 14])
+  assert.equal(extractTabFromAiReply('Sorry, I cannot read this image.', guitarInst, 'Empty'), null)
+}
+
+console.log('course studio map, persistence, video signatures & AI tab reader: ok')

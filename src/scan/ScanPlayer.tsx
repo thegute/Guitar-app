@@ -68,6 +68,7 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
   const [heardLabel, setHeardLabel] = useState('')
   const [waitPos, setWaitPos] = useState(0)
   const [sel, setSel] = useState<{ flatIdx: number; string: number } | null>(null)
+  const [fretPadOpen, setFretPadOpen] = useState(false)
   const [undoStack, setUndoStack] = useState<Song[]>([])
   const [picOff, setPicOff] = useState(false)
   const [vidOpen, setVidOpen] = useState(false)
@@ -754,6 +755,33 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
             <span className="muted">Fret:</span>
             <button className="btn sm" disabled={selNote.tech !== 'x' && selNote.fret <= 0} onClick={() => updateSelectedNote(n => ({ ...n, fret: n.tech === 'x' ? 0 : Math.max(0, n.fret - 1), tech: n.tech === 'x' ? undefined : n.tech }))} data-testid="fix-fret-dn">−1</button>
             <button className="btn sm" disabled={selNote.tech !== 'x' && selNote.fret >= 24} onClick={() => updateSelectedNote(n => ({ ...n, fret: n.tech === 'x' ? 1 : Math.min(24, n.fret + 1), tech: n.tech === 'x' ? undefined : n.tech }))} data-testid="fix-fret-up">+1</button>
+            <button className={`btn sm${fretPadOpen ? ' set' : ''}`} aria-pressed={fretPadOpen} onClick={() => setFretPadOpen(p => !p)} data-testid="fix-fret-pad-btn" title="Pick any fret 0–24 in 1 tap">0–24</button>
+            <button
+              className="btn sm"
+              onClick={() => {
+                if (!sel || !selFlat || !selNote || !onChangeSong) return
+                const { bar: bi, idx: si } = selFlat
+                const capo = track.capo ?? 0
+                setUndoStack(st => [...st.slice(-19), JSON.parse(JSON.stringify(doc.song)) as Song])
+                const fret = selNote.tech === 'x' ? 0 : selNote.fret
+                const midi = (track.tuning[selNote.string] ?? 40) + capo + fret
+                const newStep = { dur: selFlat.step.dur, notes: [{ string: selNote.string, fret, midi }] }
+                const bars = track.bars.map((b, bIdx) => bIdx !== bi ? b : {
+                  ...b,
+                  steps: [...b.steps.slice(0, si + 1), newStep, ...b.steps.slice(si + 1)],
+                })
+                onChangeSong({ ...doc.song, tracks: [{ ...track, bars }, ...doc.song.tracks.slice(1)] })
+                const nextFlatIdx = sel.flatIdx + 1
+                setSel({ flatIdx: nextFlatIdx, string: selNote.string })
+                setFrom(nextFlatIdx)
+                setFretPadOpen(true)
+                audition(midi, selNote.string)
+              }}
+              data-testid="fix-add-note"
+              title="Insert a missed note right after this one"
+            >
+              + Note
+            </button>
             <button className={`btn sm${selNote.tech === 'x' ? ' on' : ''}`} onClick={() => updateSelectedNote(n => (n.tech === 'x' ? { ...n, tech: undefined } : { ...n, fret: 0, tech: 'x' }), true)} data-testid="fix-tech-x" title="Set this note to x (muted / chuck)">x Mute</button>
             {selFlat.step.notes.length > 1 && (
               <button className="btn sm" onClick={muteSelectedStep} data-testid="fix-mute-all" title="Mark every string in this strum as x (muted chuck)">x Chuck chord</button>
@@ -769,6 +797,20 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
             ))}
             <button className="btn sm danger" onClick={() => updateSelectedNote(() => null, true)} data-testid="fix-del">Delete note</button>
           </div>
+          {fretPadOpen && (
+            <div className="row" style={{ gap: 3, flexWrap: 'wrap', paddingTop: 2 }} data-testid="fix-fret-pad">
+              {Array.from({ length: 25 }, (_, f) => (
+                <button
+                  key={f}
+                  className={`btn sm${selNote.tech !== 'x' && selNote.fret === f ? ' primary' : ' ghost'}`}
+                  style={{ minWidth: 28, minHeight: 24, padding: '1px 4px', fontSize: 11 }}
+                  onClick={() => updateSelectedNote(n => ({ ...n, fret: f, tech: n.tech === 'x' ? undefined : n.tech }), false)}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
       <div className={selNote?.unsure && !isBusy ? 'scan-sel-unsure' : undefined}>

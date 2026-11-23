@@ -24,6 +24,7 @@ import { songFromPdf, songFromText } from '../tabs/importer'
 import { ScannedPdf, pdfPictures } from '../tabs/pdfTab'
 import { toGray, type Gray } from '../scan/image'
 import { readTabPicturesBest } from '../scan/tabReadSong'
+import { hasVisionAi, readTabImageWithAi } from '../scan/aiTabRead'
 import { freqToMidi, midiName } from '../theory/notes'
 import { SPEEDS } from '../components/LocalVideo'
 import { Win, WinArea } from '../components/Win'
@@ -740,21 +741,77 @@ function LessonPlayer({
       im.src = url
     })
 
-  const handleScanPdfToPlay = async (pdfFile: LFile, fromPage: number, toPage: number, bytes: Uint8Array) => {
-    const vLink = localVideoLink(v)
-    const targetMidis = lesson.tuning?.toLowerCase().includes('drop d') && inst.midis.length === 6
+  const urlToDataUrl = (url: string): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const im = new Image()
+      im.crossOrigin = 'anonymous'
+      im.onload = () => {
+        const c = document.createElement('canvas')
+        c.width = im.naturalWidth || im.width
+        c.height = im.naturalHeight || im.height
+        const ctx = c.getContext('2d')!
+        ctx.fillStyle = '#fff'
+        ctx.fillRect(0, 0, c.width, c.height)
+        ctx.drawImage(im, 0, 0)
+        resolve(c.toDataURL('image/png'))
+      }
+      im.onerror = () => reject(new Error('Could not decode picture.'))
+      im.src = url
+    })
+
+  const lessonTargetMidis = () =>
+    lesson.tuning?.toLowerCase().includes('drop d') && inst.midis.length === 6
       ? [38, ...inst.midis.slice(1)]
       : inst.midis
+
+  const handleScanCrop = async (dataUrl: string, label: string, useAi: boolean) => {
+    const vLink = localVideoLink(v)
+    const targetMidis = lessonTargetMidis()
+    if (useAi && hasVisionAi()) {
+      const doc = await readTabImageWithAi(dataUrl, inst, label, vLink, targetMidis)
+      await saveSong(doc)
+      openScannedLessonTab(doc)
+      return
+    }
+    const gray = await urlToGray(dataUrl)
+    const read = await readTabPicturesBest([gray], targetMidis, label, { deep: true })
+    if (!read || read.notes < 2) {
+      throw new Error('No playable tab notes found in that box — try including all 6 tab lines cleanly, or toggle ✨ AI.')
+    }
+    const doc: SongDoc = {
+      id: newId(),
+      title: label,
+      source: 'text',
+      inst: inst.id,
+      song: read.song,
+      youtube: vLink,
+      updated: Date.now(),
+    }
+    await saveSong(doc)
+    openScannedLessonTab(doc)
+  }
+
+  const handleScanPdfToPlay = async (pdfFile: LFile, fromPage: number, toPage: number, bytes: Uint8Array, useAi = false) => {
+    const vLink = localVideoLink(v)
+    const targetMidis = lessonTargetMidis()
+    const title = `${lesson.title} (p.${fromPage}${toPage > fromPage ? `–${toPage}` : ''})`
+    if (useAi && hasVisionAi()) {
+      const pics = await pdfPictures(bytes, 1, fromPage, 2.8)
+      if (!pics.length) throw new Error('Could not render this PDF page for AI reading.')
+      const doc = await readTabImageWithAi(pics[0].url, inst, title, vLink, targetMidis)
+      await saveSong(doc)
+      openScannedLessonTab(doc)
+      return
+    }
     try {
       const doc = await songFromPdf(pdfFile.name, bytes, inst, vLink, { from: fromPage, to: toPage })
       await saveSong(doc)
       openScannedLessonTab(doc)
     } catch (err) {
       if (err instanceof ScannedPdf) {
-        // Deep high-DPI render (3.5× ≈ 252 DPI) + 99.1% neural tab_crnn + Dual-Reader Cross-Check!
+        // Deep high-DPI render (3.5× ≈ 252 DPI) + neural tab_crnn + Dual-Reader missed-note rescue!
         const pics = await pdfPictures(bytes, toPage - fromPage + 1, fromPage, 3.5)
         const grays = await Promise.all(pics.map(p => urlToGray(p.url)))
-        const title = `${lesson.title} (p.${fromPage}${toPage > fromPage ? `–${toPage}` : ''})`
         const read = await readTabPicturesBest(grays, targetMidis, title, { deep: true })
         if (read && read.notes >= 4) {
           const doc: SongDoc = {
@@ -771,20 +828,25 @@ function LessonPlayer({
           return
         }
       }
-      throw new Error('No playable tab staff was detected on this page — use the book view right here while watching!')
+      throw new Error('No playable tab staff was detected on this page — try ✂️ Crop around just the tab lines, or toggle ✨ AI!')
     }
   }
 
   // Scan a PNG/WebP tab diagram into a playable floating tab right over the lesson page
-  const handleScanImageToPlay = async (imgFile: LFile) => {
+  const handleScanImageToPlay = async (imgFile: LFile, useAi = false) => {
     const vLink = localVideoLink(v)
-    const targetMidis = lesson.tuning?.toLowerCase().includes('drop d') && inst.midis.length === 6
-      ? [38, ...inst.midis.slice(1)]
-      : inst.midis
+    const targetMidis = lessonTargetMidis()
+    if (useAi && hasVisionAi()) {
+      const dataUrl = await urlToDataUrl(mediaUrl(imgFile.uri))
+      const doc = await readTabImageWithAi(dataUrl, inst, lesson.title, vLink, targetMidis)
+      await saveSong(doc)
+      openScannedLessonTab(doc)
+      return
+    }
     const gray = await urlToGray(mediaUrl(imgFile.uri))
     const read = await readTabPicturesBest([gray], targetMidis, lesson.title, { deep: true })
     if (!read || read.notes < 3) {
-      throw new Error('Could not detect enough tab notes on this diagram to auto-play.')
+      throw new Error('Could not detect enough tab notes on this diagram — try ✂️ Crop around just the tab lines, or toggle ✨ AI.')
     }
     const doc: SongDoc = {
       id: newId(),
@@ -810,301 +872,483 @@ function LessonPlayer({
 
   const activeBacking = lesson.backings[backingIdx] ?? lesson.backings[0]
 
-  return (
-    <div className="stack lesson-player" style={{ gap: 10 }} data-testid="lesson-player">
-      {/* Top Navigation & Lesson Header */}
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-          <button className="btn sm" onClick={onBack}>← Lessons</button>
-          <span className="small muted">{course.title}</span>
-        </div>
-        <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button className="btn sm" disabled={index === 0} onClick={() => onGo(-1)}>‹ Previous</button>
-          <label className="ex-check"><input type="checkbox" checked={done} onChange={e => markDone(e.target.checked)} /> Done</label>
-          <button className="btn sm" disabled={index >= total - 1} onClick={() => onGo(1)}>Next ›</button>
-          <span className="small muted tabular">{index + 1} of {total}</span>
-        </div>
+  const [barMin, setBarMin] = useState(() => {
+    try { return localStorage.getItem('kg:lessonBarMin') === '1' } catch { return false }
+  })
+  const toggleBarMin = () => setBarMin(m => {
+    const next = !m
+    try { localStorage.setItem('kg:lessonBarMin', next ? '1' : '0') } catch { /* ignore */ }
+    return next
+  })
+
+  const videoStage = (
+    <>
+      <div className={`lesson-video${isFloating && cardH ? ' fixed-h' : ''}`}>
+        {useNative ? (
+          <NativeVideoStage
+            uri={v.uri}
+            startSec={savedStartSec}
+            rate={rate}
+            mirror={mirror}
+            opacity={isFloating ? (floatBox.opacity ?? 1) : 1}
+            visible={!(isFloating && floatBox.min)}
+            floating={isFloating}
+            cleanMode={isFloating && cleanVideo}
+            syncKey={`${layout}:${barMin ? 1 : 0}:${cardLeft}:${cardTop}:${cardW}:${cardH ?? 'auto'}:${opacityOpen}:${toolsOpen}:${cleanVideo}:${floatBox.min}:${activeTool ?? ''}:${error ? 1 : 0}`}
+            onRestoreClean={() => setCleanVideo(false)}
+            onState={s => {
+              setPlaying(s.playing)
+              if (s.ready) setError('')
+              if (s.ended || (!done && s.duration > 0 && s.time / s.duration > 0.95)) markDone(true)
+            }}
+            onError={msg => {
+              setError(`This video couldn't play inside the app (${msg}). Tap ← Lessons → ↻ Look again, or open it in your phone's video player below.`)
+            }}
+            apiRef={nativeApiRef}
+          />
+        ) : (
+          <video
+            ref={el}
+            controls
+            controlsList={isFloating ? 'nofullscreen' : undefined}
+            playsInline
+            preload="metadata"
+            className={mirror ? 'mirrored' : ''}
+            onLoadedMetadata={e => {
+              setError('')
+              const w = progress()[v.uri]
+              const d = e.currentTarget.duration
+              if (!tsModeRef.current && !retriedFromStartRef.current && w && w.t > 5 && d && isFinite(d) && w.t < d - 5) {
+                e.currentTarget.currentTime = w.t
+                setResumed(w.t)
+              }
+              e.currentTarget.playbackRate = rate
+            }}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            onEnded={() => { setPlaying(false); markDone(true) }}
+            onTimeUpdate={e => {
+              const t = e.currentTarget
+              if (!done && t.duration && isFinite(t.duration) && t.currentTime / t.duration > 0.95) markDone(true)
+            }}
+            onError={() => { void handleVideoError() }}
+          />
+        )}
       </div>
 
-      {/* Title + Layout Switcher + Guitar Practice Tools Strip */}
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-        <div>
-          <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <h1 style={{ margin: 0, fontSize: 22 }}>{lesson.title}</h1>
-            {lesson.tuning && <span className="badge">{lesson.tuning}</span>}
-            {lesson.hint && <span className="badge ghost">{lesson.hint}</span>}
-          </div>
-          <span className="small muted">{lesson.chapterTitle}</span>
-        </div>
-
-        <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          {hasVisualStage && (
-            <div className="seg" role="group" aria-label="Video and book layout" data-testid="course-layout-switch">
-              <button
-                className="btn sm"
-                aria-pressed={layout === 'float'}
-                onClick={() => { setLayout('float'); if (floatBox.min) saveFloat({ ...floatBox, min: false }) }}
-                data-testid="layout-float"
-                title="Book/Tab fills the screen with a draggable, resizable floating video player"
-              >
-                ⧉ Float Video
-              </button>
-              <button
-                className="btn sm"
-                aria-pressed={layout === 'split'}
-                onClick={() => setLayout('split')}
-                data-testid="layout-split"
-                title="Dock video and book side-by-side"
-              >
-                ◫ Side-by-Side
-              </button>
-              <button
-                className="btn sm"
-                aria-pressed={layout === 'video'}
-                onClick={() => setLayout('video')}
-                data-testid="layout-video"
-                title="Show full-width video only"
-              >
-                🎬 Video Only
-              </button>
-            </div>
+      {error && (
+        <div className="notice small stack" style={{ gap: 6, margin: 0 }}>
+          <span>{error}</span>
+          {lessonsAvailable() && (
+            <button
+              className="btn sm"
+              style={{ justifySelf: 'start' }}
+              onClick={() => void LessonFolders.openExternal({ uri: v.uri, mime: 'video/mp4' })}
+            >
+              Open in Phone Video Player ↗
+            </button>
           )}
-
-          {/* 5 Built-in Guitar Practice Tools */}
-          <div className="row" style={{ gap: 4, flexWrap: 'wrap' }} role="group" aria-label="Lesson practice tools">
-            <button
-              className={`btn sm${activeTool === 'metronome' ? ' set' : ''}`}
-              aria-pressed={activeTool === 'metronome'}
-              onClick={() => setActiveTool(t => (t === 'metronome' ? null : 'metronome'))}
-              data-testid="tool-metronome-btn"
-              title="Metronome with +5 BPM Speed-Ramp Trainer"
-            >
-              ⏱ Metronome
-            </button>
-            <button
-              className={`btn sm${strumState.floatNeckOpen ? ' set' : ''}`}
-              aria-pressed={strumState.floatNeckOpen}
-              onClick={() => strumMachine.setFloatNeckOpen(!strumState.floatNeckOpen)}
-              data-testid="tool-float-neck-btn"
-              title="Toggle the Floating 5-Layer Fretboard"
-            >
-              🎸 5-Layer Neck
-            </button>
-            <button
-              className={`btn sm${fingerOpen ? ' set' : ''}`}
-              aria-pressed={fingerOpen}
-              onClick={() => setFingerOpen(o => !o)}
-              data-testid="tool-finger-card-btn"
-              title="Toggle the resizable, zoomable Floating Finger Diagram"
-            >
-              🖐 Finger Diagram
-            </button>
-            <button
-              className={`btn sm${activeTool === 'tuner' ? ' set' : ''}`}
-              aria-pressed={activeTool === 'tuner'}
-              onClick={() => setActiveTool(t => (t === 'tuner' ? null : 'tuner'))}
-              data-testid="tool-tuner-btn"
-              title="Quick Drop-In Tuner"
-            >
-              🎯 Tuner{lesson.tuning ? ` (${lesson.tuning})` : ''}
-            </button>
-            <button
-              className={`btn sm${activeTool === 'note' || lessonNote.bpm || lessonNote.note ? ' set' : ''}`}
-              aria-pressed={activeTool === 'note'}
-              onClick={() => setActiveTool(t => (t === 'note' ? null : 'note'))}
-              data-testid="tool-note-btn"
-              title="Log your current clean BPM and lesson notes"
-            >
-              📝 {lessonNote.bpm ? `${lessonNote.bpm} BPM` : 'My BPM / Note'}
-            </button>
-            <button
-              className={`btn sm${strumState.playing ? ' set' : ''}`}
-              aria-pressed={strumState.playing}
-              onClick={() => (strumState.playing ? strumMachine.stop() : strumMachine.start())}
-              data-testid="tool-strum-btn"
-              title="Start or stop the Strum Machine groove"
-            >
-              🥁 Strum Machine
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Collapsible Practice Tool Panels (Metronome + Speed-Ramp, Quick Tuner, My BPM & Note) */}
-      {activeTool === 'metronome' && <InlineMetronomeTool initialBpm={lessonNote.bpm || 90} />}
-      {activeTool === 'tuner' && <InlineTunerTool tuningHint={lesson.tuning} />}
-      {activeTool === 'note' && (
-        <div className="panel row" style={{ gap: 10, padding: '8px 12px', flexWrap: 'wrap', alignItems: 'center' }} data-testid="lesson-note-panel">
-          <label className="row small" style={{ gap: 6, alignItems: 'center' }}>
-            <b>My Clean BPM:</b>
-            <button
-              className="btn sm"
-              onClick={() => {
-                const next = setLessonNote(v.uri, { bpm: Math.max(30, (lessonNote.bpm || 80) - 5) })
-                setLessonNoteState(next)
-              }}
-            >
-              −5
-            </button>
-            <input
-              className="input tabular"
-              type="number"
-              min={20}
-              max={300}
-              placeholder="e.g. 95"
-              value={lessonNote.bpm ?? ''}
-              style={{ width: 72, padding: '3px 6px' }}
-              onChange={e => {
-                const val = e.target.value ? Number(e.target.value) : undefined
-                setLessonNoteState(setLessonNote(v.uri, { bpm: val }))
-              }}
-              data-testid="lesson-bpm-input"
-            />
-            <button
-              className="btn sm"
-              onClick={() => {
-                const next = setLessonNote(v.uri, { bpm: Math.min(280, (lessonNote.bpm || 75) + 5) })
-                setLessonNoteState(next)
-              }}
-              data-testid="lesson-bpm-plus5"
-            >
-              +5 BPM
-            </button>
-          </label>
-          <label className="row small" style={{ gap: 6, alignItems: 'center', flex: 1, minWidth: 220 }}>
-            <b>Note:</b>
-            <input
-              className="input"
-              type="text"
-              placeholder="e.g. Clean at 95 BPM — watch ring finger on bar 4…"
-              value={lessonNote.note ?? ''}
-              style={{ flex: 1 }}
-              onChange={e => setLessonNoteState(setLessonNote(v.uri, { note: e.target.value }))}
-              data-testid="lesson-note-input"
-            />
-          </label>
         </div>
       )}
+      {!cleanVideo && resumed !== null && (
+        <p className="small muted" style={{ margin: 0, padding: isFloating ? '0 6px' : undefined }}>
+          Picked up at {fmt(resumed)}.{' '}
+          <button
+            className="link-btn"
+            onClick={() => { seekTo(0); setResumed(null) }}
+          >
+            Start from the beginning
+          </button>
+        </p>
+      )}
 
-      {/* Companion Backing Track Strip & 1-Tap Guitar Pro Buttons */}
-      {(lesson.backings.length > 0 || lesson.gpTabs.length > 0) && (
-        <div className="panel row" style={{ gap: 12, padding: '8px 12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }} data-testid="lesson-companion-strip">
-          {activeBacking && (
-            <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
-              <span className="small"><b>🎵 Backing Track:</b></span>
-              {lesson.backings.length > 1 ? (
-                <select
-                  className="input sm"
-                  value={backingIdx}
-                  onChange={e => setBackingIdx(Number(e.target.value))}
-                  data-testid="backing-track-select"
-                >
-                  {lesson.backings.map((bk, i) => (
-                    <option key={bk.file.uri} value={i}>{bk.label}</option>
-                  ))}
-                </select>
-              ) : (
-                <span className="small muted">{activeBacking.label}</span>
-              )}
-              <audio
-                ref={backingEl}
-                src={mediaUrl(activeBacking.file.uri)}
-                controls
-                loop={backingLoop}
-                preload="metadata"
-                style={{ height: 30, maxWidth: 260 }}
-                onLoadedMetadata={e => { e.currentTarget.playbackRate = backingRate }}
-                data-testid="lesson-backing-audio"
-              />
-              <div className="seg" role="group" aria-label="Backing track speed">
-                {[0.5, 0.75, 1].map(r => (
+      {/* Video Speed / A–B Loop / Mirror Controls Bar (in floating mode, tucked inside ⚙ drawer by default!) */}
+      {(!isFloating || (!cleanVideo && toolsOpen)) && (
+        <div className="lesson-bar" style={isFloating ? { gap: 4, flexWrap: 'wrap', padding: '0 4px 4px' } : undefined} data-testid="lesson-video-tools-bar">
+          <div className="seg" role="group" aria-label="Speed">
+            {SPEEDS.slice().sort((x, y) => x - y).map(r => (
+              <button key={r} className="btn sm" aria-pressed={rate === r} onClick={() => setSpeed(r)}>
+                {speedLabel(r)}
+              </button>
+            ))}
+          </div>
+          <button className="btn sm" onClick={() => seekTo(Math.max(0, now() - 5))}>−5s</button>
+          <button className="btn sm" onClick={() => seekTo(now() + 5)}>+5s</button>
+          <button className={`btn sm${a !== null ? ' set' : ''}`} onClick={() => { setA(now()); if (b !== null && b <= now()) setB(null) }}>
+            A{a !== null ? ` ${fmt(a)}` : ''}
+          </button>
+          <button className={`btn sm${b !== null ? ' set' : ''}`} disabled={a === null} onClick={() => { const t = now(); if (a !== null && t > a) { setB(t); setLoop(true) } }}>
+            B{b !== null ? ` ${fmt(b)}` : ''}
+          </button>
+          <button className="btn sm" aria-pressed={loop} disabled={a === null || b === null} onClick={() => setLoop(l => !l)}>Loop</button>
+          {(a !== null || b !== null) && (
+            <button className="btn sm" onClick={() => { setA(null); setB(null); setLoop(false) }} aria-label="Clear loop">✕</button>
+          )}
+          <button className="btn sm" aria-pressed={mirror} onClick={() => setMirror(m => !m)} title="Flip the picture so the teacher's hands match yours">
+            Mirror
+          </button>
+        </div>
+      )}
+    </>
+  )
+
+  return (
+    <div className="stack lesson-player" style={{ gap: 8 }} data-testid="lesson-player">
+      {/* Slim always-accessible Back & Quick Lesson Strip (never traps you, 1 tap to collapse/expand the full lesson bar) */}
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }} data-testid="lesson-slim-bar">
+        <div className="row" style={{ gap: 6, alignItems: 'center', minWidth: 0, flex: '1 1 auto' }}>
+          <button className="btn sm" onClick={onBack} data-testid="lesson-back-btn">← Lessons</button>
+          <b style={{ fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lesson.title}</b>
+          <span className="small muted tabular">{index + 1}/{total}</span>
+          {lesson.tuning && <span className="badge">{lesson.tuning}</span>}
+        </div>
+        <div className="row" style={{ gap: 4, alignItems: 'center' }}>
+          <button className="btn sm" disabled={index === 0} onClick={() => onGo(-1)} aria-label="Previous lesson" title="Previous lesson">‹</button>
+          <button className="btn sm" disabled={index >= total - 1} onClick={() => onGo(1)} aria-label="Next lesson" title="Next lesson">›</button>
+          <button
+            className={`btn sm${!barMin ? ' set' : ''}`}
+            aria-pressed={!barMin}
+            onClick={toggleBarMin}
+            data-testid="lesson-bar-toggle"
+            title={barMin ? 'Show lesson tools & layout bar' : 'Hide lesson bar out of the way'}
+          >
+            {barMin ? '▾ Bar' : '▴ Hide bar'}
+          </button>
+        </div>
+      </div>
+
+      <WinArea area="lessonPlayer" className={isSplit ? 'lesson-split' : ''} prefer={['lp-tools', 'lp-companion', 'lp-video', 'lp-book', 'lp-tabs']}>
+        {/* Movable, minimizable, hidable Lesson Bar & Practice Tools window (noZoom: menu bar) */}
+        {!barMin && (
+          <Win id="lp-tools" title={`${course.title} · Lesson Bar`} noZoom resizable={false} bodyClass="stack" bodyStyle={{ gap: 8 }}>
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span className="small muted">{lesson.chapterTitle}{lesson.hint ? ` · ${lesson.hint}` : ''}</span>
+              <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button className="btn sm" disabled={index === 0} onClick={() => onGo(-1)}>‹ Previous</button>
+                <label className="ex-check"><input type="checkbox" checked={done} onChange={e => markDone(e.target.checked)} /> Done</label>
+                <button className="btn sm" disabled={index >= total - 1} onClick={() => onGo(1)}>Next ›</button>
+              </div>
+            </div>
+
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              {hasVisualStage && (
+                <div className="seg" role="group" aria-label="Video and book layout" data-testid="course-layout-switch">
                   <button
-                    key={r}
                     className="btn sm"
-                    aria-pressed={backingRate === r}
+                    aria-pressed={layout === 'float'}
+                    onClick={() => { setLayout('float'); if (floatBox.min) saveFloat({ ...floatBox, min: false }) }}
+                    data-testid="layout-float"
+                    title="Book/Tab fills the screen with a draggable, resizable floating video player"
+                  >
+                    ⧉ Float Video
+                  </button>
+                  <button
+                    className="btn sm"
+                    aria-pressed={layout === 'split'}
+                    onClick={() => setLayout('split')}
+                    data-testid="layout-split"
+                    title="Dock video and book side-by-side"
+                  >
+                    ◫ Side-by-Side
+                  </button>
+                  <button
+                    className="btn sm"
+                    aria-pressed={layout === 'video'}
+                    onClick={() => setLayout('video')}
+                    data-testid="layout-video"
+                    title="Show full-width video only"
+                  >
+                    🎬 Video Only
+                  </button>
+                </div>
+              )}
+
+              {/* Built-in Guitar Practice Tools */}
+              <div className="row" style={{ gap: 4, flexWrap: 'wrap' }} role="group" aria-label="Lesson practice tools">
+                <button
+                  className={`btn sm${activeTool === 'metronome' ? ' set' : ''}`}
+                  aria-pressed={activeTool === 'metronome'}
+                  onClick={() => setActiveTool(t => (t === 'metronome' ? null : 'metronome'))}
+                  data-testid="tool-metronome-btn"
+                  title="Metronome with +5 BPM Speed-Ramp Trainer"
+                >
+                  ⏱ Metronome
+                </button>
+                <button
+                  className={`btn sm${strumState.floatNeckOpen ? ' set' : ''}`}
+                  aria-pressed={strumState.floatNeckOpen}
+                  onClick={() => strumMachine.setFloatNeckOpen(!strumState.floatNeckOpen)}
+                  data-testid="tool-float-neck-btn"
+                  title="Toggle the Floating 5-Layer Fretboard"
+                >
+                  🎸 5-Layer Neck
+                </button>
+                <button
+                  className={`btn sm${fingerOpen ? ' set' : ''}`}
+                  aria-pressed={fingerOpen}
+                  onClick={() => setFingerOpen(o => !o)}
+                  data-testid="tool-finger-card-btn"
+                  title="Toggle the resizable, zoomable Floating Finger Diagram"
+                >
+                  🖐 Finger Diagram
+                </button>
+                <button
+                  className={`btn sm${activeTool === 'tuner' ? ' set' : ''}`}
+                  aria-pressed={activeTool === 'tuner'}
+                  onClick={() => setActiveTool(t => (t === 'tuner' ? null : 'tuner'))}
+                  data-testid="tool-tuner-btn"
+                  title="Quick Drop-In Tuner"
+                >
+                  🎯 Tuner{lesson.tuning ? ` (${lesson.tuning})` : ''}
+                </button>
+                <button
+                  className={`btn sm${activeTool === 'note' || lessonNote.bpm || lessonNote.note ? ' set' : ''}`}
+                  aria-pressed={activeTool === 'note'}
+                  onClick={() => setActiveTool(t => (t === 'note' ? null : 'note'))}
+                  data-testid="tool-note-btn"
+                  title="Log your current clean BPM and lesson notes"
+                >
+                  📝 {lessonNote.bpm ? `${lessonNote.bpm} BPM` : 'My BPM / Note'}
+                </button>
+                <button
+                  className={`btn sm${strumState.playing ? ' set' : ''}`}
+                  aria-pressed={strumState.playing}
+                  onClick={() => (strumState.playing ? strumMachine.stop() : strumMachine.start())}
+                  data-testid="tool-strum-btn"
+                  title="Start or stop the Strum Machine groove"
+                >
+                  🥁 Strum Machine
+                </button>
+              </div>
+            </div>
+
+            {/* Collapsible Practice Tool Panels (Metronome + Speed-Ramp, Quick Tuner, My BPM & Note) */}
+            {activeTool === 'metronome' && <InlineMetronomeTool initialBpm={lessonNote.bpm || 90} />}
+            {activeTool === 'tuner' && <InlineTunerTool tuningHint={lesson.tuning} />}
+            {activeTool === 'note' && (
+              <div className="panel row" style={{ gap: 10, padding: '8px 12px', flexWrap: 'wrap', alignItems: 'center' }} data-testid="lesson-note-panel">
+                <label className="row small" style={{ gap: 6, alignItems: 'center' }}>
+                  <b>My Clean BPM:</b>
+                  <button
+                    className="btn sm"
                     onClick={() => {
-                      setBackingRate(r)
-                      if (backingEl.current) backingEl.current.playbackRate = r
+                      const next = setLessonNote(v.uri, { bpm: Math.max(30, (lessonNote.bpm || 80) - 5) })
+                      setLessonNoteState(next)
                     }}
                   >
-                    {speedLabel(r)}
+                    −5
                   </button>
-                ))}
+                  <input
+                    className="input tabular"
+                    type="number"
+                    min={20}
+                    max={300}
+                    placeholder="e.g. 95"
+                    value={lessonNote.bpm ?? ''}
+                    style={{ width: 72, padding: '3px 6px' }}
+                    onChange={e => {
+                      const val = e.target.value ? Number(e.target.value) : undefined
+                      setLessonNoteState(setLessonNote(v.uri, { bpm: val }))
+                    }}
+                    data-testid="lesson-bpm-input"
+                  />
+                  <button
+                    className="btn sm"
+                    onClick={() => {
+                      const next = setLessonNote(v.uri, { bpm: Math.min(280, (lessonNote.bpm || 75) + 5) })
+                      setLessonNoteState(next)
+                    }}
+                    data-testid="lesson-bpm-plus5"
+                  >
+                    +5 BPM
+                  </button>
+                </label>
+                <label className="row small" style={{ gap: 6, alignItems: 'center', flex: 1, minWidth: 220 }}>
+                  <b>Note:</b>
+                  <input
+                    className="input"
+                    type="text"
+                    placeholder="e.g. Clean at 95 BPM — watch ring finger on bar 4…"
+                    value={lessonNote.note ?? ''}
+                    style={{ flex: 1 }}
+                    onChange={e => setLessonNoteState(setLessonNote(v.uri, { note: e.target.value }))}
+                    data-testid="lesson-note-input"
+                  />
+                </label>
               </div>
-              <button
-                className="btn sm"
-                aria-pressed={backingLoop}
-                onClick={() => setBackingLoop(l => !l)}
-              >
-                Loop
-              </button>
-            </div>
-          )}
-
-          {lesson.gpTabs.length > 0 && (
-            <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-              {lesson.gpTabs.map(gp => (
-                <button
-                  key={gp.file.uri}
-                  className="btn sm primary"
-                  onClick={() => void openGpTabInPlay(gp.file)}
-                  disabled={!!gpBusy}
-                  data-testid="open-gp-in-play-btn"
-                >
-                  🎸 Open in Play: {gp.label}
-                </button>
-              ))}
-              {gpBusy && <span className="small muted">{gpBusy}</span>}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* MAIN STAGE: Book/Tab + Floating or Side-by-Side Video */}
-      <div
-        className="course-main-stage"
-        style={
-          isSplit
-            ? { display: 'grid', gridTemplateColumns: 'minmax(300px, 44%) minmax(320px, 56%)', gap: 14, alignItems: 'start' }
-            : { display: 'flex', flexDirection: 'column', gap: 10 }
-        }
-      >
-        {/* Video Player: either Floating Card, Docked Left Column (Split), or Full Width (Video Only) */}
-        {isFloating && floatBox.min && (
-          <button
-            className="float-bubble"
-            style={{ position: 'fixed', left: Math.max(8, W - 180), top: cardTop, zIndex: 68 }}
-            onClick={() => saveFloat({ ...floatBox, min: false })}
-            data-testid="float-video-bubble"
-          >
-            <Ico n="play" /> Video · {lesson.title.slice(0, 18)}
-          </button>
+            )}
+          </Win>
         )}
 
+        {/* Companion Backing Track Strip & 1-Tap Guitar Pro Buttons (movable, minimizable, hidable, noZoom) */}
+        {(lesson.backings.length > 0 || lesson.gpTabs.length > 0) && (
+          <Win id="lp-companion" title="Backing Track & Tabs" noZoom resizable={false}>
+            <div className="row" style={{ gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }} data-testid="lesson-companion-strip">
+              {activeBacking && (
+                <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
+                  <span className="small"><b>🎵 Backing:</b></span>
+                  {lesson.backings.length > 1 ? (
+                    <select
+                      className="input sm"
+                      value={backingIdx}
+                      onChange={e => setBackingIdx(Number(e.target.value))}
+                      data-testid="backing-track-select"
+                    >
+                      {lesson.backings.map((bk, i) => (
+                        <option key={bk.file.uri} value={i}>{bk.label}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="small muted">{activeBacking.label}</span>
+                  )}
+                  <audio
+                    ref={backingEl}
+                    src={mediaUrl(activeBacking.file.uri)}
+                    controls
+                    loop={backingLoop}
+                    preload="metadata"
+                    style={{ height: 30, maxWidth: 260 }}
+                    onLoadedMetadata={e => { e.currentTarget.playbackRate = backingRate }}
+                    data-testid="lesson-backing-audio"
+                  />
+                  <div className="seg" role="group" aria-label="Backing track speed">
+                    {[0.5, 0.75, 1].map(r => (
+                      <button
+                        key={r}
+                        className="btn sm"
+                        aria-pressed={backingRate === r}
+                        onClick={() => {
+                          setBackingRate(r)
+                          if (backingEl.current) backingEl.current.playbackRate = r
+                        }}
+                      >
+                        {speedLabel(r)}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    className="btn sm"
+                    aria-pressed={backingLoop}
+                    onClick={() => setBackingLoop(l => !l)}
+                  >
+                    Loop
+                  </button>
+                </div>
+              )}
+
+              {lesson.gpTabs.length > 0 && (
+                <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {lesson.gpTabs.map(gp => (
+                    <span key={gp.file.uri} className="row" style={{ gap: 4 }}>
+                      <button
+                        className="btn sm primary"
+                        onClick={() => {
+                          setGpBusy(gp.file.name)
+                          void (async () => {
+                            try {
+                              const id = `lf:${hash(gp.file.uri)}:${inst.id}`
+                              let doc = await getSong(id)
+                              if (!doc) {
+                                const bytes = await readLessonBytes(gp.file.uri)
+                                doc = { ...(await docFromFile(gp.file, bytes, inst)), id }
+                              }
+                              doc = { ...doc, youtube: localVideoLink(v) }
+                              await saveSong(doc)
+                              setGpBusy('')
+                              openScannedLessonTab(doc)
+                            } catch (e) {
+                              setGpBusy((e as Error).message || 'Could not open Guitar Pro file.')
+                            }
+                          })()
+                        }}
+                        disabled={!!gpBusy}
+                        data-testid="float-gp-tab-btn"
+                        title="Open this Guitar Pro tab in a floating window right on this lesson page"
+                      >
+                        ❐ Float Tab: {gp.label}
+                      </button>
+                      <button
+                        className="btn sm ghost"
+                        onClick={() => void openGpTabInPlay(gp.file)}
+                        disabled={!!gpBusy}
+                        data-testid="open-gp-in-play-btn"
+                        title="Open in full-screen Play"
+                      >
+                        Play ↗
+                      </button>
+                    </span>
+                  ))}
+                  {gpBusy && <span className="small muted">{gpBusy}</span>}
+                </div>
+              )}
+            </div>
+          </Win>
+        )}
+
+        {/* Docked Lesson Video Window (in Side-by-Side or Video Only mode: movable, minimizable, hidable, pop-outable, noZoom) */}
+        {!isFloating && (
+          <Win id="lp-video" title={`🎬 ${lesson.title}`} noZoom bodyClass="stack" bodyStyle={{ gap: 8 }}>
+            <div ref={floatCardRef} className="stack" style={{ gap: 8 }} data-testid="course-docked-video">
+              {videoStage}
+            </div>
+          </Win>
+        )}
+
+        {/* Synced PDF Book / Tab Diagram Window (movable, minimizable, hidable, pop-outable & zoomable!) */}
+        {hasVisualStage && layout !== 'video' && (
+          <Win id="lp-book" title="Tab & Study Guide">
+            <CourseBookView
+              lesson={lesson}
+              stageMode={stageMode}
+              onStageModeChange={setStageMode}
+              onScanPdfToPlay={handleScanPdfToPlay}
+              onScanImageToPlay={handleScanImageToPlay}
+              onScanCrop={handleScanCrop}
+            />
+          </Win>
+        )}
+
+        {/* Lesson Tab Files Window (movable, minimizable, hidable, pop-outable & zoomable) */}
+        {lessonTabs.length > 0 && (
+          <Win id="lp-tabs" title="Tabs for this lesson" className="panel" bodyClass="stack" bodyStyle={{ gap: 6 }}>
+            <TabFiles tabs={lessonTabs} video={v} pageFor={pageFor} />
+          </Win>
+        )}
+      </WinArea>
+
+      {/* Floating Video Player Card (when layout === 'float': movable, minimizable to bubble, opacity, clean-fill, resizable) */}
+      {isFloating && floatBox.min && (
+        <button
+          className="float-bubble"
+          style={{ position: 'fixed', left: Math.max(8, W - 180), top: cardTop, zIndex: 68 }}
+          onClick={() => saveFloat({ ...floatBox, min: false })}
+          data-testid="float-video-bubble"
+        >
+          <Ico n="play" /> Video · {lesson.title.slice(0, 18)}
+        </button>
+      )}
+
+      {isFloating && (
         <div
           ref={floatCardRef}
-          className={isFloating ? `float-card course-float-video${cleanVideo ? ' clean' : ''}` : 'stack'}
-          style={
-            isFloating
-              ? {
-                  position: 'fixed',
-                  width: cardW,
-                  ...(cardH ? { height: cardH } : {}),
-                  left: cardLeft,
-                  top: cardTop,
-                  zIndex: 68,
-                  display: floatBox.min ? 'none' : 'flex',
-                  flexDirection: 'column',
-                  gap: cleanVideo ? 0 : 4,
-                  opacity: floatBox.opacity ?? 1,
-                  boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
-                }
-              : { gap: 8 }
-          }
-          data-testid={isFloating ? 'course-floating-video-card' : 'course-docked-video'}
+          className={`float-card course-float-video${cleanVideo ? ' clean' : ''}`}
+          style={{
+            position: 'fixed',
+            width: cardW,
+            ...(cardH ? { height: cardH } : {}),
+            left: cardLeft,
+            top: cardTop,
+            zIndex: 68,
+            display: floatBox.min ? 'none' : 'flex',
+            flexDirection: 'column',
+            gap: cleanVideo ? 0 : 4,
+            opacity: floatBox.opacity ?? 1,
+            boxShadow: '0 10px 32px rgba(0,0,0,0.55)',
+          }}
+          data-testid="course-floating-video-card"
         >
           {/* In Fill-Floating-Window (Clean) mode: tiny translucent corner pill lets you drag to move or restore controls */}
-          {isFloating && cleanVideo && (
+          {cleanVideo && (
             <div className="float-video-clean-pill">
               <span
                 className="float-video-drag"
@@ -1126,7 +1370,7 @@ function LessonPlayer({
             </div>
           )}
 
-          {isFloating && !cleanVideo && (
+          {!cleanVideo && (
             <div
               className="fc-bar"
               onPointerDown={e => startFloatDrag(e, 'move')}
@@ -1189,7 +1433,7 @@ function LessonPlayer({
             </div>
           )}
 
-          {isFloating && !cleanVideo && opacityOpen && (
+          {!cleanVideo && opacityOpen && (
             <div
               className="row"
               style={{ gap: 6, padding: '4px 8px', alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
@@ -1233,145 +1477,19 @@ function LessonPlayer({
             </div>
           )}
 
-          <div className={`lesson-video${isFloating && cardH ? ' fixed-h' : ''}`}>
-            {useNative ? (
-              <NativeVideoStage
-                uri={v.uri}
-                startSec={savedStartSec}
-                rate={rate}
-                mirror={mirror}
-                opacity={isFloating ? (floatBox.opacity ?? 1) : 1}
-                visible={!(isFloating && floatBox.min)}
-                floating={isFloating}
-                cleanMode={isFloating && cleanVideo}
-                syncKey={`${layout}:${cardLeft}:${cardTop}:${cardW}:${cardH ?? 'auto'}:${opacityOpen}:${toolsOpen}:${cleanVideo}:${floatBox.min}:${activeTool ?? ''}:${error ? 1 : 0}`}
-                onRestoreClean={() => setCleanVideo(false)}
-                onState={s => {
-                  setPlaying(s.playing)
-                  if (s.ready) setError('')
-                  if (s.ended || (!done && s.duration > 0 && s.time / s.duration > 0.95)) markDone(true)
-                }}
-                onError={msg => {
-                  setError(`This video couldn't play inside the app (${msg}). Tap ← Lessons → ↻ Look again, or open it in your phone's video player below.`)
-                }}
-                apiRef={nativeApiRef}
-              />
-            ) : (
-              <video
-                ref={el}
-                controls
-                controlsList={isFloating ? 'nofullscreen' : undefined}
-                playsInline
-                preload="metadata"
-                className={mirror ? 'mirrored' : ''}
-                onLoadedMetadata={e => {
-                  setError('')
-                  const w = progress()[v.uri]
-                  const d = e.currentTarget.duration
-                  if (!tsModeRef.current && !retriedFromStartRef.current && w && w.t > 5 && d && isFinite(d) && w.t < d - 5) {
-                    e.currentTarget.currentTime = w.t
-                    setResumed(w.t)
-                  }
-                  e.currentTarget.playbackRate = rate
-                }}
-                onPlay={() => setPlaying(true)}
-                onPause={() => setPlaying(false)}
-                onEnded={() => { setPlaying(false); markDone(true) }}
-                onTimeUpdate={e => {
-                  const t = e.currentTarget
-                  if (!done && t.duration && isFinite(t.duration) && t.currentTime / t.duration > 0.95) markDone(true)
-                }}
-                onError={() => { void handleVideoError() }}
-              />
-            )}
+          {videoStage}
+
+          <div
+            className="fc-size"
+            onPointerDown={e => startFloatDrag(e, 'size')}
+            title="Drag sideways or down to resize floating video (even up to full screen)"
+            aria-label="Drag to resize"
+            role="separator"
+            data-testid="float-video-resize-handle"
+          >
+            ◢
           </div>
-
-          {error && (
-            <div className="notice small stack" style={{ gap: 6, margin: 0 }}>
-              <span>{error}</span>
-              {lessonsAvailable() && (
-                <button
-                  className="btn sm"
-                  style={{ justifySelf: 'start' }}
-                  onClick={() => void LessonFolders.openExternal({ uri: v.uri, mime: 'video/mp4' })}
-                >
-                  Open in Phone Video Player ↗
-                </button>
-              )}
-            </div>
-          )}
-          {!cleanVideo && resumed !== null && (
-            <p className="small muted" style={{ margin: 0, padding: isFloating ? '0 6px' : undefined }}>
-              Picked up at {fmt(resumed)}.{' '}
-              <button
-                className="link-btn"
-                onClick={() => { seekTo(0); setResumed(null) }}
-              >
-                Start from the beginning
-              </button>
-            </p>
-          )}
-
-          {/* Video Speed / A–B Loop / Mirror Controls Bar (in floating mode, tucked inside ⚙ drawer by default!) */}
-          {(!isFloating || (!cleanVideo && toolsOpen)) && (
-            <div className="lesson-bar" style={isFloating ? { gap: 4, flexWrap: 'wrap', padding: '0 4px 4px' } : undefined} data-testid="lesson-video-tools-bar">
-              <div className="seg" role="group" aria-label="Speed">
-                {SPEEDS.slice().sort((x, y) => x - y).map(r => (
-                  <button key={r} className="btn sm" aria-pressed={rate === r} onClick={() => setSpeed(r)}>
-                    {speedLabel(r)}
-                  </button>
-                ))}
-              </div>
-              <button className="btn sm" onClick={() => seekTo(Math.max(0, now() - 5))}>−5s</button>
-              <button className="btn sm" onClick={() => seekTo(now() + 5)}>+5s</button>
-              <button className={`btn sm${a !== null ? ' set' : ''}`} onClick={() => { setA(now()); if (b !== null && b <= now()) setB(null) }}>
-                A{a !== null ? ` ${fmt(a)}` : ''}
-              </button>
-              <button className={`btn sm${b !== null ? ' set' : ''}`} disabled={a === null} onClick={() => { const t = now(); if (a !== null && t > a) { setB(t); setLoop(true) } }}>
-                B{b !== null ? ` ${fmt(b)}` : ''}
-              </button>
-              <button className="btn sm" aria-pressed={loop} disabled={a === null || b === null} onClick={() => setLoop(l => !l)}>Loop</button>
-              {(a !== null || b !== null) && (
-                <button className="btn sm" onClick={() => { setA(null); setB(null); setLoop(false) }} aria-label="Clear loop">✕</button>
-              )}
-              <button className="btn sm" aria-pressed={mirror} onClick={() => setMirror(m => !m)} title="Flip the picture so the teacher's hands match yours">
-                Mirror
-              </button>
-            </div>
-          )}
-
-          {isFloating && (
-            <div
-              className="fc-size"
-              onPointerDown={e => startFloatDrag(e, 'size')}
-              title="Drag sideways or down to resize floating video (even up to full screen)"
-              aria-label="Drag to resize"
-              role="separator"
-              data-testid="float-video-resize-handle"
-            >
-              ◢
-            </div>
-          )}
         </div>
-
-        {/* Synced PDF Book / Tab Diagram Stage */}
-        {hasVisualStage && layout !== 'video' && (
-          <CourseBookView
-            lesson={lesson}
-            stageMode={stageMode}
-            onStageModeChange={setStageMode}
-            onScanPdfToPlay={handleScanPdfToPlay}
-            onScanImageToPlay={handleScanImageToPlay}
-          />
-        )}
-      </div>
-
-      {lessonTabs.length > 0 && (
-        <WinArea area="lessonPlayer">
-          <Win id="lp-tabs" title="Tabs for this lesson" className="panel" bodyClass="stack" bodyStyle={{ gap: 6 }}>
-            <TabFiles tabs={lessonTabs} video={v} pageFor={pageFor} />
-          </Win>
-        </WinArea>
       )}
       <p className="small muted" style={{ margin: 0 }}>
         Tip: Drag ⠿ on the floating video to move it anywhere over the book, tap ◐ to make it see-through over the tabs, or drag ◢ to resize it. Tapping Next › advances both the video and the book pages together!

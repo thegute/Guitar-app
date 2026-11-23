@@ -5,8 +5,9 @@
 //   1-tap `📌 Pin p.X` persistent manual page override, and `🎵 Scan Page → Play` to turn a book/tab page into a playable tab.
 // - Renders crisp Tab / Fretboard Diagram images (.png / .webp) with a 1-tap `🖼 Tab | 📖 Study Guide (p.X)` switcher
 //   when a lesson has both!
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as RPE } from 'react'
 import { PageInput } from '../components/PageInput'
+import { hasVisionAi } from '../scan/aiTabRead'
 import { LessonFolders, lessonsAvailable, mediaUrl, readLessonBytes, type LFile } from './folders'
 import {
   getPinnedPage,
@@ -59,13 +60,16 @@ export async function getPdfDoc(file: LFile): Promise<CachedPdf> {
   return entry
 }
 
+interface CropRect { x: number; y: number; w: number; h: number }
+
 interface Props {
   lesson: ResolvedLesson
   /** Active stage mode: 'pdf' or 'image' */
   stageMode: 'pdf' | 'image'
   onStageModeChange: (m: 'pdf' | 'image') => void
-  onScanPdfToPlay?: (pdfFile: LFile, fromPage: number, toPage: number, bytes: Uint8Array) => Promise<void>
-  onScanImageToPlay?: (imgFile: LFile) => Promise<void>
+  onScanPdfToPlay?: (pdfFile: LFile, fromPage: number, toPage: number, bytes: Uint8Array, useAi?: boolean) => Promise<void>
+  onScanImageToPlay?: (imgFile: LFile, useAi?: boolean) => Promise<void>
+  onScanCrop?: (dataUrl: string, label: string, useAi: boolean) => Promise<void>
 }
 
 export function CourseBookView({
@@ -74,6 +78,7 @@ export function CourseBookView({
   onStageModeChange,
   onScanPdfToPlay,
   onScanImageToPlay,
+  onScanCrop,
 }: Props) {
   const allPdfs = useMemo<PdfRef[]>(() => {
     const list: PdfRef[] = []
@@ -106,6 +111,11 @@ export function CourseBookView({
   const [pdfErr, setPdfErr] = useState('')
   const [scanBusy, setScanBusy] = useState(false)
   const [scanMsg, setScanMsg] = useState('')
+  const [aiMode, setAiMode] = useState(() => hasVisionAi())
+  const [cropOn, setCropOn] = useState(false)
+  const [cropRect, setCropRect] = useState<CropRect | null>(null)
+  const cropStartRef = useRef<{ x: number; y: number } | null>(null)
+  const imgElRef = useRef<HTMLImageElement>(null)
 
   // Reset page & indices whenever the lesson changes
   useEffect(() => {
@@ -119,6 +129,8 @@ export function CourseBookView({
     setPage(sp)
     setSpread(ep > sp && typeof innerWidth === 'number' && innerWidth >= 900 ? 2 : 1)
     setScanMsg('')
+    setCropOn(false)
+    setCropRect(null)
   }, [lesson.video.uri, lesson.pdf, lesson.extraPdfs])
 
   // When switching between primary PDF and extra reference PDFs
@@ -206,14 +218,24 @@ export function CourseBookView({
     if (activePdfRef) setPage(activePdfRef.startPage)
   }
 
+  const toggleAiMode = () => {
+    if (!aiMode && !hasVisionAi()) {
+      setScanMsg('✨ AI Scan needs a free Google Gemini key — add one in Settings → You → AI helper (takes 30 seconds).')
+      return
+    }
+    setScanMsg('')
+    setAiMode(m => !m)
+  }
+
   const handleScanPdf = async () => {
     if (!activePdfRef || !onScanPdfToPlay) return
+    const useAi = aiMode && hasVisionAi()
     setScanBusy(true)
-    setScanMsg('Scanning tab from page…')
+    setScanMsg(useAi ? '✨ AI reading this page…' : 'Scanning tab from page…')
     try {
       const entry = cachedPdfRef.current ?? (await getPdfDoc(activePdfRef.file))
       const toP = spread === 2 && page + 1 <= entry.numPages ? page + 1 : page
-      await onScanPdfToPlay(activePdfRef.file, page, toP, entry.bytes)
+      await onScanPdfToPlay(activePdfRef.file, page, toP, entry.bytes, useAi)
       setScanMsg('')
     } catch (e) {
       setScanMsg((e as Error).message || 'Could not extract a playable tab from this page.')
@@ -223,13 +245,99 @@ export function CourseBookView({
 
   const handleScanImage = async (im: FileRef) => {
     if (!onScanImageToPlay) return
+    const useAi = aiMode && hasVisionAi()
     setScanBusy(true)
-    setScanMsg('Scanning tab from diagram…')
+    setScanMsg(useAi ? '✨ AI reading this diagram…' : 'Scanning tab from diagram…')
     try {
-      await onScanImageToPlay(im.file)
+      await onScanImageToPlay(im.file, useAi)
       setScanMsg('')
     } catch (e) {
       setScanMsg((e as Error).message || 'Could not extract a playable tab from this image.')
+    }
+    setScanBusy(false)
+  }
+
+  const onCropDown = (e: RPE<HTMLDivElement>) => {
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const r = e.currentTarget.getBoundingClientRect()
+    const x = Math.max(0, Math.min(1, (e.clientX - r.left) / Math.max(1, r.width)))
+    const y = Math.max(0, Math.min(1, (e.clientY - r.top) / Math.max(1, r.height)))
+    cropStartRef.current = { x, y }
+    setCropRect({ x, y, w: 0, h: 0 })
+  }
+  const onCropMove = (e: RPE<HTMLDivElement>) => {
+    const p0 = cropStartRef.current
+    if (!p0) return
+    const r = e.currentTarget.getBoundingClientRect()
+    const x = Math.max(0, Math.min(1, (e.clientX - r.left) / Math.max(1, r.width)))
+    const y = Math.max(0, Math.min(1, (e.clientY - r.top) / Math.max(1, r.height)))
+    setCropRect({
+      x: Math.min(p0.x, x),
+      y: Math.min(p0.y, y),
+      w: Math.abs(x - p0.x),
+      h: Math.abs(y - p0.y),
+    })
+  }
+  const onCropUp = () => { cropStartRef.current = null }
+
+  const handleScanCroppedBox = async () => {
+    if (!onScanCrop || !cropRect || cropRect.w < 0.03 || cropRect.h < 0.02) return
+    const useAi = aiMode && hasVisionAi()
+    setScanBusy(true)
+    setScanMsg(useAi ? '✨ AI reading your cropped tab…' : 'Reading your cropped tab…')
+    try {
+      let dataUrl = ''
+      let label = lesson.title
+      if (stageMode === 'pdf' && activePdfRef) {
+        const entry = cachedPdfRef.current ?? (await getPdfDoc(activePdfRef.file))
+        const pdfPage = await entry.doc.getPage(Math.max(1, Math.min(entry.numPages, page)))
+        // Render at high 3.5× DPI so small printed fret numbers are razor-sharp
+        const vp = pdfPage.getViewport({ scale: 3.5 })
+        const full = document.createElement('canvas')
+        full.width = Math.round(vp.width)
+        full.height = Math.round(vp.height)
+        const fctx = full.getContext('2d')!
+        fctx.fillStyle = '#ffffff'
+        fctx.fillRect(0, 0, full.width, full.height)
+        await pdfPage.render({ canvasContext: fctx, viewport: vp }).promise
+        const sx = Math.round(cropRect.x * full.width)
+        const sy = Math.round(cropRect.y * full.height)
+        const sw = Math.max(24, Math.round(cropRect.w * full.width))
+        const sh = Math.max(24, Math.round(cropRect.h * full.height))
+        const out = document.createElement('canvas')
+        out.width = sw
+        out.height = sh
+        const octx = out.getContext('2d')!
+        octx.fillStyle = '#ffffff'
+        octx.fillRect(0, 0, sw, sh)
+        octx.drawImage(full, sx, sy, sw, sh, 0, 0, sw, sh)
+        dataUrl = out.toDataURL('image/png')
+        label = `${lesson.title} (p.${page})`
+      } else if (stageMode === 'image' && imgElRef.current) {
+        const im = imgElRef.current
+        const nw = im.naturalWidth || im.width
+        const nh = im.naturalHeight || im.height
+        const sx = Math.round(cropRect.x * nw)
+        const sy = Math.round(cropRect.y * nh)
+        const sw = Math.max(24, Math.round(cropRect.w * nw))
+        const sh = Math.max(24, Math.round(cropRect.h * nh))
+        const out = document.createElement('canvas')
+        out.width = sw
+        out.height = sh
+        const octx = out.getContext('2d')!
+        octx.fillStyle = '#ffffff'
+        octx.fillRect(0, 0, sw, sh)
+        octx.drawImage(im, sx, sy, sw, sh, 0, 0, sw, sh)
+        dataUrl = out.toDataURL('image/png')
+      }
+      if (!dataUrl) throw new Error('Draw a box around the tab lines first.')
+      await onScanCrop(dataUrl, label, useAi)
+      setScanMsg('')
+      setCropOn(false)
+      setCropRect(null)
+    } catch (e) {
+      setScanMsg((e as Error).message || 'Could not read a tab from that box — try including all 6 tab lines cleanly.')
     }
     setScanBusy(false)
   }
@@ -379,7 +487,35 @@ export function CourseBookView({
                   title="Scan this PDF page into a floating playable tab right over the page"
                   data-testid="pdf-scan-to-play"
                 >
-                  🎵 {scanBusy ? 'Scanning…' : 'Scan Page'}
+                  {aiMode && hasVisionAi() ? '✨' : '🎵'} {scanBusy ? 'Scanning…' : 'Scan Page'}
+                </button>
+              )}
+              {onScanCrop && (
+                <button
+                  className={`btn sm${cropOn ? ' on' : ''}`}
+                  aria-pressed={cropOn}
+                  disabled={scanBusy}
+                  onClick={() => {
+                    if (!cropOn && spread === 2) setSpread(1)
+                    setCropOn(c => !c)
+                    setCropRect(null)
+                    setScanMsg('')
+                  }}
+                  title="Drag a box around just the tab lines you want to scan"
+                  data-testid="pdf-crop-btn"
+                >
+                  ✂️ Crop
+                </button>
+              )}
+              {(onScanPdfToPlay || onScanCrop) && (
+                <button
+                  className={`btn sm${aiMode && hasVisionAi() ? ' set' : ' ghost'}`}
+                  aria-pressed={aiMode && hasVisionAi()}
+                  onClick={toggleAiMode}
+                  title={hasVisionAi() ? 'Toggle high-res AI Vision reading vs Offline reader' : 'Add a free Gemini key in Settings → You → AI helper'}
+                  data-testid="pdf-ai-toggle"
+                >
+                  ✨ AI
                 </button>
               )}
 
@@ -394,6 +530,23 @@ export function CourseBookView({
               )}
             </div>
           </div>
+
+          {cropOn && (
+            <div className="panel row small" style={{ gap: 8, padding: '6px 10px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', borderColor: 'rgba(168,85,247,0.55)' }} data-testid="crop-toolbar">
+              <span>✂️ <b>Drag a box</b> over just the 6-line tab you want to read</span>
+              <div className="row" style={{ gap: 6 }}>
+                <button
+                  className="btn sm primary"
+                  disabled={scanBusy || !cropRect || cropRect.w < 0.03 || cropRect.h < 0.02}
+                  onClick={() => void handleScanCroppedBox()}
+                  data-testid="crop-scan-confirm"
+                >
+                  {scanBusy ? 'Scanning…' : `✓ Scan Box${aiMode && hasVisionAi() ? ' (✨ AI)' : ''}`}
+                </button>
+                <button className="btn sm ghost" onClick={() => { setCropOn(false); setCropRect(null) }}>Cancel</button>
+              </div>
+            </div>
+          )}
 
           {scanMsg && <p className="small notice" style={{ margin: 0 }} role="status">{scanMsg}</p>}
           {pdfErr && <p className="small notice" style={{ margin: 0 }} role="alert">{pdfErr}</p>}
@@ -415,16 +568,52 @@ export function CourseBookView({
             data-testid="course-pdf-canvas-wrap"
           >
             {loadingPdf && (
-              <span className="small muted" style={{ position: 'absolute', top: 12, left: 14 }}>
+              <span className="small muted" style={{ position: 'absolute', top: 12, left: 14, zIndex: 2 }}>
                 Loading page {page}…
               </span>
             )}
-            <canvas
-              ref={canvas1Ref}
-              style={{ borderRadius: 6, boxShadow: '0 4px 18px rgba(0,0,0,0.35)', background: '#fff', maxWidth: '100%' }}
-              data-testid="course-pdf-canvas-1"
-            />
-            {spread === 2 && page + 1 <= numPages && (
+            <div style={{ position: 'relative', display: 'inline-block', lineHeight: 0, maxWidth: '100%' }}>
+              <canvas
+                ref={canvas1Ref}
+                style={{ borderRadius: 6, boxShadow: '0 4px 18px rgba(0,0,0,0.35)', background: '#fff', maxWidth: '100%', display: 'block' }}
+                data-testid="course-pdf-canvas-1"
+              />
+              {cropOn && (
+                <div
+                  onPointerDown={onCropDown}
+                  onPointerMove={onCropMove}
+                  onPointerUp={onCropUp}
+                  onPointerCancel={onCropUp}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    cursor: 'crosshair',
+                    touchAction: 'none',
+                    overflow: 'hidden',
+                    borderRadius: 6,
+                    background: cropRect && cropRect.w > 0.01 ? 'transparent' : 'rgba(15,10,30,0.22)',
+                  }}
+                  data-testid="crop-overlay"
+                >
+                  {cropRect && cropRect.w > 0.01 && cropRect.h > 0.01 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: `${cropRect.x * 100}%`,
+                        top: `${cropRect.y * 100}%`,
+                        width: `${cropRect.w * 100}%`,
+                        height: `${cropRect.h * 100}%`,
+                        border: '2px solid #a855f7',
+                        borderRadius: 4,
+                        boxShadow: '0 0 0 9999px rgba(10, 8, 22, 0.48)',
+                        pointerEvents: 'none',
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+            {spread === 2 && !cropOn && page + 1 <= numPages && (
               <canvas
                 ref={canvas2Ref}
                 style={{ borderRadius: 6, boxShadow: '0 4px 18px rgba(0,0,0,0.35)', background: '#fff', maxWidth: '100%' }}
@@ -442,18 +631,58 @@ export function CourseBookView({
             <span className="small muted">
               🖼 <b>{activeImg.label}</b> ({lesson.title})
             </span>
-            {onScanImageToPlay && (
-              <button
-                className="btn sm"
-                onClick={() => void handleScanImage(activeImg)}
-                disabled={scanBusy}
-                title="Scan this diagram into a floating playable tab right over the page"
-                data-testid="img-scan-to-play"
-              >
-                🎵 {scanBusy ? 'Scanning…' : 'Scan Tab'}
-              </button>
-            )}
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+              {onScanImageToPlay && (
+                <button
+                  className="btn sm"
+                  onClick={() => void handleScanImage(activeImg)}
+                  disabled={scanBusy}
+                  title="Scan this diagram into a floating playable tab right over the page"
+                  data-testid="img-scan-to-play"
+                >
+                  {aiMode && hasVisionAi() ? '✨' : '🎵'} {scanBusy ? 'Scanning…' : 'Scan Tab'}
+                </button>
+              )}
+              {onScanCrop && (
+                <button
+                  className={`btn sm${cropOn ? ' on' : ''}`}
+                  aria-pressed={cropOn}
+                  disabled={scanBusy}
+                  onClick={() => { setCropOn(c => !c); setCropRect(null); setScanMsg('') }}
+                  title="Drag a box around just the tab lines you want to scan"
+                  data-testid="img-crop-btn"
+                >
+                  ✂️ Crop
+                </button>
+              )}
+              {(onScanImageToPlay || onScanCrop) && (
+                <button
+                  className={`btn sm${aiMode && hasVisionAi() ? ' set' : ' ghost'}`}
+                  aria-pressed={aiMode && hasVisionAi()}
+                  onClick={toggleAiMode}
+                  title={hasVisionAi() ? 'Toggle high-res AI Vision reading vs Offline reader' : 'Add a free Gemini key in Settings → You → AI helper'}
+                >
+                  ✨ AI
+                </button>
+              )}
+            </div>
           </div>
+          {cropOn && (
+            <div className="panel row small" style={{ gap: 8, padding: '6px 10px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', borderColor: 'rgba(168,85,247,0.55)' }} data-testid="crop-toolbar">
+              <span>✂️ <b>Drag a box</b> over just the 6-line tab you want to read</span>
+              <div className="row" style={{ gap: 6 }}>
+                <button
+                  className="btn sm primary"
+                  disabled={scanBusy || !cropRect || cropRect.w < 0.03 || cropRect.h < 0.02}
+                  onClick={() => void handleScanCroppedBox()}
+                  data-testid="crop-scan-confirm"
+                >
+                  {scanBusy ? 'Scanning…' : `✓ Scan Box${aiMode && hasVisionAi() ? ' (✨ AI)' : ''}`}
+                </button>
+                <button className="btn sm ghost" onClick={() => { setCropOn(false); setCropRect(null) }}>Cancel</button>
+              </div>
+            </div>
+          )}
           {scanMsg && <p className="small notice" style={{ margin: 0 }} role="status">{scanMsg}</p>}
           <div
             className="course-img-stage"
@@ -468,19 +697,56 @@ export function CourseBookView({
             }}
             data-testid="course-image-stage"
           >
-            <img
-              className="lesson-img"
-              src={mediaUrl(activeImg.file.uri)}
-              alt={activeImg.label}
-              style={{
-                width: `${Math.round(zoom * 100)}%`,
-                maxWidth: zoom > 1 ? 'none' : '100%',
-                borderRadius: 8,
-                background: '#fff',
-                boxShadow: '0 4px 18px rgba(0,0,0,0.35)',
-              }}
-              data-testid="course-tab-image"
-            />
+            <div style={{ position: 'relative', display: 'inline-block', lineHeight: 0, width: `${Math.round(zoom * 100)}%`, maxWidth: zoom > 1 ? 'none' : '100%' }}>
+              <img
+                ref={imgElRef}
+                className="lesson-img"
+                src={mediaUrl(activeImg.file.uri)}
+                alt={activeImg.label}
+                style={{
+                  width: '100%',
+                  display: 'block',
+                  borderRadius: 8,
+                  background: '#fff',
+                  boxShadow: '0 4px 18px rgba(0,0,0,0.35)',
+                }}
+                data-testid="course-tab-image"
+              />
+              {cropOn && (
+                <div
+                  onPointerDown={onCropDown}
+                  onPointerMove={onCropMove}
+                  onPointerUp={onCropUp}
+                  onPointerCancel={onCropUp}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    cursor: 'crosshair',
+                    touchAction: 'none',
+                    overflow: 'hidden',
+                    borderRadius: 8,
+                    background: cropRect && cropRect.w > 0.01 ? 'transparent' : 'rgba(15,10,30,0.22)',
+                  }}
+                  data-testid="crop-overlay"
+                >
+                  {cropRect && cropRect.w > 0.01 && cropRect.h > 0.01 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: `${cropRect.x * 100}%`,
+                        top: `${cropRect.y * 100}%`,
+                        width: `${cropRect.w * 100}%`,
+                        height: `${cropRect.h * 100}%`,
+                        border: '2px solid #a855f7',
+                        borderRadius: 4,
+                        boxShadow: '0 0 0 9999px rgba(10, 8, 22, 0.48)',
+                        pointerEvents: 'none',
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}

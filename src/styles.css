@@ -2757,6 +2757,8 @@ label.btn { display: inline-flex; align-items: center; justify-content: center; 
 .win-area.win-grid > * { flex: 1 1 100%; max-width: 100%; }
 .win-area.win-grid > .win.part { min-width: 0; }
 .win-area.win-grid.win-cols > .win.panel:not([style*="flex"]) { flex: 1 1 340px; }
+.win-area.win-grid.lesson-split > .win[data-win="lp-video"]:not([style*="flex"]) { flex: 1 1 300px; min-width: 0; }
+.win-area.win-grid.lesson-split > .win[data-win="lp-book"]:not([style*="flex"]) { flex: 1.35 1 340px; min-width: 0; }
 .win-size.both { align-self: flex-end; cursor: nwse-resize; margin-right: -4px; }
 /* a narrow window: its insides wrap and scroll sideways instead of spilling out */
 .win.part .win-body { overflow-x: auto; }

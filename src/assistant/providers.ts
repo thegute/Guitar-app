@@ -154,6 +154,8 @@ const busy = (status: number) => status === 500 || status === 502 || status === 
  *  built-in helper answers instead. */
 export interface AskOpts {
   pictures?: boolean; json?: boolean; maxTokens?: number; onText?: (soFar: string) => void
+  /** request high-resolution image reading (Gemini MEDIA_RESOLUTION_HIGH) for small printed tab digits */
+  highRes?: boolean
   /** an answer this says no to counts as a miss: the race goes on with the others (the first GOOD answer wins) */
   accept?: (text: string) => boolean
   /** ask the next model alongside after this long without an answer (default 6 s, 20 s with a picture) */
@@ -190,7 +192,7 @@ export async function ask(system: string, msgs: Msg[], o: AskOpts = {}): Promise
     const giveUp = () => finish(() => reject(last ?? new AiError(`${p.label} took too long to answer.`, true)))
     if (o.signal) {
       if (o.signal.aborted) { finish(() => reject(new AiError('Cancelled.'))); return }
-      o.signal.addEventListener('abort', () => finish(() => reject(new AiError('Cancelled.'))), { once: true })
+      o.signal.addEventListener('abort', () => finish(() => reject(new AiError('Cancelled.')), ), { once: true })
     }
     const launch = () => {
       if (done) return
@@ -233,25 +235,31 @@ export let workedModel: string | null = (() => { try { return localStorage.getIt
  *  that fell back to the built-in helper). */
 export let lastTries: string[] = []
 
-async function askOnce(p: ProviderInfo, model: string, key: string, system: string, msgs: Msg[], o: { json?: boolean; maxTokens?: number; onText?: (soFar: string) => void }, timeoutMs: number): Promise<string> {
+async function askOnce(p: ProviderInfo, model: string, key: string, system: string, msgs: Msg[], o: { json?: boolean; maxTokens?: number; highRes?: boolean; onText?: (soFar: string) => void }, timeoutMs: number): Promise<string> {
   const max = o.maxTokens ?? 2048
   const began = Date.now()
   const fail = (r: { status: number; data: unknown }) => new AiError(why(r.status, r.data, p), busy(r.status) || r.status === 404 || (p.id === 'gemini' && r.status === 429))
   let r: { status: number; data: unknown }
   try {
     if (p.id === 'gemini') {
-      const body = {
+      const hasImg = msgs.some(m => m.image)
+      const makeBody = (useHighRes: boolean) => ({
         systemInstruction: { parts: [{ text: system }] },
         contents: msgs.map(m => ({ role: m.role === 'user' ? 'user' : 'model', parts: [...(m.image ? [{ inline_data: { mime_type: m.image.mime, data: m.image.b64 } }] : []), { text: m.text }] })),
-        generationConfig: { maxOutputTokens: max, ...(o.json ? { responseMimeType: 'application/json' } : {}) } as Record<string, unknown>,
-      }
+        generationConfig: {
+          maxOutputTokens: max,
+          ...(o.json ? { responseMimeType: 'application/json' } : {}),
+          ...(useHighRes && hasImg && o.highRes ? { mediaResolution: 'MEDIA_RESOLUTION_HIGH' } : {}),
+          ...geminiThinking(model),
+        } as Record<string, unknown>,
+      })
       const base = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}`
-      const withThinking = () => ({ ...body, generationConfig: { ...body.generationConfig, ...geminiThinking(model) } })
+      const withThinking = () => makeBody(true)
       // stream the words when someone is watching them arrive; if streaming doesn't work on this phone, ask the
       // normal way (and don't try streaming again this session)
       // On the phone, Gemini goes through the app's own connection (the one that's proven to reach Google there);
       // word-by-word streaming is used in the web version only.
-      if (o.onText && !streamBroken && !Capacitor.isNativePlatform() && !msgs.some(m => m.image)) {
+      if (o.onText && !streamBroken && !Capacitor.isNativePlatform() && !hasImg) {
         let st: { status: number; data: unknown; text?: string } | null = null
         try { st = await geminiStream(`${base}:streamGenerateContent?alt=sse&key=${encodeURIComponent(key)}`, withThinking(), timeoutMs, o.onText) }
         catch (e) { streamBroken = true; if (e instanceof Timeout) throw e }
@@ -265,6 +273,8 @@ async function askOnce(p: ProviderInfo, model: string, key: string, system: stri
       r = await post(`${base}:generateContent?key=${encodeURIComponent(key)}`, {}, withThinking(), timeoutMs)
       // a model that doesn't take this thinking setting: ask again with its own default (and remember)
       for (let k = 0; k < 2 && refusesThinking(r); k++) { stepDown(model); r = await post(`${base}:generateContent?key=${encodeURIComponent(key)}`, {}, withThinking(), timeoutMs) }
+      // an older model that doesn't accept mediaResolution: retry cleanly without it
+      if (r.status === 400 && hasImg && o.highRes) r = await post(`${base}:generateContent?key=${encodeURIComponent(key)}`, {}, makeBody(false), timeoutMs)
       if (r.status >= 300) throw fail(r)
       const d = r.data as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
       const text = d.candidates?.[0]?.content?.parts?.map(x => x.text ?? '').join('') ?? ''

@@ -439,10 +439,10 @@ export class ScannedPdf extends Error {
 }
 
 /** The text to read a tab or chord sheet from: Guitar Pro style staves first, then the page text as laid out. */
-export function pdfTabText(pages: PdfPage[], names: string[]): { staff: string; text: string; drawn: boolean; songsterr: boolean } {
+export function pdfTabText(pages: PdfPage[], names: string[]): { staff: string; text: string; drawn: boolean; songsterr: boolean; staves: number } {
   const sc = staffScan(pages, names)
   const text = pages.map(p => pdfItemsToText(p.texts)).join('\n\n')
   // tab staves on the page but their numbers aren't text: drawn as shapes (Songsterr's prints do this)
   const drawn = !sc.text && sc.staves >= Math.max(1, pages.length)
-  return { staff: sc.text, text, drawn, songsterr: /songsterr/i.test(text) }
+  return { staff: sc.text, text, drawn, songsterr: /songsterr/i.test(text), staves: sc.staves }
 }

@@ -204,14 +204,21 @@ export async function readTabPicturesBest(pics: Gray[], tuning: number[], title:
     again.push(r.notes && (r.meter !== meter || late.hear) ? await readTabCrnn(pics[i], run, { strings, beats: meter, ...hearFor(i), ...late }) : r)
   }
 
-  // Deep Mode PDF / Screenshot Dual-Reader Cross-Check (tab_crnn + template reader consensus)
+  // Deep Mode PDF / Screenshot Dual-Reader Cross-Check (tab_crnn + template reader consensus & missed-note rescue)
   if (o.deep && !o.video) {
     for (let i = 0; i < again.length; i++) {
       const cr = again[i]
-      if (!cr.unsure) continue
       const tpl = readTab(deskew(pics[i]).g, { strings, beats: meter })
       if (!tpl.notes) continue
       const tplNotes = tpl.systems.flatMap(sy => sy.bars.flatMap(b => b.steps.flatMap(st => st.notes)))
+      const tplSure = tplNotes.filter(n => n.sure >= 0.08).length
+      // On crisp printed course PDFs/diagrams, if the template reader caught substantially more confident notes
+      // than tab_crnn (e.g. tight 16th-note runs or stylized digits that tab_crnn dropped), prefer the fuller read!
+      if (tplSure >= Math.max(8, Math.round(cr.notes * 1.35)) && tpl.systems.length >= cr.systems.length) {
+        again[i] = tpl
+        continue
+      }
+      if (!cr.unsure) continue
       for (const sy of cr.systems) {
         for (const b of sy.bars) {
           for (const st of b.steps) {

@@ -178,8 +178,10 @@ export function WinArea({ area, children, className = '', defaultHidden = [], pr
 }
 
 /** One movable, resizable, zoomable, pop-out window. Outside a WinArea it's just its content in a panel. */
-export function Win({ id, title, children, className = 'panel', bodyClass = '', bodyStyle, resizable = true, minHeight = 90, hint, extra }: {
+export function Win({ id, title, children, className = 'panel', bodyClass = '', bodyStyle, resizable = true, minHeight = 90, noZoom = false, hint, extra }: {
   id: string; title: string; children: ReactNode; className?: string; bodyClass?: string; bodyStyle?: React.CSSProperties; resizable?: boolean; minHeight?: number
+  /** hide content zoom buttons on pure menu/tool bars */
+  noZoom?: boolean
   /** an ⓘ on the title bar that opens a short explanation */
   hint?: ReactNode
   /** small controls on the title bar (right side, before Hide) */
@@ -222,6 +224,7 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
         width={460}
         minW={220}
         openNarrow
+        noZoom={noZoom}
         onHide={dockBack}
         headerExtra={
           <button
@@ -237,7 +240,7 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
         }
       >
         {hint ? hintText : null}
-        <div className={`win-body ${bodyClass}`} style={{ ...bodyStyle, ...(z !== 1 ? { zoom: z } : {}) }}>
+        <div className={`win-body ${bodyClass}`} style={{ ...bodyStyle, ...(!noZoom && z !== 1 ? { zoom: z } : {}) }}>
           {children}
         </div>
       </FloatCard>
@@ -286,7 +289,7 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
         </button>
         {hint ? hintBtn : null}
         {extra && <span className="win-extra">{extra}</span>}
-        {!folded && (
+        {!folded && !noZoom && (
           <span className="win-zoom" role="group" aria-label={`Zoom ${title}`}>
             <button className="win-btn win-zbtn" onClick={() => setZoom(z - 0.1)} title="Zoom out" aria-label={`Zoom out ${title}`} data-testid={`win-zout-${id}`}>−</button>
             {z !== 1 && <button className="win-btn win-zpct tabular" onClick={() => setZoom(1)} title="Reset zoom to 100%">{Math.round(z * 100)}%</button>}

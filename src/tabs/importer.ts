@@ -42,18 +42,33 @@ export async function songFromPdf(name: string, bytes: Uint8Array, inst: Instrum
   const pages = await readPdf(bytes, range?.from ?? 1, range?.to)
   const base = name.replace(/\.[^.]+$/, '')
   const title = range ? `${base} p.${range.from}${range.to > range.from ? `–${range.to}` : ''}` : base
-  // a tab PDF drawn by tab software: its numbers, staff and rhythm are exact shapes, read directly (no picture, no AI)
+  const countNotes = (d: SongDoc | null) => d?.song.tracks[0]?.bars.reduce((a, b) => a + b.steps.reduce((x, st) => x + st.notes.length, 0), 0) ?? 0
+
+  // Compare vector-shape reading vs text-staff reading so a partial vector read never drops half the page!
   const { readPdfShapes } = await import('../scan/tabReadSong')
   const shaped = readPdfShapes(pages, inst.midis, title)
-  if (shaped && shaped.notes >= 6) return { id: newId(), title, source: 'text', inst: inst.id, song: shaped.song, youtube, updated: Date.now() }
-  const { staff, text, drawn, songsterr } = pdfTabText(pages, stringNames(inst))
+  const shapedDoc: SongDoc | null = shaped && shaped.notes >= 4
+    ? { id: newId(), title, source: 'text', inst: inst.id, song: shaped.song, youtube, updated: Date.now() }
+    : null
+  const { staff, text, drawn, songsterr, staves } = pdfTabText(pages, stringNames(inst))
+  const staffDoc = !drawn && staff ? songFromText(staff, title, inst, youtube) : null
+  const shapedN = shaped?.notes ?? 0
+  const staffN = countNotes(staffDoc)
+  const pictured = pages.some(p => (p.pictures ?? 0) >= 0.12)
+  const bestDoc = staffN > shapedN ? staffDoc : shapedDoc
+  const bestN = Math.max(shapedN, staffN)
+  const expectedStaves = Math.max(staves, shaped?.staves ?? 0)
+  // If the page clearly has multiple staves or embedded images and vector/text extraction only caught a tiny fraction,
+  // send it to the high-DPI picture / CRNN / AI reader instead of returning a half-empty tab.
+  const looksIncomplete = (pictured && bestN < 12) || (expectedStaves >= 2 && bestN < expectedStaves * 4)
+  if (bestDoc && bestN >= 6 && !looksIncomplete) return bestDoc
+
   // the tab is printed with its numbers drawn as shapes (a Songsterr print): reading the page's words would only find
   // the lyrics and chord names, so it goes to the picture reader (which sees the numbers) instead
-  if (drawn) throw new ScannedPdf(bytes, range?.from ?? 1, Math.min(6, pages.length || 6), songsterr ? songsterrTitle(text) : undefined)
-  const doc = (staff && songFromText(staff, title, inst, youtube)) || songFromText(text, title, inst, youtube)
+  if (drawn || looksIncomplete) throw new ScannedPdf(bytes, range?.from ?? 1, Math.min(6, pages.length || 6), songsterr ? songsterrTitle(text) : undefined)
+  const doc = staffDoc || songFromText(text, title, inst, youtube)
   if (doc) return { ...doc, source: doc.source === 'chords' ? 'chords' : 'text' }
   const words = pages.reduce((a, p) => a + p.texts.filter(t => t.str.trim()).length, 0)
-  const pictured = pages.some(p => (p.pictures ?? 0) >= 0.12)
   if (words < 8 * Math.max(1, pages.length) || pictured) throw new ScannedPdf(bytes, range?.from ?? 1, Math.min(6, pages.length || 6))
   throw new Error('no tab lines or chords found in the PDF')
 }

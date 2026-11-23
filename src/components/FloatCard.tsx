@@ -98,13 +98,15 @@ interface Props {
   headerExtra?: ReactNode
   /** hide the opacity button if a card manages its own */
   noOpacity?: boolean
+  /** hide content zoom controls on pure menu/tool bars */
+  noZoom?: boolean
 }
 
 export function FloatCard(p: Props) {
   return createPortal(<FloatCardIn {...p} />, document.body)
 }
 
-function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width = 240, minW = 160, alert, dodgeCursor, label, testId, bubbleTestId, order = 0, openNarrow, headerExtra, noOpacity }: Props) {
+function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width = 240, minW = 160, alert, dodgeCursor, label, testId, bubbleTestId, order = 0, openNarrow, headerExtra, noOpacity, noZoom }: Props) {
   // on a narrow screen (the Fold's cover, a phone) a card you haven't opened yourself starts as a small bubble, so it never covers the tab
   const fresh = (): Place => stored(id, where) ?? { x: 0.98, y: Math.min(0.85, 0.3 + order * 0.14), w: Math.min(width, Math.round((typeof innerWidth === 'number' ? innerWidth : 400) * 0.6)), min: sizeClass() === 'narrow' && !openNarrow, opacity: 1 }
   const [place, setPlace] = useState<Place>(fresh)
@@ -282,11 +284,11 @@ function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width =
         {headerExtra}
         {!noOpacity && (
           <button
-            className={`fc-btn fc-op-btn${opacityOpen || cardOpacity < 0.98 || cardZoom !== 1 || place.h !== undefined ? ' on' : ''}`}
+            className={`fc-btn fc-op-btn${opacityOpen || cardOpacity < 0.98 || (!noZoom && cardZoom !== 1) || place.h !== undefined ? ' on' : ''}`}
             onClick={() => setOpacityOpen(o => !o)}
-            aria-label="Card opacity and zoom"
+            aria-label={noZoom ? 'Card opacity' : 'Card opacity and zoom'}
             aria-pressed={opacityOpen}
-            title={`Opacity ${Math.round(cardOpacity * 100)}% · Zoom ${Math.round(cardZoom * 100)}%`}
+            title={noZoom ? `Opacity ${Math.round(cardOpacity * 100)}%` : `Opacity ${Math.round(cardOpacity * 100)}% · Zoom ${Math.round(cardZoom * 100)}%`}
             data-testid={`fc-opacity-btn-${id}`}
           >
             ◐
@@ -317,21 +319,27 @@ function FloatCardIn({ id, where, title, bubble, icon, children, onHide, width =
               </button>
             ))}
           </div>
-          <div className="row" style={{ gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span className="muted" style={{ fontSize: 11, minWidth: 42 }}>Zoom</span>
-            <button className="fc-op-chip" data-testid={`fc-zoom-out-${id}`} onClick={() => setCardZoom(cardZoom - 0.1)} aria-label="Zoom out">−</button>
-            <button className={`fc-op-chip tabular${cardZoom === 1 ? ' on' : ''}`} data-testid={`fc-zoom-val-${id}`} onClick={() => setCardZoom(1)} title="Reset zoom to 100%">{Math.round(cardZoom * 100)}%</button>
-            <button className="fc-op-chip" data-testid={`fc-zoom-in-${id}`} onClick={() => setCardZoom(cardZoom + 0.1)} aria-label="Zoom in">+</button>
-            {place.h !== undefined && (
-              <button className="fc-op-chip" style={{ marginLeft: 'auto' }} onClick={() => save({ ...place, h: undefined })} title="Auto-fit height">Auto height</button>
-            )}
-          </div>
+          {(!noZoom || place.h !== undefined) && (
+            <div className="row" style={{ gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+              {!noZoom && (
+                <>
+                  <span className="muted" style={{ fontSize: 11, minWidth: 42 }}>Zoom</span>
+                  <button className="fc-op-chip" data-testid={`fc-zoom-out-${id}`} onClick={() => setCardZoom(cardZoom - 0.1)} aria-label="Zoom out">−</button>
+                  <button className={`fc-op-chip tabular${cardZoom === 1 ? ' on' : ''}`} data-testid={`fc-zoom-val-${id}`} onClick={() => setCardZoom(1)} title="Reset zoom to 100%">{Math.round(cardZoom * 100)}%</button>
+                  <button className="fc-op-chip" data-testid={`fc-zoom-in-${id}`} onClick={() => setCardZoom(cardZoom + 0.1)} aria-label="Zoom in">+</button>
+                </>
+              )}
+              {place.h !== undefined && (
+                <button className="fc-op-chip" style={{ marginLeft: 'auto' }} onClick={() => save({ ...place, h: undefined })} title="Auto-fit height">Auto height</button>
+              )}
+            </div>
+          )}
         </div>
       )}
       <div
         className="fc-body"
         style={{
-          ...(cardZoom !== 1 ? { zoom: cardZoom } : {}),
+          ...(!noZoom && cardZoom !== 1 ? { zoom: cardZoom } : {}),
           ...(place.h !== undefined ? { maxHeight: Math.max(80, place.h - 46), overflowY: 'auto' } : {}),
         }}
       >
