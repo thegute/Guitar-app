@@ -1,7 +1,7 @@
 // Game Mode's rules: sections, highway blocks with fingers, the multiplier, stars, best of each section, Perfect it.
 import './test-env'
 import { strict as assert } from 'node:assert'
-import { Scorer, highway, mergeBest, sectionResult, sectionsOf, toPerfect, type SectionResult } from '../src/play/game'
+import { Scorer, gemForNote, highway, linkTechTargets, mergeBest, runSummary, sectionResult, sectionsOf, toPerfect, type NoteResult, type SectionResult } from '../src/play/game'
 import { flatten, type SongTrack } from '../src/tabs/model'
 import { handGroups } from '../src/play/handShape'
 import { timeline } from '../src/play/inTime'
@@ -62,4 +62,19 @@ ok(toPerfect(best1, a).join() === '1', 'Perfect it picks the part that lost star
 const T = { step: 0.05, target: 1.25, pass: 90, down: 60, min: 0.25 }
 ok(nextSpeed(1, 95, T) === 1.05 && nextSpeed(1.25, 99, T) === 1.25, 'auto speed up to 125 %')
 ok(nextSpeed(0.6, 40, T) === 0.55 && nextSpeed(0.25, 10, T) === 0.25 && nextSpeed(0.8, 75, T) === 0.8, 'down under 60 %, never below 25 %, stays in between')
+
+// Pro Studio gem palettes, O(1) tech target linker, and runSummary timing breakdown
+const f1Gem = gemForNote({ string: 2, fret: 5, finger: 1 }, 'finger')
+const s0Gem = gemForNote({ string: 0, fret: 3, finger: 2 }, 'string')
+const deadGem = gemForNote({ string: 1, fret: 0, finger: 0, tech: 'x' }, 'finger')
+ok(f1Gem.border === '#60a5fa' && s0Gem.border === '#f87171' && deadGem.border === '#71717a', 'gem palettes map cleanly by finger, string, and muted note')
+
+const slideItems = items.slice(0, 4).map((it, idx) => idx === 0 ? { ...it, notes: [{ ...it.notes[0], tech: '/' }] } : it)
+const linked = linkTechTargets(slideItems)
+ok(linked.get(`0:${slideItems[0].notes[0].string}`) === slideItems[1].beat, 'linkTechTargets pre-links slide target beat in O(1)')
+
+const rMap = new Map<number, NoteResult>([[0, 'perfect'], [1, 'perfect'], [2, 'early'], [3, 'early'], [4, 'early'], [5, 'good']])
+const sum = runSummary(rMap)
+ok(sum.total === 6 && sum.early === 3 && sum.accuracy === 75 && sum.grade === 'B' && sum.tip.toLowerCase().includes('early'), `runSummary detects rushing: ${sum.tip}`)
+
 console.log(`game mode: ${checks} checks, 0 failed`)
