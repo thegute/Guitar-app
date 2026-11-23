@@ -30,7 +30,7 @@ import {
   flowNodeForChordSymbol,
   getFlowBranches,
   loadUserStrumCharts,
-  matchCandidateChord,
+  detectFlowChord,
   parseChordQual,
   saveUserStrumChart,
   strumStyleMeta,
@@ -149,15 +149,19 @@ export function StrumGrid() {
     }
     try {
       const cl = new ChromaListener()
-      cl.onChord = chroma => {
+      cl.onChord = (chroma, bass) => {
         const cur = stRef.current
         const targetSym = cur.soundingChord || cur.currentChord
         const parsed = parseChordQual(targetSym)
         if (!parsed) return
-        const matched = matchCandidateChord(chroma, undefined, [
+        const res = detectFlowChord(
+          chroma,
+          bass,
           { id: 'target', symbol: targetSym, rootPc: parsed.rootPc, qual: parsed.qual },
-        ])
-        const ok = !!matched && matched.score >= 0.45
+          [],
+          true,
+        )
+        const ok = res.status === 'holding'
         setBarHits(prev => ({ ...prev, [cur.barIdx]: ok ? 'hit' : 'miss' }))
         setGradeStats(g => ({ hits: g.hits + (ok ? 1 : 0), total: g.total + 1 }))
       }

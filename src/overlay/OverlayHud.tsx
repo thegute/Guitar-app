@@ -19,7 +19,7 @@ import { stringName, useInstrument } from '../instrument'
 import { usePracticeTimer } from '../learn/progress'
 import { audio } from '../audio/engine'
 import { openInput, type OpenedInput } from '../audio/input'
-import { addChroma } from '../audio/chroma'
+import { addGuitarChordChroma } from '../audio/chroma'
 import { ChordSegmenter, chordName, matchChords } from '../audio/chordFinder'
 import { Drone } from '../audio/drone'
 import { activeSound, strum } from '../audio/pluck'
@@ -211,13 +211,7 @@ export function OverlayHud() {
         if (rms > 0.005) {
           const chroma = new Array<number>(12).fill(0)
           const bass = new Array<number>(12).fill(0)
-          addChroma(freqBuf, binHz, chroma)
-          for (let i = Math.floor(55 / binHz); i < Math.min(freqBuf.length, Math.floor(220 / binHz)); i++) {
-            const db = freqBuf[i]
-            if (db < -72) continue
-            const midi = Math.round(69 + 12 * Math.log2((i * binHz) / 440))
-            bass[((midi % 12) + 12) % 12] += Math.pow(10, db / 20)
-          }
+          addGuitarChordChroma(freqBuf, binHz, chroma, bass)
           const tSec = (now - startTime) / 1000
           seg.push(tSec, chroma, bass, rms, false)
           const top = matchChords(chroma, bass)[0]

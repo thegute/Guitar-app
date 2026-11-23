@@ -444,6 +444,167 @@ export function matchCandidateChord(
   return { id: top.id, symbol: top.symbol, score: top.score, margin: top.score - second }
 }
 
+export type FlowChordDetection =
+  | { status: 'single-note'; noteName: string }
+  | { status: 'holding'; symbol: string; score: number }
+  | { status: 'branch'; id: string; symbol: string; score: number; margin: number }
+  | { status: 'other'; symbol: string; score: number }
+  | { status: 'unclear'; topSymbol?: string; score: number }
+
+interface ChordCand {
+  id: string
+  symbol: string
+  rootPc: number
+  qual: ChordQual
+  kind: 'center' | 'branch' | 'bg'
+}
+
+/**
+ * Strict polyphonic chord detector for Chord Path auto-advance:
+ *  1. Rejects single-string plucks (including 1 string + its natural 3rd-harmonic perfect 5th, like high/low E alone).
+ *  2. Always compares against the CURRENT center chord + orbiting branches + all 24 major/minor background chords,
+ *     so strumming the chord you're already on (e.g. 8th-fret C barre or 5th-fret Am barre) NEVER forces a jump.
+ *  3. Requires Root + 3rd (and >= 3 chord tones for triads/7ths) to actually ring, weights the low-register bass root,
+ *     and penalizes clashing outside notes so C (C-E-G) can never falsely match Fm, F, or G.
+ */
+export function detectFlowChord(
+  chroma: number[],
+  bass: number[] | undefined,
+  center: { id: string; symbol: string; rootPc: number; qual: ChordQual },
+  branches: { id: string; symbol: string; rootPc: number; qual: ChordQual }[],
+  strict = true,
+): FlowChordDetection {
+  const sum = chroma.reduce((a, b) => a + b, 0)
+  if (sum <= 1e-6) return { status: 'unclear', score: 0 }
+  const c = chroma.map(v => v / sum)
+  const norm = Math.sqrt(c.reduce((a, b) => a + b * b, 0)) || 1
+  const bsum = bass ? bass.reduce((a, b) => a + b, 0) : 0
+  const bNorm = bass && bsum > 1e-6 ? bass.map(v => v / bsum) : null
+
+  // 1. Single-string / power-overtone rejection gate
+  const rankedPcs = c.map((v, p) => ({ p, v })).sort((a, b) => b.v - a.v)
+  const top1 = rankedPcs[0]
+  const top2 = rankedPcs[1]
+  const top3 = rankedPcs[2]
+  // One plucked string produces its fundamental (top1) + sometimes its 3rd harmonic (+7 semitones = perfect 5th).
+  const isFifthHarmonic = ((top2.p - top1.p + 12) % 12) === 7
+  if (top1.v >= 0.62 && top2.v < 0.14) {
+    return { status: 'single-note', noteName: SHARPS[top1.p] }
+  }
+  if (isFifthHarmonic && top1.v + top2.v >= 0.80 && top3.v < 0.085) {
+    return { status: 'single-note', noteName: SHARPS[top1.p] }
+  }
+  const activePcs = rankedPcs.filter(x => x.v >= 0.075).length
+  if (activePcs < 2) {
+    return { status: 'single-note', noteName: SHARPS[top1.p] }
+  }
+
+  // 2. Build full candidate set: center + branches + background 24 major/minor chords (deduped by rootPc:qual)
+  const seen = new Set<string>()
+  const allCands: ChordCand[] = []
+  const addCand = (item: { id: string; symbol: string; rootPc: number; qual: ChordQual }, kind: ChordCand['kind']) => {
+    const key = `${item.rootPc}:${item.qual}`
+    if (seen.has(key)) return
+    seen.add(key)
+    allCands.push({ ...item, kind })
+  }
+  addCand(center, 'center')
+  for (const br of branches) addCand(br, 'branch')
+  for (let p = 0; p < 12; p++) {
+    addCand({ id: `bg:${p}:`, symbol: SHARPS[p], rootPc: p, qual: '' }, 'bg')
+    addCand({ id: `bg:${p}:m`, symbol: `${SHARPS[p]}m`, rootPc: p, qual: 'm' }, 'bg')
+  }
+
+  // 3. Score every candidate with core-tone proof, bass-root weight, and clash penalty
+  const scored = allCands.map(cand => {
+    const ivs = QUAL_IVS[cand.qual] ?? QUAL_IVS['']
+    const chordPcs = ivs.map(([iv]) => (cand.rootPc + iv) % 12)
+    const chordSet = new Set(chordPcs)
+
+    const t = new Array(12).fill(0)
+    for (const [iv, w] of ivs) t[(cand.rootPc + iv) % 12] = w
+    const tn = Math.sqrt(t.reduce((a, b) => a + b * b, 0)) || 1
+    let dot = 0
+    for (let i = 0; i < 12; i++) dot += c[i] * t[i]
+    const cos = dot / (norm * tn)
+
+    const rootVal = c[cand.rootPc]
+    // Identify the defining 3rd (or 4th for sus4; 5th for power chord)
+    const thirdIv = ivs.find(([iv]) => iv === 3 || iv === 4 || iv === 5)?.[0] ?? 7
+    const thirdVal = c[(cand.rootPc + thirdIv) % 12]
+
+    let inEnergy = 0
+    let presentCount = 0
+    for (const p of chordSet) {
+      inEnergy += c[p]
+      if (c[p] >= 0.07) presentCount++
+    }
+    const outEnergy = Math.max(0, 1 - inEnergy)
+
+    const bassBonus = bNorm ? 0.24 * bNorm[cand.rootPc] : 0
+    // If bass strongly plays a note that is NOT even in this chord, penalize heavily
+    let wrongBassPenalty = 0
+    if (bNorm) {
+      let maxBassPc = 0
+      for (let i = 1; i < 12; i++) if (bNorm[i] > bNorm[maxBassPc]) maxBassPc = i
+      if (bNorm[maxBassPc] >= 0.42 && !chordSet.has(maxBassPc)) wrongBassPenalty = 0.22
+    }
+
+    let missingPenalty = 0
+    if (rootVal < 0.085) missingPenalty += 0.28
+    if (cand.qual !== '5' && thirdVal < 0.075) missingPenalty += 0.30
+    if (cand.qual !== '5' && presentCount < 3) missingPenalty += 0.20
+
+    const clashPenalty = 0.52 * outEnergy
+    const score = cos + bassBonus - missingPenalty - clashPenalty - wrongBassPenalty
+
+    return { cand, score, rootVal, thirdVal, presentCount, inEnergy }
+  })
+
+  scored.sort((a, b) => b.score - a.score)
+  const best = scored[0]
+  const second = scored[1]
+  const centerEntry = scored.find(s => s.cand.kind === 'center')
+
+  const minScore = strict ? 0.60 : 0.50
+  const minMargin = strict ? 0.075 : 0.045
+  const centerHoldGap = strict ? 0.11 : 0.07
+
+  if (!best || best.score < minScore) {
+    return { status: 'unclear', topSymbol: best?.cand.symbol, score: Math.max(0, best?.score ?? 0) }
+  }
+
+  // If the current center chord won (or is close to the top branch), HOLD steady!
+  if (best.cand.kind === 'center') {
+    return { status: 'holding', symbol: center.symbol, score: best.score }
+  }
+  if (centerEntry && best.score - centerEntry.score < centerHoldGap) {
+    return { status: 'holding', symbol: center.symbol, score: centerEntry.score }
+  }
+
+  if (best.cand.kind === 'bg') {
+    return { status: 'other', symbol: best.cand.symbol, score: best.score }
+  }
+
+  // Orbiting branch must prove it is a real chord (Root + 3rd + >=3 tones) AND beat runner-up cleanly
+  const margin = best.score - (second?.score ?? 0)
+  const coreOk = best.cand.qual === '5'
+    ? (best.rootVal >= 0.12 && best.presentCount >= 2)
+    : (best.rootVal >= 0.09 && best.thirdVal >= 0.075 && best.presentCount >= 3)
+
+  if (!coreOk || margin < minMargin) {
+    return { status: 'unclear', topSymbol: best.cand.symbol, score: best.score }
+  }
+
+  return {
+    status: 'branch',
+    id: best.cand.id,
+    symbol: best.cand.symbol,
+    score: best.score,
+    margin,
+  }
+}
+
 // ---------- Pathfinder Challenges ----------
 export interface PathfinderChallenge {
   id: string

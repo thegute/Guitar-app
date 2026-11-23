@@ -8,6 +8,7 @@ import {
   STRUM_STYLES,
   chartForScale,
   deleteUserStrumChart,
+  detectFlowChord,
   flowNodeForChordSymbol,
   getFlowBranches,
   getFlowNodes,
@@ -19,6 +20,8 @@ import {
   transposeChordSymbol,
   transposeStrumChart,
 } from '../src/theory/harmonicFlow'
+import { addGuitarChordChroma } from '../src/audio/chroma'
+import { FLOW_VOICING_STYLES, voicingForFlowChord } from '../src/theory/flowVoicings'
 import { setBassPacks, setPackSounds } from '../src/audio/packSounds'
 import { allInstrs, instr } from '../src/studio/sounds'
 import { layerSpots } from '../src/theory/layers'
@@ -243,6 +246,84 @@ test('FeatureIntro registry covers all core features and dismiss/reset persists 
   assert.equal(isFeatureIntroDismissed('key-shifter'), true)
   resetAllFeatureIntros()
   assert.equal(isFeatureIntroDismissed('key-shifter'), false)
+})
+
+test('detectFlowChord rejects single E string plucks and NEVER falsely jumps to E7 or Am', () => {
+  const { center, branches } = getFlowBranches('I', 'C', false, 'pop', 0, 5)
+  const cands = branches.map(b => ({ id: b.node.id, symbol: b.node.symbol, rootPc: b.node.rootPc, qual: b.node.qual }))
+  // Single high/low E string (E=4 fundamental + B=11 natural 3rd harmonic)
+  const singleE = new Array(12).fill(0.004)
+  singleE[4] = 0.72
+  singleE[11] = 0.24
+  const bassE = new Array(12).fill(0)
+  bassE[4] = 1
+  const res = detectFlowChord(singleE, bassE, { id: center.id, symbol: center.symbol, rootPc: center.rootPc, qual: center.qual }, cands)
+  assert.equal(res.status, 'single-note')
+  if (res.status === 'single-note') assert.equal(res.noteName, 'E')
+})
+
+test('detectFlowChord holds 5th-fret Am barre chord on Am (never falsely jumps to C) and holds 8th-fret C barre chord on C (never jumps to G/Am/F/Fm)', () => {
+  // Helper: build a realistic synthetic guitar FFT spectrum (dB) with fundamentals + 2nd + 3rd harmonics!
+  const synthGuitarSpec = (midis: number[]) => {
+    const binHz = 48000 / 16384
+    const spec = new Float32Array(8192).fill(-90)
+    const addPeak = (hz: number, db: number) => {
+      const b = Math.round(hz / binHz)
+      if (b > 2 && b < spec.length - 3) {
+        spec[b] = Math.max(spec[b], db)
+        spec[b - 1] = Math.max(spec[b - 1], db - 8)
+        spec[b + 1] = Math.max(spec[b + 1], db - 8)
+      }
+    }
+    for (const m of midis) {
+      const f0 = 440 * Math.pow(2, (m - 69) / 12)
+      addPeak(f0, -24)       // fundamental
+      addPeak(f0 * 2, -29)   // 2nd harmonic (octave)
+      addPeak(f0 * 3, -32)   // 3rd harmonic (octave + 5th — the exact overtone that used to fake G on a C barre!)
+    }
+    const acc = new Array(12).fill(0)
+    const bass = new Array(12).fill(0)
+    addGuitarChordChroma(spec, binHz, acc, bass)
+    return { acc, bass }
+  }
+
+  // Case A: 5th-fret Am barre chord [A2=45, E3=52, A3=57, C4=60, E4=64, A4=69] while center is Am
+  const { center: amCenter, branches: amBranches } = getFlowBranches('vi', 'C', false, 'pop', 0, 5)
+  const amCands = amBranches.map(b => ({ id: b.node.id, symbol: b.node.symbol, rootPc: b.node.rootPc, qual: b.node.qual }))
+  const amSpec = synthGuitarSpec([45, 52, 57, 60, 64, 69])
+  const amRes = detectFlowChord(amSpec.acc, amSpec.bass, { id: amCenter.id, symbol: amCenter.symbol, rootPc: amCenter.rootPc, qual: amCenter.qual }, amCands)
+  assert.equal(amRes.status, 'holding', `5th-fret Am barre must HOLD Am, got ${JSON.stringify(amRes)}`)
+
+  // Case B: 8th-fret C barre chord [C3=48, G3=55, C4=60, E4=64, G4=67, C5=72] while center is C
+  const { center: cCenter, branches: cBranches } = getFlowBranches('I', 'C', false, 'pop', 0, 5)
+  const cCands = cBranches.map(b => ({ id: b.node.id, symbol: b.node.symbol, rootPc: b.node.rootPc, qual: b.node.qual }))
+  const cSpec = synthGuitarSpec([48, 55, 60, 64, 67, 72])
+  const cRes = detectFlowChord(cSpec.acc, cSpec.bass, { id: cCenter.id, symbol: cCenter.symbol, rootPc: cCenter.rootPc, qual: cCenter.qual }, cCands)
+  assert.equal(cRes.status, 'holding', `8th-fret C barre must HOLD C (never G/Am/F/Fm!), got ${JSON.stringify(cRes)}`)
+
+  // Case C: Playing 5th-fret Am barre while center is C cleanly advances to Am!
+  const cToAm = detectFlowChord(amSpec.acc, amSpec.bass, { id: cCenter.id, symbol: cCenter.symbol, rootPc: cCenter.rootPc, qual: cCenter.qual }, cCands)
+  assert.equal(cToAm.status, 'branch', `Playing Am from C should advance to Am, got ${JSON.stringify(cToAm)}`)
+  if (cToAm.status === 'branch') assert.equal(cToAm.symbol, 'Am')
+})
+
+test('flowVoicings generates Open, Barre, and 3-string Triad voicings with 1-2-3-4 fingers for Chord Path wheel', () => {
+  const inst = current()
+  for (const sym of ['C', 'G', 'Am', 'F', 'Dm', 'E7', 'Fm']) {
+    for (const st of FLOW_VOICING_STYLES) {
+      const res = voicingForFlowChord(sym, inst, st.id, 5)
+      assert.ok(res && res.voicing.frets.length === inst.strings, `Missing ${st.id} voicing for ${sym}`)
+      const played = res!.voicing.frets.filter(f => f >= 0)
+      assert.ok(played.length >= 3, `Expected >= 3 notes for ${sym} ${st.id}`)
+      if (st.id.startsWith('triad-')) {
+        assert.equal(played.length, 3, `Triad ${st.id} for ${sym} must have exactly 3 strings`)
+        assert.ok(res!.inversion, `Expected inversion label for ${sym} ${st.id}`)
+      }
+      if (st.id === 'barre') {
+        assert.ok(res!.voicing.frets.every(f => f !== 0), `Barre chord for ${sym} should not rely on open strings`)
+      }
+    }
+  }
 })
 
 console.log(`All ${passed} Harmonic Flow & Strum Grid tests passed!`)

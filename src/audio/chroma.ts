@@ -19,9 +19,49 @@ export function addChroma(spec: Float32Array, binHz: number, acc: number[]) {
   }
 }
 
+/**
+ * Peak-only guitar chroma + dedicated low-register bass chroma (75–280 Hz).
+ * Filters out room blur and rolls off high 3rd harmonics (> 680 Hz) so an 8th-fret C barre chord
+ * doesn't falsely look like G major, and measures the true bass root to separate Am vs C.
+ */
+export function addGuitarChordChroma(spec: Float32Array, binHz: number, acc: number[], bassAcc: number[]) {
+  const loBin = Math.max(2, Math.floor(72 / binHz))
+  const hiBin = Math.min(spec.length - 3, Math.floor(1150 / binHz))
+  let lowestStrongPeak = false
+
+  for (let i = loBin; i < hiBin; i++) {
+    const db = spec[i]
+    if (db < -68) continue
+    // Local spectral peak only (rejects broadband noise & acoustic body resonance)
+    if (db < spec[i - 1] || db < spec[i + 1]) continue
+    const localFloor = (spec[i - 2] + spec[i + 2]) * 0.5
+    if (db - localFloor < 4.5) continue
+
+    const freq = i * binHz
+    const midi = 69 + 12 * Math.log2(freq / 440)
+    const near = Math.round(midi)
+    const off = Math.abs(midi - near)
+    if (off > 0.32) continue
+
+    const pcIdx = ((near % 12) + 12) % 12
+    const mag = Math.pow(10, db / 20) * (1 - off * 2.2)
+
+    // Roll off high overtones (> 680 Hz) so 3rd harmonics of C/G strings can't mimic a V chord
+    const regWeight = freq < 360 ? 1.25 : freq < 680 ? 0.85 : 0.32
+    acc[pcIdx] += mag * regWeight
+
+    // Dedicated low-register bass root accumulator (guitar low E2=82Hz up to C#4=277Hz)
+    if (freq <= 285) {
+      const bassBoost = !lowestStrongPeak && db > -54 ? 1.8 : 1.0
+      if (bassBoost > 1) lowestStrongPeak = true
+      bassAcc[pcIdx] += mag * bassBoost
+    }
+  }
+}
+
 export class ChromaListener {
-  /** called once per strum with 12 weights (C..B), normalised to sum 1 */
-  onChord?: (chroma: number[]) => void
+  /** called once per strum with 12 weights (C..B) normalised to sum 1, plus optional low-register bass weights */
+  onChord?: (chroma: number[], bass?: number[]) => void
   onLevel?: (level: number) => void
   input: OpenedInput | null = null
   private analyser: AnalyserNode | null = null
@@ -29,6 +69,7 @@ export class ChromaListener {
   private spec = new Float32Array(8192)
   private time = new Float32Array(2048)
   private acc: number[] | null = null
+  private bassAcc: number[] | null = null
   private accFrames = 0
   private startAt = 0
   private recent: number[] = []
@@ -74,19 +115,26 @@ export class ChromaListener {
     if (!this.acc && level > Math.max(0.004, 0.012 * this.gate) && level > min * 2 && now - this.lastOnset > 0.5) {
       this.lastOnset = now
       this.acc = new Array(12).fill(0)
+      this.bassAcc = new Array(12).fill(0)
       this.accFrames = 0
       this.startAt = now
     }
-    if (!this.acc) return
-    // skip the pick noise, then listen for ~0.7 s
+    if (!this.acc || !this.bassAcc) return
+    // skip the pick noise, then listen for ~0.68 s
     if (now - this.startAt < 0.08) return
     a.getFloatFrequencyData(this.spec)
-    addChroma(this.spec, ctx.sampleRate / a.fftSize, this.acc)
+    addGuitarChordChroma(this.spec, ctx.sampleRate / a.fftSize, this.acc, this.bassAcc)
     this.accFrames++
-    if (now - this.startAt > 0.75) {
-      const total = this.acc.reduce((x, y) => x + y, 0) || 1
-      this.onChord?.(this.acc.map(v => v / total))
+    if (now - this.startAt > 0.72) {
+      const total = this.acc.reduce((x, y) => x + y, 0)
+      if (total > 1e-6) {
+        const bTotal = this.bassAcc.reduce((x, y) => x + y, 0)
+        const normChroma = this.acc.map(v => v / total)
+        const normBass = bTotal > 1e-6 ? this.bassAcc.map(v => v / bTotal) : undefined
+        this.onChord?.(normChroma, normBass)
+      }
       this.acc = null
+      this.bassAcc = null
     }
   }
 }
