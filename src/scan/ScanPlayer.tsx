@@ -2,18 +2,27 @@
 // (shows the BPM it plays at), tap a note to start from there, the unified floating Visual Checker (Check it in the
 // picture + 1-tap fixer + ◐ opacity meter, auto-opening on unsure notes with auto-advance and Undo), an optional
 // floating opacity-metered Original Video card (YouTube), and the floating "Where your fingers go" box.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SongDoc } from '../tabs/library'
-import { flatten, type Song, type SongNote } from '../tabs/model'
+import { flatten, playable, type Song, type SongNote } from '../tabs/model'
 import { TabPlayer } from '../audio/tabPlayer'
 import { activeSound, playDeadNote, playNote, soundForProgram } from '../audio/pluck'
 import { audio } from '../audio/engine'
+import { onLeavePage } from '../audio/stopAll'
+import { micWhere } from '../audio/input'
+import { latencyMs } from '../audio/gear'
+import { chordMatch } from '../audio/chroma'
 import { TabView } from '../components/TabView'
 import { FingerBox } from '../components/FingerBox'
+import { MixSlider, applyMix } from '../components/MixSlider'
 import { liveHandState, handGroups } from '../play/handShape'
 import { songTempo } from '../play/tempoMap'
+import { useInTime } from '../play/useInTime'
+import type { VideoApi } from '../play/inTime'
+import { NoteListener, matchNote, type FollowStep } from '../tabs/follow'
+import { accepted, bendAlso } from '../tabs/bends'
 import { useInstrument } from '../instrument'
-import { pcName } from '../theory/notes'
+import { midiName, pcName } from '../theory/notes'
 import { Ico } from '../components/Icon'
 import { chordTimeline } from '../tabs/harmony'
 import { strumPattern } from '../play/strumCoach'
@@ -26,30 +35,50 @@ const TWIN_HINTS: Record<number, number[]> = {
 }
 const TECHS = ['h', 'p', '/', '\\', 'b', '~', 'PM'] as const
 
-export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTimes }: {
+export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTimes, playTools }: {
   doc: SongDoc
   marks?: number[]
   onChangeSong?: (song: Song) => void
   sources?: ScanSource[]
   noPicture?: { why: string; onFrames?: () => void }
   barTimes?: Record<number, number>
+  /** Enable full in-window Play controls: Wait for me mic, In time mic, Click, Bar Loop, Mix & Hand toggle */
+  playTools?: boolean
 }) {
   const inst = useInstrument()
   const track = doc.song.tracks[0]
   const flat = useMemo(() => flatten(track), [track])
-  const states = useMemo(() => new Uint8Array(flat.length), [flat])
+  const statesRef = useRef(new Uint8Array(flat.length))
+  const [stateVer, setStateVer] = useState(0)
+  useEffect(() => {
+    statesRef.current = new Uint8Array(flat.length)
+    setStateVer(v => v + 1)
+  }, [flat.length, doc.id])
+
   const [at, setAt] = useState(-1)
   const [from, setFrom] = useState(0)
   const [speed, setSpeed] = useState(1)
   const [loop, setLoop] = useState<{ from: number; to: number } | null>(null)
+  const [clickOn, setClickOn] = useState(true)
+  const [guideOn, setGuideOn] = useState(true)
+  const [mixOpen, setMixOpen] = useState(false)
+  const [handOpen, setHandOpen] = useState(true)
+  const [micMode, setMicMode] = useState<'off' | 'wait' | 'time'>('off')
+  const [micErr, setMicErr] = useState('')
+  const [heardLabel, setHeardLabel] = useState('')
+  const [waitPos, setWaitPos] = useState(0)
   const [sel, setSel] = useState<{ flatIdx: number; string: number } | null>(null)
   const [undoStack, setUndoStack] = useState<Song[]>([])
   const [picOff, setPicOff] = useState(false)
   const [vidOpen, setVidOpen] = useState(false)
   const [verifiedBanner, setVerifiedBanner] = useState(false)
   const player = useRef<TabPlayer | null>(null)
+  const listenerRef = useRef<NoteListener | null>(null)
+  const lastHitAtRef = useRef(0)
+  const nullVideoRef = useRef<VideoApi | null>(null)
+
   const bpm = doc.song.tempo ?? 90
-  const playing = at >= 0
+  const maxBar = Math.max(0, track.bars.length - 1)
   const strNames = useMemo(() => track.tuning.map((t, s) => {
     const n = pcName(t % 12, false)
     return s === track.tuning.length - 1 && track.tuning.filter(x => x % 12 === t % 12).length > 1 ? n.toLowerCase() : n
@@ -63,10 +92,202 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
     return out
   }, [flat])
 
+  // Followable steps for Wait-for-me mic mode (same matching rules as PlayScreen)
+  const follow = useMemo(() => {
+    const idx: number[] = []
+    const steps: FollowStep[] = []
+    flat.forEach((f, i) => {
+      const ns = playable(f.step)
+      if (!ns.length) return
+      idx.push(i)
+      const midis = ns.map(n => n.midi)
+      const also = bendAlso(ns)
+      const pcs = new Set(midis.map(m => ((m % 12) + 12) % 12))
+      steps.push({ midis, ...(also.length ? { also } : {}), ...(pcs.size >= 3 ? { chord: true } : {}) })
+    })
+    return { idx, steps }
+  }, [flat])
+
+  const loopFollowRange = useMemo(() => {
+    if (!loop) return null
+    const a = follow.idx.findIndex(i => flat[i]?.bar >= loop.from)
+    if (a < 0) return null
+    let b = a
+    follow.idx.forEach((fi, k) => { if (flat[fi]?.bar <= loop.to) b = k })
+    return { a, b }
+  }, [loop, follow, flat])
+
+  const tempoMap = useMemo(() => {
+    const m = songTempo(doc.song)
+    return m.changes ? m : undefined
+  }, [doc.song])
+
+  const inTime = useInTime({
+    flat,
+    loop,
+    startFlat: from,
+    songBpm: bpm,
+    speed,
+    click: clickOn,
+    guide: guideOn,
+    strum: strumPattern(doc.song.strum) ?? null,
+    meter: doc.song.meter ?? 4,
+    tempo: tempoMap,
+    sound: activeSound(soundForProgram(track.program)),
+    strict: false,
+    trainer: { on: false, start: 0.7, step: 0.05, target: 1, pass: 85 },
+    video: nullVideoRef,
+    sync: undefined,
+    states: statesRef,
+    latencyMs: () => latencyMs(listenerRef.current?.inputKind ?? 'mic'),
+    onChange: () => setStateVer(v => v + 1),
+    onExpect: (nowN, nextN) => listenerRef.current?.expect(nowN, nextN),
+    onFinish: () => {
+      listenerRef.current?.stop()
+      listenerRef.current = null
+      setMicMode('off')
+    },
+  })
+
+  const waitRef = useRef({ waitPos, follow, loopFollowRange, micMode })
+  waitRef.current = { waitPos, follow, loopFollowRange, micMode }
+
+  const stopMic = useCallback(() => {
+    listenerRef.current?.stop()
+    listenerRef.current = null
+    inTime.stop()
+    setMicMode('off')
+    setHeardLabel('')
+  }, [inTime])
+
+  // Update expected notes whenever Wait-for-me position changes
+  useEffect(() => {
+    if (micMode !== 'wait' || !listenerRef.current) return
+    const curStep = follow.steps[waitPos]
+    const nextStep = follow.steps[waitPos + 1]
+    listenerRef.current.expect(curStep ? accepted(curStep) : [], nextStep ? accepted(nextStep) : [])
+  }, [micMode, waitPos, follow])
+
+  const startMicMode = async (mode: 'wait' | 'time') => {
+    setMicErr('')
+    player.current?.stop()
+    setAt(-1)
+    if (micMode === mode) {
+      stopMic()
+      return
+    }
+    stopMic()
+    statesRef.current = new Uint8Array(flat.length)
+    setStateVer(v => v + 1)
+    setSel(null)
+    applyMix(false)
+
+    // Starting step for Wait-for-me
+    let initWait = follow.idx.findIndex(fi => fi >= from)
+    if (initWait < 0) initWait = 0
+    if (loopFollowRange && (initWait < loopFollowRange.a || initWait > loopFollowRange.b)) initWait = loopFollowRange.a
+    setWaitPos(initWait)
+    waitRef.current = { ...waitRef.current, waitPos: initWait, micMode: mode }
+
+    const l = new NoteListener('scan-play', { chords: true, autoGate: true })
+    l.onNote = e => {
+      const st = waitRef.current
+      setHeardLabel(midiName(e.midi))
+      if (st.micMode === 'time') {
+        inTime.played(e.time, { midi: e.midi })
+        return
+      }
+      if (st.micMode !== 'wait') return
+      const curStep = st.follow.steps[st.waitPos]
+      if (!curStep || curStep.chord) return
+      const since = e.time - lastHitAtRef.current
+      const r = matchNote(st.follow.steps, st.waitPos, e.midi, false, since, e.attack)
+      if (r.kind === 'hit') {
+        lastHitAtRef.current = e.time
+        for (let k = st.waitPos; k < r.step; k++) statesRef.current[st.follow.idx[k]] = 2
+        statesRef.current[st.follow.idx[r.step]] = 1
+        setStateVer(v => v + 1)
+        let next = r.step + 1
+        if (st.loopFollowRange && next > st.loopFollowRange.b) {
+          for (let k = st.loopFollowRange.a; k <= st.loopFollowRange.b; k++) statesRef.current[st.follow.idx[k]] = 0
+          next = st.loopFollowRange.a
+        } else if (!st.loopFollowRange && next >= st.follow.steps.length) {
+          next = 0
+        }
+        setWaitPos(next)
+        if (st.follow.idx[next] !== undefined) setFrom(st.follow.idx[next])
+      }
+    }
+    l.onChord = chroma => {
+      const st = waitRef.current
+      if (st.micMode === 'time') {
+        inTime.played(audio().currentTime, { chroma })
+        return
+      }
+      if (st.micMode !== 'wait') return
+      const curStep = st.follow.steps[st.waitPos]
+      if (!curStep?.chord) return
+      const pcs = [...new Set(curStep.midis.map(m => ((m % 12) + 12) % 12))]
+      if (!chordMatch(chroma, pcs).ok) return
+      lastHitAtRef.current = audio().currentTime
+      statesRef.current[st.follow.idx[st.waitPos]] = 1
+      setStateVer(v => v + 1)
+      let next = st.waitPos + 1
+      if (st.loopFollowRange && next > st.loopFollowRange.b) {
+        for (let k = st.loopFollowRange.a; k <= st.loopFollowRange.b; k++) statesRef.current[st.follow.idx[k]] = 0
+        next = st.loopFollowRange.a
+      } else if (!st.loopFollowRange && next >= st.follow.steps.length) {
+        next = 0
+      }
+      setWaitPos(next)
+      if (st.follow.idx[next] !== undefined) setFrom(st.follow.idx[next])
+    }
+
+    try {
+      await l.start()
+      listenerRef.current = l
+      setMicMode(mode)
+      if (mode === 'wait') {
+        const curStep = follow.steps[initWait]
+        const nextStep = follow.steps[initWait + 1]
+        l.expect(curStep ? accepted(curStep) : [], nextStep ? accepted(nextStep) : [])
+      } else {
+        inTime.start()
+      }
+    } catch {
+      l.stop()
+      setMicMode('off')
+      setMicErr(`Microphone needed: allow it for KGuitar ${micWhere()}, then try again.`)
+    }
+  }
+
   // Auto-pop the Visual Checker on unsure note #1 as soon as a scan loads with unsure notes & pictures!
   // (this reset runs before the auto-open below, so the first unsure note keeps the cursor)
-  useEffect(() => () => player.current?.stop(), [])
-  useEffect(() => { player.current?.stop(); setAt(-1); setFrom(0); setLoop(null) }, [doc.song.title])
+  useEffect(() => {
+    const off = onLeavePage(() => {
+      player.current?.stop()
+      listenerRef.current?.stop()
+      listenerRef.current = null
+      inTime.stop()
+    })
+    return () => {
+      off()
+      player.current?.stop()
+      listenerRef.current?.stop()
+      listenerRef.current = null
+      inTime.stop()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    player.current?.stop()
+    stopMic()
+    setAt(-1)
+    setFrom(0)
+    setLoop(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc.id])
+
   const autoOpenedId = useRef('')
   useEffect(() => {
     const key = `${doc.id}:${sources?.length ?? 0}`
@@ -82,7 +303,6 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
     }
   }, [doc.id, sources?.length, unsureList.length, onChangeSong]) // eslint-disable-line react-hooks/exhaustive-deps
 
-
   const audition = (midi: number, string: number) => {
     try {
       const ctx = audio()
@@ -91,15 +311,18 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
     } catch { /* ignore in headless */ }
   }
 
+  const playing = at >= 0
   const start = (i: number, lp = loop) => {
+    if (micMode !== 'off') stopMic()
+    applyMix(false)
     const p = (player.current ??= new TabPlayer())
     p.onStep = k => setAt(k)
     p.onEnd = () => { setAt(-1); setFrom(0) }
     p.onStop = () => setAt(-1)
     p.sound = activeSound(soundForProgram(track.program))
     p.meter = doc.song.meter ?? 4
-    const map = songTempo(doc.song)
-    p.tempo = map.changes ? map : undefined
+    p.click = !!(playTools && clickOn)
+    p.tempo = tempoMap
     if (lp) {
       const a = flat.findIndex(f => f.bar === lp.from), b = flat.findIndex(f => f.bar > lp.to)
       p.play(flat, Math.max(a, i >= a && (b < 0 || i < b) ? i : a), bpm * speed, b < 0 ? flat.length : b, a)
@@ -107,11 +330,23 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
     setAt(i)
   }
   const pause = () => { player.current?.stop(); setFrom(Math.max(0, at)); setAt(-1) }
-  const reset = () => { player.current?.stop(); setAt(-1); setFrom(0) }
-  // a new speed takes effect from the note you're on
-  useEffect(() => { if (playing) start(at) }, [speed]) // eslint-disable-line react-hooks/exhaustive-deps
+  const reset = () => {
+    player.current?.stop()
+    if (micMode !== 'off') stopMic()
+    statesRef.current = new Uint8Array(flat.length)
+    setStateVer(v => v + 1)
+    setAt(-1)
+    setFrom(loop ? Math.max(0, flat.findIndex(f => f.bar === loop.from)) : 0)
+    setWaitPos(loopFollowRange?.a ?? 0)
+  }
+  // a new speed or click setting takes effect from the note you're on
+  useEffect(() => { if (playing) start(at) }, [speed, clickOn]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const cur = playing ? at : from
+  const cur = micMode === 'time' && inTime.cursor >= 0
+    ? inTime.cursor
+    : micMode === 'wait'
+      ? (follow.idx[waitPos] ?? from)
+      : (playing ? at : from)
   const liveHand = liveHandState(flat, hands, cur, strNames)
   const expected = flat[cur]?.step.notes ?? []
 
@@ -290,24 +525,82 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
     onToggleVideo: () => setVidOpen(v => !v),
   } : undefined
 
+  const activeLoopBar = flat[cur]?.bar ?? 0
+  const toggleLoopHere = () => {
+    if (loop) {
+      setLoop(null)
+      if (playing) start(at, null)
+    } else {
+      const lp = { from: activeLoopBar, to: activeLoopBar }
+      setLoop(lp)
+      if (playing) start(flat.findIndex(f => f.bar === lp.from), lp)
+    }
+  }
+  const adjustLoopEnd = (delta: number) => {
+    if (!loop) return
+    const nextTo = Math.max(loop.from, Math.min(maxBar, loop.to + delta))
+    const lp = { from: loop.from, to: nextTo }
+    setLoop(lp)
+    if (playing) start(flat.findIndex(f => f.bar === lp.from), lp)
+  }
+  const skipWaitNote = () => {
+    if (micMode !== 'wait') return
+    const fi = follow.idx[waitPos]
+    if (fi !== undefined) statesRef.current[fi] = 2
+    setStateVer(v => v + 1)
+    let next = waitPos + 1
+    if (loopFollowRange && next > loopFollowRange.b) next = loopFollowRange.a
+    else if (!loopFollowRange && next >= follow.steps.length) next = 0
+    setWaitPos(next)
+    if (follow.idx[next] !== undefined) setFrom(follow.idx[next])
+  }
+  const inTimeTotal = inTime.tally.on + inTime.tally.early + inTime.tally.late + inTime.tally.miss
+  const inTimePct = inTimeTotal > 0 ? Math.round(((inTime.tally.on + (inTime.tally.early + inTime.tally.late) * 0.5) / inTimeTotal) * 100) : null
+  const isBusy = playing || micMode !== 'off'
+
   return (
     <div className="scan-player stack" style={{ gap: 6 }} data-testid="scan-player">
-      <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+      {/* Row 1: Play / Mic Modes (Hear it · Wait for me · In time · Reset) */}
+      <div className="row" style={{ gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
         <button className={`btn sm${playing ? ' on' : ' primary'}`} onClick={() => (playing ? pause() : start(from))} data-testid="sp-play">
-          {playing ? <><Ico n="pause" fill /> Pause</> : <><Ico n="play" fill /> {from > 0 ? 'Go on' : 'Play'}</>}
+          {playing ? <><Ico n="pause" fill /> Pause</> : <><Ico n="play" fill /> {playTools ? (from > 0 ? 'Go on' : 'Hear it') : (from > 0 ? 'Go on' : 'Play')}</>}
         </button>
-        <button className="btn sm ghost" onClick={reset} aria-label="Back to the start" disabled={!playing && from === 0}><Ico n="again" /></button>
-        <label className="row small" style={{ gap: 6, alignItems: 'center', flex: '1 1 160px' }}>
-          <span>Speed</span>
-          <input type="range" min={0.25} max={1.5} step={0.05} value={speed} onChange={e => setSpeed(Number(e.target.value))} aria-label="Speed" data-testid="sp-speed" style={{ flex: 1 }} />
-          <b className="tabular" data-testid="sp-bpm">{Math.round(bpm * speed)} BPM</b>
-        </label>
+        {playTools && (
+          <>
+            <button
+              className={`btn sm${micMode === 'wait' ? ' on' : ''}`}
+              aria-pressed={micMode === 'wait'}
+              onClick={() => void startMicMode('wait')}
+              data-testid="sp-mic-wait"
+              title="Mic listens and waits for each note you play"
+            >
+              🎤 {micMode === 'wait' ? 'Stop mic' : 'Wait for me'}
+            </button>
+            <button
+              className={`btn sm${micMode === 'time' ? ' on' : ''}`}
+              aria-pressed={micMode === 'time'}
+              onClick={() => void startMicMode('time')}
+              data-testid="sp-mic-time"
+              title="Play in time with count-in, click, and live mic timing"
+            >
+              ⏱ {micMode === 'time' ? 'Stop' : 'In time'}
+            </button>
+          </>
+        )}
+        <button className="btn sm ghost" onClick={reset} aria-label="Back to the start" disabled={!isBusy && from === 0}><Ico n="again" /></button>
+        {!playTools && (
+          <label className="row small" style={{ gap: 6, alignItems: 'center', flex: '1 1 160px' }}>
+            <span>Speed</span>
+            <input type="range" min={0.25} max={1.5} step={0.05} value={speed} onChange={e => setSpeed(Number(e.target.value))} aria-label="Speed" data-testid="sp-speed" style={{ flex: 1 }} />
+            <b className="tabular" data-testid="sp-bpm">{Math.round(bpm * speed)} BPM</b>
+          </label>
+        )}
         {onChangeSong && unsureList.length > 0 && (
           <button className="btn sm primary" onClick={() => jumpUnsure(1)} data-testid="sp-next-unsure">
             Check {unsureList.length} unsure →
           </button>
         )}
-        {hasVideo && (
+        {hasVideo && !playTools && (
           <button className={`btn sm${vidOpen ? ' on' : ''}`} onClick={() => setVidOpen(v => !v)} data-testid="sp-video-btn" title="Watch & hear original video in a floating window">
             <Ico n="film" /> {vidOpen ? 'Hide video' : 'Watch video'}
           </button>
@@ -315,8 +608,105 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
         {undoStack.length > 0 && (
           <button className="btn sm ghost" onClick={undoLast} data-testid="sp-undo" title="Undo last note edit">↩ Undo</button>
         )}
-        {loop && <button className="btn sm on" onClick={() => { setLoop(null); if (playing) start(at, null) }}>Looping bars {loop.from + 1}–{loop.to + 1} ✕</button>}
+        {!playTools && loop && <button className="btn sm on" onClick={() => { setLoop(null); if (playing) start(at, null) }}>Looping bars {loop.from + 1}–{loop.to + 1} ✕</button>}
       </div>
+
+      {/* Row 2 (playTools): Speed · Click · Loop bars · Mix · Hand */}
+      {playTools && (
+        <div className="row" style={{ gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+          <label className="row small" style={{ gap: 5, alignItems: 'center', flex: '1 1 130px', minWidth: 120 }}>
+            <input type="range" min={0.25} max={1.5} step={0.05} value={speed} onChange={e => setSpeed(Number(e.target.value))} aria-label="Speed" data-testid="sp-speed" style={{ flex: 1, minWidth: 60 }} />
+            <b className="tabular" data-testid="sp-bpm" style={{ fontSize: 11 }}>{Math.round(bpm * speed)} BPM</b>
+          </label>
+          <button
+            className={`btn sm${clickOn ? ' set' : ''}`}
+            aria-pressed={clickOn}
+            onClick={() => setClickOn(c => !c)}
+            data-testid="sp-click"
+            title="Metronome beat click"
+          >
+            Click
+          </button>
+          <button
+            className={`btn sm${loop ? ' on' : ''}`}
+            aria-pressed={!!loop}
+            onClick={toggleLoopHere}
+            data-testid="sp-loop"
+            title={loop ? 'Turn off bar loop' : `Loop bar ${activeLoopBar + 1}`}
+          >
+            ⟲ {loop ? `Bar ${loop.from + 1}${loop.to > loop.from ? `–${loop.to + 1}` : ''}` : 'Loop'}
+          </button>
+          {loop && (
+            <>
+              <button className="btn sm ghost" onClick={() => adjustLoopEnd(-1)} disabled={loop.to <= loop.from} aria-label="Shorter loop" style={{ padding: '2px 5px' }}>−</button>
+              <button className="btn sm ghost" onClick={() => adjustLoopEnd(1)} disabled={loop.to >= maxBar} aria-label="Longer loop" style={{ padding: '2px 5px' }}>+</button>
+            </>
+          )}
+          <button
+            className={`btn sm${mixOpen ? ' set' : ''}`}
+            aria-pressed={mixOpen}
+            onClick={() => setMixOpen(m => !m)}
+            data-testid="sp-mix-btn"
+            title="Adjust guide volume & Mix"
+          >
+            Mix
+          </button>
+          <button
+            className={`btn sm${handOpen ? ' set' : ''}`}
+            aria-pressed={handOpen}
+            onClick={() => setHandOpen(h => !h)}
+            data-testid="sp-hand-btn"
+            title="Show or hide Live Left-Hand Coach"
+          >
+            ✋ Hand
+          </button>
+        </div>
+      )}
+
+      {/* Compact Mix panel (Your part volume + In-time Guide toggle) */}
+      {playTools && mixOpen && (
+        <div className="panel row" style={{ gap: 8, padding: '6px 8px', alignItems: 'center', flexWrap: 'wrap' }} data-testid="sp-mix-panel">
+          <MixSlider band={false} compact />
+          <button
+            className={`btn sm${guideOn ? ' set' : ''}`}
+            aria-pressed={guideOn}
+            onClick={() => setGuideOn(g => !g)}
+            title="Play guide tab notes during In time mode"
+          >
+            Guide {guideOn ? 'ON' : 'OFF'}
+          </button>
+        </div>
+      )}
+
+      {/* Live Mic feedback bar */}
+      {micErr && <p className="notice small" style={{ margin: 0 }} role="alert">{micErr}</p>}
+      {micMode === 'wait' && (
+        <div className="panel row small" style={{ gap: 8, padding: '5px 8px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }} data-testid="sp-mic-bar">
+          <span>
+            <b>🎤 Listening</b>
+            {' · '}Play: <b>{expected.length ? expected.map(n => midiName(n.midi)).join(' + ') : '—'}</b>
+            {heardLabel && <span className="muted"> · Heard: {heardLabel}</span>}
+          </span>
+          <span className="row" style={{ gap: 6, alignItems: 'center' }}>
+            <span className="muted tabular">{waitPos + 1}/{Math.max(1, follow.steps.length)}</span>
+            <button className="btn sm ghost" onClick={skipWaitNote}>Skip →</button>
+          </span>
+        </div>
+      )}
+      {micMode === 'time' && (
+        <div className="panel row small" style={{ gap: 8, padding: '5px 8px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }} data-testid="sp-mic-bar">
+          <span>
+            {inTime.countIn > 0
+              ? <><b>🥁 Count-in: {inTime.countIn}</b></>
+              : <><b>⏱ In time</b>{heardLabel ? <span className="muted"> · Heard: {heardLabel}</span> : null}</>}
+          </span>
+          <span className="tabular muted">
+            {inTimePct !== null ? <b>{inTimePct}%</b> : 'Play along…'}
+            {inTimeTotal > 0 ? ` · ✓${inTime.tally.on} · ✕${inTime.tally.miss}` : ''}
+          </span>
+        </div>
+      )}
+
       {verifiedBanner && unsureList.length === 0 && (
         <div className="notice small row" style={{ gap: 8, alignItems: 'center', justifyContent: 'space-between', borderLeftColor: 'var(--mint)' }} data-testid="scan-all-verified">
           <span><b>✓ All unsure notes verified!</b> Tap any note anytime to double-check it in the picture, or open in Play.</span>
@@ -338,7 +728,7 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
         </button>
       )}
       {/* Inline note fixer when there's no floating picture window open (e.g. cloud read or picture tucked away) */}
-      {onChangeSong && selNote && selFlat && (!peek || picOff) && (
+      {onChangeSong && selNote && selFlat && (!peek || picOff) && !isBusy && (
         <div className="panel small stack" style={{ gap: 6, padding: '8px 10px' }} data-testid="scan-note-fixer">
           <div className="row" style={{ gap: 6, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
             <span>
@@ -382,11 +772,16 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
           </div>
         </div>
       )}
-      <div className={selNote?.unsure && !playing ? 'scan-sel-unsure' : undefined}>
-        <TabView track={track} mode="fret" flats={false} cursor={cur} playing={playing} states={states} version={0} spans={spans} marks={marks} strum={strumPattern(doc.song.strum) ?? null} meter={doc.song.meter ?? 4}
+      <div className={selNote?.unsure && !isBusy ? 'scan-sel-unsure' : undefined}>
+        <TabView track={track} mode="fret" flats={false} cursor={cur} playing={isBusy} states={statesRef.current} version={stateVer} spans={spans} marks={marks} strum={strumPattern(doc.song.strum) ?? null} meter={doc.song.meter ?? 4}
           onTap={(i, n) => {
             if (playing) start(i)
-            else {
+            else if (micMode === 'wait') {
+              const wi = follow.idx.findIndex(fi => fi >= i)
+              if (wi >= 0) { setWaitPos(wi); setFrom(follow.idx[wi]) }
+            } else if (micMode === 'time') {
+              setFrom(i)
+            } else {
               setFrom(i)
               if (n && onChangeSong) {
                 setPicOff(false)
@@ -396,7 +791,7 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
             }
           }} />
       </div>
-      {liveHand && liveHand.group.notes.some(n => n.fret > 0) && (
+      {(!playTools || handOpen) && liveHand && liveHand.group.notes.some(n => n.fret > 0) && (
         <FingerBox
           where="scan"
           group={liveHand.group}

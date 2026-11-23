@@ -101,19 +101,19 @@ function ScannedTabCard({ initialDoc }: { initialDoc: SongDoc }) {
     >
       <div className="stack" style={{ gap: 6 }}>
         <div className="lesson-tab-view" data-testid="scanned-lesson-tab-body" style={{ maxHeight: 'min(58vh, 520px)' }}>
-          <ScanPlayer doc={doc} onChangeSong={handleSongChange} />
+          <ScanPlayer doc={doc} onChangeSong={handleSongChange} playTools />
         </div>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <span className="small muted" style={{ fontSize: 11 }}>
             Tap <b>◐</b> above to see through over the PDF · tap any fret to fix it
           </span>
           <button
-            className="btn sm"
+            className="btn sm ghost"
             onClick={() => openInPlay(doc)}
             data-testid="scanned-lesson-open-in-play"
-            title="Switch to full Play mode with mic listening"
+            title="Optionally switch to full-screen Play"
           >
-            <Ico n="play" /> Open in Play
+            Full Play ↗
           </button>
         </div>
       </div>
@@ -285,8 +285,8 @@ function TabPane({ o }: { o: LessonTabOpen }) {
   }
   return (
     <>
-      {doc && <div className="lesson-tab-view" data-testid="lesson-tab-tab" style={{ maxHeight: 'min(50vh, 460px)' }}><ScanPlayer doc={doc} /></div>}
-      {doc && <button className="btn sm" onClick={() => void open()} data-testid="lesson-tab-open"><Ico n="play" /> Open in Play (with the mic)</button>}
+      {doc && <div className="lesson-tab-view" data-testid="lesson-tab-tab" style={{ maxHeight: 'min(55vh, 480px)' }}><ScanPlayer doc={doc} playTools /></div>}
+      {doc && <button className="btn sm ghost" onClick={() => void open()} data-testid="lesson-tab-open">Full Play ↗</button>}
       {msg && <span className="small muted" role="status">{msg}</span>}
     </>
   )
