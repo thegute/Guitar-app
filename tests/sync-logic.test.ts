@@ -74,7 +74,9 @@ test('mergeBackups smart-merges Theory Course, Circle mastery, video progress, s
       }),
       'kg:circleDone': JSON.stringify(['c1', 'c2']),
       'kg:circleMastery': JSON.stringify({ C: 80, G: 40 }),
-      'kg:practiceLog': JSON.stringify({ '2026-11-20': { guitar: 900, study: 300 } }),
+      'kg:practiceLog': JSON.stringify({
+        '2026-11-20': { guitar: 900, study: 300, by: { play: 600, tuner: 40 }, answers: 10, correct: 8, done: ['q1'], xp: 120, counts: { notesHit: 50 } },
+      }),
       'kg:lessonProgress': JSON.stringify({ v1: { pos: 45, dur: 120, done: false, at: 100 } }),
       'kg:studioBeats': JSON.stringify([{ name: 'Funk A', bpm: 100 }, { name: 'Shared', bpm: 90 }]),
       'kg:z2h': JSON.stringify({ level: 2, ticks: ['t1', 't2'] }),
@@ -96,7 +98,7 @@ test('mergeBackups smart-merges Theory Course, Circle mastery, video progress, s
       'kg:circleDone': JSON.stringify(['c2', 'c3']),
       'kg:circleMastery': JSON.stringify({ C: 60, G: 95, D: 50 }),
       'kg:practiceLog': JSON.stringify({
-        '2026-11-20': { guitar: 600, study: 700 },
+        '2026-11-20': { guitar: 600, study: 700, by: { play: 300, jam: 420 }, answers: 12, correct: 11, done: ['q2'], xp: 180, counts: { notesHit: 30, loopsRecorded: 2 }, away: true },
         '2026-11-21': { guitar: 1200, study: 0 },
       }),
       'kg:lessonProgress': JSON.stringify({
@@ -129,10 +131,27 @@ test('mergeBackups smart-merges Theory Course, Circle mastery, video progress, s
   assert.deepEqual(JSON.parse(merged.storage['kg:circleDone']).sort(), ['c1', 'c2', 'c3'])
   assert.deepEqual(JSON.parse(merged.storage['kg:circleMastery']), { C: 80, G: 95, D: 50 })
 
-  // Practice log takes max per day
+  // Practice log takes max per day AND preserves full DayLog structure (by, done, counts, answers, correct, xp, flags)
   const log = JSON.parse(merged.storage['kg:practiceLog'])
-  assert.deepEqual(log['2026-11-20'], { guitar: 900, study: 700 })
-  assert.deepEqual(log['2026-11-21'], { guitar: 1200, study: 0 })
+  assert.deepEqual(log['2026-11-20'], {
+    guitar: 900,
+    study: 700,
+    by: { play: 600, tuner: 40, jam: 420 },
+    answers: 12,
+    correct: 11,
+    done: ['q1', 'q2'],
+    away: true,
+    xp: 180,
+    counts: { notesHit: 50, loopsRecorded: 2 },
+  })
+  assert.deepEqual(log['2026-11-21'], {
+    guitar: 1200,
+    study: 0,
+    by: {},
+    answers: 0,
+    correct: 0,
+    done: [],
+  })
 
   // Video lesson watch progress: done OR + max pos
   const lp = JSON.parse(merged.storage['kg:lessonProgress'])

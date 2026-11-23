@@ -62,17 +62,54 @@ export function dayKey(d = new Date()) {
   return `${y}-${m}-${day}`
 }
 
+export function normalizeDay(raw: unknown): DayLog {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<DayLog>
+  const by: Partial<Record<Activity, number>> = {}
+  if (r.by && typeof r.by === 'object') {
+    for (const [k, v] of Object.entries(r.by)) {
+      if (typeof v === 'number' && Number.isFinite(v)) by[k as Activity] = v
+    }
+  }
+  let counts: Record<string, number> | undefined
+  if (r.counts && typeof r.counts === 'object') {
+    counts = {}
+    for (const [k, v] of Object.entries(r.counts)) {
+      if (typeof v === 'number' && Number.isFinite(v)) counts[k] = v
+    }
+  }
+  const out: DayLog = {
+    guitar: typeof r.guitar === 'number' && Number.isFinite(r.guitar) ? r.guitar : 0,
+    study: typeof r.study === 'number' && Number.isFinite(r.study) ? r.study : 0,
+    by,
+    answers: typeof r.answers === 'number' && Number.isFinite(r.answers) ? r.answers : 0,
+    correct: typeof r.correct === 'number' && Number.isFinite(r.correct) ? r.correct : 0,
+    done: Array.isArray(r.done) ? r.done.filter((x): x is string => typeof x === 'string') : [],
+  }
+  if (r.away) out.away = true
+  if (typeof r.xp === 'number' && Number.isFinite(r.xp)) out.xp = r.xp
+  if (counts && Object.keys(counts).length) out.counts = counts
+  if (r.frozen) out.frozen = true
+  if (r.uke) out.uke = true
+  return out
+}
+
 export function allLogs(): Record<string, DayLog> {
-  return read<Record<string, DayLog>>(LOG, {})
+  const raw = read<Record<string, unknown>>(LOG, {})
+  if (!raw || typeof raw !== 'object') return {}
+  const out: Record<string, DayLog> = {}
+  for (const [k, v] of Object.entries(raw)) {
+    if (v && typeof v === 'object') out[k] = normalizeDay(v)
+  }
+  return out
 }
 export function todayLog(): DayLog {
-  return allLogs()[dayKey()] ?? { guitar: 0, study: 0, by: {}, answers: 0, correct: 0, done: [] }
+  return allLogs()[dayKey()] ?? normalizeDay(null)
 }
 
 function update(fn: (d: DayLog) => void) {
   const logs = allLogs()
   const k = dayKey()
-  const d = logs[k] ?? { guitar: 0, study: 0, by: {}, answers: 0, correct: 0, done: [] }
+  const d = logs[k] ? normalizeDay(logs[k]) : normalizeDay(null)
   const before = d.guitar + d.study
   fn(d)
   if (isAway()) d.away = true
@@ -90,7 +127,7 @@ export function onLogUpdate(f: (before: number, d: DayLog) => void) {
 }
 export function saveDay(k: string, d: DayLog) {
   const logs = allLogs()
-  logs[k] = d
+  logs[k] = normalizeDay(d)
   write(LOG, logs)
   changed()
 }

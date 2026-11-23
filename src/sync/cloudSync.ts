@@ -107,7 +107,7 @@ const STRING_SET_KEYS = new Set([
   'kg:exFavs', 'kg:lickFavs', 'kg:bookFavs',
 ])
 const MAX_NUMBER_MAP_KEYS = new Set([
-  'kg:circleMastery', 'kg:cagedWarmupDone', 'kg:changesBest', 'kg:targetBest', 'kg:fillsBest', 'kg:exBest',
+  'kg:circleMastery', 'kg:cagedWarmupDone', 'kg:changesBest', 'kg:targetBest', 'kg:fillsBest', 'kg:exBest', 'kg:stars',
 ])
 
 function mergeStringSet(aRaw: string | undefined, bRaw: string | undefined): string {
@@ -144,16 +144,62 @@ function mergeCourse(aRaw: string | undefined, bRaw: string | undefined): string
 }
 
 function mergePracticeLog(aRaw: string | undefined, bRaw: string | undefined): string {
-  type Day = { guitar?: number; study?: number }
+  type Day = {
+    guitar?: number
+    study?: number
+    by?: Record<string, number>
+    answers?: number
+    correct?: number
+    done?: string[]
+    away?: boolean
+    xp?: number
+    counts?: Record<string, number>
+    frozen?: boolean
+    uke?: boolean
+  }
   const a = parseJson<Record<string, Day>>(aRaw, {})
   const b = parseJson<Record<string, Day>>(bRaw, {})
-  const out: Record<string, Day> = { ...a }
-  for (const [day, d] of Object.entries(b)) {
-    const cur = out[day] ?? {}
-    out[day] = {
-      guitar: Math.max(cur.guitar ?? 0, d?.guitar ?? 0),
-      study: Math.max(cur.study ?? 0, d?.study ?? 0),
+  const days = new Set([...Object.keys(a), ...Object.keys(b)])
+  const out: Record<string, Day> = {}
+  for (const day of days) {
+    const da = a[day] && typeof a[day] === 'object' ? a[day] : {}
+    const db = b[day] && typeof b[day] === 'object' ? b[day] : {}
+    const by: Record<string, number> = {}
+    for (const src of [da.by, db.by]) {
+      if (!src || typeof src !== 'object') continue
+      for (const [k, v] of Object.entries(src)) {
+        if (typeof v === 'number' && Number.isFinite(v)) by[k] = Math.max(by[k] ?? 0, v)
+      }
     }
+    const counts: Record<string, number> = {}
+    for (const src of [da.counts, db.counts]) {
+      if (!src || typeof src !== 'object') continue
+      for (const [k, v] of Object.entries(src)) {
+        if (typeof v === 'number' && Number.isFinite(v)) counts[k] = Math.max(counts[k] ?? 0, v)
+      }
+    }
+    const done = [...new Set([
+      ...(Array.isArray(da.done) ? da.done.filter((x): x is string => typeof x === 'string') : []),
+      ...(Array.isArray(db.done) ? db.done.filter((x): x is string => typeof x === 'string') : []),
+    ])]
+    const xp = Math.max(
+      typeof da.xp === 'number' && Number.isFinite(da.xp) ? da.xp : 0,
+      typeof db.xp === 'number' && Number.isFinite(db.xp) ? db.xp : 0,
+    )
+    const entry: Day = {
+      guitar: Math.max(typeof da.guitar === 'number' ? da.guitar : 0, typeof db.guitar === 'number' ? db.guitar : 0),
+      study: Math.max(typeof da.study === 'number' ? da.study : 0, typeof db.study === 'number' ? db.study : 0),
+      by,
+      answers: Math.max(typeof da.answers === 'number' ? da.answers : 0, typeof db.answers === 'number' ? db.answers : 0),
+      correct: Math.max(typeof da.correct === 'number' ? da.correct : 0, typeof db.correct === 'number' ? db.correct : 0),
+      done,
+    }
+    if (da.away || db.away) entry.away = true
+    if (xp > 0) entry.xp = xp
+    if (Object.keys(counts).length) entry.counts = counts
+    if (da.frozen || db.frozen) entry.frozen = true
+    if (da.uke || db.uke) entry.uke = true
+    out[day] = entry
   }
   return JSON.stringify(out)
 }

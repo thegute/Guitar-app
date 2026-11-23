@@ -36,16 +36,16 @@ function read<T>(k: string, d: T): T {
 export function pathStats() {
   const logs = allLogs()
   const keys = Object.keys(logs)
-  const sum = (k: string) => keys.reduce((a, d) => a + (logs[d].counts?.[k] ?? 0), 0)
+  const sum = (k: string) => keys.reduce((a, d) => a + (logs[d]?.counts?.[k] ?? 0), 0)
   const changes = read<Record<string, number>>('kg:changesBest', {})
   return {
     stars: stars(),
     lessons: new Set(read<string[]>('kg:lessonsRead', [])),
     ear: read<number>('kg:earBest', 0),
-    tuned: keys.some(k => (logs[k].by.tuner ?? 0) > 0),
+    tuned: keys.some(k => (logs[k]?.by?.tuner ?? 0) > 0),
     days: keys.filter(k => dayCounts(logs[k])).length,
     best: streak().best,
-    hours: keys.reduce((a, k) => a + logs[k].guitar + logs[k].study, 0) / 3600,
+    hours: keys.reduce((a, k) => a + (logs[k]?.guitar ?? 0) + (logs[k]?.study ?? 0), 0) / 3600,
     notes: sum('notesHit'),
     exNotes: sum('exerciseNotes'),
     songs: sum('songsFinished'),

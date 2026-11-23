@@ -91,7 +91,7 @@ export interface Quest {
   xp: number
   guitar: boolean
 }
-const mins = (d: DayLog, k: keyof DayLog['by']) => Math.floor((d.by[k] ?? 0) / 60)
+const mins = (d: DayLog, k: keyof DayLog['by']) => Math.floor((d.by?.[k] ?? 0) / 60)
 const cnt = (d: DayLog, k: string) => d.counts?.[k] ?? 0
 const GUITAR_QUESTS: Quest[] = [
   { id: 'play10', label: 'Play along with a tab for 10 minutes', measure: d => mins(d, 'play'), target: 10, xp: 40, guitar: true },

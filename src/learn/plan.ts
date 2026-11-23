@@ -37,7 +37,7 @@ export function weakQuiz(inst: Instrument) {
 }
 
 const cnt = (d: DayLog, k: string) => d.counts?.[k] ?? 0
-const min = (d: DayLog, k: keyof DayLog['by']) => (d.by[k] ?? 0) / 60
+const min = (d: DayLog, k: keyof DayLog['by']) => (d.by?.[k] ?? 0) / 60
 
 /** A songbook song for today: in the styles you like, at (or just under) your level, not learned yet, a different one each day. */
 export function songbookPick(inst: Instrument, day: number, want?: (p: SongbookPart, s: SongbookSong) => boolean): { song: SongbookSong; part: SongbookPart } | null {
@@ -119,7 +119,7 @@ function goalSteps(inst: Instrument, d: DayLog, day: number, goals: Goal[]): Pla
 function reviewStep(d = todayLog()): PlanStep[] {
   const due = dueCourseReviews(COURSE.map(l => l.id))[0]
   const l = due ? COURSE.find(x => x.id === due) : undefined
-  return l ? [{ id: 'review', title: `Review: ${l.title}`, detail: 'Five minutes: the ear drills and the check, so it sticks for good.', minutes: 5, go: { lesson: l.id }, done: d.done.includes('review:' + l.id) }] : []
+  return l ? [{ id: 'review', title: `Review: ${l.title}`, detail: 'Five minutes: the ear drills and the check, so it sticks for good.', minutes: 5, go: { lesson: l.id }, done: (d.done ?? []).includes('review:' + l.id) }] : []
 }
 
 export function todaysPlan(inst: Instrument, away: boolean, d = todayLog()): PlanStep[] {
@@ -137,12 +137,12 @@ function plainPlan(inst: Instrument, away: boolean, d = todayLog()): PlanStep[] 
   if (away) {
     const extras: PlanStep[] = [
       { id: 'rhythm', title: 'Rhythm trainer', detail: 'Tap rhythms back against the click. Great on a break.', minutes: 4, go: { tool: 'rhythm' }, done: cnt(d, 'rhythmRounds') >= 1 },
-      { id: 'circle', title: 'Circle of fifths', detail: 'Explore keys and do one circle quiz.', minutes: 4, go: { tool: 'circle' }, done: min(d, 'circle') >= 3 || d.done.some(x => x.startsWith('cof-')) },
+      { id: 'circle', title: 'Circle of fifths', detail: 'Explore keys and do one circle quiz.', minutes: 4, go: { tool: 'circle' }, done: min(d, 'circle') >= 3 || (d.done ?? []).some(x => x.startsWith('cof-')) },
       { id: 'caged', title: `${inst.shapeSystem.join('')} explorer`, detail: 'Study one chord in all five shapes, in your head.', minutes: 4, go: { tool: 'caged' }, done: min(d, 'caged') >= 3 },
     ]
     return [
       { id: 'lesson', title: lesson.title, detail: `Theory lesson, ${lesson.minutes} minutes. Tap the sounds as you read.`, minutes: lesson.minutes, go: { lesson: lesson.id }, done: cnt(d, 'lessonsRead') >= 1 },
-      { id: 'quiz', title: q.title, detail: quizDetail ?? 'Course quiz in tap mode: no guitar needed.', minutes: 4, go: { quiz: q.id }, done: d.done.includes(q.id) },
+      { id: 'quiz', title: q.title, detail: quizDetail ?? 'Course quiz in tap mode: no guitar needed.', minutes: 4, go: { quiz: q.id }, done: (d.done ?? []).includes(q.id) },
       { id: 'ear', title: 'Ear training', detail: 'Drone ear training with headphones. One round of 10.', minutes: 4, go: { tool: 'ear' }, done: cnt(d, 'earRounds') >= 1 },
       extras[day % extras.length],
     ]
@@ -163,7 +163,7 @@ function plainPlan(inst: Instrument, away: boolean, d = todayLog()): PlanStep[] 
     beginner
       ? { id: 'changes', title: 'One-minute chord changes', detail: 'Two chords, 60 seconds: the fastest way to get chords smooth.', minutes: 2, go: { tool: 'changes' }, done: cnt(d, 'changesRounds') >= 1 }
       : { id: 'warmup', title: 'Warm-up tab', detail: 'The spider walk in Play (or try Burst mode in Exercises). Slow and clean.', minutes: 3, go: { exercise: 'spider' }, done: cnt(d, 'exerciseNotes') >= 30 },
-    { id: 'quiz', title: q.title, detail: quizDetail ?? `Course quiz. Use play mode: answer on your ${n}.`, minutes: 4, go: { quiz: q.id }, done: d.done.includes(q.id) },
+    { id: 'quiz', title: q.title, detail: quizDetail ?? `Course quiz. Use play mode: answer on your ${n}.`, minutes: 4, go: { quiz: q.id }, done: (d.done ?? []).includes(q.id) },
     song,
     ...(last.id === 'changes' && beginner ? [] : [last]),
   ]

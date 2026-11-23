@@ -13,8 +13,8 @@ import { QUIZZES, course, type Answer, type Question } from '../src/learn/quiz'
 import { cagedShapes } from '../src/learn/caged'
 import { LESSONS, CHAPTERS } from '../src/learn/lessons'
 import { scoreBar } from '../src/learn/Tools'
-import { allLogs, dayKey, streak, setAway, isAway, bumpCounts, todayLog, dayCounts } from '../src/learn/progress'
-import { masteryPath, currentStage } from '../src/learn/path'
+import { allLogs, dayKey, streak, setAway, isAway, bumpCounts, todayLog, dayCounts, logTime } from '../src/learn/progress'
+import { masteryPath, currentStage, pathStats } from '../src/learn/path'
 import { todaysPlan } from '../src/learn/plan'
 import { docInstrument, type SongDoc } from '../src/tabs/library'
 import { reconcileStreak, freezes, todaysQuests } from '../src/learn/game'
@@ -136,7 +136,21 @@ bumpCounts({ notesHit: 3, songNotes: 3 })
 ok(todayLog().counts?.notesHit === 3 && todayLog().counts?.songNotes === 3, 'bumpCounts adds several counters at once')
 ok(!dayCounts(todayLog()), 'counters alone do not count as practice time')
 
+// ---------- partial / legacy practice logs (e.g. from older cloud sync) ----------
+store.set('kg:practiceLog', JSON.stringify({
+  [day(2)]: { guitar: 420, study: 0 }, // missing by, done, answers, correct
+  [day(1)]: { frozen: true },          // missing guitar, study, by, done
+  [day(0)]: { guitar: 90, study: 30 }, // today missing by, done
+  'bad-null': null,
+}))
+ok(typeof pathStats().tuned === 'boolean', 'pathStats tolerates DayLog without .by')
+logTime('play', 12, false) // simulates stopping Hear it timer on Play
+ok(todayLog().by.play === 12 && todayLog().study === 42, 'logTime heals missing .by on todayLog')
+ok(todaysPlan(instruments()[0], false).length >= 4, 'todaysPlan tolerates healed legacy log')
+ok(masteryPath(instruments()[0]).length === 7, 'masteryPath tolerates healed legacy log')
+
 // ---------- plan and path ----------
+store.delete('kg:practiceLog')
 for (const inst of instruments()) {
   const home = todaysPlan(inst, false)
   const away = todaysPlan(inst, true)

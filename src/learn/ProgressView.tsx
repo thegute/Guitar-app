@@ -55,7 +55,7 @@ export function ProgressView({ inst, onExit }: { inst: Instrument; onExit: () =>
   const answers = weekLogs.reduce((a, d) => a + d.answers, 0)
   const correct = weekLogs.reduce((a, d) => a + d.correct, 0)
   const by: Partial<Record<Activity, number>> = {}
-  for (const d of weekLogs) for (const [k, v] of Object.entries(d.by)) by[k as Activity] = (by[k as Activity] ?? 0) + (v ?? 0)
+  for (const d of weekLogs) for (const [k, v] of Object.entries(d.by ?? {})) by[k as Activity] = (by[k as Activity] ?? 0) + (v ?? 0)
   const acts = Object.entries(by).sort((a, b) => b[1] - a[1]).filter(([, v]) => v >= 60)
   const totalHours = Object.values(logs).reduce((a, d) => a + d.guitar + d.study, 0) / 3600
   const awayDays = Object.values(logs).filter(d => d.away && dayCounts(d)).length
