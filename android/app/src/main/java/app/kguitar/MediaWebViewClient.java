@@ -1,13 +1,16 @@
 package app.kguitar;
 
+import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.UriPermission;
 import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
@@ -37,10 +40,24 @@ public class MediaWebViewClient extends BridgeWebViewClient {
     /** Tree URIs granted during this app session (covers providers where persistable permission isn't supported). */
     private static final Set<String> SESSION_TREES = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final Context ctx;
+    private final Activity activity;
 
     public MediaWebViewClient(Bridge bridge) {
         super(bridge);
         this.ctx = bridge.getContext();
+        this.activity = bridge.getActivity();
+    }
+
+    @Override
+    public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+        // If Android kills/crashes the WebView renderer (OOM or GPU glitch), recover cleanly instead of a stuck black screen.
+        if (activity != null && !activity.isFinishing()) {
+            activity.runOnUiThread(() -> {
+                if (!activity.isFinishing()) activity.recreate();
+            });
+            return true;
+        }
+        return super.onRenderProcessGone(view, detail);
     }
 
     static void grantSessionTree(Uri tree) {

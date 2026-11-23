@@ -13,6 +13,7 @@ import { useRegisterFeatureIntro } from './FeatureIntro'
 import { downloadMidiFile, exportStrumChartToMidi } from '../audio/midiChords'
 import { usePersist } from './Controls'
 import { Ico } from './Icon'
+import { useChordGrips } from '../chordGrips'
 import { useInstrument } from '../instrument'
 import { openInPlay, openLicksInKey, openStrumGrid, onOpenFlow, takePendingFlow } from '../nav'
 import { newId, saveSong, type SongDoc } from '../tabs/library'
@@ -271,8 +272,7 @@ export function HarmonicFlowCoach() {
   const [hoveredBranchId, setHoveredBranchId] = useState<string | null>(null)
   const [trail, setTrail] = useState<string[]>([])
   const [showVoiceLead, setShowVoiceLead] = usePersist('flowShowVL', true)
-  const [voicingStyle, setVoicingStyle] = usePersist<FlowVoicingStyle>('flowVoicingStyle', 'open')
-  const [showWheelDiagrams, setShowWheelDiagrams] = usePersist<boolean>('flowWheelDiagrams', true)
+  const { show: showWheelDiagrams, style: voicingStyle, setShow: setShowWheelDiagrams, setStyle: setVoicingStyle } = useChordGrips()
   const [jamStyle, setJamStyle] = usePersist<StrumStyleId>('flowJamStyle', 'folk')
   const [jamTiming, setJamTiming] = usePersist<'beat1' | 'instant'>('flowJamTiming', 'beat1')
   const [statusMsg, setStatusMsg] = useState('')
@@ -801,7 +801,7 @@ export function HarmonicFlowCoach() {
               <button
                 className={`btn sm${showWheelDiagrams ? ' on' : ''}`}
                 aria-pressed={showWheelDiagrams}
-                onClick={() => setShowWheelDiagrams(v => !v)}
+                onClick={() => setShowWheelDiagrams(!showWheelDiagrams)}
                 data-testid="flow-wheel-diagrams-toggle"
                 title="Show or hide tiny finger diagrams next to every orbiting chord on the wheel"
               >

@@ -4,6 +4,8 @@ import { micWhere } from '../audio/input'
 import { haptic } from '../audio/tapFeel'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChordDiagram } from '../components/ChordDiagram'
+import { ChordGripsBar, MiniChordGrip } from '../components/MiniChordGrip'
+import { useChordGrips } from '../chordGrips'
 import { CircleOfFifths, CIRCLE_MAJOR, keySignature } from '../components/CircleOfFifths'
 import { CircleMasteryStudio } from '../circle/CircleMasteryStudio'
 import { Chips, usePersist } from '../components/Controls'
@@ -481,6 +483,7 @@ const MAJOR_DEG: [number, string, string][] = [[0, 'I', ''], [2, 'ii', 'm'], [4,
 const MINOR_DEG: [number, string, string][] = [[0, 'i', 'm'], [2, 'ii°', 'dim'], [3, 'III', ''], [5, 'iv', 'm'], [7, 'v', 'm'], [8, 'VI', ''], [10, 'VII', '']]
 
 export function CircleTool({ onExit, onQuiz }: { onExit: () => void; onQuiz: (id: string) => void }) {
+  const { show: showGrips } = useChordGrips()
   const [tonic, setTonic] = usePersist('circleTonic', 'C')
   const [minor, setMinor] = usePersist('circleMinor', false)
   const [tab, setTab] = usePersist<'explore' | 'masterclass' | 'practice'>('circleTab', 'explore')
@@ -547,12 +550,24 @@ export function CircleTool({ onExit, onQuiz }: { onExit: () => void; onQuiz: (id
             </Win>
               <Win id="key" title={`${tonic} ${minor ? 'minor' : 'major'}`} bodyClass="stack" bodyStyle={{ gap: 6 }}>
                 <p className="small" style={{ margin: 0 }}>Key signature: <b>{keySignature(tonic, minor)}</b>. Relative {minor ? 'major' : 'minor'}: <b>{rel}</b>. Neighbour keys: <b>{nb[0]}</b> and <b>{nb[1]}</b>{minor ? ' (major)' : ''}.</p>
+                <ChordGripsBar compact />
                 <div className="circle-chords">
-                  {chords.map(c => (
-                    <button key={c.roman} className="prog-chip" data-chord={c.root + (c.q === 'dim' ? 'dim' : c.q)} onClick={() => { sound(c.root, c.q); setActive({ root: c.root, minor: c.q === 'm', dim: c.q === 'dim' }) }}>
-                      <span>{c.root}{c.q === 'dim' ? '°' : c.q}</span><small>{c.roman}</small>
-                    </button>
-                  ))}
+                  {chords.map(c => {
+                    const sym = c.root + (c.q === 'dim' ? 'dim' : c.q)
+                    const isAct = active?.root === c.root && active?.minor === (c.q === 'm') && !!active?.dim === (c.q === 'dim')
+                    return (
+                      <button
+                        key={c.roman}
+                        className={`prog-chip${showGrips ? ' has-grip' : ''}`}
+                        data-chord={sym}
+                        onClick={() => { sound(c.root, c.q); setActive({ root: c.root, minor: c.q === 'm', dim: c.q === 'dim' }) }}
+                      >
+                        <span>{c.root}{c.q === 'dim' ? '°' : c.q}</span>
+                        <small>{c.roman}</small>
+                        {showGrips && <MiniChordGrip symbol={sym} width={54} active={isAct} />}
+                      </button>
+                    )
+                  })}
                 </div>
                 <div className="row">
                   <button className="btn sm" onClick={cadence}>▶ Hear {minor ? 'i–iv–V–i' : 'I–IV–V–I'}</button>

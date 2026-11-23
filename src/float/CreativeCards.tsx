@@ -7,6 +7,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Ico } from '../components/Icon'
 import { PageInput } from '../components/PageInput'
 import { CircleOfFifths } from '../components/CircleOfFifths'
+import { ChordGripsBar, MiniChordGrip } from '../components/MiniChordGrip'
+import { useChordGrips } from '../chordGrips'
 import { useInstrument } from '../instrument'
 import { audio } from '../audio/engine'
 import { activeSound, strum } from '../audio/pluck'
@@ -167,6 +169,7 @@ export function CircleCardBody({ ctx }: { ctx: FloatCtx }) {
   const [root, setRoot] = useState(detected.root)
   const [minor, setMinor] = useState(detected.minor)
   const [picked, setPicked] = useState<string | null>(null)
+  const { show: showGrips } = useChordGrips()
   const [liveTrail, setLiveTrail] = useState<string[]>([])
   const [customPath, setCustomPath] = useState<string[]>([])
 
@@ -285,19 +288,38 @@ export function CircleCardBody({ ctx }: { ctx: FloatCtx }) {
       </div>
 
       {view === 'strip' ? (
-        <div className="stack" style={{ gap: 5 }}>
+        <div className="stack" style={{ gap: 6 }}>
+          <ChordGripsBar compact />
           <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
             {diatonic.map(d => (
-              <button key={d.deg} className={`btn sm${shownSym === d.ch ? ' primary' : ''}`} onClick={() => hitChord(d.ch)} style={{ padding: '2px 8px' }}>
-                <span className="muted" style={{ fontSize: 10, marginRight: 3 }}>{d.deg}</span><b>{d.ch}</b>
+              <button
+                key={d.deg}
+                className={`btn sm${shownSym === d.ch ? ' primary' : ''}${showGrips ? ' grip-chip-btn' : ''}`}
+                onClick={() => hitChord(d.ch)}
+                style={{ padding: showGrips ? '4px 6px' : '2px 8px' }}
+              >
+                <span>
+                  <span className="muted" style={{ fontSize: 10, marginRight: 3 }}>{d.deg}</span>
+                  <b>{d.ch}</b>
+                </span>
+                {showGrips && <MiniChordGrip symbol={d.ch} width={44} compact active={shownSym === d.ch} />}
               </button>
             ))}
           </div>
           <div className="row" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
             <span className="muted" style={{ fontSize: 11 }}>Outside:</span>
             {borrowed.map(d => (
-              <button key={d.deg} className={`btn sm${shownSym === d.ch ? ' primary' : ' ghost'}`} onClick={() => hitChord(d.ch)} style={{ padding: '2px 7px' }}>
-                <span className="muted" style={{ fontSize: 10, marginRight: 3 }}>{d.deg}</span><b>{d.ch}</b>
+              <button
+                key={d.deg}
+                className={`btn sm${shownSym === d.ch ? ' primary' : ' ghost'}${showGrips ? ' grip-chip-btn' : ''}`}
+                onClick={() => hitChord(d.ch)}
+                style={{ padding: showGrips ? '4px 6px' : '2px 7px' }}
+              >
+                <span>
+                  <span className="muted" style={{ fontSize: 10, marginRight: 3 }}>{d.deg}</span>
+                  <b>{d.ch}</b>
+                </span>
+                {showGrips && <MiniChordGrip symbol={d.ch} width={44} compact active={shownSym === d.ch} />}
               </button>
             ))}
           </div>

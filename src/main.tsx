@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 import App from './App'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { applyTheme } from './theme'
 import { startGame } from './learn/game'
 import { onLogUpdate } from './learn/progress'
@@ -28,6 +29,8 @@ if ((window as { __kgTest?: boolean }).__kgTest) void import('./lab/soundLab').t
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary label="KGuitar">
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )

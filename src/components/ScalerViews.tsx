@@ -9,7 +9,9 @@ import { ChromaListener } from '../audio/chroma'
 import { strumMachine } from '../audio/strumMachine'
 import { downloadMidiFile, exportStrumChartToMidi } from '../audio/midiChords'
 import { ChordDiagram } from './ChordDiagram'
+import { ChordGripsBar, MiniChordGrip } from './MiniChordGrip'
 import { VoiceLeadNeck } from './VoiceLeadNeck'
+import { cachedFlowVoicing, useChordGrips } from '../chordGrips'
 import { useInstrument } from '../instrument'
 import { openLicksInKey, openStrumGrid } from '../nav'
 import { KEYS, SHARPS, keyPrefersFlats, pc } from '../theory/notes'
@@ -71,6 +73,7 @@ function shapeFor(symbol: string, inst: ReturnType<typeof useInstrument>) {
 // =====================================================================================
 export function ChordVibeSetsView({ tonic, onTonic }: { tonic: string; onTonic: (k: string) => void }) {
   const inst = useInstrument()
+  const { show: showGrips, style: gripStyle } = useChordGrips()
   const [setId, setSetId] = useState(CHORD_VIBE_SETS[0].id)
   const [selected, setSelected] = useState<ResolvedVibeChord | null>(null)
   const [chain, setChain] = useState<string[]>([])
@@ -86,7 +89,10 @@ export function ChordVibeSetsView({ tonic, onTonic }: { tonic: string; onTonic: 
   }, [setId, tonic, def, chords])
 
   const activeChord = selected ?? chords[0]
-  const activeShape = useMemo(() => (activeChord ? shapeFor(activeChord.symbol, inst) : null), [activeChord, inst])
+  const activeShape = useMemo(() => {
+    if (!activeChord) return null
+    return cachedFlowVoicing(activeChord.symbol, inst, gripStyle)?.voicing ?? shapeFor(activeChord.symbol, inst)
+  }, [activeChord, inst, gripStyle])
 
   const buildChart = (): StrumChart => ({
     id: `vibe-${setId}-${Date.now()}`,
@@ -120,10 +126,13 @@ export function ChordVibeSetsView({ tonic, onTonic }: { tonic: string; onTonic: 
           </label>
         </div>
         <p className="small muted" style={{ margin: 0 }}>{def.desc}</p>
-        <div className="row small" style={{ gap: 12 }}>
-          <span style={{ color: FLAVOR_COLOR.diatonic.color }}>● In Key</span>
-          <span style={{ color: FLAVOR_COLOR.pull.color }}>● Pull (Tension)</span>
-          <span style={{ color: FLAVOR_COLOR.color.color }}>● Color (Borrowed)</span>
+        <div className="row" style={{ gap: 10, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="row small" style={{ gap: 12 }}>
+            <span style={{ color: FLAVOR_COLOR.diatonic.color }}>● In Key</span>
+            <span style={{ color: FLAVOR_COLOR.pull.color }}>● Pull (Tension)</span>
+            <span style={{ color: FLAVOR_COLOR.color.color }}>● Color (Borrowed)</span>
+          </div>
+          <ChordGripsBar />
         </div>
 
         {/* Tappable Chord Soundboard */}
@@ -147,6 +156,15 @@ export function ChordVibeSetsView({ tonic, onTonic }: { tonic: string; onTonic: 
                 >
                   <span className="vibe-pad-sym">{c.symbol}</span>
                   <span className="vibe-pad-roman" style={{ color: fc.color }}>{c.roman}</span>
+                  {showGrips && (
+                    <MiniChordGrip
+                      symbol={c.symbol}
+                      inst={inst}
+                      width={60}
+                      accentColor={fc.color}
+                      active={isSel}
+                    />
+                  )}
                   <span className="vibe-pad-tip">{c.tip}</span>
                 </button>
                 <button
@@ -183,7 +201,13 @@ export function ChordVibeSetsView({ tonic, onTonic }: { tonic: string; onTonic: 
               {chain.map((sym, i) => (
                 <span key={`${sym}-${i}`} className="flow-trail-chip">
                   {i > 0 && <span className="muted" style={{ marginRight: 4 }}>→</span>}
-                  <button className="btn sm" onClick={() => playSymbol(sym)}>{sym}</button>
+                  <button
+                    className={`btn sm${showGrips ? ' grip-chip-btn' : ''}`}
+                    onClick={() => playSymbol(sym)}
+                  >
+                    <b>{sym}</b>
+                    {showGrips && <MiniChordGrip symbol={sym} inst={inst} width={48} compact />}
+                  </button>
                 </span>
               ))}
             </div>
@@ -226,6 +250,7 @@ export function ChordVibeSetsView({ tonic, onTonic }: { tonic: string; onTonic: 
 // =====================================================================================
 export function KeyShifterView({ initialTonic, initialMinor }: { initialTonic: string; initialMinor: boolean }) {
   const inst = useInstrument()
+  const { show: showGrips } = useChordGrips()
   const [fromTonic, setFromTonic] = useState(initialTonic)
   const [fromMinor, setFromMinor] = useState(initialMinor)
   const [toTonic, setToTonic] = useState(() => KEYS[(pc(initialTonic) + 3) % 12])
@@ -260,28 +285,31 @@ export function KeyShifterView({ initialTonic, initialMinor }: { initialTonic: s
   return (
     <div className="stack" style={{ gap: 12 }} data-testid="key-shifter-view">
       <div className="panel stack" style={{ gap: 10 }}>
-        <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <label className="field" style={{ minWidth: 96 }}>
-            <span>From Key</span>
-            <select className="select" value={fromTonic} onChange={e => setFromTonic(e.target.value)} data-testid="shift-from-key">
-              {KEYS.map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
-          </label>
-          <div className="seg" role="group" aria-label="Start key quality">
-            <button aria-pressed={!fromMinor} onClick={() => setFromMinor(false)}>Maj</button>
-            <button aria-pressed={fromMinor} onClick={() => setFromMinor(true)}>Min</button>
+        <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+          <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <label className="field" style={{ minWidth: 96 }}>
+              <span>From Key</span>
+              <select className="select" value={fromTonic} onChange={e => setFromTonic(e.target.value)} data-testid="shift-from-key">
+                {KEYS.map(k => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </label>
+            <div className="seg" role="group" aria-label="Start key quality">
+              <button aria-pressed={!fromMinor} onClick={() => setFromMinor(false)}>Maj</button>
+              <button aria-pressed={fromMinor} onClick={() => setFromMinor(true)}>Min</button>
+            </div>
+            <span style={{ fontWeight: 800, padding: '0 4px', alignSelf: 'center' }}>→</span>
+            <label className="field" style={{ minWidth: 96 }}>
+              <span>To Key</span>
+              <select className="select" value={toTonic} onChange={e => setToTonic(e.target.value)} data-testid="shift-to-key">
+                {KEYS.map(k => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </label>
+            <div className="seg" role="group" aria-label="Target key quality">
+              <button aria-pressed={!toMinor} onClick={() => setToMinor(false)}>Maj</button>
+              <button aria-pressed={toMinor} onClick={() => setToMinor(true)}>Min</button>
+            </div>
           </div>
-          <span style={{ fontWeight: 800, padding: '0 4px', alignSelf: 'center' }}>→</span>
-          <label className="field" style={{ minWidth: 96 }}>
-            <span>To Key</span>
-            <select className="select" value={toTonic} onChange={e => setToTonic(e.target.value)} data-testid="shift-to-key">
-              {KEYS.map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
-          </label>
-          <div className="seg" role="group" aria-label="Target key quality">
-            <button aria-pressed={!toMinor} onClick={() => setToMinor(false)}>Maj</button>
-            <button aria-pressed={toMinor} onClick={() => setToMinor(true)}>Min</button>
-          </div>
+          <ChordGripsBar />
         </div>
 
         <div className="stack" style={{ gap: 8 }}>
@@ -311,11 +339,21 @@ export function KeyShifterView({ initialTonic, initialMinor }: { initialTonic: s
                     <span key={idx} className="flow-trail-chip">
                       {idx > 0 && <span className="muted" style={{ marginRight: 4 }}>→</span>}
                       <button
-                        className="btn sm"
+                        className={`btn sm${showGrips ? ' grip-chip-btn' : ''}`}
                         style={{ borderColor: FLAVOR_COLOR[st.flavor].color }}
                         onClick={e => { e.stopPropagation(); playSymbol(st.symbol) }}
                       >
-                        <b>{st.symbol}</b> <span className="small muted">({st.role})</span>
+                        <span>
+                          <b>{st.symbol}</b> <span className="small muted">({st.role})</span>
+                        </span>
+                        {showGrips && (
+                          <MiniChordGrip
+                            symbol={st.symbol}
+                            inst={inst}
+                            width={54}
+                            accentColor={FLAVOR_COLOR[st.flavor].color}
+                          />
+                        )}
                       </button>
                     </span>
                   ))}

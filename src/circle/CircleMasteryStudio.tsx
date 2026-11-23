@@ -6,6 +6,8 @@ import { CircleOfFifths } from '../components/CircleOfFifths'
 import { Fretboard, type Mark } from '../components/Fretboard'
 import { YouTubePlayer } from '../components/YouTubePlayer'
 import { Ico } from '../components/Icon'
+import { ChordGripsBar, MiniChordGrip } from '../components/MiniChordGrip'
+import { useChordGrips } from '../chordGrips'
 import { usePersist } from '../components/Controls'
 import { useInstrument } from '../instrument'
 import { audio } from '../audio/engine'
@@ -197,6 +199,7 @@ export function CircleMasteryStudio({
   onQuiz: (id: string) => void
 }) {
   const inst = useInstrument()
+  const { show: showGrips } = useChordGrips()
   const tuning = inst.midis.length === 6 ? inst.midis : STANDARD_MIDI
 
   // Shared Masterclass state
@@ -559,20 +562,28 @@ export function CircleMasteryStudio({
                     }
                   }}
                 />
-                <div className="row" style={{ gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
+                <ChordGripsBar compact />
+                <div className="row" style={{ gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
                   {chapterPath.map((ch, i) => (
                     <button
                       key={`${ch.symbol}-${i}`}
-                      className={`chip${activeStep === i ? ' on' : ''}`}
+                      className={`chip${activeStep === i ? ' on' : ''}${showGrips ? ' grip-chip-card' : ''}`}
                       style={{
                         fontSize: 11.5,
-                        padding: '3px 8px',
+                        padding: showGrips ? '5px 7px' : '3px 8px',
                         borderColor: ch.outsideTag ? 'rgba(168,85,247,0.6)' : undefined,
+                        display: 'inline-flex',
+                        flexDirection: showGrips ? 'column' : 'row',
+                        alignItems: 'center',
+                        gap: 3,
                       }}
                       onClick={() => { setActiveStep(i); soundCircleChord(ch) }}
                     >
-                      <b>{i + 1}.</b> {ch.symbol}
-                      {ch.roman && <span className="muted" style={{ marginLeft: 3 }}>{ch.roman}</span>}
+                      <span>
+                        <b>{i + 1}.</b> {ch.symbol}
+                        {ch.roman && <span className="muted" style={{ marginLeft: 3 }}>{ch.roman}</span>}
+                      </span>
+                      {showGrips && <MiniChordGrip symbol={ch.symbol} inst={inst} width={50} compact active={activeStep === i} />}
                     </button>
                   ))}
                 </div>
@@ -872,10 +883,24 @@ export function CircleMasteryStudio({
                       if (hit >= 0) { setWalkIdx(hit); soundCircleChord(practicePath[hit]) }
                     }}
                   />
-                  <div className="row" style={{ gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <ChordGripsBar compact />
+                  <div className="row" style={{ gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
                     {practicePath.map((c, i) => (
-                      <button key={i} className={`chip${walkIdx === i ? ' on' : ''}`} style={{ fontSize: 11.5 }} onClick={() => { setWalkIdx(i); soundCircleChord(c) }}>
-                        {i + 1}. {c.symbol}
+                      <button
+                        key={i}
+                        className={`chip${walkIdx === i ? ' on' : ''}${showGrips ? ' grip-chip-card' : ''}`}
+                        style={{
+                          fontSize: 11.5,
+                          padding: showGrips ? '5px 7px' : undefined,
+                          display: 'inline-flex',
+                          flexDirection: showGrips ? 'column' : 'row',
+                          alignItems: 'center',
+                          gap: 3,
+                        }}
+                        onClick={() => { setWalkIdx(i); soundCircleChord(c) }}
+                      >
+                        <span>{i + 1}. {c.symbol}</span>
+                        {showGrips && <MiniChordGrip symbol={c.symbol} inst={inst} width={50} compact active={walkIdx === i} />}
                       </button>
                     ))}
                   </div>

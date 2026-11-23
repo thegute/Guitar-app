@@ -15,6 +15,8 @@ import { BooksWin } from '../books/BooksWin'
 import { useStrumState } from '../audio/strumMachine'
 import { openFlowCoach, openStrumGrid } from '../nav'
 import { chartForScale, type StrumStyleId } from '../theory/harmonicFlow'
+import { ChordGripsBar, MiniChordGrip } from '../components/MiniChordGrip'
+import { useChordGrips } from '../chordGrips'
 
 const POSITIONS = [
   { id: 'all', label: 'Whole neck', from: 0, to: 15 },
@@ -33,6 +35,7 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
   const [pos, setPos] = usePersist('scalePos', 'all')
   const [labels, setLabels] = usePersist<'intervals' | 'notes'>('scaleLabels', 'intervals')
   const [playing, setPlaying] = useState(false)
+  const { show: showGrips } = useChordGrips()
   const inst = useInstrument()
   const strumState = useStrumState()
   useEffect(() => {
@@ -171,12 +174,26 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
         <LayerNeck rootPc={r} minor={set.has((r + 3) % 12) && !set.has((r + 4) % 12)} inst={inst} where="scales" noLinks={['scale']} />
       </Win>
       {chords.length > 0 && (
-        <Win id="chords" title="Chords that come from this scale" className="panel">
-          <div className="row">
+        <Win id="chords" title="Chords that come from this scale" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+          <ChordGripsBar />
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             {chords.map((c, i) => (
-              <span key={i} className="chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <span className="muted small">{['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'][i]}</span>
-                <b style={{ fontFamily: 'var(--display)', fontSize: 18 }} data-chord={c}>{c}</b>
+              <span
+                key={i}
+                className={`chip${showGrips ? ' grip-chip-card' : ''}`}
+                data-chord={c}
+                style={{
+                  display: 'inline-flex',
+                  flexDirection: showGrips ? 'column' : 'row',
+                  alignItems: 'center',
+                  gap: showGrips ? 4 : 6,
+                }}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span className="muted small">{['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'][i]}</span>
+                  <b style={{ fontFamily: 'var(--display)', fontSize: 18 }} data-chord={c}>{c}</b>
+                </span>
+                {showGrips && <MiniChordGrip symbol={c} inst={inst} width={56} />}
               </span>
             ))}
           </div>

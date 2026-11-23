@@ -51,7 +51,8 @@ export function FloatLayer() {
     <>
       {instances.map((inst, i) => {
         const id = inst.kind
-        const card = CARDS.find(c => c.id === id)!
+        const card = CARDS.find(c => c.id === id)
+        if (!card) return null
         const isExpandedNeck = id === 'neck' && (neckExpanded[inst.uid] ?? (localStorage.getItem('kg:floatNeck5Layer') === '1'))
         const copyNum = inst.uid.includes('-') ? ` #${inst.uid.split('-').pop()}` : ''
         const title = (isExpandedNeck ? '5-Layer Fretboard' : card.title) + copyNum

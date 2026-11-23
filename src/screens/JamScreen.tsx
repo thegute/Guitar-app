@@ -44,6 +44,8 @@ import { clearFloat, publishFloat, setFloatResting } from '../float/bus'
 import { SongFinder } from '../components/SongFinder'
 import { InspireMe } from '../components/InspireMe'
 import { ChordList } from '../components/ChordName'
+import { ChordGripsBar, MiniChordGrip } from '../components/MiniChordGrip'
+import { useChordGrips } from '../chordGrips'
 import { RiffScanner } from '../scan/RiffScanner'
 import type { Quality } from '../audio/chordFinder'
 import { Zoomable } from '../components/Zoomable'
@@ -93,6 +95,7 @@ const midisOf = (v: Voicing | undefined) => (v ? v.frets.map((f, s) => (f < 0 ? 
 // onOpenScale: kept for App's link to Tools → Scales (the old Solo over it page used it)
 export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) => void }) {
   const inst = useInstrument()
+  const { show: showGrips } = useChordGrips()
   tuning = inst.midis
   // ---------- options ----------
   const [tonic, setTonic] = usePersist('progKey', 'G')
@@ -817,14 +820,31 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
           </Win>
           <Win id="famous" title={`Famous progressions in ${tonic}`} className="panel">
             <div className="stack" style={{ gap: 8 }}>
+              <ChordGripsBar compact />
               {sugg.map((s, i) => (
-                <div key={i} className="row" style={{ justifyContent: 'space-between', borderTop: i ? '1px solid var(--hairline)' : 'none', paddingTop: i ? 8 : 0 }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 600 }}>{s.name}</div>
-                    <div className="readout" style={{ fontSize: 20, fontWeight: 600, color: 'var(--pearl-2)', overflowWrap: 'anywhere' }}><ChordList names={s.chords.map(c => c.symbol)} sep={'\u2002'} /></div>
-                    {s.note && <div className="small muted">{s.note}</div>}
+                <div key={i} className="stack" style={{ gap: 6, borderTop: i ? '1px solid var(--hairline)' : 'none', paddingTop: i ? 8 : 0 }}>
+                  <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 600 }}>{s.name}</div>
+                      {!showGrips && (
+                        <div className="readout" style={{ fontSize: 20, fontWeight: 600, color: 'var(--pearl-2)', overflowWrap: 'anywhere' }}>
+                          <ChordList names={s.chords.map(c => c.symbol)} sep={'\u2002'} />
+                        </div>
+                      )}
+                      {s.note && <div className="small muted">{s.note}</div>}
+                    </div>
+                    <button className="btn" onClick={() => load(s.chords)}>Use this</button>
                   </div>
-                  <button className="btn" onClick={() => load(s.chords)}>Use this</button>
+                  {showGrips && (
+                    <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                      {s.chords.map((c, ci) => (
+                        <span key={`${c.symbol}-${ci}`} className="famous-grip-item" data-chord={c.symbol}>
+                          <b className="famous-grip-sym">{c.symbol}</b>
+                          <MiniChordGrip symbol={c.symbol} inst={inst} width={50} compact />
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

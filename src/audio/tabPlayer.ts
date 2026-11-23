@@ -13,6 +13,7 @@ import { planCountIn, subscribeScheduler, updateClockState } from '../engine/clo
 export class TabPlayer {
   onStep?: (flatIdx: number) => void
   onEnd?: () => void
+  onStop?: () => void
   private unsub: (() => void) | null = null
   private raf = 0
   private queue: { t: number; i: number; spb: number; dur: number }[] = []
@@ -49,8 +50,8 @@ export class TabPlayer {
 
   /** Play steps [from, to) at the given tempo (quarter notes per minute). With `loopFrom`, it jumps back there at `to` and keeps going. */
   play(flat: FlatStep[], from: number, bpm: number, to = flat.length, loopFrom?: number) {
+    this.stop(true)
     liveSound(this, 'Hear it')
-    this.stop()
     const ctx = audio()
     void ctx.resume()
     this.playing = true
@@ -158,7 +159,7 @@ export class TabPlayer {
       while (this.queue.length && this.queue[0].t <= now) { this.cur = this.queue.shift()!; last = this.cur.i }
       if (last >= 0) this.onStep?.(last)
       if (this.endAt && now >= this.endAt) {
-        this.stop()
+        this.stop(true)
         this.onEnd?.()
         return
       }
@@ -174,18 +175,23 @@ export class TabPlayer {
     return { i: c.i, into: Math.max(0, Math.min(c.dur, (audio().currentTime - c.t) / c.spb)) }
   }
 
-  stop() {
+  stop(silent = false) {
+    const wasPlaying = this.playing
+    this.playing = false
     quietSound(this)
     if (this.unsub) { this.unsub(); this.unsub = null }
-    cancelAnimationFrame(this.raf)
-    const now = audio().currentTime
-    for (const h of this.all) h.stop(now)
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this.raf)
+    let now = 0
+    try { now = audio().currentTime } catch { /* audio not started */ }
+    for (const h of this.all) { try { h.stop(now) } catch { /* already stopped */ } }
     this.all = []
-    this.voices.stop(now)
+    try { this.voices.stop(now) } catch { /* already stopped */ }
     this.ringing.clear()
     this.queue = []
     this.cur = null
     this.counts = []
-    this.playing = false
+    if (!silent && wasPlaying) {
+      try { this.onStop?.() } catch { /* noop */ }
+    }
   }
 }

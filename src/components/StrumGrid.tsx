@@ -17,6 +17,8 @@ import {
 } from '../audio/strumMachine'
 import { downloadMidiFile, exportStrumChartToMidi, importMidiToStrumChart } from '../audio/midiChords'
 import { Ico } from './Icon'
+import { ChordGripsBar, MiniChordGrip } from './MiniChordGrip'
+import { useChordGrips } from '../chordGrips'
 import { useInstrument } from '../instrument'
 import { openFlowCoach, openInPlay, openJam, openLicksInKey, onOpenStrum, takePendingStrum } from '../nav'
 import { newId, saveSong, type SongDoc } from '../tabs/library'
@@ -101,6 +103,7 @@ function chartToSongDoc(chart: StrumChart, bpm: number, capo: number, tuning: nu
 export function StrumGrid() {
   const inst = useInstrument()
   const st = useStrumState()
+  const { show: showGrips } = useChordGrips()
 
   const [userCharts, setUserCharts] = useState<StrumChart[]>(() => loadUserStrumCharts())
   const [editing, setEditing] = useState<{ barIdx: number; splitIdx: number } | null>(null)
@@ -581,7 +584,8 @@ export function StrumGrid() {
           <strong style={{ fontSize: '0.95rem' }}>
             {chart.name} · {chart.bars.length} Bars ({st.beatsPerBar}/4)
           </strong>
-          <div className="row" style={{ gap: 6 }}>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <ChordGripsBar />
             <button className="btn sm" onClick={() => addBarAfter(chart.bars.length - 1)} data-testid="strum-add-bar">
               + Add Bar
             </button>
@@ -615,6 +619,15 @@ export function StrumGrid() {
                       >
                         <span className="strum-cell-sym">{sym}</span>
                         {sounding && <span className="strum-cell-capo">({sounding})</span>}
+                        {showGrips && (
+                          <MiniChordGrip
+                            symbol={sym}
+                            inst={inst}
+                            width={bar.chords.length > 1 ? 44 : 56}
+                            compact={bar.chords.length > 1}
+                            active={isActiveSplit}
+                          />
+                        )}
                       </button>
                     )
                   })}
@@ -663,11 +676,12 @@ export function StrumGrid() {
                 {flowSuggestions.map(b => (
                   <button
                     key={b.node.id}
-                    className="btn sm"
+                    className={`btn sm${showGrips ? ' grip-chip-btn' : ''}`}
                     onClick={() => setChordAt(editing.barIdx, editing.splitIdx, b.node.symbol)}
                     title={b.whisper}
                   >
-                    <b>{b.node.symbol}</b> <span className="muted">({b.node.roman})</span>
+                    <span><b>{b.node.symbol}</b> <span className="muted">({b.node.roman})</span></span>
+                    {showGrips && <MiniChordGrip symbol={b.node.symbol} inst={inst} width={46} compact />}
                   </button>
                 ))}
               </div>

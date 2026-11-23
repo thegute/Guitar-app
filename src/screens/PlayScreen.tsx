@@ -504,15 +504,15 @@ export function PlayScreen() {
   }
 
   const done = pos >= follow.idx.length
-  const cursorFlat = done ? -1 : follow.idx[pos]
-  const expected = cursorFlat >= 0 ? playable(flat[cursorFlat].step) : []
+  const cursorFlat = done ? -1 : (follow.idx[pos] ?? -1)
+  const expected = cursorFlat >= 0 && flat[cursorFlat] ? playable(flat[cursorFlat].step) : []
   let curSpan = cursorFlat >= 0 ? timeline.at[cursorFlat] : timeline.spans.length - 1
   if (curSpan < 0) {
     // before the first chord: show the first one
     curSpan = timeline.spans.findIndex(s => s.start > cursorFlat)
   }
   const nearFrets = useMemo(() => {
-    if (cursorFlat < 0) return []
+    if (cursorFlat < 0 || !flat[cursorFlat]) return []
     const bar = flat[cursorFlat].bar
     return flat.filter(f => Math.abs(f.bar - bar) <= 1).flatMap(f => f.step.notes.map(n => n.fret))
   }, [flat, cursorFlat])
@@ -933,6 +933,7 @@ export function PlayScreen() {
       const p = (player.current ??= new TabPlayer())
       p.sound = hearSound; p.band = undefined; p.strum = undefined; p.meter = meter; p.tempo = undefined
       p.onStep = i => setPlayAt(i)
+      p.onStop = () => { setPlayAt(-1); setComparing(false) }
       setComparing(true)
       p.onEnd = () => {
         setPlayAt(-1)
@@ -1082,6 +1083,7 @@ export function PlayScreen() {
     p.tempo = tempoMap?.changes ? tempoMap : undefined
     p.onStep = i => setPlayAt(i)
     p.onEnd = () => setPlayAt(-1)
+    p.onStop = () => setPlayAt(-1)
     if (loopRange) {
       const a = follow.idx[loopRange.a]
       let b = flat.length
@@ -1346,7 +1348,7 @@ export function PlayScreen() {
   void handLeft
   // strum-along: the chord to play next, with its shape
   const wantChord = !done && !!follow.steps[pos]?.chord
-  const chordName = cursorFlat >= 0 ? (flat[cursorFlat].step.chord ?? timeline.spans[curSpan]?.name) : undefined
+  const chordName = cursorFlat >= 0 && flat[cursorFlat] ? (flat[cursorFlat].step.chord ?? timeline.spans[curSpan]?.name) : undefined
   const chordVoicing = wantChord ? (() => {
     const frets = track.tuning.map((_, s) => expected.find(n => n.string === s)?.fret ?? -1)
     return voicingFromFrets(frets, chordName, inst)
@@ -1416,7 +1418,7 @@ export function PlayScreen() {
         ) : (
           <>
             <span className="small muted">
-              Next · {wantChord ? 'chord' : 'note'} {pos + 1} of {follow.idx.length} · bar {flat[cursorFlat].bar + 1}
+              Next · {wantChord ? 'chord' : 'note'} {pos + 1} of {follow.idx.length} · bar {(flat[cursorFlat]?.bar ?? 0) + 1}
               {loopRange && ` · loop pass ${passes.n + 1}${passes.last !== null ? ` · last pass ${passes.last}%` : ''}${passes.best !== null ? ` · best ${passes.best}%` : ''}`}
             </span>
             {wantChord ? (

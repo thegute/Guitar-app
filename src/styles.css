@@ -3979,6 +3979,76 @@ html:not([data-arrange]) .win-zoom { display: none; }
 .caged-key-tile.done span { color: #6ee7b7; }
 .caged-key-tile.active { outline: 2px solid var(--accent); }
 
+/* App-wide Always-On Mini Chord Grips (MiniChordGrip + ChordGripsBar) */
+.chord-grips-bar {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 100%;
+}
+.chord-grips-bar.compact {
+  gap: 5px;
+}
+.mini-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  flex-shrink: 0;
+  transition: transform .12s ease, filter .12s ease;
+}
+.mini-grip svg {
+  display: block;
+  overflow: visible;
+}
+.mini-grip.active {
+  filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.45));
+}
+.grip-chip-btn {
+  display: inline-flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: auto !important;
+  padding: 6px 8px !important;
+  line-height: 1.15;
+}
+.grip-chip-card {
+  height: auto !important;
+  padding: 6px 8px !important;
+  border-radius: var(--r-md) !important;
+}
+.famous-grip-item {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 6px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+}
+.famous-grip-sym {
+  font-family: var(--display);
+  font-size: 0.92rem;
+  line-height: 1.1;
+  color: var(--pearl-2);
+}
+.vibe-pad-main .mini-grip {
+  margin: 4px 0 2px;
+}
+.strum-cell .mini-grip {
+  margin-top: 4px;
+}
+.circle-chords .prog-chip.has-grip {
+  padding: 6px 8px;
+  gap: 3px;
+  min-height: 88px;
+}
+
 
 
 

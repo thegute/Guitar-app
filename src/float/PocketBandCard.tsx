@@ -5,6 +5,8 @@
 // independent ON/OFF + mixer for every layer, and live chord/key publishing to your 5-Layer Fretboard, Licks & Circle!
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Ico } from '../components/Icon'
+import { ChordGripsBar, MiniChordGrip } from '../components/MiniChordGrip'
+import { useChordGrips } from '../chordGrips'
 import { audio, bus } from '../audio/engine'
 import { liveSound, quietSound } from '../audio/stopAll'
 import { GROOVES, GROOVE_GROUPS, KITS, grooveOf, loadKit, playDrum, type KitId, type Voice } from '../audio/drums'
@@ -527,6 +529,7 @@ export function PocketDrummerBody({ ctx }: { ctx: FloatCtx }) {
 export function PocketBandBody() {
   const eng = usePocket()
   const c = eng.cfg
+  const { show: showGrips } = useChordGrips()
   const [mixerOpen, setMixerOpen] = useState(false)
   const [group, setGroup] = useState(() => grooveOf(c.grooveId)?.group ?? GROOVE_GROUPS[0])
   const [aiNote, setAiNote] = useState('')
@@ -600,18 +603,36 @@ export function PocketBandBody() {
       </div>
 
       {c.mode === 'prog' && (
-        <div className="row" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-          {c.chords.map((ch, idx) => {
-            const isNow = active && (eng.bar % c.chords.length) === idx
-            return (
-              <span key={`${ch}-${idx}`} className={`chip${isNow ? ' on' : ''}`} style={{ padding: '2px 8px', minHeight: 24, fontSize: 12, ...(isNow ? { background: 'var(--accent)', color: 'var(--accent-ink)' } : {}) }}>
-                {ch}
-              </span>
-            )
-          })}
-          {c.chords.length > 2 && (
-            <button className="btn sm ghost" onClick={() => eng.set({ chords: c.chords.slice(0, -1) })} title="Remove last chord">⌫</button>
-          )}
+        <div className="stack" style={{ gap: 5 }}>
+          <ChordGripsBar compact />
+          <div className="row" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+            {c.chords.map((ch, idx) => {
+              const isNow = active && (eng.bar % c.chords.length) === idx
+              return (
+                <span
+                  key={`${ch}-${idx}`}
+                  className={`chip${isNow ? ' on' : ''}${showGrips ? ' grip-chip-card' : ''}`}
+                  data-chord={ch}
+                  style={{
+                    padding: showGrips ? '4px 6px' : '2px 8px',
+                    minHeight: 24,
+                    fontSize: 12,
+                    display: 'inline-flex',
+                    flexDirection: showGrips ? 'column' : 'row',
+                    alignItems: 'center',
+                    gap: 3,
+                    ...(isNow ? { background: 'var(--accent)', color: 'var(--accent-ink)' } : {}),
+                  }}
+                >
+                  <b>{ch}</b>
+                  {showGrips && <MiniChordGrip symbol={ch} width={44} compact active={isNow} />}
+                </span>
+              )
+            })}
+            {c.chords.length > 2 && (
+              <button className="btn sm ghost" onClick={() => eng.set({ chords: c.chords.slice(0, -1) })} title="Remove last chord">⌫</button>
+            )}
+          </div>
         </div>
       )}
 

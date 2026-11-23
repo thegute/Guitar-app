@@ -20,6 +20,7 @@ import { AskBubble } from './assistant/AskBubble'
 import { FloatingLooper } from './looper/FloatingLooper'
 import { FloatLayer } from './float/FloatLayer'
 import { SoundPill } from './components/SoundPill'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { GlobalChordPeek } from './components/ChordPeek'
 import { NowPlaying } from './components/NowPlaying'
 import { StrumFloatNeck, StrumMiniBar } from './components/StrumMiniBar'
@@ -201,16 +202,18 @@ function MainApp() {
         <GlobalChordPeek inst={inst} />
         <RigNotice />
         {!(tab === 'play' && ui.playFocus) && !gear && <div className="rig-bar"><StudioTopBar /><RigPill /></div>}
-        {gear && <Settings key={gear.n ?? 0} inst={inst} guideSec={gear.sec} onExit={() => setGear(null)} onGo={g => { setGear(null); learnGo(g) }} />}
-        {!gear && <>
-        {tab === 'play' && <PlayScreen key={inst.id} />}
-        {tab === 'songs' && <SongsScreen key={inst.id} />}
-        {tab === 'learn' && <LearnScreen key={inst.id} />}
-        {tab === 'tools' && <ToolsScreen page={toolPage} onPage={setToolPage} scaleJump={scaleJump} jump={jump} />}
-        {tab === 'progressions' && (
-          <JamScreen key={jump} onOpenScale={(root, scale) => { setScaleJump({ root, scale }); setToolPage('scales'); setTab('tools') }} />
-        )}
-        </>}
+        <ErrorBoundary label={gear ? 'Settings' : tab} resetKey={`${tab}:${gear ? 'g' : ''}:${toolPage}:${inst.id}:${jump}`}>
+          {gear && <Settings key={gear.n ?? 0} inst={inst} guideSec={gear.sec} onExit={() => setGear(null)} onGo={g => { setGear(null); learnGo(g) }} />}
+          {!gear && <>
+          {tab === 'play' && <PlayScreen key={inst.id} />}
+          {tab === 'songs' && <SongsScreen key={inst.id} />}
+          {tab === 'learn' && <LearnScreen key={inst.id} />}
+          {tab === 'tools' && <ToolsScreen page={toolPage} onPage={setToolPage} scaleJump={scaleJump} jump={jump} />}
+          {tab === 'progressions' && (
+            <JamScreen key={jump} onOpenScale={(root, scale) => { setScaleJump({ root, scale }); setToolPage('scales'); setTab('tools') }} />
+          )}
+          </>}
+        </ErrorBoundary>
         {strumState.playing ? (
           <StrumMiniBar />
         ) : (

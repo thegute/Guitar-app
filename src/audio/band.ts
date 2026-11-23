@@ -167,7 +167,7 @@ export class BandVoices {
     if (this.all.length > 300) this.all.splice(0, 150)
   }
   stop(at?: number) {
-    for (const h of this.all) h.stop(at)
+    for (const h of this.all) { try { h.stop(at) } catch { /* already stopped */ } }
     this.all = []
     this.bass = null
   }
