@@ -31,6 +31,7 @@ import { CourseBookView } from './CourseBookView'
 import { LessonTabHost, closeLessonTab, followLesson, openLessonTab, useLessonTab } from './LessonTabCard'
 import { CourseFingerCard } from './CourseFingerCard'
 import { attachMpegTsPlayer, probeVideoUrl, type TsPlayerHandle } from './mpegtsFallback'
+import { NativeVideoStage, nativeVideoAvailable, type NativeVideoHandle } from './nativeVideo'
 import {
   getCachedCourseMap,
   getLessonNote,
@@ -485,7 +486,13 @@ function LessonPlayer({
   const [b, setB] = useState<number | null>(null)
   const [loop, setLoop] = useState(false)
   const [playing, setPlaying] = useState(false)
-  const [resumed, setResumed] = useState<number | null>(null)
+  const useNative = nativeVideoAvailable(v.uri)
+  const nativeApiRef = useRef<NativeVideoHandle | null>(null)
+  const savedStartSec = useMemo(() => {
+    const w = progress()[v.uri]
+    return w && w.t > 5 && (!w.d || w.t < w.d - 5) ? w.t : 0
+  }, [v.uri])
+  const [resumed, setResumed] = useState<number | null>(() => (useNative && savedStartSec > 5 ? savedStartSec : null))
   const [done, setDone] = useState(!!progress()[v.uri]?.done)
   const [error, setError] = useState('')
   const tsModeRef = useRef(false)
@@ -494,9 +501,14 @@ function LessonPlayer({
   const tsPlayerRef = useRef<TsPlayerHandle | null>(null)
   const videoSrc = mediaUrl(v.uri)
 
-  // Race-free video loader: probes first 4 KB BEFORE setting <video>.src so Roy Ziv's MPEG-TS / M2TS
-  // videos launch straight into mpegts.js without React ever clobbering the MediaSource blob: URL!
+  // Race-free video loader (Desktop / Web / Tests): probes first 4 KB BEFORE setting <video>.src so
+  // MPEG-TS / M2TS videos launch straight into mpegts.js. On Android, NativeVideoStage (ExoPlayer) handles playback directly.
   useEffect(() => {
+    if (useNative) {
+      setError('')
+      setResumed(savedStartSec > 5 ? savedStartSec : null)
+      return
+    }
     let cancelled = false
     const videoEl = el.current
     setError('')
@@ -556,11 +568,11 @@ function LessonPlayer({
         videoEl.load()
       } catch { /* ignore */ }
     }
-  }, [videoSrc])
+  }, [videoSrc, useNative, savedStartSec])
 
   const handleVideoError = async () => {
     const videoEl = el.current
-    if (!videoEl || tsModeRef.current) return
+    if (!videoEl || tsModeRef.current || useNative) return
     // If a saved resume-seek triggered error 3 right after loading, retry cleanly from 0:00 once
     if (!retriedFromStartRef.current && videoEl.currentTime > 1) {
       retriedFromStartRef.current = true
@@ -598,31 +610,51 @@ function LessonPlayer({
   }, [v.uri])
 
   usePracticeTimer('theory', playing, true)
-  const now = () => el.current?.currentTime ?? 0
+  const now = () => (useNative ? (nativeApiRef.current?.time() ?? 0) : (el.current?.currentTime ?? 0))
+  const seekTo = (sec: number) => {
+    const t = Math.max(0, sec)
+    if (useNative) nativeApiRef.current?.seek(t)
+    else if (el.current) el.current.currentTime = t
+  }
 
   useEffect(() => {
     if (!loop || a === null || b === null || b <= a) return
     const t = setInterval(() => {
-      const e = el.current
-      if (e && (e.currentTime >= b || e.currentTime < a - 1)) e.currentTime = a
+      const cur = now()
+      if (cur >= b || cur < a - 1) seekTo(a)
     }, 150)
     return () => clearInterval(t)
-  }, [loop, a, b])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loop, a, b, useNative])
 
   useEffect(() => {
     const t = setInterval(() => {
-      const e = el.current
-      if (e && !e.paused) setProgress(v.uri, { t: e.currentTime, d: e.duration || undefined })
+      if (useNative) {
+        const api = nativeApiRef.current
+        if (api && api.playing()) setProgress(v.uri, { t: api.time(), d: api.duration() || undefined })
+      } else {
+        const e = el.current
+        if (e && !e.paused) setProgress(v.uri, { t: e.currentTime, d: e.duration || undefined })
+      }
     }, 4000)
     return () => {
       clearInterval(t)
-      const e = el.current
-      if (e && e.currentTime > 1) setProgress(v.uri, { t: e.currentTime, d: e.duration || undefined })
+      if (useNative) {
+        const api = nativeApiRef.current
+        if (api && api.time() > 1) setProgress(v.uri, { t: api.time(), d: api.duration() || undefined })
+      } else {
+        const e = el.current
+        if (e && e.currentTime > 1) setProgress(v.uri, { t: e.currentTime, d: e.duration || undefined })
+      }
     }
-  }, [v.uri])
+  }, [v.uri, useNative])
 
   const markDone = (d: boolean) => { setDone(d); setProgress(v.uri, { done: d }) }
-  const setSpeed = (r: number) => { setRate(r); if (el.current) el.current.playbackRate = r }
+  const setSpeed = (r: number) => {
+    setRate(r)
+    if (useNative) nativeApiRef.current?.setRate(r)
+    else if (el.current) el.current.playbackRate = r
+  }
 
   // Drag / resize handler for the floating video window (width + height up to full phone/tablet screen)
   const floatCardRef = useRef<HTMLDivElement>(null)
@@ -1202,32 +1234,56 @@ function LessonPlayer({
           )}
 
           <div className={`lesson-video${isFloating && cardH ? ' fixed-h' : ''}`}>
-            <video
-              ref={el}
-              controls
-              controlsList={isFloating ? 'nofullscreen' : undefined}
-              playsInline
-              preload="metadata"
-              className={mirror ? 'mirrored' : ''}
-              onLoadedMetadata={e => {
-                setError('')
-                const w = progress()[v.uri]
-                const d = e.currentTarget.duration
-                if (!tsModeRef.current && w && w.t > 5 && d && isFinite(d) && w.t < d - 5) {
-                  e.currentTarget.currentTime = w.t
-                  setResumed(w.t)
-                }
-                e.currentTarget.playbackRate = rate
-              }}
-              onPlay={() => setPlaying(true)}
-              onPause={() => setPlaying(false)}
-              onEnded={() => { setPlaying(false); markDone(true) }}
-              onTimeUpdate={e => {
-                const t = e.currentTarget
-                if (!done && t.duration && isFinite(t.duration) && t.currentTime / t.duration > 0.95) markDone(true)
-              }}
-              onError={() => { void handleVideoError() }}
-            />
+            {useNative ? (
+              <NativeVideoStage
+                uri={v.uri}
+                startSec={savedStartSec}
+                rate={rate}
+                mirror={mirror}
+                opacity={isFloating ? (floatBox.opacity ?? 1) : 1}
+                visible={!(isFloating && floatBox.min)}
+                floating={isFloating}
+                cleanMode={isFloating && cleanVideo}
+                syncKey={`${layout}:${cardLeft}:${cardTop}:${cardW}:${cardH ?? 'auto'}:${opacityOpen}:${toolsOpen}:${cleanVideo}:${floatBox.min}:${activeTool ?? ''}:${error ? 1 : 0}`}
+                onRestoreClean={() => setCleanVideo(false)}
+                onState={s => {
+                  setPlaying(s.playing)
+                  if (s.ready) setError('')
+                  if (s.ended || (!done && s.duration > 0 && s.time / s.duration > 0.95)) markDone(true)
+                }}
+                onError={msg => {
+                  setError(`This video couldn't play inside the app (${msg}). Tap ← Lessons → ↻ Look again, or open it in your phone's video player below.`)
+                }}
+                apiRef={nativeApiRef}
+              />
+            ) : (
+              <video
+                ref={el}
+                controls
+                controlsList={isFloating ? 'nofullscreen' : undefined}
+                playsInline
+                preload="metadata"
+                className={mirror ? 'mirrored' : ''}
+                onLoadedMetadata={e => {
+                  setError('')
+                  const w = progress()[v.uri]
+                  const d = e.currentTarget.duration
+                  if (!tsModeRef.current && !retriedFromStartRef.current && w && w.t > 5 && d && isFinite(d) && w.t < d - 5) {
+                    e.currentTarget.currentTime = w.t
+                    setResumed(w.t)
+                  }
+                  e.currentTarget.playbackRate = rate
+                }}
+                onPlay={() => setPlaying(true)}
+                onPause={() => setPlaying(false)}
+                onEnded={() => { setPlaying(false); markDone(true) }}
+                onTimeUpdate={e => {
+                  const t = e.currentTarget
+                  if (!done && t.duration && isFinite(t.duration) && t.currentTime / t.duration > 0.95) markDone(true)
+                }}
+                onError={() => { void handleVideoError() }}
+              />
+            )}
           </div>
 
           {error && (
@@ -1249,7 +1305,7 @@ function LessonPlayer({
               Picked up at {fmt(resumed)}.{' '}
               <button
                 className="link-btn"
-                onClick={() => { if (el.current) el.current.currentTime = 0; setResumed(null) }}
+                onClick={() => { seekTo(0); setResumed(null) }}
               >
                 Start from the beginning
               </button>
@@ -1266,8 +1322,8 @@ function LessonPlayer({
                   </button>
                 ))}
               </div>
-              <button className="btn sm" onClick={() => { if (el.current) el.current.currentTime = Math.max(0, now() - 5) }}>−5s</button>
-              <button className="btn sm" onClick={() => { if (el.current) el.current.currentTime = now() + 5 }}>+5s</button>
+              <button className="btn sm" onClick={() => seekTo(Math.max(0, now() - 5))}>−5s</button>
+              <button className="btn sm" onClick={() => seekTo(now() + 5)}>+5s</button>
               <button className={`btn sm${a !== null ? ' set' : ''}`} onClick={() => { setA(now()); if (b !== null && b <= now()) setB(null) }}>
                 A{a !== null ? ` ${fmt(a)}` : ''}
               </button>

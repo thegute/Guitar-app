@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { VideoApi, VideoSync } from '../play/inTime'
 import { hasWebLessonFile, lessonsAvailable, mediaUrl, niceName, setProgress } from '../lessons/folders'
 import { attachMpegTsPlayer, probeVideoUrl, type TsPlayerHandle } from '../lessons/mpegtsFallback'
+import { NativeVideoStage, nativeVideoAvailable, type NativeVideoHandle } from '../lessons/nativeVideo'
 import { SyncPanel } from './YouTubePlayer'
 
 export const SPEEDS = [1, 0.75, 0.5, 0.25, 1.25]
@@ -23,7 +24,12 @@ interface Props {
 
 export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90, noteSecs }: Props) {
   const v = useRef<HTMLVideoElement>(null)
-  useEffect(() => onLeavePage(() => v.current?.pause()), [])
+  const useNative = nativeVideoAvailable(file.uri)
+  const nativeApiRef = useRef<NativeVideoHandle | null>(null)
+  useEffect(() => onLeavePage(() => {
+    if (useNative) nativeApiRef.current?.pause()
+    else v.current?.pause()
+  }), [useNative])
   const [ready, setReady] = useState(false)
   const [error, setError] = useState(false)
   const tsModeRef = useRef(false)
@@ -32,6 +38,11 @@ export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90, note
   const [rate, setRate] = useState(1)
 
   useEffect(() => {
+    if (useNative) {
+      setError(false)
+      setReady(false)
+      return
+    }
     let cancelled = false
     const el = v.current
     setError(false)
@@ -64,19 +75,35 @@ export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90, note
       tsRef.current = null
       try { el.pause(); el.removeAttribute('src'); el.load() } catch { /* ignore */ }
     }
-  }, [videoSrc])
+  }, [videoSrc, useNative])
 
   const handleErr = () => {
-    if (!tsModeRef.current) setError(true)
+    if (!tsModeRef.current && !useNative) setError(true)
   }
   const [mirror, setMirror] = useState(false)
   const [a, setA] = useState<number | null>(null)
   const [b, setB] = useState<number | null>(null)
   const [loop, setLoop] = useState(false)
   const [syncOpen, setSyncOpen] = useState(false)
-  const now = () => v.current?.currentTime ?? 0
+  const now = () => (useNative ? (nativeApiRef.current?.time() ?? 0) : (v.current?.currentTime ?? 0))
+  const seekTo = (t: number) => {
+    const pos = Math.max(0, t)
+    if (useNative) nativeApiRef.current?.seek(pos)
+    else if (v.current) v.current.currentTime = pos
+  }
 
   useEffect(() => {
+    if (useNative) {
+      onApi?.({
+        time: () => nativeApiRef.current?.time() ?? 0,
+        playing: () => nativeApiRef.current?.playing() ?? false,
+        rate: () => nativeApiRef.current?.rate() ?? 1,
+        play: () => nativeApiRef.current?.play(),
+        pause: () => nativeApiRef.current?.pause(),
+        seek: t => nativeApiRef.current?.seek(Math.max(0, t)),
+      })
+      return () => onApi?.(null)
+    }
     const el = v.current
     if (!el) return
     onApi?.({
@@ -89,23 +116,32 @@ export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90, note
     })
     return () => onApi?.(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file.uri])
+  }, [file.uri, useNative])
 
   // A–B loop
   useEffect(() => {
     if (!loop || a === null || b === null || b <= a) return
     const t = setInterval(() => {
-      const el = v.current
-      if (el && (el.currentTime >= b || el.currentTime < a - 1)) el.currentTime = a
+      const cur = now()
+      if (cur >= b || cur < a - 1) seekTo(a)
     }, 150)
     return () => clearInterval(t)
-  }, [loop, a, b])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loop, a, b, useNative])
 
   // remember where you got to
   useEffect(() => {
-    const t = setInterval(() => { const el = v.current; if (el && !el.paused) setProgress(file.uri, { t: el.currentTime, d: el.duration || undefined }) }, 5000)
+    const t = setInterval(() => {
+      if (useNative) {
+        const api = nativeApiRef.current
+        if (api && api.playing()) setProgress(file.uri, { t: api.time(), d: api.duration() || undefined })
+      } else {
+        const el = v.current
+        if (el && !el.paused) setProgress(file.uri, { t: el.currentTime, d: el.duration || undefined })
+      }
+    }, 5000)
     return () => clearInterval(t)
-  }, [file.uri])
+  }, [file.uri, useNative])
 
   if (!lessonsAvailable() && !hasWebLessonFile(file.uri)) {
     return (
@@ -118,8 +154,20 @@ export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90, note
   return (
     <div className="yt local-video">
       <div className="yt-frame">
-        <video ref={v} playsInline controls preload="metadata" className={mirror ? 'mirrored' : ''}
-          onLoadedMetadata={() => { setError(false); setReady(true) }} onError={handleErr} aria-label={niceName(file.name)} />
+        {useNative ? (
+          <NativeVideoStage
+            uri={file.uri}
+            rate={rate}
+            mirror={mirror}
+            syncKey={`${syncOpen}:${error}`}
+            onState={s => { if (s.ready) { setError(false); setReady(true) } }}
+            onError={() => setError(true)}
+            apiRef={nativeApiRef}
+          />
+        ) : (
+          <video ref={v} playsInline controls preload="metadata" className={mirror ? 'mirrored' : ''}
+            onLoadedMetadata={() => { setError(false); setReady(true) }} onError={handleErr} aria-label={niceName(file.name)} />
+        )}
         {error && (
           <div className="yt-error">
             <p>The video can't be read. If you moved or renamed the lesson folder, pick it again in Learn → Your video lessons.</p>
@@ -128,8 +176,13 @@ export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90, note
         )}
       </div>
       <div className="yt-bar">
-        <button className="btn sm" disabled={!ready} onClick={() => { const r = SPEEDS[(SPEEDS.indexOf(rate) + 1) % SPEEDS.length]; setRate(r); if (v.current) v.current.playbackRate = r }} aria-label="Playback speed">{label(rate)}</button>
-        <button className="btn sm" disabled={!ready} onClick={() => { if (v.current) v.current.currentTime = Math.max(0, now() - 5) }} aria-label="Back 5 seconds">−5s</button>
+        <button className="btn sm" disabled={!ready} onClick={() => {
+          const r = SPEEDS[(SPEEDS.indexOf(rate) + 1) % SPEEDS.length]
+          setRate(r)
+          if (useNative) nativeApiRef.current?.setRate(r)
+          else if (v.current) v.current.playbackRate = r
+        }} aria-label="Playback speed">{label(rate)}</button>
+        <button className="btn sm" disabled={!ready} onClick={() => seekTo(Math.max(0, now() - 5))} aria-label="Back 5 seconds">−5s</button>
         <button className={`btn sm${a !== null ? ' set' : ''}`} disabled={!ready} onClick={() => { setA(now()); if (b !== null && b <= now()) setB(null) }}>A{a !== null ? ` ${fmt(a)}` : ''}</button>
         <button className={`btn sm${b !== null ? ' set' : ''}`} disabled={!ready || a === null} onClick={() => { const t = now(); if (a !== null && t > a) { setB(t); setLoop(true) } }}>B{b !== null ? ` ${fmt(b)}` : ''}</button>
         <button className="btn sm" aria-pressed={loop} disabled={a === null || b === null} onClick={() => setLoop(l => !l)}>Loop</button>
@@ -140,7 +193,11 @@ export function LocalVideo({ file, onUrl, onApi, sync, onSync, tabBpm = 90, note
         <button className="btn sm ghost" onClick={() => onUrl(undefined)}>Change video</button>
       </div>
       {syncOpen && onSync && <SyncPanel ready={ready} now={now} sync={sync} onSync={onSync} tabBpm={tabBpm}
-        auto={noteSecs ? { noteSecs, play: () => { const el = v.current; if (!el) return; setRate(1); el.playbackRate = 1; void el.play() } } : undefined} />}
+        auto={noteSecs ? { noteSecs, play: () => {
+          setRate(1)
+          if (useNative) { nativeApiRef.current?.setRate(1); nativeApiRef.current?.play() }
+          else if (v.current) { v.current.playbackRate = 1; void v.current.play() }
+        } } : undefined} />}
     </div>
   )
 }

@@ -10,8 +10,9 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         // our own plugin for receiving shared tabs, files and links (must be registered before super.onCreate)
         registerPlugin(ShareInPlugin.class);
-        // your video lessons: read a folder you pick, play its videos with seeking
+        // your video lessons: read a folder you pick, play its videos natively with Media3 ExoPlayer
         registerPlugin(LessonFoldersPlugin.class);
+        registerPlugin(NativeVideoPlugin.class);
         registerPlugin(SpeakPlugin.class);
         registerPlugin(ImmersivePlugin.class);
         registerPlugin(ListenPlugin.class);
