@@ -86,9 +86,10 @@ function run(argv) {
     }
     writeText(`${tmp}/body.json`, JSON.stringify(body))
     let code = '0'
+    const t0 = Date.now()
     try {
       code = sh(`curl -s --max-time 360 -o ${q(tmp + '/resp.json')} -w '%{http_code}' -H 'content-type: application/json' -H "x-goog-api-key: $(tr -d ' \\n\\r' < ${q(keyFile)})" --data @${q(tmp + '/body.json')} ${q(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`)}`)
-    } catch (e) { return { status: 0, error: String(e) } }
+    } catch (e) { return { status: 0, error: String(e), fast: Date.now() - t0 < 20000 } }
     const status = Number(code)
     const raw = readText(`${tmp}/resp.json`) || ''
     let data = {}
@@ -103,9 +104,13 @@ function run(argv) {
   let fixed = 0
   for (const k of Object.keys(state.notes)) { const r = state.notes[k]; if (!r.note && r.raw) { const n = parse(r.raw); if (n) { r.note = n; delete r.raw; fixed++ } } }
   if (fixed) { save(); log(`read ${fixed} earlier answer(s) again`) }
+  // a video that failed only because the Mac was offline (status 0) is tried again
+  let offline = 0
+  for (const k of Object.keys(state.failed)) if (/^0 /.test(state.failed[k])) { delete state.failed[k]; offline++ }
+  if (offline) { save(); log(`${offline} video(s) failed earlier with no internet: trying them again`) }
   const todo = jobs.filter(j => (!only || j.lessonId.indexOf(only) === 0) && !(state.notes[j.key] && state.notes[j.key].note) && (retryFailed || !state.failed[j.key]))
   log(`${todo.length} videos to watch (${Object.keys(state.notes).length} done already, ${jobs.length} in the course)`)
-  let mi = 0, limitHits = 0
+  let mi = 0, limitHits = 0, netWaits = 0
   for (const job of todo) {
     let retried = false
     for (;;) {
@@ -113,6 +118,7 @@ function run(argv) {
       log(`watching ${job.id} for ${job.lessonId} (${job.where}) with ${model}: ${job.title}`)
       const r = watch(job, model)
       if (r.status === 200) {
+        netWaits = 0
         const note = parse(r.text)
         const rec = Object.assign({}, job, { prompt: undefined, note, model, tokens: r.usage ? r.usage.promptTokenCount : null, at: new Date().toISOString() })
         if (!note) rec.raw = r.text.slice(0, 8000)
@@ -135,6 +141,12 @@ function run(argv) {
       }
       if (r.status === 404 && mi < MODELS.length - 1) { log(`  no model ${model}: trying ${MODELS[mi + 1]}`); mi++; continue }
       if ((r.status === 400 || r.status === 403) && /API key|API_KEY/i.test(err)) { log('STOPPED: Google didn\'t accept the key in gemini-key.txt.'); return 'Key not accepted.' }
+      // no internet (the Mac's Wi-Fi asleep or down): wait for it instead of failing the whole list
+      if (r.status === 0 && r.fast) {
+        if (netWaits++ < 30) { log(`  no internet: waiting 2 minutes (${netWaits}/30)`); delay(120); continue }
+        log('STOPPED: no internet for an hour. Check the Mac\'s Wi-Fi; it carries on when you run it again.')
+        save(); return 'Stopped: no internet.'
+      }
       if ((r.status >= 500 || r.status === 0) && !retried) { retried = true; log(`  error ${r.status}, trying once more in 30 s`); delay(30); continue }
       if (r.status === 503 && mi < MODELS.length - 1) { log(`  ${model} still busy: switching to ${MODELS[mi + 1]}`); mi++; retried = false; continue }
       state.failed[job.key] = `${r.status} ${err}`; save()
