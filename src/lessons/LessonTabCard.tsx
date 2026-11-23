@@ -87,35 +87,32 @@ function ScannedTabCard({ initialDoc }: { initialDoc: SongDoc }) {
     <FloatCard
       id="scannedtab"
       where="lessons"
-      title={`Scanned tab · ${doc.title}`}
+      title={doc.title}
       icon="guitar"
       onHide={closeScannedLessonTab}
-      width={460}
-      minW={260}
+      width={420}
+      minW={250}
       order={1}
       openNarrow
       testId="scanned-lesson-tab-card"
       bubbleTestId="scanned-lesson-tab-chip"
       label={`Scanned tab: ${doc.title}`}
       bubble={<>Tab · {doc.title.slice(0, 18)}</>}
+      headerExtra={
+        <button
+          className="fc-btn"
+          onClick={() => openInPlay(doc)}
+          data-testid="scanned-lesson-open-in-play"
+          title="Open in full-screen Play"
+          aria-label="Open in full Play"
+          style={{ fontSize: 11, padding: '0 5px', width: 'auto' }}
+        >
+          ↗
+        </button>
+      }
     >
-      <div className="stack" style={{ gap: 6 }}>
-        <div className="lesson-tab-view" data-testid="scanned-lesson-tab-body" style={{ maxHeight: 'min(58vh, 520px)' }}>
-          <ScanPlayer doc={doc} onChangeSong={handleSongChange} playTools />
-        </div>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span className="small muted" style={{ fontSize: 11 }}>
-            Tap <b>◐</b> above to see through over the PDF · tap any fret to fix it
-          </span>
-          <button
-            className="btn sm ghost"
-            onClick={() => openInPlay(doc)}
-            data-testid="scanned-lesson-open-in-play"
-            title="Optionally switch to full-screen Play"
-          >
-            Full Play ↗
-          </button>
-        </div>
+      <div className="lesson-tab-view" data-testid="scanned-lesson-tab-body" style={{ maxHeight: 'min(48vh, 420px)' }}>
+        <ScanPlayer doc={doc} onChangeSong={handleSongChange} playTools />
       </div>
     </FloatCard>
   )

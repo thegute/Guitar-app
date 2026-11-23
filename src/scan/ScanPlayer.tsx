@@ -61,8 +61,8 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
   const [loop, setLoop] = useState<{ from: number; to: number } | null>(null)
   const [clickOn, setClickOn] = useState(true)
   const [guideOn, setGuideOn] = useState(true)
-  const [mixOpen, setMixOpen] = useState(false)
-  const [handOpen, setHandOpen] = useState(true)
+  const [toolsOpen, setToolsOpen] = useState(false)
+  const [handOpen, setHandOpen] = useState(!playTools)
   const [micMode, setMicMode] = useState<'off' | 'wait' | 'time'>('off')
   const [micErr, setMicErr] = useState('')
   const [heardLabel, setHeardLabel] = useState('')
@@ -536,6 +536,13 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
       if (playing) start(flat.findIndex(f => f.bar === lp.from), lp)
     }
   }
+  const adjustLoopStart = (delta: number) => {
+    if (!loop) return
+    const nextFrom = Math.max(0, Math.min(loop.to, loop.from + delta))
+    const lp = { from: nextFrom, to: loop.to }
+    setLoop(lp)
+    if (playing) start(flat.findIndex(f => f.bar === lp.from), lp)
+  }
   const adjustLoopEnd = (delta: number) => {
     if (!loop) return
     const nextTo = Math.max(loop.from, Math.min(maxBar, loop.to + delta))
@@ -559,11 +566,11 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
   const isBusy = playing || micMode !== 'off'
 
   return (
-    <div className="scan-player stack" style={{ gap: 6 }} data-testid="scan-player">
-      {/* Row 1: Play / Mic Modes (Hear it · Wait for me · In time · Reset) */}
-      <div className="row" style={{ gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+    <div className="scan-player stack" style={{ gap: 5 }} data-testid="scan-player">
+      {/* Ultra-slim 1-row action bar: Play · Wait · In time · Loop · ⚙ Tools */}
+      <div className="row" style={{ gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
         <button className={`btn sm${playing ? ' on' : ' primary'}`} onClick={() => (playing ? pause() : start(from))} data-testid="sp-play">
-          {playing ? <><Ico n="pause" fill /> Pause</> : <><Ico n="play" fill /> {playTools ? (from > 0 ? 'Go on' : 'Hear it') : (from > 0 ? 'Go on' : 'Play')}</>}
+          {playing ? <><Ico n="pause" fill /> Pause</> : <><Ico n="play" fill /> {playTools ? (from > 0 ? 'Go on' : 'Hear') : (from > 0 ? 'Go on' : 'Play')}</>}
         </button>
         {playTools && (
           <>
@@ -572,9 +579,9 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
               aria-pressed={micMode === 'wait'}
               onClick={() => void startMicMode('wait')}
               data-testid="sp-mic-wait"
-              title="Mic listens and waits for each note you play"
+              title="Mic waits for each note you play"
             >
-              🎤 {micMode === 'wait' ? 'Stop mic' : 'Wait for me'}
+              🎤 {micMode === 'wait' ? 'Stop' : 'Wait'}
             </button>
             <button
               className={`btn sm${micMode === 'time' ? ' on' : ''}`}
@@ -585,19 +592,39 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
             >
               ⏱ {micMode === 'time' ? 'Stop' : 'In time'}
             </button>
+            <button
+              className={`btn sm${loop ? ' on' : ''}`}
+              aria-pressed={!!loop}
+              onClick={toggleLoopHere}
+              data-testid="sp-loop"
+              title={loop ? 'Turn off section loop' : `Loop section starting at bar ${activeLoopBar + 1}`}
+            >
+              ⟲ {loop ? `${loop.from + 1}–${loop.to + 1}` : 'Loop'}
+            </button>
+            <button
+              className={`btn sm${toolsOpen || speed !== 1 || handOpen ? ' set' : ''}`}
+              aria-pressed={toolsOpen}
+              onClick={() => setToolsOpen(o => !o)}
+              data-testid="sp-tools-btn"
+              title="Speed, Click, Mix & Hand Coach"
+            >
+              ⚙{speed !== 1 ? ` ${Math.round(speed * 100)}%` : ''}
+            </button>
           </>
         )}
-        <button className="btn sm ghost" onClick={reset} aria-label="Back to the start" disabled={!isBusy && from === 0}><Ico n="again" /></button>
         {!playTools && (
-          <label className="row small" style={{ gap: 6, alignItems: 'center', flex: '1 1 160px' }}>
-            <span>Speed</span>
-            <input type="range" min={0.25} max={1.5} step={0.05} value={speed} onChange={e => setSpeed(Number(e.target.value))} aria-label="Speed" data-testid="sp-speed" style={{ flex: 1 }} />
-            <b className="tabular" data-testid="sp-bpm">{Math.round(bpm * speed)} BPM</b>
-          </label>
+          <>
+            <button className="btn sm ghost" onClick={reset} aria-label="Back to the start" disabled={!isBusy && from === 0}><Ico n="again" /></button>
+            <label className="row small" style={{ gap: 6, alignItems: 'center', flex: '1 1 160px' }}>
+              <span>Speed</span>
+              <input type="range" min={0.25} max={1.5} step={0.05} value={speed} onChange={e => setSpeed(Number(e.target.value))} aria-label="Speed" data-testid="sp-speed" style={{ flex: 1 }} />
+              <b className="tabular" data-testid="sp-bpm">{Math.round(bpm * speed)} BPM</b>
+            </label>
+          </>
         )}
         {onChangeSong && unsureList.length > 0 && (
           <button className="btn sm primary" onClick={() => jumpUnsure(1)} data-testid="sp-next-unsure">
-            Check {unsureList.length} unsure →
+            Check {unsureList.length} →
           </button>
         )}
         {hasVideo && !playTools && (
@@ -606,75 +633,47 @@ export function ScanPlayer({ doc, marks, onChangeSong, sources, noPicture, barTi
           </button>
         )}
         {undoStack.length > 0 && (
-          <button className="btn sm ghost" onClick={undoLast} data-testid="sp-undo" title="Undo last note edit">↩ Undo</button>
+          <button className="btn sm ghost" onClick={undoLast} data-testid="sp-undo" title="Undo last note edit">↩</button>
         )}
         {!playTools && loop && <button className="btn sm on" onClick={() => { setLoop(null); if (playing) start(at, null) }}>Looping bars {loop.from + 1}–{loop.to + 1} ✕</button>}
       </div>
 
-      {/* Row 2 (playTools): Speed · Click · Loop bars · Mix · Hand */}
-      {playTools && (
-        <div className="row" style={{ gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
-          <label className="row small" style={{ gap: 5, alignItems: 'center', flex: '1 1 130px', minWidth: 120 }}>
-            <input type="range" min={0.25} max={1.5} step={0.05} value={speed} onChange={e => setSpeed(Number(e.target.value))} aria-label="Speed" data-testid="sp-speed" style={{ flex: 1, minWidth: 60 }} />
-            <b className="tabular" data-testid="sp-bpm" style={{ fontSize: 11 }}>{Math.round(bpm * speed)} BPM</b>
-          </label>
-          <button
-            className={`btn sm${clickOn ? ' set' : ''}`}
-            aria-pressed={clickOn}
-            onClick={() => setClickOn(c => !c)}
-            data-testid="sp-click"
-            title="Metronome beat click"
-          >
-            Click
-          </button>
-          <button
-            className={`btn sm${loop ? ' on' : ''}`}
-            aria-pressed={!!loop}
-            onClick={toggleLoopHere}
-            data-testid="sp-loop"
-            title={loop ? 'Turn off bar loop' : `Loop bar ${activeLoopBar + 1}`}
-          >
-            ⟲ {loop ? `Bar ${loop.from + 1}${loop.to > loop.from ? `–${loop.to + 1}` : ''}` : 'Loop'}
-          </button>
-          {loop && (
-            <>
-              <button className="btn sm ghost" onClick={() => adjustLoopEnd(-1)} disabled={loop.to <= loop.from} aria-label="Shorter loop" style={{ padding: '2px 5px' }}>−</button>
-              <button className="btn sm ghost" onClick={() => adjustLoopEnd(1)} disabled={loop.to >= maxBar} aria-label="Longer loop" style={{ padding: '2px 5px' }}>+</button>
-            </>
-          )}
-          <button
-            className={`btn sm${mixOpen ? ' set' : ''}`}
-            aria-pressed={mixOpen}
-            onClick={() => setMixOpen(m => !m)}
-            data-testid="sp-mix-btn"
-            title="Adjust guide volume & Mix"
-          >
-            Mix
-          </button>
-          <button
-            className={`btn sm${handOpen ? ' set' : ''}`}
-            aria-pressed={handOpen}
-            onClick={() => setHandOpen(h => !h)}
-            data-testid="sp-hand-btn"
-            title="Show or hide Live Left-Hand Coach"
-          >
-            ✋ Hand
-          </button>
+      {/* Compact Section Loop Picker (only shown when Loop is ON!) */}
+      {playTools && loop && (
+        <div className="panel row small" style={{ gap: 5, padding: '4px 8px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }} data-testid="sp-loop-bar">
+          <span className="row" style={{ gap: 4, alignItems: 'center' }}>
+            <b>Section:</b>
+            <button className="btn sm ghost" onClick={() => adjustLoopStart(-1)} disabled={loop.from <= 0} aria-label="Earlier start bar" style={{ padding: '1px 5px', minHeight: 22 }}>‹</button>
+            <span className="tabular">Bar {loop.from + 1}</span>
+            <button className="btn sm ghost" onClick={() => adjustLoopStart(1)} disabled={loop.from >= loop.to} aria-label="Later start bar" style={{ padding: '1px 5px', minHeight: 22 }}>›</button>
+            <span className="muted">to</span>
+            <button className="btn sm ghost" onClick={() => adjustLoopEnd(-1)} disabled={loop.to <= loop.from} aria-label="Earlier end bar" style={{ padding: '1px 5px', minHeight: 22 }}>‹</button>
+            <span className="tabular">Bar {loop.to + 1}</span>
+            <button className="btn sm ghost" onClick={() => adjustLoopEnd(1)} disabled={loop.to >= maxBar} aria-label="Later end bar" style={{ padding: '1px 5px', minHeight: 22 }}>›</button>
+          </span>
+          <button className="btn sm ghost" onClick={toggleLoopHere} aria-label="Clear loop" style={{ padding: '1px 6px', minHeight: 22 }}>✕</button>
         </div>
       )}
 
-      {/* Compact Mix panel (Your part volume + In-time Guide toggle) */}
-      {playTools && mixOpen && (
-        <div className="panel row" style={{ gap: 8, padding: '6px 8px', alignItems: 'center', flexWrap: 'wrap' }} data-testid="sp-mix-panel">
-          <MixSlider band={false} compact />
-          <button
-            className={`btn sm${guideOn ? ' set' : ''}`}
-            aria-pressed={guideOn}
-            onClick={() => setGuideOn(g => !g)}
-            title="Play guide tab notes during In time mode"
-          >
-            Guide {guideOn ? 'ON' : 'OFF'}
-          </button>
+      {/* Collapsible ⚙ Practice Drawer (Speed · Click · Mix · Guide · Hand · Reset — tucked away until tapped!) */}
+      {playTools && toolsOpen && (
+        <div className="panel stack" style={{ gap: 6, padding: '6px 8px' }} data-testid="sp-tools-drawer">
+          <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            <label className="row small" style={{ gap: 5, alignItems: 'center', flex: '1 1 130px', minWidth: 120 }}>
+              <span className="muted">Speed</span>
+              <input type="range" min={0.25} max={1.5} step={0.05} value={speed} onChange={e => setSpeed(Number(e.target.value))} aria-label="Speed" data-testid="sp-speed" style={{ flex: 1, minWidth: 60 }} />
+              <b className="tabular" data-testid="sp-bpm" style={{ fontSize: 11 }}>{Math.round(bpm * speed)} BPM</b>
+            </label>
+            <button className={`btn sm${clickOn ? ' set' : ''}`} aria-pressed={clickOn} onClick={() => setClickOn(c => !c)} data-testid="sp-click">Click</button>
+            <button className={`btn sm${handOpen ? ' set' : ''}`} aria-pressed={handOpen} onClick={() => setHandOpen(h => !h)} data-testid="sp-hand-btn">✋ Hand</button>
+            <button className="btn sm ghost" onClick={reset} aria-label="Back to the start" disabled={!isBusy && from === 0}><Ico n="again" /></button>
+          </div>
+          <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <MixSlider band={false} compact />
+            <button className={`btn sm${guideOn ? ' set' : ''}`} aria-pressed={guideOn} onClick={() => setGuideOn(g => !g)} title="Play guide notes during In time mode">
+              Guide {guideOn ? 'ON' : 'OFF'}
+            </button>
+          </div>
         </div>
       )}
 
