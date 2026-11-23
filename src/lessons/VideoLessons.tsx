@@ -28,7 +28,7 @@ import { freqToMidi, midiName } from '../theory/notes'
 import { SPEEDS } from '../components/LocalVideo'
 import { Win, WinArea } from '../components/Win'
 import { CourseBookView } from './CourseBookView'
-import { LessonTabHost, closeLessonTab, followLesson, openLessonTab, useLessonTab } from './LessonTabCard'
+import { LessonTabHost, closeLessonTab, followLesson, openLessonTab, openScannedLessonTab, useLessonTab } from './LessonTabCard'
 import { CourseFingerCard } from './CourseFingerCard'
 import { attachMpegTsPlayer, probeVideoUrl, type TsPlayerHandle } from './mpegtsFallback'
 import { NativeVideoStage, nativeVideoAvailable, type NativeVideoHandle } from './nativeVideo'
@@ -748,7 +748,7 @@ function LessonPlayer({
     try {
       const doc = await songFromPdf(pdfFile.name, bytes, inst, vLink, { from: fromPage, to: toPage })
       await saveSong(doc)
-      openInPlay(doc)
+      openScannedLessonTab(doc)
     } catch (err) {
       if (err instanceof ScannedPdf) {
         // Deep high-DPI render (3.5× ≈ 252 DPI) + 99.1% neural tab_crnn + Dual-Reader Cross-Check!
@@ -767,7 +767,7 @@ function LessonPlayer({
             updated: Date.now(),
           }
           await saveSong(doc)
-          openInPlay(doc)
+          openScannedLessonTab(doc)
           return
         }
       }
@@ -775,7 +775,7 @@ function LessonPlayer({
     }
   }
 
-  // Scan a PNG/WebP tab diagram into a playable tab in Play using 99.1% neural tab_crnn + Dual-Reader Cross-Check
+  // Scan a PNG/WebP tab diagram into a playable floating tab right over the lesson page
   const handleScanImageToPlay = async (imgFile: LFile) => {
     const vLink = localVideoLink(v)
     const targetMidis = lesson.tuning?.toLowerCase().includes('drop d') && inst.midis.length === 6
@@ -796,7 +796,7 @@ function LessonPlayer({
       updated: Date.now(),
     }
     await saveSong(doc)
-    openInPlay(doc)
+    openScannedLessonTab(doc)
   }
 
   const isFloating = hasVisualStage && layout === 'float'

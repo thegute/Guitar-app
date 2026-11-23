@@ -376,10 +376,10 @@ export function CourseBookView({
                   className="btn sm"
                   onClick={() => void handleScanPdf()}
                   disabled={scanBusy}
-                  title="Scan this PDF page into a playable tab in Play"
+                  title="Scan this PDF page into a floating playable tab right over the page"
                   data-testid="pdf-scan-to-play"
                 >
-                  🎵 {scanBusy ? 'Scanning…' : 'Scan Page → Play'}
+                  🎵 {scanBusy ? 'Scanning…' : 'Scan Page'}
                 </button>
               )}
 
@@ -447,9 +447,10 @@ export function CourseBookView({
                 className="btn sm"
                 onClick={() => void handleScanImage(activeImg)}
                 disabled={scanBusy}
+                title="Scan this diagram into a floating playable tab right over the page"
                 data-testid="img-scan-to-play"
               >
-                🎵 {scanBusy ? 'Scanning…' : 'Scan Tab → Play'}
+                🎵 {scanBusy ? 'Scanning…' : 'Scan Tab'}
               </button>
             )}
           </div>

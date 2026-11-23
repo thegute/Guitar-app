@@ -28,13 +28,17 @@ export interface LessonTabOpen {
   video?: LFile
 }
 let cur: LessonTabOpen | null = null
+let scannedCur: SongDoc | null = null
 const subs = new Set<() => void>()
 const emit = () => subs.forEach(f => f())
 export function openLessonTab(o: LessonTabOpen) { cur = o; emit() }
-export function closeLessonTab() { cur = null; emit() }
+export function closeLessonTab() { cur = null; scannedCur = null; emit() }
+export function openScannedLessonTab(doc: SongDoc) { scannedCur = doc; emit() }
+export function closeScannedLessonTab() { scannedCur = null; emit() }
 /** while the window is open, a new lesson moves it to that lesson's tab */
 export function followLesson(o: LessonTabOpen | null) { if (cur && o && o.file.uri !== cur.file.uri) { cur = o; emit() } }
 export const useLessonTab = () => useSyncExternalStore(f => { subs.add(f); return () => { subs.delete(f) } }, () => cur, () => cur)
+export const useScannedLessonTab = () => useSyncExternalStore(f => { subs.add(f); return () => { subs.delete(f) } }, () => scannedCur, () => scannedCur)
 
 const hash = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) }
 async function tabDoc(f: LFile, inst: Instrument): Promise<SongDoc> {
@@ -60,8 +64,61 @@ const urlToGray = (url: string): Promise<Gray> => new Promise((res, rej) => {
 
 export function LessonTabHost() {
   const o = useLessonTab()
-  if (!o) return null
-  return <LessonTabCard key={o.file.uri} o={o} />
+  const scanned = useScannedLessonTab()
+  if (!o && !scanned) return null
+  return (
+    <>
+      {o && <LessonTabCard key={o.file.uri} o={o} />}
+      {scanned && <ScannedTabCard key={scanned.id} initialDoc={scanned} />}
+    </>
+  )
+}
+
+function ScannedTabCard({ initialDoc }: { initialDoc: SongDoc }) {
+  const [doc, setDoc] = useState<SongDoc>(initialDoc)
+  useEffect(() => { setDoc(initialDoc) }, [initialDoc])
+  const handleSongChange = (song: SongDoc['song']) => {
+    const next: SongDoc = { ...doc, song, updated: Date.now() }
+    setDoc(next)
+    scannedCur = next
+    void saveSong(next)
+  }
+  return (
+    <FloatCard
+      id="scannedtab"
+      where="lessons"
+      title={`Scanned tab · ${doc.title}`}
+      icon="guitar"
+      onHide={closeScannedLessonTab}
+      width={460}
+      minW={260}
+      order={1}
+      openNarrow
+      testId="scanned-lesson-tab-card"
+      bubbleTestId="scanned-lesson-tab-chip"
+      label={`Scanned tab: ${doc.title}`}
+      bubble={<>Tab · {doc.title.slice(0, 18)}</>}
+    >
+      <div className="stack" style={{ gap: 6 }}>
+        <div className="lesson-tab-view" data-testid="scanned-lesson-tab-body" style={{ maxHeight: 'min(58vh, 520px)' }}>
+          <ScanPlayer doc={doc} onChangeSong={handleSongChange} />
+        </div>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span className="small muted" style={{ fontSize: 11 }}>
+            Tap <b>◐</b> above to see through over the PDF · tap any fret to fix it
+          </span>
+          <button
+            className="btn sm"
+            onClick={() => openInPlay(doc)}
+            data-testid="scanned-lesson-open-in-play"
+            title="Switch to full Play mode with mic listening"
+          >
+            <Ico n="play" /> Open in Play
+          </button>
+        </div>
+      </div>
+    </FloatCard>
+  )
 }
 
 function LessonTabCard({ o }: { o: LessonTabOpen }) {
@@ -151,7 +208,7 @@ function PdfPane({ o }: { o: LessonTabOpen }) {
         doc = { id: newId(), title: `${niceName(o.file.name)} p.${page}`, source: 'text', inst: inst.id, song: read.song, youtube: vLink, updated: Date.now() }
       }
       await saveSong(doc)
-      openInPlay(doc)
+      openScannedLessonTab(doc)
     } catch (e) { setMsg(e instanceof Error ? e.message : 'That page could not be read.') }
     setBusy(false)
   }
@@ -172,7 +229,7 @@ function PdfPane({ o }: { o: LessonTabOpen }) {
         </span>
         <ZoomButtons z={z} set={set} />
       </div>
-      <button className="btn sm" disabled={busy} onClick={() => void toPlay()} data-testid="lesson-tab-play"><Ico n="play" /> Play this page (opens in Play)</button>
+      <button className="btn sm" disabled={busy} onClick={() => void toPlay()} data-testid="lesson-tab-play"><Ico n="play" /> Scan this page (floating tab)</button>
       {msg && <span className="small muted" role="status">{msg}</span>}
     </>
   )
@@ -193,7 +250,7 @@ function PicPane({ o }: { o: LessonTabOpen }) {
       if (!read || read.notes < 4) throw new Error('No tab staff found in this picture to play (it may be a chord diagram or notes only).')
       const doc: SongDoc = { id: newId(), title: niceName(o.file.name), source: 'text', inst: inst.id, song: read.song, youtube: vLink, updated: Date.now() }
       await saveSong(doc)
-      openInPlay(doc)
+      openScannedLessonTab(doc)
     } catch (e) { setMsg(e instanceof Error ? e.message : 'That picture could not be read.') }
     setBusy(false)
   }
@@ -203,7 +260,7 @@ function PicPane({ o }: { o: LessonTabOpen }) {
         <img src={mediaUrl(o.file.uri)} alt={niceName(o.file.name)} style={{ width: `${z * 100}%`, maxWidth: 'none', display: 'block' }} draggable={false} />
       </div>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        <button className="btn sm" disabled={busy} onClick={() => void toPlay()} data-testid="lesson-tab-pic-play"><Ico n="play" /> Play this picture (opens in Play)</button>
+        <button className="btn sm" disabled={busy} onClick={() => void toPlay()} data-testid="lesson-tab-pic-play"><Ico n="play" /> Scan this picture (floating tab)</button>
         <ZoomButtons z={z} set={set} />
       </div>
       {msg && <span className="small muted" role="status">{msg}</span>}
