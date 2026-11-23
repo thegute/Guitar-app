@@ -49,6 +49,8 @@ export const picSrc = (id: CardId | WideId) => isWide(id) ? `${base()}samurai/wi
 export const thumbSrc = (id: CardId | WideId) => `${base()}samurai/thumb-${id}.webp`
 export const floatSrc = (id: FloatId) => `${base()}samurai/float-${id}.webp`
 export const dogStrip = () => `${base()}samurai/strip.webp`
+export type BrandyMood = 'idle' | 'shred' | 'wrong' | 'hurt'
+export const brandySprite = (mood: BrandyMood) => `${base()}samurai/brandy-${mood}.webp`
 /** object-position (x %) that centres a dog in the strip. */
 export const stripAt = (id: DogId) => `${(STRIP_ORDER.indexOf(id) / (STRIP_ORDER.length - 1)) * 100}%`
 

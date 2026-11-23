@@ -130,6 +130,14 @@ const orbC = { id: 2, spot: { s: 1, f: 3, midi: 48, pc: 0 }, label: 'C', x: 75, 
 assert.equal(matchRushAttempt([orbA, orbC], null, { s: 0, f: 5 })?.kind, 'orb')
 assert.equal(matchRushAttempt([orbA, orbC], null, { s: 0, f: 4 }), null)
 assert.equal(matchRushAttempt([orbA, orbC], null, { midi: 48 })?.kind, 'orb')
+// Phone-mic low-string octave tolerance (A2=45 often reads as A3=57 on phone mic)
+assert.equal(matchRushAttempt([orbA], null, { midi: 57 })?.kind, 'orb')
+// Single Track (Style 1): any matching pitch class in the active fret box hits the orb!
+const singleHit = matchRushAttempt([orbA], null, { s: 1, f: 0 }, { singleTrack: true, midis: STD_GUITAR, fromFret: 0, toFret: 5 })
+assert.equal(singleHit?.kind, 'orb')
+assert.equal(singleHit && 'hitSpot' in singleHit ? singleHit.hitSpot?.s : -1, 1)
+// Single Track rejects same note outside the active fret box
+assert.equal(matchRushAttempt([orbA], null, { s: 0, f: 5 }, { singleTrack: true, midis: STD_GUITAR, fromFret: 7, toFret: 12 }), null)
 const bossG = { id: 3, title: '👑 ALL 6 G', label: 'G', spots: spotsForPc(STD_GUITAR, 7, 0, 11, true), found: [], x: 60, speed: 3.5, spawnedAt: 0 }
 assert.equal(matchRushAttempt([], bossG, { midi: 43 })?.kind, 'boss')
 

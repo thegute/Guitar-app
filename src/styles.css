@@ -4572,6 +4572,153 @@ html:not([data-arrange]) .win-zoom { display: none; }
   color: #042f2e;
 }
 
+.fg-mic-live {
+  background: rgba(16, 185, 129, 0.22) !important;
+  border-color: rgba(52, 211, 153, 0.6) !important;
+  color: #a7f3d0 !important;
+}
+
+/* 32-Bit Samurai Rocker Brandy anchored at the end of the Endless Mode lane */
+.fg-radar-stage {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.fg-radar-stage.lefty {
+  flex-direction: row-reverse;
+}
+.fg-radar-stage .fg-radar-svg {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.fg-brandy-stage {
+  position: relative;
+  flex: 0 0 auto;
+  width: 112px;
+  height: 112px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.fg-radar-stage.lefty .fg-brandy-stage {
+  transform: scaleX(-1);
+}
+.fg-radar-stage.lefty .fg-brandy-dmg-pop,
+.fg-radar-stage.lefty .fg-brandy-sour-pop {
+  transform: translateX(-50%) scaleX(-1);
+}
+.fg-brandy-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.65));
+}
+
+/* Compact 32-bit Brandy portrait in Speed Blitz / Metronome Run / Build the Shape / Primer */
+.fg-brandy-badge {
+  position: relative;
+  flex: 0 0 auto;
+  width: 66px;
+  height: 66px;
+  border-radius: 12px;
+  background: radial-gradient(circle at 50% 55%, rgba(56, 189, 248, 0.2), rgba(7, 11, 20, 0.85));
+  border: 1.5px solid rgba(56, 189, 248, 0.38);
+  padding: 2px;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.fg-brandy-badge.compact {
+  width: 54px;
+  height: 54px;
+}
+
+/* Subtle in-place strumming groove (stays anchored, never roams!) */
+@keyframes fgBrandyGroove {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-2.5px) rotate(-1.4deg); }
+}
+@keyframes fgBrandyShred {
+  0% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 14px rgba(163, 230, 53, 0.95)); }
+  40% { transform: scale(1.07) translateY(-3px) rotate(2deg); filter: drop-shadow(0 0 20px rgba(163, 230, 53, 1)); }
+  100% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 10px rgba(163, 230, 53, 0.6)); }
+}
+@keyframes fgBrandyWrong {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px) rotate(-2deg); }
+  75% { transform: translateX(3px) rotate(1.5deg); }
+}
+@keyframes fgBrandyHurt {
+  0% { transform: translateX(0); filter: brightness(2.2) saturate(0.2) drop-shadow(0 0 18px #ef4444); }
+  20% { transform: translateX(-8px) rotate(-6deg); filter: drop-shadow(0 0 18px #ef4444); }
+  45% { transform: translateX(5px) rotate(3deg); filter: brightness(1.8) drop-shadow(0 0 16px #ef4444); }
+  70% { transform: translateX(-4px) rotate(-2deg); }
+  100% { transform: translateX(0); filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.65)); }
+}
+@keyframes fgFeverAura {
+  0%, 100% { filter: drop-shadow(0 0 10px #f59e0b) drop-shadow(0 0 18px rgba(217, 70, 239, 0.65)); }
+  50% { filter: drop-shadow(0 0 16px #a3e635) drop-shadow(0 0 24px rgba(245, 158, 11, 0.9)); }
+}
+@keyframes fgDmgFloat {
+  0% { opacity: 1; transform: translate(-50%, 0) scale(0.9); }
+  100% { opacity: 0; transform: translate(-50%, -26px) scale(1.2); }
+}
+
+.fg-brandy-stage.mood-idle .fg-brandy-img,
+.fg-brandy-badge.mood-idle .fg-brandy-img {
+  animation: fgBrandyGroove 1.05s ease-in-out infinite;
+}
+.fg-brandy-stage.mood-shred .fg-brandy-img,
+.fg-brandy-badge.mood-shred .fg-brandy-img {
+  animation: fgBrandyShred 420ms ease-out;
+}
+.fg-brandy-stage.mood-wrong .fg-brandy-img,
+.fg-brandy-badge.mood-wrong .fg-brandy-img {
+  animation: fgBrandyWrong 340ms ease-in-out;
+}
+.fg-brandy-stage.mood-hurt .fg-brandy-img,
+.fg-brandy-badge.mood-hurt .fg-brandy-img {
+  animation: fgBrandyHurt 520ms ease-out;
+}
+.fg-brandy-stage.fever,
+.fg-brandy-badge.fever {
+  animation: fgFeverAura 1.1s ease-in-out infinite;
+}
+.fg-brandy-badge.fever {
+  border-color: #f59e0b;
+}
+.fg-brandy-stage.guard .fg-brandy-img {
+  animation: none;
+  filter: drop-shadow(0 0 14px rgba(251, 191, 36, 0.85));
+}
+.fg-brandy-dmg-pop,
+.fg-brandy-sour-pop {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  font-weight: 900;
+  color: #fecaca;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95);
+  pointer-events: none;
+  white-space: nowrap;
+  animation: fgDmgFloat 680ms ease-out forwards;
+}
+
+@media (max-width: 600px) {
+  .fg-brandy-stage {
+    width: 78px;
+    height: 78px;
+  }
+}
+
+
 
 
 

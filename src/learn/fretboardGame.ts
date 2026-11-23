@@ -934,7 +934,14 @@ export function matchRushAttempt(
   orbs: RushOrb[],
   boss: RushBoss | null,
   attempt: { s?: number; f?: number; midi?: number },
-): { kind: 'orb'; orb: RushOrb } | { kind: 'boss'; spot: FretSpot } | null {
+  opts?: {
+    singleTrack?: boolean
+    midis?: number[]
+    fromFret?: number
+    toFret?: number
+    allowedStrings?: number[]
+  },
+): { kind: 'orb'; orb: RushOrb; hitSpot?: FretSpot } | { kind: 'boss'; spot: FretSpot } | null {
   if (boss) {
     const foundSet = new Set(boss.found)
     const remaining = boss.spots.filter(sp => !foundSet.has(spotKey(sp.s, sp.f)))
@@ -950,9 +957,36 @@ export function matchRushAttempt(
   const sorted = [...orbs].sort((a, b) => a.x - b.x)
   for (const orb of sorted) {
     if (attempt.s !== undefined && attempt.f !== undefined) {
-      if (orb.spot.s === attempt.s && orb.spot.f === attempt.f) return { kind: 'orb', orb }
+      if (opts?.singleTrack && opts.midis) {
+        const inFret = (opts.fromFret === undefined || attempt.f >= opts.fromFret)
+          && (opts.toFret === undefined || attempt.f <= opts.toFret)
+        const inStr = !opts.allowedStrings?.length || opts.allowedStrings.includes(attempt.s)
+        const m = opts.midis[attempt.s] + attempt.f
+        const ap = ((m % 12) + 12) % 12
+        if (inFret && inStr && ap === orb.spot.pc) {
+          return { kind: 'orb', orb, hitSpot: { s: attempt.s, f: attempt.f, midi: m, pc: ap } }
+        }
+      } else if (orb.spot.s === attempt.s && orb.spot.f === attempt.f) {
+        return { kind: 'orb', orb, hitSpot: orb.spot }
+      }
     } else if (attempt.midi !== undefined) {
-      if (orb.spot.midi === attempt.midi) return { kind: 'orb', orb }
+      if (opts?.singleTrack) {
+        const ap = ((attempt.midi % 12) + 12) % 12
+        if (ap === orb.spot.pc) {
+          let hitSpot = orb.spot
+          if (opts.midis) {
+            const cands = spotsForPc(opts.midis, ap, opts.fromFret ?? 0, opts.toFret ?? 12)
+              .filter(sp => !opts.allowedStrings?.length || opts.allowedStrings.includes(sp.s))
+            hitSpot = cands.find(sp => sp.midi === attempt.midi)
+              ?? cands.find(sp => sp.midi < 52 && sp.midi + 12 === attempt.midi)
+              ?? cands[0]
+              ?? orb.spot
+          }
+          return { kind: 'orb', orb, hitSpot }
+        }
+      } else if (orb.spot.midi === attempt.midi || (orb.spot.midi < 52 && attempt.midi === orb.spot.midi + 12)) {
+        return { kind: 'orb', orb, hitSpot: orb.spot }
+      }
     }
   }
   return null

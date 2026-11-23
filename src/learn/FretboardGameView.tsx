@@ -20,12 +20,15 @@ import {
   soundChoice,
   soundInfo,
   loadSound,
+  type Handle,
   type SoundId,
 } from '../audio/pluck'
 import { playClick } from '../audio/metronome'
 import { haptic } from '../audio/tapFeel'
-import { NoteListener } from '../tabs/follow'
+import { acquireListener, type ListenerSession } from '../engine/listener'
+import { recordBackingNote } from '../engine/clock'
 import { micWhere } from '../audio/input'
+import { brandySprite, type BrandyMood } from '../art/samurai'
 import { FLATS, KEYS, SHARPS, midiName, pc } from '../theory/notes'
 import { STARTER_PROGS, jamProgression, starterProgression } from '../tabs/fromProgression'
 import type { Instrument } from '../instrument'
@@ -225,6 +228,8 @@ export function FretboardGameView({ inst, onExit }: Props) {
   })
   /** In Endless Mode: false = Auto Waves (1→∞), true = Locked to your selected Fret Box + String Set chunk! */
   const [rushLockChunk, setRushLockChunk] = useState(false)
+  /** Endless Mode Lane Style: false (default) = 🔥 Single Track (Style 1, any matching fret in box), true = 🟢 Easy 6 Lanes */
+  const [rushEasyLanes, setRushEasyLanes] = useState(false)
   const [hintMode, setHintMode] = useState<'miss' | 'off' | 'always'>('miss')
 
   // Lens-specific settings
@@ -248,6 +253,10 @@ export function FretboardGameView({ inst, onExit }: Props) {
   /** 💔 Reveal hold-to-peek: pauses orbs while held, fades away on release! */
   const [revealHeld, setRevealHeld] = useState(false)
   const [revealFading, setRevealFading] = useState(false)
+  /** 32-bit Samurai Rocker Brandy live expression state */
+  const [brandyMood, setBrandyMood] = useState<BrandyMood>('idle')
+  /** True during the brief ~0.45s cue pluck in Mic mode so user sees "🔊 Cue… → 🎤 Play!" */
+  const [cueWaiting, setCueWaiting] = useState(false)
 
   const [prompt, setPrompt] = useState<ActivePrompt | null>(null)
   const [intervalAnchor, setIntervalAnchor] = useState<FretSpot | null>(null)
@@ -292,6 +301,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
   // Refs for timers / mic callbacks
   const shownAtRef = useRef(0)
   const lastSpotKeyRef = useRef('')
+  const lastSpotPcRef = useRef(-1)
   const runTimesRef = useRef<number[]>([])
   const missedListRef = useRef<FretSpot[]>([])
   const burstIdRef = useRef(1)
@@ -299,7 +309,17 @@ export function FretboardGameView({ inst, onExit }: Props) {
   const fadeTimerRef = useRef<number | null>(null)
   const countdownTimersRef = useRef<number[]>([])
   const missTimersRef = useRef<number[]>([])
-  const ignoreMicUntilRef = useRef(0)
+  const brandyTimerRef = useRef<number | null>(null)
+  const cueBadgeTimerRef = useRef<number | null>(null)
+  const cueHandlesRef = useRef<Handle[]>([])
+  /** AudioContext seconds until which Guitar Mic ignores sound (covers app cue + speaker decay). */
+  const ignoreMicUntilCtxRef = useRef(0)
+  /** performance.now() ms until which Endless Mode orbs briefly pause during cue playback in Mic mode (~0.45s). */
+  const orbFreezeUntilRef = useRef(0)
+  const lastMicNoteRef = useRef<{ midi: number; at: number }>({ midi: -1, at: 0 })
+  const lastHitAtRef = useRef(0)
+  const inputModeRef = useRef(inputMode)
+  inputModeRef.current = inputMode
   const rushOrbsRef = useRef<RushOrb[]>([])
   rushOrbsRef.current = rushOrbs
   const rushBossRef = useRef<RushBoss | null>(null)
@@ -320,16 +340,24 @@ export function FretboardGameView({ inst, onExit }: Props) {
     lens, mode, stageId, score, combo, bestRunCombo, hits, misses, hearts, wave,
     sniperClears, gauntletKeyIdx, gauntletStrIdx, gauntletGoingUp, gauntletBpm,
     gauntletDir, soloChordIdx, dailyPhase, voiceOn, hearTarget, filter, rushLockChunk,
-    intervalStyle, lensKey, scaleId, triadQuality, soloLevel, timeLeftMs,
+    rushEasyLanes, intervalStyle, lensKey, scaleId, triadQuality, soloLevel, timeLeftMs,
   })
   stateRef.current = {
     lens, mode, stageId, score, combo, bestRunCombo, hits, misses, hearts, wave,
     sniperClears, gauntletKeyIdx, gauntletStrIdx, gauntletGoingUp, gauntletBpm,
     gauntletDir, soloChordIdx, dailyPhase, voiceOn, hearTarget, filter, rushLockChunk,
-    intervalStyle, lensKey, scaleId, triadQuality, soloLevel, timeLeftMs,
+    rushEasyLanes, intervalStyle, lensKey, scaleId, triadQuality, soloLevel, timeLeftMs,
   }
 
   usePracticeTimer('quiz', running && countdown === 0, inputMode === 'mic')
+
+  // Preload all 4 32-bit Brandy sprite frames so expression swaps are 0ms instant!
+  useEffect(() => {
+    ;(['idle', 'shred', 'wrong', 'hurt'] as BrandyMood[]).forEach(m => {
+      const img = new Image()
+      img.src = brandySprite(m)
+    })
+  }, [])
 
   // Stay synced with KGuitar's global sound / .kgpack selector and preload chosen pack
   useEffect(() => {
@@ -340,28 +368,109 @@ export function FretboardGameView({ inst, onExit }: Props) {
     })
   }, [])
 
+  const triggerBrandy = useCallback((mood: BrandyMood, ms = 560) => {
+    setBrandyMood(mood)
+    if (brandyTimerRef.current) clearTimeout(brandyTimerRef.current)
+    if (mood !== 'idle') {
+      brandyTimerRef.current = window.setTimeout(() => setBrandyMood('idle'), ms)
+    }
+  }, [])
+
   const clearMissTimers = useCallback(() => {
     missTimersRef.current.forEach(t => clearTimeout(t))
     missTimersRef.current = []
   }, [])
 
-  /** Play 1+ guitar cue notes using the chosen sound pack, briefly gating mic echo so speaker sound never triggers a false hit. */
-  const playCue = useCallback((cueMidis: number[], delaySec = 0.03, stepSec = 0.42, durSec = 0.65) => {
+  const stopCues = useCallback(() => {
+    cueHandlesRef.current.forEach(h => { try { h.stop() } catch { /* ignore */ } })
+    cueHandlesRef.current = []
+  }, [])
+
+  /**
+   * Play 1+ guitar cue notes using the chosen sound pack.
+   * - In Guitar Mic mode: crisp damped 0.22s pluck + ~0.45s exact AudioContext mic lock + speaker-bleed
+   *   registration (`recordBackingNote`) + brief orb pause so the mic NEVER scores its own speaker output!
+   * - In Touch Screen mode: warm 0.85s pluck with zero pause.
+   */
+  const playCue = useCallback((cueMidis: number[], delaySec = 0.02, stepSec = 0.34, gain = 0.65) => {
     if (!cueMidis.length) return
-    const gateMs = Math.round((delaySec + (cueMidis.length - 1) * stepSec + 0.55) * 1000)
-    ignoreMicUntilRef.current = Math.max(ignoreMicUntilRef.current, performance.now() + gateMs)
+    stopCues()
+    const isMic = inputModeRef.current === 'mic'
+    const noteDur = isMic ? 0.22 : 0.85
+    const safeGain = isMic ? Math.min(gain, 0.5) : gain
+    const gap = isMic ? Math.min(stepSec, 0.28) : stepSec
     try {
       const ctx = audio()
       void ctx.resume()
-      cueMidis.forEach((m, i) => playNote(m, ctx.currentTime + delaySec + i * stepSec, durSec))
+      const tBase = ctx.currentTime + delaySec
+      const handles: Handle[] = []
+      let lastEnd = tBase
+      cueMidis.forEach((m, i) => {
+        const t = tBase + i * gap
+        const h = playNote(m, t, safeGain)
+        h.stop(t + noteDur)
+        handles.push(h)
+        // Register with KGuitar's built-in speaker-bleed filter so room tails stay suppressed even after gate opens!
+        recordBackingNote(t, [m], 1.15, safeGain, 'guide')
+        lastEnd = t + noteDur
+      })
+      cueHandlesRef.current = handles
+      if (isMic) {
+        const tailMargin = 0.23 // 0.22s pluck + 0.23s tail = ~0.45s total (snappy under half a second!)
+        ignoreMicUntilCtxRef.current = Math.max(ignoreMicUntilCtxRef.current, lastEnd + tailMargin)
+        const waitMs = Math.max(250, Math.round((lastEnd + tailMargin - ctx.currentTime) * 1000))
+        orbFreezeUntilRef.current = Math.max(orbFreezeUntilRef.current, performance.now() + waitMs)
+        setCueWaiting(true)
+        if (cueBadgeTimerRef.current) clearTimeout(cueBadgeTimerRef.current)
+        cueBadgeTimerRef.current = window.setTimeout(() => setCueWaiting(false), waitMs)
+      }
     } catch { /* ignore */ }
-  }, [])
+  }, [stopCues])
 
-  // Cleanup countdown, fade & wrong-note follow-up timers on unmount
+  /** Play a chord strum (and optional target chord tone) cleanly with mic bleed gating & handle damping. */
+  const playChordCue = useCallback((chordMidis: number[], followMidi?: number) => {
+    stopCues()
+    const isMic = inputModeRef.current === 'mic'
+    const strumDur = isMic ? 0.38 : 1.15
+    try {
+      const ctx = audio()
+      void ctx.resume()
+      const t0 = ctx.currentTime + 0.03
+      const hStrum = strum(chordMidis, t0, { spread: 0.025, gain: isMic ? 0.42 : 0.52 })
+      hStrum.stop(t0 + strumDur)
+      recordBackingNote(t0, chordMidis, 1.3, isMic ? 0.45 : 0.52, 'backing')
+      const handles: Handle[] = [hStrum]
+      let lastEnd = t0 + strumDur
+      if (followMidi !== undefined) {
+        const tFollow = t0 + (isMic ? 0.26 : 0.38)
+        const fDur = isMic ? 0.22 : 0.85
+        const hNote = playNote(followMidi, tFollow, isMic ? 0.5 : 0.68)
+        hNote.stop(tFollow + fDur)
+        recordBackingNote(tFollow, [followMidi], 1.15, isMic ? 0.5 : 0.68, 'guide')
+        handles.push(hNote)
+        lastEnd = Math.max(lastEnd, tFollow + fDur)
+      }
+      cueHandlesRef.current = handles
+      if (isMic) {
+        const tailMargin = 0.24
+        ignoreMicUntilCtxRef.current = Math.max(ignoreMicUntilCtxRef.current, lastEnd + tailMargin)
+        const waitMs = Math.max(300, Math.round((lastEnd + tailMargin - ctx.currentTime) * 1000))
+        orbFreezeUntilRef.current = Math.max(orbFreezeUntilRef.current, performance.now() + waitMs)
+        setCueWaiting(true)
+        if (cueBadgeTimerRef.current) clearTimeout(cueBadgeTimerRef.current)
+        cueBadgeTimerRef.current = window.setTimeout(() => setCueWaiting(false), waitMs)
+      }
+    } catch { /* ignore */ }
+  }, [stopCues])
+
+  // Cleanup all timers & ringing cue handles on unmount
   useEffect(() => () => {
     countdownTimersRef.current.forEach(t => clearTimeout(t))
     if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current)
+    if (brandyTimerRef.current) clearTimeout(brandyTimerRef.current)
+    if (cueBadgeTimerRef.current) clearTimeout(cueBadgeTimerRef.current)
     missTimersRef.current.forEach(t => clearTimeout(t))
+    cueHandlesRef.current.forEach(h => { try { h.stop() } catch { /* ignore */ } })
   }, [])
 
   const soloChords = useMemo(() => {
@@ -640,13 +749,15 @@ export function FretboardGameView({ inst, onExit }: Props) {
         : { fromFret: spec.fromFret, toFret: spec.toFret, strings: spec.strings, accidentals: spec.accidentals }
       let pool = filterSpots(midis, flt)
       if (!pool.length) pool = allNeckSpots
-      const clean = pool.filter(sp => !busyStrs.has(sp.s) && !busyMidis.has(sp.midi))
-      spot = pickWeightedSpot(clean.length ? clean : pool, hm, lastSpotKeyRef.current, Math.random, Boolean(st.rushLockChunk && st.filter.weakOnly))
+      const clean = pool.filter(sp => !busyStrs.has(sp.s) && !busyMidis.has(sp.midi) && (st.rushEasyLanes || sp.pc !== lastSpotPcRef.current))
+      const fallbackClean = pool.filter(sp => !busyStrs.has(sp.s) && !busyMidis.has(sp.midi))
+      spot = pickWeightedSpot(clean.length ? clean : (fallbackClean.length ? fallbackClean : pool), hm, lastSpotKeyRef.current, Math.random, Boolean(st.rushLockChunk && st.filter.weakOnly))
       const preferFlat = flt.accidentals === 'flats' || (flt.accidentals === 'both' && Math.random() < 0.5)
       label = displayPc(spot.pc, flt.accidentals, preferFlat)
     }
 
     lastSpotKeyRef.current = spotKey(spot.s, spot.f)
+    lastSpotPcRef.current = spot.pc
     const orb: RushOrb = {
       id: orbIdRef.current++,
       spot,
@@ -662,11 +773,11 @@ export function FretboardGameView({ inst, onExit }: Props) {
     setRushOrbs(next)
     // Pre-play the right note as the orb launches so ears + eyes wire together!
     if (st.hearTarget && !(curLens === 'intervals' && st.intervalStyle === 'ear')) {
-      if (intervalAnchorForCue) playCue([intervalAnchorForCue.midi, spot.midi], 0.03, 0.34, 0.6)
-      else playCue([spot.midi], 0.03, 0.35, 0.65)
+      if (intervalAnchorForCue) playCue([intervalAnchorForCue.midi, spot.midi], 0.02, 0.28, 0.6)
+      else playCue([spot.midi], 0.02, 0.3, 0.65)
     }
     if (st.voiceOn && existingOrbs.length === 0 && label !== '👂 ?') {
-      speakPrompt(`${spokenNote(label)} on ${friendlyStringLabel(midis, spot.s)}`)
+      speakPrompt(st.rushEasyLanes ? `${spokenNote(label)} on ${friendlyStringLabel(midis, spot.s)}` : `Play ${spokenNote(label)}`)
     }
   }, [allNeckSpots, midis, nStr, playCue, tKey])
 
@@ -734,7 +845,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
           shapeSpots: spots,
           shapeFound: [],
         })
-        if (st.hearTarget && spots[0]) playCue([anc.midi, spots[0].midi], 0.03, 0.38, 0.65)
+        if (st.hearTarget && spots[0]) playCue([anc.midi, spots[0].midi], 0.03, 0.32, 0.65)
         if (st.voiceOn) speakPrompt(`Find every ${ivMeta.name} from ${SHARPS[anc.pc]}`)
         return
       }
@@ -780,16 +891,8 @@ export function FretboardGameView({ inst, onExit }: Props) {
       const to = Math.min(15, Math.max(from + 4, flt.toFret || 12))
       const goal = buildSoloGoal(chord, st.soloLevel, from, to)
       setPrompt({ solo: goal, soloIdx: 0, soloFound: [] })
-      ignoreMicUntilRef.current = Math.max(ignoreMicUntilRef.current, performance.now() + 950)
-      try {
-        const ctx = audio()
-        void ctx.resume()
-        strum(goal.chordMidis, ctx.currentTime + 0.04, { spread: 0.028, gain: 0.52 })
-        if (st.hearTarget) {
-          const firstSpot = spotsForPc(midis, goal.targetPcs[0], from, to)[0]
-          if (firstSpot) playNote(firstSpot.midi, ctx.currentTime + 0.42, 0.68)
-        }
-      } catch { /* ignore */ }
+      const firstSpot = st.hearTarget ? spotsForPc(midis, goal.targetPcs[0], from, to)[0] : undefined
+      playChordCue(goal.chordMidis, firstSpot?.midi)
       if (st.voiceOn) speakPrompt(`${chord.symbol}. Play ${goal.labels[0]}`)
       return
     }
@@ -893,12 +996,15 @@ export function FretboardGameView({ inst, onExit }: Props) {
       if (st.hearTarget) playCue([spot.midi], 0.04, 0.35, 0.68)
       if (st.voiceOn) speakPrompt(`${spokenNote(noteLabel)} on ${friendlyStringLabel(midis, spot.s)}`)
     }
-  }, [allNeckSpots, clearMissTimers, midis, nStr, playCue, tKey])
+  }, [allNeckSpots, clearMissTimers, midis, nStr, playChordCue, playCue, tKey])
 
   const endRun = useCallback(() => {
     countdownTimersRef.current.forEach(t => clearTimeout(t))
     countdownTimersRef.current = []
     clearMissTimers()
+    stopCues()
+    setCueWaiting(false)
+    setBrandyMood('idle')
     setWrongBanner(null)
     setCountdown(0)
     setRevealHeld(false)
@@ -955,7 +1061,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
       isNewBest,
       missedSpots: missedListRef.current.slice(0, 12),
     })
-  }, [clearMissTimers, persist])
+  }, [clearMissTimers, persist, stopCues])
 
   // Start with crisp 3… 2… 1… Memory Fade!
   const startGame = useCallback((nextMode = mode, opts?: { stage?: number; forceWeak?: boolean; skipCountdown?: boolean }) => {
@@ -963,6 +1069,9 @@ export function FretboardGameView({ inst, onExit }: Props) {
     countdownTimersRef.current = []
     if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current)
     clearMissTimers()
+    stopCues()
+    setCueWaiting(false)
+    setBrandyMood('idle')
     setWrongBanner(null)
 
     const m = nextMode
@@ -1108,6 +1217,9 @@ export function FretboardGameView({ inst, onExit }: Props) {
     const nextHits = st.hits + 1
 
     clearMissTimers()
+    stopCues()
+    lastHitAtRef.current = performance.now()
+    triggerBrandy('shred', 560)
     setWrongBanner(null)
     runTimesRef.current.push(ms)
     setCombo(nextCombo)
@@ -1122,7 +1234,13 @@ export function FretboardGameView({ inst, onExit }: Props) {
     haptic('success')
 
     if (inputMode === 'tap') {
-      try { const ctx = audio(); void ctx.resume(); playNote(spot.midi, ctx.currentTime + 0.01, 0.55) } catch { /* ignore */ }
+      try {
+        const ctx = audio()
+        void ctx.resume()
+        const h = playNote(spot.midi, ctx.currentTime + 0.01, 0.58)
+        h.stop(ctx.currentTime + 0.85)
+        cueHandlesRef.current.push(h)
+      } catch { /* ignore */ }
     }
 
     persist(recordFretResult(dataRef.current, tKey, spot.s, spot.f, true, ms))
@@ -1134,7 +1252,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
       setTimeout(() => { if (runningRef.current) dealNext() }, 250)
     }
     return { points, badge, nextHits, ms }
-  }, [addBurst, clearMissTimers, dealNext, flashHitSpot, inputMode, persist, pulseString, tKey])
+  }, [addBurst, clearMissTimers, dealNext, flashHitSpot, inputMode, persist, pulseString, stopCues, tKey, triggerBrandy])
 
   const registerMiss = useCallback((target: FretSpot, attempted?: { s: number; f: number }, customMsg?: string, loseHeart = true, wrongMidiOverride?: number) => {
     const ms = Math.max(300, performance.now() - shownAtRef.current)
@@ -1144,6 +1262,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
     setMisses(m => m + 1)
     logAnswer(false, 0)
     haptic('warning')
+    triggerBrandy(st.mode === 'survival' && loseHeart ? 'hurt' : 'wrong', 680)
 
     const wrongMidi = wrongMidiOverride ?? (attempted ? midis[attempted.s] + attempted.f : undefined)
     const wrongLabel = wrongMidi !== undefined ? fullPcLabel(((wrongMidi % 12) + 12) % 12) : ''
@@ -1169,7 +1288,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
       const tRight = window.setTimeout(() => {
         if (!runningRef.current) return
         setWrongBanner({ wrongLabel, rightLabel, phase: 'right' })
-        playCue([target.midi], 0.01, 0.35, 0.72)
+        playCue([target.midi], 0.01, 0.3, 0.65)
       }, wrongMidi !== undefined ? 460 : 60)
       const tClear = window.setTimeout(() => setWrongBanner(null), 1750)
       missTimersRef.current.push(tRight, tClear)
@@ -1187,12 +1306,12 @@ export function FretboardGameView({ inst, onExit }: Props) {
 
     if (st.mode === 'survival' && loseHeart) {
       setShieldFlash(true)
-      setTimeout(() => setShieldFlash(false), 380)
+      setTimeout(() => setShieldFlash(false), 520)
       const nextHearts = st.hearts - 1
       setHearts(nextHearts)
-      if (nextHearts <= 0) setTimeout(() => endRun(), 380)
+      if (nextHearts <= 0) setTimeout(() => endRun(), 420)
     }
-  }, [addBurst, clearMissTimers, endRun, hintMode, inputMode, midis, persist, playCue, tKey])
+  }, [addBurst, clearMissTimers, endRun, hintMode, inputMode, midis, persist, playCue, tKey, triggerBrandy])
 
   const handleAttempt = useCallback((attempt: { s?: number; f?: number; midi?: number; pc?: number; fromMic?: boolean }) => {
     const st = stateRef.current
@@ -1203,7 +1322,15 @@ export function FretboardGameView({ inst, onExit }: Props) {
     if (sub === 'survival') {
       const orbs = rushOrbsRef.current
       const boss = rushBossRef.current
-      const matched = matchRushAttempt(orbs, boss, attempt)
+      const spec = rushWaveSpec(st.wave, nStr)
+      const useChunk = st.rushLockChunk || st.lens !== 'notes'
+      const matched = matchRushAttempt(orbs, boss, attempt, {
+        singleTrack: !st.rushEasyLanes,
+        midis,
+        fromFret: useChunk ? st.filter.fromFret : spec.fromFret,
+        toFret: useChunk ? st.filter.toFret : spec.toFret,
+        allowedStrings: useChunk ? st.filter.strings : spec.strings,
+      })
       const anc = st.lens === 'intervals' ? anchorRef.current : null
       if (matched?.kind === 'boss' && boss) {
         const sp = matched.spot
@@ -1227,12 +1354,13 @@ export function FretboardGameView({ inst, onExit }: Props) {
       }
       if (matched?.kind === 'orb') {
         const orb = matched.orb
+        const hitSp = matched.hitSpot ?? orb.spot
         const ms = performance.now() - orb.spawnedAt
         const remaining = orbs.filter(o => o.id !== orb.id)
         rushOrbsRef.current = remaining
         setRushOrbs(remaining)
-        const res = registerHit(orb.spot, false, undefined, ms, anc)
-        fireLaser(orb.spot.s, orb.x, `+${res.points}`, ms <= 1500 ? 'lightning' : 'hit')
+        const res = registerHit(hitSp, false, undefined, ms, anc)
+        fireLaser(st.rushEasyLanes ? orb.spot.s : Math.floor(nStr / 2), orb.x, `+${res.points}`, ms <= 1500 ? 'lightning' : 'hit')
         // Advance chord on Chord Tones lens every 3 hits, or shift root in Moving Intervals every 4 hits!
         if (st.lens === 'chords' && res.nextHits % 3 === 0) {
           const nextC = (st.soloChordIdx + 1) % soloChordsRef.current.length
@@ -1413,7 +1541,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
       const target = p.spot
       const ok = attempt.s !== undefined && attempt.f !== undefined
         ? attempt.s === target.s && attempt.f === target.f
-        : attempt.midi !== undefined && attempt.midi === target.midi
+        : attempt.midi !== undefined && (attempt.midi === target.midi || (target.midi < 52 && attempt.midi === target.midi + 12))
       if (ok) registerHit(target, true, undefined, undefined, p.anchor)
       else if (!attempt.fromMic && attempt.s !== undefined && attempt.f !== undefined) {
         registerMiss(target, { s: attempt.s, f: attempt.f })
@@ -1421,19 +1549,36 @@ export function FretboardGameView({ inst, onExit }: Props) {
     }
   }, [addBurst, dealNext, fireLaser, midis, nStr, playCue, registerHit, registerMiss, spawnRushEntity])
 
-  // Real-guitar microphone listener
-  const listenerRef = useRef<NoteListener | null>(null)
+  // Real-guitar microphone listener:
+  // - Uses calibrated gear noise gate (`autoGate: true`) + speaker-bleed filter (`suppressBleed: true`)
+  // - Keeps `expect([])` empty so NoteDetector NEVER guesses target.midi from room noise or speaker tail
+  //   (forces 2-stage onset + 45ms FFT confirmation and `conf >= 0.45`)
+  // - Requires a FRESH pick attack (`e.attack`) + exact AudioContext clock gate (`ignoreMicUntilCtxRef`)
+  //   + post-hit/same-pitch debounce so ringing strings from the previous note can NEVER score the next prompt!
+  const listenerRef = useRef<ListenerSession | null>(null)
   useEffect(() => {
     if (!running || inputMode !== 'mic') {
       setHeardLabel('')
       return
     }
     let stopped = false
-    const listener = new NoteListener('fretgame')
+    const listener = acquireListener('fretgame', { autoGate: true, suppressBleed: true })
+    listener.expect([], [])
     listenerRef.current = listener
     listener.onNote = e => {
       if (stopped || !runningRef.current || countdownRef.current > 0 || revealHeldRef.current) return
-      if (performance.now() < ignoreMicUntilRef.current) return
+      // 1. Fresh pick/finger attack ONLY — never let a ringing string or room hum fire passively!
+      if (!e.attack) return
+      if ((e.conf ?? 0) < 0.45) return
+      // 2. Exact AudioContext clock lock covering any app-played cue + speaker room tail
+      let nowCtx = 0
+      try { nowCtx = audio().currentTime } catch { /* ignore */ }
+      if (e.time < ignoreMicUntilCtxRef.current || nowCtx < ignoreMicUntilCtxRef.current) return
+      // 3. Post-hit & duplicate-note debounce so a single strum or ringing tail never double-triggers!
+      const nowMs = performance.now()
+      if (nowMs - lastHitAtRef.current < 260) return
+      if (lastMicNoteRef.current.midi === e.midi && nowMs - lastMicNoteRef.current.at < 360) return
+      lastMicNoteRef.current = { midi: e.midi, at: nowMs }
       setHeardLabel(midiName(e.midi))
       handleAttempt({ midi: e.midi, fromMic: true })
     }
@@ -1454,33 +1599,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
     }
   }, [running, inputMode, handleAttempt])
 
-  // Feed expected MIDI pitches to NoteListener
-  useEffect(() => {
-    const l = listenerRef.current
-    if (!l || !running || countdown > 0) return
-    const expected: number[] = []
-    if (mode === 'survival') {
-      if (rushBoss) {
-        const found = new Set(rushBoss.found)
-        for (const sp of rushBoss.spots) if (!found.has(spotKey(sp.s, sp.f))) expected.push(sp.midi)
-      } else {
-        for (const o of rushOrbs) expected.push(o.spot.midi)
-      }
-    } else if (prompt?.spot) {
-      expected.push(prompt.spot.midi)
-    } else if (prompt?.shapeSpots) {
-      const found = new Set(prompt.shapeFound ?? [])
-      for (const sp of prompt.shapeSpots) if (!found.has(spotKey(sp.s, sp.f))) expected.push(sp.midi)
-    } else if (prompt?.solo) {
-      const targetPc = prompt.solo.targetPcs[prompt.soloIdx ?? 0]
-      if (targetPc !== undefined) {
-        for (const sp of spotsForPc(midis, targetPc, prompt.solo.fromFret, prompt.solo.toFret)) expected.push(sp.midi)
-      }
-    }
-    l.expect(expected.slice(0, 12))
-  }, [running, countdown, mode, rushOrbs, rushBoss, prompt, midis])
-
-  // 🚀 Endless Mode 25 FPS orb loop (PAUSES cleanly while 💔 Reveal is held or during 3-2-1 countdown!)
+  // 🚀 Endless Mode 25 FPS orb loop (PAUSES cleanly during 3-2-1 countdown, 💔 Reveal hold, or brief ~0.45s Mic cue!)
   useEffect(() => {
     if (!running || mode !== 'survival') return
     let lastT = performance.now()
@@ -1489,6 +1608,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
       const dt = Math.min(0.15, (now - lastT) / 1000)
       lastT = now
       if (!runningRef.current || countdownRef.current > 0 || revealHeldRef.current) return
+      if (now < orbFreezeUntilRef.current) return
       const st = stateRef.current
       const spec = rushWaveSpec(st.wave, nStr)
 
@@ -1615,6 +1735,9 @@ export function FretboardGameView({ inst, onExit }: Props) {
     countdownTimersRef.current.forEach(t => clearTimeout(t))
     countdownTimersRef.current = []
     clearMissTimers()
+    stopCues()
+    setCueWaiting(false)
+    setBrandyMood('idle')
     setWrongBanner(null)
     setCountdown(0)
     setRevealHeld(false)
@@ -1671,6 +1794,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
     if (running && countdown > 0) {
       return (
         <div className="fg-countdown-banner" data-testid="fg-countdown">
+          <BrandyBadge mood="idle" feverOn={false} compact />
           <span className="fg-chip">🧠 MEMORIZE THE NECK</span>
           <b className="fg-count-num">{countdown}</b>
           <span className="small muted">Notes fading away into memory…</span>
@@ -1691,7 +1815,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
               Study this lit chunk (tap any fret to hear it). Hit Start and the notes <b>fade away like a memory</b> — hold <b>💔 Reveal</b> anytime if you blank out!
             </span>
 
-            {/* BOTH Chunk Pickers right here: Fret Box + String Set! */}
+            {/* BOTH Chunk Pickers right here: Fret Box + String Set (+ Endless Mode Lane Style)! */}
             {mode !== 'path' && mode !== 'daily' && (
               <div className="stack" style={{ gap: 5 }}>
                 <div className="row" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }} data-testid="fg-box-pills">
@@ -1731,18 +1855,34 @@ export function FretboardGameView({ inst, onExit }: Props) {
                     </button>
                   ))}
                 </div>
+                {mode === 'survival' && (
+                  <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span className="small muted" style={{ minWidth: 58 }}>Lanes:</span>
+                    <div className="seg" role="group" aria-label="Endless mode lane difficulty">
+                      <button className="btn sm" aria-pressed={!rushEasyLanes} onClick={() => setRushEasyLanes(false)} data-testid="fg-lane-single">
+                        🔥 1 Lane (Any String)
+                      </button>
+                      <button className="btn sm" aria-pressed={rushEasyLanes} onClick={() => setRushEasyLanes(true)} data-testid="fg-lane-easy">
+                        🟢 Easy (6 Lanes)
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          <button
-            className="btn primary"
-            style={{ fontSize: 15, padding: '12px 22px', whiteSpace: 'nowrap' }}
-            onClick={() => startGame(mode)}
-            data-testid="fg-start-btn"
-          >
-            ▶ I'm Ready — Start!
-          </button>
+          <div className="row" style={{ gap: 10, alignItems: 'center' }}>
+            <BrandyBadge mood="idle" feverOn={false} />
+            <button
+              className="btn primary"
+              style={{ fontSize: 15, padding: '12px 22px', whiteSpace: 'nowrap' }}
+              onClick={() => startGame(mode)}
+              data-testid="fg-start-btn"
+            >
+              ▶ I'm Ready — Start!
+            </button>
+          </div>
         </div>
       )
     }
@@ -1757,6 +1897,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
       return (
         <div className="fg-prompt" data-testid="fg-prompt">
           <div className="fg-prompt-left">
+            <BrandyBadge mood={brandyMood} feverOn={feverOn} compact />
             <span className="fg-chip">🧩 BUILD THE SHAPE · {prompt.shapeBadge}</span>
             <span className="fg-big-note" style={{ fontSize: 28 }}>{prompt.shapeTitle}</span>
             <span className="fg-sub">({count}/{total} found)</span>
@@ -1777,8 +1918,8 @@ export function FretboardGameView({ inst, onExit }: Props) {
                 const pick = remaining[0] ?? prompt.shapeSpots![0]
                 if (!pick) return
                 if (prompt.triad) playCue(prompt.shapeSpots!.map(sp => sp.midi), 0.02, 0.18, 0.65)
-                else if (prompt.anchor) playCue([prompt.anchor.midi, pick.midi], 0.02, 0.36, 0.65)
-                else playCue([pick.midi], 0.02, 0.35, 0.7)
+                else if (prompt.anchor) playCue([prompt.anchor.midi, pick.midi], 0.02, 0.3, 0.65)
+                else playCue([pick.midi], 0.02, 0.3, 0.7)
               }}
               data-testid="fg-replay-btn"
               title="Hear the target note again"
@@ -1796,6 +1937,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
       return (
         <div className="fg-prompt" data-testid="fg-prompt">
           <div className="fg-prompt-left">
+            <BrandyBadge mood={brandyMood} feverOn={feverOn} compact />
             <span className="fg-chip">🎸 CHORD TONES · Frets {prompt.solo.fromFret}–{prompt.solo.toFret}</span>
             <span className="fg-big-note" style={{ fontSize: 30 }}>{prompt.solo.chordSymbol}</span>
           </div>
@@ -1808,7 +1950,9 @@ export function FretboardGameView({ inst, onExit }: Props) {
             <button
               className="btn sm ghost"
               onClick={() => {
-                try { const ctx = audio(); void ctx.resume(); strum(prompt.solo!.chordMidis, ctx.currentTime + 0.02, { spread: 0.028, gain: 0.55 }) } catch { /* ignore */ }
+                const curPc = prompt.solo!.targetPcs[idx]
+                const sp = curPc !== undefined ? spotsForPc(midis, curPc, prompt.solo!.fromFret, prompt.solo!.toFret)[0] : undefined
+                playChordCue(prompt.solo!.chordMidis, hearTarget ? sp?.midi : undefined)
               }}
             >
               🔊 Chord
@@ -1823,6 +1967,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
       return (
         <div className="fg-prompt" data-testid="fg-prompt">
           <div className="fg-prompt-left">
+            <BrandyBadge mood={brandyMood} feverOn={feverOn} compact />
             <span className="fg-chip">❓ IDENTIFY THE FRET</span>
             <span className="fg-big-note">?</span>
             <span className="fg-sub">
@@ -1830,7 +1975,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
               {inputMode === 'mic' ? ' (tap name or play on guitar)' : ''}
             </span>
           </div>
-          <button className="btn sm ghost" onClick={() => { try { const ctx = audio(); void ctx.resume(); playNote(prompt.spot!.midi, ctx.currentTime + 0.02, 0.75) } catch { /* ignore */ } }}>
+          <button className="btn sm ghost" onClick={() => playCue([prompt.spot!.midi], 0.02, 0.3, 0.72)}>
             🔊 Hear Again
           </button>
         </div>
@@ -1842,6 +1987,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
       return (
         <div className="fg-prompt" data-testid="fg-prompt">
           <div className="fg-prompt-left">
+            <BrandyBadge mood={brandyMood} feverOn={feverOn} compact />
             <span className="fg-chip">
               {subMode === 'gauntlet'
                 ? `🥁 ${gauntletBpm} BPM · Metronome Run`
@@ -2222,8 +2368,12 @@ export function FretboardGameView({ inst, onExit }: Props) {
 
               <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                 {inputMode === 'mic' && (
-                  <span className="badge small" title={micInfo || 'Microphone'}>
-                    🎤 {heardLabel ? `Heard ${heardLabel}` : 'Listening…'}
+                  <span
+                    className={`badge small${cueWaiting ? '' : ' fg-mic-live'}`}
+                    title={micInfo || 'Microphone'}
+                    data-testid="fg-mic-badge"
+                  >
+                    {cueWaiting ? '🔊 Cue…' : heardLabel ? `🎤 Play! (last: ${heardLabel})` : '🎤 Play!'}
                   </span>
                 )}
 
@@ -2315,7 +2465,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
             renderBanner()
           )}
 
-          {/* 🚀 ENDLESS MODE 6-STRING NEON ARCADE RADAR */}
+          {/* 🚀 ENDLESS MODE ARCADE STAGE WITH 32-BIT SAMURAI ROCKER BRANDY */}
           {running && countdown === 0 && mode === 'survival' && (
             <EndlessRadar
               midis={midis}
@@ -2331,19 +2481,23 @@ export function FretboardGameView({ inst, onExit }: Props) {
               orbs={rushOrbs}
               boss={rushBoss}
               lasers={rushLasers}
+              brandyMood={brandyMood}
+              easyLanes={rushEasyLanes}
+              onToggleLanes={() => setRushEasyLanes(e => !e)}
               shieldFlash={shieldFlash}
               feverOn={feverOn}
               paused={revealHeld}
+              cueWaiting={cueWaiting}
               leftHanded={leftHanded}
               inputMode={inputMode}
               onReplayEar={
                 rushOrbs[0]
                   ? () => {
-                      if (lens === 'intervals') playCue([activeAnchor.midi, rushOrbs[0].spot.midi], 0.02, 0.4, 0.65)
-                      else playCue([rushOrbs[0].spot.midi], 0.02, 0.35, 0.7)
+                      if (lens === 'intervals') playCue([activeAnchor.midi, rushOrbs[0].spot.midi], 0.02, 0.3, 0.6)
+                      else playCue([rushOrbs[0].spot.midi], 0.02, 0.3, 0.65)
                     }
                   : rushBoss?.spots[0]
-                    ? () => playCue([rushBoss.spots[0].midi], 0.02, 0.35, 0.7)
+                    ? () => playCue([rushBoss.spots[0].midi], 0.02, 0.3, 0.65)
                     : undefined
               }
             />
@@ -2391,7 +2545,7 @@ export function FretboardGameView({ inst, onExit }: Props) {
             primerSmoothFade={countdown > 0 || revealFading}
             persistentRoot={lens === 'intervals' ? activeAnchor : (prompt?.anchor ?? null)}
             prompt={prompt}
-            rushTargetStrings={running && countdown === 0 && mode === 'survival' ? new Set(rushOrbs.map(o => o.spot.s)) : undefined}
+            rushTargetStrings={running && countdown === 0 && mode === 'survival' && rushEasyLanes ? new Set(rushOrbs.map(o => o.spot.s)) : undefined}
             subMode={subMode}
             lastHitSpot={lastHitSpot}
             wrongSpot={wrongSpot}
@@ -2510,7 +2664,21 @@ export function FretboardGameView({ inst, onExit }: Props) {
   )
 }
 
-// ---------- 🚀 Endless Mode 6-String Neon Arcade Radar ----------
+// ---------- 🎸 32-Bit Samurai Rocker Brandy Reaction Sprite ----------
+
+function BrandyBadge({ mood, feverOn, compact = false }: { mood: BrandyMood; feverOn: boolean; compact?: boolean }) {
+  return (
+    <div
+      className={`fg-brandy-badge mood-${mood}${feverOn ? ' fever' : ''}${compact ? ' compact' : ''}`}
+      data-testid="fg-brandy-badge"
+      aria-hidden
+    >
+      <img src={brandySprite(mood)} alt="" className="fg-brandy-img" draggable={false} />
+    </div>
+  )
+}
+
+// ---------- 🚀 Endless Mode Neon Arcade Stage with 32-Bit Samurai Rocker Brandy ----------
 
 function EndlessRadar({
   midis,
@@ -2518,9 +2686,13 @@ function EndlessRadar({
   orbs,
   boss,
   lasers,
+  brandyMood,
+  easyLanes,
+  onToggleLanes,
   shieldFlash,
   feverOn,
   paused,
+  cueWaiting,
   leftHanded,
   inputMode,
   onReplayEar,
@@ -2530,128 +2702,202 @@ function EndlessRadar({
   orbs: RushOrb[]
   boss: RushBoss | null
   lasers: RushLaser[]
+  brandyMood: BrandyMood
+  easyLanes: boolean
+  onToggleLanes: () => void
   shieldFlash: boolean
   feverOn: boolean
   paused: boolean
+  cueWaiting: boolean
   leftHanded: boolean
   inputMode: 'mic' | 'tap'
   onReplayEar?: () => void
 }) {
   const nStr = midis.length
-  const W = 680
-  const laneH = 21
-  const padTop = 12
-  const padBot = 8
+  const W = 560
+  const laneH = 22
+  const padTop = 10
+  const padBot = 10
   const H = padTop + nStr * laneH + padBot
-  const shieldX = leftHanded ? W - 54 : 54
-  const laneStart = leftHanded ? 18 : 66
-  const laneEnd = leftHanded ? W - 66 : W - 18
+  const centerY = H / 2
+  const shieldX = leftHanded ? W - 20 : 20
+  const laneStart = leftHanded ? 16 : 30
+  const laneEnd = leftHanded ? W - 30 : W - 16
   const laneSpan = laneEnd - laneStart
 
   const mapX = (pct: number) => {
     const p = Math.max(0, Math.min(100, pct)) / 100
     return leftHanded ? laneEnd - p * laneSpan : laneStart + p * laneSpan
   }
-  const laneY = (s: number) => padTop + (nStr - 1 - s) * laneH + laneH * 0.5
+  const laneY = (s: number) => (easyLanes ? padTop + (nStr - 1 - s) * laneH + laneH * 0.5 : centerY)
 
   return (
     <div className={`fg-radar${shieldFlash ? ' hit' : ''}${feverOn ? ' fever' : ''}${paused ? ' paused' : ''}`} data-testid="fg-rush-radar">
-      <div className="row small" style={{ justifyContent: 'space-between', alignItems: 'center', padding: '0 4px 4px', gap: 6, flexWrap: 'wrap' }}>
+      <div className="row small" style={{ justifyContent: 'space-between', alignItems: 'center', padding: '0 4px 5px', gap: 6, flexWrap: 'wrap' }}>
         <b style={{ color: paused ? '#fbbf24' : boss ? '#fbbf24' : '#38bdf8' }}>
-          {paused ? '⏸ PAUSED — Studying Reveal…' : waveTitle}
+          {paused
+            ? '⏸ PAUSED — Studying Reveal…'
+            : cueWaiting && inputMode === 'mic'
+              ? `🔊 Listen… (${waveTitle})`
+              : waveTitle}
         </b>
-        <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+        <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={`btn sm${easyLanes ? ' set' : ' ghost'}`}
+            style={{ padding: '1px 8px', minHeight: 24 }}
+            onClick={onToggleLanes}
+            data-testid="fg-radar-lane-toggle"
+            title="Switch between 1-Lane (any string in your box) and Easy 6-Lane view"
+          >
+            {easyLanes ? '🟢 6 Lanes (Easy)' : '🔥 1 Lane'}
+          </button>
           {onReplayEar && (
-            <button className="btn sm ghost" style={{ padding: '1px 7px', minHeight: 24 }} onClick={onReplayEar}>
+            <button type="button" className="btn sm ghost" style={{ padding: '1px 7px', minHeight: 24 }} onClick={onReplayEar} data-testid="fg-radar-replay">
               🔊 Replay
             </button>
           )}
           <span className="muted">
-            {inputMode === 'mic' ? '🎸 Play on your guitar!' : '👆 Tap matching blank fret below!'}
+            {easyLanes
+              ? (inputMode === 'mic' ? '🎸 Play on your guitar!' : '👆 Tap matching string & fret!')
+              : (inputMode === 'mic' ? '🎸 Play ANY matching fret!' : '👆 Tap ANY matching fret in box!')}
           </span>
         </div>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="fg-radar-svg" role="img" aria-label="Endless Mode incoming lane radar">
-        <defs>
-          <linearGradient id="fg-shield-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={shieldFlash ? '#ef4444' : feverOn ? '#f59e0b' : '#38bdf8'} stopOpacity="0.95" />
-            <stop offset="100%" stopColor={shieldFlash ? '#f97316' : '#06b6d4'} stopOpacity="0.45" />
-          </linearGradient>
-        </defs>
 
-        <rect
-          x={leftHanded ? laneEnd - laneSpan * 0.25 : laneStart}
-          y={padTop}
-          width={laneSpan * 0.25}
-          height={nStr * laneH}
-          fill={shieldFlash ? 'rgba(239,68,68,0.22)' : 'rgba(239,68,68,0.06)'}
-        />
+      <div className={`fg-radar-stage${leftHanded ? ' lefty' : ''}`}>
+        {/* 32-Bit Samurai Rocker Brandy anchored firmly at the end of the lane */}
+        <div
+          className={`fg-brandy-stage mood-${brandyMood}${feverOn ? ' fever' : ''}${paused ? ' guard' : ''}${shieldFlash ? ' damaged' : ''}`}
+          data-testid="fg-brandy-stage"
+        >
+          <img src={brandySprite(brandyMood)} alt="Brandy the Samurai Rocker guitarist" className="fg-brandy-img" draggable={false} />
+          {shieldFlash && <span className="fg-brandy-dmg-pop" aria-hidden>💔 −1 ♥</span>}
+          {brandyMood === 'wrong' && !shieldFlash && <span className="fg-brandy-sour-pop" aria-hidden>✕</span>}
+        </div>
 
-        {midis.map((m, s) => {
-          const y = laneY(s)
-          const active = orbs.some(o => o.spot.s === s)
-          return (
-            <g key={`rl-${s}`}>
-              <line x1={laneStart} y1={y} x2={laneEnd} y2={y} stroke={active ? 'rgba(56,189,248,0.42)' : 'rgba(148,163,184,0.18)'} strokeWidth={active ? 2 : 1} />
-              <text x={leftHanded ? W - 26 : 26} y={y + 4} textAnchor="middle" fontSize={12} fontWeight={800} fill={active ? '#38bdf8' : '#94a3b8'}>
-                {SHARPS[m % 12]}{s === 0 && nStr === 6 ? '6' : s === 5 && nStr === 6 ? '1' : ''}
-              </text>
+        {/* Neon Arcade Track SVG */}
+        <svg viewBox={`0 0 ${W} ${H}`} className="fg-radar-svg" role="img" aria-label="Endless Mode incoming lane radar">
+          <defs>
+            <linearGradient id="fg-shield-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={shieldFlash ? '#ef4444' : feverOn ? '#f59e0b' : '#a3e635'} stopOpacity="0.95" />
+              <stop offset="100%" stopColor={shieldFlash ? '#f97316' : '#38bdf8'} stopOpacity="0.45" />
+            </linearGradient>
+            <linearGradient id="fg-single-track" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={shieldFlash ? 'rgba(239,68,68,0.28)' : 'rgba(163,230,53,0.16)'} />
+              <stop offset="35%" stopColor="rgba(56,189,248,0.08)" />
+              <stop offset="100%" stopColor="rgba(56,189,248,0.02)" />
+            </linearGradient>
+          </defs>
+
+          {/* Danger Zone directly in front of Brandy */}
+          <rect
+            x={leftHanded ? laneEnd - laneSpan * 0.24 : laneStart}
+            y={easyLanes ? padTop : centerY - 34}
+            width={laneSpan * 0.24}
+            height={easyLanes ? nStr * laneH : 68}
+            rx={6}
+            fill={shieldFlash ? 'rgba(239,68,68,0.28)' : 'rgba(239,68,68,0.08)'}
+          />
+
+          {easyLanes ? (
+            midis.map((m, s) => {
+              const y = laneY(s)
+              const active = orbs.some(o => o.spot.s === s)
+              return (
+                <g key={`rl-${s}`}>
+                  <line x1={laneStart} y1={y} x2={laneEnd} y2={y} stroke={active ? 'rgba(56,189,248,0.48)' : 'rgba(148,163,184,0.2)'} strokeWidth={active ? 2 : 1} />
+                  <text x={leftHanded ? W - 10 : 10} y={y + 4} textAnchor="middle" fontSize={10.5} fontWeight={800} fill={active ? '#38bdf8' : '#94a3b8'}>
+                    {SHARPS[m % 12]}{s === 0 && nStr === 6 ? '6' : s === 5 && nStr === 6 ? '1' : ''}
+                  </text>
+                </g>
+              )
+            })
+          ) : (
+            <g data-testid="fg-single-track">
+              <rect x={laneStart} y={centerY - 34} width={laneSpan} height={68} rx={10} fill="url(#fg-single-track)" stroke="rgba(56,189,248,0.28)" strokeWidth={1.5} />
+              <line x1={laneStart} y1={centerY} x2={laneEnd} y2={centerY} stroke="rgba(163,230,53,0.28)" strokeWidth={2} strokeDasharray="8 8" />
             </g>
-          )
-        })}
+          )}
 
-        <rect x={shieldX - 4} y={padTop - 2} width={8} height={nStr * laneH + 4} rx={4} fill="url(#fg-shield-grad)" />
+          {/* Sonic Defense Barrier right in front of Brandy's guitar */}
+          <rect
+            x={shieldX - 3.5}
+            y={easyLanes ? padTop - 2 : centerY - 36}
+            width={7}
+            height={easyLanes ? nStr * laneH + 4 : 72}
+            rx={4}
+            fill="url(#fg-shield-grad)"
+          />
 
-        {lasers.map(lz => (
-          <g key={lz.id} className="fg-laser">
-            <line
-              x1={shieldX}
-              y1={laneY(lz.s)}
-              x2={mapX(lz.x)}
-              y2={laneY(lz.s)}
-              stroke={lz.kind === 'boss' ? '#fbbf24' : lz.kind === 'lightning' ? '#38bdf8' : '#34d399'}
-              strokeWidth={4}
-              strokeLinecap="round"
-            />
-            <circle cx={mapX(lz.x)} cy={laneY(lz.s)} r={16} fill="none" stroke={lz.kind === 'boss' ? '#fde68a' : '#6ee7b7'} strokeWidth={2.5} />
-            <text x={mapX(lz.x)} y={laneY(lz.s) - 14} textAnchor="middle" fontSize={12} fontWeight={900} fill={lz.kind === 'boss' ? '#fde68a' : '#38bdf8'}>
-              {lz.text}
-            </text>
-          </g>
-        ))}
+          {/* Neon-Lime Electric Guitar Sonic Blasts from Brandy */}
+          {lasers.map(lz => {
+            const ly = easyLanes ? laneY(lz.s) : centerY
+            return (
+              <g key={lz.id} className="fg-laser">
+                <line
+                  x1={shieldX}
+                  y1={ly}
+                  x2={mapX(lz.x)}
+                  y2={ly}
+                  stroke={lz.kind === 'boss' ? '#fbbf24' : lz.kind === 'lightning' ? '#a3e635' : '#34d399'}
+                  strokeWidth={easyLanes ? 4.5 : 6}
+                  strokeLinecap="round"
+                />
+                <circle cx={mapX(lz.x)} cy={ly} r={easyLanes ? 16 : 24} fill="none" stroke={lz.kind === 'boss' ? '#fde68a' : '#bef264'} strokeWidth={3} />
+                <text x={mapX(lz.x)} y={ly - (easyLanes ? 15 : 24)} textAnchor="middle" fontSize={13} fontWeight={900} fill={lz.kind === 'boss' ? '#fde68a' : '#bef264'}>
+                  {lz.text}
+                </text>
+              </g>
+            )
+          })}
 
-        {orbs.map(orb => {
-          const cx = mapX(orb.x)
-          const cy = laneY(orb.spot.s)
-          const danger = orb.x < 26
-          const fill = danger ? '#ef4444' : orb.isColor ? '#06b6d4' : '#0ea5e9'
-          return (
-            <g key={orb.id} data-testid={`fg-orb-${orb.spot.s}-${orb.spot.f}`}>
-              <circle cx={cx} cy={cy} r={13.5} fill={fill} stroke={danger ? '#fecaca' : '#bae6fd'} strokeWidth={2.2} />
-              <text x={cx} y={cy + 4.5} textAnchor="middle" fontSize={orb.label.length > 2 ? 9.5 : orb.label.length > 1 ? 11 : 13} fontWeight={900} fill="#fff">
-                {orb.label}
-              </text>
-            </g>
-          )
-        })}
+          {/* Incoming Note / Interval / Degree Orbs (NO fret numbers!) */}
+          {orbs.map(orb => {
+            const cx = mapX(orb.x)
+            const cy = laneY(orb.spot.s)
+            const danger = orb.x < 25
+            const r = easyLanes ? 13.5 : 22
+            const fill = danger ? '#ef4444' : orb.isColor ? '#06b6d4' : '#0ea5e9'
+            return (
+              <g key={orb.id} data-testid={`fg-orb-${orb.spot.s}-${orb.spot.f}`}>
+                {!easyLanes && (
+                  <circle cx={cx} cy={cy} r={r + 5} fill="none" stroke={danger ? 'rgba(239,68,68,0.55)' : 'rgba(56,189,248,0.35)'} strokeWidth={2} />
+                )}
+                <circle cx={cx} cy={cy} r={r} fill={fill} stroke={danger ? '#fecaca' : '#bae6fd'} strokeWidth={2.4} />
+                <text
+                  x={cx}
+                  y={cy + (easyLanes ? 4.5 : 6.5)}
+                  textAnchor="middle"
+                  fontSize={easyLanes ? (orb.label.length > 2 ? 9.5 : orb.label.length > 1 ? 11 : 13) : (orb.label.length > 2 ? 13 : 18)}
+                  fontWeight={900}
+                  fill="#fff"
+                >
+                  {orb.label}
+                </text>
+              </g>
+            )
+          })}
 
-        {boss && (() => {
-          const cx = mapX(boss.x)
-          const cy = padTop + (nStr * laneH) / 2
-          const remaining = boss.spots.length - boss.found.length
-          return (
-            <g data-testid="fg-rush-boss">
-              <circle cx={cx} cy={cy} r={34} fill="rgba(245,158,11,0.22)" stroke="#f59e0b" strokeWidth={3} strokeDasharray="7 4" />
-              <circle cx={cx} cy={cy} r={24} fill="#f59e0b" stroke="#fef08a" strokeWidth={2.5} />
-              <text x={cx} y={cy - 4} textAnchor="middle" fontSize={10} fontWeight={900} fill="#1c1204">👑 BOSS</text>
-              <text x={cx} y={cy + 13} textAnchor="middle" fontSize={16} fontWeight={900} fill="#1c1204">{boss.label}</text>
-              <text x={cx} y={cy + 46} textAnchor="middle" fontSize={11} fontWeight={800} fill="#fde68a">
-                {boss.title} · {remaining} left
-              </text>
-            </g>
-          )
-        })()}
-      </svg>
+          {/* Wave 5 / 10 / 15… Boss Orb */}
+          {boss && (() => {
+            const cx = mapX(boss.x)
+            const cy = centerY
+            const remaining = boss.spots.length - boss.found.length
+            return (
+              <g data-testid="fg-rush-boss">
+                <circle cx={cx} cy={cy} r={34} fill="rgba(245,158,11,0.22)" stroke="#f59e0b" strokeWidth={3} strokeDasharray="7 4" />
+                <circle cx={cx} cy={cy} r={24} fill="#f59e0b" stroke="#fef08a" strokeWidth={2.5} />
+                <text x={cx} y={cy - 4} textAnchor="middle" fontSize={10} fontWeight={900} fill="#1c1204">👑 BOSS</text>
+                <text x={cx} y={cy + 13} textAnchor="middle" fontSize={16} fontWeight={900} fill="#1c1204">{boss.label}</text>
+                <text x={cx} y={cy + 46} textAnchor="middle" fontSize={11} fontWeight={800} fill="#fde68a">
+                  {boss.title} · {remaining} left
+                </text>
+              </g>
+            )
+          })()}
+        </svg>
+      </div>
     </div>
   )
 }
