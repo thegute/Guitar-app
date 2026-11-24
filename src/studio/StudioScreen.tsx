@@ -23,6 +23,7 @@ import { RigChip } from '../components/AudioSetup'
 import { usePersist } from '../components/Controls'
 import { Fold } from '../components/Fold'
 import { Win, WinArea, useWinShow } from '../components/Win'
+import { ChromeBar, clampChromeOpacity } from '../components/ChromeBar'
 import { FloatCard } from '../components/FloatCard'
 import { Fretboard } from '../components/Fretboard'
 import { TabView } from '../components/TabView'
@@ -375,14 +376,16 @@ export function StudioScreen({ active }: { active: boolean }) {
           </div>
         </div>
       )}
-      <BeatHelperBar
-        beat={beat}
-        setBeat={setBeat}
-        tip={helperTip}
-        onTip={setHelperTip}
-        canUndo={history.current.length > 0}
-        onUndo={undo}
-      />
+      <ChromeBar id="beat-helper" label="Beat Helper" edge="top" pillAlign="left" minH={44} maxH={220} active={active}>
+        <BeatHelperBar
+          beat={beat}
+          setBeat={setBeat}
+          tip={helperTip}
+          onTip={setHelperTip}
+          canUndo={history.current.length > 0}
+          onUndo={undo}
+        />
+      </ChromeBar>
       {guideOpen && (
         <BeatGuideCoach
           beat={beat}
@@ -1522,6 +1525,12 @@ function Cockpit(p: CockpitProps) {
     const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); removeEventListener('pointercancel', up) }
     addEventListener('pointermove', mv); addEventListener('pointerup', up); addEventListener('pointercancel', up)
   }
+  const [leftHide, setLeftHide] = usePersist('studioCkLeftHide', false)
+  const [rightHide, setRightHide] = usePersist('studioCkRightHide', false)
+  const [leftOp, setLeftOp] = usePersist('studioCkLeftOp', 1)
+  const [rightOp, setRightOp] = usePersist('studioCkRightOp', 1)
+  const [leftOpOpen, setLeftOpOpen] = useState(false)
+  const [rightOpOpen, setRightOpOpen] = useState(false)
   const cur = curPart(beat), made = partsMade(beat)
   // a part tapped while it plays starts at the next bar (not in the middle of one)
   const pickPart = (id: PartId) => {
@@ -1531,7 +1540,11 @@ function Cockpit(p: CockpitProps) {
   const fill = (on: boolean) => { t.fillOn = on; if (on) haptic('light') }
   const padsEl = p.pads({ onPick: v => setSel(v), muteMode, levelsOf: sel as PadId })
   const leftArea = (
-    <section className="ck-area ck-left" aria-label={left === 'pads' ? 'Pads' : 'Keys'}>
+    <section
+      className="ck-area ck-left"
+      style={leftOp < 1 ? { opacity: clampChromeOpacity(leftOp) } : undefined}
+      aria-label={left === 'pads' ? 'Pads' : 'Keys'}
+    >
       <div className="ck-head">
         <div className="seg" role="group" aria-label="Pads or keys">
           <button aria-pressed={left === 'pads'} onClick={() => setLeft('pads')}>Pads</button>
@@ -1539,13 +1552,27 @@ function Cockpit(p: CockpitProps) {
         </div>
         <span className="st-spacer" />
         {left === 'pads' && <button className={`btn sm${muteMode ? ' on' : ''}`} aria-pressed={muteMode} onClick={() => setMuteMode(!muteMode)} data-testid="ck-mute">Mute mode</button>}
+        <button className={`btn sm${leftOpOpen || leftOp < 1 ? ' on' : ''}`} onClick={() => setLeftOpOpen(v => !v)} aria-pressed={leftOpOpen} title="Pads opacity" aria-label="Pads opacity" data-testid="ck-left-op">◐</button>
+        {!narrow && <button className="btn sm ghost" onClick={() => setLeftHide(true)} title="Hide Pads panel (glowing pill brings it back)" aria-label="Hide Pads panel" data-testid="ck-left-hide">–</button>}
       </div>
+      {leftOpOpen && (
+        <div className="win-op-bar">
+          <span className="small">◐ Pads</span>
+          <input type="range" min={0.2} max={1} step={0.05} value={leftOp} onChange={e => setLeftOp(clampChromeOpacity(Number(e.target.value)))} aria-label="Pads opacity slider" />
+          <span className="small tabular">{Math.round(leftOp * 100)}%</span>
+          <button className="win-btn" onClick={() => setLeftOpOpen(false)} aria-label="Close">✕</button>
+        </div>
+      )}
       {help && <p className="ck-help small">{left === 'pads' ? (muteMode ? 'Mute mode: tap a pad to silence that sound in the beat, tap again to bring it back.' : 'Tap a pad to play it and select it: the steps and the strip show that sound. Press ● and play to record. 16 Levels plays the selected sound at 16 strengths.') : 'Play notes and chords; with ● on they go into the beat.'}</p>}
       <div className="ck-scroll">{left === 'pads' ? padsEl : p.keys}</div>
     </section>
   )
   const stepsArea = (
-    <section className="ck-area ck-right" aria-label="Steps">
+    <section
+      className="ck-area ck-right"
+      style={rightOp < 1 ? { opacity: clampChromeOpacity(rightOp) } : undefined}
+      aria-label="Steps"
+    >
       <div className="ck-head">
         <b className="ck-sel" style={{ ['--h' as string]: String(padHue(sel)) }}><i aria-hidden />{padLabel(beat, sel)}</b>
         <span className="st-spacer" />
@@ -1553,7 +1580,17 @@ function Cockpit(p: CockpitProps) {
           <button aria-pressed={!all} onClick={() => setAll(false)} data-testid="ck-focus-view">Focus Sound</button>
           <button aria-pressed={all} onClick={() => setAll(true)} data-testid="ck-all">Full Grid</button>
         </div>
+        <button className={`btn sm${rightOpOpen || rightOp < 1 ? ' on' : ''}`} onClick={() => setRightOpOpen(v => !v)} aria-pressed={rightOpOpen} title="Steps opacity" aria-label="Steps opacity" data-testid="ck-right-op">◐</button>
+        {!narrow && <button className="btn sm ghost" onClick={() => setRightHide(true)} title="Hide Steps panel (glowing pill brings it back)" aria-label="Hide Steps panel" data-testid="ck-right-hide">–</button>}
       </div>
+      {rightOpOpen && (
+        <div className="win-op-bar">
+          <span className="small">◐ Steps</span>
+          <input type="range" min={0.2} max={1} step={0.05} value={rightOp} onChange={e => setRightOp(clampChromeOpacity(Number(e.target.value)))} aria-label="Steps opacity slider" />
+          <span className="small tabular">{Math.round(rightOp * 100)}%</span>
+          <button className="win-btn" onClick={() => setRightOpOpen(false)} aria-label="Close">✕</button>
+        </div>
+      )}
       {help && <p className="ck-help small">Tap a step to turn it on or off. Drag up or down on it to set how hard it hits. Hold it for quick repeats (×2 ×3 ×4) and a chance it plays.</p>}
       <div className="ck-scroll">{all ? <Steps beat={beat} setBeat={setBeat} t={t} onTip={p.onHelperTip} /> : <FocusSteps beat={beat} setBeat={setBeat} t={t} voice={sel} onTip={p.onHelperTip} />}</div>
     </section>
@@ -1598,41 +1635,46 @@ function Cockpit(p: CockpitProps) {
   const sheetBody = sheet === 'mix' ? p.mixEl : sheet === 'fx' ? <FxPad t={t} playing={playing} play={p.play} /> : sheet === 'save' ? p.saveEl : sheet === 'layers' ? <Layers beat={beat} setBeat={setBeat} /> : sheet === 'song' ? <SongSheet beat={beat} setBeat={setBeat} /> : sheet === 'vibe' ? <MatchVibe beat={beat} setBeat={setBeat} playing={playing} play={() => p.play()} stop={p.stop} onDone={() => setSheet(null)} onLeave={p.onLeave} /> : sheet === 'float' ? floatSheet : sheet === 'more' ? p.more : null
   const sheetTitle = { mix: 'Mix', fx: 'Effects pad', save: 'Bounce and save', layers: 'Drum layers', song: 'Song', more: 'More settings', vibe: "Match a song's vibe", float: 'Floating guitar tools' }
   const sheetIcon: Record<NonNullable<typeof sheet>, IconName> = { mix: 'sliders', fx: 'sparkles', save: 'disc', layers: 'layers', song: 'music', more: 'sliders', vibe: 'film', float: 'layers' }
+  const showBoth = !narrow && !leftHide && !rightHide
   return createPortal(
     <div className={`ck${narrow ? ' narrow' : ''}${help ? ' help' : ''}`} role="region" aria-label="Beat maker cockpit" data-testid="cockpit">
-      <header className="ck-top">
-        <button className={`btn primary st-play${playing ? ' on' : ''}`} onClick={() => (playing ? p.stop() : p.play())} aria-label={playing ? 'Stop' : 'Play'} data-testid="ck-play">{playing ? '■' : '▶'}</button>
-        <button className={`btn st-rec${recording ? ' on' : ''}`} onClick={p.toggleRecord} aria-pressed={recording} aria-label="Record what you play (a one-bar count-in first)" data-testid="ck-rec">●</button>
-        <BeatLight t={t} playing={playing} />
-        <Tempo bpm={beat.bpm} onChange={bpm => setBeat(b => ({ ...b, bpm }))} />
-        <div className="ck-parts" role="group" aria-label="Parts">
-          {PART_IDS.map(id => <button key={id} className={`st-part${id === cur ? ' cur' : ''}${made.includes(id) ? '' : ' new'}${playing && t.playPart === id ? ' playing' : ''}`} aria-pressed={id === cur} onClick={() => pickPart(id)} data-testid={`ck-part-${id}`}>{made.includes(id) ? id : `+${id}`}</button>)}
-          <button className={`btn sm${beat.chainOn ? ' on' : ''}`} onClick={() => setSheet(sheet === 'song' ? null : 'song')} data-testid="ck-song">Song</button>
-        </div>
-        <button className="btn sm ck-fill" onPointerDown={e => { e.preventDefault(); fill(true) }} onPointerUp={() => fill(false)} onPointerCancel={() => fill(false)} onPointerLeave={() => t.fillOn && fill(false)} data-testid="ck-fill">Fill</button>
-        <span className="st-spacer" />
-        <button className="btn sm" onClick={p.undo} disabled={!p.canUndo} aria-label="Undo" title="Undo">↶</button>
-        <button className="btn sm" onClick={p.redo} disabled={!p.canRedo} aria-label="Redo" title="Redo">↷</button>
-        <button className={`btn sm${helperOpen ? ' on' : ''}`} aria-pressed={helperOpen} onClick={() => { const next = !helperOpen; setHelperOpen(next); if (next && narrow && p.guideOpen) p.setGuideOpen(false) }} data-testid="ck-helper" title="Show or hide Smart Beat Helper & Style Starters">✨{!narrow && ' Helper'}</button>
-        <button className={`btn sm${p.guideOpen ? ' on' : ''}`} aria-pressed={p.guideOpen} onClick={() => { const next = !p.guideOpen; p.setGuideOpen(next); if (next && narrow && helperOpen) setHelperOpen(false) }} data-testid="ck-guide" title="Step-by-step guided beat coach">🧭{!narrow && ' Guide'}</button>
-        <button className={`btn sm${sheet === 'float' || openFloaters.length > 0 ? ' on' : ''}`} onClick={() => setSheet(sheet === 'float' ? null : 'float')} data-testid="ck-float" title="Open floating 5-Layer Fretboard, Licks, Circle or Tuner over the Cockpit" aria-label="Floating guitar tools"><Ico n="layers" />{!narrow && ' Float'}{openFloaters.length > 0 ? ` (${openFloaters.length})` : ''}</button>
-        <button className={`btn sm${sheet === 'vibe' ? ' on' : ''}`} onClick={() => setSheet(sheet === 'vibe' ? null : 'vibe')} data-testid="ck-vibe" title="Make a beat with a song's feel" aria-label="Song vibe: make a beat with a song's feel"><Ico n="film" />{!narrow && ' Song vibe'}</button>
-        <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')} aria-label="Ideas"><Ico n="sparkles" />{!narrow && ' Ideas'}</button>
-        <button className={`btn sm${help ? ' on' : ''}`} aria-pressed={help} onClick={() => setHelp(!help)} aria-label="Show what everything does" title="Show what everything does">?</button>
-        <button className="btn sm" onClick={() => setSheet('more')} aria-label="More settings: style, kit, key, bars, swing, save">⋯</button>
-        <button className="btn sm" onClick={p.onLeave} data-testid="ck-leave" title="Back to the windows layout"><Ico n="expand" /> Leave</button>
-      </header>
+      <ChromeBar id="ck-top" label="Beat top" edge="top" pillAlign="center" minH={44} maxH={180}>
+        <header className="ck-top">
+          <button className={`btn primary st-play${playing ? ' on' : ''}`} onClick={() => (playing ? p.stop() : p.play())} aria-label={playing ? 'Stop' : 'Play'} data-testid="ck-play">{playing ? '■' : '▶'}</button>
+          <button className={`btn st-rec${recording ? ' on' : ''}`} onClick={p.toggleRecord} aria-pressed={recording} aria-label="Record what you play (a one-bar count-in first)" data-testid="ck-rec">●</button>
+          <BeatLight t={t} playing={playing} />
+          <Tempo bpm={beat.bpm} onChange={bpm => setBeat(b => ({ ...b, bpm }))} />
+          <div className="ck-parts" role="group" aria-label="Parts">
+            {PART_IDS.map(id => <button key={id} className={`st-part${id === cur ? ' cur' : ''}${made.includes(id) ? '' : ' new'}${playing && t.playPart === id ? ' playing' : ''}`} aria-pressed={id === cur} onClick={() => pickPart(id)} data-testid={`ck-part-${id}`}>{made.includes(id) ? id : `+${id}`}</button>)}
+            <button className={`btn sm${beat.chainOn ? ' on' : ''}`} onClick={() => setSheet(sheet === 'song' ? null : 'song')} data-testid="ck-song">Song</button>
+          </div>
+          <button className="btn sm ck-fill" onPointerDown={e => { e.preventDefault(); fill(true) }} onPointerUp={() => fill(false)} onPointerCancel={() => fill(false)} onPointerLeave={() => t.fillOn && fill(false)} data-testid="ck-fill">Fill</button>
+          <span className="st-spacer" />
+          <button className="btn sm" onClick={p.undo} disabled={!p.canUndo} aria-label="Undo" title="Undo">↶</button>
+          <button className="btn sm" onClick={p.redo} disabled={!p.canRedo} aria-label="Redo" title="Redo">↷</button>
+          <button className={`btn sm${helperOpen ? ' on' : ''}`} aria-pressed={helperOpen} onClick={() => { const next = !helperOpen; setHelperOpen(next); if (next && narrow && p.guideOpen) p.setGuideOpen(false) }} data-testid="ck-helper" title="Show or hide Smart Beat Helper & Style Starters">✨{!narrow && ' Helper'}</button>
+          <button className={`btn sm${p.guideOpen ? ' on' : ''}`} aria-pressed={p.guideOpen} onClick={() => { const next = !p.guideOpen; p.setGuideOpen(next); if (next && narrow && helperOpen) setHelperOpen(false) }} data-testid="ck-guide" title="Step-by-step guided beat coach">🧭{!narrow && ' Guide'}</button>
+          <button className={`btn sm${sheet === 'float' || openFloaters.length > 0 ? ' on' : ''}`} onClick={() => setSheet(sheet === 'float' ? null : 'float')} data-testid="ck-float" title="Open floating 5-Layer Fretboard, Licks, Circle or Tuner over the Cockpit" aria-label="Floating guitar tools"><Ico n="layers" />{!narrow && ' Float'}{openFloaters.length > 0 ? ` (${openFloaters.length})` : ''}</button>
+          <button className={`btn sm${sheet === 'vibe' ? ' on' : ''}`} onClick={() => setSheet(sheet === 'vibe' ? null : 'vibe')} data-testid="ck-vibe" title="Make a beat with a song's feel" aria-label="Song vibe: make a beat with a song's feel"><Ico n="film" />{!narrow && ' Song vibe'}</button>
+          <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')} aria-label="Ideas"><Ico n="sparkles" />{!narrow && ' Ideas'}</button>
+          <button className={`btn sm${help ? ' on' : ''}`} aria-pressed={help} onClick={() => setHelp(!help)} aria-label="Show what everything does" title="Show what everything does">?</button>
+          <button className="btn sm" onClick={() => setSheet('more')} aria-label="More settings: style, kit, key, bars, swing, save">⋯</button>
+          <button className="btn sm" onClick={p.onLeave} data-testid="ck-leave" title="Back to the windows layout"><Ico n="expand" /> Leave</button>
+        </header>
+      </ChromeBar>
       {helperOpen && (
-        <BeatHelperBar
-          beat={beat}
-          setBeat={setBeat}
-          tip={p.helperTip}
-          onTip={p.onHelperTip}
-          onFocusVoice={v => setSel(v)}
-          canUndo={p.canUndo}
-          onUndo={p.undo}
-          compact
-        />
+        <ChromeBar id="ck-helper-bar" label="Beat Helper" edge="top" pillAlign="right" minH={44} maxH={200}>
+          <BeatHelperBar
+            beat={beat}
+            setBeat={setBeat}
+            tip={p.helperTip}
+            onTip={p.onHelperTip}
+            onFocusVoice={v => setSel(v)}
+            canUndo={p.canUndo}
+            onUndo={p.undo}
+            compact
+          />
+        </ChromeBar>
       )}
       {p.guideOpen && (
         <BeatGuideCoach
@@ -1653,28 +1695,42 @@ function Cockpit(p: CockpitProps) {
       <main
         className="ck-main"
         ref={mainRef}
-        style={!narrow ? { gridTemplateColumns: `minmax(0, ${ckSplit}fr) 10px minmax(0, ${100 - ckSplit}fr)` } : undefined}
+        style={showBoth ? { gridTemplateColumns: `minmax(0, ${ckSplit}fr) 10px minmax(0, ${100 - ckSplit}fr)` } : { gridTemplateColumns: 'minmax(0, 1fr)' }}
       >
         {narrow ? (
           area === 'pads' ? leftArea : stepsArea
         ) : (
           <>
-            {leftArea}
-            <div
-              className="ck-split"
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Drag to resize Pads and Steps (double-tap to reset)"
-              title="Drag to resize Pads & Steps (double-tap to reset)"
-              onPointerDown={dragSplit}
-              onDoubleClick={() => setCkSplit(46)}
-              data-testid="ck-split"
-            />
-            {stepsArea}
+            {!leftHide && leftArea}
+            {showBoth && (
+              <div
+                className="ck-split"
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Drag to resize Pads and Steps (double-tap to reset)"
+                title="Drag to resize Pads & Steps (double-tap to reset)"
+                onPointerDown={dragSplit}
+                onDoubleClick={() => setCkSplit(46)}
+                data-testid="ck-split"
+              />
+            )}
+            {!rightHide && stepsArea}
           </>
         )}
       </main>
-      <SoundStrip beat={beat} setBeat={setBeat} t={t} voice={sel} onSheet={s => setSheet(sheet === s ? null : s)} sheet={sheet} help={help} />
+      {!narrow && leftHide && (
+        <button type="button" className="chrome-glow-pill edge-bottom align-center" onClick={() => setLeftHide(false)} data-testid="ck-left-restore">
+          <span className="chrome-glow-dot" aria-hidden /><span>▴ Show Pads</span>
+        </button>
+      )}
+      {!narrow && rightHide && (
+        <button type="button" className="chrome-glow-pill edge-bottom align-right" onClick={() => setRightHide(false)} data-testid="ck-right-restore">
+          <span className="chrome-glow-dot" aria-hidden /><span>▴ Show Steps</span>
+        </button>
+      )}
+      <ChromeBar id="ck-strip" label="Sound footer" edge="bottom" pillAlign="left" minH={40} maxH={160}>
+        <SoundStrip beat={beat} setBeat={setBeat} t={t} voice={sel} onSheet={s => setSheet(sheet === s ? null : s)} sheet={sheet} help={help} />
+      </ChromeBar>
       {sheet && (
         <FloatCard
           id={`ck-sheet-${sheet}`}

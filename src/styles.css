@@ -5156,3 +5156,182 @@ html:not([data-arrange]) .win-zoom { display: none; }
   pointer-events: none;
 }
 .ck-cell.beat-alt:not(.on) { background: color-mix(in srgb, var(--accent) 8%, color-mix(in srgb, var(--ink) 4%, transparent)); }
+
+/* ── App-Wide Universal Chrome & Window Controls (Hide + Glowing Edge Pill + Free L×W Resize + ◐ Opacity) ── */
+.win-op-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line, rgba(127,127,127,.25)));
+}
+.win-op-bar input[type="range"] { flex: 1; min-width: 80px; margin: 0; }
+.win-btn.on {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.win-tray.has-hidden {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line, rgba(127,127,127,.3)));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.win-chip.glow {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.chrome-wrap {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  margin-inline: auto;
+}
+.chrome-wrap.sized-h {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.chrome-wrap.sized-h > .chrome-inner {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.chrome-inner {
+  width: 100%;
+  min-width: 0;
+}
+.chrome-wrap.sized-h .screen-head {
+  min-height: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+.chrome-ctrls {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  opacity: 0.78;
+  transition: opacity 0.16s ease;
+}
+.chrome-wrap:hover .chrome-ctrls,
+.chrome-wrap:focus-within .chrome-ctrls,
+.chrome-ctrls:active {
+  opacity: 1;
+}
+.chrome-btn {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 700 11px/1 var(--ui, sans-serif);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.chrome-btn:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.chrome-btn.on { background: color-mix(in srgb, var(--accent) 28%, transparent); color: var(--ink); }
+.chrome-resize {
+  cursor: nwse-resize;
+  touch-action: none;
+  font-size: 10px;
+  user-select: none;
+}
+.chrome-op-pop {
+  position: absolute;
+  right: 4px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.42);
+  min-width: 210px;
+  max-width: calc(100vw - 24px);
+}
+.chrome-op-pop.edge-top { top: calc(100% + 4px); }
+.chrome-op-pop.edge-bottom { bottom: calc(100% + 4px); }
+.chrome-op-pop input[type="range"] { flex: 1; min-width: 80px; margin: 0; }
+
+/* Glowing edge restore pill (never collides with top-left 3-line menu button .nav-pull) */
+@keyframes chromeGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent), 0 3px 12px rgba(0, 0, 0, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 88%, transparent), 0 0 28px color-mix(in srgb, var(--gold, #fbbf24) 45%, transparent);
+  }
+}
+.chrome-glow-pill {
+  position: fixed;
+  z-index: 66;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  min-height: 28px;
+  border-radius: 999px;
+  border: 1.5px solid var(--accent);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--ink);
+  font: 700 11px/1 var(--ui, sans-serif);
+  cursor: pointer;
+  animation: chromeGlowPulse 2.4s ease-in-out infinite;
+  white-space: nowrap;
+}
+.chrome-glow-pill.edge-top { top: calc(6px + var(--sat, 0px)); }
+.chrome-glow-pill.edge-bottom { bottom: calc(8px + var(--sab, 0px)); }
+/* Keep top-left clear of the 44px 3-line main menu button (.nav-pull at left:10px) */
+.chrome-glow-pill.edge-top.align-left { left: calc(62px + var(--sal, 0px)); }
+.chrome-glow-pill.edge-bottom.align-left { left: calc(12px + var(--sal, 0px)); }
+.chrome-glow-pill.align-center { left: 50%; transform: translateX(-50%); }
+.chrome-glow-pill.align-right { right: calc(12px + var(--sar, 0px)); }
+.chrome-glow-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  flex-shrink: 0;
+}
+
+/* Nav bar opacity button & popover */
+.nav-op-btn.on { color: var(--accent); }
+.nav-op-pop {
+  position: fixed;
+  z-index: 67;
+  bottom: calc(62px + var(--sab, 0px));
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.42);
+}
+.nav-op-pop input[type="range"] { width: 110px; margin: 0; }
+

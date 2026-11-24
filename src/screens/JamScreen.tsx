@@ -1,6 +1,7 @@
 // Jam: generate chord progressions (lots of options), see every chord shape, play them back with strumming and drums,
 // loop over it in the 4-track looper, and see which scales to solo with.
 import { Ico } from '../components/Icon'
+import { ChromeBar } from '../components/ChromeBar'
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MODES, STYLES, FLAVORS, ENDINGS, SPICE, STYLE_DEFAULTS, FN_LABEL,
@@ -623,11 +624,13 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   })
   return (
     <div className={`stack jam${playing ? ' playing' : ''}`} style={{ ['--beat' as string]: `${(60 / bpm).toFixed(3)}s` }}>
-      <header className="screen-head jam-head">
-        <PsyPic id="stage" at="50% 22%" className="screen-art beat-art" />
-        <h1>Jam{inst.isUke ? <span className="muted small"> · {inst.short}</span> : null}</h1>
-        {page === 'jam' && <button className="btn sm" onClick={() => setOptionsOpen(!optionsOpen)} aria-expanded={optionsOpen}>{optionsOpen ? 'Hide options' : 'Options'}</button>}
-      </header>
+      <ChromeBar id="banner-jam" label="Jam banner" edge="top" pillAlign="right" minH={44} maxH={260}>
+        <header className="screen-head jam-head">
+          <PsyPic id="stage" at="50% 22%" className="screen-art beat-art" />
+          <h1>Jam{inst.isUke ? <span className="muted small"> · {inst.short}</span> : null}</h1>
+          {page === 'jam' && <button className="btn sm" onClick={() => setOptionsOpen(!optionsOpen)} aria-expanded={optionsOpen}>{optionsOpen ? 'Hide options' : 'Options'}</button>}
+        </header>
+      </ChromeBar>
       <div className="subtabs jam-choices" role="tablist" aria-label="Jam">
         {([
           ['jam', 'drum', 'Play with a band', 'Chords, strums, bass and drums to play over'],

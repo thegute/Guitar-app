@@ -2,6 +2,7 @@
 // the path to mastery, and the tools (ear training, theory, CAGED, circle of fifths, chord changes, rhythm).
 import { transposeSong } from '../tabs/transpose'
 import { Win, WinArea } from '../components/Win'
+import { ChromeBar } from '../components/ChromeBar'
 import { Ico } from '../components/Icon'
 import { ZeroToHero } from './ZeroToHero'
 import { PHASES as Z2H_PHASES, PATHS as Z2H_PATHS, z2h } from './zeroHero'
@@ -330,15 +331,17 @@ export function LearnScreen() {
 
   return (
     <div className="learn">
-      <div className="learn-head screen-head">
-        <PsyPic id="march" at="50% 30%" className="screen-art" />
-        <ArtThumb className="learn-art" />
-        <h1 style={{ margin: 0 }}>Learn</h1>
-        <button className="btn sm inst-chip" onClick={() => openGear()} aria-label={`Instrument: ${inst.label}. Change in settings`}>
-          {inst.short}{inst.isUke && inst.tuning.reentrant ? ' (re-entrant)' : ''}
-        </button>
-        <button className="btn sm icon" onClick={() => openGear()} aria-label="Settings"><IconGear /></button>
-      </div>
+      <ChromeBar id="banner-learn" label="Learn banner" edge="top" pillAlign="right" minH={44} maxH={260}>
+        <div className="learn-head screen-head">
+          <PsyPic id="march" at="50% 30%" className="screen-art" />
+          <ArtThumb className="learn-art" />
+          <h1 style={{ margin: 0 }}>Learn</h1>
+          <button className="btn sm inst-chip" onClick={() => openGear()} aria-label={`Instrument: ${inst.label}. Change in settings`}>
+            {inst.short}{inst.isUke && inst.tuning.reentrant ? ' (re-entrant)' : ''}
+          </button>
+          <button className="btn sm icon" onClick={() => openGear()} aria-label="Settings"><IconGear /></button>
+        </div>
+      </ChromeBar>
 
       <SubTabs label="Learn" value={page} onChange={setPage} tabs={[
         { id: 'today', label: 'Today', badge: plan.length - planDone || null },

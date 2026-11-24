@@ -2,6 +2,7 @@
 // the songbook; one search and filter chips) and Add a song (one box: a name, a link, a file, a picture or a recording).
 import { stopAllSounds } from '../audio/stopAll'
 import { Win, WinArea } from '../components/Win'
+import { ChromeBar } from '../components/ChromeBar'
 import { RiffScanner, ScanVideo } from '../scan/RiffScanner'
 import { SongFinder } from '../components/SongFinder'
 import { Transcriber } from '../components/Transcriber'
@@ -55,10 +56,12 @@ export function SongsScreen() {
 
   return (
     <div className="songs-screen stack">
-      <header className="screen-head">
-        <PsyStrip at="0%" className="screen-art" />
-        <h1>Songs</h1>
-      </header>
+      <ChromeBar id="banner-songs" label="Songs banner" edge="top" pillAlign="right" minH={44} maxH={260}>
+        <header className="screen-head">
+          <PsyStrip at="0%" className="screen-art" />
+          <h1>Songs</h1>
+        </header>
+      </ChromeBar>
       <SubTabs label="Songs" value={page} onChange={setPage} tabs={[
         { id: 'library', label: 'Library', badge: count || null },
         { id: 'scan', label: 'Riff Scanner' },

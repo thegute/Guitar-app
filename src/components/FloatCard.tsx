@@ -14,12 +14,17 @@ const CONTROLS = 'button, [role=tab], [role=separator], .split, .win-size, input
 
 interface Place { x: number; y: number; w: number; h?: number; min: boolean; opacity?: number; zoom?: number }
 export const clampCardZoom = (z: number) => Math.round(Math.max(0.75, Math.min(1.5, z)) * 100) / 100
-const sizeClass = () => (typeof innerWidth === 'number' && innerWidth < 600 ? 'narrow' : 'wide')
+const sizeClass = (): 'narrow' | 'tablet' | 'full' => {
+  const w = typeof innerWidth === 'number' ? innerWidth : 800
+  return w < 600 ? 'narrow' : w < 960 ? 'tablet' : 'full'
+}
 // the hand card keeps the finger box's old remembered places
-const KEY = (id: string, where: string) => (id === 'hand' ? `kg:fingerBox:${where}:${sizeClass()}` : `kg:floatPlace:${id}:${where}:${sizeClass()}`)
+const KEY = (id: string, where: string, cls: string = sizeClass()) => (id === 'hand' ? `kg:fingerBox:${where}:${cls}` : `kg:floatPlace:${id}:${where}:${cls}`)
 function stored(id: string, where: string): Place | null {
   try {
-    const v = JSON.parse(localStorage.getItem(KEY(id, where)) ?? 'null') as Place | null
+    const cls = sizeClass()
+    const raw = localStorage.getItem(KEY(id, where, cls)) ?? (cls !== 'narrow' ? localStorage.getItem(KEY(id, where, 'wide')) : null)
+    const v = JSON.parse(raw ?? 'null') as Place | null
     if (v && typeof v.x === 'number') {
       return {
         ...v,

@@ -10,30 +10,46 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useHint } from './Fold'
 import { FloatCard } from './FloatCard'
 
-export type WinBucket = 'narrow' | 'wide'
+export type WinBucket = 'narrow' | 'tablet' | 'full'
 export interface Layout {
   order: string[]
   hidden: string[]
   height: Record<string, number>
   moved?: boolean
   folded?: string[]
-  /** share of the row (1/3, 1/2, 2/3, 1) */
+  /** share of the row (smooth 0.24–1.0 with gentle snap at 1/3, 1/2, 2/3, 1) */
   width?: Record<string, number>
   /** per-window content zoom (0.7–1.6, default 1) */
   zoom?: Record<string, number>
+  /** per-window opacity (0.2–1.0, default 1) */
+  opacity?: Record<string, number>
   /** windows currently popped out into floating cards */
   popped?: string[]
 }
 const EMPTY: Layout = { order: [], hidden: [], height: {} }
 
-export const winBucket = (w?: number): WinBucket =>
-  ((w ?? (typeof innerWidth === 'number' ? innerWidth : 800)) < 600 ? 'narrow' : 'wide')
+export const winBucket = (w?: number): WinBucket => {
+  const px = w ?? (typeof innerWidth === 'number' ? innerWidth : 800)
+  return px < 600 ? 'narrow' : px < 960 ? 'tablet' : 'full'
+}
 export const winStorageKey = (area: string, bucket: WinBucket) => `kg:win:${area}:${bucket}`
 export const clampWinZoom = (z: number) => Math.round(Math.max(0.7, Math.min(1.6, z)) * 100) / 100
+export const clampWinOpacity = (o: number) => Math.round(Math.max(0.2, Math.min(1, o)) * 100) / 100
+export const clampWinWidth = (w: number) => {
+  const clamped = Math.max(0.24, Math.min(1, w))
+  // Gentle magnetic snap to 1/3, 1/2, 2/3, 1 when within 2.5% so columns align effortlessly
+  for (const s of [1 / 3, 1 / 2, 2 / 3, 1]) {
+    if (Math.abs(clamped - s) <= 0.025) return Math.round(s * 1000) / 1000
+  }
+  return Math.round(clamped * 100) / 100
+}
 
 export function loadWinLayout(area: string, bucket: WinBucket): Layout {
   try {
-    const raw = localStorage.getItem(winStorageKey(area, bucket)) ?? localStorage.getItem(`kg:win:${area}`)
+    const raw =
+      localStorage.getItem(winStorageKey(area, bucket)) ??
+      (bucket !== 'narrow' ? localStorage.getItem(`kg:win:${area}:wide`) : null) ??
+      localStorage.getItem(`kg:win:${area}`)
     const v = JSON.parse(raw ?? 'null') as Layout | null
     if (v && Array.isArray(v.order)) return { ...EMPTY, ...v }
   } catch { /* fall through */ }
@@ -156,6 +172,7 @@ export function WinArea({ area, children, className = '', defaultHidden = [], pr
     Object.keys(layout.height).length > 0 ||
     Object.keys(layout.width ?? {}).length > 0 ||
     Object.keys(layout.zoom ?? {}).length > 0 ||
+    Object.keys(layout.opacity ?? {}).length > 0 ||
     !!layout.moved ||
     !!layout.folded?.length
   return (
@@ -163,9 +180,9 @@ export function WinArea({ area, children, className = '', defaultHidden = [], pr
       <LayoutHint />
       <div className={`win-area ${className}${grid ? ' win-grid' : ''}`} ref={box}>{children}</div>
       {(hidden.length > 0 || popped.length > 0 || changed) && (
-        <div className="win-tray" role="toolbar" aria-label="Tucked-away and floating windows">
+        <div className={`win-tray${hidden.length > 0 ? ' has-hidden' : ''}`} role="toolbar" aria-label="Tucked-away and floating windows">
           {hidden.map(id => (
-            <button key={id} className="win-chip" onClick={() => set(l => ({ ...l, hidden: l.hidden.filter(x => x !== id) }))}>▢ {titles[id]}</button>
+            <button key={id} className="win-chip glow" onClick={() => set(l => ({ ...l, hidden: l.hidden.filter(x => x !== id) }))}>✦ {titles[id]}</button>
           ))}
           {popped.map(id => (
             <button key={`pop-${id}`} className="win-chip" onClick={() => set(l => ({ ...l, popped: (l.popped ?? []).filter(x => x !== id) }))} title="Dock back into page">⤓ Dock {titles[id]}</button>
@@ -177,7 +194,7 @@ export function WinArea({ area, children, className = '', defaultHidden = [], pr
   )
 }
 
-/** One movable, resizable, zoomable, pop-out window. Outside a WinArea it's just its content in a panel. */
+/** One movable, resizable (L×W), zoomable, opacity-adjustable, pop-out window. Outside a WinArea it's just its content in a panel. */
 export function Win({ id, title, children, className = 'panel', bodyClass = '', bodyStyle, resizable = true, minHeight = 90, noZoom = false, hint, extra }: {
   id: string; title: string; children: ReactNode; className?: string; bodyClass?: string; bodyStyle?: React.CSSProperties; resizable?: boolean; minHeight?: number
   /** hide content zoom buttons on pure menu/tool bars */
@@ -190,6 +207,7 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
   const ctx = useContext(C)
   const body = useRef<HTMLDivElement>(null)
   const [hintBtn, hintText] = useHint(hint ?? '')
+  const [opOpen, setOpOpen] = useState(false)
   useEffect(() => { ctx?.register(id, title); return () => ctx?.unregister(id) }, [id, title]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!ctx) return <section className={className}>{hint ? <div className="hint-head"><h2 style={{ margin: 0 }}>{title}</h2>{hintBtn}</div> : null}{hintText}<div className={`win-body ${bodyClass}`} style={bodyStyle}>{children}</div></section>
   const { area, layout, set, dragging, startDrag, grid, areaEl } = ctx
@@ -200,6 +218,7 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
   const h = layout.height[id]
   const w = grid ? layout.width?.[id] : undefined
   const z = clampWinZoom(layout.zoom?.[id] ?? 1)
+  const op = clampWinOpacity(layout.opacity?.[id] ?? 1)
 
   const setZoom = (next: number) => {
     const clamped = clampWinZoom(next)
@@ -208,6 +227,15 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
       if (clamped === 1) delete zoom[id]
       else zoom[id] = clamped
       return { ...l, zoom }
+    })
+  }
+  const setOpacity = (next: number) => {
+    const clamped = clampWinOpacity(next)
+    set(l => {
+      const opacity = { ...(l.opacity ?? {}) }
+      if (clamped >= 0.99) delete opacity[id]
+      else opacity[id] = clamped
+      return { ...l, opacity }
     })
   }
   const popOut = () => set(l => ({ ...l, popped: [...new Set([...(l.popped ?? []), id])] }))
@@ -247,7 +275,7 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
     )
   }
 
-  // the ◢ corner: down/up = height, sideways = width (snapped to a third, a half, two thirds or full; only where there's room)
+  // the ◢ corner: smooth free L × W resize (height in px, width in % on tablet/full screens with gentle column snap)
   const resize = (e: React.PointerEvent) => {
     e.preventDefault()
     const el = body.current
@@ -258,15 +286,15 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
     let sideways = false
     const move = (ev: PointerEvent) => {
       const dy = ev.clientY - startY, dx = ev.clientX - startX
-      if (Math.abs(dy) > 6) {
+      if (Math.abs(dy) > 4) {
         const nh = Math.max(minHeight, Math.round(startH + dy))
         set(l => (l.height[id] === nh ? l : { ...l, height: { ...l.height, [id]: nh } }))
       }
-      if (grid && (sideways || Math.abs(dx) > 24)) {
+      if (grid && (sideways || Math.abs(dx) > 10)) {
         sideways = true
-        const want = (startW + dx + GAP) / (rowW + GAP)
-        const snap = WIDTHS.reduce((b, f) => (Math.abs(f - want) < Math.abs(b - want) ? f : b), 1)
-        set(l => ((l.width?.[id] ?? 1) === snap ? l : { ...l, width: { ...(l.width ?? {}), [id]: snap } }))
+        const want = (startW + dx + GAP) / Math.max(200, rowW + GAP)
+        const nextW = clampWinWidth(want)
+        set(l => ((l.width?.[id] ?? 1) === nextW ? l : { ...l, width: { ...(l.width ?? {}), [id]: nextW } }))
       }
     }
     const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up) }
@@ -280,7 +308,11 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
       : bodyStyle
   return (
     <section className={`win ${className}${dragging === id ? ' dragging' : ''}${w !== undefined && w < 1 ? ' part' : ''}`} data-win={id}
-      style={{ order: order < 0 ? 99 : order, ...(w !== undefined ? { flex: `0 0 calc(${w * 100}% - ${GAP * (1 - w)}px)`, maxWidth: `calc(${w * 100}% - ${GAP * (1 - w)}px)` } : {}) }}>
+      style={{
+        order: order < 0 ? 99 : order,
+        ...(w !== undefined ? { flex: `0 0 calc(${w * 100}% - ${GAP * (1 - w)}px)`, maxWidth: `calc(${w * 100}% - ${GAP * (1 - w)}px)` } : {}),
+        ...(op < 1 ? { opacity: op } : {}),
+      }}>
       <div className="win-bar">
         <button className="win-grip" onPointerDown={e => startDrag(id, e)} aria-label={`Move ${title}: drag up or down`} title="Drag to move">☰ <span className="win-word">Move</span></button>
         <button className="win-title" onClick={() => set(l => { const f = l.folded ?? []; return { ...l, folded: f.includes(id) ? f.filter(x => x !== id) : [...f, id] } })}
@@ -296,23 +328,34 @@ export function Win({ id, title, children, className = 'panel', bodyClass = '', 
             <button className="win-btn win-zbtn" onClick={() => setZoom(z + 0.1)} title="Zoom in" aria-label={`Zoom in ${title}`} data-testid={`win-zin-${id}`}>+</button>
           </span>
         )}
+        <button className={`win-btn${opOpen || op < 1 ? ' on' : ''}`} onClick={() => setOpOpen(v => !v)} aria-pressed={opOpen} title={`Opacity (${Math.round(op * 100)}%)`} aria-label={`Opacity for ${title}`} data-testid={`win-opacity-${id}`}>◐</button>
         <button className="win-btn" onClick={popOut} title="Pop out as a movable floating window" aria-label={`Float ${title}`} data-testid={`win-float-${id}`}>❐</button>
-        {(h !== undefined || w !== undefined || z !== 1) && (
+        {(h !== undefined || w !== undefined || z !== 1 || op < 1) && (
           <button className="win-btn" onClick={() => set(l => {
             const height = { ...l.height }; delete height[id]
             const width = { ...(l.width ?? {}) }; delete width[id]
             const zoom = { ...(l.zoom ?? {}) }; delete zoom[id]
-            return { ...l, height, width, zoom }
-          })} title="Back to its own size & zoom" aria-label={`${title}: back to its own size`}>⤢</button>
+            const opacity = { ...(l.opacity ?? {}) }; delete opacity[id]
+            return { ...l, height, width, zoom, opacity }
+          })} title="Back to its own size, zoom & opacity" aria-label={`${title}: reset size and opacity`}>⤢</button>
         )}
         <button className="win-btn" onClick={() => set(l => ({ ...l, hidden: [...l.hidden, id] }))} title="Tuck away (it waits in the tray at the bottom)" aria-label={`Tuck away ${title}`}>– <span className="win-word">Hide</span></button>
       </div>
+      {opOpen && (
+        <div className="win-op-bar" data-testid={`win-op-slider-${id}`}>
+          <span className="small">◐ Opacity</span>
+          <input type="range" min={0.2} max={1} step={0.05} value={op} onChange={e => setOpacity(Number(e.target.value))} aria-label={`${title} opacity`} />
+          <span className="small tabular">{Math.round(op * 100)}%</span>
+          {op < 1 && <button className="win-btn" onClick={() => setOpacity(1)}>100%</button>}
+          <button className="win-btn" onClick={() => setOpOpen(false)} aria-label="Close opacity slider">✕</button>
+        </div>
+      )}
       {!folded && hint ? hintText : null}
       {!folded && <div className={`win-body ${bodyClass}${h !== undefined ? ' sized' : ''}`} ref={body} style={mergedBodyStyle}>{children}</div>}
       {resizable && !folded && (
         <div className={`win-size${grid ? ' both' : ''}`} onPointerDown={resize} role="separator"
-          aria-label={grid ? `Drag to resize ${title}: down for taller, sideways for wider or narrower` : `Drag to make ${title} taller or shorter`} title="Drag to resize">
-          {grid ? '◢ drag to resize' : '⇕ drag to resize'}
+          aria-label={grid ? `Drag to resize ${title} (L × W): down for taller, sideways for wider or narrower` : `Drag to make ${title} taller or shorter`} title="Drag to resize (L × W)">
+          {grid ? '◢ drag to resize (L × W)' : '⇕ drag to resize'}
         </div>
       )}
     </section>

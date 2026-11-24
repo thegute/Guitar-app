@@ -1,6 +1,7 @@
 // Settings: instrument (with a confirm step so you can't switch by accident), tuning, look, daily goal and reminders.
 import { fullScreen, setFullScreen } from '../theme'
 import { FloatPicker } from '../float/FloatLayer'
+import { ChromeBar } from '../components/ChromeBar'
 import { GuideScreen } from './GuideScreen'
 import type { Go } from './path'
 import { Ico, instIcon } from '../components/Icon'
@@ -109,10 +110,12 @@ export function Settings({ inst, onExit, onGo, guideSec }: { inst: Instrument; o
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <button className="btn sm" onClick={onExit}>← Back</button>
       </div>
-      <header className="screen-head">
-        <PsyPic id="torii" at="50% 40%" className="screen-art" />
-        <h1 style={{ margin: 0 }}>Settings</h1>
-      </header>
+      <ChromeBar id="banner-settings" label="Settings banner" edge="top" pillAlign="right" minH={44} maxH={260}>
+        <header className="screen-head">
+          <PsyPic id="torii" at="50% 40%" className="screen-art" />
+          <h1 style={{ margin: 0 }}>Settings</h1>
+        </header>
+      </ChromeBar>
       <SubTabs label="Settings" value={page} onChange={setPage} tabs={[
         { id: 'you', label: 'You' }, { id: 'sound', label: 'Sound' }, { id: 'look', label: 'Look' }, { id: 'cards', label: 'Cards' }, { id: 'backup', label: 'Backup' }, { id: 'manual', label: 'Manual' },
       ]} />

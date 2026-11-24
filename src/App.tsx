@@ -30,6 +30,7 @@ import { Settings } from './learn/Settings'
 import { setFloatScreen } from './float/bus'
 import { RigNotice, RigPill } from './components/AudioSetup'
 import { StudioTopBar } from './components/StudioTopBar'
+import { ChromeBar, clampChromeOpacity } from './components/ChromeBar'
 import { watchDevices } from './audio/input'
 import { onAsk, type AskContext } from './assistant/bus'
 import { stopAllSounds } from './audio/stopAll'
@@ -162,6 +163,8 @@ function MainApp() {
   const wide = useMedia('(min-width: 760px)')
   const hidden = ui.navHidden || (tab === 'play' && ui.playFocus)
   const [drawer, setDrawer] = useState(false)
+  const [navOpacity, setNavOpacity] = usePersist('navOpacity', 1)
+  const [navOpOpen, setNavOpOpen] = useState(false)
   useEffect(() => { if (!hidden) setDrawer(false) }, [hidden])
   useBack(drawer, () => setDrawer(false))
   useEffect(() => {
@@ -201,7 +204,11 @@ function MainApp() {
         <StrumFloatNeck />
         <GlobalChordPeek inst={inst} />
         <RigNotice />
-        {!(tab === 'play' && ui.playFocus) && !gear && <div className="rig-bar"><StudioTopBar /><RigPill /></div>}
+        {!(tab === 'play' && ui.playFocus) && !gear && (
+          <ChromeBar id="app-top" label="Top bar" edge="top" pillAlign="center" minH={34} maxH={160}>
+            <div className="rig-bar"><StudioTopBar /><RigPill /></div>
+          </ChromeBar>
+        )}
         <ErrorBoundary label={gear ? 'Settings' : tab} resetKey={`${tab}:${gear ? 'g' : ''}:${toolPage}:${inst.id}:${jump}`}>
           {gear && <Settings key={gear.n ?? 0} inst={inst} guideSec={gear.sec} onExit={() => setGear(null)} onGo={g => { setGear(null); learnGo(g) }} />}
           {!gear && <>
@@ -220,7 +227,15 @@ function MainApp() {
           (gear || tab !== 'play') && <NowPlaying key={`${inst.id}:${tab}`} instId={inst.id} />
         )}
       </main>
-      <nav className={`nav${drawer ? ' drawer' : ''}`} aria-label="Sections" onPointerDown={navDown} onPointerMove={navMove} onPointerUp={navUp} onPointerCancel={navUp}>
+      <nav
+        className={`nav${drawer ? ' drawer' : ''}`}
+        style={navOpacity < 1 ? { opacity: clampChromeOpacity(navOpacity) } : undefined}
+        aria-label="Sections"
+        onPointerDown={navDown}
+        onPointerMove={navMove}
+        onPointerUp={navUp}
+        onPointerCancel={navUp}
+      >
         {TABS.map(t => (
           <button key={t.id} aria-current={tab === t.id || (t.id === 'songs' && tab === 'play' && !gear) ? 'page' : undefined} onClick={() => {
             // tapping the section you're in takes you back to its start (Learn's home, the top of the page)
@@ -245,14 +260,41 @@ function MainApp() {
         </button>
         <div className="nav-extra">
           {(wide || drawer) && <ArtThumb className="nav-art" />}
+          <button
+            type="button"
+            className={`nav-hide nav-op-btn${navOpOpen || navOpacity < 1 ? ' on' : ''}`}
+            onClick={() => setNavOpOpen(v => !v)}
+            aria-pressed={navOpOpen}
+            aria-label="Menu bar opacity"
+            title={`Menu opacity (${Math.round(navOpacity * 100)}%)`}
+            data-testid="nav-opacity"
+          >
+            ◐
+          </button>
           {drawer ? (
             !(tab === 'play' && ui.playFocus) && <button className="nav-hide" onClick={() => { setNavHidden(false); setDrawer(false) }} title="Keep the menu showing">Keep open</button>
           ) : (
-            <button className="nav-hide" onClick={() => setNavHidden(true)} aria-label="Hide the menu" title="Hide the menu (bring it back with the tab on the left edge)">
+            <button className="nav-hide" onClick={() => setNavHidden(true)} aria-label="Hide the menu" title="Hide the menu (3-line button stays in the corner)">
               <span aria-hidden>{wide ? '«' : '⌄'}</span>{wide && <span className="small">Hide</span>}
             </button>
           )}
         </div>
+        {navOpOpen && (
+          <div className="nav-op-pop" data-testid="nav-op-pop">
+            <span className="small">◐ Menu</span>
+            <input
+              type="range"
+              min={0.25}
+              max={1}
+              step={0.05}
+              value={navOpacity}
+              onChange={e => setNavOpacity(clampChromeOpacity(Number(e.target.value)))}
+              aria-label="Menu bar opacity slider"
+            />
+            <span className="small tabular">{Math.round(navOpacity * 100)}%</span>
+            <button type="button" className="chrome-btn" onClick={() => setNavOpOpen(false)} aria-label="Close">✕</button>
+          </div>
+        )}
       </nav>
       {hidden && !drawer && (
         <button className="nav-pull" onClick={() => setDrawer(true)} aria-label="Show the menu" title="Menu" data-testid="nav-pull"><IconMenu /></button>

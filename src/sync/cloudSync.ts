@@ -38,10 +38,12 @@ export function isDeviceLocalKey(key: string): boolean {
   // Screen-size & window layout preferences stay separate per device (Fold vs Tab S10+)
   if (
     key.startsWith('kg:win:') ||
+    key.startsWith('kg:chrome:') ||
     key.startsWith('kg:floatPlace:') ||
     key.startsWith('kg:fingerBox:') ||
     key.startsWith('kg:floatCards:') ||
     key === 'kg:navHidden' ||
+    key === 'kg:navOpacity' ||
     key === 'kg:studioCockpit' ||
     key === 'kg:ckSplit' ||
     key === 'kg:fullScreen' ||
