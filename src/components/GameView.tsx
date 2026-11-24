@@ -27,6 +27,7 @@ import {
 import { GameHighway, type GameFeedback } from './GameHighway'
 import { MixSlider } from './MixSlider'
 import { usePersist } from './Controls'
+import { ChromeBar } from './ChromeBar'
 import { shownCards, toggleCard } from '../float/bus'
 import { Ico } from './Icon'
 
@@ -70,16 +71,25 @@ export function GameView(p: GameViewProps) {
   const sections = useMemo(() => sectionsOf(p.flat), [p.flat])
   const items = useMemo(() => highway(p.flat, p.beatOf, p.hands, sections, p.chordAt), [p.flat, p.beatOf, p.hands, sections, p.chordAt])
   const itemByFlat = useMemo(() => new Map(items.map(it => [it.flat, it])), [items])
-  const barBeats = useMemo(() => {
-    const out: number[] = []
+  const { barBeats, barFirstFlat } = useMemo(() => {
+    const beats: number[] = []
+    const flats: number[] = []
     let last = -1
-    p.flat.forEach((f, i) => { if (f.bar !== last) { out.push(p.beatOf[i] ?? 0); last = f.bar } })
-    return out
+    p.flat.forEach((f, i) => {
+      if (f.bar !== last) {
+        beats.push(p.beatOf[i] ?? 0)
+        flats.push(i)
+        last = f.bar
+      }
+    })
+    return { barBeats: beats, barFirstFlat: flats }
   }, [p.flat, p.beatOf])
+  const endRef = useRef<HTMLDivElement>(null)
 
   // Pro studio display preferences (persisted cleanly)
   const [colorStyle, setColorStyle] = usePersist<GameColorStyle>('gameColorStyle', 'finger')
   const [showComet, setShowComet] = usePersist<boolean>('gameComet', false)
+  const [showBrandy, setShowBrandy] = usePersist<boolean>('gameBrandy', true)
   const [optsOpen, setOptsOpen] = useState(false)
 
   const scorer = useRef(new Scorer())
@@ -201,76 +211,104 @@ export function GameView(p: GameViewProps) {
   const cursorBeat = items.find(x => x.flat >= p.cursorFlat)?.beat ?? 0
   const perfectList = end ? toPerfect(end.best, end.run) : []
 
-  return (
-    <div className="game stack" style={{ gap: 6 }} data-testid="game">
-      {/* 1. Sleek Dark-Studio Telemetry HUD */}
-      <div className="game-hud" role="status" aria-live="off">
-        <div className="game-stat-group">
-          <span className="game-score">
-            <b className="tabular" data-testid="game-points">{sc.points.toLocaleString()}</b>
-            <span className="game-stat-lbl">PTS</span>
-          </span>
-          <span className={`game-mult m${sc.mult}`} data-testid="game-mult" title="Clean notes in a row raise it (8 per step), a miss drops it back to 3×">
-            {sc.mult}×
-          </span>
-          <span className="game-pill">
-            <span className="game-stat-lbl">STREAK</span>
-            <b className="tabular">{sc.streak}</b>
-          </span>
-          {liveTiming.total > 0 && (
-            <span className="game-pill acc" title="Live run accuracy">
-              <span className="game-stat-lbl">ACC</span>
-              <b className="tabular">{liveTiming.accuracy}%</b>
-            </span>
-          )}
-        </div>
-        <span className="game-spacer" />
-        <div className="row" style={{ gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button className="btn sm" onClick={() => { reset(); p.onTop() }} title="Start over from the beginning of the song" data-testid="game-top">
-            <Ico n="back" /> Top
-          </button>
-          {p.onLoopStart && (
-            <button className="btn sm" onClick={() => { reset(); p.onLoopStart!() }} title="Start over from the beginning of your loop" data-testid="game-loopstart">
-              <Ico n="loop" /> Loop
-            </button>
-          )}
-          <button className="btn sm" onClick={() => nextItem && p.onPlayFor(nextItem.flat)} title="Hear the next note or chord" data-testid="game-playfor">
-            <Ico n="ear" /> Hear
-          </button>
-          <button
-            className={`btn sm${optsOpen ? ' on' : ''}`}
-            aria-pressed={optsOpen}
-            onClick={() => setOptsOpen(o => !o)}
-            title="Highway style (Finger Gems / String Colors / Stealth) & Timing Comet"
-            data-testid="game-display-btn"
-          >
-            ⚙ Style
-          </button>
-        </div>
-      </div>
+  // Current bar index for the Song Timeline Scrubber
+  const curBarIdx = useMemo(() => {
+    if (barBeats.length <= 1) return 0
+    let idx = 0
+    for (let i = 0; i < barBeats.length; i++) {
+      if (barBeats[i] <= curBeat + 0.02) idx = i
+      else break
+    }
+    return idx
+  }, [barBeats, curBeat])
 
-      {/* 2. Sleek Studio Playback & Auto-Speed Strip */}
-      <div className="game-along" data-testid="game-along">
-        <label className={`game-toggle-pill${p.along ? ' on' : ''}`} title="The song plays while you play: your part and the other instruments, in time, scored as you go">
-          <input type="checkbox" checked={p.along} onChange={e => p.onAlong(e.target.checked)} data-testid="game-along-toggle" />
-          <span>Song plays along</span>
-        </label>
-        {p.along && <MixSlider band={p.bandAvail} compact />}
-        {p.along && p.bandAvail && (
-          <button
-            className="btn sm"
-            onClick={() => { if (!shownCards('play').includes('mixer')) toggleCard('play', 'mixer') }}
-            data-testid="game-mixer"
-            title="Each part's volume, mute and solo"
-          >
-            <Ico n="sliders" /> Mixer
-          </button>
-        )}
-        <label className={`game-toggle-pill${p.autoSpeed ? ' on' : ''}`} title="Each loop: 90% or better speeds up 5%, under 60% slows down 5% (25–125%)">
-          <input type="checkbox" checked={p.autoSpeed} onChange={e => p.onAutoSpeed(e.target.checked)} data-testid="game-auto" />
-          <span>Auto speed{p.autoSpeed ? ` ${p.speedPct}%` : ''}</span>
-        </label>
-      </div>
+  const jumpToBar = (barIdx: number) => {
+    const clamped = Math.max(0, Math.min(barFirstFlat.length - 1, barIdx))
+    const targetFlat = barFirstFlat[clamped]
+    if (targetFlat !== undefined) {
+      reset()
+      p.onStartAt(targetFlat)
+    }
+  }
+
+  useEffect(() => {
+    if (end) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [end])
+
+  return (
+    <div className="game stack" style={{ gap: 5 }} data-testid="game">
+      {/* 1. Compact Collapsible & Hidable Dark-Studio HUD + Playback Bar */}
+      <ChromeBar id="game-hud" label="Game bar" edge="top" pillAlign="right" minH={38} maxH={200}>
+        <div className="game-top-pack">
+          <div className="game-hud" role="status" aria-live="off">
+            <div className="game-stat-group">
+              <span className="game-score">
+                <b className="tabular" data-testid="game-points">{sc.points.toLocaleString()}</b>
+                <span className="game-stat-lbl">PTS</span>
+              </span>
+              <span className={`game-mult m${sc.mult}`} data-testid="game-mult" title="Clean notes in a row raise it (8 per step), a miss drops it back to 3×">
+                {sc.mult}×
+              </span>
+              <span className="game-pill">
+                <span className="game-stat-lbl">STREAK</span>
+                <b className="tabular">{sc.streak}</b>
+              </span>
+              {liveTiming.total > 0 && (
+                <span className="game-pill acc" title="Live run accuracy">
+                  <span className="game-stat-lbl">ACC</span>
+                  <b className="tabular">{liveTiming.accuracy}%</b>
+                </span>
+              )}
+            </div>
+            <span className="game-spacer" />
+            <div className="row" style={{ gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button className="btn sm" onClick={() => { reset(); p.onTop() }} title="Start over from the beginning of the song" data-testid="game-top">
+                <Ico n="back" /> Top
+              </button>
+              {p.onLoopStart && (
+                <button className="btn sm" onClick={() => { reset(); p.onLoopStart!() }} title="Start over from the beginning of your loop" data-testid="game-loopstart">
+                  <Ico n="loop" /> Loop
+                </button>
+              )}
+              <button className="btn sm" onClick={() => nextItem && p.onPlayFor(nextItem.flat)} title="Hear the next note or chord" data-testid="game-playfor">
+                <Ico n="ear" /> Hear
+              </button>
+              <button
+                className={`btn sm${optsOpen ? ' on' : ''}`}
+                aria-pressed={optsOpen}
+                onClick={() => setOptsOpen(o => !o)}
+                title="Highway style (Finger Gems / String Colors / Stealth) & Timing Comet"
+                data-testid="game-display-btn"
+              >
+                ⚙ Style
+              </button>
+            </div>
+          </div>
+
+          {/* 2. Sleek Studio Playback & Auto-Speed Strip */}
+          <div className="game-along" data-testid="game-along">
+            <label className={`game-toggle-pill${p.along ? ' on' : ''}`} title="The song plays while you play: your part and the other instruments, in time, scored as you go">
+              <input type="checkbox" checked={p.along} onChange={e => p.onAlong(e.target.checked)} data-testid="game-along-toggle" />
+              <span>Song plays along</span>
+            </label>
+            {p.along && <MixSlider band={p.bandAvail} compact />}
+            {p.along && p.bandAvail && (
+              <button
+                className="btn sm"
+                onClick={() => { if (!shownCards('play').includes('mixer')) toggleCard('play', 'mixer') }}
+                data-testid="game-mixer"
+                title="Each part's volume, mute and solo"
+              >
+                <Ico n="sliders" /> Mixer
+              </button>
+            )}
+            <label className={`game-toggle-pill${p.autoSpeed ? ' on' : ''}`} title="Each loop: 90% or better speeds up 5%, under 60% slows down 5% (25–125%)">
+              <input type="checkbox" checked={p.autoSpeed} onChange={e => p.onAutoSpeed(e.target.checked)} data-testid="game-auto" />
+              <span>Auto speed{p.autoSpeed ? ` ${p.speedPct}%` : ''}</span>
+            </label>
+          </div>
+        </div>
+      </ChromeBar>
 
       {/* Collapsible Pro Highway Display Bar (Color Style + Optional Redesigned Timing Comet) */}
       {optsOpen && (
@@ -296,6 +334,10 @@ export function GameView(p: GameViewProps) {
             <label className={`game-toggle-pill${showComet ? ' on' : ''}`} title="Show the luminous Timing Comet (redesigned guide ball with fading arc trail)">
               <input type="checkbox" checked={showComet} onChange={e => setShowComet(e.target.checked)} data-testid="game-comet-toggle" />
               <span>Timing Comet (Guide ball)</span>
+            </label>
+            <label className={`game-toggle-pill${showBrandy ? ' on' : ''}`} title="Samurai Rocker Brandy stands behind the hit rail, dissipating correct notes with her guitar and recoiling on misses">
+              <input type="checkbox" checked={showBrandy} onChange={e => setShowBrandy(e.target.checked)} data-testid="game-brandy-toggle" />
+              <span>🎸 Brandy on stage</span>
             </label>
           </div>
         </div>
@@ -344,7 +386,52 @@ export function GameView(p: GameViewProps) {
         onStartAt={f => { reset(); p.onStartAt(f) }}
         colorStyle={colorStyle}
         showComet={showComet}
+        showBrandy={showBrandy}
+        mult={sc.mult}
       />
+
+      {/* 4b. Smooth Song Bar Scrubber Timeline (jump straight to any bar without fighting the highway) */}
+      {barFirstFlat.length > 1 && (
+        <div className="game-scrubber" data-testid="game-scrubber" aria-label="Song bar timeline">
+          <button
+            type="button"
+            className="game-scrub-btn"
+            onClick={() => jumpToBar(curBarIdx - 1)}
+            disabled={curBarIdx <= 0}
+            aria-label="Previous bar"
+            title="Previous bar"
+            data-testid="game-bar-prev"
+          >
+            ‹
+          </button>
+          <span className="game-scrub-lbl tabular" data-testid="game-bar-readout">
+            Bar {curBarIdx + 1}/{barFirstFlat.length}
+            {sections[activeSecIdx]?.name ? ` · ${sections[activeSecIdx].name}` : ''}
+          </span>
+          <input
+            type="range"
+            className="game-scrub-range"
+            min={0}
+            max={barFirstFlat.length - 1}
+            step={1}
+            value={curBarIdx}
+            onChange={e => jumpToBar(Number(e.target.value))}
+            aria-label="Jump to bar"
+            data-testid="game-bar-slider"
+          />
+          <button
+            type="button"
+            className="game-scrub-btn"
+            onClick={() => jumpToBar(curBarIdx + 1)}
+            disabled={curBarIdx >= barFirstFlat.length - 1}
+            aria-label="Next bar"
+            title="Next bar"
+            data-testid="game-bar-next"
+          >
+            ›
+          </button>
+        </div>
+      )}
 
       {/* 5. Compact Studio Color Legend (matches active Note Style) */}
       {colorStyle === 'finger' && (
@@ -357,7 +444,7 @@ export function GameView(p: GameViewProps) {
 
       {/* 6. Pro Studio End-of-Run Performance Card */}
       {end && (
-        <div className="game-end panel stack" style={{ gap: 10 }} data-testid="game-end" role="dialog" aria-label="Your score">
+        <div ref={endRef} className="game-end panel stack" style={{ gap: 10 }} data-testid="game-end" role="dialog" aria-label="Your score">
           <div className="game-end-hero">
             <div className="game-ring" aria-label={`Accuracy ${end.timing.accuracy}%`}>
               <svg viewBox="0 0 64 64">

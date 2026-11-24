@@ -5203,6 +5203,9 @@ html:not([data-arrange]) .win-zoom { display: none; }
   width: 100%;
   min-width: 0;
 }
+.chrome-wrap .rig-bar {
+  padding-right: 76px;
+}
 .chrome-wrap.sized-h .screen-head {
   min-height: 100%;
   height: 100%;
@@ -5335,3 +5338,58 @@ html:not([data-arrange]) .win-zoom { display: none; }
 }
 .nav-op-pop input[type="range"] { width: 110px; margin: 0; }
 
+/* ── Game Mode Option 3: Auto-Fit Single-Screen + Smooth Vertical Scroll + Song Bar Scrubber ── */
+.play-tab {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+.game {
+  padding-bottom: calc(28px + var(--sab, 0px));
+  min-width: 0;
+}
+.game-top-pack {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-right: 72px; /* keep clear of ChromeBar ◐ ◢ – controls */
+}
+.game-top-pack .game-hud { padding: 5px 8px; }
+.game-scrubber {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: var(--r-md);
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+.game-scrub-lbl {
+  font: 700 11px/1 var(--ui, sans-serif);
+  color: #e2e8f0;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.game-scrub-range {
+  flex: 1;
+  min-width: 80px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.game-scrub-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(30, 41, 59, 0.75);
+  color: #f8fafc;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.game-scrub-btn:disabled { opacity: 0.35; cursor: default; }

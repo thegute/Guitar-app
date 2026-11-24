@@ -16,6 +16,7 @@ import {
   type Section,
   type SectionResult,
 } from '../play/game'
+import { brandySprite, type BrandyMood } from '../art/samurai'
 
 export interface GameFeedback {
   key: number
@@ -45,6 +46,10 @@ interface Props {
   height?: number
   colorStyle?: GameColorStyle
   showComet?: boolean
+  /** Samurai Rocker Brandy standing behind the hit rail, dissipating correct notes & reacting to misses */
+  showBrandy?: boolean
+  /** Current score multiplier (5× triggers golden FEVER aura behind Brandy) */
+  mult?: number
 }
 
 interface Spark {
@@ -64,6 +69,17 @@ interface Ripple {
   c: string
 }
 
+interface BrandyBeam {
+  at: number
+  dur: number
+  kind: 'shred' | 'strike'
+  fromX: number
+  fromY: number
+  toX: number
+  toY: number
+  c: string
+}
+
 const css = (el: Element, name: string, fb: string) => getComputedStyle(el).getPropertyValue(name).trim() || fb
 
 export function GameHighway(p: Props) {
@@ -80,6 +96,21 @@ export function GameHighway(p: Props) {
   const fx = useRef<{ key: number; at: number; text: string; kind: GameFeedback['kind']; y: number }[]>([])
   const sparks = useRef<Spark[]>([])
   const ripples = useRef<Ripple[]>([])
+  const beams = useRef<BrandyBeam[]>([])
+  const brandyRef = useRef<{ mood: BrandyMood; until: number; hitAt: number; hitKind: 'hurt' | 'wrong' | null; pop: string; popAt: number }>({
+    mood: 'idle', until: 0, hitAt: 0, hitKind: null, pop: '', popAt: 0,
+  })
+  const brandyImgs = useRef<Partial<Record<BrandyMood, HTMLImageElement>>>({})
+  useEffect(() => {
+    if (typeof Image === 'undefined') return
+    const moods: BrandyMood[] = ['idle', 'shred', 'wrong', 'hurt']
+    for (const m of moods) {
+      if (brandyImgs.current[m]) continue
+      const img = new Image()
+      img.src = brandySprite(m)
+      brandyImgs.current[m] = img
+    }
+  }, [])
   const stringVib = useRef<number[]>([])
   const cometTrail = useRef<{ y: number; at: number }[]>([])
   const lastCometLand = useRef(-1)
@@ -100,12 +131,15 @@ export function GameHighway(p: Props) {
   }
 
   usePinch(wrap, () => 3.5 / view.current.secs, z => saveSecs(3.5 / z), { min: 3.5 / 8, max: 3.5 / 1.5 })
-  const look = useRef({ off: 0, dragging: false, from: 0, off0: 0, moved: false, back: 0, fingers: 0 })
+  const look = useRef<{
+    off: number; dragging: boolean; from: number; fromY: number; off0: number; moved: boolean
+    back: number; fingers: number; lock: null | 'h' | 'v'; pid: number
+  }>({ off: 0, dragging: false, from: 0, fromY: 0, off0: 0, moved: false, back: 0, fingers: 0, lock: null, pid: -1 })
   const [looking, setLooking] = useState(false)
   const [startChip, setStartChip] = useState<{ flat: number; x: number; y: number; key: number } | null>(null)
   useEffect(() => { if (!startChip) return; const id = setTimeout(() => setStartChip(null), 3500); return () => clearTimeout(id) }, [startChip])
   const resize = useRef<() => void>(() => {})
-  useEffect(() => { resize.current() }, [gapPick, widthPick])
+  useEffect(() => { resize.current() }, [gapPick, widthPick, p.showBrandy])
 
   useEffect(() => {
     const c = cv.current, w = wrap.current
@@ -125,27 +159,48 @@ export function GameHighway(p: Props) {
     const ro = new ResizeObserver(() => size())
     ro.observe(w)
     const host = w.closest('.play-tab') as HTMLElement | null
+    const gameRoot = w.closest('.game') as HTMLElement | null
     const watched = new Set<Element>()
     const watch = () => {
-      if (!host) return
-      for (const el of [host, ...host.children]) if (!watched.has(el)) { watched.add(el); ro.observe(el) }
+      for (const container of [host, gameRoot]) {
+        if (!container) continue
+        for (const el of [container, ...container.children]) if (!watched.has(el)) { watched.add(el); ro.observe(el) }
+      }
     }
     watch()
-    const mo = host ? new MutationObserver(() => { watch(); size() }) : null
-    mo?.observe(host!, { childList: true })
+    const mo = (gameRoot || host) ? new MutationObserver(() => { watch(); size() }) : null
+    if (gameRoot) mo?.observe(gameRoot, { childList: true })
+    if (host && host !== gameRoot) mo?.observe(host, { childList: true })
 
     function fitGap(n0: number): number {
-      const fallback = Math.max(24, Math.min(36, Math.round((window.innerHeight * 0.34) / Math.max(1, n0 - 1))))
+      const fallback = Math.max(24, Math.min(38, Math.round((window.innerHeight * 0.34) / Math.max(1, n0 - 1))))
       if (!host || getComputedStyle(host).overflowY === 'visible') return fallback
-      const cs = getComputedStyle(host)
+      // Measure everything inside .play-tab except the highway itself so the full GameView fits cleanly without clipping
+      const hostRect = host.getBoundingClientRect()
+      const hwRect = w!.getBoundingClientRect()
+      const container = gameRoot ?? host
+      const cs = getComputedStyle(container)
       const gapY = parseFloat(cs.rowGap || '0') || 0
-      let sum = 0, n = 0
-      for (const el of host.children) { const r = el.getBoundingClientRect(); if (r.height) { sum += r.height; n++ } }
-      const pads = parseFloat(cs.paddingTop || '0') + parseFloat(cs.paddingBottom || '0')
-      const others = sum + gapY * Math.max(0, n - 1) + pads - c!.offsetHeight
-      const free = host.clientHeight - others - 4
+      let sibH = 0, sibCount = 0
+      for (const el of container.children) {
+        if (el === w || el.contains(w)) continue
+        const r = el.getBoundingClientRect()
+        if (r.height > 0) { sibH += r.height; sibCount++ }
+      }
+      // Account for any chrome above .game inside .play-tab (e.g., loop hint)
+      let extraTop = 0
+      if (gameRoot && host !== gameRoot) {
+        for (const el of host.children) {
+          if (el === gameRoot || el.contains(gameRoot)) continue
+          const r = el.getBoundingClientRect()
+          if (r.height > 0) extraTop += r.height + 6
+        }
+      }
+      const chromeH = sibH + extraTop + gapY * Math.max(0, sibCount) + 34
+      const free = Math.max(170, (hostRect.height || host.clientHeight) - chromeH)
       const most = host.closest('.play.stand') ? 58 : 48
-      return Math.max(24, Math.min(most, Math.floor((free - 70) / Math.max(1, n0 - 1))))
+      const minG = hwRect.width < 460 ? 22 : 24
+      return Math.max(minG, Math.min(most, Math.floor((free - 74) / Math.max(1, n0 - 1))))
     }
 
     function size() {
@@ -162,7 +217,9 @@ export function GameHighway(p: Props) {
       lay.current = {
         W,
         H,
-        hitX: Math.max(76, Math.round(W * 0.19)),
+        hitX: props.current.showBrandy !== false
+          ? Math.max(106, Math.min(168, Math.round(W * 0.21)))
+          : Math.max(76, Math.round(W * 0.19)),
         ppb: 0,
         top,
         gap: (H - top - bottom) / Math.max(1, n0 - 1),
@@ -430,38 +487,74 @@ export function GameHighway(p: Props) {
             }
           }
 
-          // Anodized Glass Note Gem
-          const bx = x - head / 2, by = y - head / 2
-          const rad = Math.max(5, Math.round(head * 0.24))
+          // Anodized Glass Note Gem (with Brandy interaction after the hit rail!)
+          const showBrandy = P.showBrandy !== false
+          const brandyCenterX = 30 + (hitX - 38) * 0.46
+          const brandyCenterY = (deckTop + deckBot) / 2
+          let drawX = x
+          let drawY = y
+          let drawScale = 1
+          let drawAlpha = past && state === 0 ? 0.36 : 1
+
+          if (showBrandy && past) {
+            const pastPx = hitX - x
+            if (state === 1 || state === 2) {
+              // Correct note: Brandy's guitar shred vaporizes & dissipates it cleanly right after the rail!
+              if (pastPx > 30) continue
+              const diss = Math.max(0, Math.min(1, pastPx / 30))
+              drawScale = 1 - diss * 0.72
+              drawAlpha = 1 - diss
+            } else if (state === 3) {
+              // Missed note: turns into a crimson projectile streaking straight into Brandy!
+              const travel = Math.max(24, hitX - brandyCenterX)
+              const frac = pastPx / travel
+              if (frac >= 1.02) continue
+              const pClamped = Math.max(0, Math.min(1, frac))
+              drawX = hitX - pClamped * travel
+              drawY = y + (brandyCenterY - y) * pClamped * pClamped
+              drawScale = 1 + Math.sin(pClamped * Math.PI) * 0.15
+              drawAlpha = 0.95
+            }
+          }
+
+          const effHead = head * drawScale
+          const bx = drawX - effHead / 2, by = drawY - effHead / 2
+          const rad = Math.max(4, Math.round(effHead * 0.24))
           const hot = !past && Math.abs(distBeats) <= 0.22
           g.save()
-          g.globalAlpha = past && state === 0 ? 0.36 : 1
+          g.globalAlpha = drawAlpha
 
           if (hot) {
             g.shadowColor = gem.glow
             g.shadowBlur = 14
+          } else if (showBrandy && past && state === 3) {
+            g.shadowColor = '#ef4444'
+            g.shadowBlur = 16
+          } else if (showBrandy && past && (state === 1 || state === 2)) {
+            g.shadowColor = '#84cc16'
+            g.shadowBlur = 16
           }
           // Deep studio metallic body gradient
-          const bodyGrad = g.createLinearGradient(0, by, 0, by + head)
+          const bodyGrad = g.createLinearGradient(0, by, 0, by + effHead)
           bodyGrad.addColorStop(0, gem.top)
           bodyGrad.addColorStop(1, gem.bot)
           g.fillStyle = bodyGrad
-          roundRect(g, bx, by, head, head, rad)
+          roundRect(g, bx, by, effHead, effHead, rad)
           g.fill()
           g.shadowBlur = 0
 
           // Top subtle specular glass sheen
-          const sheen = g.createLinearGradient(0, by + 1, 0, by + head * 0.48)
+          const sheen = g.createLinearGradient(0, by + 1, 0, by + effHead * 0.48)
           sheen.addColorStop(0, 'rgba(255, 255, 255, 0.26)')
           sheen.addColorStop(1, 'rgba(255, 255, 255, 0)')
           g.fillStyle = sheen
-          roundRect(g, bx + 1.5, by + 1.5, head - 3, head * 0.44, Math.max(3, rad - 1))
+          roundRect(g, bx + 1.5, by + 1.5, Math.max(2, effHead - 3), Math.max(2, effHead * 0.44), Math.max(2, rad - 1))
           g.fill()
 
           // Crisp LED edge rim
-          g.strokeStyle = gem.border
+          g.strokeStyle = showBrandy && past && (state === 1 || state === 2) ? '#a3e635' : gem.border
           g.lineWidth = n.finger === 0 && n.tech !== 'x' ? 2.1 : 1.5
-          roundRect(g, bx, by, head, head, rad)
+          roundRect(g, bx, by, effHead, effHead, rad)
           g.stroke()
 
           // Judged state halo (green perfect/good, amber early/late, red miss)
@@ -469,29 +562,29 @@ export function GameHighway(p: Props) {
             const stCol = state === 1 ? '#4ade80' : state === 2 ? '#fbbf24' : '#f87171'
             g.strokeStyle = stCol
             g.lineWidth = 2.4
-            roundRect(g, bx - 2.5, by - 2.5, head + 5, head + 5, rad + 2)
+            roundRect(g, bx - 2.5, by - 2.5, effHead + 5, effHead + 5, rad + 2)
             g.stroke()
           }
 
           // Razor-sharp fret number
-          g.font = `700 ${Math.round(head * 0.58)}px "Barlow Condensed", sans-serif`
+          g.font = `700 ${Math.max(8, Math.round(effHead * 0.58))}px "Barlow Condensed", sans-serif`
           g.textAlign = 'center'
           g.textBaseline = 'middle'
           g.fillStyle = 'rgba(0, 0, 0, 0.45)'
-          g.fillText(n.tech === 'x' ? '×' : String(n.fret), x, y + 1.5)
+          g.fillText(n.tech === 'x' ? '×' : String(n.fret), drawX, drawY + 1.5)
           g.fillStyle = gem.ink
-          g.fillText(n.tech === 'x' ? '×' : String(n.fret), x, y + 0.5)
+          g.fillText(n.tech === 'x' ? '×' : String(n.fret), drawX, drawY + 0.5)
 
           // Bend arrow
           if (n.tech === 'b') {
             g.strokeStyle = gold
             g.lineWidth = 2.2
             g.beginPath()
-            g.moveTo(x + head / 2 + 3, y)
-            g.lineTo(x + head / 2 + 3, y - head * 0.85)
-            g.lineTo(x + head / 2 - 1.5, y - head * 0.58)
-            g.moveTo(x + head / 2 + 3, y - head * 0.85)
-            g.lineTo(x + head / 2 + 7.5, y - head * 0.58)
+            g.moveTo(drawX + effHead / 2 + 3, drawY)
+            g.lineTo(drawX + effHead / 2 + 3, drawY - effHead * 0.85)
+            g.lineTo(drawX + effHead / 2 - 1.5, drawY - effHead * 0.58)
+            g.moveTo(drawX + effHead / 2 + 3, drawY - effHead * 0.85)
+            g.lineTo(drawX + effHead / 2 + 7.5, drawY - effHead * 0.58)
             g.stroke()
           }
           g.restore()
@@ -579,7 +672,13 @@ export function GameHighway(p: Props) {
         cometTrail.current = []
       }
 
-      // 8. Directional Sparks, Expanding Hit Ripples & Sleek Feedback Pill on the ACTUAL String(s) Hit!
+      // 8. Directional Sparks, Expanding Hit Ripples & Samurai Rocker Brandy Interaction Behind the Hit Rail!
+      const showBrandy = P.showBrandy !== false
+      const brandyZoneW = Math.max(48, hitX - 36)
+      const brandySize = Math.max(44, Math.min(82, brandyZoneW * 0.96, (deckBot - deckTop) * 0.72))
+      const brandyBaseX = 30 + brandyZoneW * 0.48
+      const brandyBaseY = (deckTop + deckBot) / 2
+
       const fb = P.feedback
       if (fb && fb.key !== lastFb.current) {
         lastFb.current = fb.key
@@ -592,24 +691,202 @@ export function GameHighway(p: Props) {
         const avgY = hitStrs.reduce((acc, s) => acc + yOf(s), 0) / hitStrs.length
         fx.current.push({ key: fb.key, at: t, text: fb.text, kind: fb.kind, y: Math.max(26, Math.min(H - 22, avgY - 12)) })
 
-        if (fb.kind === 'perfect' || fb.kind === 'good' || fb.kind === 'ok') {
-          const sparkCol = fb.kind === 'perfect' ? '#fde68a' : '#4ade80'
+        if (fb.kind === 'perfect' || fb.kind === 'good' || fb.kind === 'ok' || fb.kind === 'early' || fb.kind === 'late') {
+          const sparkCol = fb.kind === 'perfect' ? '#fde68a' : fb.kind === 'good' || fb.kind === 'ok' ? '#84cc16' : '#fbbf24'
+          if (showBrandy) {
+            brandyRef.current = { ...brandyRef.current, mood: 'shred', until: t + 440, hitKind: null }
+          }
           for (const s of hitStrs) {
             stringVib.current[s] = t
             const sy = yOf(s)
             ripples.current.push({ x: hitX, y: sy, at: t, c: sparkCol })
-            for (let i = 0; i < 7; i++) {
-              const ang = (Math.PI * 2 * i) / 7 + (t % 1) * 0.8
-              const spd = 45 + (i % 3) * 26
-              sparks.current.push({ x: hitX, y: sy, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, at: t, c: sparkCol, size: 2.1 + (i % 2) })
+            if (showBrandy) {
+              // Brandy fires a neon-lime guitar sonic blast from her guitar straight into the hit rail to dissipate the note!
+              beams.current.push({
+                at: t, dur: 240, kind: 'shred',
+                fromX: brandyBaseX + brandySize * 0.22, fromY: brandyBaseY + 2,
+                toX: hitX + 4, toY: sy,
+                c: fb.kind === 'perfect' ? '#a3e635' : '#4ade80',
+              })
+            }
+            for (let i = 0; i < 8; i++) {
+              const ang = (Math.PI * 2 * i) / 8 + (t % 1) * 0.8
+              const spd = 48 + (i % 3) * 28
+              sparks.current.push({ x: hitX, y: sy, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, at: t, c: sparkCol, size: 2.2 + (i % 2) })
             }
           }
+        } else if (showBrandy && (fb.kind === 'miss' || fb.kind === 'wrong')) {
+          const isMiss = fb.kind === 'miss'
+          // A sour crimson bolt streaks past the hit rail and strikes Brandy!
+          beams.current.push({
+            at: t, dur: 260, kind: 'strike',
+            fromX: hitX, fromY: avgY,
+            toX: brandyBaseX + 4, toY: brandyBaseY,
+            c: '#f87171',
+          })
+          brandyRef.current = {
+            mood: isMiss ? 'hurt' : 'wrong',
+            until: t + (isMiss ? 620 : 480),
+            hitAt: t,
+            hitKind: isMiss ? 'hurt' : 'wrong',
+            pop: isMiss ? 'OUCH!' : 'SOUR!',
+            popAt: t,
+          }
+          ripples.current.push({ x: brandyBaseX, y: brandyBaseY, at: t + 70, c: '#ef4444' })
+          for (let i = 0; i < 10; i++) {
+            const ang = (Math.PI * 2 * i) / 10 + 0.3
+            const spd = 42 + (i % 3) * 26
+            sparks.current.push({ x: brandyBaseX, y: brandyBaseY, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, at: t + 65, c: i % 2 === 0 ? '#ef4444' : '#fca5a5', size: 2.4 + (i % 2) })
+          }
+        }
+      }
+
+      // Draw Brandy's neon-lime shred blasts & incoming crimson strike bolts
+      beams.current = beams.current.filter(bm => t - bm.at < bm.dur)
+      for (const bm of beams.current) {
+        const age = Math.max(0, Math.min(1, (t - bm.at) / bm.dur))
+        g.save()
+        if (bm.kind === 'shred') {
+          // Neon-lime electric guitar energy wave + crescent blast dissipating the note
+          const alpha = (1 - age) * 0.92
+          g.globalAlpha = alpha
+          g.strokeStyle = bm.c
+          g.shadowColor = bm.c
+          g.shadowBlur = 12
+          g.lineWidth = 3.2 * (1 - age * 0.5)
+          g.beginPath()
+          g.moveTo(bm.fromX, bm.fromY)
+          const mx = (bm.fromX + bm.toX) / 2
+          const my = (bm.fromY + bm.toY) / 2 - Math.sin(age * Math.PI) * 8
+          g.quadraticCurveTo(mx, my, bm.toX, bm.toY)
+          g.stroke()
+          // Traveling neon crescent wave along the path
+          const cx = bm.fromX + (bm.toX - bm.fromX) * age
+          const cy = bm.fromY + (bm.toY - bm.fromY) * age
+          g.strokeStyle = '#fde68a'
+          g.lineWidth = 2.4
+          g.beginPath()
+          g.arc(cx, cy, 8 + age * 10, -Math.PI * 0.42, Math.PI * 0.42)
+          g.stroke()
+        } else {
+          // Jagged crimson lightning strike slamming from the hit rail straight into Brandy!
+          const alpha = age < 0.65 ? 0.95 : (1 - age) / 0.35
+          g.globalAlpha = Math.max(0, alpha)
+          g.strokeStyle = '#ef4444'
+          g.shadowColor = '#ef4444'
+          g.shadowBlur = 14
+          g.lineWidth = 3.2
+          const prog = Math.min(1, age * 2.2)
+          const tipX = bm.fromX + (bm.toX - bm.fromX) * prog
+          const tipY = bm.fromY + (bm.toY - bm.fromY) * prog
+          const midX = (bm.fromX + tipX) / 2
+          const midY = (bm.fromY + tipY) / 2 + Math.sin(t * 0.08) * 9
+          g.beginPath()
+          g.moveTo(bm.fromX, bm.fromY)
+          g.lineTo(midX, midY)
+          g.lineTo(tipX, tipY)
+          g.stroke()
+          g.strokeStyle = '#fecaca'
+          g.lineWidth = 1.3
+          g.stroke()
+        }
+        g.restore()
+      }
+
+      // Draw Samurai Rocker Brandy right behind the Precision Hit Rail!
+      if (showBrandy) {
+        const br = brandyRef.current
+        const activeMood: BrandyMood = t < br.until ? br.mood : 'idle'
+        const isFever = (P.mult ?? 3) >= 5
+        const hurtAge = br.hitAt ? (t - br.hitAt) / 520 : 1
+        const recoiling = br.hitKind !== null && hurtAge >= 0 && hurtAge < 1
+
+        // Subtle live groove bob while playing, shred jump on hits, or arcade knockback shake when hurt!
+        let offX = 0
+        let offY = Math.sin(t / 280) * 2.2
+        let rot = 0
+        if (activeMood === 'shred') {
+          const pulse = Math.sin(((br.until - t) / 440) * Math.PI)
+          offX = pulse * 3.5
+          offY = -pulse * 4
+          rot = -pulse * 0.06
+        } else if (recoiling) {
+          const decay = 1 - hurtAge
+          const kick = br.hitKind === 'hurt' ? 9 : 5
+          offX = -kick * decay + Math.sin(hurtAge * Math.PI * 8) * (br.hitKind === 'hurt' ? 4.5 : 2.8) * decay
+          offY = (br.hitKind === 'hurt' ? 3 : 1) * decay
+          rot = -(br.hitKind === 'hurt' ? 0.16 : 0.08) * decay
+        }
+
+        const bx = brandyBaseX + offX
+        const by = brandyBaseY + offY
+
+        g.save()
+        // Golden FEVER stage aura on 5× multiplier, neon-lime shred glow on hits, or crimson damage flash when struck
+        if (recoiling) {
+          const radG = g.createRadialGradient(bx, by, 4, bx, by, brandySize * 0.68)
+          radG.addColorStop(0, `rgba(239, 68, 68, ${0.55 * (1 - hurtAge)})`)
+          radG.addColorStop(1, 'rgba(239, 68, 68, 0)')
+          g.fillStyle = radG
+          g.beginPath(); g.arc(bx, by, brandySize * 0.68, 0, Math.PI * 2); g.fill()
+        } else if (isFever) {
+          const pulse = 0.6 + 0.4 * Math.sin(t / 180)
+          const radG = g.createRadialGradient(bx, by, 6, bx, by, brandySize * 0.72)
+          radG.addColorStop(0, `rgba(251, 191, 36, ${0.42 * pulse})`)
+          radG.addColorStop(0.65, `rgba(244, 63, 94, ${0.22 * pulse})`)
+          radG.addColorStop(1, 'rgba(251, 191, 36, 0)')
+          g.fillStyle = radG
+          g.beginPath(); g.arc(bx, by, brandySize * 0.72, 0, Math.PI * 2); g.fill()
+        } else if (activeMood === 'shred') {
+          const radG = g.createRadialGradient(bx, by, 4, bx, by, brandySize * 0.62)
+          radG.addColorStop(0, 'rgba(132, 204, 22, 0.34)')
+          radG.addColorStop(1, 'rgba(132, 204, 22, 0)')
+          g.fillStyle = radG
+          g.beginPath(); g.arc(bx, by, brandySize * 0.62, 0, Math.PI * 2); g.fill()
+        }
+
+        // Ground shadow disc under Brandy
+        g.fillStyle = 'rgba(0, 0, 0, 0.45)'
+        g.beginPath()
+        g.ellipse(bx, by + brandySize * 0.42, brandySize * 0.34, 4.5, 0, 0, Math.PI * 2)
+        g.fill()
+
+        const sprite = brandyImgs.current[activeMood] ?? brandyImgs.current.idle
+        if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+          g.translate(bx, by)
+          if (rot) g.rotate(rot)
+          g.imageSmoothingEnabled = false
+          g.drawImage(sprite, -brandySize / 2, -brandySize / 2, brandySize, brandySize)
+          // Brief red hit blink overlay when struck
+          if (recoiling && hurtAge < 0.32 && Math.floor(hurtAge * 18) % 2 === 0) {
+            g.globalCompositeOperation = 'source-atop'
+            g.fillStyle = 'rgba(239, 68, 68, 0.38)'
+            g.fillRect(-brandySize / 2, -brandySize / 2, brandySize, brandySize)
+          }
+        }
+        g.restore()
+
+        // Comic damage pop ("OUCH!" / "SOUR!") floating above Brandy when struck
+        const popAge = br.popAt ? (t - br.popAt) / 640 : 1
+        if (br.pop && popAge >= 0 && popAge < 1) {
+          g.save()
+          g.globalAlpha = Math.min(1, (1 - popAge) * 1.4)
+          g.font = '900 13px "Barlow Condensed", sans-serif'
+          g.textAlign = 'center'
+          g.textBaseline = 'middle'
+          const py = Math.max(18, brandyBaseY - brandySize * 0.52 - popAge * 14)
+          g.fillStyle = '#090c14'
+          g.fillText(br.pop, brandyBaseX + 1, py + 1)
+          g.fillStyle = '#fecaca'
+          g.fillText(br.pop, brandyBaseX, py)
+          g.restore()
         }
       }
 
       ripples.current = ripples.current.filter(rp => t - rp.at < 360)
       for (const rp of ripples.current) {
         const age = (t - rp.at) / 360
+        if (age < 0) continue
         g.strokeStyle = rp.c
         g.globalAlpha = (1 - age) * 0.8
         g.lineWidth = 2 * (1 - age) + 0.5
@@ -619,6 +896,7 @@ export function GameHighway(p: Props) {
       sparks.current = sparks.current.filter(sp => t - sp.at < 380)
       for (const sp of sparks.current) {
         const age = (t - sp.at) / 380
+        if (age < 0) continue
         const px = sp.x + sp.vx * age
         const py = sp.y + sp.vy * age
         g.globalAlpha = (1 - age) * 0.92
@@ -656,30 +934,58 @@ export function GameHighway(p: Props) {
     return () => { cancelAnimationFrame(raf); ro.disconnect(); mo?.disconnect() }
   }, [])
 
-  // one finger: a tap plays the note under it; a sideways drag looks ahead (or back)
+  // Smart touch gestures: vertical swipes always hand off cleanly to page scroll (never hijacked!),
+  // deliberate horizontal drags look ahead/back along the highway, and a quick tap plays the note under your finger.
   const down = (e: React.PointerEvent) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return
     const lk = look.current
     lk.fingers++
-    if (lk.fingers > 1) { if (lk.dragging) { lk.dragging = false; lk.off = lk.off0; lk.moved = true } return }
-    lk.dragging = true; lk.moved = false; lk.from = e.clientX; lk.off0 = lk.off
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    if (lk.fingers > 1) { if (lk.dragging) { lk.dragging = false; lk.off = lk.off0; lk.moved = true; lk.lock = null } return }
+    lk.dragging = true
+    lk.moved = false
+    lk.from = e.clientX
+    lk.fromY = e.clientY
+    lk.off0 = lk.off
+    lk.lock = null
+    lk.pid = e.pointerId
+    // Note: do NOT call setPointerCapture here so vertical touch-scroll (pan-y) works effortlessly!
   }
   const move = (e: React.PointerEvent) => {
     const lk = look.current
-    if (!lk.dragging) return
+    if (!lk.dragging || lk.pid !== e.pointerId) return
     const dx = e.clientX - lk.from
-    if (!lk.moved && Math.abs(dx) < 8) return
-    if (!lk.moved) { lk.moved = true; setLooking(true) }
-    lk.off = Math.max(-64, Math.min(64, lk.off0 - dx / Math.max(1, lay.current.ppb)))
+    const dy = e.clientY - lk.fromY
+    if (lk.lock === null) {
+      if (Math.hypot(dx, dy) < 8) return
+      // Vertical intent wins cleanly → release drag so browser/Android scrolls smoothly
+      if (Math.abs(dy) > Math.abs(dx) * 1.15) {
+        lk.lock = 'v'
+        lk.dragging = false
+        lk.moved = true
+        return
+      }
+      // Deliberate horizontal scrub → now capture pointer for smooth look-ahead
+      lk.lock = 'h'
+      lk.moved = true
+      setLooking(true)
+      try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* noop */ }
+    }
+    if (lk.lock === 'h') {
+      lk.off = Math.max(-64, Math.min(64, lk.off0 - dx / Math.max(1, lay.current.ppb)))
+    }
   }
   const up = (e: React.PointerEvent) => {
     const lk = look.current
     lk.fingers = Math.max(0, lk.fingers - 1)
-    if (!lk.dragging) return
+    if (!lk.dragging) { lk.lock = null; return }
     lk.dragging = false
-    lk.back = performance.now() + 1500
-    if (!lk.moved) tap(e)
+    const wasLock = lk.lock
+    lk.lock = null
+    if (wasLock === 'h') {
+      lk.back = performance.now() + 1500
+    } else if (!lk.moved) {
+      tap(e)
+    }
   }
   const backToNow = () => { look.current.off = 0; look.current.back = 0; setLooking(false) }
   const fitBox = () => {
@@ -736,12 +1042,15 @@ export function GameHighway(p: Props) {
     }
   }
 
+  const customSized = gapPick > 0 || widthPick > 0
+
   return (
     <div ref={wrap} className="game-highway" data-testid="game-highway" style={widthPick ? { width: `${widthPick * 100}%` } : undefined}>
       <canvas ref={cv} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} role="img"
-        aria-label="Note highway: notes slide to the precision rail on the left; play each one as it reaches the rail. Drag sideways to look ahead, pinch to zoom." />
+        aria-label="Note highway: notes slide to the precision rail on the left; play each one as it reaches the rail. Swipe sideways to look ahead, swipe up/down to scroll, pinch to zoom." />
       <div className="gh-zoom" role="group" aria-label="Highway zoom">
         {looking && <button className="gh-btn now" onClick={backToNow} data-testid="game-now">⟲ Now</button>}
+        {customSized && <button className="gh-btn" onClick={fitBox} title="Auto-fit highway cleanly onto screen" data-testid="game-fit">Fit</button>}
         <button className="gh-btn" onClick={() => saveSecs(secs * 1.25)} aria-label="Zoom out: see further ahead" data-testid="game-zoom-out">−</button>
         <span className="gh-secs tabular" title="Seconds of music on screen">{secs.toFixed(1)} s</span>
         <button className="gh-btn" onClick={() => saveSecs(secs / 1.25)} aria-label="Zoom in: bigger notes" data-testid="game-zoom-in">+</button>
@@ -752,7 +1061,7 @@ export function GameHighway(p: Props) {
           ▶ Start here
         </button>
       )}
-      <div className="gh-size" onPointerDown={sizeDrag} onDoubleClick={fitBox} role="separator" aria-label="Drag down or up for taller or shorter strings, sideways for wider or narrower; double tap to fit the box again" title="Drag to resize (up/down and sideways) · double tap: fit the box" data-testid="game-size"><span aria-hidden>⇕</span><span className="gh-grip" aria-hidden>◢</span></div>
+      <div className="gh-size" onPointerDown={sizeDrag} onDoubleClick={fitBox} role="separator" aria-label="Drag down or up for taller or shorter strings, sideways for wider or narrower; double tap to fit the box again" title="Drag to resize (L × W) · double tap: auto-fit" data-testid="game-size"><span aria-hidden>⇕</span><span className="gh-grip" aria-hidden>◢</span></div>
     </div>
   )
 }
