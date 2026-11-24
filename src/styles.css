@@ -4811,11 +4811,348 @@ html:not([data-arrange]) .win-zoom { display: none; }
   }
 }
 
+/* ── Beat Maker Pro Upgrade: Floating Play Pill, Smart Helper, Guide Me Coach, Track Strip & Beat Ruler ── */
+.bf-pill {
+  position: fixed;
+  z-index: 68;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px 5px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, var(--line, rgba(127,127,127,.35)));
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.36);
+  color: var(--ink);
+  max-width: calc(100vw - 16px);
+  user-select: none;
+}
+.bf-pill.playing {
+  border-color: #22c55e;
+  box-shadow: 0 8px 28px rgba(34, 197, 94, 0.32), 0 0 0 2px rgba(34, 197, 94, 0.18);
+}
+.bf-pill.mini {
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
+  border: 0;
+  box-shadow: none;
+}
+.bf-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 36px;
+  cursor: grab;
+  touch-action: none;
+  color: var(--ink-2);
+  font-size: 16px;
+  line-height: 1;
+}
+.bf-grip:active { cursor: grabbing; color: var(--accent); }
+.bf-play-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent) 70%, #fff);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 19px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  touch-action: none;
+  flex-shrink: 0;
+}
+.bf-pill.mini .bf-play-btn {
+  width: 56px;
+  height: 56px;
+  font-size: 22px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.42);
+}
+.bf-play-btn.on {
+  background: #16a34a;
+  border-color: #86efac;
+  color: #fff;
+}
+.bf-expand {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--line, rgba(127,127,127,.4));
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.bf-rec-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--line, rgba(127,127,127,.35));
+  background: transparent;
+  color: var(--coral);
+  font-size: 15px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.bf-rec-btn.on { background: var(--coral); color: #fff; border-color: var(--coral); }
+.bf-bpm {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  border-radius: 999px;
+  padding: 2px 4px;
+}
+.bf-step {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.bf-bpm-val {
+  min-width: 30px;
+  text-align: center;
+  font: 700 13px/1 var(--ui, sans-serif);
+  font-variant-numeric: tabular-nums;
+}
+.bf-icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--line, rgba(127,127,127,.3));
+  background: transparent;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.bf-icon-btn:disabled { opacity: 0.35; cursor: default; }
 
+/* Smart Beat Helper Bar */
+.bh-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 9px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line, rgba(127,127,127,.25)));
+  min-width: 0;
+}
+.bh-bar.compact { padding: 5px 7px; gap: 4px; }
+.bh-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding-bottom: 1px;
+}
+.bh-row::-webkit-scrollbar { display: none; }
+.bh-label {
+  font: 700 11px/1 var(--ui, sans-serif);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.bh-chip, .bh-btn {
+  border-radius: 999px;
+  border: 1px solid var(--line, rgba(127,127,127,.32));
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--ink);
+  font: 600 12px/1.1 var(--ui, sans-serif);
+  padding: 5px 9px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  min-height: 28px;
+}
+.bh-chip.on {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.bh-btn {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+.bh-btn:active, .bh-chip:active { transform: scale(0.97); }
+.bh-btn.accent {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+.bh-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  font-size: 12px;
+}
+.bh-toast-text { flex: 1; min-width: 0; line-height: 1.3; }
 
+/* Guided Beat Coach (5-step walkthrough) */
+.bg-coach {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border: 1.5px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.bg-head { display: flex; align-items: center; gap: 6px; }
+.bg-steps {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.bg-steps::-webkit-scrollbar { display: none; }
+.bg-pill {
+  border-radius: 999px;
+  border: 1px solid var(--line, rgba(127,127,127,.35));
+  background: var(--surface);
+  color: var(--ink-2);
+  font: 700 12px/1 var(--ui, sans-serif);
+  padding: 5px 9px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.bg-pill.done {
+  border-color: #22c55e;
+  color: var(--ink);
+  background: color-mix(in srgb, #22c55e 14%, var(--surface));
+}
+.bg-pill.cur {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+.bg-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bg-copy { display: flex; flex-direction: column; gap: 2px; min-width: 180px; flex: 1; }
+.bg-copy b { font-size: 13px; }
+.bg-btns { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
+/* Clean Track Strip (Drums · Bass · Chords) */
+.ts-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 5px 6px;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border: 1px solid var(--line, rgba(127,127,127,.22));
+}
+.ts-chan {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  border: 1px solid var(--line, rgba(127,127,127,.26));
+  font-size: 12px;
+}
+.ts-chan.muted { opacity: 0.5; }
+.ts-name { font-weight: 700; white-space: nowrap; }
+.ts-chan input[type="range"] { width: 58px; margin: 0; }
+.ts-btn {
+  min-width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--line, rgba(127,127,127,.32));
+  background: transparent;
+  color: var(--ink);
+  font: 700 11px/1 var(--ui, sans-serif);
+  cursor: pointer;
+  padding: 0 4px;
+}
+.ts-btn.on { background: var(--coral); color: #fff; border-color: var(--coral); }
+.ts-btn.solo { background: var(--gold); color: #1a1200; border-color: var(--gold); }
+.ts-add {
+  border-radius: 999px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  background: transparent;
+  color: var(--ink);
+  font: 600 12px/1 var(--ui, sans-serif);
+  padding: 4px 9px;
+  cursor: pointer;
+  min-height: 26px;
+}
 
-
-
-
-
+/* Beat Ruler (1 e & a 2 e & a ...) & Alternating 4-Step Beat Shading */
+.st-ruler { align-items: center; margin-bottom: 1px; }
+.st-rlabel-gap { font: 700 10px/1 var(--ui, sans-serif); text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); text-align: right; padding-right: 4px; }
+.st-rtick {
+  text-align: center;
+  font: 600 10px/16px var(--ui, sans-serif);
+  color: var(--ink-2);
+  border-radius: 3px;
+  user-select: none;
+}
+.st-rtick.beat { font-weight: 800; color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.st-rtick.beat-alt { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.st-rtick.now { background: var(--gold); color: #1a1200; }
+.st-cell { position: relative; }
+.st-cell.beat-alt:not(.on) { background: color-mix(in srgb, var(--accent) 10%, color-mix(in srgb, var(--ink) 6%, transparent)); }
+.st-cell.beat.beat-alt:not(.on) { background: color-mix(in srgb, var(--accent) 16%, color-mix(in srgb, var(--ink) 10%, transparent)); }
+.st-cell-rat {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: 800 9px/1 var(--ui, sans-serif);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+.ck-cell.beat-alt:not(.on) { background: color-mix(in srgb, var(--accent) 8%, color-mix(in srgb, var(--ink) 4%, transparent)); }

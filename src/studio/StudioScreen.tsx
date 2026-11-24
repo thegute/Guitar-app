@@ -56,6 +56,8 @@ import { MicFxPicker } from './MicFxPicker'
 const micFx = (): MicFx => { try { return (JSON.parse(localStorage.getItem(`kg:${MIC_FX_KEY}`) ?? '"none"') as MicFx) || 'none' } catch { return 'none' } }
 import { BounceSave } from './BounceSave'
 import type { Handle } from '../audio/pluck'
+import { BeatGuideCoach, BeatHelperBar, FloatingBeatTransport, TrackStrip } from './BeatStudioUI'
+import { clearAllDrums, clearDrumRow, copyBar1ToRest, fillDrumRow, stepRulerLabel } from './beatHelper'
 
 type SetBeat = (f: Beat | ((b: Beat) => Beat), remember?: boolean) => void
 const QUANT: { id: number; label: string }[] = [{ id: 1, label: '1/16' }, { id: 2, label: '1/8' }, { id: 4, label: '1/4' }, { id: 0, label: 'Off' }]
@@ -223,6 +225,8 @@ export function StudioScreen({ active }: { active: boolean }) {
 
   // the cockpit (full screen) is the beat maker's main layout; Leave goes back to the windows
   const [cockpit, setCockpit] = usePersist('studioCockpit', true)
+  const [guideOpen, setGuideOpen] = usePersist('studioGuideOpen', false)
+  const [helperTip, setHelperTip] = useState('')
   const [vibeOpen, setVibeOpen] = useState(false)
   const wide = width >= 720
   const flats = keyPrefersFlats(beat.key, beat.minor)
@@ -237,6 +241,7 @@ export function StudioScreen({ active }: { active: boolean }) {
         <RigChip />
         <button className="btn sm" onClick={undo} disabled={!history.current.length} aria-label="Undo" title="Undo">↶</button>
         <button className="btn sm" onClick={redo} disabled={!future.current.length} aria-label="Redo" title="Redo">↷</button>
+        <button className={`btn sm${guideOpen ? ' on' : ''}`} aria-pressed={guideOpen} onClick={() => setGuideOpen(!guideOpen)} data-testid="st-guide">🧭 Guide Me</button>
         <button className="btn sm" onClick={() => setVibeOpen(true)} data-testid="st-vibe"><Ico n="film" /> Song vibe</button>
         <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')}><Ico n="sparkles" /> Ideas</button>
         {!cockpit && active && <button className="btn sm" onClick={() => setCockpit(true)} data-testid="st-cockpit"><Ico n="expand" /> Full screen</button>}
@@ -332,17 +337,36 @@ export function StudioScreen({ active }: { active: boolean }) {
   const keys = <Keys t={tr()} beat={beat} setBeat={setBeat} recStep={recStep} quant={quant} />
   const tabletop = active && posture.tabletop
 
+  const floatingPlay = (
+    <FloatingBeatTransport
+      active={active}
+      t={tr()}
+      bpm={beat.bpm}
+      playing={playing}
+      recording={recording}
+      canUndo={history.current.length > 0}
+      onPlay={() => play()}
+      onStop={stop}
+      onToggleRecord={toggleRecord}
+      onBpm={bpm => setBeat(b => ({ ...b, bpm }))}
+      onUndo={undo}
+    />
+  )
+
   if (active && cockpit) return (
     <div className="stack studio" ref={box}>
       <Cockpit t={tr()} beat={beat} setBeat={setBeat} playing={playing} recording={recording} play={play} stop={stop} toggleRecord={toggleRecord}
         undo={undo} redo={redo} canUndo={history.current.length > 0} canRedo={future.current.length > 0} msg={msg} onLeave={() => setCockpit(false)}
+        helperTip={helperTip} onHelperTip={setHelperTip} guideOpen={guideOpen} setGuideOpen={setGuideOpen}
         pads={o => <Pads t={tr()} beat={beat} setBeat={setBeat} recordHit={recordHit} mine={mine} setMine={setMine} undo={undo} canUndo={history.current.length > 0} bare ck={o} />}
         keys={<Keys t={tr()} beat={beat} setBeat={setBeat} recStep={recStep} quant={quant} bare />}
         more={header} mixEl={<Mix t={tr()} beat={beat} setBeat={setBeat} />} saveEl={<BounceSave t={tr()} beat={beat} setBeat={setBeat} loops={loops} play={play} stop={stop} />} />
+      {floatingPlay}
     </div>
   )
   return (
     <div className="stack studio" style={{ gap: 10 }} ref={box}>
+      {floatingPlay}
       {vibeOpen && (
         <div className="sheet-backdrop" onClick={() => setVibeOpen(false)}>
           <div className="sheet" role="dialog" aria-modal="true" aria-label="Match a song's vibe" onClick={e => e.stopPropagation()}>
@@ -351,15 +375,31 @@ export function StudioScreen({ active }: { active: boolean }) {
           </div>
         </div>
       )}
-      <WinArea area="studio" className={`st-wins${wide ? ' wide' : ''}`} defaultHidden={['steps', 'roll', 'mix', 'practice']}>
+      <BeatHelperBar
+        beat={beat}
+        setBeat={setBeat}
+        tip={helperTip}
+        onTip={setHelperTip}
+        canUndo={history.current.length > 0}
+        onUndo={undo}
+      />
+      {guideOpen && (
+        <BeatGuideCoach
+          beat={beat}
+          setBeat={setBeat}
+          onTip={setHelperTip}
+          onClose={() => setGuideOpen(false)}
+        />
+      )}
+      <WinArea area="studio" className={`st-wins${wide ? ' wide' : ''}`} defaultHidden={['roll', 'mix', 'practice']}>
         {header}
+        <Win id="steps" title="Step grid" className="panel"><Steps beat={beat} setBeat={setBeat} t={tr()} onTip={setHelperTip} /></Win>
         {pads}
         <Win id="layers" title="Drum layers" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}><Layers beat={beat} setBeat={setBeat} /></Win>
         {keys}
         <LoopWin pedalMode={pedalMode} setPedalMode={setPedalMode} />
         <Effects t={tr()} playing={playing} play={play} />
         <BounceSave t={tr()} beat={beat} setBeat={setBeat} loops={loops} play={play} stop={stop} />
-        <Win id="steps" title="Step grid" className="panel"><Steps beat={beat} setBeat={setBeat} t={tr()} /></Win>
         <Roll t={tr()} beat={beat} setBeat={setBeat} />
         <Mix t={tr()} beat={beat} setBeat={setBeat} />
         <Practice t={tr()} beat={beat} flats={flats} />
@@ -798,7 +838,7 @@ function MySoundsPanel({ pads, mine, setMine }: { pads: Voice[]; mine: MySounds;
 
 // ───────────────────────── step grid
 const PAINT = [{ v: 0.45, label: 'Soft' }, { v: 0.8, label: 'Normal' }, { v: 1, label: 'Accent' }]
-function Steps({ beat, setBeat, t, compact = false }: { beat: Beat; setBeat: SetBeat; t: StudioTransport; compact?: boolean }) {
+function Steps({ beat, setBeat, t, compact = false, onTip }: { beat: Beat; setBeat: SetBeat; t: StudioTransport; compact?: boolean; onTip?: (tip: string) => void }) {
   const n = totalSteps(beat)
   const step = useStep(t)
   const [paint, setPaint] = useState(0.8)
@@ -806,6 +846,13 @@ function Steps({ beat, setBeat, t, compact = false }: { beat: Beat; setBeat: Set
   const [wide, setWide] = useState(false)
   const [tools, setTools] = useState(false)
   const box = useRef<HTMLDivElement>(null)
+  const swipeRef = useRef<{ voice: string; val: number } | null>(null)
+  useEffect(() => {
+    const clearSwipe = () => { swipeRef.current = null }
+    addEventListener('pointerup', clearSwipe)
+    addEventListener('pointercancel', clearSwipe)
+    return () => { removeEventListener('pointerup', clearSwipe); removeEventListener('pointercancel', clearSwipe) }
+  }, [])
   useEffect(() => {
     const el = box.current
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -819,14 +866,17 @@ function Steps({ beat, setBeat, t, compact = false }: { beat: Beat; setBeat: Set
   const shown = compact && step >= 0 ? Math.floor(step / perPage) : Math.min(page, pages - 1)
   const from = shown * perPage
   const cells = Array.from({ length: perPage }, (_, i) => from + i).filter(i => i < n)
-  const toggle = (voice: string, i: number) => setBeat(b => ({ ...b, rows: b.rows.map(r => (r.voice === voice ? { ...r, steps: r.steps.map((v, k) => (k === i ? (Math.abs(v - paint) < 0.01 ? 0 : paint) : v)) } : r)) }))
+  const setCell = (voice: string, i: number, val: number) =>
+    setBeat(b => ({ ...b, rows: b.rows.map(r => (r.voice === voice ? { ...r, steps: r.steps.map((v, k) => (k === i ? val : v)) } : r)) }))
   const fill = (voice: string, every: number, offset = 0) => setBeat(b => ({ ...b, rows: b.rows.map(r => (r.voice === voice ? { ...r, steps: r.steps.map((_, k) => (k % every === offset ? paint : 0)) } : r)) }))
   const addable = [...new Set([...padsFor(beat.kit), ...PADS.perc])].filter(v => !beat.rows.some(r => r.voice === v))
   const showTools = !compact && (wide || tools)
+  const tip = onTip ?? (() => {})
   return (
     <section className="stack" style={{ gap: 8 }} ref={box}>
+      {!compact && <TrackStrip beat={beat} setBeat={setBeat} onTip={tip} />}
       {!compact && (
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           <div className="seg" role="group" aria-label="Tap paints">
             {PAINT.map(p => <button key={p.v} aria-pressed={paint === p.v} onClick={() => setPaint(p.v)}>{p.label}</button>)}
           </div>
@@ -836,27 +886,84 @@ function Steps({ beat, setBeat, t, compact = false }: { beat: Beat; setBeat: Set
               {Array.from({ length: pages }, (_, k) => <button key={k} aria-pressed={shown === k} onClick={() => setPage(k)}>{perPage === 16 ? `Bar ${k + 1}` : `Bars ${k * 2 + 1}–${k * 2 + 2}`}</button>)}
             </div>
           )}
+          <span className="st-spacer" />
+          <button
+            className="btn sm ghost"
+            onClick={() => { let msg = ''; setBeat(b => { const r = copyBar1ToRest(b); msg = r.tip; return r.beat }); if (msg) tip(msg) }}
+            title="Copy Bar 1 across all bars"
+            data-testid="st-copy-bar1"
+          >
+            Copy Bar 1→All
+          </button>
+          <button
+            className="btn sm ghost"
+            onClick={() => { let msg = ''; setBeat(b => { const r = clearAllDrums(b); msg = r.tip; return r.beat }); if (msg) tip(msg) }}
+            title="Clear all drum steps (Undoable)"
+            data-testid="st-clear-drums"
+          >
+            Clear Beat
+          </button>
         </div>
       )}
-      {beat.rows.length === 0 && <p className="muted small" style={{ margin: 0 }}>No drums yet: add a sound below, play the pads with ● on, or start from a style.</p>}
+      {beat.rows.length === 0 && <p className="muted small" style={{ margin: 0 }}>No drums yet: tap a Style or ✨ Helper above, add a sound below, or play the pads with ● on.</p>}
       <div className={`st-grid${showTools ? ' tools' : ''}`} style={{ ['--cols' as string]: String(cells.length) }}>
+        {beat.rows.length > 0 && (
+          <div className="st-grow st-ruler" aria-hidden="true" data-testid="st-ruler">
+            <span className="st-rlabel-gap">Count</span>
+            <div className="st-cells">
+              {cells.map(i => (
+                <span key={i} className={`st-rtick${i % 4 === 0 ? ' beat' : ''}${Math.floor((i % 16) / 4) % 2 === 1 ? ' beat-alt' : ''}${i === step ? ' now' : ''}`}>
+                  {stepRulerLabel(i)}
+                </span>
+              ))}
+            </div>
+            {showTools && <span className="st-rtools" />}
+          </div>
+        )}
         {beat.rows.map(r => (
           <div key={r.voice} className={`st-grow${r.mute ? ' muted' : ''}`}>
             <button className="st-rlabel" onClick={() => t.hit(r.voice, 0.85)} title="Hear it">{voiceLabel(r.voice)}</button>
             <div className="st-cells">
-              {cells.map(i => (
-                <button key={i} className={`st-cell${r.steps[i] > 0 ? ' on' : ''}${i === step ? ' now' : ''}${i % 4 === 0 ? ' beat' : ''}`}
-                  style={r.steps[i] > 0 ? { opacity: 0.45 + r.steps[i] * 0.55 } : undefined}
-                  onPointerDown={e => { e.preventDefault(); haptic('light'); toggle(r.voice, i); if (!(r.steps[i] > 0)) t.hit(r.voice, paint) }} aria-label={`${voiceLabel(r.voice)} step ${i + 1}`} aria-pressed={r.steps[i] > 0} />
-              ))}
+              {cells.map(i => {
+                const isOn = r.steps[i] > 0
+                const beatAlt = Math.floor((i % 16) / 4) % 2 === 1
+                const rat = r.rat?.[i] ?? 1
+                return (
+                  <button
+                    key={i}
+                    className={`st-cell${isOn ? ' on' : ''}${i === step ? ' now' : ''}${i % 4 === 0 ? ' beat' : ''}${beatAlt ? ' beat-alt' : ''}`}
+                    style={isOn ? { opacity: 0.45 + r.steps[i] * 0.55 } : undefined}
+                    onPointerDown={e => {
+                      e.preventDefault()
+                      haptic('light')
+                      const nextVal = Math.abs(r.steps[i] - paint) < 0.01 ? 0 : paint
+                      swipeRef.current = { voice: r.voice, val: nextVal }
+                      setCell(r.voice, i, nextVal)
+                      if (nextVal > 0) t.hit(r.voice, nextVal)
+                    }}
+                    onPointerEnter={() => {
+                      const sw = swipeRef.current
+                      if (!sw || sw.voice !== r.voice) return
+                      if (Math.abs((r.steps[i] ?? 0) - sw.val) > 0.01) setCell(r.voice, i, sw.val)
+                    }}
+                    aria-label={`${voiceLabel(r.voice)} step ${i + 1} (${stepRulerLabel(i)})`}
+                    aria-pressed={isOn}
+                  >
+                    {isOn && rat > 1 && <span className="st-cell-rat">×{rat}</span>}
+                  </button>
+                )
+              })}
             </div>
             {showTools && (
               <span className="st-rtools">
                 <button className="btn sm ghost" aria-pressed={!!r.mute} onClick={() => setBeat(b => ({ ...b, rows: b.rows.map(x => (x.voice === r.voice ? { ...x, mute: !x.mute } : x)) }))} title="Mute">M</button>
+                <button className="btn sm ghost" onClick={() => fill(r.voice, 2, 0)} title="Fill every 2 steps (8th notes)">2s</button>
+                <button className="btn sm ghost" onClick={() => fill(r.voice, 4, 0)} title="Fill every 4 steps (on each beat)">4s</button>
                 <select className="select sm" value="" aria-label={`Fill ${voiceLabel(r.voice)}`} onChange={e => { const [ev, off] = e.target.value.split(':').map(Number); if (ev) fill(r.voice, ev, off) }}>
                   <option value="">Fill…</option><option value="16:0">Bar starts</option><option value="4:0">Every beat</option><option value="8:4">Beats 2 and 4</option>
                   <option value="2:0">Every 8th</option><option value="4:2">Off-beats</option><option value="1:0">Every 16th</option><option value="1:99">Clear</option>
                 </select>
+                <button className="btn sm ghost" onClick={() => setBeat(b => clearDrumRow(b, r.voice))} title={`Clear ${voiceLabel(r.voice)}`}>Clr</button>
                 <button className="btn sm ghost" onClick={() => setBeat(b => ({ ...b, rows: b.rows.filter(x => x.voice !== r.voice) }))} aria-label={`Remove ${voiceLabel(r.voice)}`}>✕</button>
               </span>
             )}
@@ -1384,6 +1491,7 @@ interface CockpitProps {
   playing: boolean; recording: boolean; play: (c?: number) => void; stop: () => void; toggleRecord: () => void
   undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean
   pads: (o: CockpitPadOpts) => ReactNode; keys: ReactNode; more: ReactNode; msg: string
+  helperTip: string; onHelperTip: (tip: string) => void; guideOpen: boolean; setGuideOpen: (v: boolean) => void
   onLeave: () => void; mixEl: ReactNode; saveEl: ReactNode
 }
 function Cockpit(p: CockpitProps) {
@@ -1392,6 +1500,7 @@ function Cockpit(p: CockpitProps) {
   const [left, setLeft] = usePersist<'pads' | 'keys'>('studioCkLeft', 'pads')
   const [area, setArea] = usePersist<'pads' | 'steps'>('studioCkArea', 'pads')
   const [all, setAll] = usePersist('studioCkAll', false)
+  const [helperOpen, setHelperOpen] = usePersist('studioCkHelper', true)
   const [muteMode, setMuteMode] = useState(false)
   const [help, setHelp] = useState(false)
   const [sheet, setSheet] = useState<null | 'mix' | 'fx' | 'save' | 'more' | 'layers' | 'song' | 'vibe' | 'float'>(null)
@@ -1441,12 +1550,12 @@ function Cockpit(p: CockpitProps) {
         <b className="ck-sel" style={{ ['--h' as string]: String(padHue(sel)) }}><i aria-hidden />{padLabel(beat, sel)}</b>
         <span className="st-spacer" />
         <div className="seg" role="group" aria-label="Steps view">
-          <button aria-pressed={!all} onClick={() => setAll(false)}>This sound</button>
-          <button aria-pressed={all} onClick={() => setAll(true)} data-testid="ck-all">All</button>
+          <button aria-pressed={!all} onClick={() => setAll(false)} data-testid="ck-focus-view">Focus Sound</button>
+          <button aria-pressed={all} onClick={() => setAll(true)} data-testid="ck-all">Full Grid</button>
         </div>
       </div>
       {help && <p className="ck-help small">Tap a step to turn it on or off. Drag up or down on it to set how hard it hits. Hold it for quick repeats (×2 ×3 ×4) and a chance it plays.</p>}
-      <div className="ck-scroll">{all ? <Steps beat={beat} setBeat={setBeat} t={t} /> : <FocusSteps beat={beat} setBeat={setBeat} t={t} voice={sel} />}</div>
+      <div className="ck-scroll">{all ? <Steps beat={beat} setBeat={setBeat} t={t} onTip={p.onHelperTip} /> : <FocusSteps beat={beat} setBeat={setBeat} t={t} voice={sel} onTip={p.onHelperTip} />}</div>
     </section>
   )
   const ckFloatTools: { id: CardId; label: string; icon: IconName; hint: string }[] = [
@@ -1504,6 +1613,8 @@ function Cockpit(p: CockpitProps) {
         <span className="st-spacer" />
         <button className="btn sm" onClick={p.undo} disabled={!p.canUndo} aria-label="Undo" title="Undo">↶</button>
         <button className="btn sm" onClick={p.redo} disabled={!p.canRedo} aria-label="Redo" title="Redo">↷</button>
+        <button className={`btn sm${helperOpen ? ' on' : ''}`} aria-pressed={helperOpen} onClick={() => { const next = !helperOpen; setHelperOpen(next); if (next && narrow && p.guideOpen) p.setGuideOpen(false) }} data-testid="ck-helper" title="Show or hide Smart Beat Helper & Style Starters">✨{!narrow && ' Helper'}</button>
+        <button className={`btn sm${p.guideOpen ? ' on' : ''}`} aria-pressed={p.guideOpen} onClick={() => { const next = !p.guideOpen; p.setGuideOpen(next); if (next && narrow && helperOpen) setHelperOpen(false) }} data-testid="ck-guide" title="Step-by-step guided beat coach">🧭{!narrow && ' Guide'}</button>
         <button className={`btn sm${sheet === 'float' || openFloaters.length > 0 ? ' on' : ''}`} onClick={() => setSheet(sheet === 'float' ? null : 'float')} data-testid="ck-float" title="Open floating 5-Layer Fretboard, Licks, Circle or Tuner over the Cockpit" aria-label="Floating guitar tools"><Ico n="layers" />{!narrow && ' Float'}{openFloaters.length > 0 ? ` (${openFloaters.length})` : ''}</button>
         <button className={`btn sm${sheet === 'vibe' ? ' on' : ''}`} onClick={() => setSheet(sheet === 'vibe' ? null : 'vibe')} data-testid="ck-vibe" title="Make a beat with a song's feel" aria-label="Song vibe: make a beat with a song's feel"><Ico n="film" />{!narrow && ' Song vibe'}</button>
         <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')} aria-label="Ideas"><Ico n="sparkles" />{!narrow && ' Ideas'}</button>
@@ -1511,6 +1622,27 @@ function Cockpit(p: CockpitProps) {
         <button className="btn sm" onClick={() => setSheet('more')} aria-label="More settings: style, kit, key, bars, swing, save">⋯</button>
         <button className="btn sm" onClick={p.onLeave} data-testid="ck-leave" title="Back to the windows layout"><Ico n="expand" /> Leave</button>
       </header>
+      {helperOpen && (
+        <BeatHelperBar
+          beat={beat}
+          setBeat={setBeat}
+          tip={p.helperTip}
+          onTip={p.onHelperTip}
+          onFocusVoice={v => setSel(v)}
+          canUndo={p.canUndo}
+          onUndo={p.undo}
+          compact
+        />
+      )}
+      {p.guideOpen && (
+        <BeatGuideCoach
+          beat={beat}
+          setBeat={setBeat}
+          onTip={p.onHelperTip}
+          onFocusVoice={v => setSel(v)}
+          onClose={() => p.setGuideOpen(false)}
+        />
+      )}
       {p.msg && <p className="small ck-msg" role="status">{p.msg}</p>}
       {narrow && (
         <div className="seg ck-switch" role="group" aria-label="Show">
@@ -1569,7 +1701,7 @@ function Cockpit(p: CockpitProps) {
 const STEPS = 16
 
 /** The selected sound's steps, big: tap = on/off, drag up/down = how hard, hold = repeats and chance. */
-function FocusSteps({ beat, setBeat, t, voice }: { beat: Beat; setBeat: SetBeat; t: StudioTransport; voice: string }) {
+function FocusSteps({ beat, setBeat, t, voice, onTip }: { beat: Beat; setBeat: SetBeat; t: StudioTransport; voice: string; onTip?: (tip: string) => void }) {
   const n = totalSteps(beat)
   const step = useStep(t)
   const row = beat.rows.find(r => r.voice === voice)
@@ -1621,17 +1753,24 @@ function FocusSteps({ beat, setBeat, t, voice }: { beat: Beat; setBeat: SetBeat;
   const o = opts !== null ? { v: row?.steps[opts] ?? 0, rat: row?.rat?.[opts] ?? 1, prob: row?.prob?.[opts] ?? 1 } : null
   return (
     <div className="stack ck-focus" style={{ gap: 8 }} data-testid="ck-focus">
-      {pages > 1 && (
-        <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          <div className="seg" role="group" aria-label="Which bar">
-            {Array.from({ length: pages }, (_, k) => <button key={k} aria-pressed={shown === k} onClick={() => { setFollow(false); setPage(k) }}>Bar {k + 1}</button>)}
-          </div>
-          <label className="ex-check small"><input type="checkbox" checked={follow} onChange={e => setFollow(e.target.checked)} /> Follow the beat</label>
-        </div>
-      )}
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        {pages > 1 && (
+          <>
+            <div className="seg" role="group" aria-label="Which bar">
+              {Array.from({ length: pages }, (_, k) => <button key={k} aria-pressed={shown === k} onClick={() => { setFollow(false); setPage(k) }}>Bar {k + 1}</button>)}
+            </div>
+            <label className="ex-check small"><input type="checkbox" checked={follow} onChange={e => setFollow(e.target.checked)} /> Follow</label>
+          </>
+        )}
+        <span className="st-spacer" />
+        <button className="btn sm ghost" onClick={() => setBeat(b => fillDrumRow(b, voice as PadId, 2, 0, 0.78))} title="Fill every 8th note (2s)">Fill 2s</button>
+        <button className="btn sm ghost" onClick={() => setBeat(b => fillDrumRow(b, voice as PadId, 4, 0, 0.85))} title="Fill every beat (4s)">Fill 4s</button>
+        <button className="btn sm ghost" onClick={() => { let tip = ''; setBeat(b => { const r = copyBar1ToRest(b); tip = r.tip; return r.beat }); if (tip && onTip) onTip(tip) }} title="Copy Bar 1 across all bars">Copy Bar 1</button>
+        <button className="btn sm ghost" onClick={() => setBeat(b => clearDrumRow(b, voice as PadId))} disabled={!row} title="Clear this sound's steps">Clear</button>
+      </div>
       {o && opts !== null && (
         <div className="ck-opts panel stack" style={{ gap: 6, padding: 8 }} data-testid="ck-step-opts">
-          <div className="row" style={{ alignItems: 'center', gap: 8 }}><b>Step {(opts % 16) + 1}{pages > 1 ? ` of bar ${Math.floor(opts / 16) + 1}` : ''}</b><span className="st-spacer" /><button className="btn sm" onClick={() => setOpts(null)}>Done</button></div>
+          <div className="row" style={{ alignItems: 'center', gap: 8 }}><b>Step {(opts % 16) + 1} ({stepRulerLabel(opts)}){pages > 1 ? ` · Bar ${Math.floor(opts / 16) + 1}` : ''}</b><span className="st-spacer" /><button className="btn sm" onClick={() => setOpts(null)}>Done</button></div>
           <label className="field st-field"><span>How hard: {Math.round((o.v || 0) * 100)}%</span>
             <input type="range" min={0} max={1} step={0.05} value={o.v} onChange={e => edit(r => { r.steps[opts] = Number(e.target.value); return r })} />
           </label>
@@ -1651,19 +1790,20 @@ function FocusSteps({ beat, setBeat, t, voice }: { beat: Beat; setBeat: SetBeat;
         {cells.map(i => {
           const v = row?.steps[i] ?? 0
           const rat = row?.rat?.[i] ?? 1, prob = row?.prob?.[i] ?? 1
+          const beatAlt = Math.floor((i % 16) / 4) % 2 === 1
           return (
-            <button key={i} className={`ck-cell${v > 0 ? ' on' : ''}${i === nowIdx ? ' now' : ''}${i % 4 === 0 ? ' beat' : ''}${prob < 1 ? ' maybe' : ''}`}
+            <button key={i} className={`ck-cell${v > 0 ? ' on' : ''}${i === nowIdx ? ' now' : ''}${i % 4 === 0 ? ' beat' : ''}${beatAlt ? ' beat-alt' : ''}${prob < 1 ? ' maybe' : ''}`}
               onPointerDown={e => down(e, i)} onPointerMove={move} onPointerUp={() => up(i)} onPointerCancel={() => { if (g.current) clearTimeout(g.current.timer); g.current = null }} onContextMenu={e => e.preventDefault()}
-              aria-pressed={v > 0} aria-label={`${padLabel(beat, voice)} step ${i + 1}${v > 0 ? `, ${Math.round(v * 100)}%` : ''}${rat > 1 ? `, ×${rat}` : ''}${prob < 1 ? `, ${Math.round(prob * 100)}% chance` : ''}`} data-step={i}>
+              aria-pressed={v > 0} aria-label={`${padLabel(beat, voice)} step ${i + 1} (${stepRulerLabel(i)})${v > 0 ? `, ${Math.round(v * 100)}%` : ''}${rat > 1 ? `, ×${rat}` : ''}${prob < 1 ? `, ${Math.round(prob * 100)}% chance` : ''}`} data-step={i}>
               {v > 0 && <span className="ck-vel" style={{ height: `${Math.round(v * 100)}%` }} />}
               {v > 0 && rat > 1 && <span className="ck-rat">×{rat}</span>}
               {v > 0 && prob < 1 && <span className="ck-prob">{Math.round(prob * 100)}%</span>}
-              <span className="ck-num">{(i % 16) + 1}</span>
+              <span className="ck-num">{stepRulerLabel(i)}</span>
             </button>
           )
         })}
       </div>
-      {!row && <p className="small muted" style={{ margin: 0 }}>{padLabel(beat, voice)} isn't in the beat yet: tap a step to add it.</p>}
+      {!row && <p className="small muted" style={{ margin: 0 }}>{padLabel(beat, voice)} isn't in the beat yet: tap a step or use Fill 2s / Fill 4s above.</p>}
     </div>
   )
 }
