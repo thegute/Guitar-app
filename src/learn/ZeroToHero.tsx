@@ -6,16 +6,21 @@ import { startSession } from '../sessions/session'
 import { PATHS, PHASES, RULES, START_CHECK, TEMPO_RULE, currentFocus, gateDone, routine, saveZ2H, weekOf, z2h, z2hStats, type Watch, type Z2H } from './zeroHero'
 import { LessonVideoCard } from './LessonReader'
 
-export function ZeroToHero({ onRecordings }: { onRecordings: () => void }) {
+export function ZeroToHero({ onRecordings, onBrowseLessons, initialPhase }: { onRecordings: () => void; onBrowseLessons?: () => void; initialPhase?: number }) {
   const [v, setV] = useState<Z2H>(z2h)
-  const set = (n: Z2H) => { saveZ2H(n); setV(n) }
+  const [viewPhase, setViewPhase] = useState<number>(() => initialPhase ?? z2h().phase)
+  const set = (n: Z2H) => { saveZ2H(n); setV(n); setViewPhase(n.phase) }
   const stats = useMemo(z2hStats, [])
   const [checks, setChecks] = useState<boolean[]>(() => START_CHECK.map(() => false))
   const [all, setAll] = useState(false)
-  const p = PHASES[v.phase - 1]
+  const activePhase = Math.max(1, Math.min(PHASES.length, viewPhase || v.phase))
+  const peeking = activePhase !== v.phase
+  const p = PHASES[activePhase - 1]
   const gate = gateDone(p, v, stats)
   const passed = gate.length > 0 && gate.every(g => g.done)
-  const focus = currentFocus(v)
+  const focus = peeking
+    ? (p.weeks ? p.weeks.flatMap(w => w.focus) : p.focus)
+    : currentFocus(v)
   const rule = RULES[new Date().getDate() % RULES.length]
   const sunday = new Date().getDay() === 0
   const monthly = v.lastGate === undefined ? Date.now() - v.since > 28 * 864e5 : Date.now() - v.lastGate > 28 * 864e5
@@ -40,32 +45,73 @@ export function ZeroToHero({ onRecordings }: { onRecordings: () => void }) {
 
   return (
     <div className="stack z2h" style={{ gap: 12 }}>
-      <div className="z2h-phases" aria-label="Phases">
-        {PHASES.map(x => <span key={x.n} className={x.n < v.phase ? 'done' : x.n === v.phase ? 'on' : ''}>{x.n}</span>)}
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div className="z2h-phases" role="tablist" aria-label="Browse phases">
+          {PHASES.map(x => {
+            const cls = `${x.n < v.phase ? 'done' : x.n === v.phase ? 'on' : ''}${x.n === activePhase ? ' viewing' : ''}`
+            return (
+              <button
+                key={x.n}
+                type="button"
+                role="tab"
+                aria-selected={x.n === activePhase}
+                className={`z2h-phase-btn ${cls}`}
+                onClick={() => setViewPhase(x.n)}
+                title={`Phase ${x.n}: ${x.title} (tap to preview)`}
+                data-testid={`z2h-phase-${x.n}`}
+              >
+                {x.n}
+              </button>
+            )
+          })}
+        </div>
+        {onBrowseLessons && (
+          <button type="button" className="btn sm ghost" onClick={onBrowseLessons} data-testid="z2h-browse-lessons">
+            📖 All Theory Lessons
+          </button>
+        )}
       </div>
+
+      {peeking && (
+        <div className="z2h-peek-bar small" data-testid="z2h-peek-bar">
+          <span>
+            {activePhase > v.phase ? '👀 Looking ahead at' : '↺ Reviewing'} <b>Phase {p.n}</b> (your plan is on Phase {v.phase})
+          </span>
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+            <button type="button" className="btn sm" onClick={() => setViewPhase(v.phase)}>← Back to Phase {v.phase}</button>
+            <button type="button" className="btn sm primary" onClick={() => set({ ...v, phase: activePhase, since: Date.now() })}>
+              Move plan to Phase {p.n}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div>
         <h3 style={{ margin: 0 }}>Phase {p.n} · {p.title}</h3>
-        <span className="small muted">{p.when}{p.weeks ? ` · you're in week ${Math.min(8, weekOf(v))}` : ''}</span>
+        <span className="small muted">{p.when}{!peeking && p.weeks ? ` · you're in week ${Math.min(8, weekOf(v))}` : ''}</span>
         <p className="small" style={{ margin: '4px 0 0' }}>{p.why}</p>
       </div>
 
-      <div className="z2h-today">
-        <b>{sunday ? 'Sunday: rest, or play just for fun' : "Today's routine"}</b>
-        <div className="row" style={{ gap: 6 }}>
-          {([20, 45, 60] as const).map(m => <button key={m} className={`btn${m === 45 ? ' primary' : ''}`} onClick={() => { const s = routine(v, m); if (s) startSession(s) }}>▶ {m} min</button>)}
+      {!peeking && (
+        <div className="z2h-today">
+          <b>{sunday ? 'Sunday: rest, or play just for fun' : "Today's routine"}</b>
+          <div className="row" style={{ gap: 6 }}>
+            {([20, 45, 60] as const).map(m => <button key={m} className={`btn${m === 45 ? ' primary' : ''}`} onClick={() => { const s = routine(v, m); if (s) startSession(s) }}>▶ {m} min</button>)}
+          </div>
+          <span className="small muted">Warm-up, chords and rhythm, your current skill, fretboard and ear, then songs. A timer moves you through each part.</span>
         </div>
-        <span className="small muted">Warm-up, chords and rhythm, your current skill, fretboard and ear, then songs. A timer moves you through each part.</span>
-      </div>
+      )}
 
       <div>
-        <b>Work on now</b> <span className="small muted">(three at most)</span>
+        <b>{peeking ? `What's in Phase ${p.n}` : 'Work on now'}</b>{' '}
+        <span className="small muted">{peeking ? '(tap any skill to try it early)' : '(three at most)'}</span>
         <ul className="goal-list">
           {focus.map(f => (
             <li key={f.label}>
               <button onClick={() => f.target && launch(f.target)} disabled={!f.target}>
                 <span className="plan-check">›</span><span>{f.label}</span>
               </button>
-              {!p.weeks && <button className="btn sm ghost" onClick={() => set({ ...v, ticks: [...v.ticks, 'f:' + f.label] })} title="I've got this one">✓</button>}
+              {!peeking && !p.weeks && <button className="btn sm ghost" onClick={() => set({ ...v, ticks: [...v.ticks, 'f:' + f.label] })} title="I've got this one">✓</button>}
               {f.watch && <WatchRow w={f.watch} v={v} set={set} />}
             </li>
           ))}
@@ -90,7 +136,7 @@ export function ZeroToHero({ onRecordings }: { onRecordings: () => void }) {
               </li>
             ))}
           </ul>
-          {passed && v.phase < PHASES.length && <button className="btn primary" onClick={() => set({ ...v, phase: v.phase + 1, since: Date.now(), lastGate: Date.now() })}>Gate passed: start Phase {v.phase + 1}</button>}
+          {!peeking && passed && v.phase < PHASES.length && <button className="btn primary" onClick={() => set({ ...v, phase: v.phase + 1, since: Date.now(), lastGate: Date.now() })}>Gate passed: start Phase {v.phase + 1}</button>}
         </div>
       )}
 

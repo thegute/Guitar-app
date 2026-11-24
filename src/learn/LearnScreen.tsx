@@ -4,6 +4,8 @@ import { transposeSong } from '../tabs/transpose'
 import { Win, WinArea } from '../components/Win'
 import { Ico } from '../components/Icon'
 import { ZeroToHero } from './ZeroToHero'
+import { PHASES as Z2H_PHASES, PATHS as Z2H_PATHS, z2h } from './zeroHero'
+import { launch as launchTarget } from '../search/launch'
 import { MyRecordings } from './MyRecordings'
 import { LICK_STYLES } from '../licks/styles'
 import { MySessions } from '../sessions/MySessions'
@@ -107,7 +109,9 @@ export function LearnScreen() {
     return guide ? [{ k: 'home' }, { k: 'guide' }] : [{ k: 'home' }]
   })
   const [openUnit, setOpenUnit] = useState<string | null>(null)
-  const [page, setPage] = useSubTab('learn', ['today', 'course', 'explore', 'exercises'] as const)
+  const [page, setPage] = useSubTab('learn', ['today', 'explore', 'exercises'] as const)
+  const [hubTab, setHubTab] = useState<'plan' | 'z2h' | 'sessions' | 'browse'>('plan')
+  const [z2hPhase, setZ2hPhase] = useState<number | undefined>(undefined)
   const [allStages, setAllStages] = useState(false)
   const [awayNote, setAwayNote] = useState('')
   const [, setTick] = useState(0)
@@ -187,7 +191,12 @@ export function LearnScreen() {
     else if ('songs' in g) openSongs(g.songs)
     else if ('settings' in g) openGear(g.settings)
     else if ('jam' in g) openJam(g.jam)
-    else if ('learn' in g) { setPage(g.learn); setStack([{ k: 'home' }]); document.getElementById('main')?.scrollTo({ top: 0 }) }
+    else if ('learn' in g) {
+      if (g.learn === 'course') { setPage('today'); setHubTab('z2h') }
+      else setPage(g.learn)
+      setStack([{ k: 'home' }])
+      document.getElementById('main')?.scrollTo({ top: 0 })
+    }
     else if ('technique' in g) push({ k: 'technique', id: g.technique })
     else if ('books' in g) push({ k: 'books', ...g.books })
     else if ('guide' in g) push({ k: 'guide', sec: g.guide })
@@ -333,163 +342,286 @@ export function LearnScreen() {
 
       <SubTabs label="Learn" value={page} onChange={setPage} tabs={[
         { id: 'today', label: 'Today', badge: plan.length - planDone || null },
-        { id: 'course', label: 'Course' },
         { id: 'explore', label: 'Explore' },
         { id: 'exercises', label: 'Exercises' },
       ]} />
 
       {page === 'today' && <JumpBackIn />}
       {page === 'today' && <WinArea area="learnToday" className="win-cols">
-      <Win id="today" title="Today" className="today-win" bodyClass={`today-card${counted ? ' counted' : ''}`}>
-        <div className="pick-wrap">
-          <PsyArt kind="mandala" className="pick-mandala" />
-          <PickRing value={minutes} goal={goal} />
-        </div>
-        <div className="today-main">
-          <div className="streak-line">
-            <span className={`flame${counted ? ' lit' : ''}`} aria-hidden><Ico n="flame" fill={counted} /></span>
-            <b className="readout">{st.current}</b>
-            <span>day streak</span>
-            {fz > 0 && <span className="freeze" title={`${fz} streak freeze${fz > 1 ? 's' : ''}: a missed day won't break your streak`}>{Array.from({ length: fz }, (_, i) => <Ico key={i} n="freeze" />)}</span>}
+        {/* 1. Compact Streak, Daily Goal & Mode Bar */}
+        <Win id="today" title="Today" className="today-win" bodyClass={`today-card${counted ? ' counted' : ''}`}>
+          <div className="pick-wrap">
+            <PsyArt kind="mandala" className="pick-mandala" />
+            <PickRing value={minutes} goal={goal} />
           </div>
-          <p className="today-msg">{headline}</p>
-          <div className="week-strip" aria-label="This week">
-            {weekDays.map((k, i) => {
-              const ld = logs[k]
-              const cls = dayCounts(ld) ? 'done' : ld?.frozen ? 'frozen' : k === today ? 'today' : k > today ? 'future' : 'missed'
-              return <span key={k} className={`wd ${cls}`} title={k}><i>{cls === 'done' ? '✓' : cls === 'frozen' ? <Ico n="freeze" /> : ''}</i>{DAY_LETTERS[i]}</span>
-            })}
+          <div className="today-main">
+            <div className="streak-line">
+              <span className={`flame${counted ? ' lit' : ''}`} aria-hidden><Ico n="flame" fill={counted} /></span>
+              <b className="readout">{st.current}</b>
+              <span>day streak</span>
+              {fz > 0 && <span className="freeze" title={`${fz} streak freeze${fz > 1 ? 's' : ''}: a missed day won't break your streak`}>{Array.from({ length: fz }, (_, i) => <Ico key={i} n="freeze" />)}</span>}
+            </div>
+            <p className="today-msg">{headline}</p>
+            <div className="week-strip" aria-label="This week">
+              {weekDays.map((k, i) => {
+                const ld = logs[k]
+                const cls = dayCounts(ld) ? 'done' : ld?.frozen ? 'frozen' : k === today ? 'today' : k > today ? 'future' : 'missed'
+                return <span key={k} className={`wd ${cls}`} title={k}><i>{cls === 'done' ? '✓' : cls === 'frozen' ? <Ico n="freeze" /> : ''}</i>{DAY_LETTERS[i]}</span>
+              })}
+            </div>
+            <div className="level-line">
+              <span className="small"><b>Level {lv.level}</b> {lv.title}</span>
+              <div className="xp-bar" title={`${lv.into} of ${lv.need} XP to level ${lv.level + 1}`}><div style={{ width: `${(lv.into / lv.need) * 100}%` }} /></div>
+              <span className="small muted">{lv.need - lv.into} XP to go</span>
+            </div>
           </div>
-          <div className="level-line">
-            <span className="small"><b>Level {lv.level}</b> {lv.title}</span>
-            <div className="xp-bar" title={`${lv.into} of ${lv.need} XP to level ${lv.level + 1}`}><div style={{ width: `${(lv.into / lv.need) * 100}%` }} /></div>
-            <span className="small muted">{lv.need - lv.into} XP to go</span>
+          <div className="away-switch" role="group" aria-label="Do you have your instrument?">
+            <button aria-pressed={!away} onClick={() => away && toggleAway(false)}>With my {inst.noun}</button>
+            <button aria-pressed={away} onClick={() => !away && toggleAway(true)}>I'm away from my {inst.noun}</button>
           </div>
-        </div>
-        <div className="away-switch" role="group" aria-label="Do you have your instrument?">
-          <button aria-pressed={!away} onClick={() => away && toggleAway(false)}>With my {inst.noun}</button>
-          <button aria-pressed={away} onClick={() => !away && toggleAway(true)}>I'm away from my {inst.noun}</button>
-        </div>
-        {awayNote && <p className="small away-note" role="status">{awayNote}</p>}
-      </Win>
-            {askAbout && (
-              <Win id="aboutq" title="Make the plan yours" className="panel about-card" extra={<button className="btn sm ghost" onClick={skipProfile}>Not now</button>}>
-                <p className="small muted" style={{ margin: 0 }}>Three quick questions, and today's plan picks songs and practice at your level.</p>
-                <ProfileForm />
-              </Win>
-            )}
-            <Win id="plan" title="Today's plan" className="panel plan">
-              <div className="sec-head">
-                <span className="small muted">{planDone}/{plan.length} done · about {plan.reduce((a, p) => a + p.minutes, 0)} min</span>
-              </div>
-              <ol className="plan-list">
-                {plan.map(p => (
-                  <li key={p.id}>
-                    <button className={p.done ? 'done' : ''} onClick={() => launch(p.go)}>
-                      <span className="plan-check" aria-label={p.done ? 'done' : 'to do'}>{p.done ? '✓' : ''}</span>
-                      <span className="plan-text"><b>{p.title}</b><span className="small muted">{p.detail}</span></span>
-                      <span className="small muted plan-min">{p.minutes}′</span>
-                    </button>
-                  </li>
-                ))}
-              </ol>
-            </Win>
-            <Win id="coach" title="From your coach" className="panel"><CoachToday /></Win>
-            <Win id="sessions" title="My practice sessions" className="panel"><MySessions /></Win>
-            <Win id="quests" title="Daily quests" className="panel quests">
-              <div className="sec-head">
-                <span className="small muted">{questsDone}/{quests.length} done · new ones tomorrow</span>
-              </div>
-              <ul className="quest-list">
-                {quests.map(q => {
-                  const pr = questProgress(q, d)
-                  return (
-                    <li key={q.id} className={pr.done ? 'done' : ''}>
-                      <span className="quest-label">{q.label}</span>
-                      <div className="bar"><div style={{ width: `${(pr.value / q.target) * 100}%` }} /></div>
-                      <span className="small muted">{pr.done ? '✓' : `${pr.value}/${q.target}`} · {q.xp} XP</span>
-                    </li>
-                  )
-                })}
-              </ul>
-            </Win>
-            {st.total >= 5 && (!lastBackup() || Date.now() - lastBackup()! > 14 * 864e5) && (
-              <button className="backup-nudge" onClick={() => openGear()}>
-                <b>Back up your progress</b>
-                <span className="small muted">Last backup: {ago(lastBackup())}. Save your songs and {st.total} practice days to Google Drive in Settings.</span>
-              </button>
-            )}
-      </WinArea>}
+          {awayNote && <p className="small away-note" role="status">{awayNote}</p>}
+        </Win>
 
-      {page === 'course' && (
-        <WinArea area="learnCourse" className="win-cols course-cols">
-            {inst.id === 'guitar' ? (
-            <Win id="path" title="Zero to Hero: your guitar plan" className="panel path">
-              <ZeroToHero onRecordings={() => push({ k: 'recordings' })} />
-            </Win>
-            ) : (
-            <Win id="path" title={`Path to mastery · stage ${si + 1} of ${path.length}`} className="panel path">
-              <div className="stage-dots" aria-hidden>{path.map((p, i) => <i key={p.id} className={i < si ? 'done' : i === si ? 'on' : ''} />)}</div>
-              <h3 style={{ margin: '4px 0 0' }}>{stage.title}</h3>
-              <p className="small muted" style={{ margin: 0 }}>{stage.why}</p>
-              <ul className="goal-list">
-                {stage.goals.map(g => (
-                  <li key={g.label}>
-                    <button className={g.done ? 'done' : ''} onClick={() => launch(g.go)} disabled={g.done}>
-                      <span className="plan-check">{g.done ? '✓' : ''}</span>
-                      <span>{g.label}{g.guitar && away && !g.done ? <span className="small muted"> (with your {inst.noun})</span> : null}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <button className="btn sm ghost" onClick={() => setAllStages(!allStages)}>{allStages ? 'Hide stages' : 'See every stage'}</button>
-              {allStages && (
-                <ol className="stage-list small">
-                  {path.map((p, i) => (
-                    <li key={p.id} className={i < si ? 'done' : i === si ? 'on' : ''}>
-                      <b>{p.title}</b> <span className="muted">{p.goals.filter(g => g.done).length}/{p.goals.length}</span>
+        {askAbout && (
+          <Win id="aboutq" title="Make the plan yours" className="panel about-card" extra={<button className="btn sm ghost" onClick={skipProfile}>Not now</button>}>
+            <p className="small muted" style={{ margin: 0 }}>Three quick questions, and today's plan picks songs and practice at your level.</p>
+            <ProfileForm />
+          </Win>
+        )}
+
+        {/* 2. Unified Practice Hub: Today's Plan + Coach | Zero to Hero | Sessions & Quests | Full Course Browser */}
+        <Win id="hub" title="Practice Hub" className="panel hub-win" bodyClass="stack" bodyStyle={{ gap: 10 }}>
+          <div className="seg hub-tabs" role="tablist" aria-label="Practice hub views" data-testid="learn-hub-tabs">
+            <button type="button" role="tab" className="btn sm" aria-pressed={hubTab === 'plan'} onClick={() => setHubTab('plan')} data-testid="hub-tab-plan">
+              Today's Plan{plan.length - planDone > 0 ? ` (${plan.length - planDone})` : ''}
+            </button>
+            <button type="button" role="tab" className="btn sm" aria-pressed={hubTab === 'z2h'} onClick={() => setHubTab('z2h')} data-testid="hub-tab-z2h">
+              {inst.id === 'guitar' ? 'Zero to Hero' : `Path (${si + 1}/${path.length})`}
+            </button>
+            <button type="button" role="tab" className="btn sm" aria-pressed={hubTab === 'sessions'} onClick={() => setHubTab('sessions')} data-testid="hub-tab-sessions">
+              Sessions &amp; Quests ({questsDone}/{quests.length})
+            </button>
+            <button type="button" role="tab" className="btn sm" aria-pressed={hubTab === 'browse'} onClick={() => setHubTab('browse')} data-testid="hub-tab-browse">
+              📖 Full Course
+            </button>
+          </div>
+
+          {hubTab === 'plan' && (
+            <div className="stack" style={{ gap: 12 }} data-testid="hub-pane-plan">
+              <div className="plan">
+                <div className="sec-head">
+                  <b>Today's plan</b>
+                  <span className="small muted">{planDone}/{plan.length} done · about {plan.reduce((a, p) => a + p.minutes, 0)} min</span>
+                </div>
+                <ol className="plan-list">
+                  {plan.map(p => (
+                    <li key={p.id}>
+                      <button className={p.done ? 'done' : ''} onClick={() => launch(p.go)}>
+                        <span className="plan-check" aria-label={p.done ? 'done' : 'to do'}>{p.done ? '✓' : ''}</span>
+                        <span className="plan-text"><b>{p.title}</b><span className="small muted">{p.detail}</span></span>
+                        <span className="small muted plan-min">{p.minutes}′</span>
+                      </button>
                     </li>
                   ))}
                 </ol>
-              )}
-            </Win>
-            )}
-            <Win id="course" title="Practice course" className="panel course">
-              <div className="sec-head"><span className="small muted">tap or play the answers · 3 stars each</span></div>
-              <button className="btn primary course-next" onClick={() => push({ k: 'quiz', id: nq.id })}>Continue: {nq.title}</button>
-              <div className="units">
-                {units.map(u => {
-                  const earned = u.quizzes.reduce((a, q) => a + (s[q.id] ?? 0), 0)
-                  const open = unitOpen === u.unit
-                  return (
-                    <div key={u.unit} className={`unit${open ? ' open' : ''}`}>
-                      <button className="unit-head" aria-expanded={open} onClick={() => setOpenUnit(open ? '' : u.unit)}>
-                        <b>{u.unit}</b>
-                        <span className="small muted">{earned}/{u.quizzes.length * 3} ★</span>
-                        <div className="bar"><div style={{ width: `${(earned / (u.quizzes.length * 3)) * 100}%` }} /></div>
-                      </button>
-                      {open && (
-                        <ul className="quiz-list">
-                          {u.quizzes.map(q => (
-                            <li key={q.id}>
-                              <button onClick={() => push({ k: 'quiz', id: q.id })} className={q.id === nq.id ? 'next' : ''}>
-                                <span className="quiz-text"><b>{q.title}</b><span className="small muted">{q.desc}</span></span>
-                                <span className="quiz-meta">
-                                  <Stars n={s[q.id] ?? 0} />
-                                  <span className="small muted">{q.ear ? 'by ear' : q.mic ? 'tap or play' : 'tap'}</span>
-                                </span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  )
-                })}
               </div>
-            </Win>
-        </WinArea>
-      )}
+              <div className="hub-divider" />
+              <div className="stack" style={{ gap: 6 }}>
+                <b className="small muted" style={{ letterSpacing: '0.04em', textTransform: 'uppercase' }}>From your coach</b>
+                <CoachToday />
+              </div>
+            </div>
+          )}
+
+          {hubTab === 'z2h' && (
+            <div data-testid="hub-pane-z2h">
+              {inst.id === 'guitar' ? (
+                <ZeroToHero
+                  key={z2hPhase ?? 'cur'}
+                  initialPhase={z2hPhase}
+                  onRecordings={() => push({ k: 'recordings' })}
+                  onBrowseLessons={() => push({ k: 'lessons' })}
+                />
+              ) : (
+                <div className="path stack" style={{ gap: 8 }}>
+                  <div className="stage-dots" aria-hidden>{path.map((p, i) => <i key={p.id} className={i < si ? 'done' : i === si ? 'on' : ''} />)}</div>
+                  <h3 style={{ margin: '4px 0 0' }}>{stage.title}</h3>
+                  <p className="small muted" style={{ margin: 0 }}>{stage.why}</p>
+                  <ul className="goal-list">
+                    {stage.goals.map(g => (
+                      <li key={g.label}>
+                        <button className={g.done ? 'done' : ''} onClick={() => launch(g.go)} disabled={g.done}>
+                          <span className="plan-check">{g.done ? '✓' : ''}</span>
+                          <span>{g.label}{g.guitar && away && !g.done ? <span className="small muted"> (with your {inst.noun})</span> : null}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <button className="btn sm ghost" onClick={() => setAllStages(!allStages)}>{allStages ? 'Hide stages' : 'See every stage'}</button>
+                  {allStages && (
+                    <ol className="stage-list small">
+                      {path.map((p, i) => (
+                        <li key={p.id} className={i < si ? 'done' : i === si ? 'on' : ''}>
+                          <b>{p.title}</b> <span className="muted">{p.goals.filter(g => g.done).length}/{p.goals.length}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {hubTab === 'sessions' && (
+            <div className="stack" style={{ gap: 12 }} data-testid="hub-pane-sessions">
+              <div className="stack" style={{ gap: 6 }}>
+                <b>My practice sessions</b>
+                <MySessions />
+              </div>
+              <div className="hub-divider" />
+              <div className="quests stack" style={{ gap: 6 }}>
+                <div className="sec-head">
+                  <b>Daily quests</b>
+                  <span className="small muted">{questsDone}/{quests.length} done · new ones tomorrow</span>
+                </div>
+                <ul className="quest-list">
+                  {quests.map(q => {
+                    const pr = questProgress(q, d)
+                    return (
+                      <li key={q.id} className={pr.done ? 'done' : ''}>
+                        <span className="quest-label">{q.label}</span>
+                        <div className="bar"><div style={{ width: `${(pr.value / q.target) * 100}%` }} /></div>
+                        <span className="small muted">{pr.done ? '✓' : `${pr.value}/${q.target}`} · {q.xp} XP</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {hubTab === 'browse' && (
+            <div className="stack hub-browse" style={{ gap: 12 }} data-testid="hub-pane-browse">
+              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <div className="stack" style={{ gap: 2 }}>
+                  <b>Full Guitar &amp; Theory Curriculum</b>
+                  <span className="small muted">Look ahead at every lesson, phase, and style path — jump into anything anytime.</span>
+                </div>
+                <button type="button" className="btn sm primary" onClick={() => push({ k: 'lessons' })} data-testid="hub-open-lessons">
+                  📖 Open Full Lesson Library ({read}/{lessonsFor(inst.id).length} read)
+                </button>
+              </div>
+
+              {inst.id === 'guitar' && (() => {
+                const curZ = z2h()
+                return (
+                  <div className="stack" style={{ gap: 8 }}>
+                    <b className="small muted" style={{ letterSpacing: '0.04em', textTransform: 'uppercase' }}>Zero to Hero · All 5 Phases (Look Ahead)</b>
+                    <div className="stack" style={{ gap: 6 }}>
+                      {Z2H_PHASES.map(ph => {
+                        const topics = ph.weeks ? ph.weeks.flatMap(w => w.focus) : ph.focus
+                        const isCur = ph.n === curZ.phase
+                        const isPast = ph.n < curZ.phase
+                        return (
+                          <div key={ph.n} className={`hub-phase-card${isCur ? ' cur' : isPast ? ' done' : ''}`}>
+                            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <span>
+                                <b>Phase {ph.n}: {ph.title}</b>{' '}
+                                <span className="small muted">({ph.when})</span>
+                                {isCur && <span className="badge small" style={{ marginLeft: 6 }}>You are here</span>}
+                              </span>
+                              <button type="button" className="btn sm ghost" onClick={() => { setZ2hPhase(ph.n); setHubTab('z2h') }}>
+                                {isCur ? 'Open current' : `Look ahead: Phase ${ph.n} ›`}
+                              </button>
+                            </div>
+                            <p className="small muted" style={{ margin: '2px 0 4px' }}>{ph.why}</p>
+                            <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
+                              {topics.map(t => (
+                                <button
+                                  key={t.label}
+                                  type="button"
+                                  className="btn sm ghost hub-topic-chip"
+                                  disabled={!t.target}
+                                  onClick={() => t.target && launchTarget(t.target)}
+                                >
+                                  {t.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    <b className="small muted" style={{ letterSpacing: '0.04em', textTransform: 'uppercase', marginTop: 4 }}>Style Paths ({Z2H_PATHS.length} Genres)</b>
+                    <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                      {Z2H_PATHS.map(pth => (
+                        <button
+                          key={pth.id}
+                          type="button"
+                          className="btn sm ghost"
+                          onClick={() => setHubTab('z2h')}
+                          title={`Listen to ${pth.who}`}
+                        >
+                          🎸 {pth.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+        </Win>
+
+        {/* 3. Practice Course (Interactive Star Quizzes — Always Right Beside/Below!) */}
+        <Win id="course" title="Practice course" className="panel course">
+          <div className="sec-head" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span className="small muted">tap or play the answers · 3 stars each</span>
+            <button type="button" className="btn sm ghost" onClick={() => push({ k: 'lessons' })} data-testid="course-browse-lessons">
+              📖 All lessons
+            </button>
+          </div>
+          <button className="btn primary course-next" onClick={() => push({ k: 'quiz', id: nq.id })}>Continue: {nq.title}</button>
+          <div className="units">
+            {units.map(u => {
+              const earned = u.quizzes.reduce((a, q) => a + (s[q.id] ?? 0), 0)
+              const open = unitOpen === u.unit
+              return (
+                <div key={u.unit} className={`unit${open ? ' open' : ''}`}>
+                  <button className="unit-head" aria-expanded={open} onClick={() => setOpenUnit(open ? '' : u.unit)}>
+                    <b>{u.unit}</b>
+                    <span className="small muted">{earned}/{u.quizzes.length * 3} ★</span>
+                    <div className="bar"><div style={{ width: `${(earned / (u.quizzes.length * 3)) * 100}%` }} /></div>
+                  </button>
+                  {open && (
+                    <ul className="quiz-list">
+                      {u.quizzes.map(q => (
+                        <li key={q.id}>
+                          <button onClick={() => push({ k: 'quiz', id: q.id })} className={q.id === nq.id ? 'next' : ''}>
+                            <span className="quiz-text"><b>{q.title}</b><span className="small muted">{q.desc}</span></span>
+                            <span className="quiz-meta">
+                              <Stars n={s[q.id] ?? 0} />
+                              <span className="small muted">{q.ear ? 'by ear' : q.mic ? 'tap or play' : 'tap'}</span>
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </Win>
+
+        {st.total >= 5 && (!lastBackup() || Date.now() - lastBackup()! > 14 * 864e5) && (
+          <button className="backup-nudge" onClick={() => openGear()}>
+            <b>Back up your progress</b>
+            <span className="small muted">Last backup: {ago(lastBackup())}. Save your songs and {st.total} practice days to Google Drive in Settings.</span>
+          </button>
+        )}
+      </WinArea>}
 
       {page === 'exercises' && <ExercisesPage />}
       {page === 'explore' && (
