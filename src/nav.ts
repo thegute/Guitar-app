@@ -6,6 +6,7 @@ import { LICKS } from './licks/library'
 import { lickMinor } from './licks/chain'
 import { keyOptionId } from './tabs/transpose'
 import type { StrumChart } from './theory/harmonicFlow'
+import { openFloatingCard, setFloatTabDoc, type CardId } from './float/bus'
 
 /** The main sections in the nav bar. */
 export type Tab = 'play' | 'songs' | 'learn' | 'progressions' | 'sing' | 'tools'
@@ -77,8 +78,15 @@ export function openSongs(section: 'mine' | 'songbook' | 'practice' | 'add' | 's
   setSubPage('songs', section === 'add' ? 'add' : section === 'scan' ? 'scan' : 'library')
   go('songs')
 }
-/** Open the full Riff Scanner right in Songs → Riff Scanner (optionally picking Shorts/Listen or pre-filling a YouTube link). */
-export function openScanner(opts: { mode?: 'scan' | 'shorts' | 'listen'; link?: string } = {}) {
+
+/** Open a SongDoc inside the Floating Tab Preview popup (the "⧉ Float" button beside "Open in Play"). */
+export function openFloatTab(doc: SongDoc) {
+  setFloatTabDoc(doc)
+  openFloatingCard('playtab')
+}
+
+/** Open the Riff Scanner — defaults to a draggable, resizable, opacity-adjustable Floating Popup (pass fullPage: true to jump to Songs → Scan). */
+export function openScanner(opts: { mode?: 'scan' | 'shorts' | 'listen'; link?: string; fullPage?: boolean } = {}) {
   try {
     if (opts.mode) localStorage.setItem('kg:scanMode', JSON.stringify(opts.mode))
     if (opts.link) localStorage.setItem('kg:scanLink', JSON.stringify(opts.link))
@@ -86,8 +94,12 @@ export function openScanner(opts: { mode?: 'scan' | 'shorts' | 'listen'; link?: 
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
     window.dispatchEvent(new CustomEvent('kg-open-scanner', { detail: opts }))
   }
-  setSubPage('songs', 'scan')
-  go('songs')
+  if (opts.fullPage) {
+    setSubPage('songs', 'scan')
+    go('songs')
+  } else {
+    openFloatingCard('scanner')
+  }
 }
 /** Open Songs → Library filtered to a specific key (`"7:1"` for Em, or `"all"`). */
 export function openSongsInKey(keyId: string, show: 'all' | 'songbook' | 'mine' = 'all') {
@@ -112,8 +124,8 @@ export function openExercisesFiltered(opts: { worksOver?: string; tech?: string;
   } catch { /* private */ }
   learnGo({ learn: 'exercises' })
 }
-/** Open Must-Know Licks filtered by key; falls back cleanly to transposed want-key on keys without native must-know licks. */
-export function openLicksInKey(root: string, minor: boolean, opts?: { worksOver?: string }) {
+/** Open Must-Know Licks filtered by key — pops open Floating Licks & Fills by default (pass fullPage: true to jump to Learn → Licks). */
+export function openLicksInKey(root: string, minor: boolean, opts?: { worksOver?: string; fullPage?: boolean }) {
   const keyId = root && root !== 'all' ? keyOptionId(root, minor) : 'all'
   const hasNative = keyId !== 'all' && LICKS.some(l => l.must && keyOptionId(l.ref, lickMinor(l)) === keyId)
   const mustKey = hasNative ? keyId : 'all'
@@ -128,15 +140,17 @@ export function openLicksInKey(root: string, minor: boolean, opts?: { worksOver?
       window.dispatchEvent(new CustomEvent('kg-lickfilters', { detail: { style: 'all', worksOver, mustKey, want } }))
     }
   } catch { /* private */ }
-  learnGo({ licks: 'all' })
+  if (opts?.fullPage) learnGo({ licks: 'all' })
+  else openFloatingCard('licks')
 }
-/** Open Learn → Circle of Fifths directly on 'explore', 'masterclass' (6 chapters), or 'practice' (5 drills). */
-export function openCircleMastery(tab: 'explore' | 'masterclass' | 'practice' = 'masterclass') {
+/** Open Circle of Fifths — pops open Floating Circle & Key Sheet by default (pass fullPage: true for full Learn → Circle). */
+export function openCircleMastery(tab: 'explore' | 'masterclass' | 'practice' = 'masterclass', opts?: { fullPage?: boolean }) {
   try { localStorage.setItem('kg:circleTab', JSON.stringify(tab)) } catch { /* private */ }
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
     window.dispatchEvent(new CustomEvent('kg-circle-tab', { detail: tab }))
   }
-  learnGo({ tool: 'circle' })
+  if (opts?.fullPage) learnGo({ tool: 'circle' })
+  else openFloatingCard('circle')
 }
 // ---- one exercise from the exercise library (Learn → Exercises)
 let pendingExercise: string | null = null
@@ -156,17 +170,32 @@ export function takePendingExercise(): string | null {
   pendingExercise = null
   return c
 }
-/** Open a Jam page. Jam is Play with a band ('jam'), Strum Grid ('strum'), Flow Coach ('flow'), Make a beat ('beats'), Loop myself ('loop') and the Riff Scanner ('find').
- *  Older links: 'solo' (Solo over it, now floating cards over the band) opens the band; 'tab' (Make a tab) opens the tab maker
- *  in Learn → Exercises → Make your own, which uses the Jam progression. */
-export function openJam(page: 'jam' | 'strum' | 'flow' | 'solo' | 'tab' | 'find' | 'beats' | 'loop' = 'jam') {
+const JAM_PAGE_CARD: Record<string, CardId> = {
+  strum: 'strum',
+  beats: 'beats',
+  loop: 'looper',
+  flow: 'flow',
+  find: 'scanner',
+  jam: 'strum',
+  solo: 'strum',
+}
+/** Open a Jam tool: by default pops open a Floating Popup Window right over your current screen (with opacity, resize & ↗ Full Page).
+ *  Pass `{ fullPage: true }` to navigate directly to the full Jam tab. */
+export function openJam(
+  page: 'jam' | 'strum' | 'flow' | 'solo' | 'tab' | 'find' | 'beats' | 'loop' = 'jam',
+  opts: { fullPage?: boolean } = {},
+) {
   if (page === 'tab') {
     try { localStorage.setItem('kg:exSection', JSON.stringify('make')) } catch { /* private */ }
     learnGo({ learn: 'exercises' })
     return
   }
-  setSubPage('jam', page === 'solo' ? 'jam' : page)
-  go('progressions')
+  if (opts.fullPage) {
+    setSubPage('jam', page === 'solo' ? 'jam' : page)
+    go('progressions')
+    return
+  }
+  openFloatingCard(JAM_PAGE_CARD[page] ?? 'strum')
 }
 
 export interface FlowOpenOpts {
@@ -177,6 +206,7 @@ export interface FlowOpenOpts {
   mode?: 'free' | 'pathfinder'
   view?: 'path' | 'vibe' | 'shift' | 'detect'
   targetTab?: 'jam' | 'chords'
+  fullPage?: boolean
 }
 
 let pendingFlow: FlowOpenOpts | null = null
@@ -191,24 +221,29 @@ export function takePendingFlow(): FlowOpenOpts | null {
   return o
 }
 
-/** Open the Harmonic Flow Coach (optionally seeded with a key, starting chord, or Pathfinder challenge mode). */
+/** Open the Harmonic Flow Coach — floats as a popup by default (pass fullPage: true to navigate full-screen). */
 export function openFlowCoach(opts: FlowOpenOpts = {}) {
   pendingFlow = opts
   flowListeners.forEach(f => f(opts))
-  if (opts.targetTab === 'chords') {
-    try { localStorage.setItem('kg:chordsSubTab', JSON.stringify('flow')) } catch { /* private */ }
-    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-      window.dispatchEvent(new CustomEvent('kg-chords-subtab', { detail: 'flow' }))
+  if (opts.fullPage) {
+    if (opts.targetTab === 'chords') {
+      try { localStorage.setItem('kg:chordsSubTab', JSON.stringify('flow')) } catch { /* private */ }
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('kg-chords-subtab', { detail: 'flow' }))
+      }
+      go('chords')
+    } else {
+      openJam('flow', { fullPage: true })
     }
-    go('chords')
-  } else {
-    openJam('flow')
+    return
   }
+  openFloatingCard('flow')
 }
 
 export interface StrumOpenOpts {
   chart?: StrumChart
   autoPlay?: boolean
+  fullPage?: boolean
 }
 let pendingStrum: StrumOpenOpts | null = null
 const strumListeners = new Set<(o: StrumOpenOpts) => void>()
@@ -222,11 +257,15 @@ export function takePendingStrum(): StrumOpenOpts | null {
   return o
 }
 
-/** Open Strum Grid (optionally loading a chord chart and starting playback immediately). */
+/** Open Strum Machine — pops open as a draggable, resizable, opacity-adjustable Floating Popup by default (pass fullPage: true for full tab). */
 export function openStrumGrid(opts: StrumOpenOpts = {}) {
   pendingStrum = opts
   strumListeners.forEach(f => f(opts))
-  openJam('strum')
+  if (opts.fullPage) {
+    openJam('strum', { fullPage: true })
+  } else {
+    openFloatingCard('strum')
+  }
 }
 
 // ---- links from anywhere (search) into Learn's pages, Play's controls, and tools that read their settings on open

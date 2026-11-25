@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react'
 import { useInstrument } from '../instrument'
 import { EX_SCALES } from '../tabs/exercises'
 import { saveSong, type SongDoc } from '../tabs/library'
-import { playAction } from '../nav'
+import { openFloatTab, playAction } from '../nav'
 import { Chips, KeyPicker, usePersist } from '../components/Controls'
 import { Preview } from '../components/ProgressionTabs'
 import { rig } from '../audio/rig'
@@ -273,7 +273,10 @@ export function DrillLabPanel({ onOpen }: { onOpen: (d: SongDoc) => void }) {
       {built ? (
         <>
           <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
             <button className="btn primary" onClick={() => onOpen(built.doc)}>Open in Play</button>
+            <button className="btn" onClick={() => openFloatTab(built.doc)} title="Pop out a floating opacity-adjustable tab preview">⧉ Float Tab</button>
+          </div>
             <button className="btn" data-testid="drill-lab-ramp" title="Opens this drill in Play looped in In time with Speed trainer ramping from 70% up to 100%"
               onClick={() => void (async () => {
                 const lastBar = Math.max(0, (built.doc.song.tracks[0]?.bars.length ?? 1) - 1)

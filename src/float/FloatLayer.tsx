@@ -29,6 +29,38 @@ import {
 } from './bus'
 import { PocketBandBody, PocketDrummerBody } from './PocketBandCard'
 import { BookRefBody, CircleCardBody, LicksCardBody, StickyNoteBody } from './CreativeCards'
+import {
+  BeatsFloatBody,
+  FlowFloatBody,
+  LooperFloatBody,
+  PlayTabFloatBody,
+  ScannerFloatBody,
+  StrumFloatBody,
+} from './JamFloatCards'
+import { getFloatTabDoc } from './bus'
+import { BackingVolumeBar } from '../jam/BackingVolumeBar'
+import { openCircleMastery, openFlowCoach, openInPlay, openJam, openLicksInKey, openScanner, openStrumGrid } from '../nav'
+import type { SongDoc } from '../tabs/library'
+
+const FULL_PAGE_CARDS = new Set<CardId>(['strum', 'beats', 'looper', 'flow', 'scanner', 'playtab', 'licks', 'circle'])
+
+function openCardFullPage(kind: CardId, screen: string, uid: string) {
+  removeCardInstance(screen, uid)
+  switch (kind) {
+    case 'strum': openStrumGrid({ fullPage: true }); break
+    case 'beats': openJam('beats', { fullPage: true }); break
+    case 'looper': openJam('loop', { fullPage: true }); break
+    case 'flow': openFlowCoach({ fullPage: true }); break
+    case 'scanner': openScanner({ fullPage: true }); break
+    case 'licks': openLicksInKey('all', false, { fullPage: true }); break
+    case 'circle': openCircleMastery('masterclass', { fullPage: true }); break
+    case 'playtab': {
+      const doc = getFloatTabDoc<SongDoc>()
+      if (doc) openInPlay(doc)
+      break
+    }
+  }
+}
 
 export function FloatLayer() {
   const screen = useFloatScreen()
@@ -61,8 +93,13 @@ export function FloatLayer() {
         const isExpandedNeck = id === 'neck' && (neckExpanded[inst.uid] ?? (localStorage.getItem('kg:floatNeck5Layer') === '1'))
         const copyNum = inst.uid.includes('-') ? ` #${inst.uid.split('-').pop()}` : ''
         const title = (isExpandedNeck ? '5-Layer Fretboard' : card.title) + copyNum
-        const width = isExpandedNeck ? 440 : id === 'band' || id === 'book' || id === 'licks' ? 350 : id === 'drummer' || id === 'circle' || id === 'video' ? 320 : id === 'neck' ? 300 : id === 'hand' || id === 'note' || id === 'mixer' ? 280 : 230
-        const minW = isExpandedNeck ? 280 : id === 'band' || id === 'book' || id === 'licks' || id === 'drummer' ? 250 : id === 'video' || id === 'circle' ? 220 : id === 'hand' ? 190 : 160
+        const isPageCard = id === 'strum' || id === 'beats' || id === 'looper' || id === 'flow' || id === 'scanner' || id === 'playtab'
+        const width = isPageCard
+          ? Math.min(540, typeof innerWidth === 'number' ? Math.max(310, innerWidth - 28) : 480)
+          : isExpandedNeck ? 440 : id === 'band' || id === 'book' || id === 'licks' ? 350 : id === 'drummer' || id === 'circle' || id === 'video' ? 320 : id === 'neck' ? 300 : id === 'hand' || id === 'note' || id === 'mixer' ? 280 : 230
+        const minW = isPageCard
+          ? 280
+          : isExpandedNeck ? 280 : id === 'band' || id === 'book' || id === 'licks' || id === 'drummer' ? 250 : id === 'video' || id === 'circle' ? 220 : id === 'hand' ? 190 : 160
         return (
           <FloatCard
             key={`${screen}:${inst.uid}`}
@@ -95,7 +132,7 @@ export function FloatLayer() {
   )
 }
 
-/** Tiny `+` (Open New Card) and `▾` (Switch / Expand / Remove) buttons in every floating card's title bar. */
+/** Tiny `↗` (Full Page), `+` (Open New Card) and `▾` (Switch / Expand / Remove) buttons in every floating card's title bar. */
 function CardHeaderControls({ screen, inst, all, neck5Layer, onToggle5Layer }: {
   screen: string
   inst: CardInstance
@@ -117,6 +154,17 @@ function CardHeaderControls({ screen, inst, all, neck5Layer, onToggle5Layer }: {
   const options = CARDS
   return (
     <span className="fc-menu-wrap row" ref={wrap} style={{ gap: 2, flexWrap: 'nowrap' }} data-no-drag>
+      {FULL_PAGE_CARDS.has(inst.kind) && (
+        <button
+          className="fc-btn"
+          onClick={() => openCardFullPage(inst.kind, screen, inst.uid)}
+          aria-label={`Open ${inst.kind} full page`}
+          title="Open as full page"
+          data-testid={`fc-fullpage-${inst.uid}`}
+        >
+          ↗
+        </button>
+      )}
       <button
         className={`fc-btn${menu === 'add' ? ' on' : ''}`}
         onClick={() => setMenu(m => (m === 'add' ? null : 'add'))}
@@ -285,6 +333,12 @@ function LiveHandFloatBody({ ctx }: { ctx: FloatCtx }) {
 
 function Body({ uid, id, ctx: c, neck5Layer, onToggle5Layer }: { uid: string; id: CardId; ctx: FloatCtx; neck5Layer: boolean; onToggle5Layer: () => void }) {
   switch (id) {
+    case 'strum': return <StrumFloatBody />
+    case 'beats': return <BeatsFloatBody />
+    case 'looper': return <LooperFloatBody />
+    case 'flow': return <FlowFloatBody />
+    case 'scanner': return <ScannerFloatBody />
+    case 'playtab': return <PlayTabFloatBody />
     case 'hand': return <LiveHandFloatBody ctx={c} />
     case 'drummer': return <PocketDrummerBody ctx={c} />
     case 'band': return <PocketBandBody />
@@ -549,6 +603,7 @@ function MixerBody({ band }: { band?: FloatCtx['band'] }) {
   const anyOff = MIX_PARTS.some(p => isMuted(p.id) || isSolo(p.id))
   return (
     <div className="fc-mixer stack" style={{ gap: 6 }} data-testid="fc-mixer">
+      <BackingVolumeBar compact />
       {!band && <p className="small muted" style={{ margin: 0 }}>This song has no band: only your part (the guide) plays along.</p>}
       {parts.map(p => (
         <div key={p.id} className={`fc-mix-row${audible(p.id) ? '' : ' off'}`}>

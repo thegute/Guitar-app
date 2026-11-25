@@ -65,12 +65,19 @@ export function emitBandAddChord(chord: string) { bandChordListeners.forEach(f =
 export type CardId =
   | 'hand' | 'chord' | 'neck' | 'feedback' | 'bar' | 'tempo' | 'tuner' | 'video' | 'timer' | 'mixer'
   | 'drummer' | 'band' | 'licks' | 'circle' | 'note' | 'book'
+  | 'strum' | 'beats' | 'looper' | 'flow' | 'scanner' | 'playtab'
 
 export type CardIcon =
   | 'hand' | 'music' | 'layers' | 'ear' | 'target' | 'zap' | 'guitar' | 'film' | 'timer' | 'sliders'
-  | 'drum' | 'sparkles' | 'book' | 'file' | 'disc'
+  | 'drum' | 'sparkles' | 'book' | 'file' | 'disc' | 'loop'
 
 export const CARDS: { id: CardId; title: string; icon: CardIcon; hint: string; group?: 'core' | 'band' | 'ref' }[] = [
+  { id: 'strum', title: 'AI Strum Machine', icon: 'guitar', group: 'band', hint: 'Floating AI Strum Machine: 47 styles, Intro/Verse/Chorus/Solo, Backing Vol, Keys/Synth & Capo' },
+  { id: 'beats', title: 'AI Beat Maker', icon: 'drum', group: 'band', hint: 'Floating AI Beat Maker: 47 styles, Simple Loop or Full Song, Backing Vol, Band Sliders & Record Guitar' },
+  { id: 'looper', title: '4-Track Looper', icon: 'loop', group: 'band', hint: 'Synced 4-track guitar looper floating right over any tab, scale, or jam chart' },
+  { id: 'flow', title: 'Harmonic Flow', icon: 'sparkles', group: 'band', hint: 'Live chord-flow explorer and progression builder floating over your current screen' },
+  { id: 'scanner', title: 'Riff Scanner', icon: 'ear', group: 'ref', hint: 'Scan YouTube or audio riffs right over your current screen' },
+  { id: 'playtab', title: 'Floating Tab', icon: 'file', group: 'ref', hint: 'Compact floating tab/chord preview with Play, Speed & Full Page jump' },
   { id: 'hand', title: 'Hand Coach', icon: 'hand', group: 'core', hint: 'Live Left-Hand Coach: 4-fret finger lanes (1–4), active press, hold anchors, next note & shifts' },
   { id: 'neck', title: '5-Layer Fretboard', icon: 'layers', group: 'core', hint: 'Mini neck or expanded 5-Layer Fretboard (Shape · Triads · Pentatonic · Mode · Free fingers)' },
   { id: 'drummer', title: 'Pocket Drummer', icon: 'drum', group: 'band', hint: 'Drums by themselves across all 7 styles, kits, My Beat Maker, Tap Tempo, Gap Click & AI fills' },
@@ -156,6 +163,37 @@ export function addCardInstance(screen: string, kind: CardId): string {
   }
   setShownInstances(screen, [...cur, { uid, kind }])
   return uid
+}
+
+/** Ensure a floating popup of `kind` is open & visible right on top of the current screen (used by "Open in..." / "Send to..."). */
+export function openFloatingCard(kind: CardId, screen: string = screenNow): string {
+  setCleanStage(false)
+  setFloatResting(screen, false)
+  const cur = shownInstances(screen)
+  const existing = cur.find(x => x.kind === kind)
+  if (existing) {
+    // Un-minimize if shrunk to a bubble and bring to front
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('kg-float-minall', { detail: { min: false } }))
+    }
+    return existing.uid
+  }
+  return addCardInstance(screen, kind)
+}
+
+/** Floating Tab Preview doc bus (for the "⧉ Float" button beside "Open in Play"). */
+let floatTabDoc: unknown = null
+const floatTabListeners = new Set<() => void>()
+export function setFloatTabDoc(doc: unknown) {
+  floatTabDoc = doc
+  floatTabListeners.forEach(f => f())
+}
+export function getFloatTabDoc<T = unknown>(): T | null {
+  return (floatTabDoc as T | null) ?? null
+}
+export function onFloatTabDoc(f: () => void) {
+  floatTabListeners.add(f)
+  return () => { floatTabListeners.delete(f) }
 }
 
 export function removeCardInstance(screen: string, uid: string) {
