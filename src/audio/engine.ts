@@ -12,13 +12,13 @@
 //   worklet is ready (a few ms after the first sound) and on browsers without AudioWorklet, a transparent safety
 //   limiter (DynamicsCompressor set as a brickwall) stands in.
 // - The live guitar (interface setup, rig.ts) joins at `finalOut()`: after the master, before the mono fold.
-import { monoOut, onRig } from './rig'
+import { monoOut, onRig, rig, type RigId } from './rig'
 import { busChain, makeReturns, SEND_DEFAULTS, type Returns, type Send } from '../engine/console'
 import { notifyAudioPulse, setClockTimeProvider } from '../engine/clock'
 import { ensureSamplerWorklet } from '../engine/sampler'
 
 let ctx: AudioContext | null = null
-/** what features call "the output": the master's input */
+/** what features call "the output": the master's input (ALL app backing tracks / beats / strums, isolated from live guitar!) */
 let masterIn: GainNode | null = null
 /** stands in for the worklet master until it's ready (and for good where AudioWorklet is missing) */
 let fallback: DynamicsCompressorNode | null = null
@@ -27,12 +27,48 @@ let fold: GainNode | null = null
 /** after the master, before the mono fold: your guitar played back through an interface */
 let finalIn: GainNode | null = null
 
+const BACKING_DEF: Record<RigId, number> = { pedal: 0.55, stereo: 1, interface: 0.8 }
+const backingListeners = new Set<() => void>()
+function backingKey(r: RigId = rig()) { return `kg:backingVol:${r}` }
+
+/** Isolated master level for KGuitar's beats, strums & band (0–1.0), remembered per gear setup. Never affects your guitar pedal! */
+export function backingMaster(r: RigId = rig()): number {
+  try {
+    const raw = localStorage.getItem(backingKey(r))
+    if (raw !== null) {
+      const n = Number(raw)
+      if (Number.isFinite(n)) return Math.max(0, Math.min(1, n))
+    }
+  } catch { /* private */ }
+  return BACKING_DEF[r]
+}
+function applyBackingMaster() {
+  if (masterIn && ctx) {
+    masterIn.gain.setTargetAtTime(backingMaster(), ctx.currentTime, 0.025)
+  }
+}
+/** Set KGuitar's isolated backing-track master volume (0–1.0) without touching your guitar pedal or guitar monitor gain. */
+export function setBackingMaster(v: number, r: RigId = rig()) {
+  const x = Math.round(Math.max(0, Math.min(1, v)) * 100) / 100
+  try { localStorage.setItem(backingKey(r), String(x)) } catch { /* private */ }
+  applyBackingMaster()
+  backingListeners.forEach(f => f())
+}
+export function onBackingMaster(f: () => void) {
+  backingListeners.add(f)
+  return () => { backingListeners.delete(f) }
+}
+
 function applyFold() {
   if (!fold) return
   // 'explicit' + 'speakers': one channel = (L + R) / 2, which the output then sends to both sides
   fold.channelCount = monoOut() ? 1 : 2
 }
-onRig(applyFold)
+onRig(() => {
+  applyFold()
+  applyBackingMaster()
+  backingListeners.forEach(f => f())
+})
 
 /** Glue and limiter meters (dB of gain reduction, ~20 times a second) for a mixer view or tests. */
 export const masterMeter = { glue: 0, limit: 0, ready: false }
@@ -66,6 +102,7 @@ export function audio(): AudioContext {
     setClockTimeProvider(() => ctx!.currentTime)
     masterIn = ctx.createGain()
     masterIn.channelCount = 2
+    masterIn.gain.value = backingMaster()
     // the stand-in: a fast brickwall just under full scale (transparent until something would clip)
     fallback = ctx.createDynamicsCompressor()
     fallback.threshold.value = -1.5

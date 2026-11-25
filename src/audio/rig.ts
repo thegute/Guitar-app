@@ -83,8 +83,8 @@ export const monitorVol = () => load().monitorVol
 
 export function setStereoWithPedal(on: boolean) { stereoWithPedal = on; changed() }
 export const stereoOverride = () => stereoWithPedal
-export function setMonitor(on: boolean, vol?: number) { save({ monitor: on, ...(vol !== undefined ? { monitorVol: vol } : {}) }) }
-export function setMonitorVol(vol: number) { save({ monitorVol: Math.max(0, Math.min(1.5, vol)) }) }
+export function setMonitor(on: boolean, vol?: number) { save({ monitor: on, ...(vol !== undefined ? { monitorVol: Math.max(0, Math.min(2.5, vol)) } : {}) }) }
+export function setMonitorVol(vol: number) { save({ monitorVol: Math.max(0, Math.min(2.5, vol)) }) }
 /** "This is my pedal + wireless" for an input with a generic name; false forgets it. */
 export function markPedal(label: string, on: boolean) {
   const p = load().pedals.filter(x => x !== label)

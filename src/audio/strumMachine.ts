@@ -33,6 +33,19 @@ import {
 } from '../theory/harmonicFlow'
 import { keyPrefersFlats, pc } from '../theory/notes'
 
+export type SynthChordVoiceId =
+  | 'juno'
+  | 'prophet'
+  | 'lofikeys'
+  | 'wurli'
+  | 'fmglass'
+  | 'shimmer'
+  | 'moogpoly'
+  | 'clavinet'
+  | 'warmpad'
+  | 'supersaw'
+  | 'pluck'
+
 export type ChordVoiceId =
   | 'auto'
   | SoundId
@@ -43,8 +56,26 @@ export type ChordVoiceId =
   | 'grand'
   | 'banjo'
   | 'ambient'
+  | SynthChordVoiceId
 
-export type BassVoiceId = 'auto' | BassKind | 'upbass' | 'synthbass' | 'sub808' | 'off'
+export type KeysVoiceId =
+  | 'off'
+  | 'juno'
+  | 'prophet'
+  | 'lofikeys'
+  | 'wurli'
+  | 'fmglass'
+  | 'shimmer'
+  | 'moogpoly'
+  | 'clavinet'
+  | 'rhodes'
+  | 'organ'
+  | 'grand'
+  | 'strings'
+  | 'warmpad'
+  | 'ambient'
+
+export type BassVoiceId = 'auto' | BassKind | 'upbass' | 'synthbass' | 'moogbass' | 'reesebass' | 'sub808' | 'off'
 export type DrumKitOverride = 'auto' | KitId | 'perc' | 'off'
 export type StrumMotionId = 'auto' | 'strum' | 'arpeggio' | 'pad' | 'chug' | 'skank'
 
@@ -59,14 +90,35 @@ export const STRUM_MOTIONS: { id: StrumMotionId; label: string }[] = [
 
 export interface StrumVolumes {
   chords: number
+  keys: number
   bass: number
   drums: number
 }
 
 export interface StrumMutes {
   chords: boolean
+  keys: boolean
   bass: boolean
   drums: boolean
+}
+
+export interface StrumSectionSpan {
+  name: string
+  startBar: number
+  endBar: number
+}
+
+/** Extract named sections (Intro, Verse, Chorus, Solo, Outro...) and their bar ranges from a StrumChart. */
+export function chartSections(chart: StrumChart): StrumSectionSpan[] {
+  const out: StrumSectionSpan[] = []
+  chart.bars.forEach((b, i) => {
+    const label = b.section?.trim()
+    if (label) {
+      if (out.length) out[out.length - 1].endBar = i - 1
+      out.push({ name: label, startBar: i, endBar: chart.bars.length - 1 })
+    }
+  })
+  return out
 }
 
 export interface SpeedUpConfig {
@@ -90,6 +142,8 @@ export interface StrumState {
   nextChord: string
   /** Concert-pitch sounding chord (with capo applied). */
   soundingChord: string
+  /** Optional active section loop (e.g. 'Chorus' or 'Solo'), null = play full chart. */
+  loopSection: string | null
   /** Flow Coach live override mode: loops a single chord and transitions smoothly on Beat 1. */
   flowMode: boolean
   flowChord: string | null
@@ -99,6 +153,7 @@ export interface StrumState {
   loopCount: number
   keepAcrossPages: boolean
   chordVoice: ChordVoiceId
+  keysVoice: KeysVoiceId
   bassVoice: BassVoiceId
   drumKit: DrumKitOverride
   motion: StrumMotionId
@@ -118,7 +173,7 @@ export interface VoiceOption {
 
 const PREFS_KEY = 'kg:strumPrefs'
 
-function loadPrefs(): Partial<Pick<StrumState, 'chordVoice' | 'bassVoice' | 'drumKit' | 'volumes' | 'mutes' | 'countIn' | 'keepAcrossPages'>> {
+function loadPrefs(): Partial<Pick<StrumState, 'chordVoice' | 'keysVoice' | 'bassVoice' | 'drumKit' | 'volumes' | 'mutes' | 'countIn' | 'keepAcrossPages'>> {
   try {
     const raw = localStorage.getItem(PREFS_KEY)
     return raw ? JSON.parse(raw) : {}
@@ -133,6 +188,7 @@ function savePrefs(s: StrumState) {
       PREFS_KEY,
       JSON.stringify({
         chordVoice: s.chordVoice,
+        keysVoice: s.keysVoice,
         bassVoice: s.bassVoice,
         drumKit: s.drumKit,
         volumes: s.volumes,
@@ -144,7 +200,7 @@ function savePrefs(s: StrumState) {
   } catch { /* private */ }
 }
 
-/** Build the live list of Chord/Guitar voice choices (Auto + built-in guitars + all imported .kgpack guitars + Orchestra & Keys). */
+/** Build the live list of Chord/Guitar voice choices (Auto + built-in guitars + .kgpack guitars + Orchestra, Keys & New Synths). */
 export function chordVoiceOptions(): VoiceOption[] {
   const opts: VoiceOption[] = [{ id: 'auto', label: 'Auto (match style)', group: 'Smart' }]
   for (const s of allSounds()) {
@@ -155,6 +211,17 @@ export function chordVoiceOptions(): VoiceOption[] {
     })
   }
   opts.push(
+    { id: 'juno', label: 'Juno 106 Chorus Pad', group: 'New Synths' },
+    { id: 'prophet', label: 'Prophet Analog Brass', group: 'New Synths' },
+    { id: 'lofikeys', label: 'Lo-Fi Tape Keys', group: 'New Synths' },
+    { id: 'wurli', label: 'Wurlitzer Funk EP', group: 'New Synths' },
+    { id: 'fmglass', label: 'FM Glass Keys (DX7)', group: 'New Synths' },
+    { id: 'shimmer', label: 'Dreamy Shimmer Pad', group: 'New Synths' },
+    { id: 'moogpoly', label: 'Deep Moog Poly', group: 'New Synths' },
+    { id: 'clavinet', label: 'Funk Clavinet', group: 'New Synths' },
+    { id: 'warmpad', label: 'Warm Analog Pad', group: 'New Synths' },
+    { id: 'supersaw', label: 'Supersaw Synth', group: 'New Synths' },
+    { id: 'pluck', label: 'Synth Pluck', group: 'New Synths' },
     { id: 'orchestra', label: 'Orchestral Strings (VSCO 2)', group: 'Orchestra & Keys' },
     { id: 'cinematic', label: 'Cinematic Strings + Horns', group: 'Orchestra & Keys' },
     { id: 'rhodes', label: 'Warm Rhodes Electric Piano', group: 'Orchestra & Keys' },
@@ -164,6 +231,27 @@ export function chordVoiceOptions(): VoiceOption[] {
     { id: 'ambient', label: 'Ambient Modal Pad', group: 'Orchestra & Keys' },
   )
   return opts
+}
+
+/** Companion Keys & Synth layer choices for Strum Machine's independent Keys slider. */
+export function keysVoiceOptions(): VoiceOption[] {
+  return [
+    { id: 'off', label: 'Off (No Extra Keys)', group: 'Off' },
+    { id: 'juno', label: 'Juno 106 Chorus Pad', group: 'New Synths' },
+    { id: 'prophet', label: 'Prophet Analog Brass', group: 'New Synths' },
+    { id: 'lofikeys', label: 'Lo-Fi Tape Keys', group: 'New Synths' },
+    { id: 'wurli', label: 'Wurlitzer Funk EP', group: 'New Synths' },
+    { id: 'fmglass', label: 'FM Glass Keys (DX7)', group: 'New Synths' },
+    { id: 'shimmer', label: 'Dreamy Shimmer Pad', group: 'New Synths' },
+    { id: 'moogpoly', label: 'Deep Moog Poly', group: 'New Synths' },
+    { id: 'clavinet', label: 'Funk Clavinet', group: 'New Synths' },
+    { id: 'rhodes', label: 'Warm Rhodes EP', group: 'Classic Keys' },
+    { id: 'organ', label: 'Hammond B3 Organ', group: 'Classic Keys' },
+    { id: 'grand', label: 'Salamander Grand Piano', group: 'Classic Keys' },
+    { id: 'strings', label: 'Orchestral Strings', group: 'Pads & Orchestra' },
+    { id: 'warmpad', label: 'Warm Analog Pad', group: 'Pads & Orchestra' },
+    { id: 'ambient', label: 'Ambient Modal Pad', group: 'Pads & Orchestra' },
+  ]
 }
 
 /** Build the live list of Bass voice choices. */
@@ -177,6 +265,8 @@ export function bassVoiceOptions(): VoiceOption[] {
     { id: 'modern', label: `Modern Punch / Metal Bass${mark('studiobass-modern')}`, group: 'Electric Bass' },
     { id: 'upright', label: `Acoustic Upright Bass${mark('studiobass-upright')}`, group: 'Acoustic Bass' },
     { id: 'upbass', label: 'Orchestral Contrabass', group: 'Acoustic Bass' },
+    { id: 'moogbass', label: 'Moog Funk Synth Bass', group: 'Synth' },
+    { id: 'reesebass', label: 'Deep Reese Sub Bass', group: 'Synth' },
     { id: 'synthbass', label: 'Analog Synth Bass', group: 'Synth' },
     { id: 'sub808', label: 'Deep 808 Sub', group: 'Synth' },
     { id: 'off', label: 'Off (No Bass)', group: 'Off' },
@@ -479,6 +569,7 @@ class StrumMachineEngine {
   private pendingCountIn = 0
   private lastUpperVoicing: number[] | null = null
   private chordBus: GainNode | null = null
+  private keysBus: GainNode | null = null
   private bassBus: GainNode | null = null
   private drumBus: GainNode | null = null
   private state: StrumState
@@ -488,6 +579,8 @@ class StrumMachineEngine {
     const initChart = BUILTIN_STRUM_CHARTS[0]
     const firstChord = initChart.bars[0]?.chords[0] ?? 'G'
     const nextChord = initChart.bars[1]?.chords[0] ?? firstChord
+    const savedVol = prefs.volumes
+    const savedMute = prefs.mutes
     this.state = {
       playing: false,
       chart: initChart,
@@ -501,6 +594,7 @@ class StrumMachineEngine {
       currentChord: firstChord,
       nextChord,
       soundingChord: firstChord,
+      loopSection: null,
       flowMode: false,
       flowChord: null,
       queuedFlowChord: null,
@@ -509,11 +603,22 @@ class StrumMachineEngine {
       loopCount: 0,
       keepAcrossPages: prefs.keepAcrossPages ?? true,
       chordVoice: prefs.chordVoice ?? 'auto',
+      keysVoice: prefs.keysVoice ?? 'off',
       bassVoice: prefs.bassVoice ?? 'auto',
       drumKit: prefs.drumKit ?? 'auto',
       motion: 'auto',
-      volumes: prefs.volumes ?? { chords: 0.9, bass: 0.9, drums: 0.85 },
-      mutes: prefs.mutes ?? { chords: false, bass: false, drums: false },
+      volumes: {
+        chords: savedVol?.chords ?? 0.9,
+        keys: savedVol?.keys ?? 0.65,
+        bass: savedVol?.bass ?? 0.9,
+        drums: savedVol?.drums ?? 0.85,
+      },
+      mutes: {
+        chords: savedMute?.chords ?? false,
+        keys: savedMute?.keys ?? false,
+        bass: savedMute?.bass ?? false,
+        drums: savedMute?.drums ?? false,
+      },
       speedUp: { on: false, step: 5, everyLoops: 2, max: 180 },
       floatNeckOpen: false,
       floatNeckFollow: 'key',
@@ -549,6 +654,10 @@ class StrumMachineEngine {
       this.chordBus = ctx.createGain()
       this.chordBus.connect(route('band', 'guitar'))
     }
+    if (!this.keysBus) {
+      this.keysBus = ctx.createGain()
+      this.keysBus.connect(route('band', 'keys'))
+    }
     if (!this.bassBus) {
       this.bassBus = ctx.createGain()
       this.bassBus.connect(route('band', 'bass'))
@@ -561,12 +670,21 @@ class StrumMachineEngine {
   }
 
   private syncBusGains() {
-    if (!this.chordBus || !this.bassBus || !this.drumBus) return
+    if (!this.chordBus || !this.keysBus || !this.bassBus || !this.drumBus) return
     const now = audio().currentTime
     const { volumes, mutes } = this.state
     this.chordBus.gain.setTargetAtTime(mutes.chords ? 0 : volumes.chords, now, 0.025)
+    this.keysBus.gain.setTargetAtTime(mutes.keys ? 0 : volumes.keys, now, 0.025)
     this.bassBus.gain.setTargetAtTime(mutes.bass ? 0 : volumes.bass, now, 0.025)
     this.drumBus.gain.setTargetAtTime(mutes.drums ? 0 : volumes.drums, now, 0.025)
+  }
+
+  private isNonGuitarVoice(v: string): boolean {
+    return (
+      v === 'orchestra' || v === 'cinematic' || v === 'rhodes' || v === 'organ' || v === 'grand' || v === 'banjo' || v === 'ambient' ||
+      v === 'juno' || v === 'prophet' || v === 'lofikeys' || v === 'wurli' || v === 'fmglass' || v === 'shimmer' ||
+      v === 'moogpoly' || v === 'clavinet' || v === 'warmpad' || v === 'supersaw' || v === 'pluck' || v === 'strings'
+    )
   }
 
   private preloadVoices() {
@@ -582,13 +700,17 @@ class StrumMachineEngine {
       void loadInstr('grand')
     } else if (cv === 'banjo') {
       void loadInstr('banjo')
-    } else if (cv !== 'organ' && cv !== 'ambient') {
+    } else if (!this.isNonGuitarVoice(cv)) {
       void loadSound(cv as SoundId)
     }
+    const kv = this.state.keysVoice
+    if (kv === 'rhodes') void loadInstr('epiano')
+    else if (kv === 'grand') void loadInstr('grand')
+    else if (kv === 'strings') void loadInstr('strings')
     if (this.state.style === 'bluegrass') void loadInstr('banjo')
     const bv = this.effectiveBassVoice()
     if (bv === 'upbass') void loadInstr('upbass')
-    else if (bv !== 'off' && bv !== 'synthbass' && bv !== 'sub808') void loadBank('bass')
+    else if (bv !== 'off' && bv !== 'synthbass' && bv !== 'sub808' && bv !== 'moogbass' && bv !== 'reesebass') void loadBank('bass')
     const dk = this.effectiveDrumKit()
     if (dk !== 'off' && dk !== 'perc') void prepareKit(dk)
   }
@@ -715,6 +837,7 @@ class StrumMachineEngine {
       bpm: chart.bpm,
       capo: chart.capo,
       beatsPerBar,
+      loopSection: null,
       flowMode: false,
       flowChord: null,
       queuedFlowChord: null,
@@ -732,6 +855,49 @@ class StrumMachineEngine {
     } else {
       this.emit()
     }
+  }
+
+  /** Lock playback to a single named section (e.g. 'Chorus' or 'Solo'), or null for the whole song. */
+  setLoopSection(sectionName: string | null) {
+    const sections = chartSections(this.state.chart)
+    const found = sectionName ? sections.find(s => s.name === sectionName) : null
+    const nextName = found ? found.name : null
+    this.state = { ...this.state, loopSection: nextName }
+    if (found) {
+      this.schedBarIdx = found.startBar
+      if (this.state.playing) {
+        this.start({ fromBar: found.startBar, skipCountIn: true })
+        return
+      }
+    }
+    this.emit()
+  }
+
+  /** 1-tap Guitarist Role mix: Lead (full band), Rhythm (mutes app guitar so YOU strum), Drums (drums + bass only). */
+  applyRole(role: 'lead' | 'rhythm' | 'drums') {
+    if (role === 'lead') {
+      this.state = {
+        ...this.state,
+        mutes: { ...this.state.mutes, chords: false, bass: false, drums: false, keys: false },
+      }
+    } else if (role === 'rhythm') {
+      // Mute app's guitar strums so the guitarist plays rhythm cleanly; turn on warm keys if currently off
+      const nextKeys: KeysVoiceId = this.state.keysVoice === 'off' ? 'rhodes' : this.state.keysVoice
+      this.state = {
+        ...this.state,
+        keysVoice: nextKeys,
+        mutes: { ...this.state.mutes, chords: true, bass: false, drums: false, keys: false },
+      }
+    } else {
+      this.state = {
+        ...this.state,
+        mutes: { ...this.state.mutes, chords: true, keys: true, bass: false, drums: false },
+      }
+    }
+    savePrefs(this.state)
+    this.preloadVoices()
+    this.syncBusGains()
+    this.emit()
   }
 
   updateChartBars(bars: StrumChart['bars']) {
@@ -785,6 +951,14 @@ class StrumMachineEngine {
     this.state = { ...this.state, chordVoice }
     savePrefs(this.state)
     this.preloadVoices()
+    this.emit()
+  }
+
+  setKeysVoice(keysVoice: KeysVoiceId) {
+    this.state = { ...this.state, keysVoice, mutes: { ...this.state.mutes, keys: keysVoice === 'off' ? true : false } }
+    savePrefs(this.state)
+    this.preloadVoices()
+    this.syncBusGains()
     this.emit()
   }
 
@@ -971,10 +1145,19 @@ class StrumMachineEngine {
         continue
       }
 
-      // 2) Schedule 1 full bar
+      // 2) Schedule 1 full bar (respecting optional loopSection range!)
       const barStart = this.nextBarTime
       const bars = this.state.chart.bars
+      const loopSpan = this.state.loopSection
+        ? chartSections(this.state.chart).find(s => s.name === this.state.loopSection) ?? null
+        : null
+      const minBar = loopSpan ? loopSpan.startBar : 0
+      const maxBar = loopSpan ? loopSpan.endBar : Math.max(0, bars.length - 1)
+      if (!this.state.flowMode && (this.schedBarIdx < minBar || this.schedBarIdx > maxBar)) {
+        this.schedBarIdx = minBar
+      }
       const barIdx = this.state.flowMode ? 0 : this.schedBarIdx % Math.max(1, bars.length)
+      const nextBarIdx = barIdx >= maxBar ? minBar : barIdx + 1
       let barChords: string[]
 
       if (this.state.flowMode) {
@@ -989,7 +1172,7 @@ class StrumMachineEngine {
 
       const nextBarChord = this.state.flowMode
         ? (this.state.queuedFlowChord ?? barChords[0])
-        : (bars[(barIdx + 1) % Math.max(1, bars.length)]?.chords[0] ?? barChords[0])
+        : (bars[nextBarIdx]?.chords[0] ?? barChords[0])
 
       // Push beat-by-beat UI events for smooth beat dots & split-bar highlights
       for (let b = 0; b < beatsPerBar; b++) {
@@ -1009,11 +1192,13 @@ class StrumMachineEngine {
         })
       }
 
-      // Schedule Audio for Drums, Bass, and Chords across this bar
+      // Schedule Audio for Drums, Bass, Chords, and companion Keys/Synth across this bar
+      const nextStartsSection = !this.state.flowMode && !!bars[nextBarIdx]?.section
+      const curStartsSection = !this.state.flowMode && !!bars[barIdx]?.section
       const isFillBar = !this.state.flowMode
-        ? ((barIdx + 1) % 4 === 0 || barIdx === bars.length - 1)
+        ? ((barIdx + 1) % 4 === 0 || barIdx === maxBar || nextStartsSection)
         : ((this.schedBarsPlayed + 1) % 4 === 0)
-      const isCrashBar = this.schedBarsPlayed === 0 || this.schedBarsPlayed % 4 === 0
+      const isCrashBar = this.schedBarsPlayed === 0 || curStartsSection || this.schedBarsPlayed % 4 === 0
 
       this.scheduleBarDrums(barStart, spb, beatsPerBar, isFillBar, isCrashBar)
 
@@ -1029,8 +1214,8 @@ class StrumMachineEngine {
 
       if (!this.state.flowMode) {
         this.schedBarIdx++
-        if (this.schedBarIdx >= Math.max(1, bars.length)) {
-          this.schedBarIdx = 0
+        if (this.schedBarIdx > maxBar) {
+          this.schedBarIdx = minBar
           this.schedLoopCount++
           // Auto Speed-Up BPM ramp
           const su = this.state.speedUp
@@ -1131,6 +1316,11 @@ class StrumMachineEngine {
     if (!this.state.mutes.chords && this.chordBus) {
       this.scheduleChords(parsed.rootPc, parsed.qual, segStart, spb, beats, beatOffset, style)
     }
+
+    // 3) Optional independent Keys / Synth companion layer (runs on its own keysBus!)
+    if (this.state.keysVoice !== 'off' && !this.state.mutes.keys && this.keysBus) {
+      this.playKeysOrStrings(this.state.keysVoice, parsed.rootPc, parsed.qual, segStart, beats * spb * 0.96, 0.78, this.keysBus)
+    }
   }
 
   private playOneBass(midi: number, when: number, dur: number, gain: number) {
@@ -1140,7 +1330,7 @@ class StrumMachineEngine {
     let h: Handle
     if (bv === 'upbass') {
       h = playInstr('upbass', midi, when, gain * 0.95, { dest: this.bassBus, dur })
-    } else if (bv === 'synthbass' || bv === 'sub808') {
+    } else if (bv === 'synthbass' || bv === 'sub808' || bv === 'moogbass' || bv === 'reesebass') {
       h = playInstr(bv, midi, when, gain * 0.85, { dest: this.bassBus, dur })
     } else {
       h = playBass(midi, when, gain, this.bassBus, bv)
@@ -1276,38 +1466,48 @@ class StrumMachineEngine {
   }
 
   private playKeysOrStrings(
-    voice: 'orchestra' | 'cinematic' | 'rhodes' | 'organ' | 'grand' | 'banjo' | 'ambient',
+    voice: string,
     rootPc: number,
     qual: ChordQual,
     when: number,
     dur: number,
     vel: number,
+    destNode?: GainNode,
   ) {
-    if (!this.chordBus) return
+    const dest = destNode ?? this.chordBus
+    if (!dest) return
     const { bass, upper } = voiceLeadSpread(rootPc, qual, this.lastUpperVoicing)
     this.lastUpperVoicing = upper
 
     if (voice === 'orchestra' || voice === 'cinematic') {
       // Real layered VSCO 2 Cellos + String Section + Violin top + warm wooden-formant blend
-      this.trackHandle(playInstr('cellos', bass, when, vel * 0.88, { dest: this.chordBus, dur: dur * 1.02 }))
+      this.trackHandle(playInstr('cellos', bass, when, vel * 0.88, { dest, dur: dur * 1.02 }))
       upper.forEach((m, idx) => {
         const micro = idx * 0.014
-        this.trackHandle(playInstr('strings', m, when + micro, vel * 0.78, { dest: this.chordBus!, dur: dur * 1.02 }))
-        this.trackHandle(playBowedLayer(m, when + micro, dur * 0.98, vel * 0.55, this.chordBus!))
+        this.trackHandle(playInstr('strings', m, when + micro, vel * 0.78, { dest, dur: dur * 1.02 }))
+        this.trackHandle(playBowedLayer(m, when + micro, dur * 0.98, vel * 0.55, dest))
       })
       const top = upper[upper.length - 1]
       if (top !== undefined) {
-        this.trackHandle(playInstr('fiddle', top + (top < 69 ? 12 : 0), when + 0.03, vel * 0.42, { dest: this.chordBus, dur: dur * 0.96 }))
+        this.trackHandle(playInstr('fiddle', top + (top < 69 ? 12 : 0), when + 0.03, vel * 0.42, { dest, dur: dur * 0.96 }))
       }
       if (voice === 'cinematic') {
-        this.trackHandle(playInstr('horns', bass + 12, when + 0.02, vel * 0.58, { dest: this.chordBus, dur: dur * 0.95 }))
+        this.trackHandle(playInstr('horns', bass + 12, when + 0.02, vel * 0.58, { dest, dur: dur * 0.95 }))
       }
+      return
+    }
+
+    if (voice === 'strings') {
+      this.trackHandle(playInstr('cellos', bass, when, vel * 0.78, { dest, dur: dur * 1.02 }))
+      upper.forEach((m, idx) => {
+        this.trackHandle(playInstr('strings', m, when + idx * 0.012, vel * 0.76, { dest, dur: dur * 1.02 }))
+      })
       return
     }
 
     if (voice === 'rhodes') {
       upper.forEach((m, idx) => {
-        this.trackHandle(playInstr('epiano', m, when + idx * 0.012, vel * 0.85, { dest: this.chordBus!, dur }))
+        this.trackHandle(playInstr('epiano', m, when + idx * 0.012, vel * 0.85, { dest, dur }))
       })
       return
     }
@@ -1315,29 +1515,39 @@ class StrumMachineEngine {
     if (voice === 'organ') {
       const notes = [bass + 12, ...upper]
       notes.forEach((m, idx) => {
-        this.trackHandle(playInstr('organ', m, when + idx * 0.008, vel * 0.72, { dest: this.chordBus!, dur }))
+        this.trackHandle(playInstr('organ', m, when + idx * 0.008, vel * 0.72, { dest, dur }))
       })
       return
     }
 
     if (voice === 'grand') {
       ;[bass + 12, ...upper].forEach((m, idx) => {
-        this.trackHandle(playInstr('grand', m, when + idx * 0.011, vel * 0.78, { dest: this.chordBus!, dur }))
+        this.trackHandle(playInstr('grand', m, when + idx * 0.011, vel * 0.78, { dest, dur }))
       })
       return
     }
 
     if (voice === 'banjo') {
       upper.forEach((m, idx) => {
-        this.trackHandle(playInstr('banjo', m, when + idx * 0.015, vel * 0.82, { dest: this.chordBus!, dur: Math.min(dur, 0.35) }))
+        this.trackHandle(playInstr('banjo', m, when + idx * 0.015, vel * 0.82, { dest, dur: Math.min(dur, 0.35) }))
       })
       return
     }
 
-    // ambient
-    this.trackHandle(playInstr('warmpad', bass + 12, when, vel * 0.72, { dest: this.chordBus, dur: dur * 1.05 }))
-    upper.forEach((m, idx) => {
-      this.trackHandle(playInstr('ambient', m, when + idx * 0.025, vel * 0.65, { dest: this.chordBus!, dur: dur * 1.08 }))
+    if (voice === 'ambient') {
+      this.trackHandle(playInstr('warmpad', bass + 12, when, vel * 0.72, { dest, dur: dur * 1.05 }))
+      upper.forEach((m, idx) => {
+        this.trackHandle(playInstr('ambient', m, when + idx * 0.025, vel * 0.65, { dest, dur: dur * 1.08 }))
+      })
+      return
+    }
+
+    // All new studio synths & keyboards (juno, prophet, lofikeys, wurli, fmglass, shimmer, moogpoly, clavinet, warmpad, supersaw, pluck)
+    const spread = voice === 'clavinet' || voice === 'pluck' ? 0.006 : 0.014
+    const notes = voice === 'shimmer' || voice === 'juno' || voice === 'warmpad' ? [bass + 12, ...upper] : upper
+    const noteDur = voice === 'clavinet' || voice === 'pluck' ? Math.min(dur, 0.42) : dur * 1.02
+    notes.forEach((m, idx) => {
+      this.trackHandle(playInstr(voice, m, when + idx * spread, vel * 0.8, { dest, dur: noteDur }))
     })
   }
 
@@ -1353,8 +1563,7 @@ class StrumMachineEngine {
     const dest = this.chordBus!
     const cv = this.effectiveChordVoice()
     const motion = this.state.motion
-    const isNonGuitar =
-      cv === 'orchestra' || cv === 'cinematic' || cv === 'rhodes' || cv === 'organ' || cv === 'grand' || cv === 'banjo' || cv === 'ambient'
+    const isNonGuitar = this.isNonGuitarVoice(cv)
 
     // Motion override: Arpeggio / Pick Roll works on BOTH guitars and keys/strings!
     if (motion === 'arpeggio') {
@@ -1370,7 +1579,7 @@ class StrumMachineEngine {
         const at = t0 + i * 0.5 * spb
         const g = i % 2 === 0 ? 0.78 : 0.62
         if (isNonGuitar) {
-          const instId = cv === 'rhodes' ? 'epiano' : cv === 'grand' ? 'grand' : cv === 'banjo' ? 'banjo' : cv === 'organ' ? 'organ' : 'harp'
+          const instId = cv === 'rhodes' ? 'epiano' : cv === 'orchestra' || cv === 'cinematic' ? 'harp' : cv
           this.trackHandle(playInstr(instId, note, at, g, { dest, dur: spb * 0.6 }))
         } else {
           this.trackHandle(playNote(note, at, g, dest, { sound: cv as SoundId }))
@@ -1386,10 +1595,16 @@ class StrumMachineEngine {
     }
 
     if (isNonGuitar) {
-      if (cv === 'rhodes' && beats >= 4) {
-        this.playKeysOrStrings('rhodes', rootPc, qual, t0, spb * 1.65, 0.85)
-        this.playKeysOrStrings('rhodes', rootPc, qual, t0 + 1.75 * spb, spb * 0.7, 0.68)
-        this.playKeysOrStrings('rhodes', rootPc, qual, t0 + 2.5 * spb, spb * 1.4, 0.78)
+      if ((cv === 'rhodes' || cv === 'wurli' || cv === 'lofikeys' || cv === 'fmglass') && beats >= 4) {
+        this.playKeysOrStrings(cv, rootPc, qual, t0, spb * 1.65, 0.85)
+        this.playKeysOrStrings(cv, rootPc, qual, t0 + 1.75 * spb, spb * 0.7, 0.68)
+        this.playKeysOrStrings(cv, rootPc, qual, t0 + 2.5 * spb, spb * 1.4, 0.78)
+        return
+      }
+      if (cv === 'clavinet' && beats >= 4) {
+        for (const off of [0, 0.75, 1.5, 2.5, 3.25]) {
+          this.playKeysOrStrings('clavinet', rootPc, qual, t0 + off * spb, spb * 0.42, off === 0 || off === 2.5 ? 0.86 : 0.66)
+        }
         return
       }
       if (cv === 'organ' && style === 'reggae' && beats >= 4) {

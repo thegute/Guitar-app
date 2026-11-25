@@ -5,7 +5,9 @@ import { audio, route } from '../audio/engine'
 import { loadBank, loadSound, playBass, playFromBank, playNote, type Handle, type SoundId } from '../audio/pluck'
 import { BASS_LABEL, BASS_PACK, bassPacks, packSounds, type BassKind } from '../audio/packSounds'
 
-export type SynthKind = 'supersaw' | 'pluck' | 'warmpad' | 'ambient' | 'sawlead' | 'squarelead' | 'sub808' | 'synthbass' | 'organ'
+export type SynthKind =
+  | 'supersaw' | 'pluck' | 'warmpad' | 'ambient' | 'sawlead' | 'squarelead' | 'sub808' | 'synthbass' | 'organ'
+  | 'juno' | 'prophet' | 'lofikeys' | 'wurli' | 'fmglass' | 'shimmer' | 'moogpoly' | 'clavinet' | 'moogbass' | 'reesebass'
 export interface Instr {
   id: string
   label: string
@@ -33,6 +35,10 @@ export const INSTRS: Instr[] = [
   I('grand', 'Grand piano', 'Keys', { bank: 'inst/grand', release: 0.35, lo: 36, hi: 96, space: 0.18 }),
   I('upright', 'Upright piano (lo-fi)', 'Keys', { bank: 'inst/upright', release: 0.3, lo: 36, hi: 96, space: 0.15 }),
   I('epiano', 'Electric piano', 'Keys', { bank: 'inst/epiano', release: 0.3, lo: 36, hi: 93, space: 0.2 }),
+  I('wurli', 'Wurlitzer funk EP', 'Keys', { synth: 'wurli', release: 0.24, gain: 0.56, lo: 36, hi: 90, space: 0.18 }),
+  I('lofikeys', 'Lo-Fi tape keys', 'Keys', { synth: 'lofikeys', release: 0.4, gain: 0.54, lo: 40, hi: 88, space: 0.28 }),
+  I('fmglass', 'FM glass keys (DX7)', 'Keys', { synth: 'fmglass', release: 0.38, gain: 0.5, lo: 44, hi: 92, space: 0.32 }),
+  I('clavinet', 'Funk clavinet', 'Keys', { synth: 'clavinet', release: 0.08, gain: 0.52, lo: 38, hi: 86, space: 0.1 }),
   I('honky', 'Honky-tonk piano', 'Keys', { bank: 'inst/honky', release: 0.25, lo: 36, hi: 93, space: 0.12 }),
   I('organ', 'Tonewheel organ', 'Keys', { synth: 'organ', release: 0.06, gain: 0.55, lo: 36, hi: 93, space: 0.15 }),
   I('church', 'Church organ', 'Keys', { bank: 'inst/church', release: 0.5, lo: 24, hi: 96, space: 0.35 }),
@@ -46,6 +52,8 @@ export const INSTRS: Instr[] = [
   I('bass', 'Electric bass', 'Bass', { bank: 'bass', release: 0.08, gain: 0.9, lo: 28, hi: 60, space: 0.03 }),
   I('upbass', 'Upright bass', 'Bass', { bank: 'inst/upbass', release: 0.1, gain: 0.9, lo: 28, hi: 55, space: 0.05 }),
   I('synthbass', 'Synth bass', 'Bass', { synth: 'synthbass', release: 0.06, gain: 0.7, lo: 28, hi: 55, space: 0.02 }),
+  I('moogbass', 'Moog funk synth bass', 'Bass', { synth: 'moogbass', release: 0.08, gain: 0.74, lo: 26, hi: 55, space: 0.03 }),
+  I('reesebass', 'Deep Reese sub bass', 'Bass', { synth: 'reesebass', release: 0.2, gain: 0.72, lo: 24, hi: 52, space: 0.08 }),
   I('sub808', '808 sub (slides)', 'Bass', { synth: 'sub808', release: 0.12, gain: 0.9, lo: 24, hi: 50, space: 0 }),
   I('strings', 'String section', 'Strings', { bank: 'inst/strings', release: 0.6, lo: 36, hi: 96, space: 0.35 }),
   I('fiddle', 'Violin / fiddle', 'Strings', { bank: 'inst/fiddle', release: 0.35, lo: 55, hi: 96, space: 0.25 }),
@@ -63,6 +71,10 @@ export const INSTRS: Instr[] = [
   I('xylo', 'Xylophone', 'Mallets and bells', { bank: 'inst/xylo', release: 0.2, lo: 55, hi: 100, space: 0.2 }),
   I('glock', 'Glockenspiel (bells)', 'Mallets and bells', { bank: 'inst/glock', release: 0.6, lo: 67, hi: 108, space: 0.3 }),
   I('steeldrums', 'Steel drums', 'Mallets and bells', { bank: 'inst/steeldrums', release: 0.3, lo: 48, hi: 90, space: 0.25 }),
+  I('juno', 'Juno 106 chorus pad', 'Synths', { synth: 'juno', release: 0.65, gain: 0.48, lo: 40, hi: 86, space: 0.4 }),
+  I('prophet', 'Prophet analog brass', 'Synths', { synth: 'prophet', release: 0.28, gain: 0.48, lo: 40, hi: 86, space: 0.26 }),
+  I('moogpoly', 'Deep Moog poly', 'Synths', { synth: 'moogpoly', release: 0.32, gain: 0.5, lo: 38, hi: 84, space: 0.25 }),
+  I('shimmer', 'Dreamy shimmer pad', 'Synths', { synth: 'shimmer', release: 1.6, gain: 0.46, lo: 40, hi: 86, space: 0.65 }),
   I('supersaw', 'Supersaw (EDM chords)', 'Synths', { synth: 'supersaw', release: 0.35, gain: 0.45, lo: 48, hi: 84, space: 0.35 }),
   I('pluck', 'Synth pluck', 'Synths', { synth: 'pluck', release: 0.15, gain: 0.55, lo: 48, hi: 90, space: 0.3 }),
   I('warmpad', 'Warm pad', 'Synths', { synth: 'warmpad', release: 1.2, gain: 0.5, lo: 40, hi: 84, space: 0.45 }),
@@ -220,6 +232,140 @@ function synth(kind: SynthKind, midi: number, when: number, vel: number, dest: A
       const trem = ctx.createGain(); trem.gain.value = 0.15
       const tl = ctx.createOscillator(); tl.frequency.value = 6.4; tl.connect(trem).connect(amp.gain); lfos.push(tl)
       attack = 0.004; decay = 0.05; sustain = vel; release = 0.06
+      break
+    }
+    case 'juno': {
+      // Juno 106 chorus pad: saw + warm sub-square + gentle chorus detune sweep
+      const a = add('sawtooth', 1, -11, 0.32)
+      const b = add('sawtooth', 1, 11, 0.32)
+      add('square', 0.5, 0, 0.2)
+      add('triangle', 2, 3, 0.08)
+      filt.frequency.setValueAtTime(3400, t)
+      filt.frequency.exponentialRampToValueAtTime(1600, t + 0.7)
+      filt.Q.value = 1.4
+      lfo(0.45, 9, a.detune)
+      lfo(0.45, -9, b.detune)
+      lfo(0.22, 380, filt.frequency)
+      attack = 0.06; decay = 0.7; sustain = vel * 0.85; release = 0.65
+      break
+    }
+    case 'prophet': {
+      // Prophet-5 warm analog brass: detuned saws with punchy filter swell
+      add('sawtooth', 1, -8, 0.38)
+      add('sawtooth', 1, 8, 0.38)
+      add('sawtooth', 0.5, 2, 0.2)
+      filt.Q.value = 2.4
+      filt.frequency.setValueAtTime(520, t)
+      filt.frequency.exponentialRampToValueAtTime(4200, t + 0.09)
+      filt.frequency.exponentialRampToValueAtTime(1900, t + 0.45)
+      attack = 0.028; decay = 0.38; sustain = vel * 0.78; release = 0.28
+      break
+    }
+    case 'lofikeys': {
+      // Lo-Fi tape keys: mellow sine/triangle tines with gentle cassette wow/flutter
+      const a = add('triangle', 1, -4, 0.48)
+      const b = add('sine', 1, 4, 0.42)
+      add('sine', 2, -2, 0.14)
+      add('sine', 3, 5, 0.05)
+      filt.frequency.setValueAtTime(2100, t)
+      filt.frequency.exponentialRampToValueAtTime(980, t + 0.5)
+      filt.Q.value = 0.7
+      lfo(0.75, 11, a.detune)
+      lfo(0.75, 11, b.detune)
+      attack = 0.008; decay = 0.85; sustain = vel * 0.45; release = 0.4
+      break
+    }
+    case 'wurli': {
+      // Wurlitzer funk EP: warm fundamental + barky 2nd/3rd reed harmonics + classic tremolo
+      add('sine', 1, 0, 0.55)
+      add('triangle', 2, 0, 0.24)
+      add('sawtooth', 3, 0, 0.08)
+      const ws = ctx.createWaveShaper()
+      const curve = new Float32Array(512)
+      for (let i = 0; i < curve.length; i++) { const x = (i / (curve.length - 1)) * 2 - 1; curve[i] = Math.tanh(x * 1.85) / Math.tanh(1.85) }
+      ws.curve = curve
+      filt.disconnect(); filt.connect(ws).connect(amp)
+      filt.frequency.setValueAtTime(3600, t)
+      filt.frequency.exponentialRampToValueAtTime(1400, t + 0.35)
+      filt.Q.value = 1.1
+      const trem = ctx.createGain(); trem.gain.value = 0.14
+      const tl = ctx.createOscillator(); tl.frequency.value = 4.8; tl.connect(trem).connect(amp.gain); lfos.push(tl)
+      attack = 0.004; decay = 0.75; sustain = vel * 0.36; release = 0.24
+      break
+    }
+    case 'fmglass': {
+      // Sparkling DX7-style FM electric piano / glass bell tines
+      const carrier = ctx.createOscillator()
+      const mod = ctx.createOscillator()
+      const modGain = ctx.createGain()
+      carrier.type = 'sine'; carrier.frequency.value = f
+      mod.type = 'sine'; mod.frequency.value = f * 3.0
+      modGain.gain.setValueAtTime(f * 2.2, t)
+      modGain.gain.exponentialRampToValueAtTime(f * 0.18, t + 0.32)
+      mod.connect(modGain).connect(carrier.frequency)
+      const cg = ctx.createGain(); cg.gain.value = 0.65
+      carrier.connect(cg).connect(filt)
+      oscs.push(carrier, mod)
+      add('sine', 2, 5, 0.16)
+      filt.frequency.value = 6200; filt.Q.value = 0.5
+      attack = 0.003; decay = 0.9; sustain = vel * 0.3; release = 0.38
+      break
+    }
+    case 'shimmer': {
+      // Ethereal octave-up ambient shimmer pad (amazing behind guitar swells & ballads)
+      const a = add('sawtooth', 1, -12, 0.24)
+      const b = add('sawtooth', 1, 12, 0.24)
+      add('triangle', 2, -6, 0.18)
+      add('sine', 2, 6, 0.16)
+      add('sine', 0.5, 0, 0.3)
+      filt.frequency.value = 2200; filt.Q.value = 0.8
+      lfo(0.11, 750, filt.frequency)
+      lfo(0.32, 8, a.detune); lfo(0.32, -8, b.detune)
+      attack = 0.55; decay = 1.1; sustain = vel * 0.88; release = 1.6
+      break
+    }
+    case 'moogpoly': {
+      // Thick analog Moog-style poly chords: dual saws + sub triangle + warm ladder sweep
+      add('sawtooth', 1, -6, 0.38)
+      add('sawtooth', 1, 6, 0.38)
+      add('triangle', 0.5, 0, 0.3)
+      filt.Q.value = 3.2
+      filt.frequency.setValueAtTime(3400, t)
+      filt.frequency.exponentialRampToValueAtTime(920, t + 0.42)
+      attack = 0.008; decay = 0.5; sustain = vel * 0.72; release = 0.32
+      break
+    }
+    case 'clavinet': {
+      // Snappy percussive funk clavinet: bright pulse harmonics + fast plucky filter
+      add('sawtooth', 1, 0, 0.34)
+      add('square', 2, 2, 0.22)
+      add('square', 1, -3, 0.26)
+      filt.Q.value = 3.6
+      filt.frequency.setValueAtTime(6800, t)
+      filt.frequency.exponentialRampToValueAtTime(950, t + 0.16)
+      attack = 0.002; decay = 0.28; sustain = vel * 0.12; release = 0.08
+      break
+    }
+    case 'moogbass': {
+      // Punchy resonant Moog funk bass
+      add('sawtooth', 1, -4, 0.48)
+      add('square', 0.5, 0, 0.42)
+      add('sawtooth', 1, 4, 0.32)
+      filt.Q.value = 7.5
+      filt.frequency.setValueAtTime(2400, t)
+      filt.frequency.exponentialRampToValueAtTime(280, t + 0.19)
+      attack = 0.003; decay = 0.28; sustain = vel * 0.65; release = 0.08
+      break
+    }
+    case 'reesebass': {
+      // Deep wide detuned Reese sub bass (modern chillhop / cinematic / rock)
+      const a = add('sawtooth', 1, -18, 0.38)
+      const b = add('sawtooth', 1, 18, 0.38)
+      add('sine', 0.5, 0, 0.48)
+      filt.frequency.value = 520; filt.Q.value = 1.6
+      lfo(0.28, 160, filt.frequency)
+      lfo(0.35, 6, a.detune); lfo(0.35, -6, b.detune)
+      attack = 0.025; decay = 0.4; sustain = vel * 0.85; release = 0.2
       break
     }
   }
