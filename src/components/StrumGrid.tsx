@@ -6,13 +6,16 @@ import { ChromaListener } from '../audio/chroma'
 import {
   STRUM_MOTIONS,
   bassVoiceOptions,
+  chartSections,
   chordVoiceOptions,
   drumKitOptions,
+  keysVoiceOptions,
   strumMachine,
   useStrumState,
   type BassVoiceId,
   type ChordVoiceId,
   type DrumKitOverride,
+  type KeysVoiceId,
   type StrumMotionId,
 } from '../audio/strumMachine'
 import { downloadMidiFile, exportStrumChartToMidi, importMidiToStrumChart } from '../audio/midiChords'
@@ -20,7 +23,26 @@ import { Ico } from './Icon'
 import { ChordGripsBar, MiniChordGrip } from './MiniChordGrip'
 import { useChordGrips } from '../chordGrips'
 import { useInstrument } from '../instrument'
-import { openFlowCoach, openInPlay, openJam, openLicksInKey, onOpenStrum, takePendingStrum } from '../nav'
+import {
+  openFloatTab,
+  openFlowCoach,
+  openInPlay,
+  openJam,
+  openLicksInKey,
+  openSing,
+  openStrumGrid,
+  onOpenStrum,
+  takePendingStrum,
+} from '../nav'
+import { BackingVolumeBar } from '../jam/BackingVolumeBar'
+import { AIPromptComposer, AIStyleDropdown, RoleShapeStrip } from '../jam/AIStyleDropdown'
+import {
+  buildBandFromChords,
+  composeAIStrumChart,
+  type ComposeRequest,
+  type JamRole,
+  type SongShape,
+} from '../jam/aiComposer'
 import { newId, saveSong, type SongDoc } from '../tabs/library'
 import type { Song } from '../tabs/model'
 import { KEYS, keyPrefersFlats, pc } from '../theory/notes'
@@ -100,15 +122,21 @@ function chartToSongDoc(chart: StrumChart, bpm: number, capo: number, tuning: nu
   }
 }
 
-export function StrumGrid() {
+export function StrumGrid({ compact = false }: { compact?: boolean }) {
   const inst = useInstrument()
   const st = useStrumState()
   const { show: showGrips } = useChordGrips()
 
   const [userCharts, setUserCharts] = useState<StrumChart[]>(() => loadUserStrumCharts())
   const [editing, setEditing] = useState<{ barIdx: number; splitIdx: number } | null>(null)
-  const [bandOpen, setBandOpen] = useState(false)
+  const [bandOpen, setBandOpen] = useState(!compact)
   const [toolsOpen, setToolsOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
+  const [aiStyleId, setAiStyleId] = useState('classic-rock')
+  const [songShape, setSongShape] = useState<SongShape>('song')
+  const [role, setRole] = useState<JamRole>(() => (st.mutes.chords ? (st.mutes.keys ? 'drums' : 'rhythm') : 'lead'))
+  const [aiSeed, setAiSeed] = useState(1)
+  const [soloHint, setSoloHint] = useState('')
   const [saveName, setSaveName] = useState('')
   const [msg, setMsg] = useState('')
   const midiInputRef = useRef<HTMLInputElement>(null)
@@ -120,6 +148,32 @@ export function StrumGrid() {
   const listenerRef = useRef<ChromaListener | null>(null)
   const stRef = useRef(st)
   stRef.current = st
+
+  const applyAIRequest = useCallback((req: ComposeRequest) => {
+    const res = composeAIStrumChart(req)
+    strumMachine.setChart(res.chart, { autoPlay: stRef.current.playing })
+    // Map keysInst to StrumMachine's companion KeysVoiceId
+    const kvMap: Record<string, KeysVoiceId> = {
+      juno: 'juno', prophet: 'prophet', lofikeys: 'lofikeys', wurli: 'wurli', fmglass: 'fmglass',
+      shimmer: 'shimmer', moogpoly: 'moogpoly', clavinet: 'clavinet', epiano: 'rhodes', organ: 'organ',
+      grand: 'grand', strings: 'strings', warmpad: 'warmpad', ambient: 'ambient',
+    }
+    const kv = kvMap[res.keysInst]
+    if (kv) strumMachine.setKeysVoice(kv)
+    if (res.bassInst === 'moogbass' || res.bassInst === 'reesebass' || res.bassInst === 'synthbass' || res.bassInst === 'sub808' || res.bassInst === 'upbass') {
+      strumMachine.setBassVoice(res.bassInst)
+    }
+    if (req.role) {
+      setRole(req.role)
+      strumMachine.applyRole(req.role)
+    }
+    setAiStyleId(res.style.id)
+    if (req.songShape) setSongShape(req.songShape)
+    setSoloHint(res.soloScale.label)
+    setEditing(null)
+    setBarHits({})
+    setMsg(res.summary)
+  }, [])
 
   // Handle incoming deep-links from Play, Scales, Flow Coach, Band Jam
   const applyOpen = useCallback((opts: ReturnType<typeof takePendingStrum>) => {
@@ -263,8 +317,10 @@ export function StrumGrid() {
   }
 
   const chordOpts = groupOptions(chordVoiceOptions())
+  const keysOpts = groupOptions(keysVoiceOptions())
   const bassOpts = groupOptions(bassVoiceOptions())
   const drumOpts = groupOptions(drumKitOptions())
+  const sections = useMemo(() => chartSections(chart), [chart])
 
   // Active editor chord parts
   const editSym = editing ? (chart.bars[editing.barIdx]?.chords[editing.splitIdx] ?? chart.tonic) : ''
@@ -273,30 +329,198 @@ export function StrumGrid() {
   const editQual: ChordQual = parseChordQual(editSym)?.qual ?? ''
 
   return (
-    <div className="strum-grid-screen stack" style={{ gap: 12 }} data-testid="strum-grid-screen">
-      {/* Header & Transport Panel */}
+    <div className={`strum-grid-screen stack${compact ? ' compact' : ''}`} style={{ gap: compact ? 8 : 12 }} data-testid="strum-grid-screen">
+      {/* 1) Guitarist Stage Header & Transport */}
       <div className="panel stack" style={{ gap: 10 }}>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Strum Machine</h2>
-            <p className="small muted" style={{ margin: '2px 0 0' }}>
-              18 studio backing styles that keep playing across Tabs, Scales, Chords &amp; Licks.
-            </p>
+            <h2 style={{ margin: 0, fontSize: compact ? '0.98rem' : '1.1rem' }}>AI Strum Machine</h2>
+            {!compact && (
+              <p className="small muted" style={{ margin: '2px 0 0' }}>
+                47 AI styles · Full songs or simple loops · Plays across Tabs, Scales, Chords &amp; Licks.
+              </p>
+            )}
           </div>
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+            {!compact && (
+              <button
+                className="btn sm"
+                onClick={() => openStrumGrid()}
+                title="Pop out as a floating opacity-adjustable window"
+                data-testid="strum-popout-btn"
+              >
+                ⧉ Pop Out
+              </button>
+            )}
+            <button
+              className={`btn sm${bandOpen ? ' primary' : ''}`}
+              aria-expanded={bandOpen}
+              onClick={() => setBandOpen(!bandOpen)}
+              data-testid="strum-band-btn"
+            >
+              🎛 Band Mixer
+            </button>
+            <button
+              className={`btn sm${toolsOpen || st.speedUp.on || grading ? ' primary' : ''}`}
+              aria-expanded={toolsOpen}
+              onClick={() => setToolsOpen(!toolsOpen)}
+              data-testid="strum-tools-btn"
+            >
+              ⚙ Edit &amp; Tools {toolsOpen ? '▴' : '▾'}
+            </button>
+          </div>
+        </div>
+
+        {/* One-Hand Stage Transport Cluster: BIG Play + Count-In + Key/Capo + BPM + Speed-Up + 5-Layer Neck */}
+        <div className="row strum-stage-bar" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <button
-            className={`btn sm${toolsOpen || st.speedUp.on || grading ? ' primary' : ''}`}
-            aria-expanded={toolsOpen}
-            onClick={() => setToolsOpen(!toolsOpen)}
-            data-testid="strum-tools-btn"
+            className={`btn primary lg${st.playing ? ' on' : ''}`}
+            onClick={() => {
+              if (st.flowMode) strumMachine.exitFlowMode()
+              strumMachine.toggle()
+            }}
+            data-testid="strum-play-btn"
           >
-            ⚙ Tools {toolsOpen ? '▴' : '▾'}
+            <Ico n={st.playing ? 'stop' : 'play'} />{' '}
+            {st.playing ? (st.countInLeft > 0 ? `Count-in ${st.countInLeft}…` : 'Stop') : 'Play'}
+          </button>
+
+          <button
+            className={`btn sm${st.countIn ? ' on' : ' ghost'}`}
+            aria-pressed={st.countIn}
+            onClick={() => strumMachine.setCountIn(!st.countIn)}
+            title="4-beat count-in before bar 1 so you have time to grab the neck"
+            data-testid="strum-countin-quick"
+          >
+            4-Count {st.countIn ? 'On' : 'Off'}
+          </button>
+
+          <div className="row" style={{ gap: 4, alignItems: 'center' }}>
+            <button className="btn sm" onClick={() => strumMachine.setBpm(st.bpm - 5)} aria-label="Decrease BPM">−5</button>
+            <span className="badge" data-testid="strum-bpm-readout">{st.bpm} BPM</span>
+            <button className="btn sm" onClick={() => strumMachine.setBpm(st.bpm + 5)} aria-label="Increase BPM">+5</button>
+          </div>
+
+          <label className="field" style={{ minWidth: 78 }}>
+            <span>Key</span>
+            <select
+              className="select"
+              value={chart.tonic}
+              onChange={e => strumMachine.setKey(e.target.value)}
+              data-testid="strum-key-select"
+            >
+              {KEYS.map(k => <option key={k} value={k}>{k}{chart.minor ? 'm' : ''}</option>)}
+            </select>
+          </label>
+
+          <label className="field" style={{ minWidth: 102 }}>
+            <span>Capo {st.capo > 0 ? `(→ ${soundingTonic})` : ''}</span>
+            <select
+              className="select"
+              value={st.capo}
+              onChange={e => strumMachine.setCapo(Number(e.target.value))}
+              data-testid="strum-capo-select"
+            >
+              {[0, 1, 2, 3, 4, 5, 6, 7].map(c => (
+                <option key={c} value={c}>{c === 0 ? 'No Capo' : `Capo ${c}`}</option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            className={`btn sm${st.floatNeckOpen ? ' primary' : ''}`}
+            aria-pressed={st.floatNeckOpen}
+            onClick={() => strumMachine.setFloatNeckOpen(!st.floatNeckOpen)}
+            data-testid="strum-float-neck-btn"
+            title="Pop open the resizable 5-Layer Neck overlay to jam over this track"
+          >
+            <Ico n="layers" /> 5-Layer Neck
           </button>
         </div>
 
-        {/* Chart Selector + Key + Capo */}
+        {/* Isolated Backing Master Volume (completely separate from your electric guitar pedal!) */}
+        <BackingVolumeBar compact={compact} />
+
+        {/* 47-Style AI Song & Simple Loop Generator */}
+        <div className="ai-gen-strip stack" style={{ gap: 8 }} data-testid="strum-ai-gen">
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <AIStyleDropdown
+              styleId={aiStyleId}
+              compact={compact}
+              testId="strum-ai-style"
+              onChange={id => {
+                setAiStyleId(id)
+                const nextSeed = aiSeed + 1
+                setAiSeed(nextSeed)
+                applyAIRequest({ styleId: id, songShape, role, seed: nextSeed })
+              }}
+            />
+            <button
+              className="btn sm primary"
+              onClick={() => {
+                const nextSeed = aiSeed + 1
+                setAiSeed(nextSeed)
+                applyAIRequest({ styleId: aiStyleId, songShape, role, seed: nextSeed })
+              }}
+              data-testid="strum-ai-generate"
+            >
+              ✨ {songShape === 'song' ? 'AI Full Song' : 'AI Simple Loop'}
+            </button>
+            <button
+              className="btn sm"
+              onClick={() => {
+                const nextSeed = aiSeed + 1
+                setAiSeed(nextSeed)
+                applyAIRequest({ styleId: aiStyleId, key: chart.tonic, minor: chart.minor, bpm: st.bpm, songShape, role, seed: nextSeed })
+              }}
+              title="Keep key, style & tempo, roll fresh chords & fills"
+              data-testid="strum-ai-remix"
+            >
+              🎲 Remix
+            </button>
+            <button
+              className={`btn sm${aiOpen ? ' on' : ' ghost'}`}
+              onClick={() => setAiOpen(v => !v)}
+              data-testid="strum-ai-prompt-toggle"
+            >
+              💬 Prompt / My Chords
+            </button>
+          </div>
+
+          <RoleShapeStrip
+            compact={compact}
+            songShape={songShape}
+            onSongShape={nextShape => {
+              setSongShape(nextShape)
+              applyAIRequest({ styleId: aiStyleId, key: chart.tonic, minor: chart.minor, bpm: st.bpm, songShape: nextShape, role, seed: aiSeed })
+            }}
+            role={role}
+            onRole={nextRole => {
+              setRole(nextRole)
+              strumMachine.applyRole(nextRole)
+            }}
+          />
+
+          {aiOpen && (
+            <AIPromptComposer
+              compact={compact}
+              current={{ styleId: aiStyleId, key: chart.tonic, minor: chart.minor, bpm: st.bpm, songShape, role }}
+              onGenerate={req => applyAIRequest({ ...req, seed: aiSeed + 1 })}
+              onBuildFromChords={chords => {
+                const built = buildBandFromChords(chords, { styleId: aiStyleId, bpm: st.bpm, songShape, role })
+                strumMachine.setChart(built.chart, { autoPlay: st.playing })
+                strumMachine.applyRole(role)
+                setMsg(built.summary)
+                setEditing(null)
+              }}
+            />
+          )}
+        </div>
+
+        {/* Classic Chart & 18-Engine Style Pickers (preserved for quick browsing!) */}
         <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <label className="field" style={{ flex: '1 1 210px' }}>
-            <span>Groove Chart</span>
+          <label className="field" style={{ flex: '1 1 180px' }}>
+            <span>Chart Library</span>
             <select
               className="select"
               value={allCharts.some(c => c.id === chart.id) ? chart.id : ''}
@@ -322,108 +546,43 @@ export function StrumGrid() {
             </select>
           </label>
 
-          <label className="field" style={{ minWidth: 92 }}>
-            <span>Key</span>
+          <label className="field" style={{ flex: '1 1 170px' }}>
+            <span>Backing Engine Style</span>
             <select
               className="select"
-              value={chart.tonic}
-              onChange={e => strumMachine.setKey(e.target.value)}
-              data-testid="strum-key-select"
+              value={st.style}
+              onChange={e => strumMachine.setStyle(e.target.value as StrumStyleId)}
+              aria-label="Strum style"
+              data-testid="strum-style-select"
             >
-              {KEYS.map(k => <option key={k} value={k}>{k}{chart.minor ? 'm' : ''}</option>)}
-            </select>
-          </label>
-
-          <label className="field" style={{ minWidth: 118 }}>
-            <span>Capo {st.capo > 0 ? `(→ ${soundingTonic})` : ''}</span>
-            <select
-              className="select"
-              value={st.capo}
-              onChange={e => strumMachine.setCapo(Number(e.target.value))}
-              data-testid="strum-capo-select"
-            >
-              {[0, 1, 2, 3, 4, 5, 6, 7].map(c => (
-                <option key={c} value={c}>{c === 0 ? 'No Capo' : `Capo ${c}`}</option>
+              {STYLE_GROUPS.map(g => (
+                <optgroup key={g} label={g}>
+                  {STRUM_STYLES.filter(s => s.group === g).map(s => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </label>
         </div>
 
-        {/* Transport Row: Play/Stop, Style Dropdown, Band Mixer, BPM, Count-In, Speed-Up */}
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button
-            className={`btn primary${st.playing ? ' on' : ''}`}
-            onClick={() => {
-              if (st.flowMode) strumMachine.exitFlowMode()
-              strumMachine.toggle()
-            }}
-            data-testid="strum-play-btn"
-          >
-            <Ico n={st.playing ? 'stop' : 'play'} />{' '}
-            {st.playing ? (st.countInLeft > 0 ? `Count-in ${st.countInLeft}…` : 'Stop') : 'Play'}
-          </button>
-
-          <select
-            className="select"
-            style={{ width: 'auto', minWidth: 185 }}
-            value={st.style}
-            onChange={e => strumMachine.setStyle(e.target.value as StrumStyleId)}
-            aria-label="Strum style"
-            data-testid="strum-style-select"
-          >
-            {STYLE_GROUPS.map(g => (
-              <optgroup key={g} label={g}>
-                {STRUM_STYLES.filter(s => s.group === g).map(s => (
-                  <option key={s.id} value={s.id}>{s.label}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-
-          <button
-            className={`btn sm${bandOpen ? ' primary' : ''}`}
-            aria-expanded={bandOpen}
-            onClick={() => setBandOpen(!bandOpen)}
-            data-testid="strum-band-btn"
-          >
-            🎛 Band Sounds
-          </button>
-
-          <div className="row" style={{ gap: 4, alignItems: 'center' }}>
-            <button className="btn sm" onClick={() => strumMachine.setBpm(st.bpm - 5)} aria-label="Decrease BPM">−5</button>
-            <span className="badge" data-testid="strum-bpm-readout">{st.bpm} BPM</span>
-            <button className="btn sm" onClick={() => strumMachine.setBpm(st.bpm + 5)} aria-label="Increase BPM">+5</button>
-          </div>
-
-          <button
-            className={`btn sm${st.floatNeckOpen ? ' primary' : ''}`}
-            aria-pressed={st.floatNeckOpen}
-            onClick={() => strumMachine.setFloatNeckOpen(!st.floatNeckOpen)}
-            data-testid="strum-float-neck-btn"
-            title="Pop open the resizable 5-Layer Neck overlay (Shape · Triads · Pentatonic · Mode · Free fingers) to jam over this track"
-          >
-            <Ico n="layers" /> 5-Layer Neck
-          </button>
+        {/* Live NOW -> NEXT & Solo Scale Banner */}
+        <div className="row strum-live-strip" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span className="small muted">
+            <b>{styleMeta.label}</b>
+            {soloHint ? ` · Solo: ${soloHint}` : ` · Solo: ${chart.tonic} ${chart.minor ? 'Minor' : 'Major'} Pentatonic`}
+          </span>
+          <span className="small" style={{ color: 'var(--accent)', fontWeight: 700 }} data-testid="strum-now-next">
+            NOW: {st.currentChord} → NEXT: {st.nextChord}{st.playing ? ` · Beat ${st.beat + 1}/${st.beatsPerBar}` : ''}
+          </span>
         </div>
 
-        <p className="small muted" style={{ margin: 0 }}>
-          <b>{styleMeta.label}:</b> {styleMeta.hint}
-          {st.playing && (
-            <>
-              {' · '}
-              <span style={{ color: 'var(--accent)', fontWeight: 700 }}>
-                Now: {st.currentChord} → {st.nextChord} (Beat {st.beat + 1}/{st.beatsPerBar})
-              </span>
-            </>
-          )}
-        </p>
-
-        {/* Expandable Band Sounds Mixer (Chords/Guitar packs, Bass, Drums) */}
+        {/* Per-Instrument Band Mixer (Guitar/Chords, Keys/Synth with 10 new synths, Bass, Drums!) */}
         {bandOpen && (
           <div className="strum-inline-mixer stack" style={{ gap: 8 }} data-testid="strum-inline-mixer">
             <div className="strum-band-row">
               <label className="field" style={{ flex: 1 }}>
-                <span>Chords / Guitar Pack</span>
+                <span>🎸 Guitar / Chords</span>
                 <select
                   className="select"
                   value={st.chordVoice}
@@ -437,7 +596,7 @@ export function StrumGrid() {
                   ))}
                 </select>
               </label>
-              <button className="btn sm" aria-pressed={st.mutes.chords} onClick={() => strumMachine.setMutes({ chords: !st.mutes.chords })}>
+              <button className={`btn sm${st.mutes.chords ? ' on' : ''}`} aria-pressed={st.mutes.chords} onClick={() => strumMachine.setMutes({ chords: !st.mutes.chords })}>
                 {st.mutes.chords ? 'Muted' : 'On'}
               </button>
               <input type="range" min={0} max={1.3} step={0.05} value={st.volumes.chords} onChange={e => strumMachine.setVolumes({ chords: Number(e.target.value) })} aria-label="Chords volume" style={{ width: 84 }} />
@@ -445,7 +604,29 @@ export function StrumGrid() {
 
             <div className="strum-band-row">
               <label className="field" style={{ flex: 1 }}>
-                <span>Bass</span>
+                <span>🎹 Keys / Synth</span>
+                <select
+                  className="select"
+                  value={st.keysVoice}
+                  onChange={e => strumMachine.setKeysVoice(e.target.value as KeysVoiceId)}
+                  data-testid="strum-keys-voice"
+                >
+                  {keysOpts.map(([grp, list]) => (
+                    <optgroup key={grp} label={grp}>
+                      {list.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                    </optgroup>
+                  ))}
+                </select>
+              </label>
+              <button className={`btn sm${st.mutes.keys || st.keysVoice === 'off' ? ' on' : ''}`} aria-pressed={st.mutes.keys} onClick={() => strumMachine.setMutes({ keys: !st.mutes.keys })} disabled={st.keysVoice === 'off'}>
+                {st.keysVoice === 'off' ? 'Off' : st.mutes.keys ? 'Muted' : 'On'}
+              </button>
+              <input type="range" min={0} max={1.3} step={0.05} value={st.volumes.keys} onChange={e => strumMachine.setVolumes({ keys: Number(e.target.value) })} aria-label="Keys and synth volume" style={{ width: 84 }} />
+            </div>
+
+            <div className="strum-band-row">
+              <label className="field" style={{ flex: 1 }}>
+                <span>🎸 Bass</span>
                 <select
                   className="select"
                   value={st.bassVoice}
@@ -459,7 +640,7 @@ export function StrumGrid() {
                   ))}
                 </select>
               </label>
-              <button className="btn sm" aria-pressed={st.mutes.bass} onClick={() => strumMachine.setMutes({ bass: !st.mutes.bass })}>
+              <button className={`btn sm${st.mutes.bass ? ' on' : ''}`} aria-pressed={st.mutes.bass} onClick={() => strumMachine.setMutes({ bass: !st.mutes.bass })}>
                 {st.mutes.bass ? 'Muted' : 'On'}
               </button>
               <input type="range" min={0} max={1.3} step={0.05} value={st.volumes.bass} onChange={e => strumMachine.setVolumes({ bass: Number(e.target.value) })} aria-label="Bass volume" style={{ width: 84 }} />
@@ -467,7 +648,7 @@ export function StrumGrid() {
 
             <div className="strum-band-row">
               <label className="field" style={{ flex: 1 }}>
-                <span>Drum Kit</span>
+                <span>🥁 Drums</span>
                 <select
                   className="select"
                   value={st.drumKit}
@@ -481,7 +662,7 @@ export function StrumGrid() {
                   ))}
                 </select>
               </label>
-              <button className="btn sm" aria-pressed={st.mutes.drums} onClick={() => strumMachine.setMutes({ drums: !st.mutes.drums })}>
+              <button className={`btn sm${st.mutes.drums ? ' on' : ''}`} aria-pressed={st.mutes.drums} onClick={() => strumMachine.setMutes({ drums: !st.mutes.drums })}>
                 {st.mutes.drums ? 'Muted' : 'On'}
               </button>
               <input type="range" min={0} max={1.3} step={0.05} value={st.volumes.drums} onChange={e => strumMachine.setVolumes({ drums: Number(e.target.value) })} aria-label="Drums volume" style={{ width: 84 }} />
@@ -578,7 +759,7 @@ export function StrumGrid() {
         )}
       </div>
 
-      {/* 4-Bars-Per-Row Interactive Chord Grid */}
+      {/* 2) Song Sections + 4-Bars-Per-Row Interactive Chord Grid */}
       <div className="panel stack" style={{ gap: 10 }}>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
           <strong style={{ fontSize: '0.95rem' }}>
@@ -591,6 +772,30 @@ export function StrumGrid() {
             </button>
           </div>
         </div>
+
+        {/* Tap any Section Pill (Intro / Verse / Chorus / Solo / Outro) to loop just that section! */}
+        {sections.length > 1 && (
+          <div className="row section-pills" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }} data-testid="strum-section-pills">
+            <span className="small muted">Loop:</span>
+            <button
+              className={`btn sm${st.loopSection === null ? ' primary' : ''}`}
+              onClick={() => strumMachine.setLoopSection(null)}
+              data-testid="strum-sec-all"
+            >
+              All Song
+            </button>
+            {sections.map(sec => (
+              <button
+                key={sec.name}
+                className={`btn sm${st.loopSection === sec.name ? ' primary' : ''}`}
+                onClick={() => strumMachine.setLoopSection(st.loopSection === sec.name ? null : sec.name)}
+                data-testid={`strum-sec-${sec.name.toLowerCase().replace(/\s+/g, '-')}`}
+              >
+                {sec.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="strum-grid" data-testid="strum-bars-grid">
           {chart.bars.map((bar, bi) => {
@@ -769,6 +974,21 @@ export function StrumGrid() {
             data-testid="strum-to-play"
           >
             📄 Save &amp; Open in Play
+          </button>
+          <button
+            className="btn sm"
+            onClick={() => openFloatTab(chartToSongDoc(chart, st.bpm, st.capo, inst.midis, inst))}
+            title="Pop out a floating opacity-adjustable tab preview right over this screen"
+            data-testid="strum-float-tab"
+          >
+            ⧉ Float Tab
+          </button>
+          <button
+            className="btn sm"
+            onClick={() => openSing('home')}
+            title="Jump to Sing Mode to sing along"
+          >
+            🎤 Sing
           </button>
           <button
             className="btn sm"

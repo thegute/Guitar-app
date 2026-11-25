@@ -36,7 +36,8 @@ import { GROOVES, GROOVE_GROUPS, KITS, grooveOf, kitInfo, loadKit, kitLoaded, ty
 import { shapesFor as shapesForChord } from '../theory/shapes'
 import { Transcriber } from '../components/Transcriber'
 import { saveSong, type SongDoc } from '../tabs/library'
-import { go, learnGo, openExercisesFiltered, openFlowCoach, openInPlay, openSongsInKey, openStrumGrid, setSubPage } from '../nav'
+import { go, learnGo, openExercisesFiltered, openFlowCoach, openInPlay, openJam, openSongsInKey, openStrumGrid, setSubPage } from '../nav'
+import { BackingVolumeBar } from '../jam/BackingVolumeBar'
 import { HarmonicFlowCoach } from '../components/HarmonicFlowCoach'
 import { StrumGrid } from '../components/StrumGrid'
 import { setActiveFeatureIntro } from '../components/FeatureIntro'
@@ -634,9 +635,9 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
       <div className="subtabs jam-choices" role="tablist" aria-label="Jam">
         {([
           ['jam', 'drum', 'Play with a band', 'Chords, strums, bass and drums to play over'],
-          ['strum', 'music', 'Strum Machine', 'Acoustic, reggae, metal & orchestral charts'],
+          ['strum', 'music', 'AI Strum Machine', '47 AI styles · Full songs or simple loops · Capo'],
           ['flow', 'sparkles', 'Flow Coach', 'Chord Path, Vibe Sets, Key Shifter & Detect'],
-          ['beats', 'zap', 'Make a beat', 'Pads, steps, keys and your own samples'],
+          ['beats', 'zap', 'AI Beat Maker', '47 AI beats & songs · Band sliders · Pads & Grid'],
           ['loop', 'loop', 'Loop myself', 'Record layers over a beat, four tracks'],
         ] as const).map(([id, icon, label, sub]) => (
           <button key={id} role="tab" aria-selected={page === id} className={`jam-choice${page === id ? ' on' : ''}`} onClick={() => setPage(id)} data-testid={`jam-${id}`}>
@@ -678,6 +679,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
             {cards}
             {chordInfo}
             {transportRow}
+            <BackingVolumeBar compact />
             {prog.length > 0 && (
               <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
                 <button
@@ -704,6 +706,16 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
                   data-testid="jam-to-strum"
                 >
                   🎸 Open in Strum Machine
+                </button>
+                <button
+                  className="btn sm"
+                  onClick={() => {
+                    stopAll()
+                    openJam('beats')
+                  }}
+                  data-testid="jam-to-beats"
+                >
+                  🥁 Open AI Beat Maker
                 </button>
                 <button
                   className="btn sm"

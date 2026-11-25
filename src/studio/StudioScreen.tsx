@@ -58,6 +58,8 @@ const micFx = (): MicFx => { try { return (JSON.parse(localStorage.getItem(`kg:$
 import { BounceSave } from './BounceSave'
 import type { Handle } from '../audio/pluck'
 import { BeatGuideCoach, BeatHelperBar, FloatingBeatTransport, TrackStrip } from './BeatStudioUI'
+import { BeatStageView } from './BeatStageView'
+import { BackingVolumeBar } from '../jam/BackingVolumeBar'
 import { clearAllDrums, clearDrumRow, copyBar1ToRest, fillDrumRow, stepRulerLabel } from './beatHelper'
 
 type SetBeat = (f: Beat | ((b: Beat) => Beat), remember?: boolean) => void
@@ -72,7 +74,7 @@ function flash(el: Element, cls: string) {
 }
 const useStep = (t: StudioTransport) => useSyncExternalStore(f => t.onStep(f), () => t.step)
 
-export function StudioScreen({ active }: { active: boolean }) {
+export function StudioScreen({ active, compact = false }: { active: boolean; compact?: boolean }) {
   const [beat, setBeatRaw] = useState<Beat>(() => loadBeat())
   const [view, setView] = usePersist<'pads' | 'keys'>('studioTableView', 'pads')
   const [playing, setPlaying] = useState(false)
@@ -150,10 +152,24 @@ export function StudioScreen({ active }: { active: boolean }) {
     if (recording) { setRecording(false); setMsg(''); return }
     setRecording(true)
     if (!tr().playing) play(4)
-    setMsg('Recording: each time round the loop, what you play on the pads becomes a new layer, snapped to the grid. Keys go into the piano roll.')
+    setMsg('Recording Pads: 4-beat count-in, then tap Kick / Snare / Hat pads — every hit lights up right on the Step Grid!')
   }
-  // pads recorded with ● go into a new drum layer each time round the loop, so you build a beat loop by loop
-  const take = useRef<{ id: string; pass: number; hits: number } | null>(null)
+  const makeBlankBeat = () => {
+    setBeat(b => ({
+      ...b,
+      name: 'My beat',
+      rows: [],
+      layers: [],
+      tracks: [],
+      parts: undefined,
+      chain: undefined,
+      chainOn: false,
+    }))
+    setMsg('Blank beat ready! Tap ● Rec Pads (4-beat count-in) or tap Step Grid squares to build your groove.')
+  }
+  // Pads recorded with ● Rec Pads now write DIRECTLY into the visible Step Grid (`beat.rows`)
+  // so every drum hit you tap immediately lights up on screen! Each new loop pass saves an Undo snapshot.
+  const take = useRef<{ pass: number; hits: number } | null>(null)
   const recordHit = (voice: PadId, vel: number) => {
     const s = recStep()
     const x = t.current
@@ -161,17 +177,19 @@ export function StudioScreen({ active }: { active: boolean }) {
     const pass = Math.floor((audio().currentTime - outLatency() - x.t0 + x.stepDur / 2) / x.loopDur)
     let tk = take.current
     const fresh = !tk || (tk.pass !== pass && tk.hits > 0)
-    if (fresh) tk = take.current = { id: newId(), pass, hits: 0 }
+    if (fresh) tk = take.current = { pass, hits: 0 }
     tk!.pass = pass
     tk!.hits++
-    const id = tk!.id
     setBeat(b => {
       const n = totalSteps(b)
-      const layers = b.layers ?? []
-      const L = layers.find(l => l.id === id) ?? { id, label: `Take ${layers.filter(l => l.label.startsWith('Take')).length + 1}`, rows: [] }
-      const rows = L.rows.some(r => r.voice === voice) ? L.rows : [...L.rows, { voice, steps: Array(n).fill(0) }]
-      const next = { ...L, rows: rows.map(r => (r.voice === voice ? { ...r, steps: r.steps.map((v, i) => (i === s ? Math.max(v, vel) : v)) } : r)) }
-      return { ...b, layers: layers.some(l => l.id === id) ? layers.map(l => (l.id === id ? next : l)) : [...layers, next] }
+      const hasRow = b.rows.some(r => r.voice === voice)
+      const baseRows = hasRow ? b.rows : [...b.rows, { voice, steps: Array(n).fill(0) }]
+      const rows = baseRows.map(r =>
+        r.voice === voice
+          ? { ...r, steps: r.steps.map((v, i) => (i === s ? Math.max(v, vel) : v)) }
+          : r,
+      )
+      return { ...b, rows }
     }, fresh)
   }
   const undo = () => { const p = history.current.pop(); if (p) { future.current.push(cur.current); setBeat(p, false) } }
@@ -224,21 +242,53 @@ export function StudioScreen({ active }: { active: boolean }) {
     hold: (a: PedalAction) => { if (a === 'startStop' || a === 'record') stop() },
   })
 
-  // the cockpit (full screen) is the beat maker's main layout; Leave goes back to the windows
+  // Guitarist-first default: opens on clean 🎸 Jam Stage; 1 tap flips to 🎛 Beat Studio (Pads, Step Grid, Sampling, Layers).
+  // If studioCockpit was explicitly set to false (e.g. Windows Studio layout / browser tests), respect that and open Studio!
+  const [stageMode, setStageMode] = useState<'stage' | 'studio'>(() => {
+    if (compact) return 'stage'
+    try {
+      const saved = localStorage.getItem('kg:studioStage')
+      if (saved === '"studio"') return 'studio'
+      if (saved === '"stage"') return 'stage'
+      if (localStorage.getItem('kg:studioCockpit') === 'false') return 'studio'
+    } catch { /* private */ }
+    return 'stage'
+  })
+  const setStage = (next: 'stage' | 'studio') => {
+    setStageMode(next)
+    try { localStorage.setItem('kg:studioStage', JSON.stringify(next)) } catch { /* private */ }
+  }
+  // the cockpit (full screen) is inside Beat Studio; Leave goes back to the windows
   const [cockpit, setCockpit] = usePersist('studioCockpit', true)
   const [guideOpen, setGuideOpen] = usePersist('studioGuideOpen', false)
   const [helperTip, setHelperTip] = useState('')
   const [vibeOpen, setVibeOpen] = useState(false)
   const wide = width >= 720
   const flats = keyPrefersFlats(beat.key, beat.minor)
+
+  const recBanner = recording ? (
+    <div className="st-rec-banner row" role="status" data-testid="st-rec-banner">
+      <span><b>● RECORDING PADS LIVE</b> — Tap Kick / Snare / Hat pads (hits appear right on the Step Grid!)</span>
+      <span className="row" style={{ gap: 6 }}>
+        <button className="btn sm" onClick={undo} disabled={!history.current.length}>↶ Undo Pass</button>
+        <button className="btn sm" onClick={makeBlankBeat}>🧹 Blank</button>
+        <button className="btn sm primary" onClick={toggleRecord}>✓ Done</button>
+      </span>
+    </div>
+  ) : null
+
   const header = (
     <Win id="top" title="Controls" className="panel st-top" bodyClass="">
       <div className="st-transport">
         <button className={`btn primary st-play${playing ? ' on' : ''}`} onClick={() => (playing ? stop() : play())} aria-label={playing ? 'Stop' : 'Play'}>{playing ? '■' : '▶'}</button>
-        <button className={`btn st-rec${recording ? ' on' : ''}`} onClick={toggleRecord} aria-pressed={recording} aria-label="Record what you play into the beat">●</button>
+        <button className={`btn st-rec${recording ? ' on' : ''}`} onClick={toggleRecord} aria-pressed={recording} aria-label="Record what you play into the beat" data-testid="st-rec-pads">
+          {recording ? '● Rec On' : '● Rec Pads'}
+        </button>
+        <button className="btn sm" onClick={makeBlankBeat} title="Clear everything and start a blank beat from scratch" data-testid="st-blank-beat">🧹 Blank</button>
         <BeatLight t={tr()} playing={playing} />
         <Tempo bpm={beat.bpm} onChange={bpm => setBeat(b => ({ ...b, bpm }))} />
         <span className="st-spacer" />
+        <button className="btn sm primary" onClick={() => setStage('stage')} data-testid="st-back-stage">🎸 Jam Stage</button>
         <RigChip />
         <button className="btn sm" onClick={undo} disabled={!history.current.length} aria-label="Undo" title="Undo">↶</button>
         <button className="btn sm" onClick={redo} disabled={!future.current.length} aria-label="Redo" title="Redo">↷</button>
@@ -247,6 +297,8 @@ export function StudioScreen({ active }: { active: boolean }) {
         <button className="btn sm" onClick={() => askAssistant(`Give me ideas for my beat "${beat.name}"`, 'beat')}><Ico n="sparkles" /> Ideas</button>
         {!cockpit && active && <button className="btn sm" onClick={() => setCockpit(true)} data-testid="st-cockpit"><Ico n="expand" /> Full screen</button>}
       </div>
+      {recBanner}
+      <BackingVolumeBar compact />
       <PartsBar t={tr()} beat={beat} setBeat={setBeat} />
       <div className="st-row">
         <label className="field st-field"><span>Start from</span>
@@ -336,9 +388,9 @@ export function StudioScreen({ active }: { active: boolean }) {
   const pads = <Pads t={tr()} beat={beat} setBeat={setBeat} recordHit={recordHit} mine={mine} setMine={setMine} undo={undo} canUndo={history.current.length > 0} />
 
   const keys = <Keys t={tr()} beat={beat} setBeat={setBeat} recStep={recStep} quant={quant} />
-  const tabletop = active && posture.tabletop
+  const tabletop = active && !compact && posture.tabletop
 
-  const floatingPlay = (
+  const floatingPlay = !compact ? (
     <FloatingBeatTransport
       active={active}
       t={tr()}
@@ -352,10 +404,29 @@ export function StudioScreen({ active }: { active: boolean }) {
       onBpm={bpm => setBeat(b => ({ ...b, bpm }))}
       onUndo={undo}
     />
-  )
+  ) : null
 
-  if (active && cockpit) return (
+  if (stageMode === 'stage') {
+    return (
+      <div className="stack studio" style={{ gap: compact ? 8 : 10 }} ref={box}>
+        <BeatStageView
+          t={tr()}
+          beat={beat}
+          setBeat={setBeat}
+          playing={playing}
+          play={play}
+          stop={stop}
+          compact={compact}
+          onOpenStudio={() => { setStage('studio'); setCockpit(false) }}
+        />
+        {floatingPlay}
+      </div>
+    )
+  }
+
+  if (active && cockpit && !compact) return (
     <div className="stack studio" ref={box}>
+      {recBanner}
       <Cockpit t={tr()} beat={beat} setBeat={setBeat} playing={playing} recording={recording} play={play} stop={stop} toggleRecord={toggleRecord}
         undo={undo} redo={redo} canUndo={history.current.length > 0} canRedo={future.current.length > 0} msg={msg} onLeave={() => setCockpit(false)}
         helperTip={helperTip} onHelperTip={setHelperTip} guideOpen={guideOpen} setGuideOpen={setGuideOpen}
@@ -394,7 +465,7 @@ export function StudioScreen({ active }: { active: boolean }) {
           onClose={() => setGuideOpen(false)}
         />
       )}
-      <WinArea area="studio" className={`st-wins${wide ? ' wide' : ''}`} defaultHidden={['roll', 'mix', 'practice']}>
+      <WinArea area="studio" className={`st-wins${wide ? ' wide' : ''}`} defaultHidden={['roll', 'mix']}>
         {header}
         <Win id="steps" title="Step grid" className="panel"><Steps beat={beat} setBeat={setBeat} t={tr()} onTip={setHelperTip} /></Win>
         {pads}
@@ -600,8 +671,8 @@ function Pads({ t, beat, setBeat, recordHit, mine, setMine, undo, canUndo, bare,
           </div>
         )}
         <div className="row" style={{ gap: 6 }}>
-          <button className={`btn sm st-sample${sampler.on ? ' on' : ''}`} aria-pressed={sampler.on} onClick={() => { setEditMode(false); void sampler.toggle() }} data-testid="sample-mode">
-            <Ico n="mic" /> {sampler.on ? 'Sampling: done' : 'Sample'}
+          <button className={`btn sm st-sample${sampler.on ? ' on' : ''}`} aria-pressed={sampler.on} onClick={() => { setEditMode(false); void sampler.toggle() }} data-testid="sample-mode" title="Hold a pad to record your microphone onto that single pad">
+            <Ico n="mic" /> {sampler.on ? 'Sampling: done' : 'Sample Mic'}
           </button>
           <button className={`btn sm st-editmode${editMode ? ' on' : ''}`} aria-pressed={editMode} data-testid="edit-pads"
             onClick={() => { if (sampler.on) void sampler.toggle(); setEditMode(m => !m) }}>
