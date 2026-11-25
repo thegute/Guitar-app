@@ -1,7 +1,7 @@
 // What happened to something you shared into KGuitar from another app.
 import { useEffect, useState } from 'react'
 import { onShared, type ShareResult } from '../shareIn'
-import { go, openInPlay, openScanner } from '../nav'
+import { go, openInPlay, openScanner, openSing } from '../nav'
 import { useInstrument } from '../instrument'
 
 export function ShareInbox() {
@@ -27,10 +27,11 @@ export function ShareInbox() {
         {r.kind === 'video' && (
           <>
             <h2 style={{ margin: 0 }}>{r.song ? 'Video shared' : 'YouTube video ready'}</h2>
-            <p className="small" style={{ margin: 0 }}>{r.song ? `Attached to "${r.song}" in Play — or scan the tab straight from this video with the Riff Scanner.` : 'Scan the tab straight from this video in the Riff Scanner, or open a song in Play to attach it.'}</p>
-            <div className="row" style={{ justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <p className="small" style={{ margin: 0 }}>{r.song ? `Attached to "${r.song}" in Play — or scan the guitar tab / practice singing along with it.` : 'Scan the tab with Riff Scanner, practice singing / harmonizing in Sing Mode, or open a song in Play.'}</p>
+            <div className="row" style={{ justifyContent: 'flex-end', flexWrap: 'wrap', gap: 6 }}>
               <button className="btn" onClick={close}>OK</button>
               {r.song && <button className="btn" onClick={() => { go('play'); close() }}>Go to Play</button>}
+              <button className="btn" onClick={() => { openSing('songs', r.url); close() }}>🎤 Practice Singing</button>
               <button className="btn primary" onClick={() => { openScanner({ mode: 'scan', link: r.url }); close() }}>Scan with Riff Scanner</button>
             </div>
           </>

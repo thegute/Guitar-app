@@ -4,9 +4,10 @@ import { JamScreen } from './screens/JamScreen'
 import { PlayScreen } from './screens/PlayScreen'
 import { ToolsScreen } from './screens/ToolsScreen'
 import { SongsScreen } from './screens/SongsScreen'
+import { SingScreen } from './sing/SingScreen'
 import { LearnScreen } from './learn/LearnScreen'
 import { CelebrationLayer } from './learn/Celebration'
-import { IconGear, IconLearn, IconMenu, IconProgression, IconSearch, IconSongs, IconTools } from './components/Icons'
+import { IconGear, IconLearn, IconMenu, IconProgression, IconSearch, IconSing, IconSongs, IconTools } from './components/Icons'
 import { ArtThumb } from './components/Art'
 import { PsyBackdrop } from './components/PsyArt'
 import { setNavHidden, useMedia, useUi } from './ui'
@@ -51,6 +52,7 @@ const TABS: { id: Tab; label: string; icon: () => JSX.Element }[] = [
   { id: 'songs', label: 'Songs', icon: IconSongs },
   { id: 'learn', label: 'Learn', icon: IconLearn },
   { id: 'progressions', label: 'Jam', icon: IconProgression },
+  { id: 'sing', label: 'Sing', icon: IconSing },
   { id: 'tools', label: 'Tools', icon: IconTools },
 ]
 
@@ -215,6 +217,7 @@ function MainApp() {
           {tab === 'play' && <PlayScreen key={inst.id} />}
           {tab === 'songs' && <SongsScreen key={inst.id} />}
           {tab === 'learn' && <LearnScreen key={inst.id} />}
+          {tab === 'sing' && <SingScreen />}
           {tab === 'tools' && <ToolsScreen page={toolPage} onPage={setToolPage} scaleJump={scaleJump} jump={jump} />}
           {tab === 'progressions' && (
             <JamScreen key={jump} onOpenScale={(root, scale) => { setScaleJump({ root, scale }); setToolPage('scales'); setTab('tools') }} />

@@ -560,4 +560,13 @@ export const FEATURES: Entry[] = [
   f({ id: 'systemoverlay', title: 'Float over Songsterr & other apps (Bubble HUD)', where: 'Float ▾ menu · Settings → Cards · Android Quick Settings', guide: 'Float over Songsterr & other apps', target: { go: { settings: 'cards' } },
     text: 'Floats a live-listening 5-Layer Fretboard, chord & key detector, Circle of Fifths, Pro Licks, Tuner & Ghost click-through HUD over Songsterr, YouTube or Spotify.',
     keys: 'songsterr overlay bubble float over other apps youtube spotify ghost click through appear on top quick settings tile live ear hud' }),
+  f({ id: 'singcourse', title: 'Vocal Studio & 10-Module Pro Course', where: 'Sing → Lessons', guide: 'Vocal Studio (Course, Songs, Harmony & Game)', target: { go: { tab: 'sing' } },
+    text: '10-module YouTube vocal course + range test, breath, SOVT, mix, vibrato, harmony & Sing & Strum guitar ladder.',
+    keys: 'sing vocal coach voice lessons youtube warmups sovt breath mix vibrato sing and play guitar' }),
+  f({ id: 'singsongs', title: 'Sing Songs (My Key or Auto-Harmony)', where: 'Sing → Songs', guide: 'Vocal Studio (Course, Songs, Harmony & Game)', target: { go: { tab: 'sing' } },
+    text: 'Upload MP3/WAV or YouTube: split vocals, shift ±12 semitones with Capo/Chords, or harmonize in original key.',
+    keys: 'sing songs transpose key shift harmonize harmony baritone vocal split stems lyrics capo' }),
+  f({ id: 'singgame', title: 'Brandy Vocal Game & Floating Bubbles', where: 'Sing → Game', guide: 'Vocal Studio (Course, Songs, Harmony & Game)', target: { go: { tab: 'sing' } },
+    text: 'Vocal pitch arcade with Samurai Brandy + 5 mini-games & floating Mirror, Mix, Loop & Pitch-Pipe bubbles.',
+    keys: 'vocal game brandy pitch sniper siren surfer harmony duel vocal mirror replay floating bubbles' }),
 ]

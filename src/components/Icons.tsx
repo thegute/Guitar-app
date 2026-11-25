@@ -60,3 +60,6 @@ export const IconPencil = () => (
 export const IconSearch = () => (
   <svg viewBox="0 0 24 24" {...s}><circle cx="10.5" cy="10.5" r="6" /><path d="M15 15l5.5 5.5" /></svg>
 )
+export const IconSing = () => (
+  <svg viewBox="0 0 24 24" {...s}><rect x="9" y="3" width="6" height="10" rx="3" /><path d="M5.5 10.5a6.5 6.5 0 0 0 13 0" /><path d="M12 17v4M9 21h6" /></svg>
+)

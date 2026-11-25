@@ -8,8 +8,8 @@ import { keyOptionId } from './tabs/transpose'
 import type { StrumChart } from './theory/harmonicFlow'
 
 /** The main sections in the nav bar. */
-export type Tab = 'play' | 'songs' | 'learn' | 'progressions' | 'tools'
-export const TAB_IDS: Tab[] = ['play', 'songs', 'learn', 'progressions', 'tools']
+export type Tab = 'play' | 'songs' | 'learn' | 'progressions' | 'sing' | 'tools'
+export const TAB_IDS: Tab[] = ['play', 'songs', 'learn', 'progressions', 'sing', 'tools']
 /** The pages inside Tools. */
 export type ToolPage = 'tuner' | 'metronome' | 'chords' | 'scales'
 export type Destination = Tab | ToolPage
@@ -49,10 +49,21 @@ export function takePendingDoc(): SongDoc | null {
 
 /** Open the Songs tab at one of its pages ('mine', 'songbook', 'practice' or 'add'). */
 /** Choose the page (sub-tab) a screen opens on next time it appears. */
-export function setSubPage(screen: 'songs' | 'learn' | 'jam' | 'settings', page: string) {
+export function setSubPage(screen: 'songs' | 'learn' | 'jam' | 'sing' | 'settings', page: string) {
   try { localStorage.setItem(`kg:sub:${screen}`, JSON.stringify(page)) } catch { /* storage unavailable */ }
   // a screen that's already open switches too
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new CustomEvent('kg-subpage', { detail: { screen, page } }))
+}
+/** Open the Sing Vocal Studio, optionally jumping to a sub-tab or attaching a shared YouTube URL. */
+export function openSing(page: 'home' | 'lessons' | 'songs' | 'workouts' | 'game' | 'voice' = 'home', ytUrl?: string) {
+  if (ytUrl) {
+    try { localStorage.setItem('kg:singPendingYt', JSON.stringify(ytUrl)) } catch { /* private */ }
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('kg-sing-youtube', { detail: { url: ytUrl } }))
+    }
+  }
+  setSubPage('sing', ytUrl ? 'songs' : page)
+  go('sing')
 }
 export function openSongs(section: 'mine' | 'songbook' | 'practice' | 'add' | 'scan' | 'library' | 'learning' = 'songbook') {
   // the exercise library moved to Learn → Exercises (old links still say 'practice')

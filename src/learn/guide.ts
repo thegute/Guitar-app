@@ -217,6 +217,14 @@ export const GUIDE: GuideSection[] = [
     ],
   },
   {
+    id: 'sing', title: 'Sing (Vocal Studio)', intro: 'Full vocal coach, 10-module YouTube course, real-song practice in your key or in harmony, piano warmups and Brandy Vocal Game.',
+    why: 'Trains pitch, breath, tone and harmony alongside your guitar chords and Capo.',
+    when: 'Daily warmups, voice lessons, or singing along with real songs.',
+    items: [
+      { title: 'Vocal Studio (Course, Songs, Harmony & Game)', text: 'Open the Sing tab for: (1) 10-module / 20-lesson YouTube video course with breakdowns & live drills (Range Profile, Appoggio breath hiss, Zero-Sag hold, SOVT lip trills, Ear-First blind pitch, Passaggio/Mix bridge, Resonance, Vibrato Lab, Harmony Lock & the 5-Stage Sing & Strum guitar ladder); (2) Songs Studio — upload MP3/WAV/M4A or share from YouTube/YT Music, split vocals & stereo backing on-device (HT-Demucs), shift ±12 semitones with Auto Capo & Guitar Chords + Ghost Guide, OR sing Lower 3rd / Baritone / Upper 3rd / Auto-Fit harmonies in the original key with Hard-Spot loops, Timeline Coach Pins & Tap-to-Sync lyrics; (3) Brandy Vocal Game Mode (Song Arcade + Pitch Sniper, Siren Surfer, Interval Jumper, Harmony Duel & Dragon Breath) plus draggable Floating Singing Bubbles (Dashcam Mirror replay, Mix, Loop 4s, Pitch Pipe, Capo/Chord, Tone Orb, Pin & Water Guard).', go: { tab: 'sing' } },
+    ],
+  },
+  {
     id: 'tips', title: 'Tips for getting good', intro: 'What actually makes you better, fastest.',
     why: 'Knowing how to practise matters as much as what you practise.',
     when: 'Read them once, then come back whenever progress feels slow.',

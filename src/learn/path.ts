@@ -11,7 +11,7 @@ export type Go =
   | { books: { id?: string; page?: number; q?: string } }
   | { lesson: string }
   | { tool: 'ear' | 'caged' | 'changes' | 'rhythm' | 'circle' | 'lessons' | 'settings' | 'progress' | 'guide' | 'techniques' | 'bends' | 'targets' | 'cr' | 'earpath' | 'fills' | 'videos' | 'recordings' | 'chainer' | 'fretgame' }
-  | { tab: 'play' | 'progressions' | 'tuner' }
+  | { tab: 'play' | 'progressions' | 'tuner' | 'sing' }
   | { exercise: 'spider' | 'penta1' | `type:${string}` }
   /** a saved song; loop null = stop looping; speed = playback speed to start at */
   | { song: string; loop?: { from: number; to: number } | null; speed?: number }
