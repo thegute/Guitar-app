@@ -3,6 +3,7 @@
 // Brandy Vocal Game Mode, Floating Singing Bubbles, and My Voice Profile!
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { ChromeBar } from '../components/ChromeBar'
+import { brandySingSprite } from '../art/samurai'
 import { youtubeId } from '../tabs/library'
 import { isolate } from '../ml/voice'
 import { ALL_SING_LESSONS, nextUnfinishedLesson } from './course'
@@ -667,11 +668,19 @@ export function SingScreen() {
       <ChromeBar id="sing-hero" label="Sing banner" edge="top" pillAlign="right" minH={44} maxH={220}>
         <div className="hero sing-hero">
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-            <div>
-              <h1 style={{ margin: 0 }}>🎤 Vocal Studio</h1>
-              <p className="small muted" style={{ margin: '2px 0 0' }}>
-                {profile.voiceType} · {formatRange(profile.lowMidi, profile.highMidi)} · Break {midiToNoteName(profile.passaggioMidi)} · Course {coursePct}%
-              </p>
+            <div className="row" style={{ alignItems: 'center', gap: 10 }}>
+              <img
+                src={brandySingSprite(frame?.midi !== null && frame ? (frame.flags.includes('strain') || frame.flags.includes('crack') ? 'wrong' : 'shred') : 'idle')}
+                alt="Brandy standing at the microphone"
+                style={{ width: 54, height: 54, objectFit: 'contain', flexShrink: 0 }}
+                draggable={false}
+              />
+              <div>
+                <h1 style={{ margin: 0 }}>🎤 Vocal Studio</h1>
+                <p className="small muted" style={{ margin: '2px 0 0' }}>
+                  {profile.voiceType} · {formatRange(profile.lowMidi, profile.highMidi)} · Break {midiToNoteName(profile.passaggioMidi)} · Course {coursePct}%
+                </p>
+              </div>
             </div>
             <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
               <button
@@ -1203,7 +1212,7 @@ export function SingScreen() {
                     checked={profile.brandyInGame}
                     onChange={e => updateSingProfile({ brandyInGame: e.target.checked })}
                   />
-                  🎸 Brandy on stage
+                  🎤 Brandy at the mic
                 </label>
                 <button
                   type="button"

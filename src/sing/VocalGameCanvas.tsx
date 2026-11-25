@@ -6,7 +6,7 @@
 //   🎯 Pitch Sniper · 🏄 Siren Surfer · ⚔️ Interval Jumper · 🤝 Harmony Duel · 💨 Dragon Breath
 import { useEffect, useRef, useState } from 'react'
 import { midiToNoteName, type MelodyNote, type VocalFrame } from './vocalEngine'
-import { brandySprite, type BrandyMood } from '../art/samurai'
+import { brandySingSprite, type BrandyMood } from '../art/samurai'
 
 export type VocalMiniGameId = 'song' | 'sniper' | 'siren' | 'jumper' | 'harmony' | 'breath'
 
@@ -143,13 +143,13 @@ export function VocalGameCanvas({
   const lastHitCount = useRef(stats.hits)
   const lastMissCount = useRef(stats.misses)
 
-  // Preload Samurai Rocker Brandy sprites once using the canonical asset helper
+  // Preload Samurai Rocker Brandy-at-the-Mic sprites once
   useEffect(() => {
     BRANDY_MOODS.forEach(k => {
       if (imgsRef.current[k]) return
       const img = new Image()
       img.onload = () => setImgTick(n => n + 1)
-      img.src = brandySprite(k)
+      img.src = brandySingSprite(k)
       imgsRef.current[k] = img
     })
   }, [])
@@ -350,31 +350,39 @@ export function VocalGameCanvas({
       ctx.stroke()
     }
 
-    // Samurai Rocker Brandy standing right behind the Hit Rail!
+    // Samurai Rocker Brandy standing at her chrome microphone right behind the Hit Rail!
     if (brandyOn) {
       const bs = brandyStateRef.current
       const now = performance.now()
-      const pose: BrandyMood = now < bs.until ? bs.pose : 'idle'
+      const singingLive = frame !== null && frame.midi !== null
+      const liveOnPitch = singingLive && activeTarget !== null && Math.abs((frame.centerMidi ?? frame.midi!) - activeTarget.midi) <= 0.45
+      const pose: BrandyMood =
+        now < bs.until
+          ? bs.pose
+          : liveOnPitch
+            ? 'shred'
+            : singingLive && activeTarget !== null
+              ? 'wrong'
+              : 'idle'
       if (bs.shake > 0.2) bs.shake *= 0.84
       else bs.shake = 0
       if (bs.flash > 0.05) bs.flash *= 0.85
       else bs.flash = 0
 
       const img = imgsRef.current[pose] ?? imgsRef.current.idle
-      const spSize = Math.min(hitX - 10, cssH * 0.56)
-      const sx = Math.max(4, hitX - spSize - 10) + (bs.shake ? (Math.random() - 0.5) * bs.shake : 0)
-      const sy = cssH * 0.54 - spSize * 0.5
+      const spSize = Math.min(hitX - 6, cssH - botPad - 22)
+      const sx = Math.max(2, hitX - spSize - 8) + (bs.shake ? (Math.random() - 0.5) * bs.shake : 0)
+      const sy = cssH - botPad - spSize + 2
       if (img && img.complete && img.naturalWidth > 0) {
         ctx.drawImage(img, sx, sy, spSize, spSize)
       } else {
-        // Clean stylized fallback badge if sprite is still loading
         ctx.fillStyle = '#1e293b'
         ctx.beginPath()
         ctx.arc(sx + spSize / 2, sy + spSize / 2, spSize * 0.36, 0, Math.PI * 2)
         ctx.fill()
         ctx.fillStyle = '#f8fafc'
         ctx.font = '700 22px system-ui, sans-serif'
-        ctx.fillText('🎸', sx + spSize / 2 - 12, sy + spSize / 2 + 8)
+        ctx.fillText('🎤', sx + spSize / 2 - 12, sy + spSize / 2 + 8)
       }
 
       if (bs.flash > 0.1) {
