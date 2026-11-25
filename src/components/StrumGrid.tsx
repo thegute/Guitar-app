@@ -140,6 +140,8 @@ export function StrumGrid({ compact = false }: { compact?: boolean }) {
   const [saveName, setSaveName] = useState('')
   const [msg, setMsg] = useState('')
   const midiInputRef = useRef<HTMLInputElement>(null)
+  const mixerRef = useRef<HTMLDivElement>(null)
+  const barsPanelRef = useRef<HTMLDivElement>(null)
 
   // Optional Listen & Grade chord accuracy per bar
   const [grading, setGrading] = useState(false)
@@ -355,10 +357,16 @@ export function StrumGrid({ compact = false }: { compact?: boolean }) {
             <button
               className={`btn sm${bandOpen ? ' primary' : ''}`}
               aria-expanded={bandOpen}
-              onClick={() => setBandOpen(!bandOpen)}
+              onClick={() => {
+                const next = !bandOpen
+                setBandOpen(next)
+                if (next) {
+                  requestAnimationFrame(() => mixerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
+                }
+              }}
               data-testid="strum-band-btn"
             >
-              🎛 Band Mixer
+              🎛 Band Mixer {bandOpen ? '▴' : '▾'}
             </button>
             <button
               className={`btn sm${toolsOpen || st.speedUp.on || grading ? ' primary' : ''}`}
@@ -370,6 +378,130 @@ export function StrumGrid({ compact = false }: { compact?: boolean }) {
             </button>
           </div>
         </div>
+
+        {/* Expandable Edit & Practice Tools Drawer — opens right under the button so it's always in view! */}
+        {toolsOpen && (
+          <div
+            className="strum-inline-mixer stack"
+            style={{ gap: 8, borderLeft: '3px solid var(--accent)' }}
+            data-testid="strum-tools-drawer"
+          >
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+              <strong className="small">⚙ Edit Chart &amp; Practice Tools</strong>
+              <button className="btn sm ghost" onClick={() => setToolsOpen(false)} aria-label="Close Edit and Tools">
+                ✕
+              </button>
+            </div>
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                className={`btn sm${editing ? ' primary' : ''}`}
+                onClick={() => {
+                  const targetBar = Math.min(Math.max(0, st.barIdx), Math.max(0, chart.bars.length - 1))
+                  setEditing(editing ? null : { barIdx: targetBar, splitIdx: 0 })
+                  requestAnimationFrame(() => barsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+                }}
+                data-testid="strum-edit-bars-btn"
+              >
+                ✏ {editing ? 'Close Bar Editor' : `Edit Bar ${(st.barIdx % Math.max(1, chart.bars.length)) + 1}`}
+              </button>
+              <button
+                className="btn sm"
+                onClick={() => {
+                  const idx = chart.bars.length
+                  addBarAfter(chart.bars.length - 1)
+                  setEditing({ barIdx: idx, splitIdx: 0 })
+                  requestAnimationFrame(() => barsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+                }}
+              >
+                + Add Bar
+              </button>
+              <button
+                className="btn sm"
+                onClick={() => {
+                  downloadMidiFile(exportStrumChartToMidi(chart), chart.name || 'strum_machine')
+                  setMsg(`Exported "${chart.name}" as .mid!`)
+                }}
+              >
+                🎹 Export .mid
+              </button>
+              <button className="btn sm" onClick={() => midiInputRef.current?.click()}>
+                📂 Import .mid
+              </button>
+            </div>
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                className={`btn sm${st.countIn ? ' primary' : ''}`}
+                aria-pressed={st.countIn}
+                onClick={() => strumMachine.setCountIn(!st.countIn)}
+              >
+                Count-in {st.countIn ? 'On' : 'Off'}
+              </button>
+              <button
+                className={`btn sm${grading ? ' primary' : ''}`}
+                onClick={() => void toggleGrading()}
+                data-testid="strum-grade-btn"
+              >
+                🎤 {grading ? `Grading (${gradeStats.hits}/${gradeStats.total})` : 'Listen & Grade'}
+              </button>
+              <label className="row small" style={{ gap: 6, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={st.keepAcrossPages}
+                  onChange={e => strumMachine.setKeepAcrossPages(e.target.checked)}
+                  data-testid="strum-keep-across"
+                />
+                <span>Keep playing across screens</span>
+              </label>
+            </div>
+            <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <label className="row small" style={{ gap: 6 }}>
+                <input
+                  type="checkbox"
+                  checked={st.speedUp.on}
+                  onChange={e => strumMachine.setSpeedUp({ on: e.target.checked })}
+                />
+                <span>⚡ Auto Speed-Up</span>
+              </label>
+              <label className="small">
+                +{st.speedUp.step} BPM
+                <input
+                  type="range"
+                  min={2}
+                  max={15}
+                  value={st.speedUp.step}
+                  onChange={e => strumMachine.setSpeedUp({ step: Number(e.target.value) })}
+                  style={{ width: 70, marginLeft: 6 }}
+                />
+              </label>
+              <label className="small">
+                every {st.speedUp.everyLoops} loop{st.speedUp.everyLoops === 1 ? '' : 's'}
+                <select
+                  className="select sm"
+                  style={{ width: 'auto', marginLeft: 6 }}
+                  value={st.speedUp.everyLoops}
+                  onChange={e => strumMachine.setSpeedUp({ everyLoops: Number(e.target.value) })}
+                >
+                  {[1, 2, 4].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
+              <label className="small">
+                max {st.speedUp.max} BPM
+                <input
+                  type="range"
+                  min={80}
+                  max={220}
+                  step={5}
+                  value={st.speedUp.max}
+                  onChange={e => strumMachine.setSpeedUp({ max: Number(e.target.value) })}
+                  style={{ width: 80, marginLeft: 6 }}
+                />
+              </label>
+            </div>
+            <p className="small muted" style={{ margin: 0 }}>
+              Tip: tap any chord box in the chart below to swap its chord, split the bar, or get Harmonic Flow ideas.
+            </p>
+          </div>
+        )}
 
         {/* One-Hand Stage Transport Cluster: BIG Play + Count-In + Key/Capo + BPM + Speed-Up + 5-Layer Neck */}
         <div className="row strum-stage-bar" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -579,7 +711,7 @@ export function StrumGrid({ compact = false }: { compact?: boolean }) {
 
         {/* Per-Instrument Band Mixer (Guitar/Chords, Keys/Synth with 10 new synths, Bass, Drums!) */}
         {bandOpen && (
-          <div className="strum-inline-mixer stack" style={{ gap: 8 }} data-testid="strum-inline-mixer">
+          <div ref={mixerRef} className="strum-inline-mixer stack" style={{ gap: 8 }} data-testid="strum-inline-mixer">
             <div className="strum-band-row">
               <label className="field" style={{ flex: 1 }}>
                 <span>🎸 Guitar / Chords</span>
@@ -682,85 +814,10 @@ export function StrumGrid({ compact = false }: { compact?: boolean }) {
             </div>
           </div>
         )}
-
-        {/* Expandable Practice Tools Drawer (Count-in, Speed-Up, Listen & Grade, Keep Playing) */}
-        {toolsOpen && (
-          <div className="strum-inline-mixer stack" style={{ gap: 8 }} data-testid="strum-tools-drawer">
-            <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <button
-                className={`btn sm${st.countIn ? ' primary' : ''}`}
-                aria-pressed={st.countIn}
-                onClick={() => strumMachine.setCountIn(!st.countIn)}
-              >
-                Count-in {st.countIn ? 'On' : 'Off'}
-              </button>
-              <button
-                className={`btn sm${grading ? ' primary' : ''}`}
-                onClick={() => void toggleGrading()}
-                data-testid="strum-grade-btn"
-              >
-                🎤 {grading ? `Grading (${gradeStats.hits}/${gradeStats.total})` : 'Listen & Grade'}
-              </button>
-              <label className="row small" style={{ gap: 6, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={st.keepAcrossPages}
-                  onChange={e => strumMachine.setKeepAcrossPages(e.target.checked)}
-                  data-testid="strum-keep-across"
-                />
-                <span>Keep playing across screens</span>
-              </label>
-            </div>
-            <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-              <label className="row small" style={{ gap: 6 }}>
-                <input
-                  type="checkbox"
-                  checked={st.speedUp.on}
-                  onChange={e => strumMachine.setSpeedUp({ on: e.target.checked })}
-                />
-                <span>⚡ Auto Speed-Up</span>
-              </label>
-              <label className="small">
-                +{st.speedUp.step} BPM
-                <input
-                  type="range"
-                  min={2}
-                  max={15}
-                  value={st.speedUp.step}
-                  onChange={e => strumMachine.setSpeedUp({ step: Number(e.target.value) })}
-                  style={{ width: 70, marginLeft: 6 }}
-                />
-              </label>
-              <label className="small">
-                every {st.speedUp.everyLoops} loop{st.speedUp.everyLoops === 1 ? '' : 's'}
-                <select
-                  className="select sm"
-                  style={{ width: 'auto', marginLeft: 6 }}
-                  value={st.speedUp.everyLoops}
-                  onChange={e => strumMachine.setSpeedUp({ everyLoops: Number(e.target.value) })}
-                >
-                  {[1, 2, 4].map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </label>
-              <label className="small">
-                max {st.speedUp.max} BPM
-                <input
-                  type="range"
-                  min={80}
-                  max={220}
-                  step={5}
-                  value={st.speedUp.max}
-                  onChange={e => strumMachine.setSpeedUp({ max: Number(e.target.value) })}
-                  style={{ width: 80, marginLeft: 6 }}
-                />
-              </label>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* 2) Song Sections + 4-Bars-Per-Row Interactive Chord Grid */}
-      <div className="panel stack" style={{ gap: 10 }}>
+      <div ref={barsPanelRef} className="panel stack" style={{ gap: 10 }}>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
           <strong style={{ fontSize: '0.95rem' }}>
             {chart.name} · {chart.bars.length} Bars ({st.beatsPerBar}/4)
