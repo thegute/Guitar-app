@@ -223,3 +223,11 @@ export function guitarAndBacking(st: Stems): { guitar: [Float32Array, Float32Arr
   for (const k of ['drums', 'bass', 'vocals'] as const) for (let c = 0; c < 2; c++) { const a = st[k][c], b = backing[c]; for (let i = 0; i < n; i++) b[i] += a[i] }
   return { guitar: st.other, backing }
 }
+
+/** Isolated stereo vocals and stereo backing band (drums + bass + other), for Sing Mode key-shifting & harmony. */
+export function vocalAndBacking(st: Stems): { vocals: [Float32Array, Float32Array]; backing: [Float32Array, Float32Array] } {
+  const n = st.vocals[0].length
+  const backing: [Float32Array, Float32Array] = [new Float32Array(n), new Float32Array(n)]
+  for (const k of ['drums', 'bass', 'other'] as const) for (let c = 0; c < 2; c++) { const a = st[k][c], b = backing[c]; for (let i = 0; i < n; i++) b[i] += a[i] }
+  return { vocals: st.vocals, backing }
+}
