@@ -16,6 +16,7 @@ import { VoiceLeadNeck } from '../components/VoiceLeadNeck'
 import { HarmonicFlowCoach } from '../components/HarmonicFlowCoach'
 import { useStrumState } from '../audio/strumMachine'
 import { openFlowCoach, openStrumGrid } from '../nav'
+import { InYourCourses } from '../lessons/InYourCourses'
 
 const TONAL_SUFFIX: Record<string, string> = {
   major: '', minor: 'm', '5': '5', aug7: '7#5', mmaj7: 'mMaj7', alt: '7alt', '69': '6/9', m69: 'm6/9', '9#11': '9#11',
@@ -176,6 +177,9 @@ export function ChordsScreen() {
           <VoiceFrom name={name} root={root} minor={/^m(?!aj)|^minor/.test(suffix)} tuning={inst.midis} flats={/b/.test(root)} />
         </Win>
       <ChordExtras root={root} suffix={suffix} voicing={v} />
+      <Win id="courses" title="From your video courses" className="panel">
+        <InYourCourses topics={['triads', 'chords', 'diatonic', 'caged', 'arpeggios']} title="Chord, triad & rhythm lessons" />
+      </Win>
       </WinArea>
       )}
     </div>

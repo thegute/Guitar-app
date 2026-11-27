@@ -9,6 +9,7 @@ import { Chips, KeyPicker, usePersist } from '../components/Controls'
 import { audio } from '../audio/engine'
 import { playNote, strum } from '../audio/pluck'
 import { learnGo, openInPlay } from '../nav'
+import { InYourCourses } from '../lessons/InYourCourses'
 import type { Instrument } from '../instrument'
 import { pc, SHARPS } from '../theory/notes'
 import { jamProgression, STARTER_PROGS, starterProgression } from '../tabs/fromProgression'
@@ -535,6 +536,7 @@ export function ArpeggioConnectView({ inst, root, setRoot, minor, setMinor }: Pr
           <button className="btn sm" onClick={() => learnGo({ lesson: 'c6-targets' })}>Level 6 · Target Chord Tones</button>
           <button className="btn sm" onClick={() => learnGo({ tool: 'circle' })}>Circle Ch. 4 · One-Box Arpeggios</button>
         </div>
+        <InYourCourses topics={['arpeggios', 'triads', 'chord-tones', 'caged', 'hexatonic']} title="Triad & arpeggio lessons in your courses" />
       </div>
     </div>
   )

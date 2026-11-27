@@ -2,9 +2,25 @@
 import type { Instrument } from '../instrument'
 import { TECHNIQUES, markTechnique, techniquesDone, type Technique } from './techniques'
 import { InYourBooks } from '../books/InYourBooks'
+import { InYourCourses } from '../lessons/InYourCourses'
 import { Win, WinArea } from '../components/Win'
 /** which book topics each technique matches (books/topics.ts) */
 const TECH_TOPICS: Record<string, string[]> = {"pick": ["alternate-picking"], "fret": ["fretboard-notes"], "chords": ["chord-building"], "strum": ["rhythm"], "alternate": ["alternate-picking", "crosspicking"], "mute": ["rhythm"], "pm": ["rhythm"], "legato": ["hammer-on"], "slide": ["slide"], "bend": ["bend"], "barre": ["caged", "chord-building"], "travis": ["travis", "fingerstyle"], "melodic": ["fingerstyle", "travis"], "slack-tuning": ["slack-key", "open-tunings"], "slack-thumb": ["slack-key", "travis"], "slack-hammer": ["slack-key", "hammer-on"], "slack-vamp": ["slack-key"]}
+const COURSE_TECH_TOPICS: Record<string, string[]> = {
+  pick: ['pick-hold', 'alternate-picking', 'hand-sync'],
+  fret: ['endurance', 'warmup', 'hand-sync'],
+  chords: ['chords', 'triads', 'diatonic'],
+  strum: ['strumming', 'rhythm', 'acoustic'],
+  alternate: ['alternate-picking', 'speed', 'hand-sync', 'hybrid-picking'],
+  mute: ['hand-sync', 'rhythm', 'slap'],
+  pm: ['rhythm', 'hand-sync', 'speed'],
+  legato: ['sequences', 'hexatonic', 'speed'],
+  slide: ['phrasing', 'hexatonic', 'blues'],
+  bend: ['phrasing', 'blues', 'bb-king'],
+  barre: ['caged', 'pentatonic', 'triads'],
+  travis: ['fingerstyle', 'acoustic', 'drop-d'],
+  melodic: ['fingerstyle', 'phrasing', 'acoustic'],
+}
 
 export function TechniqueList({ onOpen, onExit }: { onOpen: (id: string) => void; onExit: () => void }) {
   const done = techniquesDone()
@@ -46,6 +62,7 @@ export function TechniqueView({ id, inst, onExit, onDrill }: { id: string; inst:
           <button className="btn primary" onClick={() => { markTechnique(t.id); onDrill(t) }}>{t.drill.label}</button>
         </Win>
       </WinArea>
+      <InYourCourses topics={COURSE_TECH_TOPICS[t.id] ?? TECH_TOPICS[t.id] ?? ['speed', 'rhythm']} title={`Course clips for ${t.title}`} />
       <InYourBooks topics={TECH_TOPICS[t.id] ?? []} />
     </article>
   )

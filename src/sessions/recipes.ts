@@ -28,6 +28,44 @@ function fit(steps: Step[], total?: number): Step[] {
 interface Recipe { test: RegExp; title: string; reply: string; steps: (k: { key?: string; minor?: boolean; bpm?: number }) => Step[] }
 const RECIPES: Recipe[] = [
   {
+    test: /hexatonic|melodic\s*improv|improv\s*gym|roy\s*ziv/i, title: 'Melodic Improv & Hexatonic Workout',
+    reply: "Here's a Melodic Improv workout: warm up your fingers, hear the Hexatonic 9th colour note over a drone, nail chord tones & neck jumps in Melodic Improv Gym, then solo over a ballad!",
+    steps: k => [
+      warm,
+      { title: 'Hexatonic scale & 9th colour note', minutes: 5, target: { scale: { root: k.key ?? 'A', scale: 'minor hexatonic' } }, tip: 'Turn on the Modal Drone and linger on the cyan 2nd/9th note.' },
+      { title: 'Chord-Tone Sniper & Neck Teleporter', minutes: 8, target: { jam: { page: 'improv', key: k.key ?? 'A', bpm: k.bpm ?? 80 } }, tip: 'Switch between Chord-Tone Sniper and Neck Teleporter — save any killer phrase with Dashcam!' },
+      { title: 'Live Solo Director over a full song', minutes: 6, target: { jam: { page: 'improv', key: k.key ?? 'A', bpm: k.bpm ?? 76 } }, tip: 'Follow the 4-bar cues and leave breathing room between phrases.' },
+    ],
+  },
+  {
+    test: /speed\s*build|burst|endurance|shred/i, title: 'Speed Builder Burst & Endurance',
+    reply: "Here's a Speed Builder session: relaxed chromatic warm-up, Burst-Speed cycles (2 bars clean → 1 bar +15% burst), a timed stamina circuit, then a live scale sequence!",
+    steps: k => [
+      warm,
+      { title: 'Burst-Speed cycles (2 clean → 1 burst)', minutes: 6, target: { go: { learn: 'exercises' } }, tip: 'Open ⚡ Speed Builder, set your clean BPM, and stay zero-tension during the burst bar.' },
+      { title: 'Endurance & Pinky stamina circuit', minutes: 5, target: { go: { learn: 'exercises' } }, tip: 'Keep fingers 2mm above the fretboard and shake out during rest breaks.' },
+      { title: 'Scale sequence in Play & Game Mode', minutes: 6, target: { exercise: 'type:scales' }, tip: 'Try Ascending Thirds or 3NPS at your logged clean BPM and push +5 BPM!' },
+    ],
+  },
+  {
+    test: /modal|dorian|lydian|mixolydian|phrygian|drone/i, title: 'Modal Colour & Drone Session',
+    reply: "Let's train your ears and fingers on modal colours: hold one root drone and switch modes in parallel, try Roy's Pentatonic Trick, then improvise over a modal vamp!",
+    steps: k => [
+      { title: 'Root Drone + Parallel Modes', minutes: 6, target: { scale: { root: k.key ?? 'A', scale: 'dorian' } }, tip: 'Turn on the Root Drone and switch Ionian → Dorian → Lydian → Mixolydian while leaning on each cyan Colour Note.' },
+      { title: 'Pentatonic Trick overlay', minutes: 5, target: { scale: { root: k.key ?? 'A', scale: 'lydian' } }, tip: 'Toggle ✨ Pentatonic Trick and play familiar boxes shifted to unlock instant modal melodies.' },
+      { title: 'Improvise over a Modal Vamp', minutes: 9, target: { jam: { page: 'improv', key: k.key ?? 'A', bpm: k.bpm ?? 94 } }, tip: 'Pick Dorian Groove, Lydian Dream, or Mixolydian Jam and target the glowing colour note.' },
+    ],
+  },
+  {
+    test: /paul\s*davids|bb\s*king|b\.b\.\s*king|electric\s*elevation|acoustic\s*adventure/i, title: 'Groove, Triads & B.B. King Box',
+    reply: "Here's a melodic groove & triads session: light up the B.B. King Box, connect triads across the neck, and jam with expressive bends and rhythm-lead phrasing!",
+    steps: k => [
+      { title: 'B.B. King Box & Pentatonic shapes', minutes: 6, target: { scale: { root: k.key ?? 'E', scale: 'minor blues' } }, tip: 'Toggle 🎸 B.B. King Box on the neck and blend major & minor 3rds with vocal bends.' },
+      { title: 'Triads & Arpeggio Connector', minutes: 6, target: { go: { tool: 'caged' } }, tip: 'Find the same triad in three neck zones and connect them smoothly.' },
+      { title: 'Note-Limit & Groove Jam', minutes: 8, target: { jam: { page: 'improv', key: k.key ?? 'E', bpm: k.bpm ?? 88 } }, tip: 'Try 3 Notes Only or Play/Rest Space over a Blues or Acoustic groove.' },
+    ],
+  },
+  {
     test: /triad/i, title: 'Triads today',
     reply: "Here's a triads session: warm up, the triad shapes on each string set, then use them over a beat so they turn into music.",
     steps: k => [warm,

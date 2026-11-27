@@ -32,21 +32,25 @@ import { BookRefBody, CircleCardBody, LicksCardBody, StickyNoteBody } from './Cr
 import {
   BeatsFloatBody,
   FlowFloatBody,
+  ImprovGymFloatBody,
   LooperFloatBody,
   PlayTabFloatBody,
   ScannerFloatBody,
   StrumFloatBody,
 } from './JamFloatCards'
+import { CourseVideoFloatBody } from './CourseVideoFloatCard'
 import { getFloatTabDoc } from './bus'
 import { BackingVolumeBar } from '../jam/BackingVolumeBar'
-import { openCircleMastery, openFlowCoach, openInPlay, openJam, openLicksInKey, openScanner, openStrumGrid } from '../nav'
+import { learnGo, openCircleMastery, openFlowCoach, openImprovGym, openInPlay, openJam, openLicksInKey, openScanner, openStrumGrid } from '../nav'
 import type { SongDoc } from '../tabs/library'
 
-const FULL_PAGE_CARDS = new Set<CardId>(['strum', 'beats', 'looper', 'flow', 'scanner', 'playtab', 'licks', 'circle'])
+const FULL_PAGE_CARDS = new Set<CardId>(['strum', 'beats', 'looper', 'flow', 'scanner', 'playtab', 'licks', 'circle', 'improv-gym', 'course-video'])
 
 function openCardFullPage(kind: CardId, screen: string, uid: string) {
   removeCardInstance(screen, uid)
   switch (kind) {
+    case 'improv-gym': openImprovGym({ fullPage: true }); break
+    case 'course-video': learnGo({ tool: 'videos' }); break
     case 'strum': openStrumGrid({ fullPage: true }); break
     case 'beats': openJam('beats', { fullPage: true }); break
     case 'looper': openJam('loop', { fullPage: true }); break
@@ -93,7 +97,7 @@ export function FloatLayer() {
         const isExpandedNeck = id === 'neck' && (neckExpanded[inst.uid] ?? (localStorage.getItem('kg:floatNeck5Layer') === '1'))
         const copyNum = inst.uid.includes('-') ? ` #${inst.uid.split('-').pop()}` : ''
         const title = (isExpandedNeck ? '5-Layer Fretboard' : card.title) + copyNum
-        const isPageCard = id === 'strum' || id === 'beats' || id === 'looper' || id === 'flow' || id === 'scanner' || id === 'playtab'
+        const isPageCard = id === 'strum' || id === 'beats' || id === 'looper' || id === 'flow' || id === 'scanner' || id === 'playtab' || id === 'improv-gym' || id === 'course-video'
         const width = isPageCard
           ? Math.min(540, typeof innerWidth === 'number' ? Math.max(310, innerWidth - 28) : 480)
           : isExpandedNeck ? 440 : id === 'band' || id === 'book' || id === 'licks' ? 350 : id === 'drummer' || id === 'circle' || id === 'video' ? 320 : id === 'neck' ? 300 : id === 'hand' || id === 'note' || id === 'mixer' ? 280 : 230
@@ -333,6 +337,8 @@ function LiveHandFloatBody({ ctx }: { ctx: FloatCtx }) {
 
 function Body({ uid, id, ctx: c, neck5Layer, onToggle5Layer }: { uid: string; id: CardId; ctx: FloatCtx; neck5Layer: boolean; onToggle5Layer: () => void }) {
   switch (id) {
+    case 'improv-gym': return <ImprovGymFloatBody />
+    case 'course-video': return <CourseVideoFloatBody />
     case 'strum': return <StrumFloatBody />
     case 'beats': return <BeatsFloatBody />
     case 'looper': return <LooperFloatBody />

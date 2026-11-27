@@ -5888,3 +5888,254 @@ html:not([data-arrange]) .win-zoom { display: none; }
     max-width: calc(100vw - 12px) !important;
   }
 }
+
+/* ---------- Melodic Improv Gym, Speed Builder Lab & "From Your Courses" ---------- */
+.improv-gym:not(.compact) {
+  padding-bottom: 76px;
+}
+.improv-view-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--bg-2, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--hairline);
+}
+.improv-stage-card {
+  border-left: 4px solid var(--accent);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.improv-stage-card.arcade {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(6, 182, 212, 0.08));
+}
+.improv-stage-card.warn {
+  border-left-color: var(--fb-gold, #f59e0b);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
+}
+.improv-stage-grid {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.improv-brandy-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--hairline);
+}
+.improv-brandy-img {
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+.improv-brandy-img.mood-shred {
+  transform: scale(1.08) rotate(-3deg);
+  filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.65));
+}
+.improv-brandy-img.mood-hurt,
+.improv-brandy-img.mood-wrong {
+  transform: translateX(-2px);
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));
+}
+.improv-arcade-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.improv-score-pts {
+  font-family: var(--display);
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+.improv-combo {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.improv-combo.fever {
+  color: #f59e0b;
+}
+.improv-cue-center {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.improv-cue-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  background: rgba(6, 182, 212, 0.16);
+  color: var(--fb-mode, #22d3ee);
+  border: 1px solid rgba(6, 182, 212, 0.35);
+}
+.improv-chord-now {
+  font-family: var(--display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+}
+.improv-cue-headline {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.improv-beat-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: var(--bg-2, rgba(255, 255, 255, 0.07));
+  border: 1px solid var(--hairline);
+  transition: transform 0.1s ease, background 0.1s ease;
+}
+.improv-beat-pill.play {
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #10b981;
+}
+.improv-beat-pill.rest {
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #f59e0b;
+  opacity: 0.85;
+}
+.improv-beat-pill.now {
+  background: var(--accent);
+  color: #0b0d14;
+  border-color: var(--accent);
+  transform: scale(1.08);
+}
+.improv-feedback-banner {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.16);
+  color: var(--text);
+}
+.improv-course-backing {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+/* Speed Builder phase bar */
+.sb-phase-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: var(--bg-2, rgba(255, 255, 255, 0.05));
+}
+.sb-phase-strip.phase-clean {
+  border-color: rgba(16, 185, 129, 0.55);
+  background: rgba(16, 185, 129, 0.12);
+}
+.sb-phase-strip.phase-burst {
+  border-color: rgba(245, 158, 11, 0.7);
+  background: rgba(245, 158, 11, 0.18);
+}
+.sb-phase-strip.phase-ramp {
+  border-color: rgba(6, 182, 212, 0.6);
+  background: rgba(6, 182, 212, 0.14);
+}
+
+/* Universal "From Your Courses" strip */
+.in-courses {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.in-courses-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.in-courses-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.in-course-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: var(--bg-2, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--hairline);
+}
+.in-course-main {
+  flex: 1 1 200px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.in-course-badge {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(168, 85, 247, 0.18);
+  color: var(--fb-embel, #c084fc);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+.in-course-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.in-course-text b {
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.in-course-play {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+}

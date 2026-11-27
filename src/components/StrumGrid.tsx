@@ -26,6 +26,7 @@ import { useInstrument } from '../instrument'
 import {
   openFloatTab,
   openFlowCoach,
+  openImprovGym,
   openInPlay,
   openJam,
   openLicksInKey,
@@ -34,6 +35,7 @@ import {
   onOpenStrum,
   takePendingStrum,
 } from '../nav'
+import { InYourCourses } from '../lessons/InYourCourses'
 import { BackingVolumeBar } from '../jam/BackingVolumeBar'
 import { AIPromptComposer, AIStyleDropdown, RoleShapeStrip } from '../jam/AIStyleDropdown'
 import {
@@ -1041,6 +1043,14 @@ export function StrumGrid({ compact = false }: { compact?: boolean }) {
             ⧉ Float Tab
           </button>
           <button
+            className="btn sm primary"
+            onClick={() => openImprovGym({ key: chart.tonic, scale: chart.minor ? 'minor hexatonic' : 'major hexatonic' })}
+            title="Float Melodic Improv Gym right over this progression!"
+            data-testid="strum-to-improv"
+          >
+            🎯 Improv Gym
+          </button>
+          <button
             className="btn sm"
             onClick={() => openSing('home')}
             title="Jump to Sing Mode to sing along"
@@ -1084,6 +1094,14 @@ export function StrumGrid({ compact = false }: { compact?: boolean }) {
             }}
           />
         </div>
+        {!compact && (
+          <InYourCourses
+            topics={/blues/i.test(aiStyleId) ? ['blues', 'bb-king', 'rhythm'] : /folk|acoustic|bluegrass|country/i.test(aiStyleId) ? ['acoustic', 'strumming', 'flatpicking', 'rhythm'] : ['rhythm', 'strumming', 'improv', 'hexatonic']}
+            title="Matching course clips for this groove"
+            max={4}
+            compact
+          />
+        )}
         {msg && <p className="small muted" style={{ margin: 0 }} role="status">{msg}</p>}
       </div>
     </div>

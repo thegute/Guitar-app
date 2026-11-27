@@ -67,6 +67,7 @@ import { useScreenInfo } from '../assistant/screen'
 
 const StudioScreen = lazy(() => import('../studio/StudioScreen').then(m => ({ default: m.StudioScreen })))
 const LooperPanel = lazy(() => import('../looper/LooperPanel').then(m => ({ default: m.LooperPanel })))
+const MelodicImprovGym = lazy(() => import('../improv/MelodicImprovGym').then(m => ({ default: m.MelodicImprovGym })))
 
 const COUNTS = [2, 4, 8, 12, 16]
 const RATES = [{ id: 8, label: 'Every 2 bars' }, { id: 4, label: 'Every bar' }, { id: 2, label: 'Twice a bar' }]
@@ -129,7 +130,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
   const [optionsOpen, setOptionsOpen] = usePersist('jamOptionsOpen', false)
   // Jam is three choices (Play with a band, Make a beat, Loop myself) plus the Riff Scanner behind a small link. Solo over it
   // became floating cards (chord now & next + mini neck while the band plays); Make a tab moved to Learn → Exercises.
-  const [page, setPage] = useSubTab('jam', ['jam', 'strum', 'flow', 'beats', 'loop', 'find'] as const)
+  const [page, setPage] = useSubTab('jam', ['jam', 'strum', 'improv', 'flow', 'beats', 'loop', 'find'] as const)
   useEffect(() => {
     if (page !== 'flow') setActiveFeatureIntro(page)
   }, [page])
@@ -635,9 +636,10 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
       <div className="subtabs jam-choices" role="tablist" aria-label="Jam">
         {([
           ['jam', 'drum', 'Play with a band', 'Chords, strums, bass and drums to play over'],
-          ['strum', 'music', 'AI Strum Machine', '47 AI styles · Full songs or simple loops · Capo'],
+          ['strum', 'music', 'AI Strum Machine', '53 AI styles · Full songs or simple loops · Capo'],
+          ['improv', 'target', 'Melodic Improv Gym', '6 live games · Hexatonic & Modes · Stage & Brandy'],
           ['flow', 'sparkles', 'Flow Coach', 'Chord Path, Vibe Sets, Key Shifter & Detect'],
-          ['beats', 'zap', 'AI Beat Maker', '47 AI beats & songs · Band sliders · Pads & Grid'],
+          ['beats', 'zap', 'AI Beat Maker', '53 AI beats & songs · Band sliders · Pads & Grid'],
           ['loop', 'loop', 'Loop myself', 'Record layers over a beat, four tracks'],
         ] as const).map(([id, icon, label, sub]) => (
           <button key={id} role="tab" aria-selected={page === id} className={`jam-choice${page === id ? ' on' : ''}`} onClick={() => setPage(id)} data-testid={`jam-${id}`}>
@@ -868,6 +870,7 @@ export function JamScreen(_props: { onOpenScale?: (root: string, scale: string) 
       )}
 
       {page === 'strum' && <StrumGrid />}
+      {page === 'improv' && <Suspense fallback={<p className="muted">Loading Melodic Improv Gym…</p>}><MelodicImprovGym /></Suspense>}
       {page === 'flow' && <HarmonicFlowCoach />}
       {page === 'loop' && <Suspense fallback={<p className="muted">Loading the looper…</p>}><LooperPanel /></Suspense>}
       {page === 'beats' && <Suspense fallback={<p className="muted">Loading the beat maker…</p>}><StudioScreen active={page === 'beats'} /></Suspense>}

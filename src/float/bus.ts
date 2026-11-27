@@ -66,14 +66,17 @@ export type CardId =
   | 'hand' | 'chord' | 'neck' | 'feedback' | 'bar' | 'tempo' | 'tuner' | 'video' | 'timer' | 'mixer'
   | 'drummer' | 'band' | 'licks' | 'circle' | 'note' | 'book'
   | 'strum' | 'beats' | 'looper' | 'flow' | 'scanner' | 'playtab'
+  | 'improv-gym' | 'course-video'
 
 export type CardIcon =
   | 'hand' | 'music' | 'layers' | 'ear' | 'target' | 'zap' | 'guitar' | 'film' | 'timer' | 'sliders'
   | 'drum' | 'sparkles' | 'book' | 'file' | 'disc' | 'loop'
 
 export const CARDS: { id: CardId; title: string; icon: CardIcon; hint: string; group?: 'core' | 'band' | 'ref' }[] = [
-  { id: 'strum', title: 'AI Strum Machine', icon: 'guitar', group: 'band', hint: 'Floating AI Strum Machine: 47 styles, Intro/Verse/Chorus/Solo, Backing Vol, Keys/Synth & Capo' },
-  { id: 'beats', title: 'AI Beat Maker', icon: 'drum', group: 'band', hint: 'Floating AI Beat Maker: 47 styles, Simple Loop or Full Song, Backing Vol, Band Sliders & Record Guitar' },
+  { id: 'improv-gym', title: 'Melodic Improv Gym', icon: 'sparkles', group: 'band', hint: 'Floating Melodic Improv Gym: 6 live-listening games, Hexatonic/Modes fretboard, Stage & Brandy Arcade views' },
+  { id: 'course-video', title: 'Course Video Clip', icon: 'film', group: 'ref', hint: 'Floating opacity-adjustable player for your connected local guitar course videos & synced tabs' },
+  { id: 'strum', title: 'AI Strum Machine', icon: 'guitar', group: 'band', hint: 'Floating AI Strum Machine: 51 styles, Intro/Verse/Chorus/Solo, Backing Vol, Keys/Synth & Capo' },
+  { id: 'beats', title: 'AI Beat Maker', icon: 'drum', group: 'band', hint: 'Floating AI Beat Maker: 51 styles, Simple Loop or Full Song, Backing Vol, Band Sliders & Record Guitar' },
   { id: 'looper', title: '4-Track Looper', icon: 'loop', group: 'band', hint: 'Synced 4-track guitar looper floating right over any tab, scale, or jam chart' },
   { id: 'flow', title: 'Harmonic Flow', icon: 'sparkles', group: 'band', hint: 'Live chord-flow explorer and progression builder floating over your current screen' },
   { id: 'scanner', title: 'Riff Scanner', icon: 'ear', group: 'ref', hint: 'Scan YouTube or audio riffs right over your current screen' },

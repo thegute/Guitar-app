@@ -178,11 +178,12 @@ const JAM_PAGE_CARD: Record<string, CardId> = {
   find: 'scanner',
   jam: 'strum',
   solo: 'strum',
+  improv: 'improv-gym',
 }
 /** Open a Jam tool: by default pops open a Floating Popup Window right over your current screen (with opacity, resize & ↗ Full Page).
  *  Pass `{ fullPage: true }` to navigate directly to the full Jam tab. */
 export function openJam(
-  page: 'jam' | 'strum' | 'flow' | 'solo' | 'tab' | 'find' | 'beats' | 'loop' = 'jam',
+  page: 'jam' | 'strum' | 'flow' | 'solo' | 'tab' | 'find' | 'beats' | 'loop' | 'improv' = 'jam',
   opts: { fullPage?: boolean } = {},
 ) {
   if (page === 'tab') {
@@ -196,6 +197,34 @@ export function openJam(
     return
   }
   openFloatingCard(JAM_PAGE_CARD[page] ?? 'strum')
+}
+
+export interface ImprovOpenOpts {
+  key?: string
+  scale?: string
+  game?: 'sniper' | 'teleporter' | 'limit' | 'duel' | 'director' | 'hex-arps'
+  fullPage?: boolean
+}
+let pendingImprov: ImprovOpenOpts | null = null
+const improvListeners = new Set<(o: ImprovOpenOpts) => void>()
+export function onOpenImprov(f: (o: ImprovOpenOpts) => void) {
+  improvListeners.add(f)
+  return () => { improvListeners.delete(f) }
+}
+export function takePendingImprov(): ImprovOpenOpts | null {
+  const o = pendingImprov
+  pendingImprov = null
+  return o
+}
+export function openImprovGym(opts: ImprovOpenOpts = {}) {
+  pendingImprov = opts
+  improvListeners.forEach(f => f(opts))
+  if (opts.fullPage) {
+    setSubPage('jam', 'improv')
+    go('progressions')
+    return
+  }
+  openFloatingCard('improv-gym')
 }
 
 export interface FlowOpenOpts {

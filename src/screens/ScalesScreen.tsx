@@ -1,19 +1,30 @@
 import { useEffect, useMemo, useState } from 'react'
 import { LooperStrip } from '../looper/LazyBar'
 import { Scale, Chord } from 'tonal'
-import { SCALES, scaleById, scaleInfo } from '../theory/scales'
+import {
+  MODE_COLOR_NOTES,
+  PENTATONIC_TRICKS,
+  SCALES,
+  bbKingBoxInfo,
+  hexatonicArpeggios,
+  scaleById,
+  scaleInfo,
+} from '../theory/scales'
 import { Fretboard } from '../components/Fretboard'
 import { Chips, Field, KeyPicker, usePersist } from '../components/Controls'
 import { playNote } from '../audio/pluck'
 import { audio } from '../audio/engine'
-import { pc, noteToMidi } from '../theory/notes'
+import { modalDrone, type DroneVoicing } from '../audio/modalDrone'
+import { pc, noteToMidi, SHARPS } from '../theory/notes'
 import { useInstrument } from '../instrument'
 import { useScreenInfo } from '../assistant/screen'
 import { Win, WinArea } from '../components/Win'
 import { LayerNeck } from '../components/LayerNeck'
 import { BooksWin } from '../books/BooksWin'
+import { InYourCourses } from '../lessons/InYourCourses'
+import { topicsForScale } from '../lessons/courseIndex'
 import { useStrumState } from '../audio/strumMachine'
-import { openFlowCoach, openStrumGrid } from '../nav'
+import { openFlowCoach, openImprovGym, openStrumGrid } from '../nav'
 import { chartForScale, type StrumStyleId } from '../theory/harmonicFlow'
 import { ChordGripsBar, MiniChordGrip } from '../components/MiniChordGrip'
 import { useChordGrips } from '../chordGrips'
@@ -29,24 +40,69 @@ const POSITIONS = [
   { id: 'p7', label: '12–16', from: 12, to: 16 },
 ]
 
+const PARALLEL_MODES: { id: string; label: string }[] = [
+  { id: 'minor hexatonic', label: 'Hexatonic' },
+  { id: 'major', label: 'Ionian' },
+  { id: 'dorian', label: 'Dorian' },
+  { id: 'phrygian', label: 'Phrygian' },
+  { id: 'lydian', label: 'Lydian' },
+  { id: 'mixolydian', label: 'Mixolydian' },
+  { id: 'aeolian', label: 'Aeolian' },
+  { id: 'locrian', label: 'Locrian' },
+]
+
 export function ScalesScreen({ initial }: { initial?: { root: string; scale: string } }) {
   const [root, setRoot] = usePersist('scaleRoot', initial?.root ?? 'A')
   const [scale, setScale] = usePersist('scaleId', initial?.scale ?? 'minor pentatonic')
   const [pos, setPos] = usePersist('scalePos', 'all')
   const [labels, setLabels] = usePersist<'intervals' | 'notes'>('scaleLabels', 'intervals')
+  const [showColor, setShowColor] = usePersist('scaleShowColor', true)
+  const [showTrick, setShowTrick] = useState(false)
+  const [showBB, setShowBB] = useState(false)
+  const [activeHexArp, setActiveHexArp] = useState<number | null>(null)
+  const [droneOn, setDroneOn] = useState(() => modalDrone.isPlaying())
+  const [droneVoice, setDroneVoice] = useState<DroneVoicing>(() => modalDrone.getVoicing())
   const [playing, setPlaying] = useState(false)
   const { show: showGrips } = useChordGrips()
   const inst = useInstrument()
   const strumState = useStrumState()
+
   useEffect(() => {
     if (initial) { setRoot(initial.root); setScale(initial.scale); setPos('all') }
   }, [initial, setRoot, setScale, setPos])
+
+  useEffect(() => modalDrone.subscribe(() => {
+    setDroneOn(modalDrone.isPlaying())
+    setDroneVoice(modalDrone.getVoicing())
+  }), [])
+
+  const r = pc(root)
+  useEffect(() => {
+    if (modalDrone.isPlaying()) modalDrone.setRoot(r)
+  }, [r])
+
   const info = useMemo(() => scaleInfo(root, scale), [root, scale])
   const def = scaleById(scale)
   const p = POSITIONS.find(x => x.id === pos) ?? POSITIONS[0]
-  const r = pc(root)
   const set = new Set(info.pcs)
   const groups = [...new Set(SCALES.map(s => s.group))]
+
+  const colorMeta = MODE_COLOR_NOTES[scale]
+  const colorPcs = useMemo(() => new Set((colorMeta?.semis ?? []).map(o => (r + o) % 12)), [colorMeta, r])
+  const trick = PENTATONIC_TRICKS[scale]
+  const trickPcs = useMemo(() => {
+    if (!trick) return new Set<number>()
+    const tr = (r + trick.shiftSemis) % 12
+    const offs = trick.quality === 'minor' ? [0, 3, 5, 7, 10] : [0, 2, 4, 7, 9]
+    return new Set(offs.map(o => (tr + o) % 12))
+  }, [trick, r])
+  const bbBox = useMemo(() => bbKingBoxInfo(r, inst.midis), [r, inst.midis])
+  const hexArps = useMemo(() => (scale === 'minor hexatonic' || scale === 'hexatonic blues' ? hexatonicArpeggios(root) : []), [root, scale])
+  const activeArpPcs = useMemo(
+    () => (activeHexArp !== null && hexArps[activeHexArp] ? new Set(hexArps[activeHexArp].pcs) : null),
+    [activeHexArp, hexArps],
+  )
+
   useScreenInfo('scales', {
     label: `Tools → Scales: ${root} ${def?.label ?? scale}`,
     summary: `In Tools → Scales looking at ${root} ${def?.label ?? scale} on ${inst.label.toLowerCase()} (${inst.tuning.name}), ${p.id === 'all' ? 'the whole neck' : `${p.label.toLowerCase()}`}. Notes: ${info.notes.join(' ')}. Feel: ${def?.feel ?? ''}. Labels show ${labels}.${playing ? ' It is playing the scale.' : ''}`,
@@ -79,19 +135,28 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
     <div className="stack">
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
         <h1>Scales</h1>
-        {strumState.playing && (
-          <button className="strum-live-badge" onClick={() => openStrumGrid()} title="Jump to live Strum Grid">
-            🎸 Backing: {strumState.currentChord} → {strumState.nextChord}
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+          <button
+            className="btn sm primary"
+            onClick={() => openImprovGym({ key: root, scale, fullPage: true })}
+            data-testid="scales-to-improv"
+          >
+            🎯 Melodic Improv Gym
           </button>
-        )}
+          {strumState.playing && (
+            <button className="strum-live-badge" onClick={() => openStrumGrid()} title="Jump to live Strum Grid">
+              🎸 Backing: {strumState.currentChord} → {strumState.nextChord}
+            </button>
+          )}
+        </div>
       </div>
       <LooperStrip />
       <WinArea area="scales">
-      <Win id="pick" title="Pick a scale" className="panel" bodyClass="stack">
+      <Win id="pick" title="Pick a scale & Modal Drone" className="panel" bodyClass="stack">
       <KeyPicker value={root} onChange={setRoot} label="Root note" />
-      <div className="row">
+      <div className="row" style={{ flexWrap: 'wrap', gap: 8, alignItems: 'end' }}>
         <Field label="Scale">
-          <select className="select" value={scale} onChange={e => setScale(e.target.value)} style={{ minWidth: 240 }}>
+          <select className="select" value={scale} onChange={e => { setScale(e.target.value); setActiveHexArp(null) }} style={{ minWidth: 240 }} data-testid="scales-select">
             {groups.map(g => (
               <optgroup key={g} label={g}>
                 {SCALES.filter(s => s.group === g).map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
@@ -99,15 +164,117 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
             ))}
           </select>
         </Field>
-        <button className="btn" onClick={playScale} disabled={playing} style={{ alignSelf: 'end' }}>{playing ? 'Playing…' : 'Hear it'}</button>
+        <button className="btn" onClick={playScale} disabled={playing}>{playing ? 'Playing…' : 'Hear it'}</button>
+        <button
+          className={`btn${droneOn ? ' primary on' : ''}`}
+          aria-pressed={droneOn}
+          onClick={() => modalDrone.toggle(r, droneVoice)}
+          title="Hold a warm root drone so you can hear each mode's true colour (Roy Ziv Modes Navigator method)"
+          data-testid="scales-drone-btn"
+        >
+          🔊 {droneOn ? `Stop ${root} Drone` : `${root} Modal Drone`}
+        </button>
+        {droneOn && (
+          <select
+            className="select sm"
+            style={{ width: 'auto' }}
+            value={droneVoice}
+            onChange={e => modalDrone.setVoicing(e.target.value as DroneVoicing)}
+            aria-label="Drone voicing"
+          >
+            <option value="root">Root</option>
+            <option value="fifth">Root + 5th</option>
+            <option value="pad">Warm Pad</option>
+          </select>
+        )}
+      </div>
+
+      {/* Parallel Mode Switcher: hold one root drone and switch modes to FEEL the colour notes! */}
+      <div className="row" style={{ gap: 5, flexWrap: 'wrap', alignItems: 'center' }} data-testid="scales-parallel-modes">
+        <span className="small muted">Parallel modes on {root}:</span>
+        {PARALLEL_MODES.map(m => (
+          <button
+            key={m.id}
+            className={`btn sm${scale === m.id ? ' primary' : ''}`}
+            onClick={() => { setScale(m.id); setActiveHexArp(null) }}
+          >
+            {m.label}
+          </button>
+        ))}
       </div>
       </Win>
+
       <Win id="neck" title="On the neck" className="panel">
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <div className="readout" style={{ fontSize: 40 }}>{root} {def.label}</div>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 6 }}>
+          <div className="readout" style={{ fontSize: 36 }}>{root} {def.label}</div>
           <div className="small muted">{info.notes.join(' ')}</div>
         </div>
         {def.feel && <p className="muted small" style={{ marginTop: 6 }}>{def.feel}</p>}
+
+        {/* Characteristic Color Note + Roy Ziv Pentatonic Trick + Paul Davids B.B. King Box */}
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center', margin: '8px 0' }}>
+          {colorMeta && (
+            <button
+              className={`btn sm${showColor ? ' primary' : ''}`}
+              aria-pressed={showColor}
+              onClick={() => setShowColor(!showColor)}
+              title={colorMeta.why}
+              data-testid="scales-color-btn"
+            >
+              💎 Colour Note ({colorMeta.label})
+            </button>
+          )}
+          {trick && (
+            <button
+              className={`btn sm${showTrick ? ' primary' : ''}`}
+              aria-pressed={showTrick}
+              onClick={() => setShowTrick(v => !v)}
+              title={trick.tip}
+              data-testid="scales-trick-btn"
+            >
+              ✨ Pentatonic Trick ({SHARPS[(r + trick.shiftSemis) % 12]}m)
+            </button>
+          )}
+          <button
+            className={`btn sm${showBB ? ' primary' : ''}`}
+            aria-pressed={showBB}
+            onClick={() => setShowBB(v => !v)}
+            title="Highlight Paul Davids' B.B. King Box on the top 3 strings"
+            data-testid="scales-bb-btn"
+          >
+            🎸 B.B. King Box (fret {bbBox.centerFret})
+          </button>
+        </div>
+
+        {showColor && colorMeta && (
+          <p className="small" style={{ margin: '0 0 6px', color: 'var(--fb-mode, #06b6d4)' }}>
+            <b>💎 {colorMeta.label}:</b> {colorMeta.why}
+          </p>
+        )}
+        {showTrick && trick && (
+          <p className="small" style={{ margin: '0 0 6px', color: 'var(--fb-embel, #c084fc)' }}>
+            <b>✨ Roy's Pentatonic Trick ({SHARPS[(r + trick.shiftSemis) % 12]} Minor Pentatonic):</b> {trick.tip} ({trick.colorNotes})
+          </p>
+        )}
+
+        {/* Built-in Triads & 7th Arpeggios inside Minor Hexatonic (Roy Ziv Intermediate/Advanced secret!) */}
+        {hexArps.length > 0 && (
+          <div className="row" style={{ gap: 6, flexWrap: 'wrap', alignItems: 'center', margin: '6px 0 8px' }} data-testid="scales-hex-arps">
+            <span className="small muted">Arpeggios inside {root} Hexatonic:</span>
+            <button className={`btn sm${activeHexArp === null ? ' primary' : ''}`} onClick={() => setActiveHexArp(null)}>All 6 Notes</button>
+            {hexArps.map((a, idx) => (
+              <button
+                key={a.symbol}
+                className={`btn sm${activeHexArp === idx ? ' primary' : ''}`}
+                onClick={() => setActiveHexArp(activeHexArp === idx ? null : idx)}
+                title={a.feel}
+              >
+                {a.symbol} ({a.roman})
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, margin: '10px 0' }}>
           <label className="row small" style={{ gap: 6, alignItems: 'center' }}>
             <span className="muted">Position</span>
@@ -129,17 +296,36 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
           fromFret={p.from === 0 ? 0 : p.from - 1}
           toFret={p.id === 'all' ? 15 : p.to}
           markFor={(midi, s, f) => {
-            const q = midi % 12
+            const q = ((midi % 12) + 12) % 12
+            if (showBB && bbBox.match(midi, s, f)) {
+              const lbl = labels === 'notes' ? SHARPS[q] : (info.labels.get(q) ?? (q === r ? 'R' : SHARPS[q]))
+              return { label: lbl, role: q === r ? 'root' : 'chord' }
+            }
             if (!set.has(q)) return null
             if (p.id !== 'all' && (f < p.from || f > p.to)) return null
             const label = labels === 'notes' ? info.notes[info.pcs.indexOf(q)] : info.labels.get(q) ?? ''
-            return { label, role: q === r ? 'root' : 'scale' }
+            if (activeArpPcs) {
+              if (activeArpPcs.has(q)) return { label, role: q === hexArps[activeHexArp!].rootPc ? 'root' : 'triad' }
+              return { label, role: 'ghost' }
+            }
+            if (q === r) return { label, role: 'root' }
+            if (showColor && colorPcs.has(q)) return { label, role: 'pass' }
+            if (showTrick && trickPcs.has(q)) return { label, role: 'embel' }
+            return { label, role: 'scale' }
           }}
           onTap={midi => playNote(midi)}
         />
-        <p className="small muted" style={{ marginTop: 8 }}>Tap any dot to hear that note. Red dots are the root.</p>
+        <p className="small muted" style={{ marginTop: 8 }}>
+          Tap any dot to hear it. Red = Root{showColor && colorMeta ? ` · Cyan = ${colorMeta.label} colour note` : ''}{showTrick && trick ? ' · Violet = Pentatonic Trick' : ''}{showBB ? ' · Gold = B.B. King Box' : ''}.
+        </p>
         <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--hairline)', alignItems: 'center' }} data-testid="scales-strum-launchers">
-          <span className="small muted">Back this scale in Strum Machine:</span>
+          <span className="small muted">Back this scale:</span>
+          <button
+            className="btn sm primary"
+            onClick={() => openImprovGym({ key: root, scale, fullPage: true })}
+          >
+            🎯 Improv Gym
+          </button>
           {([
             ['folk', 'Acoustic'],
             ['reggae', 'Reggae Skank'],
@@ -199,7 +385,10 @@ export function ScalesScreen({ initial }: { initial?: { root: string; scale: str
           </div>
         </Win>
       )}
-      <BooksWin topics={/pentatonic/.test(scale) ? ['pentatonic', 'improvising'] : /dorian|phrygian|lydian|mixolydian|aeolian|locrian|ionian/.test(scale) ? ['modes', 'improvising'] : ['major-scale', 'modes']} />
+      <Win id="courses" title="From your video courses" className="panel">
+        <InYourCourses topics={topicsForScale(scale)} title={`Lessons on ${def.label}`} showEmptyHint />
+      </Win>
+      <BooksWin topics={/pentatonic|hexatonic/.test(scale) ? ['pentatonic', 'improvising'] : /dorian|phrygian|lydian|mixolydian|aeolian|locrian|ionian/.test(scale) ? ['modes', 'improvising'] : ['major-scale', 'modes']} />
       </WinArea>
     </div>
   )

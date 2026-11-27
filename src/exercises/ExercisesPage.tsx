@@ -11,6 +11,8 @@ import { ProgressionTabs } from '../components/ProgressionTabs'
 import { KeyPicker, Chips, usePersist } from '../components/Controls'
 import { ExerciseBrowser } from './ExerciseBrowser'
 import { DrillLabPanel } from './DrillLabPanel'
+import { SpeedBuilderLab } from './SpeedBuilderLab'
+import { InYourCourses } from '../lessons/InYourCourses'
 import { STARTER_PROGS, jamProgression, starterProgression } from '../tabs/fromProgression'
 import { openInPlay } from '../nav'
 import { refreshBuiltIn, saveSong, type SongDoc } from '../tabs/library'
@@ -19,14 +21,15 @@ import { useInstrument } from '../instrument'
 import { Ico } from '../components/Icon'
 import { Fold } from '../components/Fold'
 
-type Section = 'foryou' | 'technique' | 'fretboard' | 'chords' | 'fingerstyle' | 'licks' | 'make'
-const SECTIONS: { id: Section; label: string; group?: string; hint: string }[] = [
-  { id: 'foryou', label: 'For you', hint: 'Today\'s three picks, then every exercise' },
-  { id: 'technique', label: 'Technique', group: 'Technique', hint: 'Warm-ups, picking, legato, bends, tapping, rhythm' },
-  { id: 'fretboard', label: 'Fretboard', group: 'Theory on the neck', hint: 'Scales, sequences, arpeggios, triads, intervals, chord tones, knowing the neck' },
-  { id: 'chords', label: 'Chords & rhythm', group: 'Chords and rhythm guitar', hint: 'Chord changes, strumming, barre chords, power chords and riffs' },
-  { id: 'fingerstyle', label: 'Fingerstyle', group: 'Fingerstyle', hint: 'Fingerpicking and melodic fingerstyle' },
-  { id: 'licks', label: 'Licks', group: 'Licks', hint: 'Licks in every style, with breakdowns' },
+type Section = 'foryou' | 'speed' | 'technique' | 'fretboard' | 'chords' | 'fingerstyle' | 'licks' | 'make'
+const SECTIONS: { id: Section; label: string; group?: string; hint: string; courseTopics?: string[] }[] = [
+  { id: 'foryou', label: 'For you', hint: 'Today\'s three picks, then every exercise', courseTopics: ['warmup', 'speed', 'improv', 'triads'] },
+  { id: 'speed', label: '⚡ Speed Builder', hint: 'Burst-Speed cycles, Endurance circuits, 14 live Scale Sequences & clean BPM log' },
+  { id: 'technique', label: 'Technique', group: 'Technique', hint: 'Warm-ups, picking, legato, bends, tapping, rhythm', courseTopics: ['alternate-picking', 'hybrid-picking', 'hand-sync', 'speed', 'warmup'] },
+  { id: 'fretboard', label: 'Fretboard', group: 'Theory on the neck', hint: 'Scales, sequences, arpeggios, triads, intervals, chord tones, knowing the neck', courseTopics: ['hexatonic', 'modes', 'triads', 'arpeggios', 'sequences'] },
+  { id: 'chords', label: 'Chords & rhythm', group: 'Chords and rhythm guitar', hint: 'Chord changes, strumming, barre chords, power chords and riffs', courseTopics: ['rhythm', 'strumming', 'chords', 'triads', 'diatonic'] },
+  { id: 'fingerstyle', label: 'Fingerstyle', group: 'Fingerstyle', hint: 'Fingerpicking and melodic fingerstyle', courseTopics: ['fingerstyle', 'acoustic', 'drop-d', 'slap'] },
+  { id: 'licks', label: 'Licks', group: 'Licks', hint: 'Licks in every style, with breakdowns', courseTopics: ['improv', 'hexatonic', 'blues', 'bb-king', 'phrasing'] },
   { id: 'make', label: 'Make your own', hint: 'Drill lab (scales, stretches, odd rhythms), fingerpicking patterns, lick chainer, tab maker and example songs' },
 ]
 
@@ -49,9 +52,16 @@ export function ExercisesPage() {
         ))}
       </div>
       <p className="small ex-hint">{cur.hint}.</p>
-      {cur.id !== 'make' ? (
+      {cur.id === 'speed' ? (
+        <SpeedBuilderLab onOpen={saveOpen} />
+      ) : cur.id !== 'make' ? (
         <WinArea area={`ex-${cur.id}`}>
           <ExerciseBrowser key={cur.id} group={cur.group} suggest={cur.id === 'foryou'} />
+          {cur.courseTopics && (
+            <Win id="ex-courses" title="From your video courses" className="panel">
+              <InYourCourses topics={cur.courseTopics} title={`${cur.label} lessons in your courses`} max={5} compact />
+            </Win>
+          )}
         </WinArea>
       ) : (
         <WinArea area="ex-make">

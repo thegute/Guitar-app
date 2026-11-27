@@ -18,7 +18,7 @@ export type Go =
   | { songbook: { song: string; part: string } }
   | { songs: 'songbook' | 'mine' | 'practice' | 'add' | 'scan' | 'library' | 'learning' }
   | { settings: 'you' | 'sound' | 'look' | 'cards' | 'backup' | 'manual' }
-  | { jam: 'jam' | 'strum' | 'flow' | 'solo' | 'tab' | 'find' | 'beats' | 'loop' }
+  | { jam: 'jam' | 'strum' | 'improv' | 'flow' | 'solo' | 'tab' | 'find' | 'beats' | 'loop' }
   | { learn: 'today' | 'course' | 'explore' | 'exercises' }
   | { technique: string }
   /** the must-know licks: a style or one lick */

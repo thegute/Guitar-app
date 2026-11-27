@@ -17,6 +17,8 @@ import { shapesFor } from '../theory/shapes'
 import { STARTER_PROGS, jamProgression, starterProgression } from '../tabs/fromProgression'
 import { bumpCounts, usePracticeTimer } from './progress'
 import { LEVELS, TARGET_KINDS, levelAdvice, loadBest, noteLap, allowed, judge, nextBpm, OnsetDetector, pcLabel, stepWords, tchord, walk, zone, type Onset, type TargetKind, type TChord, type Window } from './targets'
+import { InYourCourses } from '../lessons/InYourCourses'
+import { openImprovGym } from '../nav'
 import { countUse } from '../usage'
 
 const ZONES = [{ id: 0, label: 'Open' }, { id: 3, label: '3rd fret' }, { id: 5, label: '5th fret' }, { id: 7, label: '7th fret' }, { id: 9, label: '9th fret' }, { id: 12, label: '12th fret' }]
@@ -257,6 +259,14 @@ export function TargetNotes({ inst, onExit }: { inst: Instrument; onExit: () => 
         <Win id="tn-neck" title="Target notes on the neck" className="panel" bodyClass="stack" bodyStyle={{ gap: 6 }}>
           <Fretboard tuning={inst.midis} fromFret={Math.max(0, from - (from ? 1 : 0))} toFret={from + 5} markFor={markFor} zoomId="targets" />
           <p className="small muted" style={{ margin: 0 }}>Ringed: the target now. Teal ring: the next chord's target. {kind !== 'any' && 'Faint: the other notes of this chord.'}</p>
+        </Win>
+        <Win id="tn-courses" title="From your courses & Melodic Improv Gym" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button className="btn sm primary" onClick={() => openImprovGym({ key: prog.tonic, game: 'sniper', fullPage: true })}>
+              🎯 Open Melodic Improv Gym (6 Games)
+            </button>
+          </div>
+          <InYourCourses topics={['chord-tones', 'target-notes', 'playing-the-changes', 'arpeggios', 'hexatonic']} title="Chord-tone & soloing lessons" />
         </Win>
       </WinArea>
     </div>

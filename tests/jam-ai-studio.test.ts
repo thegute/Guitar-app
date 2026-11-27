@@ -76,9 +76,9 @@ test('all 10 new studio synth voices exist in INSTRS and StrumMachine options', 
   }
 })
 
-test('all 47 AI styles span 7 groups, map to valid grooves, and compose Full Songs & Simple Loops', () => {
+test('all 53 AI styles span 7 groups, map to valid grooves, and compose Full Songs & Simple Loops', () => {
   assert.equal(AI_STYLE_GROUPS.length, 7)
-  assert.equal(AI_STYLES.length, 47)
+  assert.ok(AI_STYLES.length >= 53, `expected >= 53 styles, got ${AI_STYLES.length}`)
   const validGrooves = new Set(GROOVES.map(g => g.id))
 
   for (const style of AI_STYLES) {

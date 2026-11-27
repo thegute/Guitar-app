@@ -16,8 +16,19 @@ const LazyStudioScreen = lazy(() => import('../studio/StudioScreen').then(m => (
 const LazyLooperPanel = lazy(() => import('../looper/LooperPanel').then(m => ({ default: m.LooperPanel })))
 const LazyFlowCoach = lazy(() => import('../components/HarmonicFlowCoach').then(m => ({ default: m.HarmonicFlowCoach })))
 const LazyRiffScanner = lazy(() => import('../scan/RiffScanner').then(m => ({ default: m.RiffScanner })))
+const LazyImprovGym = lazy(() => import('../improv/MelodicImprovGym').then(m => ({ default: m.MelodicImprovGym })))
 
 const loading = (name: string) => <p className="small muted" style={{ padding: 12 }}>Loading {name}…</p>
+
+export function ImprovGymFloatBody() {
+  return (
+    <div className="fc-page-wrap" data-testid="fc-improv-gym">
+      <Suspense fallback={loading('Melodic Improv Gym')}>
+        <LazyImprovGym compact />
+      </Suspense>
+    </div>
+  )
+}
 
 export function StrumFloatBody() {
   return (

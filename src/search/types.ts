@@ -22,7 +22,7 @@ export interface PlayAction {
   /** arm Speed trainer / Smart Speed Ramp in In time mode */
   trainer?: { on: boolean; start?: number; step?: number; target?: number; pass?: number; down?: number; min?: number; ramp?: boolean }
 }
-export type JamPage = 'jam' | 'strum' | 'flow' | 'solo' | 'tab' | 'find' | 'beats' | 'loop'
+export type JamPage = 'jam' | 'strum' | 'improv' | 'flow' | 'solo' | 'tab' | 'find' | 'beats' | 'loop'
 export interface JamTarget { key?: string; mode?: ModeId; style?: Style; bpm?: number; page?: JamPage }
 
 export type Target =

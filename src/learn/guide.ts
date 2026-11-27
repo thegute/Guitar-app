@@ -225,6 +225,17 @@ export const GUIDE: GuideSection[] = [
     ],
   },
   {
+    id: 'improvgym', title: 'Improv Gym, Speed & Courses', intro: 'Live improv games, Hexatonic + Drone, Speed Burst & course clips.',
+    why: 'Turns scales and courses into real solos.',
+    when: 'Daily soloing or speed workouts.',
+    items: [
+      { title: 'Melodic Improv Gym (6 Live Games)', text: 'Jam → Melodic Improv Gym: Stage & Brandy Arcade views, Sniper, Neck Teleporter, Note-Limit & Space, Duel, Live Solo Director, Hexatonic Arpeggios & Dashcam Lick Saver.', go: { jam: 'improv' } },
+      { title: 'Hexatonic Scales, Modal Drone & Pentatonic Tricks', text: 'Tools → Scales: Hexatonic scales, Root/5th Modal Drone, Parallel Modes, Colour Notes, Pentatonic Tricks & B.B. King Box.', go: { jam: 'improv' } },
+      { title: 'Speed Builder Burst & Endurance Lab', text: 'Learn → Exercises → ⚡ Speed Builder: Burst cycles, Endurance timers, 14 live Scale Sequences & BPM log.', go: { learn: 'exercises' } },
+      { title: 'From Your Video Courses (Floating Clips Everywhere)', text: 'Connected local course folders auto-link matching floating clips, GP tabs & backing tracks across practice screens.', go: { tool: 'videos' } },
+    ],
+  },
+  {
     id: 'tips', title: 'Tips for getting good', intro: 'What actually makes you better, fastest.',
     why: 'Knowing how to practise matters as much as what you practise.',
     when: 'Read them once, then come back whenever progress feels slow.',
