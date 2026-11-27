@@ -36,6 +36,13 @@ import {
   burstBarBpm,
 } from '../src/exercises/speedSequences'
 import { builtInPlan } from '../src/sessions/recipes'
+import {
+  chooseBestCourseMap,
+  parseImportedCourseMaps,
+  scoreMapMatchForFolder,
+  type CourseMap,
+} from '../src/lessons/courseMap'
+import { isDeviceLocalKey, mergeBackups } from '../src/sync/cloudSync'
 
 const STD_TUNING = [40, 45, 50, 55, 59, 64]
 
@@ -199,6 +206,46 @@ test('Speed Builder: Burst-Speed tempo math, 14 live sequences & course workout 
   assert.ok(p2?.session?.title.includes('Speed Builder'))
   const p3 = builtInPlan('Dorian modal drone practice')
   assert.ok(p3?.session?.title.includes('Modal'))
+})
+
+test('1-tap Drive course map bundle parser, folder matcher, priority merge & Cloud Sync', () => {
+  const mapA: CourseMap = {
+    version: 1,
+    title: 'Roy Ziv — Hexatonic MasterClass',
+    chapters: [{ id: 'c1', title: 'Ch1', lessons: [{ id: 'l1', title: 'Ex 1', video: 'Beginner/Ex1.mp4', topics: ['hexatonic', 'improv'] }] }],
+  }
+  const mapOld: CourseMap = {
+    version: 1,
+    title: 'Roy Ziv — Hexatonic MasterClass',
+    chapters: [{ id: 'c1', title: 'Ch1', lessons: [{ id: 'l1', title: 'Ex 1', video: 'Beginner/Ex1.mp4' }] }],
+  }
+  const mapB: CourseMap = {
+    version: 1,
+    title: 'Matteo Mancuso — The Masterclass',
+    chapters: [{ id: 'c1', title: 'Ch1', lessons: [{ id: 'm1', title: 'Intro', video: '01-Introduction/Introduction.mp4', topics: ['fingerstyle'] }] }],
+  }
+  const bundleJson = JSON.stringify({ version: 1, kind: 'kguitar-course-bundle', updatedAt: 2000, maps: [mapA, mapB] })
+  assert.equal(parseImportedCourseMaps(bundleJson).length, 2)
+  assert.equal(parseImportedCourseMaps(JSON.stringify(mapA)).length, 1)
+
+  const folder = {
+    tree: 'content://mock/hex',
+    name: 'Roy Ziv - Hexatonic MasterClass',
+    scanned: 1,
+    files: [{ path: 'Beginner/Ex1.mp4', name: 'Ex1.mp4', mime: 'video/mp4', size: 1, modified: 1, uri: 'u://1' }],
+  }
+  assert.ok(scoreMapMatchForFolder(mapA, folder) > scoreMapMatchForFolder(mapB, folder))
+  assert.equal(chooseBestCourseMap(mapOld, mapA), mapA)
+  assert.equal(isDeviceLocalKey('kg:courseMap:content://mock/hex'), true)
+  assert.equal(isDeviceLocalKey('kg:courseMapStore'), false)
+
+  const merged = mergeBackups(
+    { app: 'KGuitar', version: 1, createdAt: 1000, storage: { 'kg:courseMapStore': JSON.stringify({ a: { key: 'a', updatedAt: 100, map: mapOld } }) }, songs: [] },
+    { app: 'KGuitar', version: 1, createdAt: 2000, storage: { 'kg:courseMapStore': JSON.stringify({ a: { key: 'a', updatedAt: 200, map: mapA }, b: { key: 'b', updatedAt: 200, map: mapB } }) }, songs: [] },
+  )
+  const store = JSON.parse(merged.merged.storage['kg:courseMapStore']) as Record<string, { updatedAt: number }>
+  assert.equal(store.a.updatedAt, 200)
+  assert.equal(store.b.updatedAt, 200)
 })
 
 console.log(`melodic-improv-courses: ${passed}/${passed} passed`)

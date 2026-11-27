@@ -2,13 +2,14 @@
 // (Roy Ziv Hexatonic, Modes Navigator, Speed Builder, Paul Davids Electric & Acoustic, Matteo Mancuso, etc.)
 // on any KGuitar screen. Tapping a clip pops open a draggable, resizable, opacity-adjustable Floating Video Card
 // right over your fretboard or drill — never kicking you off the page!
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Ico } from '../components/Icon'
 import { useInstrument } from '../instrument'
 import { openFloatingCard } from '../float/bus'
 import { learnGo, openImprovGym, openInPlay } from '../nav'
 import { newId, saveSong, type SongDoc } from '../tabs/library'
-import { localVideoLink, niceName, readLessonBytes, type LFile } from './folders'
+import { importCourseMapJsonTexts } from './courseMap'
+import { localVideoLink, niceName, readLessonBytes, savedFolders, type LFile } from './folders'
 import {
   setActiveCourseVideo,
   setCourseBackingForImprov,
@@ -36,6 +37,22 @@ export function InYourCourses({
   const [open, setOpen] = useState(!compact)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [err, setErr] = useState('')
+  const [syncMsg, setSyncMsg] = useState('')
+  const mapPickRef = useRef<HTMLInputElement>(null)
+
+  async function quickSyncMaps(files: FileList | null) {
+    if (!files || !files.length) return
+    setErr(''); setSyncMsg('')
+    try {
+      const texts: string[] = []
+      for (let i = 0; i < files.length; i++) texts.push(await files[i].text())
+      const res = importCourseMapJsonTexts(texts, savedFolders())
+      if (!res.imported) setErr('Pick kguitar-all-courses.json or a kguitar-course.json from Google Drive → KGuitar-Courses.')
+      else setSyncMsg(`✓ Synced ${res.imported} course map${res.imported === 1 ? '' : 's'} (${res.taggedLessons} tagged lessons)`)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not sync course map.')
+    }
+  }
 
   if (!hasFolders) {
     if (!showEmptyHint) return null
@@ -105,7 +122,15 @@ export function InYourCourses({
 
   return (
     <section className="in-books in-courses" data-testid="in-courses">
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+      <input
+        ref={mapPickRef}
+        type="file"
+        accept=".json,application/json"
+        multiple
+        style={{ display: 'none' }}
+        onChange={e => { void quickSyncMaps(e.currentTarget.files); e.currentTarget.value = '' }}
+      />
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         <button
           className="in-courses-toggle"
           onClick={() => setOpen(v => !v)}
@@ -116,10 +141,21 @@ export function InYourCourses({
           <span className="small muted">({matches.length} matching clip{matches.length === 1 ? '' : 's'})</span>{' '}
           <span className="small muted">{open ? '▴' : '▾'}</span>
         </button>
-        <button className="btn sm ghost" onClick={() => learnGo({ tool: 'videos' })} title="Open full Course Studio">
-          Course Studio ↗
-        </button>
+        <div className="row" style={{ gap: 4 }}>
+          <button
+            className="btn sm ghost"
+            onClick={() => mapPickRef.current?.click()}
+            title="Pick kguitar-all-courses.json from Google Drive to sync all course tags in 1 tap"
+            data-testid="in-courses-sync-btn"
+          >
+            ☁ Sync maps
+          </button>
+          <button className="btn sm ghost" onClick={() => learnGo({ tool: 'videos' })} title="Open full Course Studio">
+            Course Studio ↗
+          </button>
+        </div>
       </div>
+      {syncMsg && <p className="small" style={{ margin: '4px 0 0', color: 'var(--good, #34d399)' }}>{syncMsg}</p>}
 
       {open && (
         <ul className="in-courses-list">

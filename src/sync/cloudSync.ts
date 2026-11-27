@@ -57,6 +57,7 @@ export function isDeviceLocalKey(key: string): boolean {
   // Device-specific Android folder URIs, audio gear/mic calibration, and private API keys
   if (
     key === 'kg:lessonFolders' ||
+    key.startsWith('kg:courseMap:') ||
     key.startsWith('kg:mySounds') ||
     key.startsWith('kg:audio') ||
     key.startsWith('kg:gear') ||
@@ -300,6 +301,17 @@ export function mergeBackups(local: Backup, remote: Backup): { merged: Backup; s
     else if (k === 'kg:lessonProgress') storage[k] = mergeLessonProgress(lv, rv)
     else if (k === 'kg:studioBeats') storage[k] = mergeStudioBeats(lv, rv, preferRemote)
     else if (k === 'kg:trends') storage[k] = mergeTrends(lv, rv)
+    else if (k === 'kg:courseMapStore') {
+      type Entry = { key?: string; updatedAt?: number; map?: unknown }
+      const a = parseJson<Record<string, Entry>>(lv, {})
+      const b = parseJson<Record<string, Entry>>(rv, {})
+      const out: Record<string, Entry> = { ...a }
+      for (const [ck, entry] of Object.entries(b)) {
+        const cur = out[ck]
+        if (!cur || (entry?.updatedAt ?? 0) > (cur.updatedAt ?? 0)) out[ck] = entry
+      }
+      storage[k] = JSON.stringify(out)
+    }
     else if (k === 'kg:coursePins' || k === 'kg:courseNotes' || k === 'kg:exKeys' || k === 'kg:songFingers') storage[k] = mergeObjectMap(lv, rv, preferRemote)
     else if (k === 'kg:bookMarks') storage[k] = mergeByKeyList(lv, rv, x => `${String(x.bookId ?? '')}:${String(x.page ?? '')}`)
     else if (k === 'kg:floatPresets') storage[k] = mergeByKeyList(lv, rv, x => String(x.id ?? x.name ?? ''))
@@ -352,6 +364,7 @@ export async function applyMergedBackup(remote: Backup): Promise<{ songsMerged: 
   }
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('kg-course'))
+    window.dispatchEvent(new Event('kg-courses-changed'))
     window.dispatchEvent(new Event('kg-synced'))
   }
   return { songsMerged: merged.songs.length, songsAdded, keysMerged }

@@ -93,6 +93,181 @@ export interface ResolvedCourse {
   lessons: ResolvedLesson[]
 }
 
+// ---- Synced Course Map Store (cross-device via Cloud Sync + 1-tap Google Drive JSON import) ----
+export interface CourseMapBundle {
+  version: number
+  kind: 'kguitar-course-bundle'
+  updatedAt?: number
+  maps: CourseMap[]
+}
+
+export interface StoredCourseMap {
+  key: string
+  updatedAt: number
+  map: CourseMap
+}
+
+export const COURSE_MAP_STORE_KEY = 'kg:courseMapStore'
+
+export function normalizeCourseKey(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[—–\-_:.,'’"()[\]]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function countTaggedLessons(map: CourseMap | null | undefined): number {
+  if (!map || !Array.isArray(map.chapters)) return 0
+  let n = 0
+  for (const ch of map.chapters) {
+    for (const ls of ch.lessons ?? []) {
+      if (Array.isArray(ls.topics) && ls.topics.length > 0) n++
+    }
+  }
+  return n
+}
+
+export function countMapLessons(map: CourseMap | null | undefined): number {
+  if (!map || !Array.isArray(map.chapters)) return 0
+  return map.chapters.reduce((a, c) => a + (c.lessons?.length ?? 0), 0)
+}
+
+function isCourseMapLike(x: unknown): x is CourseMap {
+  return !!x && typeof x === 'object' && typeof (x as CourseMap).title === 'string' && Array.isArray((x as CourseMap).chapters)
+}
+
+/** Parses either a single `kguitar-course.json` or a multi-course `kguitar-all-courses.json` bundle. */
+export function parseImportedCourseMaps(jsonText: string): CourseMap[] {
+  const parsed = JSON.parse(jsonText) as unknown
+  if (Array.isArray(parsed)) return parsed.filter(isCourseMapLike)
+  if (parsed && typeof parsed === 'object') {
+    const b = parsed as Partial<CourseMapBundle>
+    if (Array.isArray(b.maps)) return b.maps.filter(isCourseMapLike)
+    if (isCourseMapLike(parsed)) return [parsed]
+  }
+  return []
+}
+
+export function loadSyncedCourseMaps(): Record<string, StoredCourseMap> {
+  try {
+    const raw = localStorage.getItem(COURSE_MAP_STORE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, StoredCourseMap>
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveSyncedCourseMaps(store: Record<string, StoredCourseMap>) {
+  try {
+    localStorage.setItem(COURSE_MAP_STORE_KEY, JSON.stringify(store))
+  } catch { /* storage full */ }
+}
+
+/** Score how strongly a CourseMap matches a connected local Folder (video path overlap + title match). */
+export function scoreMapMatchForFolder(map: CourseMap, folder: Folder): number {
+  const find = buildFileFinder(folder.files)
+  let videoHits = 0
+  let totalVideos = 0
+  for (const ch of map.chapters) {
+    for (const ls of ch.lessons ?? []) {
+      if (!ls.video) continue
+      totalVideos++
+      if (find(ls.video)) videoHits++
+    }
+  }
+  let score = 0
+  if (videoHits > 0) {
+    const ratio = totalVideos > 0 ? videoHits / totalVideos : 0
+    score += videoHits * 10 + Math.round(ratio * 100)
+  }
+  const fk = normalizeCourseKey(folder.name)
+  const mk = normalizeCourseKey(map.title)
+  if (fk && mk) {
+    if (fk === mk) score += 200
+    else if (fk.includes(mk) || mk.includes(fk)) score += 90
+    else {
+      const fWords = new Set(fk.split(' ').filter(w => w.length > 2))
+      const mWords = mk.split(' ').filter(w => w.length > 2)
+      const shared = mWords.filter(w => fWords.has(w)).length
+      if (shared >= 2) score += shared * 25
+    }
+  }
+  return score
+}
+
+export function findSyncedMapForFolder(folder: Folder): CourseMap | null {
+  const store = loadSyncedCourseMaps()
+  let best: CourseMap | null = null
+  let bestScore = 0
+  for (const entry of Object.values(store)) {
+    if (!isCourseMapLike(entry?.map)) continue
+    const s = scoreMapMatchForFolder(entry.map, folder)
+    if (s > bestScore) {
+      bestScore = s
+      best = entry.map
+    }
+  }
+  return bestScore >= 40 ? best : null
+}
+
+/** Pick the richer/better map between an on-disk `kguitar-course.json` and a synced map from Drive/Cloud Sync. */
+export function chooseBestCourseMap(diskMap: CourseMap | null, syncedMap: CourseMap | null): CourseMap | null {
+  if (!diskMap) return syncedMap
+  if (!syncedMap) return diskMap
+  const diskTagged = countTaggedLessons(diskMap)
+  const syncTagged = countTaggedLessons(syncedMap)
+  if (syncTagged > diskTagged) return syncedMap
+  if (diskTagged > syncTagged) return diskMap
+  return countMapLessons(syncedMap) >= countMapLessons(diskMap) ? syncedMap : diskMap
+}
+
+export interface CourseMapImportResult {
+  imported: number
+  matched: number
+  taggedLessons: number
+  courseTitles: string[]
+}
+
+/** Import one or more JSON files (single `kguitar-course.json` or multi-course `kguitar-all-courses.json`), save to synced store, and refresh matched folders. */
+export function importCourseMapJsonTexts(texts: string[], folders: Folder[]): CourseMapImportResult {
+  const maps: CourseMap[] = []
+  for (const t of texts) {
+    try {
+      maps.push(...parseImportedCourseMaps(t))
+    } catch { /* skip malformed file */ }
+  }
+  if (!maps.length) return { imported: 0, matched: 0, taggedLessons: 0, courseTitles: [] }
+
+  const store = loadSyncedCourseMaps()
+  const now = Date.now()
+  let taggedLessons = 0
+  const courseTitles: string[] = []
+  for (const m of maps) {
+    const key = normalizeCourseKey(m.title)
+    if (!key) continue
+    store[key] = { key, updatedAt: now, map: m }
+    taggedLessons += countTaggedLessons(m)
+    courseTitles.push(m.title)
+  }
+  saveSyncedCourseMaps(store)
+
+  // Clear stale cache entries and apply immediately to every matching connected folder
+  let matched = 0
+  for (const f of folders) {
+    const best = findSyncedMapForFolder(f)
+    if (best) {
+      matched++
+      memMaps.set(f.tree, best)
+      try { localStorage.setItem(MAP_KEY(f.tree), JSON.stringify(best)) } catch { /* ignore */ }
+    }
+  }
+  try { window.dispatchEvent(new Event('kg-courses-changed')) } catch { /* node test */ }
+  return { imported: courseTitles.length, matched, taggedLessons, courseTitles }
+}
+
 // ---- In-memory + localStorage cache for loaded kguitar-course.json maps ----
 const memMaps = new Map<string, CourseMap | null>()
 const MAP_KEY = (tree: string) => `kg:courseMap:${tree}`
@@ -113,26 +288,26 @@ export function getCachedCourseMap(tree: string): CourseMap | null | undefined {
 }
 
 export async function loadCourseMapForFolder(f: Folder): Promise<CourseMap | null> {
+  const synced = findSyncedMapForFolder(f)
   const mapFile = f.files.find(x => x.name.toLowerCase() === 'kguitar-course.json')
-  if (!mapFile) {
-    memMaps.set(f.tree, null)
-    return null
-  }
-  try {
-    const bytes = await readLessonBytes(mapFile.uri)
-    const text = new TextDecoder().decode(bytes)
-    const parsed = JSON.parse(text) as CourseMap
-    if (parsed && Array.isArray(parsed.chapters)) {
-      memMaps.set(f.tree, parsed)
-      try { localStorage.setItem(MAP_KEY(f.tree), JSON.stringify(parsed)) } catch { /* ignore */ }
-      return parsed
+  let disk: CourseMap | null = null
+  if (mapFile) {
+    try {
+      const bytes = await readLessonBytes(mapFile.uri)
+      const text = new TextDecoder().decode(bytes)
+      const parsed = JSON.parse(text) as CourseMap
+      if (parsed && Array.isArray(parsed.chapters)) disk = parsed
+    } catch {
+      const cached = getCachedCourseMap(f.tree)
+      if (cached) disk = cached
     }
-  } catch {
-    const cached = getCachedCourseMap(f.tree)
-    if (cached) return cached
   }
-  memMaps.set(f.tree, null)
-  return null
+  const chosen = chooseBestCourseMap(disk, synced)
+  memMaps.set(f.tree, chosen)
+  if (chosen) {
+    try { localStorage.setItem(MAP_KEY(f.tree), JSON.stringify(chosen)) } catch { /* ignore */ }
+  }
+  return chosen
 }
 
 const normPath = (p: string) =>

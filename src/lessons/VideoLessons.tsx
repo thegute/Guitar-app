@@ -37,7 +37,9 @@ import {
   getCachedCourseMap,
   getLessonNote,
   getPinnedPage,
+  importCourseMapJsonTexts,
   loadCourseMapForFolder,
+  loadSyncedCourseMaps,
   resolveCourse,
   setLessonNote,
   type CourseMap,
@@ -45,6 +47,7 @@ import {
   type ResolvedCourse,
   type ResolvedLesson,
 } from './courseMap'
+import { loadSyncConfig, syncNow } from '../sync/cloudSync'
 import {
   LessonFolders,
   kindOf,
@@ -80,29 +83,44 @@ export function VideoLessons({ onExit }: { onExit: () => void }) {
   })
   const [busy, setBusy] = useState('')
   const [err, setErr] = useState('')
+  const [syncNote, setSyncNote] = useState('')
+  const [showSyncHelp, setShowSyncHelp] = useState(false)
   const [open, setOpen] = useState<{ tree: string; uri: string } | null>(null)
   const [, setTick] = useState(0)
   const dirInputRef = useRef<HTMLInputElement>(null)
+  const mapInputRef = useRef<HTMLInputElement>(null)
   const watched = progress()
+  const hasCloudSync = !!loadSyncConfig().token
+  const syncedMapCount = Object.keys(loadSyncedCourseMaps()).length
 
   useEffect(() => saveFolders(folders), [folders])
 
-  // Load `kguitar-course.json` for any folder that has one
+  // Load `kguitar-course.json` (or synced map from Drive / Cloud Sync) for every connected folder
   useEffect(() => {
     let alive = true
     for (const f of folders) {
       if (maps[f.tree] !== undefined) continue
-      const hasJson = f.files.some(x => x.name.toLowerCase() === 'kguitar-course.json')
-      if (!hasJson) {
-        setMaps(prev => ({ ...prev, [f.tree]: null }))
-        continue
-      }
       void loadCourseMapForFolder(f).then(m => {
         if (alive) setMaps(prev => ({ ...prev, [f.tree]: m }))
       })
     }
     return () => { alive = false }
   }, [folders, maps])
+
+  // Refresh maps if Cloud Sync or another screen imports updated course maps
+  useEffect(() => {
+    const onChanged = () => {
+      void Promise.all(folders.map(async f => [f.tree, await loadCourseMapForFolder(f)] as const)).then(entries => {
+        setMaps(prev => {
+          const next = { ...prev }
+          for (const [tree, m] of entries) next[tree] = m
+          return next
+        })
+      })
+    }
+    window.addEventListener('kg-courses-changed', onChanged)
+    return () => window.removeEventListener('kg-courses-changed', onChanged)
+  }, [folders])
 
   async function scan(tree: string, name?: string) {
     setBusy(tree); setErr('')
@@ -115,6 +133,84 @@ export function VideoLessons({ onExit }: { onExit: () => void }) {
       if (!files.some(x => kindOf(x) === 'video')) setErr(`No videos found in "${f.name}". Pick the folder that has the lesson videos in it (or a folder above it).`)
     } catch (e) {
       setErr((e as Error).message || "Couldn't read that folder.")
+    }
+    setBusy('')
+  }
+
+  async function rescanAll() {
+    if (!folders.length) return
+    setBusy('all'); setErr(''); setSyncNote('')
+    let updated = 0
+    try {
+      const nextFolders: Folder[] = []
+      const nextMaps: Record<string, CourseMap | null> = {}
+      for (const f of folders) {
+        let curF = f
+        if (lessonsAvailable() && !f.tree.startsWith('webdir://')) {
+          try {
+            const { files } = await LessonFolders.list({ tree: f.tree })
+            curF = { ...f, files, scanned: Date.now() }
+            updated++
+          } catch { /* keep existing listing */ }
+        }
+        nextFolders.push(curF)
+        nextMaps[curF.tree] = await loadCourseMapForFolder(curF)
+      }
+      setFolders(nextFolders)
+      setMaps(nextMaps)
+      setSyncNote(`✓ Rescanned ${updated || nextFolders.length} course folder${nextFolders.length === 1 ? '' : 's'} & refreshed all topic tags.`)
+    } catch (e) {
+      setErr((e as Error).message || "Couldn't rescan folders.")
+    }
+    setBusy('')
+  }
+
+  async function handleMapFilePick(fileList: FileList | null) {
+    if (!fileList || !fileList.length) return
+    setBusy('maps'); setErr(''); setSyncNote('')
+    try {
+      const texts: string[] = []
+      for (let i = 0; i < fileList.length; i++) {
+        texts.push(await fileList[i].text())
+      }
+      const res = importCourseMapJsonTexts(texts, folders)
+      if (!res.imported) {
+        setErr('No KGuitar course map found in that file. Pick kguitar-all-courses.json or a kguitar-course.json from your Google Drive KGuitar-Courses folder.')
+      } else {
+        const refreshed: Record<string, CourseMap | null> = {}
+        for (const f of folders) refreshed[f.tree] = await loadCourseMapForFolder(f)
+        setMaps(refreshed)
+        const cloudMsg = hasCloudSync ? ' · syncing to your other device…' : ''
+        setSyncNote(
+          `✓ Synced ${res.imported} course map${res.imported === 1 ? '' : 's'} (${res.taggedLessons} tagged lessons` +
+          `${folders.length ? `, matched ${res.matched}/${folders.length} connected folder${folders.length === 1 ? '' : 's'}` : ''})${cloudMsg}`
+        )
+        if (hasCloudSync) {
+          void syncNow().then(() => {
+            setSyncNote(
+              `✓ Synced ${res.imported} course map${res.imported === 1 ? '' : 's'} (${res.taggedLessons} tagged lessons` +
+              `${folders.length ? `, matched ${res.matched}/${folders.length} folders` : ''}) & backed up to Phone ↔ Tablet Cloud Sync!`
+            )
+          }).catch(() => { /* local sync already succeeded */ })
+        }
+      }
+    } catch (e) {
+      setErr((e as Error).message || "Couldn't read that course map file.")
+    }
+    setBusy('')
+  }
+
+  async function handleCloudSync() {
+    setBusy('cloud'); setErr(''); setSyncNote('')
+    try {
+      await syncNow()
+      const refreshed: Record<string, CourseMap | null> = {}
+      for (const f of folders) refreshed[f.tree] = await loadCourseMapForFolder(f)
+      setMaps(refreshed)
+      const count = Object.keys(loadSyncedCourseMaps()).length
+      setSyncNote(`✓ Phone ↔ Tablet Cloud Sync complete (${count} synced course map${count === 1 ? '' : 's'} ready).`)
+    } catch (e) {
+      setErr((e as Error).message || 'Cloud sync failed.')
     }
     setBusy('')
   }
@@ -196,6 +292,15 @@ export function VideoLessons({ onExit }: { onExit: () => void }) {
         onChange={e => { void handleWebDirPick(e.currentTarget.files); e.currentTarget.value = '' }}
         data-testid="course-webdir-input"
       />
+      <input
+        ref={mapInputRef}
+        type="file"
+        accept=".json,application/json"
+        multiple
+        style={{ display: 'none' }}
+        onChange={e => { void handleMapFilePick(e.currentTarget.files); e.currentTarget.value = '' }}
+        data-testid="course-map-sync-input"
+      />
       <WinArea area="videoLessons">
         {!folders.length && (
           <Win id="vl-intro" title="Getting started with Course Studio" className="panel" bodyClass="stack" bodyStyle={{ gap: 8 }}>
@@ -205,15 +310,67 @@ export function VideoLessons({ onExit }: { onExit: () => void }) {
             <ol className="lick-steps">
               <li>Copy the whole course folder from <b>~/KGuitar-Courses/</b> onto your tablet/phone (e.g. into <b>Downloads</b> or <b>Documents</b> — via USB, LocalSend Wi-Fi, or unzipping a downloaded zip).</li>
               <li>Tap <b>Find my lessons</b>, open that course folder (such as <i>Roy Ziv - Hexatonic MasterClass</i>), then tap <b>Use this folder</b> → <b>Allow</b> at the bottom.</li>
-              <li>Each lesson automatically opens its matching PDF book pages or tab diagram with the floating video player on top! <i>(Note: Android doesn&apos;t allow picking whole folders directly inside Google Drive — copy/unzip the folder to your device storage first.)</i></li>
+              <li>Tap <b>☁ Sync from Drive</b> and pick <b>kguitar-all-courses.json</b> straight from Google Drive → <b>KGuitar-Courses</b> to pull all course maps &amp; topic tags in one tap!</li>
             </ol>
           </Win>
         )}
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <button className="btn primary" onClick={() => void pick()} disabled={!!busy}>
             {folders.length ? '+ Add another folder' : 'Find my lessons'}
           </button>
+          <button
+            className="btn"
+            onClick={() => mapInputRef.current?.click()}
+            disabled={!!busy}
+            data-testid="course-sync-drive-btn"
+            title="Pick kguitar-all-courses.json (or any kguitar-course.json) directly from Google Drive to update all course maps & topic tags without re-downloading videos"
+          >
+            {busy === 'maps' ? 'Syncing maps…' : '☁ Sync maps from Drive'}
+          </button>
+          {folders.length > 0 && (
+            <button
+              className="btn sm"
+              onClick={() => void rescanAll()}
+              disabled={!!busy}
+              data-testid="course-rescan-all-btn"
+              title="Rescan all connected local course folders at once"
+            >
+              {busy === 'all' ? 'Rescanning…' : '↻ Rescan all'}
+            </button>
+          )}
+          {hasCloudSync && (
+            <button
+              className="btn sm"
+              onClick={() => void handleCloudSync()}
+              disabled={!!busy}
+              data-testid="course-cloud-sync-btn"
+              title="Pull/push synced course maps between your Phone & Tablet"
+            >
+              {busy === 'cloud' ? 'Syncing…' : '☁ Phone ↔ Tablet'}
+            </button>
+          )}
+          <button
+            className="btn sm ghost"
+            onClick={() => setShowSyncHelp(s => !s)}
+            aria-expanded={showSyncHelp}
+            data-testid="course-sync-help-btn"
+          >
+            {showSyncHelp ? 'Hide tip' : '? How Drive sync works'}
+          </button>
+          {syncedMapCount > 0 && (
+            <span className="badge sm" data-testid="course-synced-count">
+              ✓ {syncedMapCount} map{syncedMapCount === 1 ? '' : 's'} synced
+            </span>
+          )}
         </div>
+        {showSyncHelp && (
+          <div className="panel stack" style={{ gap: 6, borderLeft: '3px solid var(--accent)' }} data-testid="course-sync-help">
+            <div className="small">
+              <b>1-Tap Drive Sync (no re-downloading videos):</b> Tap <b>☁ Sync maps from Drive</b> → open <b>Google Drive</b> → <b>KGuitar-Courses</b> → tap <b><code>kguitar-all-courses.json</code></b> once. KGuitar matches and updates all 6 course maps &amp; topic tags automatically (and carries them across Phone ↔ Tablet if Cloud Sync is on).
+            </div>
+          </div>
+        )}
+        {syncNote && <p className="notice small" style={{ margin: 0, borderLeft: '3px solid var(--good, #34d399)' }} data-testid="course-sync-note">{syncNote}</p>}
         {err && <p className="notice small" role="alert" style={{ margin: 0 }}>{err}</p>}
         {folders.map(f => (
           <Course
