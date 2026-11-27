@@ -657,6 +657,116 @@ export const AI_STYLES: AIStyle[] = [
     chordPattern: 'hold', bassRhythm: [0, 8],
     verseProgs: P.cinematicMin, chorusProgs: P.rockChorus, soloProgs: P.cinematicMin,
   },
+  {
+    id: 'melodic-rock-ballad', label: 'Melodic Rock Ballad (Hexatonic)', group: 'Rock & Alternative',
+    hint: 'Soaring emotional minor rock ballad with spacious drums, warm Juno pads & wide solo room',
+    keywords: ['melodic', 'ballad', 'hexatonic', 'roy', 'emotional', 'soaring', 'lead'],
+    minor: true, defaultKey: 'E', bpmRange: [66, 86], defaultBpm: 74, swing: 0,
+    kit: 'rock', groove: 'halftime', strumStyle: 'ambient',
+    bassInst: 'bass', keysInst: 'juno', guitarInst: 'clean',
+    chordPattern: 'hold', bassRhythm: [0, 8, 12],
+    verseProgs: [
+      [[0, 'm7', 'm'], [8, 'maj7', ''], [3, 'maj7', ''], [10, 'maj', '']],
+      [[0, 'm7', 'm'], [5, 'm7', 'm'], [8, 'maj7', ''], [7, 'sus4', '']],
+    ],
+    chorusProgs: [
+      [[8, 'maj7', ''], [10, 'maj', ''], [0, 'm7', 'm'], [3, 'maj7', '']],
+      [[3, 'maj7', ''], [10, 'maj', ''], [0, 'm7', 'm'], [8, 'maj7', '']],
+    ],
+    soloProgs: [
+      [[0, 'm7', 'm'], [8, 'maj7', ''], [3, 'maj7', ''], [10, 'maj', '']],
+    ],
+  },
+  {
+    id: 'cinematic-minor-ballad', label: 'Cinematic Minor Pop Ballad', group: 'Modern, Chill & Cinematic',
+    hint: 'Lush grand piano + shimmer pad minor ballad built for singing bends & vocal phrasing',
+    keywords: ['pop ballad', 'minor ballad', 'vocal', 'cinematic ballad', 'piano ballad'],
+    minor: true, defaultKey: 'A', bpmRange: [68, 88], defaultBpm: 76, swing: 0,
+    kit: 'rock', groove: 'halftime', strumStyle: 'orchestra',
+    bassInst: 'bass', keysInst: 'shimmer', guitarInst: 'clean',
+    chordPattern: 'arp', bassRhythm: [0, 6, 8, 14],
+    verseProgs: [
+      [[0, 'm', 'm'], [8, 'maj7', ''], [3, 'maj', ''], [10, 'maj', '']],
+      [[0, 'm', 'm'], [5, 'm', 'm'], [10, 'maj', ''], [3, 'maj', '']],
+    ],
+    chorusProgs: [
+      [[8, 'maj7', ''], [3, 'maj', ''], [10, 'maj', ''], [0, 'm', 'm']],
+    ],
+    soloProgs: [
+      [[0, 'm', 'm'], [8, 'maj7', ''], [3, 'maj', ''], [10, 'maj', '']],
+    ],
+  },
+  {
+    id: 'modern-fusion-lead', label: 'Modern Fusion / Neo-Soul Lead', group: 'Jazz, Latin & World',
+    hint: 'Silky Wurlitzer/Rhodes, tight pocket bass & modern fusion changes for hexatonic & chord-tone soloing',
+    keywords: ['fusion', 'modern fusion', 'neo soul', 'pocket', 'rhodes', 'melodic fusion'],
+    minor: true, defaultKey: 'A', bpmRange: [84, 108], defaultBpm: 94, swing: 0.14,
+    kit: 'rock', groove: 'funk', strumStyle: 'rhodes',
+    bassInst: 'moogbass', keysInst: 'wurli', guitarInst: 'clean',
+    chordPattern: 'stabs', bassRhythm: [0, 3, 6, 10, 14],
+    verseProgs: P.soulNeo,
+    chorusProgs: [
+      [[5, 'm7', 'm7'], [10, '7', '7'], [3, 'maj7', 'maj7'], [8, 'maj7', 'maj7']],
+    ],
+    soloProgs: P.soulNeo,
+  },
+  {
+    id: 'dorian-modal-vamp', label: 'Dorian Modal Groove (i → IV)', group: 'Funk, Groove & Reggae',
+    hint: 'Classic minor-to-major-IV Dorian vamp (e.g. Am7 → D9) — highlight the bright natural 6th!',
+    keywords: ['dorian', 'modal', 'vamp', 'santana', 'smooth', 'natural 6'],
+    minor: true, defaultKey: 'A', bpmRange: [88, 114], defaultBpm: 98, swing: 0.12,
+    kit: 'rock', groove: 'funk', strumStyle: 'rhodes',
+    bassInst: 'bass', keysInst: 'wurli', guitarInst: 'clean',
+    chordPattern: 'stabs', bassRhythm: [0, 6, 8, 10, 14],
+    verseProgs: [
+      [[0, 'm7', 'm7'], [5, '7', '7'], [0, 'm7', 'm7'], [5, '7', '7']],
+      [[0, 'm7', 'm7'], [2, 'm7', 'm7'], [5, '7', '7'], [0, 'm7', 'm7']],
+    ],
+    chorusProgs: [
+      [[5, '7', '7'], [0, 'm7', 'm7'], [10, 'maj7', ''], [5, '7', '7']],
+    ],
+    soloProgs: [
+      [[0, 'm7', 'm7'], [5, '7', '7'], [0, 'm7', 'm7'], [5, '7', '7']],
+    ],
+  },
+  {
+    id: 'lydian-dream-vamp', label: 'Lydian Dream Pad (I → II)', group: 'Modern, Chill & Cinematic',
+    hint: 'Floating film-score Lydian vamp (I → II) built to make the dreamy #4 sparkle!',
+    keywords: ['lydian', 'dreamy', 'floating', 'sharp 4', 'satch', 'vai', 'modal'],
+    minor: false, defaultKey: 'C', bpmRange: [74, 98], defaultBpm: 86, swing: 0,
+    kit: 'rock', groove: 'pop', strumStyle: 'ambient',
+    bassInst: 'bass', keysInst: 'shimmer', guitarInst: 'clean',
+    chordPattern: 'hold', bassRhythm: [0, 8, 12],
+    verseProgs: [
+      [[0, 'maj7', 'maj7'], [2, 'maj', ''], [0, 'maj7', 'maj7'], [2, 'maj', '']],
+      [[0, 'maj7', 'maj7'], [2, 'maj', ''], [4, 'm7', 'm7'], [2, 'maj', '']],
+    ],
+    chorusProgs: [
+      [[2, 'maj', ''], [4, 'm7', 'm7'], [0, 'maj7', 'maj7'], [2, 'maj', '']],
+    ],
+    soloProgs: [
+      [[0, 'maj7', 'maj7'], [2, 'maj', ''], [0, 'maj7', 'maj7'], [2, 'maj', '']],
+    ],
+  },
+  {
+    id: 'mixolydian-jam-vamp', label: 'Mixolydian Jam Groove (I → bVII → IV)', group: 'Rock & Alternative',
+    hint: 'Upbeat Mixolydian rock groove (I → bVII → IV) — highlight the bluesy b7 over major chords!',
+    keywords: ['mixolydian', 'jam', 'classic', 'b7', 'dominant', 'modal'],
+    minor: false, defaultKey: 'G', bpmRange: [96, 124], defaultBpm: 108, swing: 0.06,
+    kit: 'rock', groove: 'rock', strumStyle: 'rock',
+    bassInst: 'bass', keysInst: 'organ', guitarInst: 'clean',
+    chordPattern: 'stabs', bassRhythm: [0, 4, 8, 12, 14],
+    verseProgs: [
+      [[0, '7', ''], [10, 'maj', ''], [5, 'maj', ''], [0, '7', '']],
+      [[0, '7', ''], [10, 'maj', ''], [0, '7', ''], [5, 'maj', '']],
+    ],
+    chorusProgs: [
+      [[5, 'maj', ''], [10, 'maj', ''], [0, '7', ''], [0, '7', '']],
+    ],
+    soloProgs: [
+      [[0, '7', ''], [10, 'maj', ''], [5, 'maj', ''], [0, '7', '']],
+    ],
+  },
 ]
 
 export function aiStyleById(id: string): AIStyle {
@@ -745,6 +855,12 @@ function progToSymbols(prog: ProgSpec, tonic: string, minor: boolean): string[] 
 }
 
 function soloScaleFor(style: AIStyle, tonic: string, minor: boolean): { root: string; scaleId: string; label: string } {
+  if (style.id === 'melodic-rock-ballad' || style.id === 'cinematic-minor-ballad' || style.id === 'modern-fusion-lead') {
+    return { root: tonic, scaleId: 'minor hexatonic', label: `${tonic} Minor Hexatonic (1 2 b3 4 5 b7)` }
+  }
+  if (style.id === 'lydian-dream-vamp') return { root: tonic, scaleId: 'lydian', label: `${tonic} Lydian (highlight #4!)` }
+  if (style.id === 'mixolydian-jam-vamp') return { root: tonic, scaleId: 'mixolydian', label: `${tonic} Mixolydian (highlight b7!)` }
+  if (style.id === 'dorian-modal-vamp') return { root: tonic, scaleId: 'dorian', label: `${tonic} Dorian (highlight natural 6th!)` }
   if (style.id === 'flamenco-rumba') return { root: tonic, scaleId: 'phrygian', label: `${tonic} Phrygian / Minor Pentatonic` }
   if (style.id === 'latin-rock' || style.id === 'tight-funk' || style.id === 'funky-blues') {
     return { root: tonic, scaleId: 'dorian', label: `${tonic} Dorian / Minor Pentatonic` }

@@ -4,6 +4,13 @@
 // Also persists per-lesson pinned PDF pages (`📌 Pin Page`) and per-lesson BPM / practice notes.
 import { chapters, kindOf, niceName, readLessonBytes, type Folder, type LFile } from './folders'
 
+export interface CourseClipDef {
+  label: string
+  startSec: number
+  endSec?: number
+  topics?: string[]
+}
+
 export interface CourseLessonDef {
   id: string
   title: string
@@ -18,6 +25,10 @@ export interface CourseLessonDef {
   gpTabs?: { path: string; label?: string }[]
   tuning?: string
   hint?: string
+  /** Optional topic tags (e.g. ['hexatonic', 'skipping-shapes', 'chord-tones']) for cross-app "From your courses" matching */
+  topics?: string[]
+  /** Optional key moment timestamps inside this video lesson */
+  clips?: CourseClipDef[]
 }
 
 export interface CourseChapterDef {
@@ -62,6 +73,8 @@ export interface ResolvedLesson {
   defaultView: 'pdf' | 'image' | 'video'
   tuning?: string
   hint?: string
+  topics?: string[]
+  clips?: CourseClipDef[]
 }
 
 export interface ResolvedChapter {
@@ -250,6 +263,8 @@ export function resolveCourse(f: Folder, map?: CourseMap | null): ResolvedCourse
           defaultView,
           tuning: ls.tuning,
           hint: ls.hint,
+          topics: ls.topics,
+          clips: ls.clips,
         }
         resolvedLessons.push(resolved)
         allLessons.push(resolved)

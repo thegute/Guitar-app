@@ -122,6 +122,7 @@ export function savedFolders(): Folder[] {
 }
 export function saveFolders(f: Folder[]) {
   try { localStorage.setItem(KEY, JSON.stringify(f)) } catch { /* storage full: the list is rebuilt next time */ }
+  try { if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') window.dispatchEvent(new CustomEvent('kg-courses-changed')) } catch { /* ignore */ }
 }
 
 export type Kind = 'video' | 'gp' | 'text' | 'pdf' | 'image' | 'audio' | 'other'
