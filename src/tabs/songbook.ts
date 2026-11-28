@@ -422,6 +422,18 @@ K:A
     ],
   },
   {
+    id: 'sallygoodin', title: 'Sally Goodin', genre: 'bluegrass', credit: 'Traditional fiddle tune (recorded by Eck Robertson, 1922; printed 1928)', key: 'A', meter: 4,
+    abc: `M:4/4
+L:1/8
+K:A
+|: "A"AcBA A2AB | cABA AAA2 | AcBA A2AF | "E"ECEE "A"AAA2 :|
+|: "A"ee2e e2ce | "D"fgae fecd | "A"e2fe cBAB | "E"cABA "A"AAA2 :|`,
+    parts: [
+      melody(2, 96, 'Short and catchy: the low part rocks around the open A, the high part repeats the E on top. Play the repeated A notes as a down-up pair.'),
+      rhythm('boom', 1, 110, 'carter', 'Boom-chicka backing', 'Almost all A, with D and E for a bar each.'),
+    ],
+  },
+  {
     id: 'ninepound', title: 'Nine Pound Hammer', genre: 'bluegrass', credit: 'Traditional (recorded by Al Hopkins and the Buckle Busters, 1927)', key: 'G', meter: 4,
     chart: 'G | G | C | G | G | G | D | D | G | G | C | G | G | D | G | G',
     parts: [
