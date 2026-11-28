@@ -9,7 +9,7 @@ import { INTERVAL_LABELS, SHARPS, FLATS, pc } from '../theory/notes'
 import type { Instrument } from '../instrument'
 import { CHAPTERS, LESSONS, chaptersFor, lessonById, lessonsFor, type Block, type Lesson } from './lessons'
 import { Ico } from '../components/Icon'
-import { COURSE } from '../course'
+import { COURSE, PATHS, PATH_NAMES } from '../course'
 import { lessonProgress } from '../course/progress'
 import { InYourBooks } from '../books/InYourBooks'
 import { addXp, bump, logDone, usePracticeTimer } from './progress'
@@ -335,6 +335,56 @@ function CourseLevels({ onOpen }: { onOpen: (id: string) => void }) {
   )
 }
 
+const UNIT_NAMES: Record<string, string[]> = {
+  technique: ['Picking', 'The fretting hand', 'Legato', 'Bends and vibrato', 'Hybrid picking', 'Economy and sweeps', 'String skipping', 'Tapping', 'The rhythm hand', 'Speed and time'],
+}
+/** a pathway course is listed once its lessons have their teachers' videos (owner: every lesson has verified videos);
+ *  `kg:previewPaths` shows it earlier, for checking */
+export const PATH_READY: Record<string, boolean> = { technique: false, bluegrass: false, acoustic: false }
+const previewPaths = () => { try { return localStorage.getItem('kg:previewPaths') === '1' } catch { return false } }
+
+/** A pathway course (technique, bluegrass, acoustic): Continue + its units with progress. */
+function PathCourse({ course, onOpen }: { course: keyof typeof PATHS; onOpen: (id: string) => void }) {
+  const [, setTick] = useState(0)
+  useEffect(() => { const f = () => setTick(t => t + 1); addEventListener('kg-course', f); return () => removeEventListener('kg-course', f) }, [])
+  const all = PATHS[course]
+  if (!all.length || !(PATH_READY[course] || previewPaths())) return null
+  const next = all.find(l => !lessonProgress(l.id).done) ?? all[0]
+  const units = [...new Set(all.map(l => l.level))]
+  return (
+    <section className="course-levels stack" style={{ gap: 10 }} data-testid={`path-${course}`}>
+      <h2 style={{ margin: 0 }}>{PATH_NAMES[course]}</h2>
+      <button className="continue-card deep-preview" onClick={() => onOpen(next.id)} data-testid={`path-next-${course}`}>
+        <span className="small muted">{all.some(l => lessonProgress(l.id).done || lessonProgress(l.id).steps.length) ? 'Continue' : 'Start'} · Unit {next.level}, lesson {next.n}</span>
+        <b>{next.title}</b>
+        <span className="small muted">{next.goal}</span>
+      </button>
+      {units.map(u => {
+        const ls = all.filter(l => l.level === u)
+        return (
+          <section key={u} className="chapter">
+            <h3 style={{ margin: '4px 0' }}>Unit {u} · {UNIT_NAMES[course]?.[u - 1] ?? ''} <span className="small muted">{ls.filter(l => lessonProgress(l.id).done).length}/{ls.length}</span></h3>
+            <ul className="lesson-index">
+              {ls.map(l => {
+                const p = lessonProgress(l.id)
+                return (
+                  <li key={l.id}>
+                    <button onClick={() => onOpen(l.id)} className={p.done ? 'read' : ''} data-testid={`course-lesson-${l.id}`}>
+                      <span className="tick" aria-label={p.done ? 'finished' : 'not finished'}>{p.done ? '✓' : ''}</span>
+                      <span>{l.n}. {l.title}</span>
+                      <span className="small muted">{p.done ? 'done' : `${l.minutes} min`}</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        )
+      })}
+    </section>
+  )
+}
+
 export function LessonList({ onOpen, onExit, instId }: { onOpen: (id: string) => void; onExit: () => void; instId?: string }) {
   const read = useMemo(() => new Set(lessonsRead()), [])
   const all = lessonsFor(instId)
@@ -353,6 +403,7 @@ export function LessonList({ onOpen, onExit, instId }: { onOpen: (id: string) =>
           : 'Short lessons written for guitar and ukulele, following the chapters of Offtonic Theory, a free online textbook (each lesson links to its chapter if you want the full version). Every lesson has sounds to tap and something to try.'}
       </p>
       {COURSE.length > 0 && <CourseLevels onOpen={onOpen} />}
+      {(!instId || instId === 'guitar') && <PathCourse course="technique" onOpen={onOpen} />}
       <h2 className="course-earlier">Earlier lessons <span className="small muted">(topics the course hasn\'t reached yet)</span></h2>
       <button className="continue-card" onClick={() => onOpen(nxt.id)}>
         <span className="small muted">{read.size ? 'Continue with' : 'Start with'}</span>

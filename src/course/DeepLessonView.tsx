@@ -20,10 +20,11 @@ import { REVIEW_DAYS, finishLesson, lessonProgress, nextReviewAt, reviewDone, re
 import { Fretboard } from '../components/Fretboard'
 import { playNote } from '../audio/pluck'
 import { InYourBooks } from '../books/InYourBooks'
-import { COURSE } from './index'
+import { lessonPlace, lessonsOf } from './index'
 import { useBooks } from '../books/useBooks'
 import { WatchHere } from './WatchHere'
 import { LessonSongs } from './LessonSongs'
+import { openExercise } from '../nav'
 
 const KIND_ICON: Record<Step['kind'], Parameters<typeof Ico>[0]['n']> = {
   why: 'target', learn: 'book', examples: 'puzzle', hear: 'ear', mistakes: 'zap', practice: 'calendar', use: 'music', check: 'check', deeper: 'gem',
@@ -38,7 +39,20 @@ function useCourseProgress(id: string) {
 function taskGo(t: Task): Go | null {
   if ('quiz' in t) return { quiz: t.quiz }
   if ('tool' in t) return t.tool === 'jam' ? { tab: 'progressions' } : t.tool === 'tuner' ? { tab: 'tuner' } : { tool: t.tool }
+  if ('go' in t) return t.go
   return null
+}
+
+/** open one library exercise from a lesson, and bring its card into view (the Exercises page opens on its own section) */
+function openLessonExercise(code: string) {
+  openExercise(code)
+  let tries = 0
+  const find = () => {
+    const head = [...document.querySelectorAll('.ex-card-head')].find(h => new RegExp(`\\b${code}\\b`).test(h.textContent ?? ''))
+    if (head) { head.scrollIntoView({ block: 'start', behavior: 'smooth' }); return }
+    if (++tries < 30) setTimeout(find, 100)
+  }
+  setTimeout(find, 150)
 }
 
 function TaskButton({ t, onGo, onExercise, done, defGoal }: { t: Task; onGo: (g: Go) => void; onExercise: (ex: LessonEx, shift?: number) => void; done?: boolean; defGoal?: boolean }) {
@@ -47,12 +61,12 @@ function TaskButton({ t, onGo, onExercise, done, defGoal }: { t: Task; onGo: (g:
   const { shift } = useLessonKey()
   return (
     <button className={`deep-task${done ? ' done' : ''}`} data-testid="deep-task"
-      onClick={() => { if ('ex' in t) onExercise(t.ex, shift); else { const g = taskGo(t); if (g) onGo(g) } }}>
+      onClick={() => { if ('ex' in t) onExercise(t.ex, shift); else if ('exercise' in t) openLessonExercise(t.exercise); else { const g = taskGo(t); if (g) onGo(g) } }}>
       <span className="deep-task-ico" aria-hidden="true"><Ico n={done ? 'check' : icon} /></span>
       <span className="deep-task-text">
         <b>{t.label}</b>
         <span className="small muted">
-          {[t.minutes ? `${t.minutes} min` : '', 'ex' in t ? 'opens in Play, the mic follows you' : 'quiz' in t ? (t.how === 'play' ? 'answer by playing' : 'quiz') : 'tool' in t && t.tool === 'jam' ? 'Jam band' : '', goal ? `goal: ${goal}` : ''].filter(Boolean).join(' · ')}
+          {[t.minutes ? `${t.minutes} min` : '', 'ex' in t ? 'opens in Play, the mic follows you' : 'exercise' in t ? `exercise ${t.exercise}: tempo, Play and the Speed Builder Lab` : 'go' in t ? (t.note ?? '') : 'quiz' in t ? (t.how === 'play' ? 'answer by playing' : 'quiz') : 'tool' in t && t.tool === 'jam' ? 'Jam band' : '', goal ? `goal: ${goal}` : ''].filter(Boolean).join(' · ')}
         </span>
       </span>
     </button>
@@ -127,8 +141,9 @@ function StepBody({ step, inst, lesson, onGo, onExercise }: { step: Step; inst: 
 function PracticeStep({ step, lesson, done, onGo, onExercise }: { step: Extract<Step, { kind: 'practice' }>; lesson: CourseLesson; done: string[]; onGo: (g: Go) => void; onExercise: (ex: LessonEx, shift?: number) => void }) {
   const st = stars()
   const passed = (t: Task) => 'quiz' in t && (st[t.quiz] ?? 0) >= 2
-  const i = COURSE.findIndex(l => l.id === lesson.id)
-  const prev = i > 0 ? COURSE[i - 1] : null
+  const list = lessonsOf(lesson)
+  const i = list.findIndex(l => l.id === lesson.id)
+  const prev = i > 0 ? list[i - 1] : null
   const prevCheck = prev?.steps.find(x => x.kind === 'check')
   const warm = prevCheck && prevCheck.kind === 'check' ? (prevCheck.tasks.find(t => t.skill === 'Play') ?? prevCheck.tasks[0]) : null
   return (
@@ -222,7 +237,7 @@ function DeepLessonBody({ lesson, inst, onExit, onGo, onExercise }: DeepProps) {
   const lessonText = useMemo(() => lesson.steps.flatMap(s => 'blocks' in s ? s.blocks.flatMap(b => 'p' in b ? [b.p] : 'tip' in b ? [b.tip] : 'list' in b ? b.list : []) : []).join(' ').replace(/\*\*/g, ''), [lesson])
   useScreenInfo('lesson', {
     label: `Theory course lesson "${lesson.title}"`,
-    summary: `Level ${lesson.level}, lesson ${lesson.n}: "${lesson.title}". Goal: ${lesson.goal} On step ${at + 1} of ${lesson.steps.length} (${STEP_LABEL[step.kind]}: ${step.title}).${p.done ? ' Finished.' : ''} The lesson says: ${lessonText.slice(0, 1800)}`,
+    summary: `${lessonPlace(lesson)}: "${lesson.title}". Goal: ${lesson.goal} On step ${at + 1} of ${lesson.steps.length} (${STEP_LABEL[step.kind]}: ${step.title}).${p.done ? ' Finished.' : ''} The lesson says: ${lessonText.slice(0, 1800)}`,
   })
   const doneCount = lesson.steps.filter((_, i) => p.steps.includes(String(i))).length
   const pct = Math.round((doneCount / lesson.steps.length) * 100)
@@ -241,7 +256,7 @@ function DeepLessonBody({ lesson, inst, onExit, onGo, onExercise }: DeepProps) {
     <article className="deep" ref={top}>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <button className="btn sm" onClick={onExit}>← Back</button>
-        <span className="small muted">Level {lesson.level} · Lesson {lesson.n}</span>
+        <span className="small muted">{lessonPlace(lesson)}</span>
       </div>
       <header className="deep-head">
         <h1>{lesson.title}</h1>

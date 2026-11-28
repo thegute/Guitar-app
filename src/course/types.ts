@@ -4,12 +4,17 @@
 // → go deeper (video, the owner's books). Finished lessons come back for short reviews after 1, 3, 7 and 30 days.
 import type { Block } from '../learn/lessons'
 import type { LessonEx, LessonVideo } from '../learn/lessonExtras'
+import type { Go } from '../learn/path'
 
 /** Something to do: an exercise that opens in Play (the mic follows), a quiz, or a tool / song. */
 export type Task =
   | { label: string; ex: LessonEx; minutes?: number; goal?: string }
   | { label: string; quiz: string; minutes?: number; goal?: string; how?: 'tap' | 'play' }
   | { label: string; tool: 'ear' | 'caged' | 'circle' | 'jam' | 'rhythm' | 'changes' | 'tuner' | 'fills' | 'targets' | 'cr' | 'techniques' | 'earpath'; minutes?: number; goal?: string }
+  /** one exercise from the exercise library by its code ("PK-2"): opens it in Learn → Exercises (Speed Builder Lab and Drill Lab sit on that page) */
+  | { label: string; exercise: string; minutes?: number; goal?: string }
+  /** anywhere else in the app, as it is (Gemini's tools are opened, never changed): Exercises page, Improv Gym, a songbook tune … */
+  | { label: string; go: Go; minutes?: number; goal?: string; note?: string }
 
 export interface WorkedExample {
   /** the question, e.g. "Find C on the D string" */
@@ -35,6 +40,8 @@ export type Step =
 
 export interface CourseLesson {
   id: string
+  /** which course it belongs to: the theory course (no value) or a pathway course (technique, bluegrass, acoustic) */
+  course?: 'technique' | 'bluegrass' | 'acoustic'
   level: number
   /** number within the level */
   n: number
