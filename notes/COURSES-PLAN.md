@@ -33,8 +33,18 @@ Owner's rules for this work:
   and lesson title from the maps) as a Watch source, ahead of YouTube where they cover the topic: Speed Builder → technique
   speed units; Mancuso → hybrid/legato/improv; Roy Ziv Hexatonic + Modes → Level 8 and melodic prog; Paul Davids Acoustic →
   acoustic pathway; Electric Elevation → technique/lead. Their drills: from the course's own tab PDFs (lesson tab card).
-- Open question for the owner: letting Gemini watch the course videos themselves (would mean uploading his files to Google's
-  API) — ask before doing it.
+- Owner 2026-11-28: YES, the Mac + Gemini should watch his paid course videos too. The videos live in his Google Drive, folder
+  KGuitar-Courses (id 12VzCPUsaEsryykVJTtz8xuSOevGY4pk7; subfolders Paul Davids - Acoustic Adventure, Roy Ziv - Guitar Modes
+  Navigator, Roy Ziv - Guitar Speed Builder, Paul Davids - Electric Elevation, Roy Ziv - Hexatonic MasterClass, Mancuso).
+  Course maps: kguitar-all-courses.json in that Drive (6 courses → chapters → lessons {id, title, video path relative to the
+  course folder, images (tab pictures), backings, topics}; lessons: Mancuso 74, Electric Elevation 27, Acoustic Adventure 74,
+  Hexatonic 171, Modes Navigator 122, Speed Builder 99). Not on the Mac's disk (only Documents is linked, no course folder there).
+  Plan: Mac reads them through Google Drive for Desktop (streams files on demand) → run-mac.js `--course-review` uploads one
+  video at a time to the Gemini Files API (resumable upload, wait ACTIVE, generateContent with file_data, DELETE the upload
+  right after) → notes matched to our theory / technique / pathway lessons with times and drills → video-notes/paidcourse-*.json
+  (stays on his Mac, never in the repo). Order: Speed Builder → Mancuso → Acoustic Adventure → Electric Elevation → Modes
+  Navigator → Hexatonic. Tell him: on the free tier Google may use uploaded content to improve its products.
+- Gemini free tier hit its daily limit on 2026-11-28 morning (HST); the Mac script waits 6 h and carries on by itself.
 
 ## Songs in the lessons (owner 2026-11-28)
 - Every lesson ends with real music. Public-domain tunes go in the built-in songbook (check each title; skip anything uncertain).
