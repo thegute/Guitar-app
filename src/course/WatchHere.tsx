@@ -1,8 +1,12 @@
 // "Watch" inside a course lesson step: the videos the owner's favourite teachers made on exactly this step's idea
 // (LoG Sounds first, then Signals Music Studio), from src/course/watch.ts. Each part is a button that plays just that
 // stretch of the video (m:ss–m:ss) right here, with a line on what it shows. Parts that cover the lesson as a whole sit on
-// the lesson's first Learn step. Guitar only: the teachers play guitar (ukulele and baritone keep the lesson's own videos).
+// the lesson's first Learn step, together with the matching lessons from his own video courses (Roy Ziv, Paul Davids,
+// Mancuso …, found by the lesson's topics through Gemini's course maps; they open in the floating course-video window).
+// Guitar only: the teachers play guitar (ukulele and baritone keep the lesson's own videos).
 import { useState } from 'react'
+import { openFloatingCard } from '../float/bus'
+import { setActiveCourseVideo, useCourseMatches, type CourseMatch } from '../lessons/courseIndex'
 import { Ico } from '../components/Icon'
 import { videoThumb, videoUrl } from '../learn/lessonExtras'
 import type { CourseLesson, Step } from './types'
@@ -19,11 +23,39 @@ export function watchFor(lesson: CourseLesson, step: Step): WatchVideo[] {
 
 export function WatchHere({ lesson, step, guitar }: { lesson: CourseLesson; step: Step; guitar: boolean }) {
   const vids = guitar ? watchFor(lesson, step) : []
-  if (!vids.length) return null
+  const first = step === lesson.steps.find(s => s.kind === 'learn')
+  const { matches } = useCourseMatches(guitar && first ? lesson.topics : [], { max: 3 })
+  const mine = guitar && first ? matches : []
+  const n = vids.length + mine.length
+  if (!n) return null
   return (
     <div className="watch-here" data-testid="watch-here">
-      <h3 className="watch-head"><Ico n="film" /> Watch: {vids.length === 1 ? 'a teacher on this' : `${vids.length} teachers on this`}</h3>
+      <h3 className="watch-head"><Ico n="film" /> Watch: {n === 1 ? 'a teacher on this' : `${n} teachers on this`}</h3>
+      {mine.map(m => <CourseCard key={`${m.item.folder.tree}:${m.item.lesson.id}`} m={m} />)}
       {vids.map(v => <WatchCard key={v.id} v={v} />)}
+    </div>
+  )
+}
+
+/** a lesson from one of his own video courses: plays in the floating course-video window */
+function CourseCard({ m }: { m: CourseMatch }) {
+  const ls = m.item.lesson
+  const play = () => {
+    setActiveCourseVideo({ folder: m.item.folder, courseTitle: m.item.courseTitle, instructor: m.item.instructor, lesson: ls, startSec: m.clip?.startSec, clipLabel: m.clip?.label })
+    openFloatingCard('course-video')
+  }
+  return (
+    <div className="watch-card" data-testid="watch-course">
+      <div className="watch-meta">
+        <b className="small">{ls.title}</b>
+        <span className="small muted">{m.item.instructor || m.item.courseTitle} · {m.item.courseTitle}{ls.chapterTitle ? ` · ${ls.chapterTitle}` : ''}</span>
+      </div>
+      <div className="watch-parts">
+        <button className="watch-part" onClick={play}>
+          <span className="watch-time"><Ico n="play" /> {m.clip ? m.clip.label : 'Play the lesson'}</span>
+          <span className="small">From your course: opens in the floating video window, so you can play along.</span>
+        </button>
+      </div>
     </div>
   )
 }
