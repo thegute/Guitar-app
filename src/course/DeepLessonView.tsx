@@ -24,6 +24,7 @@ import { COURSE } from './index'
 import { useBooks } from '../books/useBooks'
 import { WatchHere } from './WatchHere'
 import { LessonSongs } from './LessonSongs'
+import { InYourCourses } from '../lessons/InYourCourses'
 
 const KIND_ICON: Record<Step['kind'], Parameters<typeof Ico>[0]['n']> = {
   why: 'target', learn: 'book', examples: 'puzzle', hear: 'ear', mistakes: 'zap', practice: 'calendar', use: 'music', check: 'check', deeper: 'gem',
@@ -274,6 +275,7 @@ function DeepLessonBody({ lesson, inst, onExit, onGo, onExercise }: DeepProps) {
           <StepBody step={step} inst={inst} lesson={lesson} onGo={onGo} onExercise={onExercise} />
           <WatchHere lesson={lesson} step={step} guitar={inst.id === 'guitar'} />
           {step.kind === 'use' && <LessonSongs lesson={lesson} inst={inst} onGo={onGo} />}
+          {step === lesson.steps.find(s => s.kind === 'learn') && <InYourCourses topics={lesson.topics} title="In your video courses" max={4} compact />}
           <footer className="deep-nav">
             {at > 0 ? <button className="btn ghost" onClick={() => go(at - 1)}>← {lesson.steps[at - 1].title}</button> : <span />}
             {at < lesson.steps.length - 1

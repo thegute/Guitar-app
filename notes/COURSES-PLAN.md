@@ -25,6 +25,17 @@ Owner's rules for this work:
   Beamer's First Method + Masters of Hawaiian Slack Key Guitar supplement.
 - Later: funk (Tomo Fujita, Cory Wong), neo-soul double stops (Mayer), reggae.
 
+## His paid video courses (owner 2026-11-28: "don't forget my course video lessons like Roy Ziv and Paul Davids")
+- Roy Ziv (Hexatonic, Modes Navigator, Speed Builder), Paul Davids (Electric Elevation, Acoustic Adventure), Matteo Mancuso
+  (The Masterclass): on his phone (SAF folders) with Gemini's course maps (topics per lesson; `kguitar-all-courses.json` in his
+  Drive). Never copied into the repo. Theory lessons now mount Gemini's `InYourCourses` ("In your video courses") on the first
+  Learn step with the lesson's topics. Every new course/pathway lesson will name its paid-course lessons explicitly (by course
+  and lesson title from the maps) as a Watch source, ahead of YouTube where they cover the topic: Speed Builder → technique
+  speed units; Mancuso → hybrid/legato/improv; Roy Ziv Hexatonic + Modes → Level 8 and melodic prog; Paul Davids Acoustic →
+  acoustic pathway; Electric Elevation → technique/lead. Their drills: from the course's own tab PDFs (lesson tab card).
+- Open question for the owner: letting Gemini watch the course videos themselves (would mean uploading his files to Google's
+  API) — ask before doing it.
+
 ## Songs in the lessons (owner 2026-11-28)
 - Every lesson ends with real music. Public-domain tunes go in the built-in songbook (check each title; skip anything uncertain).
   Bluegrass: Salt Creek, Soldier's Joy, Old Joe Clark, Blackberry Blossom, Billy in the Lowground, Red Haired Boy, Bill Cheatham,
