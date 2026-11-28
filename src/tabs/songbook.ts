@@ -448,6 +448,87 @@ K:A
     ],
   },
   {
+    id: 'eighthjan', reach: 7, title: 'Eighth of January', genre: 'bluegrass', credit: 'Traditional fiddle tune (19th century; setting after The Session)', key: 'D', meter: 4,
+    abc: `M:4/4
+L:1/8
+K:D
+DE |: "D"F2A2 A3F | "A"ABAG FEDE | "D"FDAD "G"BDAB | "A"AFE2 "D"D2 DE :|
+|: "D"f2a2 a3f | "A"abaf edde | "D"fa2f "G"a2ab | "A"afec "D"d2 de :|`,
+    parts: [
+      melody(2, 88, 'The low part sits on the D and G strings; the high part plays the same tune an octave up. A first fiddle tune with long notes to land on.'),
+      rhythm('boom', 1, 110, 'carter', 'Boom-chicka backing', 'D, G and A: bass note, strum, bass note, strum.'),
+    ],
+  },
+  {
+    id: 'devilsdream', reach: 7, title: "Devil's Dream", genre: 'bluegrass', credit: 'Traditional fiddle tune (19th century; setting after The Session)', key: 'A', meter: 4,
+    abc: `M:4/4
+L:1/8
+K:A
+e2 |: "A"eaga eaga | eaga fedc | "Bm"dfBf dfBf | dfBf gfed |
+"A"eaga eaga | eaga fedc | "D"dfed "A"cA"E"BG | "E"E2 "A"A2 A2 e2 :|
+|: "A"ceAe ceAe | ceAe fedc | "Bm"dfBf dfBf | dfBf afed |
+"A"ceAe ceAe | ceAe fedc | "D"dfed "A"cA"E"BG | "E"E2 "A"A2 A2 e2 :|`,
+    parts: [
+      melody(4, 100, 'Steady eighth notes that cross strings on every beat: a down-up picking workout (keep the pick moving down on the beat, up off it).'),
+      rhythm('boom', 2, 115, 'carter', 'Boom-chicka backing', 'A, Bm, D and E.'),
+    ],
+  },
+  {
+    id: 'sailaway', reach: 5, title: 'Sail Away Ladies', genre: 'bluegrass', credit: 'Traditional (recorded by Uncle Bunt Stephens, 1926; setting after The Session)', key: 'G', meter: 4,
+    abc: `M:4/4
+L:1/8
+K:G
+|: "G"B2BG AGBG | "G"B3A GB3- | "C"BAGE "D"D2E2 | "G"G3A G2G2 :|
+|: "G"g2g2 ged2 | "C"e3f e3g | "G"g2g2 edB2 | "D"d3e d2e2 |
+"C"e2ed BAGA | "D"A3G "G"G3B | "C"BAGE "D"D2E2 | "G"G3A G2G2 :|`,
+    parts: [
+      melody(2, 84, 'An old-time tune in G with held notes: room to hear each note ring and let the tune sing.'),
+      rhythm('boom', 1, 100, 'carter', 'Boom-chicka backing', 'G, C and D.'),
+    ],
+  },
+  {
+    id: 'wildwood', title: 'Wildwood Flower', genre: 'bluegrass', credit: 'J. P. Webster, 1860 ("I\'ll Twine \'Mid the Ringlets"); the Carter Family tune', key: 'C', meter: 4,
+    chart: 'C | C | G7 | C | C | C | G7 | C | C | F | C | C | C | G7 | C | C',
+    parts: [
+      rhythm('boom', 1, 96, 'carter', 'Carter-style backing', 'C, F and G7: the chords under the most famous Carter-style tune (melody on the bass strings, strums in between).'),
+    ],
+  },
+  {
+    id: 'cumberland', title: 'Cumberland Gap', genre: 'bluegrass', credit: 'Traditional (recorded 1924)', key: 'D', meter: 4,
+    chart: 'D | D | D | A | D | D | A | D',
+    parts: [
+      rhythm('boom', 1, 120, 'carter', 'Boom-chicka backing', 'Nearly all D, with an A at the end of each line: a song to work the right-hand drive on.'),
+    ],
+  },
+  {
+    id: 'inthepines', title: 'In the Pines', genre: 'bluegrass', credit: 'Traditional (collected 1917)', key: 'G', meter: 4,
+    chart: 'G | G | C | G | G | D | G | G',
+    parts: [
+      rhythm('boom', 1, 92, 'carter', 'Boom-chicka backing', 'G, C and D at a slow, lonesome tempo: practise bass runs into each change.'),
+    ],
+  },
+  {
+    id: 'banksohio', title: 'Banks of the Ohio', genre: 'bluegrass', credit: 'Traditional ballad (19th century; recorded 1927)', key: 'G', meter: 4,
+    chart: 'G | G | D7 | D7 | D7 | D7 | G | G7 | C | C | G | G | G | D7 | G | G',
+    parts: [
+      rhythm('boom', 1, 100, 'carter', 'Boom-chicka backing', 'G, D7, G7 and C: the G7 leads you into the C.'),
+    ],
+  },
+  {
+    id: 'handsomemolly', title: 'Handsome Molly', genre: 'bluegrass', credit: 'Traditional (recorded 1927)', key: 'G', meter: 4,
+    chart: 'G | G | C | G | G | G | D | D | G | G | C | G | G | D | G | G',
+    parts: [
+      rhythm('boom', 1, 110, 'carter', 'Boom-chicka backing', 'G, C and D: end each line with a G run.'),
+    ],
+  },
+  {
+    id: 'johnhenry', title: 'John Henry', genre: 'bluegrass', credit: 'Traditional (printed 1909)', key: 'G', meter: 4,
+    chart: 'G | G | G | G | C | C | G | G | G | D | G | G',
+    parts: [
+      rhythm('boom', 1, 120, 'carter', 'Boom-chicka backing', 'Long stretches of G: keep the bass notes moving (root, fifth) so it doesn’t stand still.'),
+    ],
+  },
+  {
     id: 'turkey', title: 'Turkey in the Straw', genre: 'bluegrass', credit: 'Traditional (O\'Neill\'s Music of Ireland, 1903)', key: 'G', meter: 4,
     abc: `M:4/4
 L:1/8
