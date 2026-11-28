@@ -56,6 +56,8 @@ export interface SongbookSong {
   minor?: boolean
   /** beats per bar (3 for waltzes) */
   meter: number
+  /** the highest fret the melody may use on guitar (fiddle tunes with a high B part); the songbook keeps the others in the first 5 frets */
+  reach?: number
   /** chords over words: [Chord] = one bar, [Chord 2] = two beats; {Section} lines; ignored if absent */
   sheet?: string
   /** strum pattern shown over the chord sheet (play/strumCoach.ts) */
@@ -361,6 +363,76 @@ FG |: "D"AFDF AFDF | A2 d2 "G"d2 cB | "D"AFDF AFDF | "E7"G2E2 "A7"E2 FG |
     parts: [
       melody(3, 88, 'Arpeggios across the D chord and a fast B part.'),
       rhythm('boom', 2, 100, 'carter', 'Boom-chicka backing', 'D, G, A7 and E7 backing.'),
+    ],
+  },
+  {
+    id: 'saltcreek', reach: 9, title: 'Salt Creek', genre: 'bluegrass', credit: 'Traditional fiddle tune (recorded as "Salt River", 1929)', key: 'A', meter: 4,
+    abc: `M:4/4
+L:1/8
+K:A mixolydian
+|: "A"A2 AA A2 AB | cABc "D"d2 A2 | "G"BAGA BAGA | BAGF "E"E2 E2 |
+"A"A2 AA A2 AB | cABc "D"d2 ed | "G"ce fg af ed | "E"cABc "A"A4 :|
+|: "A"a2 aa a2 ab | c'e be ab ae | "G"ga gf ef ga | gf ed cB A2 |
+"A"a2 aa a2 ab | c'e be ab ae | "G"ga gf ef ed | "E"cABc "A"A4 :|`,
+    parts: [
+      melody(3, 92, 'The A part lives on the A, D and G strings in open position; the B part climbs an octave. A mixolydian (G natural over the G chord).'),
+      rhythm('boom', 2, 110, 'carter', 'Boom-chicka backing', 'A, D, G and E: the bluegrass rhythm part.'),
+    ],
+  },
+  {
+    id: 'lowground', reach: 7, title: 'Billy in the Lowground', genre: 'bluegrass', credit: 'Traditional fiddle tune (printed 1928, recorded 1925)', key: 'C', meter: 4,
+    abc: `M:4/4
+L:1/8
+K:C
+|: "C"G,A,CD EGAB | cBcd cGAG | "Am"EA2c AGEG | "G"Adcd "C"edc2 |
+"C"G,A,CD EGAB | cBcd cGAG | "Am"EA2B AGEG |1 "G"cGAG "C"EDCA, :|2 "G"cGAG "C"EDC2 ||
+|: "C"g3a gecd | egag edcd | "Am"ea2a abag | "G"egag edcd |
+"C"eg2a gedg | egag edcd | "Am"e2ed cAGA | "G"cGAG "C"EDC2 :|`,
+    parts: [
+      melody(4, 96, 'In C, low on the neck: the A part runs up from the G on the low E string, the B part sits up around the 5th fret.'),
+      rhythm('boom', 2, 110, 'carter', 'Boom-chicka backing', 'C, Am and G: bass notes on 1 and 3, strums on 2 and 4.'),
+    ],
+  },
+  {
+    id: 'redhaired', reach: 7, title: 'Red Haired Boy', genre: 'bluegrass', credit: 'Traditional (O\'Neill\'s Music of Ireland, 1903)', key: 'A', meter: 4,
+    abc: `M:4/4
+L:1/8
+K:A mixolydian
+|: "A"EA2B ABcd | efec "D"d2cd | "A"e2A2 ABcA | "G"BGEF G2GF |
+"A"EA2B ABcd | efec "D"d2cd | "A"ea2b afed |1 "E7"cABc "A"A2G2 :|2 "E7"cABc "A"A2ef ||
+|: "G"gfga gfef | gfeB "D"d2cd | "A"e2A2 ABcA | "G"BGEF G2GF |
+"A"EA2B ABcd | efec "D"d2cd | "A"ea2b afed |1 "E7"cABc "A"A2ef :|2 "E7"cABc "A"A4 |]`,
+    parts: [
+      melody(3, 88, 'A jam favourite: the A part in A, the B part swings to a G chord with the G natural on top (A mixolydian).'),
+      rhythm('boom', 2, 105, 'carter', 'Boom-chicka backing', 'A, D, G and E7.'),
+    ],
+  },
+  {
+    id: 'cheatham', reach: 7, title: 'Bill Cheatham', genre: 'bluegrass', credit: 'Traditional old-time fiddle tune', key: 'A', meter: 4,
+    abc: `M:4/4
+L:1/8
+K:A
+|: "A"A2A2 c3B | cBAc BAFE | "D"DFAc d2de | "A"fgaf "E"ecBc |
+"A"A2A2 c3B | cBAc BAcA | "D"dcde fgaf |1 "E"ecBc "A"A4 :|2 "E"ecBc "A"A2af ||
+|: "A"ecea "D"fdfa | "A"gefg a2af | "A"ecea "D"fdfa | "A"ecAc "E"B2af |
+"A"ecea "D"fdfa | "A"gefg a2ef | "D"agae "A"faed |1 "E"cABc "A"A2af :|2 "E"cABc "A"A4 |]`,
+    parts: [
+      melody(4, 96, 'Long A-major runs: down the scale in bar 2, up the D arpeggio in bar 3; the B part bounces between A and D.'),
+      rhythm('boom', 2, 110, 'carter', 'Boom-chicka backing', 'A, D and E.'),
+    ],
+  },
+  {
+    id: 'ninepound', title: 'Nine Pound Hammer', genre: 'bluegrass', credit: 'Traditional (recorded by Al Hopkins and the Buckle Busters, 1927)', key: 'G', meter: 4,
+    chart: 'G | G | C | G | G | G | D | D | G | G | C | G | G | D | G | G',
+    parts: [
+      rhythm('boom', 1, 100, 'carter', 'Boom-chicka backing', 'G, C and D: the song to practise G runs on (end each line with one).'),
+    ],
+  },
+  {
+    id: 'littlemaggie', title: 'Little Maggie', genre: 'bluegrass', credit: 'Traditional (recorded 1929)', key: 'G', meter: 4,
+    chart: 'G | G | F | F | G | G | D | G',
+    parts: [
+      rhythm('boom', 2, 120, 'carter', 'Boom-chicka backing', 'G to F: the flat-seven chord that gives old-time songs their mountain sound.'),
     ],
   },
   {

@@ -33,6 +33,12 @@ Owner's rules for this work:
   Little Maggie, Cumberland Gap, In the Pines, Banks of the Ohio, Handsome Molly, Wildwood Flower, Will the Circle (1907 hymn).
   Whiskey Before Breakfast: NOT in the songbook (earliest dated source = Andy DeJarlis's 1957 book, credited to him); teach it
   from the video tutorials, tab only in his private library.
+- Added 2026-11-28 (own guitar settings, checked against Traditional Tune Archive sources; `reach` = highest fret for tunes
+  with a high B part): Salt Creek, Billy in the Lowground, Red Haired Boy, Bill Cheatham (melody + boom-chicka backing);
+  Nine Pound Hammer, Little Maggie (chord charts + backing, no words). The bluegrass "Blackberry Blossom" is NOT the Irish
+  reel of that name; it appears to come from Fiddlin' Arthur Smith (1930s): keep it out of the songbook, teach it from tutorials.
+  Still to add (check each first): Forked Deer, Sally Goodin, Liberty, Big Sciota, John Henry, Cumberland Gap, In the Pines,
+  Banks of the Ohio, Handsome Molly, Wildwood Flower.
 - Copyrighted songs (Gossett, Zach Bryan …): taught from tutorials; his own Songsterr imports stay in his private library.
 - "Songs for this lesson" (built 2026-11-28, `course/LessonSongs.tsx` + `course/songFocus.ts`, `kg:lessonSongs`): he pins any song
   (Songsterr / UG search in the phone app, or one of his songs) to a lesson; KGuitar finds the bars that use the lesson's skill
@@ -73,6 +79,11 @@ U7 Skipping: t7-skip · t7-wide
 U8 Tapping: t8-tap1 basics · t8-tap2 two-hand (Ichika, Plini) · t8-tap3 tapped chords
 U9 Rhythm hand: t9-mute muting · t9-funk 16ths and funk · t9-rud rudiments, selective picking, thumping
 U10 Speed and time: t10-speed bursts and ramps · t10-odd odd meters · t10-etude putting it together
+
+## Mac queue ("Start video notes.command", in order)
+match singles / logsounds / signals (done) → course videos (jobs.json, now 126 jobs incl. Level 8) → review-1-technique →
+match level8 (creators/level8.tsv: 57 modal LoG/Signals videos, so Level 8 gets Watch videos; re-run make-watch.py after) →
+review-2-bluegrass → review-3-acoustic. The start file was swapped by rename, so a running window keeps its old copy.
 
 ## Mac pipeline
 `run-mac.js --review --videos creators/review-<name>.tsv` (lines: id, title, secs, lessonId, lessonTitle, course) →

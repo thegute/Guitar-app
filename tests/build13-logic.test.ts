@@ -140,7 +140,7 @@ const ok = (c: boolean, m: string) => { checks++; if (!c) { fails++; if (fails <
         ok(playable >= 8, `${s.id}/${p.id} on ${instId}: ${playable} steps to play`)
         if (p.kind === 'melody' && instId === 'guitar') {
           const frets = flatten(tr).flatMap(f => f.step.notes.map(n => n.fret))
-          ok(Math.max(...frets) <= (s.id === 'arkansas' ? 7 : 5), `${s.id} melody stays low on the neck (max fret ${Math.max(...frets)})`)
+          ok(Math.max(...frets) <= (s.reach ?? (s.id === 'arkansas' ? 7 : 5)), `${s.id} melody stays low on the neck (max fret ${Math.max(...frets)})`)
         }
         if (p.kind === 'octaves' && instId === 'guitar') ok(flatten(tr).every(f => !f.step.notes.length || (f.step.notes.length === 2 && f.step.notes[1].midi - f.step.notes[0].midi === 12)), `${s.id}: octave pairs`)
         if (p.kind === 'words') ok(tr.bars.every(b => Math.abs(b.steps.reduce((a, x) => a + x.dur, 0) - (song.meter ?? 4)) < 1e-6), `${s.id}: words bars full`)
