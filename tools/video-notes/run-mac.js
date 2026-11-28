@@ -31,9 +31,37 @@ function run(argv) {
   const videosArg = opt('--videos', '')
   const videosFile = videosArg ? videosArg.replace(/^~/, $.NSHomeDirectory().js) : ''
   const base = videosFile ? videosFile.split('/').pop().replace(/\.[a-z]+$/i, '') : ''
-  const notesFile = videosFile ? `${out}/match-${base}.json` : `${out}/notes.json`, logFile = `${out}/log.txt`, tmp = `${out}/.tmp`
+  // --review: each line is a candidate video for a course lesson (id, title, seconds, lesson id, lesson title). Gemini judges
+  // the teaching and writes down every drill with its times and the tab shown on screen, so Claude can pick the best videos
+  // and build the lesson's practice from them.
+  const review = argv.includes('--review')
+  const notesFile = videosFile ? `${out}/${review ? 'review' : 'match'}-${base}.json` : `${out}/notes.json`, logFile = `${out}/log.txt`, tmp = `${out}/.tmp`
   sh(`mkdir -p ${q(tmp)}`)
   const log = m => { const line = `${new Date().toISOString()} ${m}`; console.log(line); sh(`printf '%s\\n' ${q(line)} >> ${q(logFile)}`) }
+  const reviewPrompt = (lessonTitle, course) => `You are helping a guitar teacher build a lesson called "${lessonTitle}" for a ${course || 'guitar technique'} course for one student: a late-beginner / early-intermediate guitarist (open chords, barre chords, minor pentatonic) who wants to get really good. The lesson will be built AROUND the best YouTube videos on the topic, using the drills the videos teach. Watch this video and judge it as a candidate.
+
+Answer with ONE JSON object only, no other text:
+{
+ "videoTitle": "...", "teacher": "channel or person", "lengthSec": 0,
+ "fit": 1-5 (how well it teaches exactly this lesson's topic),
+ "teaching": 1-5 (clarity: explains WHY and HOW, shows the hands up close, slow demonstrations),
+ "practice": 1-5 (gives concrete drills the student can practise, with tempos or steps),
+ "level": "beginner" | "intermediate" | "advanced",
+ "tabOnScreen": true/false,
+ "summary": "2-3 sentences: what it teaches and how",
+ "keyPoints": ["the technique points it stresses (hand position, motion, timing...)"],
+ "mistakes": ["common mistakes it warns about"],
+ "drills": [
+  { "name": "short name", "from": "m:ss", "to": "m:ss", "what": "what to play and how to practise it (steps, tempo, repeats)",
+    "tempo": "start/target BPM or speed advice if given, else null",
+    "tab": "the exercise as ASCII guitar tab (6 lines e|B|G|D|A|E, standard tuning unless the video says otherwise) ONLY if a tab or the exact notes are clearly shown or played slowly enough to be sure; otherwise null",
+    "tabSure": 1-5 }
+ ],
+ "bestPart": { "from": "m:ss", "to": "m:ss", "why": "the part a student should watch if they watch only one part" },
+ "skip": "parts that are off-topic (ads, gear talk, intros) as m:ss-m:ss ranges, or null",
+ "verdict": "one sentence: use it as the main video, a second video, only for one part, or skip it, and why"
+}
+Rules: every time must be a real time in this video. Never guess a tab: when you can't read or hear the exact notes, set "tab" to null. Copy tabs exactly as shown on screen.`
   const pack = JSON.parse(readText(`${here}/jobs.json`))
   let jobs = pack.jobs
   if (videosFile) {
@@ -44,14 +72,16 @@ function run(argv) {
       const m = /(?:v=|youtu\.be\/|shorts\/|^)([A-Za-z0-9_-]{11})(?:[^A-Za-z0-9_-]|$)/.exec(first)
       const secs = Number(rest[1]) || 0
       if (!m) return null
-      const one = { key: `match|${m[1]}`, id: m[1], title: rest[0] || m[1], secs, lessonId: base, where: 'creator', prompt: pack.matchPrompt }
+      const one = review
+        ? { key: `review|${rest[2] || base}|${m[1]}`, id: m[1], title: rest[0] || m[1], secs, lessonId: rest[2] || base, where: 'review', prompt: reviewPrompt(rest[3] || rest[2] || '', rest[4] || '') }
+        : { key: `match|${m[1]}`, id: m[1], title: rest[0] || m[1], secs, lessonId: base, where: 'creator', prompt: pack.matchPrompt }
       // longer than 50 minutes: watched in 40-minute parts (times in the answers stay times in the whole video)
       if (secs <= 3000) return [one]
       const parts = []
       for (let from = 0, k = 1; from < secs; from += 2400, k++) {
         const to = Math.min(secs, from + 2400)
         const mm = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`
-        parts.push(Object.assign({}, one, { key: `match|${m[1]}|${k}`, secs: to - from, from, to, prompt: pack.matchPrompt + `\n\nWatch only the part from ${mm(from)} to ${mm(to)} of this long video (part ${k}). Give every time as a time in the whole video.` }))
+        parts.push(Object.assign({}, one, { key: `match|${m[1]}|${k}`, secs: to - from, from, to, prompt: one.prompt + `\n\nWatch only the part from ${mm(from)} to ${mm(to)} of this long video (part ${k}). Give every time as a time in the whole video.` }))
       }
       return parts
     }).filter(Boolean).reduce((a, b) => a.concat(b), [])
@@ -124,7 +154,7 @@ function run(argv) {
         if (!note) rec.raw = r.text.slice(0, 8000)
         state.notes[job.key] = rec
         delete state.failed[job.key]; save(); limitHits = 0
-        log(`  done${note ? (videosFile ? `: ${(note.matches || []).length} matches` : `: fit ${note.fit}/5, ${(note.parts || []).length} parts`) : ' (answer was not JSON, kept as text)'}${r.usage ? `, ${r.usage.promptTokenCount} tokens` : ''}`)
+        log(`  done${note ? (review ? `: fit ${note.fit}/5, teaching ${note.teaching}/5, ${(note.drills || []).length} drills` : videosFile ? `: ${(note.matches || []).length} matches` : `: fit ${note.fit}/5, ${(note.parts || []).length} parts`) : ' (answer was not JSON, kept as text)'}${r.usage ? `, ${r.usage.promptTokenCount} tokens` : ''}`)
         delay(20)
         break
       }
