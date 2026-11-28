@@ -44,6 +44,12 @@ Owner's rules for this work:
   right after) → notes matched to our theory / technique / pathway lessons with times and drills → video-notes/paidcourse-*.json
   (stays on his Mac, never in the repo). Order: Speed Builder → Mancuso → Acoustic Adventure → Electric Elevation → Modes
   Navigator → Hexatonic. Tell him: on the free tier Google may use uploaded content to improve its products.
+  BUILT 11-28: Google Drive for Desktop is on the Mac and signed in. `run-mac.js --paid creators/paid-jobs.json [--only gsb-]`
+  (finds ~/Library/CloudStorage/GoogleDrive-*/*/KGuitar-Courses, uploads, waits ACTIVE, asks, DELETEs). `make-paid-jobs.py`
+  made creators/paid-jobs.json on the Mac (567 videos; prompt = theory outline + 50 pathway lessons; never in the repo).
+  Queue: … review-1-technique, paid:gsb-, paid:mm-, match:level8, review-2-bluegrass, paid:aa-, review-3-acoustic, paid:ee-,
+  paid:mn-, paid:hex-. Untested live until the next run (Claude can't open the Drive folder from the Mac link; the Terminal
+  run can). If macOS asks whether Terminal may open Google Drive files: Allow.
 - Gemini free tier hit its daily limit on 2026-11-28 morning (HST); the Mac script waits 6 h and carries on by itself.
 
 ## Songs in the lessons (owner 2026-11-28)
