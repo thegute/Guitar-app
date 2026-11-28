@@ -107,6 +107,16 @@ U8 Tapping: t8-tap1 basics · t8-tap2 two-hand (Ichika, Plini) · t8-tap3 tapped
 U9 Rhythm hand: t9-mute muting · t9-funk 16ths and funk · t9-rud rudiments, selective picking, thumping
 U10 Speed and time: t10-speed bursts and ramps · t10-odd odd meters · t10-etude putting it together
 
+## Technique course: built so far (src/course/technique.ts, 2026-11-28)
+- Units 1-4 written (13 lessons: t1-grip … t4-expr): why / learn / mistakes / practice goals (library exercise codes via Task
+  `exercise`, opened with the card scrolled into view; Gemini's Speed Builder Lab / Drill Lab / bends trainer / must-know licks
+  via Task `go`, never changed) / use it (songbook fiddle tunes, licks; Songs for this lesson) / check + Explain it back.
+- Listed under the theory course in the Theory page (PathCourse in LessonReader.tsx) only when PATH_READY.technique is true or
+  `kg:previewPaths` = '1' (tests). Flip PATH_READY when every lesson has its reviewed videos (owner rule).
+- Still to do: Units 5-10 (17 lessons); then, from the Mac's review-1-technique + paid Speed Builder / Mancuso notes: Watch
+  videos per step (watch.ts via make-watch.py extended to review-*.json), each video's drills (tabs checked by Claude) as
+  practice goals, and the named paid-course lessons. Tests: tests/technique-logic.test.ts, tests/browser/technique-test.cjs.
+
 ## Mac queue ("Start video notes.command", in order)
 match singles / logsounds / signals (done) → course videos (jobs.json, now 126 jobs incl. Level 8) → review-1-technique →
 match level8 (creators/level8.tsv: 57 modal LoG/Signals videos, so Level 8 gets Watch videos; re-run make-watch.py after) →
