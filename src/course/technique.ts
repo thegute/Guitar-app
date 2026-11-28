@@ -586,4 +586,420 @@ export const T2_SYNC: CourseLesson = {
   ],
 }
 
-export const TECHNIQUE: CourseLesson[] = [T1_GRIP, T1_ALT, T1_CROSS, T1_SEQ, T2_INDEP, T2_STRETCH, T2_SYNC]
+// ---- Unit 3 · Legato -------------------------------------------------------------------------------------------
+const licks = (label: string, style: string, minutes: number, goal?: string): Task => ({ label, go: { licks: style }, minutes, note: 'the must-know licks', goal })
+
+export const T3_HOPO: CourseLesson = {
+  id: 't3-hopo', course: 'technique', level: 3, n: 1, title: 'Hammer-ons and pull-offs', minutes: 40,
+  goal: 'Hammer on and pull off with notes as loud and as even as picked ones, in time, with the other strings quiet.',
+  builds: ['t2-sync'],
+  topics: ['legato', 'hammer-ons', 'pull-offs', 'hand-sync', 'technique'],
+  steps: [
+    {
+      kind: 'why', title: 'Why this matters', blocks: [
+        { p: '**Legato** means smooth and connected. On the guitar it means sounding notes with the fretting hand alone: a **hammer-on** (a finger comes down hard enough to sound the note) and a **pull-off** (a finger leaves the string with a little sideways flick that plucks it). They make lines flow, let you play fast with half the picking, and they are in every style, from bluegrass G runs to Satriani.' },
+        { p: 'By the end you\'ll be able to:' },
+        { list: ['hammer on from any finger to any finger with a clear, loud note;', 'pull off with a flick, not a lift;', 'keep hammered and pulled notes in time with picked ones;', 'mute the strings you aren\'t playing.'] },
+      ],
+    },
+    {
+      kind: 'learn', title: '1 · The hammer-on', blocks: [
+        { list: [
+          'Pick the first note, then bring the next finger down **fast**, on its **fingertip**, right behind the fret. Speed makes the sound, not force.',
+          'Hammer from a short distance: a finger hovering just above the string is quicker and more accurate than one swinging down from high up.',
+          'A **hammer-on from nowhere** sounds a note on a string you haven\'t picked: just hammer hard enough. Common in modern legato.',
+        ] },
+      ],
+    },
+    {
+      kind: 'learn', title: '2 · The pull-off', blocks: [
+        { list: [
+          'The lower note must already be fretted (or be the open string) **before** you pull.',
+          'Pull the finger **down and slightly sideways** (towards the floor), so it plucks the string as it leaves. Lifting straight up makes a weak note.',
+          'Don\'t pull so far that you catch the next string; a small flick is enough.',
+        ] },
+      ],
+    },
+    {
+      kind: 'learn', title: '3 · Even and in time', blocks: [
+        { p: 'Legato notes tend to come out quieter and rushed. Two fixes: pick a slow, steady rhythm and make the hammered note land **exactly** on its subdivision; and compare by ear, alternating a picked bar and a legato bar until they sound alike.' },
+        { p: '**Trills** (fast hammer-pull-hammer-pull between two fingers) build strength and endurance: short bursts, relaxed.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '4 · Keep the other strings quiet', blocks: [
+        { p: 'Legato is loud on the fretting hand, so open strings start to ring. Lay the underside of the first finger lightly across the higher strings, and the picking-hand palm across the lower ones. With distortion this matters twice as much.' },
+      ],
+    },
+    {
+      kind: 'mistakes', title: 'Common mistakes', items: [
+        { wrong: 'Hammering with the pad of the finger, or slowly.', right: 'Fingertip, fast, from close to the string.' },
+        { wrong: 'Lifting the finger straight up for a pull-off.', right: 'Pull down and slightly sideways: a little flick plucks the string.' },
+        { wrong: 'Legato notes quieter and earlier than picked ones.', right: 'Compare a picked bar and a legato bar by ear until they match.' },
+        { wrong: 'Open strings ringing under every pull-off.', right: 'Fretting-hand finger across the higher strings, palm on the lower ones.' },
+      ],
+    },
+    {
+      kind: 'practice', title: 'Practice goals', intro: 'Strength comes in short sessions: five minutes, a break, five more. Stop if the hand aches.',
+      challenge: { ...x('Blue-note trill', 'LG-25', 5, 'even trill for 2 bars'), why: 'A trill on the blue note is a sound you\'ll use in solos, and a strength test for the weak fingers.' },
+      goals: [
+        { focus: 'Hammer-ons with every finger pair', tasks: [x('Hammer-ons with fingers 1 and 3', 'LG-2', 4, 'clean at 70 BPM'), x('Hammer-ons with fingers 1 and 4', 'LG-3', 4, 'the pinky as loud as the rest')] },
+        { focus: 'Pull-offs', tasks: [x('Pull-offs with fingers 1 and 3', 'LG-8', 4, 'clean at 70 BPM'), x('Pull-offs to the open string', 'LG-26', 4, 'no other strings ringing')] },
+        { focus: 'Trills', tasks: [x('Trills with fingers 1 and 2', 'LG-13', 4, 'even for one bar'), x('Trills with fingers 2 and 3', 'LG-16', 4, 'even for one bar')] },
+        { focus: 'In a scale', tasks: [x('Hammer-ons up pentatonic box 1', 'LG-19', 5, 'clean at 80 BPM'), x('Pull-offs down pentatonic box 1', 'LG-20', 5, 'clean at 80 BPM')] },
+      ],
+    },
+    {
+      kind: 'use', title: 'Use it in music', blocks: [
+        { p: 'Hammer-ons and pull-offs are in nearly every lick: a blues lick that pulls off to the root, a bluegrass G run that hammers from the open string. Find them in the must-know licks and play them with the same evenness as the drills.' },
+      ],
+      tasks: [x('Hammer-pull triplets in box 1', 'LG-21', 5, 'clean at 80 BPM'), licks('Blues licks: find the hammer-ons', 'blues', 8, 'two licks with clean legato')],
+    },
+    {
+      kind: 'check', title: 'Check', intro: 'Play these with the mic: it hears the quiet notes too.',
+      tasks: [
+        { skill: 'Play', ...x('Hammer-ons up pentatonic box 1', 'LG-19', 3) },
+        { skill: 'Play', ...x('Pull-offs down pentatonic box 1', 'LG-20', 3) },
+      ],
+      explain: {
+        prompt: 'I just finished the KGuitar lesson "Hammer-ons and pull-offs". Quiz me as my teacher, one question at a time: (1) how to hammer on so the note is loud, (2) how to pull off, (3) how to keep legato notes even and in time, (4) how to stop other strings ringing. Keep it short.',
+        points: ['fingertip, fast, from close to the string, right behind the fret', 'lower note fretted first; pull down and sideways, a flick', 'compare picked and legato bars by ear; land exactly on the subdivision', 'fretting finger across the higher strings, palm on the lower ones'],
+      },
+    },
+  ],
+}
+
+export const T3_RUNS: CourseLesson = {
+  id: 't3-runs', course: 'technique', level: 3, n: 2, title: 'Legato scale runs: three notes per string', minutes: 45,
+  goal: 'Play three-notes-per-string scale runs with one pick per string, keeping the rhythm even and the notes at the same volume.',
+  builds: ['t3-hopo', 't1-seq'],
+  topics: ['legato', '3nps', 'speed', 'sequences', 'technique'],
+  steps: [
+    {
+      kind: 'why', title: 'Why this matters', blocks: [
+        { p: 'The smooth, flowing runs of players like Joe Satriani, Allan Holdsworth, Plini and Mancuso are mostly legato: pick the first note on a string, hammer the next two, move on. With three notes on every string the pattern repeats on each string, which makes it a natural way to play scales fast and smooth.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '1 · One pick per string', blocks: [
+        { list: [
+          '**Going up**: pick the first note on each string, hammer the other two.',
+          '**Coming down**: pick the first (highest) note on each string, then pull off twice.',
+          'Some players don\'t pick at all and hammer from nowhere on each new string (fully legato). Try both; the picked version is easier to keep in time at first.',
+        ] },
+      ],
+    },
+    {
+      kind: 'learn', title: '2 · Groups of three in time', blocks: [
+        { p: 'Three notes per string fall naturally into **triplets**: one string per beat. Play the run as triplets first, saying "1-trip-let, 2-trip-let". Then play it as **sixteenths**, where the string change moves across the beat (like the sequences in 3s in Unit 1). Both are useful; the sixteenth version sounds more "fusion".' },
+      ],
+    },
+    {
+      kind: 'learn', title: '3 · Stretch and position', blocks: [
+        { p: 'Three-note-per-string shapes often need a whole-step stretch between fingers 1 and 2 and between 3 and 4 (Unit 2). Start them higher on the neck (around fret 7), and use fingers 1-2-4 or 1-3-4 for the wide shapes so the hand stays relaxed.' },
+      ],
+    },
+    {
+      kind: 'mistakes', title: 'Common mistakes', items: [
+        { wrong: 'The picked note much louder than the two legato notes.', right: 'Pick lightly and hammer firmly, until the three notes match.' },
+        { wrong: 'Rushing the legato notes, so the run speeds up.', right: 'Triplets with the metronome; each note on its subdivision.' },
+        { wrong: 'Strain from forcing wide stretches low on the neck.', right: 'Start around fret 7 and move down as the hand opens.' },
+      ],
+    },
+    {
+      kind: 'practice', title: 'Practice goals', intro: 'Triplets first, then sixteenths. Same volume on every note.',
+      challenge: { ...x('3NPS rolling legato (1-2-3-2-3-4)', 'LG-35', 8, 'clean at 70 BPM'), why: 'A rolling six-note shape that the great legato players use to cover the neck.' },
+      goals: [
+        { focus: 'Natural minor', tasks: [x('Legato run: natural minor', 'LG-27', 6, 'clean at 70 BPM as triplets')] },
+        { focus: 'Major scale', tasks: [x('Legato run: major scale', 'LG-28', 6, 'clean at 70 BPM as triplets')] },
+        { focus: 'A six-note cell', tasks: [x('Legato 6-note sextuplet cell', 'LG-34', 6, 'bursts at 80 BPM')] },
+        { focus: 'Coming down', tasks: [x('Descending pull-off cascade', 'LG-36', 6, 'clean at 70 BPM')] },
+      ],
+    },
+    {
+      kind: 'use', title: 'Use it in music', blocks: [
+        { p: 'Take a legato run into a melodic prog or rock solo: one run in the middle of a phrase, then land on a chord tone with vibrato.' },
+      ],
+      tasks: [x('Legato run: dorian', 'LG-29', 6), licks('Melodic prog licks', 'progclean', 8, 'one lick with a legato run, clean')],
+    },
+    {
+      kind: 'check', title: 'Check', intro: 'Play these with the mic.',
+      tasks: [
+        { skill: 'Play', ...x('Legato run: natural minor', 'LG-27', 4) },
+        { skill: 'Play', ...x('Legato run: major scale', 'LG-28', 4) },
+      ],
+      explain: {
+        prompt: 'I just finished the KGuitar lesson "Legato scale runs: three notes per string". Quiz me as my teacher, one question at a time: (1) how to pick a 3nps legato run up and down, (2) playing it as triplets versus sixteenths, (3) fingerings and where to start on the neck, (4) how to keep the notes even. Keep it short.',
+        points: ['pick the first note on each string, hammer up / pull off down', 'triplets put each string on a beat; sixteenths move the string change across the beat', 'fingers 1-2-4 or 1-3-4 for wide shapes, start around fret 7', 'light pick, firm hammer, metronome triplets'],
+      },
+    },
+  ],
+}
+
+export const T3_FLOW: CourseLesson = {
+  id: 't3-flow', course: 'technique', level: 3, n: 3, title: 'Legato across strings and slides', minutes: 45,
+  goal: 'Join legato across strings and along the neck with slides, so long lines flow without a break and change position on the way.',
+  builds: ['t3-runs', 't2-stretch'],
+  topics: ['legato', 'slides', 'speed', 'technique'],
+  steps: [
+    {
+      kind: 'why', title: 'Why this matters', blocks: [
+        { p: 'Legato in one position is a shape. Real legato lines travel: up one string on a slide, across a few strings with hammer-ons from nowhere, into a new position. This is the sound of fluid lead players.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '1 · Slides', blocks: [
+        { list: [
+          '**Slide up** to a note: pick, then keep the pressure on as the finger glides to the new fret. Ease off a little during the glide, press as you arrive.',
+          '**Slide into** a note from a fret or two below (no picked start note): a quick vocal swoop.',
+          'Slides are also **position shifts**: use them to move the whole hand into a new box (Unit 2).',
+        ] },
+      ],
+    },
+    {
+      kind: 'learn', title: '2 · Hammer-ons from nowhere', blocks: [
+        { p: 'To change string without picking, hammer the first note on the new string hard enough to sound it. It\'s quieter at first; the trick is speed of the finger, and muting so the old string stops.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '3 · Horizontal lines', blocks: [
+        { p: 'Play a scale up **one string** with hammer-ons and slides (two notes, slide, two notes, slide). Lines along one string sound vocal and connect the positions of the neck.' },
+      ],
+    },
+    {
+      kind: 'mistakes', title: 'Common mistakes', items: [
+        { wrong: 'Letting the pressure go during a slide, so the note dies.', right: 'Keep enough pressure to keep it ringing; ease, don\'t lift.' },
+        { wrong: 'Hammers from nowhere so quiet they disappear.', right: 'Fast fingers, and mute the string you left so the new note stands out.' },
+        { wrong: 'Sliding past the target fret.', right: 'Eyes on the target; slow slides first, then faster.' },
+      ],
+    },
+    {
+      kind: 'practice', title: 'Practice goals', intro: 'Listen for one long connected line: no gaps where the hand moves.',
+      challenge: { ...x('Symmetrical diminished legato climb', 'LG-40', 8, 'clean at 60 BPM'), why: 'A long climbing shape with stretches and slides: a test of everything in this unit.' },
+      goals: [
+        { focus: 'Slides', tasks: [x('Slides up and down one string', 'LG-23', 5, 'clean at 80 BPM')] },
+        { focus: 'From nowhere', tasks: [x('Hammer-ons from nowhere', 'LG-24', 5, 'each note clear')] },
+        { focus: 'Along one string', tasks: [x('Horizontal one-string legato + slide loop', 'LG-39', 6, 'clean at 70 BPM')] },
+        { focus: 'Through the boxes', tasks: [x('Legato through all five pentatonic boxes', 'LG-33', 6, 'clean at 70 BPM')] },
+      ],
+    },
+    {
+      kind: 'use', title: 'Use it in music', blocks: [
+        { p: 'Classic rock and blues licks slide between boxes all the time. Play two licks that use a slide to change position.' },
+      ],
+      tasks: [licks('Classic rock licks', 'rock', 8, 'two licks with a position slide')],
+    },
+    {
+      kind: 'check', title: 'Check', intro: 'Play these with the mic.',
+      tasks: [
+        { skill: 'Play', ...x('Slides up and down one string', 'LG-23', 3) },
+        { skill: 'Play', ...x('Legato through the pentatonic boxes', 'LG-33', 4) },
+      ],
+      explain: {
+        prompt: 'I just finished the KGuitar lesson "Legato across strings and slides". Quiz me as my teacher, one question at a time: (1) how to slide so the note keeps ringing, (2) what a hammer-on from nowhere is and how to make it loud, (3) why horizontal lines help. Keep it short.',
+        points: ['keep some pressure, ease during the glide, press on arrival', 'hammer the first note on a new string without picking; fast finger, mute the old string', 'one-string lines sound vocal and connect positions'],
+      },
+    },
+  ],
+}
+
+// ---- Unit 4 · Bends and vibrato --------------------------------------------------------------------------------
+const BEND_TRAINER = (goal: string) => go('Bends & vibrato trainer: see your pitch', { tool: 'bends' }, 6, 'shows how close each bend gets to the target', goal)
+
+export const T4_BEND: CourseLesson = {
+  id: 't4-bend', course: 'technique', level: 4, n: 1, title: 'Bending in tune', minutes: 40,
+  goal: 'Bend a half step, a whole step and a step and a half to the right pitch, pre-bend and release in tune, and hear the target before you bend.',
+  builds: ['t3-hopo'],
+  topics: ['bends', 'blues', 'phrasing', 'technique'],
+  steps: [
+    {
+      kind: 'why', title: 'Why this matters', blocks: [
+        { p: 'A bend is the guitar\'s voice: it slides the pitch up like a singer. A bend **in tune** sounds expressive; a bend a little flat sounds like a mistake. Most players never check, and their bends are flat. This lesson trains the ear and the hand together.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '1 · How to bend', blocks: [
+        { list: [
+          '**Use more than one finger**: bending with the 3rd finger? Put the 2nd (and 1st) on the same string behind it and push together.',
+          '**Push from the wrist**: the hand rotates, like turning a key; the fingers mostly stay firm. The thumb hooks over the top of the neck for leverage.',
+          '**Which way**: push the G, B and high E strings **up** (towards the ceiling); pull the low E and A strings **down**.',
+          '**Mute**: the bending fingers touch the string above, the picking palm the ones below, so nothing rings as the string moves.',
+        ] },
+      ],
+    },
+    {
+      kind: 'learn', title: '2 · Hear the target first', blocks: [
+        { p: 'Before every bend, **play the target note** (2 frets up for a whole step, 1 for a half), listen, then bend up to match it. Do this for weeks: the ear learns the target and the hand learns how far to push.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '3 · Pre-bends and releases', blocks: [
+        { p: 'A **pre-bend** is bent before you pick it, then released down to the fretted note: the reverse of a bend, a "crying" sound. A **bend and release** goes up and back down in rhythm. Both need the bend in tune at the top, which you can\'t hear first, so the feel you built in step 2 does the work.' },
+      ],
+    },
+    {
+      kind: 'mistakes', title: 'Common mistakes', items: [
+        { wrong: 'Bending with one finger and the fingers alone.', right: 'Fingers together, rotate from the wrist, thumb over the neck.' },
+        { wrong: 'Bends that stop short of the target (flat).', right: 'Play the target first, then bend to match it.' },
+        { wrong: 'Other strings ringing as the bend moves.', right: 'Mute with both hands.' },
+        { wrong: 'Releasing so the note slides back out of time.', right: 'Release in rhythm, like any other note.' },
+      ],
+    },
+    {
+      kind: 'practice', title: 'Practice goals', intro: 'Every bend: target first, then bend. Use the trainer to see how close you get.',
+      challenge: { ...x('Step-and-a-half bends', 'BV-5', 6, 'in tune, 4 in a row'), why: 'The big blues bend: you need the ear and the strength.' },
+      goals: [
+        { focus: 'Whole steps', tasks: [x('Whole-step bend: hear the target first', 'BV-1', 5, 'in tune 4 times in a row'), x('Whole-step bends on the B string', 'BV-2', 4)] },
+        { focus: 'Half steps', tasks: [x('Half-step bends to the blue notes', 'BV-4', 5, 'in tune')] },
+        { focus: 'Pre-bend and release', tasks: [x('Pre-bend and release', 'BV-6', 5, 'in tune at the top'), x('Bend and release in rhythm', 'BV-7', 4)] },
+        { focus: 'See it', tasks: [BEND_TRAINER('your bends within a few cents of the target')] },
+      ],
+    },
+    {
+      kind: 'use', title: 'Use it in music', blocks: [
+        { p: 'Blues is built on bends. Play the bending licks and check each one: does it reach the note?' },
+      ],
+      tasks: [x('Bend to every note of box 1', 'BV-13', 6), licks('Blues licks with bends', 'blues', 8, 'two licks, every bend in tune')],
+    },
+    {
+      kind: 'check', title: 'Check', intro: 'Play these with the mic.',
+      tasks: [
+        { skill: 'Play', ...x('Whole-step bends on the high E', 'BV-3', 3) },
+        { skill: 'Play', ...x('Pre-bend and release', 'BV-6', 3) },
+      ],
+      explain: {
+        prompt: 'I just finished the KGuitar lesson "Bending in tune". Quiz me as my teacher, one question at a time: (1) how to bend (fingers, wrist, thumb, direction), (2) how to keep bends in tune, (3) what pre-bends and releases are, (4) how to mute while bending. Keep it short.',
+        points: ['fingers together, rotate from the wrist, thumb over the neck; G B E up, low E and A down', 'play the target note first, then bend to match', 'pre-bend: bent before picking then released; release in rhythm', 'bending fingers touch the string above, picking palm the ones below'],
+      },
+    },
+  ],
+}
+
+export const T4_VIB: CourseLesson = {
+  id: 't4-vib', course: 'technique', level: 4, n: 2, title: 'Vibrato: width and speed', minutes: 35,
+  goal: 'Play an even vibrato from the wrist, choose its width and speed on purpose, and add vibrato on top of a bend.',
+  builds: ['t4-bend'],
+  topics: ['vibrato', 'bends', 'phrasing', 'tone', 'technique'],
+  steps: [
+    {
+      kind: 'why', title: 'Why this matters', blocks: [
+        { p: 'Vibrato is the fingerprint of a guitarist: B.B. King\'s quick shimmer, Gilmour\'s wide slow sway, Mayer\'s blend of both. A note with good vibrato sings; without it, even a great note sounds plain. It\'s also the thing most players never practise on its own.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '1 · Where it comes from', blocks: [
+        { list: [
+          '**Wrist vibrato** (the classic rock and blues one): small repeated bends, rotating from the wrist with the thumb over the neck, just like a bend.',
+          '**Finger vibrato**: the finger rocks along the string (classical style), a subtler, narrower sound.',
+          'The pitch goes **up and back** to the note; it shouldn\'t dip below it.',
+        ] },
+      ],
+    },
+    {
+      kind: 'learn', title: '2 · Width and speed', blocks: [
+        { p: '**Width** is how far the pitch moves (a quarter step to a whole step); **speed** is how fast it moves. Practise them separately: slow and narrow, slow and wide, fast and narrow, fast and wide. Then lock the vibrato to the beat (2 or 4 movements per beat) so it sounds controlled, not nervous.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '3 · Vibrato on a bend', blocks: [
+        { p: 'At the top of a bend, let the bend go down a little and push it back up, again and again. The hard part is keeping the **top** of each movement in tune.' },
+      ],
+    },
+    {
+      kind: 'mistakes', title: 'Common mistakes', items: [
+        { wrong: 'A fast, nervous wobble on every note.', right: 'Choose the width and speed; lock it to the beat.' },
+        { wrong: 'Vibrato that goes below the note.', right: 'Up from the note and back, like small bends.' },
+        { wrong: 'Starting vibrato the moment the note starts, every time.', right: 'Let some notes ring straight first, then add vibrato: a delayed vibrato sounds vocal.' },
+      ],
+    },
+    {
+      kind: 'practice', title: 'Practice goals', intro: 'Use a long note on the G or B string, around fret 7. Try one setting at a time.',
+      challenge: { ...x('Vibrato on a bend', 'BV-12', 6, 'the top of each movement in tune'), why: 'The sound of a blues climax: a bent note held and shaken in tune.' },
+      goals: [
+        { focus: 'Slow and even', tasks: [x('Vibrato: slow and even', 'BV-10', 4, '2 movements a beat at 70 BPM')] },
+        { focus: 'Fast and wide', tasks: [x('Vibrato: fast and wide', 'BV-11', 4, '4 movements a beat, even')] },
+        { focus: 'See it', tasks: [BEND_TRAINER('an even vibrato line on the trainer')] },
+      ],
+    },
+    {
+      kind: 'use', title: 'Use it in music', blocks: [
+        { p: 'End every phrase in a solo with a long note and your best vibrato. Try a blues-pop lick with a slow, wide vibrato at the end.' },
+      ],
+      tasks: [licks('Blues-pop licks', 'mayer', 8, 'every lick ends with a controlled vibrato')],
+    },
+    {
+      kind: 'check', title: 'Check', intro: 'Play these with the mic.',
+      tasks: [
+        { skill: 'Play', ...x('Vibrato: slow and even', 'BV-10', 3) },
+        { skill: 'Play', ...x('Vibrato on a bend', 'BV-12', 3) },
+      ],
+      explain: {
+        prompt: 'I just finished the KGuitar lesson "Vibrato: width and speed". Quiz me as my teacher, one question at a time: (1) wrist versus finger vibrato, (2) width and speed and how to control them, (3) vibrato on a bend. Keep it short.',
+        points: ['wrist: small repeated bends with the thumb over the neck; finger: rocking along the string', 'width = how far, speed = how fast; practise separately; lock it to the beat', 'let the bend down a little and back up, keeping the top in tune'],
+      },
+    },
+  ],
+}
+
+export const T4_EXPR: CourseLesson = {
+  id: 't4-expr', course: 'technique', level: 4, n: 3, title: 'Expressive bends: unison, oblique and double-stop bends', minutes: 40,
+  goal: 'Play unison bends, oblique bends (one string bent under a held note) and double-stop bends in tune, and use them in licks.',
+  builds: ['t4-vib'],
+  topics: ['bends', 'double-stops', 'phrasing', 'blues', 'technique'],
+  steps: [
+    {
+      kind: 'why', title: 'Why this matters', blocks: [
+        { p: 'Bending one string while another rings is where bends get their big sounds: the rock unison bend that "beats" until it locks in tune, the country oblique bend that sounds like a pedal steel, the Chuck Berry double-stop bend.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '1 · Unison bends', blocks: [
+        { p: 'Fret a note on the B string with the 1st finger (say fret 5, an E). On the G string, two frets further up the neck (fret 7, a D), bend with the 3rd finger up a whole step, so the two strings play the **same note**. You hear a fast wobble while they are out of tune; it stops when they match. That wobble is your tuner.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '2 · Oblique bends', blocks: [
+        { p: 'Hold a note on one string and bend a different string **under** it, so one note stays and the other moves. Country players use it to copy the pedal steel guitar. Keep the held note firm: it tends to get pulled out of tune.' },
+      ],
+    },
+    {
+      kind: 'learn', title: '3 · Double-stop bends', blocks: [
+        { p: 'Two notes on neighbouring strings, both bent together with one finger (often the G and B strings, barred with the 3rd finger). The two strings bend by different amounts, which is part of the gritty sound.' },
+      ],
+    },
+    {
+      kind: 'mistakes', title: 'Common mistakes', items: [
+        { wrong: 'Stopping a unison bend while it still wobbles.', right: 'Push until the wobble stops: that\'s in tune.' },
+        { wrong: 'The held note in an oblique bend going sharp or dead.', right: 'Keep its finger firm and arched so it doesn\'t touch the bending string.' },
+      ],
+    },
+    {
+      kind: 'practice', title: 'Practice goals', intro: 'Listen for the beating in unison bends: it\'s the best bending teacher there is.',
+      challenge: { ...x('Bends in a minor melody', 'BV-14', 6, 'every bend in tune'), why: 'Bends inside a melody, where they have to land in time and in tune.' },
+      goals: [
+        { focus: 'Unison', tasks: [x('Unison bends', 'BV-8', 5, 'no wobble at the top, 4 in a row')] },
+        { focus: 'Oblique', tasks: [x('Oblique bends', 'BV-9', 5, 'the held note steady')] },
+        { focus: 'Double stops first', tasks: [x('Double stops: 3rds on the top two strings', 'IV-6', 5, 'clean at 70 BPM')] },
+      ],
+    },
+    {
+      kind: 'use', title: 'Use it in music', blocks: [
+        { p: 'Country and classic rock licks are full of these bends. Play two of each.' },
+      ],
+      tasks: [licks('Country licks', 'country', 8, 'two licks with an oblique bend'), licks('Classic rock licks', 'rock', 6, 'one unison bend lick')],
+    },
+    {
+      kind: 'check', title: 'Check', intro: 'Play these with the mic.',
+      tasks: [
+        { skill: 'Play', ...x('Unison bends', 'BV-8', 3) },
+        { skill: 'Play', ...x('Oblique bends', 'BV-9', 3) },
+      ],
+      explain: {
+        prompt: 'I just finished the KGuitar lesson "Expressive bends: unison, oblique and double-stop bends". Quiz me as my teacher, one question at a time: (1) how a unison bend works and how to hear it\'s in tune, (2) what an oblique bend is and where it comes from, (3) how a double-stop bend is played. Keep it short.',
+        points: ['bend the lower string up to the pitch of the higher fretted note; the wobble stops when in tune', 'one note held while another string bends under it; copies the pedal steel', 'two neighbouring strings barred with one finger and bent together'],
+      },
+    },
+  ],
+}
+
+export const TECHNIQUE: CourseLesson[] = [T1_GRIP, T1_ALT, T1_CROSS, T1_SEQ, T2_INDEP, T2_STRETCH, T2_SYNC, T3_HOPO, T3_RUNS, T3_FLOW, T4_BEND, T4_VIB, T4_EXPR]
