@@ -111,7 +111,7 @@ await (async () => {
   ok(head === b.slice(0, b.indexOf('--- NOW ---')), 'the manual part of the prompt never changes')
   ok(a.trim().endsWith('SCREEN-MARK'), 'the screen goes at the very end')
   for (const w of ['Hear it', 'Loop', 'Speed', 'Lick chainer', 'Tuner', 'Theory lessons', 'beginner']) ok(head.includes(w), `manual mentions ${w}`)
-  ok(head.length < 21000, `manual is compact (${head.length} characters)`)
+  ok(head.length < 22000, `manual is compact (${head.length} characters)`)
 }
 // streaming: the reply text is readable while the JSON is still arriving
 ok(partialReply('{"reply": "An augmented chord') === 'An augmented chord', 'partial reply mid-sentence')

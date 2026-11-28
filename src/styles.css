@@ -6158,3 +6158,9 @@ html:not([data-arrange]) .win-zoom { display: none; }
 .watch-part:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
 .watch-time { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 0.9rem; }
 @media (max-width: 480px) { .watch-thumb { width: 100%; } }
+/* Songs for this lesson (course/LessonSongs.tsx) */
+.lesson-songs { display: grid; gap: var(--sp-3, 12px); margin-top: var(--sp-4, 16px); padding-top: var(--sp-3, 12px); border-top: 1px solid color-mix(in srgb, var(--ink) 14%, transparent); }
+.ls-song { display: grid; gap: 8px; padding: var(--sp-3, 12px); border-radius: var(--r-md, 12px); background: var(--surface); border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); }
+.ls-top { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.ls-spots { display: grid; gap: 6px; }
+.ls-add { padding: var(--sp-3, 12px); border-radius: var(--r-md, 12px); background: var(--surface); border: 1px dashed color-mix(in srgb, var(--ink) 25%, transparent); }
